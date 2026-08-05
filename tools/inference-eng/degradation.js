@@ -141,7 +141,8 @@ function selectModelChain(opts = {}) {
       chain = ['grok-4.5', ...chain];
     }
   } else if (mode === 'emergency') {
-    chain = ['hermes-local-fast', 'hermes-local', 'deepseek-v4-flash-free'].filter(Boolean);
+    // hermes-local-fast removed (LiteLLM alias hang debt 2026-08-05) — one offline name only
+    chain = ['hermes-local', 'deepseek-v4-flash-free', 'deepseek-v4-flash'].filter(Boolean);
   }
 
   // Operator env pin wins as head of chain except:

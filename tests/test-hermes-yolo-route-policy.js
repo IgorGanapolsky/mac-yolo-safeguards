@@ -21,7 +21,7 @@ function testSmokeUsesFastNotGrok() {
   });
   assert.notStrictEqual(r.model, 'grok-4.5', r.reason);
   assert.ok(
-    ['kimi-code-fast', 'deepseek-v4-flash-free', 'hermes-local-fast', 'deepseek-v4-flash'].includes(r.model),
+    ['kimi-code-fast', 'deepseek-v4-flash-free', 'hermes-local', 'deepseek-v4-flash'].includes(r.model),
     `smoke model unexpected: ${r.model}`,
   );
 }

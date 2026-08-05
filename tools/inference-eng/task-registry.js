@@ -95,7 +95,7 @@ const TASKS = Object.freeze([
     concurrency: 'steady',
     modelClass: 'fast',
     // Never SuperGrok for smoke — save plan quota (ROI 2026-08-05).
-    preferredModels: ['kimi-code-fast', 'deepseek-v4-flash-free', 'hermes-local-fast', 'deepseek-v4-flash'],
+    preferredModels: ['kimi-code-fast', 'deepseek-v4-flash-free', 'hermes-local', 'deepseek-v4-flash'],
     match: ['smoke', 'ping', 'hermes-yolo-ready', 'reply with exactly', 'quick check'],
     businessKpi: 'fleet_uptime',
   },
