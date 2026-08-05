@@ -40,6 +40,8 @@ import { secureCredentials } from '../services/secureCredentials';
 import { requestHermesNotificationPermission } from '../services/approvalNotifications';
 import { deriveNotificationsEnabled } from '../utils/notificationPreferences';
 import { consumeSettingsPairQrOnFocus } from '../utils/storeCaptureDeepLink';
+import { shouldShowThumbGatePromoInSettings } from '../utils/thumbgatePromoCopy';
+import ThumbGatePromoCard from '../components/ThumbGatePromoCard';
 import CollapsibleSection from '../components/CollapsibleSection';
 import { useSectionExpansion } from '../hooks/useSectionExpansion';
 
@@ -74,6 +76,7 @@ export default function SettingsScreen() {
     tailscaleDiscoveryProbing,
     probeTailscaleComputers,
     addDiscoveredTailscaleComputer,
+    thumbgateApiKey,
   } = useGateway();
 
   const [cloudUrl, setCloudUrl] = useState(settings.cloudUrl);
@@ -488,6 +491,12 @@ export default function SettingsScreen() {
       </View>
 
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
+
+        {shouldShowThumbGatePromoInSettings({
+          hasThumbGateCompanion: Boolean(thumbgateApiKey?.trim()),
+        }) ? (
+          <ThumbGatePromoCard surface="settings" style={{ marginBottom: 12 }} />
+        ) : null}
 
         <CollapsibleSection
           title="📊 Privacy"

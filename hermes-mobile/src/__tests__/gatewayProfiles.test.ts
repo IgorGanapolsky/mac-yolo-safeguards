@@ -120,6 +120,36 @@ describe('gatewayProfiles', () => {
     expect(profiles[0].hostname).toBe('Igors-MacBook-Pro');
   });
 
+  it('keeps Home Wi‑Fi and Tailscale as separate routes for the same hostname', () => {
+    // 2026-08-05: merging them and preferring Tailscale deleted the Wi‑Fi option for Mac Pro.
+    const { profiles } = dedupeGatewayProfiles({
+      profiles: [
+        {
+          id: 'mini_lan',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://192.168.68.67:8642',
+          hostname: 'Igors-Mac-mini',
+          localIp: '192.168.68.67',
+          addedAt: '2026-08-05T10:00:00.000Z',
+        },
+        {
+          id: 'mini_ts',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini',
+          localIp: '100.94.135.78',
+          addedAt: '2026-08-05T11:00:00.000Z',
+        },
+      ],
+      activeProfileId: 'mini_lan',
+    });
+    expect(profiles).toHaveLength(2);
+    expect(profiles.map((p) => p.gatewayUrl).sort()).toEqual([
+      'http://100.94.135.78:8642',
+      'http://192.168.68.67:8642',
+    ]);
+  });
+
   it('keeps a USB/loopback profile distinct from the same Mac over Wi-Fi (separate route)', () => {
     const { profiles } = dedupeGatewayProfiles({
       profiles: [
@@ -186,11 +216,11 @@ describe('gatewayProfiles', () => {
       ],
       activeProfileId: 'mac_usb_loopback',
     });
-    expect(state.profiles).toHaveLength(1);
-    expect(profileDisplayName(state.profiles[0])).toBe('Igors-MacBook-Pro');
-    expect(state.profiles[0].gatewayUrl).toBe('http://100.87.85.85:8642');
-    expect(state.activeProfileId).toBe(state.profiles[0].id);
-    expect(state.profiles.some((p) => p.id === 'mac_usb_loopback')).toBe(false);
+    // USB + Tailscale stay as separate transport routes for the same hostname.
+    expect(state.profiles).toHaveLength(2);
+    expect(
+      state.profiles.every((p) => profileDisplayName(p).includes('Igors-MacBook-Pro')),
+    ).toBe(true);
   });
 
   it('migrates legacy single gateway into first profile', () => {
@@ -328,15 +358,17 @@ describe('gatewayProfiles', () => {
       ],
       activeProfileId: 'mac_mini',
     });
-    expect(state.profiles.map((p) => p.label).sort()).toEqual(
-      ['Igors-Mac-mini', 'Igors-MacBook-Pro'].sort(),
+    // USB + LAN for MacBook stay as separate transports (same hostname).
+    expect(state.profiles).toHaveLength(3);
+    expect(state.profiles.map((p) => profileDisplayName(p)).sort()).toEqual(
+      ['Igors-Mac-mini', 'Igors-MacBook-Pro', 'Igors-MacBook-Pro'].sort(),
     );
-    const mini = state.profiles.find((p) => p.label === 'Igors-Mac-mini');
+    const mini = state.profiles.find((p) => p.label === 'Igors-Mac-mini' || p.hostname?.includes('Mac-mini'));
     expect(mini).toBeTruthy();
-    expect(profileDisplayName(mini!)).toBe('Igors-Mac-mini');
+    expect(profileDisplayName(mini!)).toContain('Igors-Mac-mini');
   });
 
-  it('keeps friendly label when deduping LAN and tailnet routes', () => {
+  it('keeps friendly labels on both LAN and tailnet routes (no silent merge)', () => {
     const state = dedupeGatewayProfiles({
       profiles: [
         {
@@ -358,8 +390,9 @@ describe('gatewayProfiles', () => {
       ],
       activeProfileId: 'mac_lan',
     });
-    expect(state.profiles.length).toBe(1);
-    expect(state.profiles[0].label).toBe('Igors-Mac-mini');
+    // Transport-aware dedupe keeps both routes so Home Wi‑Fi remains selectable.
+    expect(state.profiles.length).toBe(2);
+    expect(state.profiles.every((p) => profileDisplayName(p) === 'Igors-Mac-mini')).toBe(true);
   });
 
   it('dedupes profiles that share the same LAN IP', () => {
@@ -396,7 +429,7 @@ describe('gatewayProfiles', () => {
     expect(state.activeProfileId).toBe('mac_192_168_12_208');
   });
 
-  it('prefers Tailscale URL when deduping LAN and tailnet routes for the same Mac', () => {
+  it('keeps both Tailscale and LAN URLs when the same Mac has two transports', () => {
     const state = dedupeGatewayProfiles({
       profiles: [
         {
@@ -412,15 +445,21 @@ describe('gatewayProfiles', () => {
           label: 'Igors-Mac-mini',
           hostname: 'Igors-Mac-mini.local',
           gatewayUrl: 'http://100.94.135.78:8642',
-          localIp: '192.168.68.56',
+          localIp: '100.94.135.78',
           addedAt: '2026-06-28T00:00:01Z',
         },
       ],
       activeProfileId: 'mac_lan',
     });
-    expect(state.profiles.length).toBe(1);
-    expect(state.profiles[0].gatewayUrl).toBe('http://100.94.135.78:8642');
-    expect(state.profiles[0].localIp).toBe('192.168.68.56');
+    expect(state.profiles.length).toBe(2);
+    expect(state.profiles.map((p) => p.gatewayUrl).sort()).toEqual([
+      'http://100.94.135.78:8642',
+      'http://192.168.68.56:8642',
+    ]);
+    // Active id may be remapped to the canonical profileIdFromGatewayUrl for the LAN route.
+    expect(
+      state.profiles.some((p) => p.id === state.activeProfileId && p.gatewayUrl.includes('192.168.68.56')),
+    ).toBe(true);
   });
 
   it('preserves existing friendly label when upserting with only IP', () => {

@@ -665,6 +665,17 @@ export function applyHealDiscoveredUrl(
   return next;
 }
 
+/** Transport bucket for storage dedupe — keep LAN + Tailscale as separate routes. */
+export function profileTransportRouteKey(profile: GatewayProfile): 'usb' | 'tailscale' | 'lan' {
+  if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
+    return 'usb';
+  }
+  if (isTailscaleGatewayUrl(profile.gatewayUrl)) {
+    return 'tailscale';
+  }
+  return 'lan';
+}
+
 function profileDedupeKey(profile: GatewayProfile): string {
   const machineKey = profileMachineKey(profile);
   // Loopback/USB WITH a known machine identity → key by that machine (the USB route merges with the
@@ -673,10 +684,14 @@ function profileDedupeKey(profile: GatewayProfile): string {
   if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
     return machineKey ? `host:${machineKey}` : 'loopback:usb';
   }
-  // The same physical Mac can get a new LAN IP from DHCP, which
-  // used to split it into duplicate rows. De-dupe by resolved machine identity (hostname), not IP.
+  // Same physical Mac can have BOTH a home Wi‑Fi URL and a Tailscale URL. Collapsing those
+  // into one row in storage (and preferring Tailscale) destroyed the Home Wi‑Fi option in the
+  // picker (2026-08-05 dogfood: Mac Pro only showed Tailscale). Keep one profile per
+  // (machine × transport). The switcher still collapses to one radio via
+  // collapseToOneProfilePerMachine / preferredProfileForMachine.
+  // Within a transport, DHCP LAN IP churn still collapses by hostname (not bare IP).
   if (machineKey) {
-    return `host:${machineKey}`;
+    return `host:${machineKey}:${profileTransportRouteKey(profile)}`;
   }
   const ip = profile.localIp?.trim() || extractLanIpFromGatewayUrl(profile.gatewayUrl);
   if (ip && !isLoopbackHost(ip)) {
@@ -1082,6 +1097,87 @@ export function shouldAcceptHealthIdentityForProfile(
   return true;
 }
 
+function applyHealthIdentityToProfile(
+  profile: GatewayProfile,
+  health: { hostname?: string; localIp?: string },
+): GatewayProfile {
+  const hostname = health.hostname?.trim() || profile.hostname;
+  // Never let /health LAN local_ip replace a Tailscale CGNAT URL identity
+  // (SUCCESS 2026-07-23: LAN poison turned mini Tailscale into a Home Wi‑Fi twin).
+  const urlIp = extractLanIpFromGatewayUrl(profile.gatewayUrl);
+  const localIp =
+    (urlIp && isTailscaleIpv4(urlIp) ? urlIp : undefined) ||
+    resolveDisplayLanIp(health.localIp, profile.gatewayUrl) ||
+    resolveDisplayLanIp(profile.localIp, profile.gatewayUrl);
+  const shouldRelabel =
+    isIpOnlyProfileLabel(profile) ||
+    isTailnetRouteLabel(profile.label) ||
+    profileNeedsMachineNameEnrichment(profile);
+  const label = shouldRelabel
+    ? resolveStoredProfileLabel({
+        gatewayUrl: profile.gatewayUrl,
+        hostname,
+        label: profile.label,
+        localIp,
+      })
+    : profile.label;
+  return {
+    ...profile,
+    hostname,
+    localIp,
+    label,
+    lastConnectedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * When /health names a machine, also rename anonymous Tailscale/LAN rows that answer with
+ * the same hostname (or already share machine identity). Fixes "Tailscale 100.x" twins of
+ * a named Home Wi‑Fi row without inventing cross-machine merges.
+ */
+export function propagateMachineIdentityFromHealth(
+  state: GatewayProfileState,
+  health: { hostname?: string; localIp?: string },
+  options: {
+    sourceProfileId?: string;
+    /** Profile ids that already proved they serve this hostname (probe /health). */
+    matchingProfileIds?: string[];
+  } = {},
+): GatewayProfileState {
+  const hostKey = normalizeMachineKey(health.hostname);
+  if (!hostKey) {
+    return state;
+  }
+  const matchIds = new Set(options.matchingProfileIds ?? []);
+  if (options.sourceProfileId) {
+    matchIds.add(options.sourceProfileId);
+  }
+  let changed = false;
+  const profiles = state.profiles.map((profile) => {
+    const forceMatch = matchIds.has(profile.id);
+    const sharesKey = profileMachineKey(profile) === hostKey;
+    if (!forceMatch && !sharesKey) {
+      return profile;
+    }
+    if (!forceMatch && !shouldAcceptHealthIdentityForProfile(profile, health)) {
+      return profile;
+    }
+    const next = applyHealthIdentityToProfile(profile, health);
+    if (
+      next.hostname !== profile.hostname ||
+      next.label !== profile.label ||
+      next.localIp !== profile.localIp
+    ) {
+      changed = true;
+    }
+    return next;
+  });
+  if (!changed) {
+    return state;
+  }
+  return dedupeGatewayProfiles({ ...state, profiles });
+}
+
 export function touchProfileHealth(
   state: GatewayProfileState,
   profileId: string,
@@ -1098,35 +1194,14 @@ export function touchProfileHealth(
     if (p.id !== profileId) {
       return p;
     }
-    const hostname = health.hostname?.trim() || p.hostname;
-    // Never let /health LAN local_ip replace a Tailscale CGNAT URL identity
-    // (SUCCESS 2026-07-23: LAN poison turned mini Tailscale into a Home Wi‑Fi twin).
-    const urlIp = extractLanIpFromGatewayUrl(p.gatewayUrl);
-    const localIp =
-      (urlIp && isTailscaleIpv4(urlIp) ? urlIp : undefined) ||
-      resolveDisplayLanIp(health.localIp, p.gatewayUrl) ||
-      resolveDisplayLanIp(p.localIp, p.gatewayUrl);
-    const shouldRelabel =
-      isIpOnlyProfileLabel(p) ||
-      isTailnetRouteLabel(p.label) ||
-      profileNeedsMachineNameEnrichment(p);
-    const label = shouldRelabel
-      ? resolveStoredProfileLabel({
-          gatewayUrl: p.gatewayUrl,
-          hostname,
-          label: p.label,
-          localIp,
-        })
-      : p.label;
-    return {
-      ...p,
-      hostname,
-      localIp,
-      label,
-      lastConnectedAt: new Date().toISOString(),
-    };
+    return applyHealthIdentityToProfile(p, health);
   });
-  return dedupeGatewayProfiles({ ...state, profiles });
+  // Also stamp the same identity onto other routes that already share this machine key
+  // (LAN + Tailscale after both have hostname). Anonymous 100.x rows need an explicit
+  // matchingProfileIds from a probe — see enrichActiveProfileFromHealthSnapshot.
+  let next = dedupeGatewayProfiles({ ...state, profiles });
+  next = propagateMachineIdentityFromHealth(next, health, { sourceProfileId: profileId });
+  return next;
 }
 
 export function migrateLegacyGateway(
