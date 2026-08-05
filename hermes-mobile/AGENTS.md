@@ -4,7 +4,7 @@ Canonical repo rules: [../AGENTS.md](../AGENTS.md). This file adds **mobile-only
 
 ## Standing orders (no reminders)
 
-1. **Session start** — parent repo runs `node tools/agent-session-start.js` (pairing, LaunchAgent health, continuous E2E status, **coding-context-pack --minimal** FOCUS issue). Do not skip when touching this tree. Product coding: `node tools/coding-context-pack.js` from monorepo root before multi-file work.
+1. **Session start** — parent repo runs `node tools/agent-session-start.js` (pairing, LaunchAgent health, continuous E2E status). Do not skip when touching this tree.
 2. **After any edit** under `src/`, `app.json`, or `.maestro/` — in the **same turn** before claiming fixed/shipped:
    - `npm test -- --no-coverage --watchman=false`
    - Kick autonomous E2E: `launchctl kickstart -k "gui/$(id -u)/com.igor.hermes-mobile-continuous-e2e"` **or** `npm run e2e:continuous:once`
