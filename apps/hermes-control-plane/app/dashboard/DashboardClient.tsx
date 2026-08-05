@@ -15,6 +15,11 @@ import {
   threadDetailsStorageKey,
   writeJsonSessionStorage,
 } from "@/lib/dashboard-nav-cache";
+import {
+  resolveComposerRunCta,
+  resolveEffectiveRoutePreference,
+  type RoutePreference,
+} from "@/lib/composer-run-cta";
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
@@ -225,7 +230,7 @@ export default function DashboardClient() {
   const [threadDetails, setThreadDetails] = useState<ThreadDetails | null>(null);
   const [prompt, setPrompt] = useState("");
   /** Where this task should run: paired machine, Continuity VPS, or auto offline failover. */
-  const [routePreference, setRoutePreference] = useState<"local" | "cloud" | "auto">("auto");
+  const [routePreference, setRoutePreference] = useState<RoutePreference>("auto");
   /**
    * Explicit user override for which paired machine runs the next task.
    * Resolved selection is derived (useMemo) so we never setState inside an effect (eslint react-hooks/set-state-in-effect).
@@ -753,14 +758,18 @@ export default function DashboardClient() {
       return;
     }
     const hasCloud = Boolean(organization?.cloudAccess);
-    const effectiveRoute =
-      routePreference === "cloud" || (!devices.length && hasCloud) ? "cloud" : routePreference;
-    if (!devices.length && effectiveRoute !== "cloud") {
-      openPairingSettings("pair");
-      return;
-    }
+    // Continuity never requires a paired Mac (owner bug 2026-08: Continuity selected + "Pair first").
+    const effectiveRoute = resolveEffectiveRoutePreference({
+      routePreference,
+      deviceCount: devices.length,
+      hasCloudAccess: hasCloud,
+    });
     if (effectiveRoute === "cloud" && !hasCloud) {
       setNotice("Continuity needs a trial or Pro plan. Open Manage plan to start Continuity.");
+      return;
+    }
+    if (!devices.length && effectiveRoute !== "cloud") {
+      openPairingSettings("pair");
       return;
     }
     if (!selectedDeviceId && effectiveRoute !== "cloud") {
@@ -1306,7 +1315,8 @@ export default function DashboardClient() {
                       {machineDisplayName(device)} only · {deviceStatusLabel(device)}
                     </option>
                   ))}
-                  <option value="cloud" disabled={!organization?.cloudAccess}>
+                  {/* Always selectable — if plan lacks Continuity, CTA becomes Start trial (never Pair). */}
+                  <option value="cloud">
                     Continuity (cloud VPS){organization?.cloudAccess ? "" : " — needs trial/Pro"}
                   </option>
                   <optgroup label="Setup">
@@ -1351,19 +1361,39 @@ export default function DashboardClient() {
               ) : null}
               <div className="composer-actions">
                 {(() => {
-                  const canRunCloud =
-                    routePreference === "cloud" || (!devices.length && routePreference === "auto");
-                  const needsPairCta = !devices.length && routePreference === "local";
-                  if (needsPairCta) {
+                  const cta = resolveComposerRunCta({
+                    routePreference,
+                    deviceCount: devices.length,
+                    hasCloudAccess,
+                    busy,
+                  });
+                  if (cta.kind === "pair") {
                     return (
                       <button
                         type="button"
                         className="button button-primary button-small composer-run"
-                        data-testid="composer-pair-cta"
-                        disabled={busy}
+                        data-testid={cta.testId}
+                        disabled={cta.disabled}
                         onClick={() => openPairingSettings("pair")}
                       >
-                        Pair computer →
+                        {cta.label}
+                      </button>
+                    );
+                  }
+                  if (cta.kind === "upgrade") {
+                    return (
+                      <button
+                        type="button"
+                        className="button button-primary button-small composer-run"
+                        data-testid={cta.testId}
+                        disabled={cta.disabled}
+                        onClick={() => {
+                          setNotice("Continuity needs a trial or Pro plan. Open Manage plan to start Continuity.");
+                          document.getElementById("billing")?.scrollIntoView({ behavior: "smooth" });
+                          window.location.hash = "billing";
+                        }}
+                      >
+                        {cta.label}
                       </button>
                     );
                   }
@@ -1371,15 +1401,16 @@ export default function DashboardClient() {
                     <button
                       type="submit"
                       className="button button-primary button-small composer-run"
-                      data-testid="composer-run-cta"
-                      disabled={busy}
+                      data-testid={cta.testId}
+                      disabled={cta.disabled}
                       aria-busy={busy}
+                      aria-label={
+                        cta.isContinuity
+                          ? "Run on Continuity cloud VPS — no local computer required"
+                          : "Run task"
+                      }
                     >
-                      {busy
-                        ? "Sending…"
-                        : routePreference === "cloud" || (!devices.length && canRunCloud)
-                          ? "Run on Continuity (Cloud VPS) →"
-                          : "Run task →"}
+                      {busy ? "Sending…" : cta.label}
                     </button>
                   );
                 })()}
