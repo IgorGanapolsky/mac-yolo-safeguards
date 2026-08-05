@@ -13,6 +13,7 @@ import {
   shouldHardStopEmptyStreamWait,
   shouldKeepAutoPollingForReply,
   toolActivityAfterLastUser,
+  shouldRetainToolsWorkingChrome,
 } from '../utils/emptyStreamReplyRecovery';
 import type { HermesMessage } from '../types/chat';
 import { GENERIC_EMPTY_STREAM_PLACEHOLDER } from '../utils/streamAssistantText';
@@ -161,5 +162,53 @@ describe('emptyStreamReplyRecovery', () => {
     const activity = toolActivityAfterLastUser(messages);
     expect(activity.active).toBe(true);
     expect(activity.detail).toMatch(/browser/i);
+  });
+
+  it('does not keep tools banner after a finished assistant body (dogfood 2026-08-05)', () => {
+    const messages: HermesMessage[] = [
+      { role: 'user', content: 'Do you understand the products?' },
+      {
+        role: 'tool',
+        content: '{"bytes_written": 1}',
+        tool_name: 'write_file',
+      } as HermesMessage,
+      {
+        role: 'assistant',
+        content:
+          "You're right — let me clarify each product distinctly based on what docs show:",
+      },
+      {
+        role: 'assistant',
+        content: 'Done — here are the three GTM drafts I just authored for ThumbGate.app.',
+      },
+    ];
+    const activity = toolActivityAfterLastUser(messages);
+    expect(activity.active).toBe(false);
+    expect(
+      shouldRetainToolsWorkingChrome({ activityActive: activity.active, waitElapsedMs: 3_600_000 }),
+    ).toBe(false);
+  });
+
+  it('keeps tools banner only while tools trail the latest substantial assistant', () => {
+    const midTools: HermesMessage[] = [
+      { role: 'user', content: 'Make money today' },
+      { role: 'assistant', content: 'Working on it…' },
+      { role: 'tool', content: 'ok', tool_name: 'terminal' } as HermesMessage,
+    ];
+    const mid = toolActivityAfterLastUser(midTools);
+    expect(mid.active).toBe(true);
+    expect(mid.detail).toMatch(/terminal/i);
+    expect(
+      shouldRetainToolsWorkingChrome({
+        activityActive: mid.active,
+        waitElapsedMs: 30_000,
+      }),
+    ).toBe(true);
+    expect(
+      shouldRetainToolsWorkingChrome({
+        activityActive: mid.active,
+        waitElapsedMs: EMPTY_STREAM_HARD_STOP_MS,
+      }),
+    ).toBe(false);
   });
 });

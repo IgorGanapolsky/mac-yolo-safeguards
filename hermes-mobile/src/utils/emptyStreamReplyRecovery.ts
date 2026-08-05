@@ -109,7 +109,31 @@ export function serverHasAssistantReplyAfterLastUser(serverMessages: HermesMessa
   return false;
 }
 
-/** Tool names / roles after the last user message — proves the Mac is still working. */
+function isSubstantialAssistantBody(content: string | undefined | null): boolean {
+  const text = content ?? undefined;
+  if (isMessageBodyEmpty(text)) {
+    return false;
+  }
+  if (isDeferredStreamPlaceholder(text)) {
+    return false;
+  }
+  if (isSummarizationStub(text)) {
+    return false;
+  }
+  if (isSilentAssistantCompletion(text ?? '')) {
+    return false;
+  }
+  return Boolean(text?.trim());
+}
+
+/**
+ * Tool names / roles after the last user message that still imply the Mac is working.
+ *
+ * Product law (dogfood 2026-08-05): historical tools BEFORE a finished assistant
+ * body must not keep "Using on your computer: tools" forever after a partial or
+ * final reply already landed. Only tools (or open tool_calls) after the latest
+ * substantial assistant turn count as active.
+ */
 export function toolActivityAfterLastUser(messages: HermesMessage[]): {
   active: boolean;
   labels: string[];
@@ -122,14 +146,31 @@ export function toolActivityAfterLastUser(messages: HermesMessage[]): {
       break;
     }
   }
+  let lastSubstantialAssistantIndex = -1;
+  for (let index = messages.length - 1; index > lastUserIndex; index -= 1) {
+    const message = messages[index];
+    if (message?.role?.toLowerCase() !== 'assistant') {
+      continue;
+    }
+    if (isSubstantialAssistantBody(message.content)) {
+      lastSubstantialAssistantIndex = index;
+      break;
+    }
+  }
+  // Scan only after the latest real assistant body (tools still running), else after user.
+  const scanFrom =
+    lastSubstantialAssistantIndex >= 0 ? lastSubstantialAssistantIndex : lastUserIndex + 1;
   const labels: string[] = [];
-  for (let index = lastUserIndex + 1; index < messages.length; index += 1) {
+  for (let index = scanFrom; index < messages.length; index += 1) {
     const message = messages[index];
     if (!message) {
       continue;
     }
     const role = message.role?.toLowerCase() ?? '';
     if (role === 'tool' || role === 'function') {
+      // Skip tool rows that are the same index as the assistant (impossible) —
+      // and skip tools that only exist before the substantial assistant when
+      // scanFrom already jumped past them.
       const name =
         (message as { tool_name?: string; name?: string }).tool_name ||
         (message as { name?: string }).name ||
@@ -142,8 +183,10 @@ export function toolActivityAfterLastUser(messages: HermesMessage[]): {
     }
     if (role === 'assistant') {
       const raw = message as { tool_calls?: unknown; toolCalls?: unknown };
-      if (raw.tool_calls || raw.toolCalls) {
-        if (!labels.includes('tools')) {
+      const calls = raw.tool_calls ?? raw.toolCalls;
+      if (calls && (Array.isArray(calls) ? calls.length > 0 : true)) {
+        // Open tool_calls on the latest assistant = still working.
+        if (index >= lastSubstantialAssistantIndex && !labels.includes('tools')) {
           labels.push('tools');
         }
       }
@@ -155,6 +198,23 @@ export function toolActivityAfterLastUser(messages: HermesMessage[]): {
     ? `Using on your computer: ${shown}${labels.length > 3 ? '…' : ''}`
     : 'Your computer is still working — waiting for reply text…';
   return { active, labels, detail };
+}
+
+/**
+ * Whether to keep the "Using on your computer: tools" footer / runProgress working chrome.
+ * Never past EMPTY_STREAM_HARD_STOP_MS — even when historical tools exist.
+ */
+export function shouldRetainToolsWorkingChrome(input: {
+  activityActive: boolean;
+  waitElapsedMs: number;
+}): boolean {
+  if (!input.activityActive) {
+    return false;
+  }
+  if (shouldHardStopEmptyStreamWait(input.waitElapsedMs)) {
+    return false;
+  }
+  return true;
 }
 
 export function deferredReplyPollBudgetMs(options: { toolsActive: boolean }): number {

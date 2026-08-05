@@ -474,6 +474,7 @@ import {
   shouldAwaitGatewayReplyAfterSend,
   shouldHardStopEmptyStreamWait,
   shouldKeepAutoPollingForReply,
+  shouldRetainToolsWorkingChrome,
   serverHasAssistantReplyAfterLastUser,
   toolActivityAfterLastUser,
 } from '../utils/emptyStreamReplyRecovery';
@@ -3566,27 +3567,33 @@ export default function ChatScreen() {
               ),
             );
             const activityAfterReply = toolActivityAfterLastUser(msgs);
+            // GH dogfood 2026-08-05: never keep "Using on your computer: tools" after a
+            // substantial reply when tools are only historical, or past hard-stop.
+            const retainTools = shouldRetainToolsWorkingChrome({
+              activityActive: activityAfterReply.active,
+              waitElapsedMs: elapsed,
+            });
             if (
-              activityAfterReply.active ||
+              retainTools ||
               shouldRetainRunProgressAfterVisibleReply({
                 deferredPollActive: Boolean(deferredTelegramPollRef.current),
               })
             ) {
-              setToolStatus(activityAfterReply.active ? activityAfterReply.detail : null);
+              setToolStatus(retainTools ? activityAfterReply.detail : null);
               setRunProgress((prev) =>
                 retainActiveRunProgressForLiveTokens(
                   prev
                     ? {
                         ...prev,
                         phase: 'working',
-                        detail: activityAfterReply.active
+                        detail: retainTools
                           ? activityAfterReply.detail
                           : prev.detail ?? 'Working on your computer…',
                       }
                     : {
                         phase: 'working',
                         startedAtMs: startedAt,
-                        detail: activityAfterReply.active
+                        detail: retainTools
                           ? activityAfterReply.detail
                           : 'Working on your computer…',
                       },
@@ -3600,7 +3607,12 @@ export default function ChatScreen() {
             return;
           }
           const activity = toolActivityAfterLastUser(msgs);
-          if (activity.active) {
+          if (
+            shouldRetainToolsWorkingChrome({
+              activityActive: activity.active,
+              waitElapsedMs: elapsed,
+            })
+          ) {
             sawTools = true;
             // Footer banner only — do not rewrite the transcript bubble every poll.
             setToolStatus(activity.detail);
@@ -3613,6 +3625,8 @@ export default function ChatScreen() {
                     detail: activity.detail,
                   },
             );
+          } else if (activity.active && shouldHardStopEmptyStreamWait(elapsed)) {
+            // Tools labels present but wall-clock expired — fall through to hard stop.
           } else if (elapsed >= EMPTY_STREAM_SELF_HEAL_AFTER_MS) {
             const checkingDetail = emptyStreamCheckingStatus(elapsed);
             setToolStatus(checkingDetail);
