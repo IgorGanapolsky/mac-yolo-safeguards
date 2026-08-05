@@ -245,7 +245,7 @@ test("lessons workspace activity stats and lesson cards deep-link into Hermes", 
   assert.match(dashboard, /id=\{`task-\$\{task\.id\}`\}/);
   assert.match(dashboard, /taskFilter/);
   assert.match(dashboard, /filter === "unrated"/);
-  assert.match(dashboard, /pairComputerLabel|Pair another computer|Pair computer/);
+  assert.match(dashboard, /pairComputerLabel|Pair another computer|Pair a computer|Pair computer|resolveComposerRunCta/);
   assert.match(dashboard, /Manage machines/);
   assert.match(globals, /\.lesson-activity li a\{/);
   assert.match(globals, /\.lesson-card-actions\{/);
@@ -276,6 +276,7 @@ test("Improve/Helpful metric clicks navigate to Hermes when count is 1, else fil
 test("lets users choose local machine vs Continuity VPS on every task not only offline failover", () => {
   const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
   const taskRouting = readFileSync(new URL("../lib/task-routing.ts", import.meta.url), "utf8");
+  const runCta = readFileSync(new URL("../lib/composer-run-cta.ts", import.meta.url), "utf8");
   assert.match(dashboard, /routePreference/);
   // Unified "Run on" select — honest host names, active pair CTA when unpaired.
   assert.match(dashboard, /autoRouteLabel/);
@@ -283,8 +284,12 @@ test("lets users choose local machine vs Continuity VPS on every task not only o
   assert.match(dashboard, /composer-unified-target/);
   assert.match(dashboard, /composer-target-select/);
   assert.match(dashboard, /Run on/);
-  assert.match(dashboard, /composer-pair-cta|openPairingSettings/);
-  assert.match(dashboard, /Pair computer →/);
+  assert.match(dashboard, /resolveComposerRunCta|openPairingSettings/);
+  assert.match(runCta, /composer-pair-cta/);
+  assert.match(runCta, /Pair a computer →/);
+  // Continuity selected → never pair kind
+  assert.match(runCta, /routePreference === "cloud"/);
+  assert.match(runCta, /kind: "run"/);
   assert.match(dashboard, /Continuity \(cloud VPS\)/);
   assert.match(dashboard, /aria-labelledby="composer-where-label"/);
   assert.doesNotMatch(dashboard, /composer-route-label/);
