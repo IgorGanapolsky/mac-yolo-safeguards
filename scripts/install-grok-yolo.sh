@@ -94,9 +94,13 @@ install_local_files() {
   if [[ -f "$ROOT/tools/hermes-yolo-sprawl-control.js" ]]; then
     install -m 0755 "$ROOT/tools/hermes-yolo-sprawl-control.js" "$HOME/.hermes/hermes-yolo-sprawl-control.js"
   fi
-  # Progressive Agent Skills lean-context (if present on this branch)
+  # Progressive Agent Skills lean-context (Google for Devs pattern) — next to wrapper for require()
   if [[ -f "$ROOT/tools/hermes-yolo-lean-context.js" ]]; then
     install -m 0755 "$ROOT/tools/hermes-yolo-lean-context.js" "$HOME/.hermes/hermes-yolo-lean-context.js"
+  fi
+  # Google skill quality gates (lint + continuous eval uplift matrix)
+  if [[ -f "$ROOT/tools/hermes-yolo-skill-quality.js" ]]; then
+    install -m 0755 "$ROOT/tools/hermes-yolo-skill-quality.js" "$HOME/.hermes/hermes-yolo-skill-quality.js"
   fi
   install -m 0755 "$ROOT/tools/hermes-grok45-harness.js" "$HOME/.hermes/grok45/tools/hermes-grok45-harness.js"
   install -m 0755 "$ROOT/tools/hermes-economic-router.js" "$HOME/.hermes/grok45/tools/hermes-economic-router.js"
