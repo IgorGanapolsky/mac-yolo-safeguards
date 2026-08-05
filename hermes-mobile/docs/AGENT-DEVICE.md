@@ -2,7 +2,9 @@
 
 Upstream: [callstack/agent-device](https://github.com/callstack/agent-device) · [Agent setup](https://oss.callstack.com/agent-device/docs/agent-setup) · [Installation](https://oss.callstack.com/agent-device/docs/installation)
 
-`agent-device` is the AI-agent device CLI (snapshots, refs, screenshots, Maestro-compatible replay). Hermes already pins it as a **devDependency** (`agent-device@^0.19.3`) with npm scripts `device`, `e2e:fast*`, and `e2e:accelerated` (`scripts/run-agent-device-e2e.sh`). This doc is the **when / how** for agents — not a second install path.
+`agent-device` is the AI-agent device CLI (snapshots, refs, screenshots, Maestro-compatible replay). Hermes pins it as a **devDependency** (`agent-device@^0.20.5`) with npm scripts `device`, `device:hybrid*`, `e2e:fast*`, and `e2e:accelerated` (`scripts/run-agent-device-e2e.sh`). This doc is the **when / how** for agents — not a second install path.
+
+**Callstack 0.20 high-ROI (July 2026 newsletter):** hybrid workflows — deterministic **replay** of known journeys (seconds, no model tokens) + agent only when the UI needs intelligence. Prefer `--settle` on every mutating action.
 
 ## Install on Igor's Mac
 
@@ -21,15 +23,15 @@ Verify:
 
 ```bash
 export PATH="$HOME/.npm-global/bin:$PATH"
-agent-device --version   # expect 0.19.3 (or hermes-mobile lockfile pin)
+agent-device --version   # expect ≥0.20.5 (hermes-mobile lockfile pin)
 agent-device doctor
 agent-device help workflow
 ```
 
 Binary locations agents should try (in order):
 
-1. `agent-device` on PATH (`~/.npm-global/bin` after install)
-2. `hermes-mobile/node_modules/.bin/agent-device` (project-local)
+1. `hermes-mobile/node_modules/.bin/agent-device` (project-local pin)
+2. `agent-device` on PATH (`~/.npm-global/bin` after `npm i -g agent-device@0.20.5`)
 
 Do **not** have agents run `npx -y agent-device@latest` (mutable package; Callstack guidance).
 
@@ -63,6 +65,21 @@ export PATH="$HOME/.npm-global/bin:$PATH"
 ANDROID_SERIAL=R3CY90QPM7E bash hermes-mobile/scripts/agent-device-connection-proof.sh
 # → hermes-mobile/docs/proofs/agent-device/connection-latest/summary.json
 ```
+
+### Hybrid settle + replay (0.20, high-ROI)
+
+```bash
+cd hermes-mobile
+# Live settle-first proof (paid package when installed)
+npm run device:hybrid
+# Optional: record a reusable .ad journey, then replay without a model
+npm run device:hybrid:record
+npm run device:hybrid:replay
+# → docs/proofs/agent-device/hybrid-latest/summary.json
+# → .agent-device/replays/hermes-chat-tab.ad
+```
+
+Use hybrid **proof** for connection crises and stuck-chat chrome (Connected vs tools banner). Use **record/replay** once a journey is stable to cut agent tokens (Callstack: ~65s → ~6s class).
 
 ### Manual loop (Chat tab)
 
