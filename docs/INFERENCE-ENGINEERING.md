@@ -4,6 +4,30 @@
 
 This repo’s control plane lives under `tools/inference-eng/`.
 
+## Baseten → Hermes steal map (2026-08-05)
+
+We do **not** reimplement GPU kernels. We steal product shape for a **Mac agent fleet**:
+
+| Baseten product idea | Hermes implementation |
+|----------------------|------------------------|
+| “Inference is everything” | This playbook + scorecard A+ gate |
+| Overview dashboard | `node tools/inference-eng/overview.js` |
+| Model Library | `node tools/inference-eng/model-library.js --list` |
+| Dedicated vs Model APIs | SuperGrok (dedicated interactive) vs LiteLLM free/sub routes |
+| Control SLAs & economics | Task latency budgets + `normal/degraded/emergency` |
+| Chains (compound AI) | `pipeline.js` multi-step stages |
+| Runtime techniques | `model-library.js --techniques` checklist |
+| Cold start / readiness | `grok-yolo --doctor` + fleet-health + ready probes |
+| Structured / tool use | hermes-yolo agent_capable fail-closed |
+| Provider speculation / quant / KV | Provider-side (Baseten Model APIs optional when key + spend OK) |
+
+```bash
+node tools/inference-eng/overview.js
+node tools/inference-eng/overview.js --json
+node tools/inference-eng/model-library.js --pick "fix auth" --json
+node tools/inference-eng/model-library.js --techniques
+```
+
 ## 1. Task decomposition
 
 Canonical tasks: `node tools/inference-eng/task-registry.js --list`
