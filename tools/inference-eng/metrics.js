@@ -86,13 +86,47 @@ function enrichRecord(rec) {
   };
 }
 
+/**
+ * Read at most maxBytes from the end of a (potentially multi-GB) traffic log.
+ * Full-file readFileSync blows the string length cap on busy fleets.
+ */
+function readLogTail(logPath, maxBytes = 8 * 1024 * 1024) {
+  const stat = fs.statSync(logPath);
+  const size = stat.size;
+  if (size === 0) return '';
+  const start = Math.max(0, size - maxBytes);
+  const fd = fs.openSync(logPath, 'r');
+  try {
+    const buf = Buffer.alloc(size - start);
+    fs.readSync(fd, buf, 0, buf.length, start);
+    let text = buf.toString('utf8');
+    // If we started mid-line, drop the partial first line
+    if (start > 0) {
+      const nl = text.indexOf('\n');
+      if (nl >= 0) text = text.slice(nl + 1);
+    }
+    return text;
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
 function loadTraffic(logPath = DEFAULT_LOG, options = {}) {
   if (!fs.existsSync(logPath)) return [];
   const windowHours = Number(options.windowHours || 0);
   const cutoff = windowHours > 0 ? Date.now() - windowHours * 3600 * 1000 : 0;
-  const lines = fs.readFileSync(logPath, 'utf8').split('\n').filter(Boolean);
+  const maxBytes = Number(options.maxBytes || process.env.HERMES_TRAFFIC_TAIL_BYTES || 8 * 1024 * 1024);
+  const maxLines = Number(options.maxLines || 5000);
+  let text;
+  try {
+    text = readLogTail(logPath, maxBytes);
+  } catch {
+    return [];
+  }
+  const lines = text.split('\n').filter(Boolean);
+  const slice = lines.length > maxLines ? lines.slice(-maxLines) : lines;
   const out = [];
-  for (const line of lines) {
+  for (const line of slice) {
     try {
       const rec = JSON.parse(line);
       if (cutoff) {

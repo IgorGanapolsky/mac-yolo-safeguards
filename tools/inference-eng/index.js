@@ -17,6 +17,8 @@ const path = require('path');
 const DIR = __dirname;
 const map = {
   scorecard: 'scorecard.js',
+  fleet: 'fleet-health.js',
+  'fleet-health': 'fleet-health.js',
   tasks: 'task-registry.js',
   metrics: 'metrics.js',
   optimize: 'optimizer.js',

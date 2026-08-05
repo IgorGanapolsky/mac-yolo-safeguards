@@ -69,7 +69,7 @@ Emits proposals (remap primary, degrade mode, drop non-tool models) + A/B hint (
 
 Every task and pipeline names a KPI (`ship_cycle_time_hours`, `lead_qualify_precision`, etc.). Scorecard pillar 7 fails if any KPI is missing.
 
-## Scorecard (A+ gate)
+## Scorecard (A+ gate) — design / control plane
 
 ```bash
 node tools/inference-eng/scorecard.js
@@ -77,6 +77,21 @@ node tools/inference-eng/scorecard.js --json --gate
 ```
 
 Requires all pillars pass and average ≥ 9.5 → **A+ / 10/10**.
+
+## Fleet health — live traffic (separate grade)
+
+```bash
+node tools/inference-eng/fleet-health.js
+node tools/inference-eng/fleet-health.js --json --gate --floor 0.5
+```
+
+This grades **real** `traffic.jsonl` success rate (not the design scorecard).  
+A failing fleet can coexist with an A+ control plane.
+
+| Env | Meaning |
+|-----|---------|
+| `HERMES_YOLO_BACKEND=grok` | Force SuperGrok interactive path |
+| `HERMES_INFERENCE_MODE=degraded` | Skip frontier in litellm chains until paid routes recover |
 
 ## Operator env
 
