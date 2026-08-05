@@ -421,6 +421,33 @@ if (!json) {
   printFleetRepoIntelligence();
 }
 
+// Issue-first coding context pack (HF context-course pattern) — every agent sees FOCUS issue.
+// Compact by default; --full writes latest.json for handoff.
+{
+  const packArgs = json ? ['--json'] : full ? ['--write', '--minimal'] : ['--minimal'];
+  const pack = runNode('tools/coding-context-pack.js', packArgs, 90_000);
+  if (!json) {
+    process.stdout.write('\n=== Coding context pack (issue-first) ===\n');
+    if (pack.status === 0 && pack.stdout) {
+      process.stdout.write(pack.stdout.endsWith('\n') ? pack.stdout : `${pack.stdout}\n`);
+    } else if (pack.stderr) {
+      process.stdout.write(`WARN coding-context-pack: ${(pack.stderr || '').slice(0, 400)}\n`);
+    } else if (pack.status === 127 || /Cannot find module|ENOENT/.test(pack.stderr || '')) {
+      process.stdout.write('WARN tools/coding-context-pack.js missing — land coding-context-pack PR.\n');
+    }
+  } else if (json && pack.status === 0 && pack.stdout) {
+    // Attach under a key when session-start is fully JSON later; for now keep stdout clean.
+    try {
+      const parsed = JSON.parse(pack.stdout);
+      process.stderr.write(
+        `coding_context_focus=#${parsed.focus?.number || '?'} e2e=${parsed.e2e_proof?.e2e || '?'}\n`,
+      );
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 // Code scanning debt — prevent Security-tab theater (2026-08).
 // Prints open_on_main; does not fail the whole session-start process.
 {

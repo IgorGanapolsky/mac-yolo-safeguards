@@ -156,6 +156,7 @@ import {
   isGatewayHealthOk,
   isMacGatewayHttpOk,
   isGatewayReachable as checkGatewayReachable,
+  mergeRelayAndMacHealth,
 } from '../utils/gatewayConnection';
 import {
   activeProfile,
@@ -1235,16 +1236,18 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         const macHealth = macResult?.snapshot ?? null;
-        const macReachable = macHealth ? isGatewayHealthOk(macHealth) : false;
-        publishHealth({
-          level: relayHealth.ok ? 'green' : 'amber',
-          status: relayHealth.ok ? 'ok' : 'degraded',
-          gatewayState: token ? 'paired' : 'unpaired',
-          checkedAt: new Date().toISOString(),
-          hostname: macHealth?.hostname,
-          localIp: resolveDisplayLanIp(macHealth?.localIp, macResult?.url ?? gatewayProbeUrl),
-          directGatewayReachable: macReachable,
-        });
+        // GH-#132: never drop Mac authMismatch when cloud relay is green.
+        publishHealth(
+          mergeRelayAndMacHealth({
+            relayOk: relayHealth.ok,
+            paired: Boolean(token),
+            macHealth,
+            displayLocalIp: resolveDisplayLanIp(
+              macHealth?.localIp,
+              macResult?.url ?? gatewayProbeUrl,
+            ),
+          }),
+        );
         const lanIp =
           resolveDisplayLanIp(macHealth?.localIp, macResult?.url ?? gatewayProbeUrl) ||
           extractLanIpFromGatewayUrl(macResult?.url ?? gatewayProbeUrl) ||

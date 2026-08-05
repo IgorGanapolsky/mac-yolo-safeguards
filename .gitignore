@@ -130,3 +130,6 @@ evals/**/runs/
 coordination/codeql-open-summary.json
 node_modules/
 node_modules/
+
+# install-grok-yolo SuperGrok recovery temp
+.hermes-yolo-wrapper.from-main.js

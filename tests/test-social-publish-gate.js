@@ -18,6 +18,8 @@ const {
   isMediumTitleOnly,
   stripHtml,
   isLiveStatus,
+  campaignStem,
+  sameCampaignFamily,
 } = (() => {
   const gate = require(GATE);
   const verify = require(VERIFY);
@@ -27,6 +29,8 @@ const {
     hasDeadFreePlay: gate.hasDeadFreePlay,
     hasBuyLink: gate.hasBuyLink,
     isLiveStatus: gate.isLiveStatus,
+    campaignStem: gate.campaignStem,
+    sameCampaignFamily: gate.sameCampaignFamily,
     isMediumTitleOnly: verify.isMediumTitleOnly,
     stripHtml: verify.stripHtml,
   };
@@ -69,6 +73,84 @@ test('isLiveStatus recognizes Published/Posted', () => {
   assert.ok(isLiveStatus('posted'));
   assert.ok(!isLiveStatus('Drafted'));
   assert.ok(!isLiveStatus('Blocked'));
+  assert.ok(!isLiveStatus('Superseded'));
+});
+
+test('superseded campaign blocks re-post on same platform+campaign', () => {
+  const log = writeTempLog([
+    [
+      '2026-07-29',
+      'LinkedIn',
+      'p',
+      'pain',
+      'a',
+      'e',
+      'Your agent does not stop needing a machine',
+      'cta',
+      'thumbgate_continuity_lid_20260729',
+      'Superseded',
+      '—',
+      'Superseded same-day by engine-2026-07',
+    ].join('\t'),
+  ]);
+  const r = evaluate({
+    platform: 'linkedin',
+    campaign: 'thumbgate_continuity_lid_20260729',
+    hook: 'Your agent does not stop needing a machine when your laptop does.',
+    lookbackDays: 14,
+    log,
+    requireBuyLinks: false,
+    requireMentions: false,
+    allowPartial: false,
+  });
+  assert.strictEqual(r.decision, 'BLOCK');
+  assert.ok(r.blocks.some((b) => /Retired campaign/i.test(b)));
+});
+
+test('campaignStem collapses meme/image/v2 suffixes', () => {
+  assert.strictEqual(
+    campaignStem('engine-2026-08-04-gates-meme'),
+    campaignStem('engine-2026-08-04-gates'),
+  );
+  assert.strictEqual(campaignStem('beat-v2'), 'beat');
+  assert.ok(sameCampaignFamily('engine-2026-08-04-gates', 'engine-2026-08-04-gates-meme'));
+  assert.ok(!sameCampaignFamily('engine-2026-08-04-gates', 'engine-2026-08-03-other'));
+});
+
+test('same-beat campaign family blocks meme variant after LIVE text post', () => {
+  // Repro 2026-08-04: text LIVE under …-gates, then …-gates-meme ALLOWED → double-post
+  const log = writeTempLog([
+    [
+      '2026-08-04',
+      'LinkedIn',
+      'p',
+      'pain',
+      'a',
+      'e',
+      'Everyone demos blocking rm -rf.',
+      'cta',
+      'engine-2026-08-04-gates',
+      'Published',
+      'https://www.linkedin.com/feed/update/urn:li:activity:7490467132669927425/',
+      'text only',
+    ].join('\t'),
+  ]);
+  const r = evaluate({
+    platform: 'linkedin',
+    campaign: 'engine-2026-08-04-gates-meme',
+    hook: 'Shell is the screenshot risk. Checkout URLs are the quiet one.',
+    body: 'ThumbGate hard-floors checkout URLs. https://thumbgate.app/?utm_source=linkedin',
+    lookbackDays: 14,
+    log,
+    requireBuyLinks: false,
+    requireMentions: false,
+    allowPartial: false,
+  });
+  assert.strictEqual(r.decision, 'BLOCK', JSON.stringify(r.blocks));
+  assert.ok(
+    r.blocks.some((b) => /Same-beat campaign family/i.test(b)),
+    JSON.stringify(r.blocks),
+  );
 });
 
 test('hasDeadFreePlay blocks free package not paid', () => {

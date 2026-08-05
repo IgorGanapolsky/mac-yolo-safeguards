@@ -6,6 +6,7 @@ import {
   resolveChatLinkDisplay,
   resolveEffectiveMacHttpOk,
   isConnectedWrongKeyContradiction,
+  mergeRelayAndMacHealth,
   MAC_UNREACHABLE_LABEL,
 } from '../utils/gatewayConnection';
 import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
@@ -184,6 +185,69 @@ describe('gatewayConnection', () => {
         authMismatch: true,
       }),
     ).toBe(false);
+  });
+
+  describe('mergeRelayAndMacHealth (GH-#132 relay auth invariant)', () => {
+    it('preserves Mac authMismatch when cloud relay is green (no false Connected)', () => {
+      const merged = mergeRelayAndMacHealth({
+        relayOk: true,
+        paired: true,
+        checkedAt: '2026-08-04T16:00:00.000Z',
+        macHealth: {
+          level: 'green',
+          checkedAt: '2026-08-04T16:00:00.000Z',
+          hostname: 'Igors-Mac-mini.local',
+          localIp: '192.168.68.70',
+          authMismatch: true,
+          errorMessage: 'Wrong key',
+          directGatewayReachable: false,
+        },
+        displayLocalIp: '192.168.68.70',
+      });
+      expect(merged.authMismatch).toBe(true);
+      expect(merged.level).toBe('red');
+      expect(merged.directGatewayReachable).toBe(false);
+      expect(merged.hostname).toBe('Igors-Mac-mini.local');
+      expect(isGatewayHealthOk(merged)).toBe(false);
+      expect(isMacGatewayHttpOk(merged)).toBe(false);
+      expect(
+        resolveChatLinkDisplay({
+          connectionState: 'connected',
+          macHttpOk: isMacGatewayHttpOk(merged),
+          authMismatch: merged.authMismatch,
+        }).label,
+      ).toBe(GATEWAY_AUTH_REPAIR_HEADER);
+    });
+
+    it('keeps relay green when Mac probe is healthy without auth mismatch', () => {
+      const merged = mergeRelayAndMacHealth({
+        relayOk: true,
+        paired: true,
+        checkedAt: '2026-08-04T16:00:00.000Z',
+        macHealth: {
+          level: 'green',
+          checkedAt: '2026-08-04T16:00:00.000Z',
+          hostname: 'Igors-MacBook-Pro.local',
+          directGatewayReachable: true,
+        },
+      });
+      expect(merged.authMismatch).toBeUndefined();
+      expect(merged.level).toBe('green');
+      expect(merged.directGatewayReachable).toBe(true);
+      expect(isGatewayHealthOk(merged)).toBe(true);
+    });
+
+    it('does not invent authMismatch when Mac probe is missing', () => {
+      const merged = mergeRelayAndMacHealth({
+        relayOk: true,
+        paired: false,
+        macHealth: null,
+        checkedAt: '2026-08-04T16:00:00.000Z',
+      });
+      expect(merged.authMismatch).toBeUndefined();
+      expect(merged.level).toBe('green');
+      expect(merged.directGatewayReachable).toBe(false);
+    });
   });
 
   it('shows amber stalled label when health is ok but last chat failed', () => {
