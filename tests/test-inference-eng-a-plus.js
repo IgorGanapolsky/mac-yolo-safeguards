@@ -64,7 +64,7 @@ const degGrok = selectModelChain({
 });
 assert.strictEqual(degGrok.primary, 'grok-4.5', `degraded+SuperGrok should prefer grok-4.5, got ${degGrok.primary}`);
 assert.ok(degGrok.chain.includes('grok-4.5'), 'degraded must keep SuperGrok in chain');
-assert.ok(degGrok.policyVersion >= 3);
+assert.ok(degGrok.policyVersion >= 4);
 // Explicit hermes backend + stale glm pin + SuperGrok prefer off → pin wins (no SuperGrok override)
 const degHermesPin = selectModelChain({
   taskText: 'fix login',
@@ -80,6 +80,26 @@ assert.strictEqual(
   'glm-coding',
   `hermes+prefer off should honor glm pin, got ${degHermesPin.primary}`,
 );
+// High-ROI: smoke/draft must NOT burn SuperGrok; dead GLM off code chain by default
+const smokeChain = selectModelChain({
+  taskText: 'smoke ping hermes-yolo-ready',
+  mode: 'normal',
+  env: { HERMES_YOLO_BACKEND: 'auto', HERMES_PREFER_SUPERGROK: '1' },
+});
+assert.notStrictEqual(smokeChain.primary, 'grok-4.5', `smoke must not use SuperGrok, got ${smokeChain.primary}`);
+const draftChain = selectModelChain({
+  taskText: 'draft outreach email for a founder',
+  mode: 'normal',
+  env: { HERMES_YOLO_BACKEND: 'auto', HERMES_PREFER_SUPERGROK: '1' },
+});
+assert.notStrictEqual(draftChain.primary, 'grok-4.5', `draft must not use SuperGrok primary, got ${draftChain.primary}`);
+const codeNoGlm = selectModelChain({
+  taskText: 'implement the auth fix',
+  mode: 'normal',
+  env: { HERMES_YOLO_BACKEND: 'auto', HERMES_DROP_DEAD_GLM: '1' },
+});
+assert.strictEqual(codeNoGlm.primary, 'grok-4.5');
+assert.ok(!codeNoGlm.chain.includes('glm-coding'), 'dead GLM should be demoted off auto code chain');
 console.log('  degradation: PASS');
 
 // Pipelines

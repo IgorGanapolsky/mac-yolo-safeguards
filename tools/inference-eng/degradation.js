@@ -45,11 +45,68 @@ function wantsSuperGrok(env = process.env) {
 }
 
 /**
+ * SuperGrok is high-value plan quota. Only pin it for hard interactive work —
+ * not smoke/draft/classify (those should burn free/local first).
+ * 2026-08-05 ROI: stop spending SuperGrok on smoke/draft thrash.
+ * @param {{ id?: string, modelClass?: string }} task
+ */
+function taskWantsSuperGrok(task) {
+  if (!task) return false;
+  const id = String(task.id || '');
+  const cls = String(task.modelClass || '');
+  if (id === 'code' || id === 'plan' || id === 'judge') return true;
+  if (cls === 'coding' || cls === 'frontier') {
+    // draft is modelClass coding but is batch content — exclude by id
+    return id !== 'draft' && id !== 'smoke' && id !== 'classify' && id !== 'retrieve';
+  }
+  return false;
+}
+
+/**
  * Stale glm pin from pre-SuperGrok days should not defeat SuperGrok preference.
  * @param {string} pin
  */
 function isStaleGlmPin(pin) {
   return /^(glm-coding|glm-5\.2|glm-5|glm-47|glm-4\.7)$/i.test(String(pin || ''));
+}
+
+/**
+ * GLM agent-primary is measured dead for tool use (fleet-health dropDeadModels).
+ * Keep available only when operator opts in.
+ * @param {NodeJS.ProcessEnv} env
+ */
+function shouldDropDeadGlm(env = process.env) {
+  if (env.HERMES_ALLOW_GLM === '1') return false;
+  if (env.HERMES_DROP_DEAD_GLM === '0') return false;
+  return true; // default: demote/drop from auto agent primary
+}
+
+/** Default dead agent models (tool noncompliance / dropped by fleet-health). */
+const DEAD_AGENT_MODELS = Object.freeze(['glm-coding', 'glm-5.2', 'glm-5', 'glm-47', 'glm-turbo']);
+
+/**
+ * @param {NodeJS.ProcessEnv} env
+ * @returns {Set<string>}
+ */
+function deadModelSet(env = process.env) {
+  return new Set([
+    ...DEAD_AGENT_MODELS,
+    ...String(env.HERMES_DEAD_MODELS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+  ]);
+}
+
+/**
+ * Remove dead GLM agent models from auto chains (fleet-health toolCompliance=0).
+ * @param {string[]} chain
+ * @param {NodeJS.ProcessEnv} env
+ */
+function applyDeadModelPolicy(chain, env) {
+  if (!shouldDropDeadGlm(env)) return [...chain];
+  const dead = deadModelSet(env);
+  return chain.filter((m) => !dead.has(m));
 }
 
 /**
@@ -66,7 +123,13 @@ function selectModelChain(opts = {}) {
 
   const failures = new Set((opts.probeFailures || []).map(String));
   let chain = [...task.preferredModels];
-  const preferGrok = wantsSuperGrok(env) && mode !== 'emergency' && !failures.has('grok-4.5');
+  const preferGrok =
+    wantsSuperGrok(env) &&
+    taskWantsSuperGrok(task) &&
+    mode !== 'emergency' &&
+    !failures.has('grok-4.5');
+
+  chain = applyDeadModelPolicy(chain, env);
 
   if (mode === 'degraded') {
     // Drop thrash/metered burn models; KEEP SuperGrok + coding flat + free + local.
@@ -83,10 +146,20 @@ function selectModelChain(opts = {}) {
 
   // Operator env pin wins as head of chain except:
   // - emergency (refuse re-pinning a dead glm/kimi primary)
-  // - stale glm pin when SuperGrok is preferred (2026-08-05 regression)
+  // - stale glm pin when SuperGrok is preferred for this task (2026-08-05)
+  // - dead-GLM pin without HERMES_ALLOW_GLM or FORCE
+  // - HERMES_YOLO_FORCE_MODEL=1 always wins
   if (env.HERMES_YOLO_MODEL && mode !== 'emergency') {
     const pin = env.HERMES_YOLO_MODEL;
-    if (!(preferGrok && isStaleGlmPin(pin))) {
+    const force = env.HERMES_YOLO_FORCE_MODEL === '1';
+    // When SuperGrok is preferred for this task, ignore stale glm pins (unless FORCE/ALLOW_GLM).
+    const ignoreStaleGlm =
+      preferGrok &&
+      isStaleGlmPin(pin) &&
+      !force &&
+      env.HERMES_ALLOW_GLM !== '1' &&
+      shouldDropDeadGlm(env);
+    if (force || !ignoreStaleGlm) {
       chain = [pin, ...chain.filter((m) => m !== pin)];
     }
   }
@@ -111,6 +184,9 @@ function selectModelChain(opts = {}) {
       preferGrok ? '; SuperGrok kept' : ''
     })`;
   }
+  if (shouldDropDeadGlm(env)) {
+    reason += '; dead-GLM demoted';
+  }
 
   return {
     taskId: task.id,
@@ -121,8 +197,9 @@ function selectModelChain(opts = {}) {
     modelClass: task.modelClass,
     businessKpi: task.businessKpi,
     preferSuperGrok: preferGrok,
+    deadGlmDemoted: shouldDropDeadGlm(env),
     reason,
-    policyVersion: 3,
+    policyVersion: 4,
   };
 }
 
@@ -165,8 +242,13 @@ if (require.main === module) {
 module.exports = {
   MODES,
   DEGRADED_DROP,
+  DEAD_AGENT_MODELS,
   wantsSuperGrok,
+  taskWantsSuperGrok,
   isStaleGlmPin,
+  shouldDropDeadGlm,
+  deadModelSet,
+  applyDeadModelPolicy,
   selectModelChain,
   inferMode,
 };

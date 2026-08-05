@@ -16,7 +16,14 @@ const http = require('http');
 const https = require('https');
 const { URL } = require('url');
 const { classifyTask } = require('./inference-eng/task-registry');
-const { selectModelChain, inferMode } = require('./inference-eng/degradation');
+const {
+  selectModelChain,
+  inferMode,
+  isStaleGlmPin,
+  wantsSuperGrok,
+  taskWantsSuperGrok,
+  shouldDropDeadGlm,
+} = require('./inference-eng/degradation');
 
 const LITELLM_BASE = process.env.HERMES_LITELLM_BASE || 'http://127.0.0.1:4010/v1';
 const PROVIDER = 'custom:litellm-gateway';
@@ -24,10 +31,18 @@ const PROVIDER = 'custom:litellm-gateway';
 /** Flat-rate / free-safe model aliases registered on the local LiteLLM gateway. */
 const ROUTES = Object.freeze({
   coding: {
+    // 2026-08-05: SuperGrok is coding default; glm kept as opt-in alias (dead for tool use).
+    id: 'coding_primary',
+    model: 'grok-4.5',
+    provider: 'grok-yolo',
+    label: 'SuperGrok / grok-4.5 — default interactive coding',
+    tier: 'subscription',
+  },
+  glm: {
     id: 'coding_glm',
     model: 'glm-coding',
     provider: PROVIDER,
-    label: 'GLM Coding Plan (z.ai flat) — default engineering',
+    label: 'GLM Coding Plan (z.ai) — opt-in only (HERMES_ALLOW_GLM=1)',
     tier: 'subscription',
   },
   grok: {
@@ -109,22 +124,98 @@ function selectRoute(opts = {}) {
     probeFailures: opts.probeFailures,
   });
 
-  // Explicit operator pin
+  // Explicit operator pin — but ignore stale glm when SuperGrok preferred (unless FORCE/ALLOW_GLM).
   if (env.HERMES_YOLO_MODEL || env.HERMES_YOLO_PROVIDER) {
+    const pin = env.HERMES_YOLO_MODEL || ROUTES.coding.model;
+    const force = env.HERMES_YOLO_FORCE_MODEL === '1';
+    const preferGrok =
+      wantsSuperGrok(env) &&
+      taskWantsSuperGrok(inferenceTask) &&
+      mode !== 'emergency';
+    const ignoreStaleGlm =
+      preferGrok &&
+      isStaleGlmPin(pin) &&
+      !force &&
+      env.HERMES_ALLOW_GLM !== '1' &&
+      shouldDropDeadGlm(env);
+    if (!ignoreStaleGlm) {
+      const provider =
+        env.HERMES_YOLO_PROVIDER ||
+        (/^grok/i.test(pin) ? 'grok-yolo' : PROVIDER);
+      return {
+        ...ROUTES.coding,
+        model: pin,
+        provider,
+        id: 'explicit_env',
+        label: 'Explicit HERMES_YOLO_* pin',
+        reason: 'HERMES_YOLO_MODEL or HERMES_YOLO_PROVIDER set — policy defers to operator',
+        signals,
+        inferenceTask: inferenceTask.id,
+        mode,
+        chain: chainPlan.chain,
+        latencyBudgetMs: inferenceTask.latencyBudgetMs,
+        businessKpi: inferenceTask.businessKpi,
+        policyVersion: 3,
+      };
+    }
+    // fall through to SuperGrok chain (stale glm pin ignored)
+  }
+
+  // Explicit "use glm" in task text (operator intent)
+  if (signals.asksGlm && (env.HERMES_ALLOW_GLM === '1' || env.HERMES_YOLO_FORCE_MODEL === '1')) {
     return {
-      ...ROUTES.coding,
-      model: env.HERMES_YOLO_MODEL || ROUTES.coding.model,
-      provider: env.HERMES_YOLO_PROVIDER || PROVIDER,
-      id: 'explicit_env',
-      label: 'Explicit HERMES_YOLO_* pin',
-      reason: 'HERMES_YOLO_MODEL or HERMES_YOLO_PROVIDER set — policy defers to operator',
+      ...ROUTES.glm,
+      reason: 'task asked for GLM + ALLOW/FORCE',
       signals,
       inferenceTask: inferenceTask.id,
       mode,
       chain: chainPlan.chain,
       latencyBudgetMs: inferenceTask.latencyBudgetMs,
       businessKpi: inferenceTask.businessKpi,
-      policyVersion: 2,
+      policyVersion: 3,
+    };
+  }
+
+  // Long-context membership K3 before SuperGrok default (1M flat, not per-token)
+  if (signals.longContext || signals.asksK3) {
+    return {
+      ...ROUTES.long_context,
+      reason: 'long-context / k3 signal → kimi-code-k3 membership',
+      signals,
+      inferenceTask: inferenceTask.id,
+      mode,
+      chain: chainPlan.chain,
+      latencyBudgetMs: inferenceTask.latencyBudgetMs,
+      businessKpi: inferenceTask.businessKpi,
+      policyVersion: 3,
+    };
+  }
+
+  if (signals.asksKimi && !signals.asksK3) {
+    return {
+      ...ROUTES.quality_kimi,
+      reason: 'task asked for kimi',
+      signals,
+      inferenceTask: inferenceTask.id,
+      mode,
+      chain: chainPlan.chain,
+      latencyBudgetMs: inferenceTask.latencyBudgetMs,
+      businessKpi: inferenceTask.businessKpi,
+      policyVersion: 3,
+    };
+  }
+
+  if (signals.smoke) {
+    return {
+      ...ROUTES.fast,
+      reason: 'smoke/latency path — not SuperGrok',
+      signals,
+      inferenceTask: inferenceTask.id,
+      mode,
+      chain: chainPlan.chain,
+      latencyBudgetMs: inferenceTask.latencyBudgetMs,
+      businessKpi: inferenceTask.businessKpi,
+      policyVersion: 3,
     };
   }
 
