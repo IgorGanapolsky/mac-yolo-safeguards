@@ -34,8 +34,152 @@ const HERMES_YOLO_HISTORY_RECEIPT_PATH = process.env.HERMES_YOLO_HISTORY_RECEIPT
 const HERMES_BIN = process.env.HERMES_BIN || path.join(HOME, '.local/bin/hermes');
 // Slim default (2026-08 harness research): computer_use + vision spawn Chrome and thrash
 // 24GB multi-agent Macs. Opt in via HERMES_YOLO_TOOLSETS=...computer_use,vision
+// Progressive disclosure (Google Agent Skills): vision/computer_use also auto-add from task text
+// when HERMES_YOLO_LEAN_CONTEXT is on (default) and HERMES_YOLO_TOOLSETS is unset.
 const DEFAULT_TOOLSETS = process.env.HERMES_YOLO_TOOLSETS
   || 'terminal,file,web,code_execution,memory,clarify';
+
+/**
+ * Load Google progressive-disclosure lean-context module.
+ * Install layout: repo tools/ next to wrapper, or ~/.hermes/hermes-yolo-lean-context.js
+ * (copied by scripts/install-grok-yolo.sh). Soft-fail if missing — wrapper still runs.
+ */
+function loadLeanContextModule() {
+  const candidates = [
+    path.join(__dirname, 'tools', 'hermes-yolo-lean-context.js'),
+    path.join(__dirname, 'hermes-yolo-lean-context.js'),
+    path.join(HOME, '.hermes', 'hermes-yolo-lean-context.js'),
+  ];
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) return require(candidate);
+    } catch {
+      // continue
+    }
+  }
+  return null;
+}
+
+function leanContextEnabled(env = process.env) {
+  return String(env.HERMES_YOLO_LEAN_CONTEXT || '1') !== '0';
+}
+
+/** Extract natural-language task from hermes-yolo argv (empty for admin/flags). */
+function extractTaskText(rawArgs, commands = HERMES_COMMANDS) {
+  const args = Array.isArray(rawArgs) ? rawArgs : [];
+  if (args.length === 0) return '';
+  if (args[0] === '-z' || args[0] === '--single' || args[0] === '-p') {
+    return args.slice(1).join(' ').trim();
+  }
+  if (args[0].startsWith('-')) return '';
+  if (commands && commands.has && commands.has(args[0])) return '';
+  return args.join(' ').trim();
+}
+
+function composePromptWithLeanContext(userPrompt, lean) {
+  const prefix = lean && lean.promptPrefix ? String(lean.promptPrefix).trim() : '';
+  if (!prefix) return userPrompt;
+  return `${prefix}\n\n---\n\n# User task\n\n${userPrompt}`;
+}
+
+/**
+ * Progressive skills + toolsets for a task (Google Agent Skills pattern).
+ * Catalog = name+description always; full skill bodies only for top matches.
+ */
+function prepareLeanContextForTask(taskText, env = process.env, options = {}) {
+  const baseToolsets = env.HERMES_YOLO_TOOLSETS || DEFAULT_TOOLSETS;
+  if (!leanContextEnabled(env)) {
+    return {
+      enabled: false,
+      toolsets: baseToolsets,
+      promptPrefix: '',
+      packSummary: null,
+      written: null,
+    };
+  }
+  const mod = options.module || loadLeanContextModule();
+  if (!mod) {
+    return {
+      enabled: false,
+      toolsets: baseToolsets,
+      promptPrefix: '',
+      packSummary: null,
+      written: null,
+      error: 'lean-context-module-missing',
+    };
+  }
+  const toolsets = env.HERMES_YOLO_TOOLSETS
+    ? String(env.HERMES_YOLO_TOOLSETS)
+    : mod.resolveProgressiveToolsets(taskText, env);
+
+  // Ready probes and empty tasks: progressive toolsets only, no skill dump.
+  const ready = !taskText
+    || taskText === DEFAULT_READY_PROMPT
+    || taskText === 'interactive chat'
+    || options.skipPromptPrefix;
+  if (ready) {
+    return {
+      enabled: true,
+      toolsets,
+      promptPrefix: '',
+      packSummary: null,
+      written: null,
+    };
+  }
+
+  try {
+    const pack = mod.buildLeanContextPack({
+      taskText,
+      env,
+      cwd: options.cwd || process.cwd(),
+      activateMax: options.activateMax,
+    });
+    const written = mod.writeLeanContextPack(pack, {
+      dir: options.receiptDir || env.HERMES_YOLO_RECEIPT_DIR || HERMES_YOLO_RECEIPT_DIR,
+    });
+    let md = written.markdown || '';
+    const maxPrefix = Number(env.HERMES_YOLO_LEAN_CONTEXT_MAX_CHARS || 16000);
+    if (md.length > maxPrefix) {
+      md = `${md.slice(0, maxPrefix)}\n…[lean-context truncated for budget]…\n`;
+    }
+    return {
+      enabled: true,
+      toolsets,
+      promptPrefix: md,
+      packSummary: {
+        schema: pack.schema,
+        skillCount: pack.skillCount,
+        activatedCount: pack.activatedCount,
+        activatedNames: pack.activatedNames,
+        catalogTokensEstimate: pack.catalogTokensEstimate,
+        activatedBodyTokensEstimate: pack.activatedBodyTokensEstimate,
+        tokensSavedVsFullDump: pack.tokensSavedVsFullDump,
+      },
+      written: written.mdPath ? { mdPath: written.mdPath, jsonPath: written.jsonPath } : null,
+    };
+  } catch (err) {
+    return {
+      enabled: false,
+      toolsets: baseToolsets,
+      promptPrefix: '',
+      packSummary: null,
+      written: null,
+      error: err && err.message ? err.message : String(err),
+    };
+  }
+}
+
+function buildHermesExtraArgs(toolsets = DEFAULT_TOOLSETS, env = process.env) {
+  if (env.HERMES_YOLO_NO_DEFAULT_ARGS) return [];
+  return [
+    '--provider', DEFAULT_PROVIDER,
+    '--model', DEFAULT_MODEL,
+    '--yolo',
+    '--accept-hooks',
+    '--toolsets',
+    toolsets,
+  ];
+}
 
 /**
  * Capability registry for fail-closed model selection (P0).
@@ -483,6 +627,7 @@ function buildRouteReceipt(options = {}) {
       toolsets: options.toolsets || DEFAULT_TOOLSETS,
       failClosed: options.failClosed !== false,
       agentCapableRequired: true,
+      leanContext: options.leanContext || null,
     },
     route: {
       requestedBackend: options.requestedBackend || 'grok',
@@ -717,13 +862,33 @@ function runGrokBackend(rawArgs, env = process.env, dependencies = {}) {
     console.error('[hermes-yolo] Refusing to silently fall back to Qwen.');
     process.exit(127);
   }
-  const grokArgs = buildGrokBackendArgs(rawArgs);
+  // Progressive Agent Skills: lean catalog + matched expertise only (Google for Devs pattern).
+  const taskText = extractTaskText(rawArgs);
+  const lean = prepareLeanContextForTask(taskText, env, {
+    module: dependencies.leanContextModule,
+  });
+  let grokArgs = buildGrokBackendArgs(rawArgs);
+  if (lean.promptPrefix && grokArgs[0] === '-p' && grokArgs[1] && grokArgs[1] !== DEFAULT_READY_PROMPT) {
+    grokArgs = ['-p', composePromptWithLeanContext(grokArgs[1], lean), ...grokArgs.slice(2)];
+  }
+  if (lean.enabled && lean.packSummary) {
+    console.error(
+      `[hermes-yolo] lean-context skills=${lean.packSummary.skillCount} `
+      + `activated=${(lean.packSummary.activatedNames || []).join(',') || '(none)'} `
+      + `saved_vs_full≈${lean.packSummary.tokensSavedVsFullDump}tok`,
+    );
+  } else if (lean.error) {
+    console.error(`[hermes-yolo] lean-context skipped: ${lean.error}`);
+  }
   console.error('[hermes-yolo] backend=grok-4.5 (set HERMES_YOLO_BACKEND=hermes for the legacy Hermes provider route)');
   const runner = dependencies.runner || require('child_process').spawnSync;
   const result = runner(grokYoloBin, grokArgs, {
     stdio: 'inherit',
     env,
   });
+  const leanMeta = lean.packSummary
+    ? { enabled: true, ...lean.packSummary, toolsets: lean.toolsets }
+    : { enabled: lean.enabled, toolsets: lean.toolsets, error: lean.error || null };
   if (result.error) {
     writeRouteReceipt(buildRouteReceipt({
       rawArgs,
@@ -734,6 +899,8 @@ function runGrokBackend(rawArgs, env = process.env, dependencies = {}) {
       exitCode: 127,
       durationMs: Date.now() - started,
       error: result.error.message,
+      toolsets: lean.toolsets,
+      leanContext: leanMeta,
     }));
     console.error(`[hermes-yolo] Grok 4.5 backend failed to start: ${result.error.message}`);
     process.exit(127);
@@ -748,6 +915,8 @@ function runGrokBackend(rawArgs, env = process.env, dependencies = {}) {
     exitCode,
     signal: result.signal || null,
     durationMs: Date.now() - started,
+    toolsets: lean.toolsets,
+    leanContext: leanMeta,
   }));
   process.exit(exitCode);
 }
@@ -861,7 +1030,30 @@ if (process.env.HERMES_YOLO_PREFLIGHT === '1') {
   }
 }
 
-log(`START pid=${process.pid} bin=${HERMES_BIN} extraArgs=${JSON.stringify(EXTRA_ARGS)} args=${JSON.stringify(childPromptArgs)} timeout=${TIMEOUT_MS}ms cpuWatchdog=${CPU_WATCHDOG_ENABLED ? 'enabled' : 'disabled'} cpuThreshold=${CPU_THRESHOLD}% stuckSamples=${CPU_STUCK_SAMPLES}@${CPU_SAMPLE_INTERVAL_MS}ms`);
+// Progressive Agent Skills (Google for Devs): lean catalog + matched expertise only.
+const leanForRun = prepareLeanContextForTask(
+  wrapperPromptMode ? '' : extractTaskText(args),
+  process.env,
+);
+const effectiveToolsets = leanForRun.toolsets || DEFAULT_TOOLSETS;
+const hermesExtraArgs = buildHermesExtraArgs(effectiveToolsets, process.env);
+let effectiveChildPromptArgs = childPromptArgs;
+if (
+  leanForRun.promptPrefix
+  && childPromptArgs[0] === '-z'
+  && childPromptArgs[1]
+  && childPromptArgs[1] !== DEFAULT_READY_PROMPT
+) {
+  effectiveChildPromptArgs = [
+    '-z',
+    composePromptWithLeanContext(childPromptArgs[1], leanForRun),
+  ];
+}
+const leanMetaForRun = leanForRun.packSummary
+  ? { enabled: true, ...leanForRun.packSummary, toolsets: effectiveToolsets }
+  : { enabled: leanForRun.enabled, toolsets: effectiveToolsets, error: leanForRun.error || null };
+
+log(`START pid=${process.pid} bin=${HERMES_BIN} extraArgs=${JSON.stringify(hermesExtraArgs)} args=${JSON.stringify(effectiveChildPromptArgs)} toolsets=${effectiveToolsets} lean=${leanForRun.enabled} timeout=${TIMEOUT_MS}ms cpuWatchdog=${CPU_WATCHDOG_ENABLED ? 'enabled' : 'disabled'} cpuThreshold=${CPU_THRESHOLD}% stuckSamples=${CPU_STUCK_SAMPLES}@${CPU_SAMPLE_INTERVAL_MS}ms`);
 
 // Fail-closed capability gate before spawn (P0)
 const runId = digest(`run-${process.pid}-${Date.now()}`, 16);
@@ -880,7 +1072,8 @@ try {
     provider: DEFAULT_PROVIDER,
     model: DEFAULT_MODEL,
     requestedModel: DEFAULT_MODEL,
-    toolsets: DEFAULT_TOOLSETS,
+    toolsets: effectiveToolsets,
+    leanContext: leanMetaForRun,
     toolBudget: toolBudget.snapshot(),
     status: 'blocked',
     exitCode: 3,
@@ -891,16 +1084,25 @@ try {
   releaseLock();
   process.exit(3);
 }
+if (leanForRun.enabled && leanForRun.packSummary) {
+  console.error(
+    `\x1b[36m[hermes-yolo]\x1b[0m lean-context skills=${leanForRun.packSummary.skillCount} `
+    + `activated=${(leanForRun.packSummary.activatedNames || []).join(',') || '(none)'} `
+    + `saved_vs_full≈${leanForRun.packSummary.tokensSavedVsFullDump}tok`,
+  );
+} else if (leanForRun.error) {
+  console.error(`\x1b[33m[hermes-yolo]\x1b[0m lean-context skipped: ${leanForRun.error}`);
+}
 console.error(
   `\x1b[36m[hermes-yolo]\x1b[0m run=${runId} provider=${DEFAULT_PROVIDER} model=${DEFAULT_MODEL} `
-  + `toolsets=${DEFAULT_TOOLSETS} agent_capable=${isAgentCapableModel(DEFAULT_MODEL, ROUTE_ENV)}`
+  + `toolsets=${effectiveToolsets} agent_capable=${isAgentCapableModel(DEFAULT_MODEL, ROUTE_ENV)}`
 );
 
 // Independent liveness heartbeats for one-shot runs (model may be silent for minutes)
 const HEARTBEAT_MS = parseInt(process.env.HERMES_YOLO_HEARTBEAT_MS || '15000', 10);
 const progressEnabled = process.env.HERMES_YOLO_PROGRESS !== '0';
 let heartbeatHandle = null;
-if (progressEnabled && !wrapperPromptMode && childPromptArgs[0] === '-z') {
+if (progressEnabled && !wrapperPromptMode && effectiveChildPromptArgs[0] === '-z') {
   const t0 = Date.now();
   console.error(`\x1b[36m[hermes-yolo]\x1b[0m agent started (one-shot); heartbeats every ${HEARTBEAT_MS}ms`);
   heartbeatHandle = setInterval(() => {
@@ -921,9 +1123,10 @@ updateStatus(data => {
       status: 'RUNNING'
     });
   }
+  // Status UI keeps original short task text (not the full lean-context prefix).
   data.chatMessages.push({ sender: 'user', text: `hermes-yolo ${childPromptArgs.join(' ')}` });
   data.termHistory.push(`$ hermes-yolo ${childPromptArgs.join(' ')}`);
-  data.termHistory.push(`[Hermes YOLO Wrapper] Spawned ${HERMES_BIN} ${EXTRA_ARGS.join(' ')}`);
+  data.termHistory.push(`[Hermes YOLO Wrapper] Spawned ${HERMES_BIN} ${hermesExtraArgs.join(' ')}`);
 });
 
 // Run with HERMES_YOLO=1 and HERMES_ACCEPT_HOOKS=1 env set.
@@ -937,8 +1140,8 @@ const childStdio = 'inherit';  // interactive chat needs stdin (keyboard), not j
 // Interactive chat must stay attached for stdin.
 const detachOneshot = process.platform !== 'win32'
   && !wrapperPromptMode
-  && childPromptArgs[0] === '-z';
-const child = spawn(HERMES_BIN, [...EXTRA_ARGS, ...childPromptArgs], {
+  && effectiveChildPromptArgs[0] === '-z';
+const child = spawn(HERMES_BIN, [...hermesExtraArgs, ...effectiveChildPromptArgs], {
   stdio: childStdio,
   env,
   detached: detachOneshot,
@@ -956,7 +1159,8 @@ child.on('error', (err) => {
     provider: DEFAULT_PROVIDER,
     model: DEFAULT_MODEL,
     requestedModel: DEFAULT_MODEL,
-    toolsets: DEFAULT_TOOLSETS,
+    toolsets: effectiveToolsets,
+    leanContext: leanMetaForRun,
     toolBudget: toolBudget.snapshot(),
     status: 'fail',
     exitCode: 127,
@@ -1077,7 +1281,8 @@ child.on('close', (code, signal) => {
     model: DEFAULT_MODEL,
     requestedModel: DEFAULT_MODEL,
     actualModel: DEFAULT_MODEL,
-    toolsets: DEFAULT_TOOLSETS,
+    toolsets: effectiveToolsets,
+    leanContext: leanMetaForRun,
     toolBudget: toolBudget.snapshot(),
     status: killed ? 'timeout' : code === 0 ? 'pass' : 'fail',
     exitCode: killed ? 124 : (code ?? 0),
@@ -1151,6 +1356,12 @@ module.exports = {
   assertAgentCapableModel,
   fingerprintCommand,
   createToolBudget,
+  loadLeanContextModule,
+  leanContextEnabled,
+  extractTaskText,
+  composePromptWithLeanContext,
+  prepareLeanContextForTask,
+  buildHermesExtraArgs,
   MODEL_CAPABILITY_REGISTRY,
   DEFAULT_TOOLSETS,
   HERMES_COMMANDS,
