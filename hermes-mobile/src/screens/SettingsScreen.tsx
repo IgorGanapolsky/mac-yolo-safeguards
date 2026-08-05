@@ -601,7 +601,7 @@ export default function SettingsScreen() {
             testID="auto-connect-gateway"
           >
             <Text style={styles.primaryButtonText}>
-              {isAutoConnecting ? 'Connecting…' : 'Find computer on USB or Wi‑Fi'}
+              {isAutoConnecting ? 'Connecting…' : 'Find computer on Wi‑Fi or Tailscale'}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
