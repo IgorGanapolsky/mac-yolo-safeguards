@@ -16,6 +16,7 @@ import {
   writeJsonSessionStorage,
 } from "@/lib/dashboard-nav-cache";
 import {
+  resolveAutoRouteLabel,
   resolveComposerRunCta,
   resolveEffectiveRoutePreference,
   type RoutePreference,
@@ -270,12 +271,16 @@ export default function DashboardClient() {
     ? "+ Pair another computer…"
     : "+ Pair computer…";
   const hasCloudAccess = Boolean(organization?.cloudAccess);
-  /** Auto names a real host when paired; unpaired says pair is required (or cloud if entitled). */
-  const autoRouteLabel = selectedDevice
-    ? `Auto — ${selectedDeviceLabel} first, then Continuity`
-    : hasCloudAccess
-      ? "Auto — Continuity (cloud) until a Mac is paired"
-      : "Auto — needs a paired Mac first";
+  const onlineDeviceCount = devices.filter(
+    (device) => device.online || device.presence === "online",
+  ).length;
+  /** Auto: Continuity is first-class — never implies "you must pair" when Continuity is entitled. */
+  const autoRouteLabel = resolveAutoRouteLabel({
+    hasCloudAccess,
+    deviceLabel: selectedDevice ? selectedDeviceLabel : null,
+    onlineDeviceCount,
+    deviceCount: devices.length,
+  });
 
   /** Plain-English copy for the machine / Continuity / Auto control (always show, never jargon-only). */
   const routeExplain =
@@ -747,15 +752,20 @@ export default function DashboardClient() {
     }
     const hasCloud = Boolean(organization?.cloudAccess);
     // Continuity never requires a paired Mac (owner bug 2026-08: Continuity selected + "Pair first").
+    const onlineCount = devices.filter(
+      (device) => device.online || device.presence === "online",
+    ).length;
     const effectiveRoute = resolveEffectiveRoutePreference({
       routePreference,
       deviceCount: devices.length,
       hasCloudAccess: hasCloud,
+      onlineDeviceCount: onlineCount,
     });
     if (effectiveRoute === "cloud" && !hasCloud) {
       setNotice("Continuity needs a trial or Pro plan. Open Manage plan to start Continuity.");
       return;
     }
+    // Auto with Continuity never forces pair — only pure local-without-machine does.
     if (!devices.length && effectiveRoute !== "cloud") {
       openPairingSettings("pair");
       return;
@@ -1353,6 +1363,7 @@ export default function DashboardClient() {
                     routePreference,
                     deviceCount: devices.length,
                     hasCloudAccess,
+                    onlineDeviceCount,
                     busy,
                   });
                   if (cta.kind === "pair") {

@@ -49,6 +49,18 @@ describe("resolveComposerRunCta", () => {
     expect(cta.isContinuity).toBe(true);
   });
 
+  it("auto with offline Mac + Continuity never forces pair", () => {
+    const cta = resolveComposerRunCta({
+      routePreference: "auto",
+      deviceCount: 1,
+      onlineDeviceCount: 0,
+      hasCloudAccess: true,
+    });
+    expect(cta.kind).toBe("run");
+    expect(cta.isContinuity).toBe(true);
+    expect(cta.label).not.toMatch(/pair/i);
+  });
+
   it("auto unpaired without cloud pairs", () => {
     const cta = resolveComposerRunCta({
       routePreference: "auto",

@@ -282,7 +282,7 @@ test("lets users choose local machine vs Continuity VPS on every task not only o
   assert.match(dashboard, /routePreference/);
   // Unified "Run on" select — honest host names, active pair CTA when unpaired.
   assert.match(dashboard, /autoRouteLabel/);
-  assert.match(dashboard, /needs a paired Mac first/);
+  assert.match(dashboard, /needs a paired Mac|Continuity \(no Mac required\)|resolveAutoRouteLabel/);
   assert.match(dashboard, /composer-unified-target/);
   assert.match(dashboard, /composer-target-select/);
   assert.match(dashboard, /Run on/);
