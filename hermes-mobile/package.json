@@ -70,7 +70,7 @@
     "@react-native-community/netinfo": "11.5.2",
     "@react-navigation/bottom-tabs": "^6.6.1",
     "@react-navigation/native": "^6.1.18",
-    "@sentry/react-native": "~7.11.0",
+    "@sentry/react-native": "~8.17.2",
     "@shopify/flash-list": "2.0.2",
     "expo": "~55.0.28",
     "expo-build-properties": "~55.0.16",
