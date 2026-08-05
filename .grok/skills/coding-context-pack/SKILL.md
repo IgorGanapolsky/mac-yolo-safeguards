@@ -82,6 +82,6 @@ For multi-issue board + adversarial verify:
 - `tools/coding-context-pack.js`
 - `tests/test-coding-context-pack.js`
 - [[three-bus-ship-cycle]]
-- [[xai-workflows-for-system]]
 - [[multi-agent-coord]]
-- HF: https://huggingface.co/learn/context-course/unit0/introduction
+- Grok workflows skill (PR review / Linear triage / enforcement audit)
+- HF Context Course unit0 introduction (huggingface.co/learn/context-course)
