@@ -47,6 +47,7 @@ import { haptics } from '../services/haptics';
 import { trackProductEvent } from '../services/productAnalytics';
 import { scheduleRunCompletedNotification } from '../services/hermesNotifications';
 import GatewayProfilePicker from '../components/GatewayProfilePicker';
+import { UberStatusToast } from '../components/UberStatusToast';
 import { MAC_PICKER_SUBTITLE } from '../utils/tailscalePasteIpCopy';
 import ComputerPickerStatusRegion from '../components/ComputerPickerStatusRegion';
 import ManualComputerAddressForm from '../components/ManualComputerAddressForm';
@@ -2094,6 +2095,60 @@ export default function ChatScreen() {
     machineProfileSwitchInFlight && connectionState !== 'demo'
       ? 'connecting'
       : connectionState;
+
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastSubMessage, setToastSubMessage] = useState<string | undefined>();
+  const [toastType, setToastType] = useState<'success' | 'info' | 'warning' | 'error'>('info');
+
+  const showToast = useCallback(
+    (msg: string, subMsg?: string, type: 'success' | 'info' | 'warning' | 'error' = 'info') => {
+      setToastMessage(msg);
+      setToastSubMessage(subMsg);
+      setToastType(type);
+      setToastVisible(true);
+    },
+    [],
+  );
+
+  const prevConnStateRef = useRef(connectionState);
+  useEffect(() => {
+    if (prevConnStateRef.current !== 'connected' && connectionState === 'connected' && !isDemo) {
+      const route = resolveHeaderTransportLabel({ gatewayUrl, wifiConnected, health });
+      const machineName = machineShortLabel || 'computer';
+      showToast(
+        `Connected to ${machineName}`,
+        route ? `Route: ${route}` : 'Ready for queries & tools',
+        'success',
+      );
+    } else if (prevConnStateRef.current !== 'connecting' && connectionState === 'connecting' && !isDemo) {
+      const machineName = machineShortLabel || 'computer';
+      showToast(
+        `Reconnecting to ${machineName}…`,
+        'Auto-probing Home Wi-Fi & Tailscale routes',
+        'info',
+      );
+    }
+    prevConnStateRef.current = connectionState;
+  }, [connectionState, gatewayUrl, wifiConnected, health, machineShortLabel, isDemo, showToast]);
+
+  const prevGatewayUrlRef = useRef(gatewayUrl);
+  useEffect(() => {
+    if (
+      prevGatewayUrlRef.current &&
+      prevGatewayUrlRef.current !== gatewayUrl &&
+      macHttpOk &&
+      !isDemo
+    ) {
+      const route = resolveHeaderTransportLabel({ gatewayUrl, wifiConnected, health });
+      showToast(
+        'Switched connection route',
+        route ? `Now using ${route}` : 'Auto-selected best available route',
+        'info',
+      );
+    }
+    prevGatewayUrlRef.current = gatewayUrl;
+  }, [gatewayUrl, macHttpOk, wifiConnected, health, isDemo, showToast]);
 
   // SHIP BLOCK: health authMismatch must surface the Wrong-key banner and never leave
   // green Connected with silent auth failure (fresh install dual-state crisis).
@@ -8608,6 +8663,14 @@ export default function ChatScreen() {
         visible={attachPickerVisible}
         onClose={() => setAttachPickerVisible(false)}
         onSelect={handleAttachOption}
+      />
+
+      <UberStatusToast
+        visible={toastVisible}
+        message={toastMessage}
+        subMessage={toastSubMessage}
+        type={toastType}
+        onDismiss={() => setToastVisible(false)}
       />
 
       <BottomSheetModal
