@@ -54,6 +54,7 @@ Never tell the user to run commands, tap UI, or "do X yourself." Execute what yo
 - **RAG loop:** `mcp__thumbgate__recall` at session start; capture every fix/incident with concrete artifacts (dates, PIDs, paths, metrics). Recurring bug class → deterministic check in `tools/` wired into CI.
 - **Research:** `parallel-cli search` by default; deep research only on explicit request, never fire-and-forget.
 - **Decision stack:** before non-trivial decisions or ship claims run the evidence stack (`tools/agent-session-start.js`, `tools/agent-decision-stack.js`, graphify, revenue DS). If RAG returns a matching MISTAKE → change the plan.
+- **Coding context pack (issue-first):** before multi-file product coding, load `node tools/coding-context-pack.js` (auto on session-start as `--minimal`). FOCUS open GH Issue + Linear map + e2e gate + skills. Sync buses: `--sync`. Ship claim gate: `--ship-check --pr N --agent AGENT-X`. Skill: `/coding-context-pack`. Workflow: `/coding-context-loop`.
 
 Tables and full protocol: [docs/agents/decision-stack.md](./docs/agents/decision-stack.md).
 
