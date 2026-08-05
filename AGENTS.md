@@ -117,6 +117,20 @@ Prefer invoking the relevant skill over ad-hoc diagnosis:
 - Don't blind-audit "every file, every directory" — bound the scope.
 - Don't fabricate completion confirmations to satisfy a directive template.
 
+## Context Engineering (HuggingFace Course)
+
+This repo implements the [HuggingFace Context Course](https://huggingface.co/learn/context-course/unit0/introduction) concepts:
+
+| Concept | Entry point |
+|---------|-------------|
+| **Agent loop** (Unit 6) | `bin/agent-loop` — Recollect→Plan→Observe→Act→Evaluate→Learn with metrics |
+| **Skill registry** (Unit 1) | `SKILLS.md` — every skill: trigger, path, version, health check |
+| **Context-layer tests** (Unit 5) | `node tests/test-session-context.js` — validates hooks, MCP, skills, RAG |
+| **Publish gate plugin** (Unit 3) | `bin/verify-social-post` — wraps `social-publish-gate.js` + `verify-public-post.js` |
+| **Sub-agent handoff** (Unit 4) | `scripts/handoff.sh` — transfers session state between agents |
+
+**Session start:** run `bin/agent-loop` (validates context layer + plan + E2E before acting) or `bin/agent-loop --health --json` for CI. Full architecture: [docs/agents/context-engineering.md](./docs/agents/context-engineering.md).
+
 ## Code search
 
 Use `grepai search "<intent>" --json --compact` as the primary code-exploration tool (fallback to Grep/Glob on exact strings or if grepai is down). Use `.graphify-venv/bin/graphify query` for architecture/causality questions when `graphify-out/graph.json` exists. Full usage: [docs/agents/code-search.md](./docs/agents/code-search.md).
@@ -146,3 +160,4 @@ Session start prints open count. Detail: [docs/agents/codeql-orchestration.md](.
 - [docs/agents/social-gates.md](./docs/agents/social-gates.md) — publish gates, campaign analytics
 - [docs/agents/hermes-mobile.md](./docs/agents/hermes-mobile.md) — mobile verification contract
 - [docs/agents/code-search.md](./docs/agents/code-search.md) — grepai + graphify usage
+- [docs/agents/context-engineering.md](./docs/agents/context-engineering.md) — HF Context Course mapping, KV-cache optimization, PreToolUse safety gates
