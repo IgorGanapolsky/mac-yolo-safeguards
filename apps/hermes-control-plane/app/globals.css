@@ -344,12 +344,11 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   .dashboard-shell[data-mobile-tab="hermes"] .task-panel{
     display:flex;
     flex-direction:column;
-    flex:1 1 auto;
-    min-height:0;
-    overflow-x:hidden;
-    overflow-y:auto;
-    -webkit-overflow-scrolling:touch;
-    touch-action:pan-y;
+    flex:1 1 0 !important;
+    min-height:0 !important;
+    /* Panel itself must NOT scroll — only .hermes-scroll-pane does.
+     * Panel overflow-y:auto put the Run CTA under the fold (2026-08 CEO). */
+    overflow:hidden !important;
     border:1px solid var(--line);
     background:#0B0F19;
   }
@@ -413,16 +412,24 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     font-weight:600;
   }
   .task-panel .panel-heading{flex:0 0 auto;padding:12px 14px;border-bottom:1px solid var(--line)}
+  /*
+   * Thread list is the ONLY scrollport on Hermes tab (CEO 2026-08: screen not
+   * scrollable vertically; Run button clipped). Use overflow-y:scroll + min-height:0
+   * so iOS gets a real bounded scroll container. Composer stays in-flow below it.
+   */
   .hermes-scroll-pane{
-    flex:1 1 auto;
-    min-height:0;
-    overflow-y:auto;
+    flex:1 1 0 !important;
+    min-height:0 !important;
+    max-height:100%;
+    overflow-x:hidden;
+    overflow-y:scroll !important;
     -webkit-overflow-scrolling:touch;
     overscroll-behavior:contain;
+    touch-action:pan-y;
   }
-  /* Hermès tab: reserve measured composer height so messages never sit under the dock */
   .dashboard-shell[data-mobile-tab="hermes"] .hermes-scroll-pane{
-    padding-bottom:max(16px, var(--composer-dock-space, 220px));
+    /* Composer is in-flow now — only a small spacer, not measured dock height */
+    padding-bottom:12px;
   }
   .conversation-history{
     max-height:none;
@@ -430,24 +437,24 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   }
   .conversation-message{max-width:94%}
   .task-list{max-height:none}
-  /* Fixed dock inside task-panel (above bottom tabs). Height is measured → --composer-dock-space */
+  /* In-flow composer dock (sibling of .hermes-scroll-pane) — always fully visible above tab bar */
   .dashboard-shell[data-mobile-tab="hermes"] .task-panel{
     position:relative;
   }
   .dashboard-shell[data-mobile-tab="hermes"] .task-panel .composer,
   .task-panel .composer{
-    position:absolute !important;
+    position:relative !important;
     z-index:25;
-    left:0 !important;
-    right:0 !important;
-    bottom:0 !important;
+    left:auto !important;
+    right:auto !important;
+    bottom:auto !important;
     flex:0 0 auto;
+    width:100%;
     margin:0;
-    /* safe-area lives on the tab bar, not double-padded here */
-    padding:10px 12px 12px;
+    padding:10px 12px 10px;
     background:#0B0F19;
     border-top:1px solid var(--line);
-    box-shadow:0 -12px 32px rgba(0,0,0,.45);
+    box-shadow:0 -8px 24px rgba(0,0,0,.35);
   }
   .composer textarea{
     min-height:64px;
@@ -513,13 +520,26 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     grid-template-columns:1fr;
     gap:8px;
     margin-top:10px;
+    /* Keep Run CTA fully on-screen (was clipped by absolute dock + tabs) */
+    padding-bottom:2px;
   }
   .composer-run{
     width:100%;
     min-height:48px;
+    max-height:none;
     border-radius:14px;
     font-size:15px;
     font-weight:700;
+    /* Avoid last-line clip on some Android WebViews */
+    padding-top:12px;
+    padding-bottom:12px;
+  }
+  .composer-unified-target{
+    min-width:0;
+  }
+  .composer-unified-target select{
+    max-width:100%;
+    min-height:44px;
   }
   /* Tab bar is shell chrome (flex child), not a floating layer over content */
   .mobile-web-tabs{

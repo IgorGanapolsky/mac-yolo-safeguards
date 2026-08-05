@@ -60,6 +60,7 @@
     "react-server-dom-webpack": "19.2.8",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
+    "undici": "^7.29.0",
     "vinext": "0.0.50",
     "vite": "8.1.5",
     "vitest": "^4.1.10",
@@ -75,7 +76,8 @@
     "minimatch": "10.2.5",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "react-server-dom-webpack": "19.2.8"
+    "react-server-dom-webpack": "19.2.8",
+    "undici": "7.29.0"
   },
   "type": "module"
 }
