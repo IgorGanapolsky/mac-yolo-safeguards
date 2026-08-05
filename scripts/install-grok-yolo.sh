@@ -36,10 +36,60 @@ while (($#)); do
   esac
 done
 
+# Refuse to install a pre-SuperGrok hermes-yolo-wrapper (2026-08-05 regression:
+# stale branch checkout re-installed quota-independent-default and wiped grok-4.5 auto).
+resolve_hermes_yolo_wrapper_src() {
+  local src="${1:-$ROOT/hermes-yolo-wrapper.js}"
+  local tmp="$ROOT/.hermes-yolo-wrapper.from-main.js"
+  if [[ -f "$src" ]] && grep -q 'isGrokBackendReady' "$src" && grep -q 'auto-supergrok-ready' "$src"; then
+    printf '%s\n' "$src"
+    return 0
+  fi
+  echo "install-grok-yolo: WARNING — $src is missing SuperGrok markers (isGrokBackendReady / auto-supergrok-ready)" >&2
+  if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    if git -C "$ROOT" show origin/main:hermes-yolo-wrapper.js 2>/dev/null | grep -q 'isGrokBackendReady'; then
+      git -C "$ROOT" show origin/main:hermes-yolo-wrapper.js >"$tmp"
+      if grep -q 'auto-supergrok-ready' "$tmp"; then
+        echo "install-grok-yolo: using origin/main:hermes-yolo-wrapper.js instead of stale checkout" >&2
+        printf '%s\n' "$tmp"
+        return 0
+      fi
+    fi
+  fi
+  echo "install-grok-yolo: refusing to install hermes-yolo-wrapper without SuperGrok routing" >&2
+  echo "install-grok-yolo: checkout origin/main or set ROOT to a SuperGrok-capable tree" >&2
+  return 1
+}
+
+pin_supergrok_launch_env() {
+  # Best-effort: launchctl env is process-session scoped on some macOS versions.
+  if command -v launchctl >/dev/null 2>&1; then
+    launchctl setenv HERMES_YOLO_BACKEND grok 2>/dev/null || true
+    # Stale glm pin defeats SuperGrok preference in degradation policy v2.
+    local pinned
+    pinned="$(launchctl getenv HERMES_YOLO_MODEL 2>/dev/null || true)"
+    if [[ "$pinned" == glm-coding || "$pinned" == glm-5.2 || "$pinned" == glm-5 ]]; then
+      launchctl unsetenv HERMES_YOLO_MODEL 2>/dev/null || true
+      echo "install-grok-yolo: cleared stale launchctl HERMES_YOLO_MODEL=$pinned" >&2
+    fi
+  fi
+  mkdir -p "$HOME/.hermes"
+  # Durable hint for shells that source this file (never secrets).
+  cat >"$HOME/.hermes/supergrok-route.env" <<'EOF'
+# Written by scripts/install-grok-yolo.sh — SuperGrok coding primary
+export HERMES_YOLO_BACKEND=grok
+# Do not pin HERMES_YOLO_MODEL=glm-coding while SuperGrok is ready
+unset HERMES_YOLO_MODEL
+EOF
+  chmod 0644 "$HOME/.hermes/supergrok-route.env"
+}
+
 install_local_files() {
+  local wrapper_src
+  wrapper_src="$(resolve_hermes_yolo_wrapper_src "$ROOT/hermes-yolo-wrapper.js")"
   mkdir -p "$HOME/.hermes/grok45/tools" "$HOME/.local/bin"
   install -m 0755 "$ROOT/grok-yolo-wrapper.js" "$HOME/.hermes/grok45/grok-yolo-wrapper.js"
-  install -m 0755 "$ROOT/hermes-yolo-wrapper.js" "$HOME/.hermes/hermes-yolo-wrapper.js"
+  install -m 0755 "$wrapper_src" "$HOME/.hermes/hermes-yolo-wrapper.js"
   install -m 0755 "$ROOT/tools/hermes-grok45-harness.js" "$HOME/.hermes/grok45/tools/hermes-grok45-harness.js"
   install -m 0755 "$ROOT/tools/hermes-economic-router.js" "$HOME/.hermes/grok45/tools/hermes-economic-router.js"
   install -m 0755 "$ROOT/tools/hermes-harness-eval.js" "$HOME/.hermes/grok45/tools/hermes-harness-eval.js"
@@ -53,6 +103,13 @@ install_local_files() {
   ln -sfn "$HOME/.hermes/grok45/tools/hermes-outcome-gate.js" "$HOME/.local/bin/hermes-outcome-gate"
   ln -sfn "$HOME/.hermes/grok45/tools/hermes-parallel-search.js" "$HOME/.local/bin/hermes-parallel-search"
   ln -sfn "$HOME/.hermes/grok45/tools/hermes-parallel-search.js" "$HOME/.local/bin/hermes-search-turbo"
+  pin_supergrok_launch_env
+  # Post-install hard gate: installed file must still look like SuperGrok auto.
+  if ! grep -q 'isGrokBackendReady' "$HOME/.hermes/hermes-yolo-wrapper.js" \
+    || ! grep -q 'auto-supergrok-ready' "$HOME/.hermes/hermes-yolo-wrapper.js"; then
+    echo "install-grok-yolo: installed wrapper failed SuperGrok gate" >&2
+    return 1
+  fi
 }
 
 update_local_grok() {
@@ -67,9 +124,11 @@ update_local_grok() {
 
 install_remote_files() {
   local host="$1"
+  local wrapper_src
+  wrapper_src="$(resolve_hermes_yolo_wrapper_src "$ROOT/hermes-yolo-wrapper.js")"
   ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" 'mkdir -p "$HOME/.hermes/grok45/tools" "$HOME/.local/bin"'
   rsync -a "$ROOT/grok-yolo-wrapper.js" "$host:~/.hermes/grok45/grok-yolo-wrapper.js"
-  rsync -a "$ROOT/hermes-yolo-wrapper.js" "$host:~/.hermes/hermes-yolo-wrapper.js"
+  rsync -a "$wrapper_src" "$host:~/.hermes/hermes-yolo-wrapper.js"
   rsync -a "$ROOT/tools/hermes-grok45-harness.js" "$host:~/.hermes/grok45/tools/hermes-grok45-harness.js"
   rsync -a "$ROOT/tools/hermes-economic-router.js" "$host:~/.hermes/grok45/tools/hermes-economic-router.js"
   rsync -a "$ROOT/tools/hermes-harness-eval.js" "$host:~/.hermes/grok45/tools/hermes-harness-eval.js"
