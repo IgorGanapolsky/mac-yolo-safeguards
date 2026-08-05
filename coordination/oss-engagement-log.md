@@ -4,6 +4,87 @@ Dated entries from the autonomous OSS-engagement routine (Thinking Machines Lab 
 
 ---
 
+## 2026-08-05 — LanceDB blob-v2 null-batch fix: tested and pushed, blocked from filing
+
+### Repos surveyed
+
+| Org | Repos |
+|-----|--------|
+| Thinking Machines Lab | `thinking-machines-lab/tinker`, `tinker-cookbook`, `tinker-feedback`, `batch_invariant_ops` |
+| Poolside AI | `poolsideai/pool` (org-wide issue search) |
+| LanceDB | `lancedb/lancedb` (forked, cloned, built from source), `lancedb/docs` (read-only, not forked) |
+
+### Issues considered
+
+**Tinker / TML**
+- [#51](https://github.com/thinking-machines-lab/tinker/issues/51) TLS `UnknownIssuer` — already fixed on `main` and already has an open regression-test PR from the 2026-08-03 run (#54, still unmerged). Nothing new to do.
+- [#44](https://github.com/thinking-machines-lab/tinker/issues/44) `tinker checkpoint probe` — real, well-scoped feature request, but it requires instantiating a live `SamplingClient` and firing an actual sample request against the training service. No API credentials are available in this session to verify that path end-to-end, and mocking it would only prove the CLI plumbing, not the thing the issue actually asks for. Skipped per the hard rule against opening a PR without having run and verified it.
+- [tinker-cookbook#847](https://github.com/thinking-machines-lab/tinker-cookbook/issues/847) "fail-closed claim validators + LLM judges" — this is Igor's own prior proposal, still awaiting a maintainer response on scope ("are `recipes/production_claims/` examples welcome?"). Implementing a full recipe unprompted, before that question is answered, would be presumptuous and is also unverifiable without live training infra. Left alone.
+- No `good-first-issue`/`help-wanted` labels open in any TML repo this run.
+
+**Poolside**
+- Re-confirmed directly (`GET /repos/poolsideai/pool/contents/`): the repo contains only `CHANGELOG.md`, `LICENSE.md`, `README.md`, `third_party/`. `pool` is a closed-source binary; there is no source to fix. Same finding as 2026-08-03.
+- ACP-disconnect cluster (#22, #25, #27, #32, #33) — each report links to a local logs.zip on the reporter's machine; no reproducible detail is in the issue body itself. Not diagnosable blind.
+- [#13](https://github.com/poolsideai/pool/issues/13) scrolling bug — repro is a video attachment only, no text description.
+- [#29](https://github.com/poolsideai/pool/issues/29) "add LLMTR as an OpenAI-compatible provider" — filed by LLMTR's own maintainer, i.e. third-party self-promotion in someone else's README. Skipped; not something worth spending Igor's contributor credibility on.
+- No `good-first-issue`/`help-wanted` labels open.
+
+**LanceDB**
+- [#3765](https://github.com/lancedb/lancedb/issues/3765) hybrid search ignores `.offset()` — already has two PRs from another contributor (#3768 closed, #3769 open). Skipped, don't pile on.
+- The `LanceDBConnection`/`LanceTable` `__repr__` deadlock-under-debugger bug ([#3773](https://github.com/lancedb/lancedb/issues/3773), [#3611](https://github.com/lancedb/lancedb/issues/3611)) — independently diagnosed this from source (both reprs called `LOOP.run()`, a blocking cross-thread wait that deadlocks if the background event-loop thread is itself suspended by a debugger at a breakpoint) and had a fix + regression test ready, only to discover **the fork I was working from (`igorganapolsky/lancedb`) was significantly stale** — the exact fix (down to matching code) was already merged upstream months ago via #3620 and #3411. Re-synced the fork to `upstream/main` (`git reset --hard`) and discarded the redundant fix.
+- [#3760](https://github.com/lancedb/lancedb/issues/3760) blob v2 `update()` failure, and [#3626](https://github.com/lancedb/lancedb/issues/3626) `drop_table` stale session-cache panic — real, well-diagnosed bugs, but both root-cause into the external `lance-format/lance` crate (a separate GitHub repo, pulled in as a pinned git dependency), not `lancedb/lancedb` itself. Out of scope for this repo/session.
+- [#3759](https://github.com/lancedb/lancedb/issues/3759) blob v2 `add()` rejects an all-null batch — **acted**. Root cause confirmed directly in `rust/lancedb/src/table/datafusion/blob_coerce.rs`: `coerce_blob_expr()` matches on the input column's Arrow type, and had no arm for `DataType::Null` (what PyArrow infers when every value in a column is `None`), so it fell into the catch-all "unsupported type" error — reproducing the exact error text from the issue. Fixed by treating `Null` like the existing raw-binary case.
+
+### What was opened
+
+| Action | Status |
+|--------|--------|
+| **Fix + regression test**, `lancedb/lancedb` #3759 | Committed (`c89915d`) and pushed to `IgorGanapolsky/lancedb:fix/blob-null-batch-coerce`. **PR could not be filed — see blocker below.** |
+
+#### LanceDB fix detail (#3759, blob-v2 half only)
+
+- **File:** `rust/lancedb/src/table/datafusion/blob_coerce.rs`
+- **Change:** added `DataType::Null` to the match arm that already handles `Binary | LargeBinary | BinaryView`. `CastExpr` from `Null` to any nullable target produces an all-null array, so every declared blob-struct child (`data`, `uri`, `position`, `size`) comes out null — matching the "no value" intent of an all-`None` batch.
+- **New test:** `all_null_batch_coerces_to_declared_blob_struct`, following the file's existing `coerce()`-helper test pattern.
+- **Verified (built from source — `maturin develop`, ~30 min including a `protoc` install and a broken-toolchain repair; then `cargo test -p lancedb`):**
+  - Without the fix: `cargo test -p lancedb --lib table::datafusion::blob_coerce::tests::all_null_batch_coerces_to_declared_blob_struct` → **0 passed; 1 failed** (panics on the exact reported error).
+  - With the fix: same module, all tests → **13 passed; 0 failed**.
+  - Broader sanity check, `cargo test -p lancedb --lib table::datafusion` → **81 passed; 0 failed** (no collateral breakage).
+- Scope note in the (unfied) PR body: this fixes the blob-v2 half of #3759 only. The issue's JSON extension-type (`pa.json_()`) case goes through a different code path (surfaces as a Lance-side "Append with different schema" error, not a `blob_coerce.rs` one) and is out of scope here.
+- Ready-to-open PR: https://github.com/IgorGanapolsky/lancedb/pull/new/fix/blob-null-batch-coerce (branch `fix/blob-null-batch-coerce`, base `lancedb:main`).
+
+### Blocker: could not file the PR
+
+`mcp__github__create_pull_request(owner: "lancedb", repo: "lancedb", ...)` returned:
+`Access denied: repository "lancedb/lancedb" is not configured for this session. Allowed repositories: igorganapolsky/mac-yolo-safeguards, igorganapolsky/lancedb, igorganapolsky/tinker`
+
+This is the same session-scoping wall the 2026-08-04 run hit and flagged, except that run only confirmed it for *read* calls (`issue_read`, `get_file_contents`, ...) and inferred writes were equally blocked without testing. This run tested it directly: **`create_pull_request` against an upstream repo is blocked too**, even though the corresponding fork (`igorganapolsky/lancedb`) is attached and the branch is pushed. This directly contradicts the 2026-08-03 entry in this log, where PRs were successfully opened against these same two upstream repos (`thinking-machines-lab/tinker` PR #54, `lancedb/lancedb` PR #3775) from what was presumably a similarly-scoped session. Whatever allowed that on 2026-08-03 is not available now.
+
+The fix itself is real, tested, and ready — this is a tooling/session-configuration gap, not a "nothing worth doing" day.
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| Tinker #44 checkpoint probe | Needs live `SamplingClient` access to verify; no API credentials available |
+| tinker-cookbook #847 | Igor's own proposal, awaiting maintainer response — not mine to act on solo |
+| Poolside (all) | No source code in `pool`; other issues unreproducible or third-party promo |
+| LanceDB #3765 | Already claimed, two PRs open from another contributor |
+| LanceDB #3773/#3611 | Already fixed upstream (fork was stale — discovered mid-investigation) |
+| LanceDB #3760, #3626 | Root cause is in the external `lance-format/lance` repo, out of scope |
+| New manufactured question | No real unknown surfaced this run |
+
+### ThumbGate mentions
+
+**None** this run.
+
+### Action needed from Igor
+
+1. **File the ready PR by hand** (or from a session that has upstream `lancedb/lancedb` write access): branch `fix/blob-null-batch-coerce` on `IgorGanapolsky/lancedb`, base `lancedb:main`. Commit message and verification detail above are ready to paste as the PR body.
+2. **Session scoping regressed between 2026-08-03 and 2026-08-04–05.** Two consecutive runs now confirm this routine cannot open PRs against the actual target orgs from a session whose initial source is `mac-yolo-safeguards`, despite doing so successfully on 2026-08-03. Recommend either: (a) fire this routine into a fresh session per target org with that org's repo as the initial source, or (b) restore whatever scope config made 2026-08-03 work.
+
+---
+
 ## 2026-08-03 (PM) — Tinker regression tests + LanceDB naive datetime fix
 
 ### Repos surveyed
