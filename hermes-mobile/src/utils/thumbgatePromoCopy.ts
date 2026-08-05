@@ -1,26 +1,13 @@
 /**
- * Single source of truth for ThumbGate.app web funnel copy in Hermes Mobile.
+ * Single source of truth for ThumbGate web funnel copy in Hermes Mobile.
  * Production control plane: https://thumbgate.app (see apps/hermes-control-plane).
- * Public marketing always says **ThumbGate.app** (never bare "ThumbGate" alone).
- *
- * Consumer Leash/connection promo: short + one CTA. No coding-agent manuals,
- * no multi-step install essay. Connector setup lives on the web dashboard.
  */
 
-import {
-  HERDR_AGENT_SKILL_DOCS_URL,
-  THUMBGATE_CONNECTOR_INSTALL_BUTTON_LABEL,
-} from './thumbgateFacilitation';
-
-/** Canonical Hermes Web / ThumbGate.app control-plane URL (not thumbgate.ai). */
-/** Product-first: open /dashboard. Never deep-link to pricing. */
+/** Canonical Hermes Web / ThumbGate control-plane URL (direct to pricing section). */
 export const THUMBGATE_WEB_URL =
-  'https://thumbgate.app/dashboard?utm_source=hermes-mobile&utm_medium=app&utm_campaign=paid_companion';
+  'https://thumbgate.app/?utm_source=hermes-mobile&utm_medium=app&utm_campaign=paid_companion#pricing';
 
-/** Primary consumer CTA — short. */
-export const THUMBGATE_PROMO_BUTTON_LABEL = 'Open ThumbGate.app';
-
-export { THUMBGATE_CONNECTOR_INSTALL_BUTTON_LABEL };
+export const THUMBGATE_PROMO_BUTTON_LABEL = 'See ThumbGate.app plans';
 
 export type ThumbGatePromoSurface = 'leash_disconnected' | 'leash_empty' | 'connection_unreachable';
 
@@ -31,27 +18,19 @@ export type ThumbGatePromoCopy = {
   url: string;
 };
 
-/** Short consumer card — CEO 2026-08-03: no long instructions, no coding agents. */
 const PAID_COMPANION_COPY = {
-  headline: 'ThumbGate.app',
-  body: 'Web dashboard and Continuity when your computer is offline.',
+  headline: 'Upgrade Hermes with ThumbGate.app',
+  body: 'Add a web dashboard and paid Continuity to Hermes Mobile with ThumbGate.app. Manage chats and Leash controls from any browser, and keep eligible work moving when your Mac is offline.',
 } as const;
 
-/**
- * Dev/docs only — not shown on the consumer Leash card.
- * Kept so agent tooling can still deep-link Herdr skill docs without polluting UI.
- */
 export const HERDR_INTEGRATION_COPY = {
-  headline: 'Agent skill pattern (Herdr-style)',
-  body: 'Coding agents can load a markdown skill that teaches safe Hermes Mobile pairing and ThumbGate.app facilitation — same idea as Herdr’s agent skill file.',
-  buttonLabel: 'Herdr agent skill docs',
-  url: HERDR_AGENT_SKILL_DOCS_URL,
+  headline: 'Multiplex Agents with Herdr + ThumbGate.app',
+  body: 'Run your coding agent herd in Herdr terminal panes with 1-tap mobile status tracking, Herdr socket sync, and ThumbGate pre-action safety guardrails.',
+  buttonLabel: 'Learn Herdr + ThumbGate integration',
+  url: 'https://herdr.dev/docs/agent-skill/',
 } as const;
 
-const SURFACE_COPY: Record<
-  ThumbGatePromoSurface,
-  Omit<ThumbGatePromoCopy, 'url' | 'buttonLabel'>
-> = {
+const SURFACE_COPY: Record<ThumbGatePromoSurface, Omit<ThumbGatePromoCopy, 'url' | 'buttonLabel'>> = {
   leash_disconnected: PAID_COMPANION_COPY,
   leash_empty: PAID_COMPANION_COPY,
   connection_unreachable: PAID_COMPANION_COPY,
@@ -69,11 +48,7 @@ export function thumbGatePromoCopy(surface: ThumbGatePromoSurface): ThumbGatePro
 export function resolveLeashThumbGatePromoSurface(input: {
   connectionState: 'disconnected' | 'connecting' | 'connected' | 'demo';
   pendingApprovalsCount: number;
-  hasThumbGateCompanion?: boolean;
 }): ThumbGatePromoSurface | null {
-  if (input.hasThumbGateCompanion) {
-    return null;
-  }
   if (input.connectionState === 'connected' || input.connectionState === 'demo') {
     return input.pendingApprovalsCount === 0 ? 'leash_empty' : null;
   }
@@ -88,11 +63,7 @@ export function shouldShowThumbGatePromoOnConnectionPanel(input: {
   profileCount: number;
   healExhausted: boolean;
   activeProfileReachable: boolean;
-  hasThumbGateCompanion?: boolean;
 }): boolean {
-  if (input.hasThumbGateCompanion) {
-    return false;
-  }
   if (input.connectionState === 'connected' || input.connectionState === 'demo') {
     return false;
   }
