@@ -220,3 +220,66 @@ Fix shape: `channel_scope_from_filter` — one `#h` → `channel_id`; many → `
 2. WF-08: open design issue then PR only after double-resume + idempotent `create_approval` tests green.
 3. Optional: small PR for #4565 deny-by-default config if maintainers signal OK.
 
+---
+
+## 2026-08-05 — Run 3 (WF-08 fix built, tested, pushed — blocked on PR-creation access, same wall as Run 1)
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+- **Canonical repo, reconfirmed:** [`github.com/block/buzz`](https://github.com/block/buzz) — Apache-2.0, ~22.5k★, 793 open issues, 1.1k open PRs, actively pushed today. Maintainer: Block, Inc.
+- **Read access:** `add_repo(block, buzz, access:"read")` succeeds — this session's git proxy serves anonymous clones of public repos without attaching them. Used to clone and read `crates/buzz-workflow`, `crates/buzz-relay`, `crates/buzz-db` directly.
+- **Push access:** `add_repo(IgorGanapolsky, buzz, access:"push")` succeeds (same-owner as this session's existing `igorganapolsky/*` sources) — cloned Igor's fork to a working tree, branched, committed, and pushed.
+- **Write access to `block/buzz` itself: still blocked.** `add_repo(block, buzz, access:"push")` was retried and again rejected as a cross-tier add (identical to Run 1, 2026-08-03). `mcp__github__create_pull_request` and `mcp__github__add_issue_comment` against `block/buzz` both fail with "repository not configured for this session." This session can push to the fork but cannot call GitHub's PR or comment API against the upstream repo, for any reason — not a judgment call, a hard scope limit.
+- **Prior-run activity, independently re-verified** (not taken on the log's word — checked live via `github.com` and `api.github.com`): PR [#4598](https://github.com/block/buzz/pull/4598) is closed ("superseded by a revised version including required DCO sign-off"); PR [#4624](https://github.com/block/buzz/pull/4624) is open, DCO passed, no reviews yet, no new activity since Run 2 besides a bot usage-limit comment. Issues [#3525](https://github.com/block/buzz/issues/3525) (WF-08 — `finalize_run` drops the approval token) and [#3523](https://github.com/block/buzz/issues/3523) (approval event contract stabilization) are both open, both filed by IgorGanapolsky, both real.
+
+### What was surveyed (last ~72h)
+
+~18 issues opened 2026-08-02 through today (sampled via GitHub search API, `repo:block/buzz is:issue is:open created:>2026-08-02`). Notable:
+
+| Issue | Topic | Note |
+|-------|-------|------|
+| [#4758](https://github.com/block/buzz/issues/4758) | Regression-test gap: multi-`#h` filter bypasses `extract_channel_from_filter` | **Same bug PR #4624 already fixes** — a pointer comment would be genuinely useful, but comment access is blocked (see below) |
+| [#4743](https://github.com/block/buzz/issues/4743) | Hosted relay write path 500s, no fanout for `h`-tagged DMs, WS silently stops after ~2h | In-domain (write-gating, silent failure) but needs real repro/log investigation before a substantive answer |
+| [#4749](https://github.com/block/buzz/issues/4749) | Hosted relay intermittent multi-second latency, `/health` stays fast | Same — in-domain, needs more than a survey pass |
+| [#4796](https://github.com/block/buzz/issues/4796) | NIP-29 member lists omit relay's own pubkey | Already well-discussed (10 comments); not a gap needing Igor |
+
+### What was opened / answered this run
+
+**Code: fully built, tested, and pushed. Wire (PR/comments): blocked — nothing landed on GitHub.**
+
+Implemented the exact fix issue #3525 describes: `WorkflowEngine::finalize_run` (`crates/buzz-workflow/src/lib.rs`) unconditionally marked any suspended (`request_approval`) run `Failed` with a "not yet implemented — see WF-08" message, even though the rest of the pipeline — `create_approval`/`get_approval`/`update_approval` in buzz-db, `handle_approval_grant`/`handle_approval_deny` and `resume_workflow_after_approval` in buzz-relay — was already correct and had been waiting on this call the whole time.
+
+- `ExecutionResult` / `StepResult::Suspended` (executor.rs) now carry an `ApprovalContext` (`step_id`, `approver_spec`, `expires_at`) captured from the resolved `RequestApproval` action at the moment of suspension.
+- `finalize_run` now calls `create_approval` and transitions the run to `WaitingApproval` on success; if persistence itself fails, it fails the run loudly rather than leaving an orphaned, unreachable `WaitingApproval` row.
+- Threaded `workflow_id` through all 5 `finalize_run` call sites (buzz-workflow event/cron triggers, buzz-relay manual-trigger/webhook/resume) — every site already had the workflow row in scope.
+- New test `crates/buzz-workflow/tests/wf08_approval_gate.rs` (Postgres-backed, `#[ignore]`d per this repo's own convention for DB tests). **Verified fail-before/pass-after by hand**, not assumed: stashed the fix with the test still in place, confirmed it failed exactly as the bug predicts (run ends `Failed`, zero approval rows persisted); restored the fix, confirmed green.
+- Full verification against a real local Postgres 16 (migrations applied via `cargo run -p buzz-admin -- migrate`):
+  - `cargo test -p buzz-workflow --lib` — 153 passed, 0 failed
+  - `cargo test -p buzz-workflow --test wf08_approval_gate -- --ignored` — 1 passed
+  - `cargo test -p buzz-relay --lib` (incl. `--ignored` Postgres subset) — 838 passed, 0 failed, 37 ignored; the only ignored-subset failures (6, `api::bridge::tests`, unrelated NIP-98/metrics assertions) were confirmed to reproduce identically on unmodified `main` by stashing this fix and re-running the same tests — pre-existing, not a regression
+  - `cargo clippy -p buzz-workflow -p buzz-relay --all-targets -- -D warnings` — clean
+  - `cargo fmt -p buzz-workflow -p buzz-relay -- --check` — clean
+- Committed with DCO sign-off (`Igor Ganapolsky <201209+IgorGanapolsky@users.noreply.github.com>`, matching the identity that already passed DCO on #4624) and pushed: **https://github.com/IgorGanapolsky/buzz/tree/fix/wf08-approval-gate-finalize-run**
+
+**PR not opened.** `mcp__github__create_pull_request` against `block/buzz` (required — cross-fork PRs are created against the base repo) returned "repository not configured for this session." Retried `add_repo(block, buzz, access:"push")`: rejected again as cross-tier. This session's GitHub write scope is `igorganapolsky/*` only — it can push commits to Igor's own fork but cannot call the GitHub API against `block/buzz` for a PR or a comment, full stop.
+
+**Action needed from Igor:** open the PR by hand — GitHub's own compare link is ready: https://github.com/IgorGanapolsky/buzz/pull/new/fix/wf08-approval-gate-finalize-run. Everything upstream of that click is done (fix, test, DCO, full verification). This is the same wall Run 1 hit on research alone; it has now blocked a fully-built, fully-tested fix at the last step. Worth resolving the underlying access grant once (broader GitHub scope for this routine, or an environment pre-attached to `block/buzz`) instead of re-discovering it every run.
+
+### Positioning read: unchanged — **neither** (real technical overlap, still no relationship)
+
+No new information changes the Run 2 read. Buzz is still a team workspace (chat + git + workflow automation on Nostr), not a general cross-tool pre-action firewall; there is still no integration or relationship with ThumbGate. The overlap stays specific and real: this run's fix closes exactly the kind of gap — suspend/resume correctness, durable state for an external decision, failing loudly rather than silently orphaning state — that is Igor's stated expertise. **Zero ThumbGate mentions this run** — irrelevant to every surveyed issue and to the PR body itself.
+
+### What was skipped and why
+
+- **Second PR** — not applicable; the one PR slot this run went to WF-08, and it's blocked at the very last step rather than by choice.
+- **Comment on #4758** (test-coverage gap for the exact bug PR #4624 fixes) — skipped; confirmed the same write-access wall blocks `add_issue_comment` on `block/buzz` too, not just PR creation.
+- **#4743 / #4749** (hosted relay reliability incidents) — skipped; genuinely in-domain but need real log/repro investigation before a substantive answer, not a drive-by comment.
+- **`kind:46010` approval-request announcement event** (the third item in issue #3525's own proposed fix) — deliberately left out of this PR. It's discoverability/push-notification UX for approvers' clients, not correctness of the grant→deny→resume state machine, which this fix completes end-to-end. Also depends on the wire-event contract question still open in #3523. Noted as a follow-up in the PR body itself, not silently dropped.
+
+### Next run candidates
+
+1. **First priority:** confirm the PR got opened from the pushed branch (by Igor, or by a future run with broader access) — https://github.com/IgorGanapolsky/buzz/pull/new/fix/wf08-approval-gate-finalize-run. If still not opened, this is now a 2-run-old blocker worth escalating rather than re-verifying facts a fourth time.
+2. If #4624 has review feedback, address it.
+3. If access allows, comment on #4758 pointing at #4624 (same bug, already fixed, has a regression test).
+4. `kind:46010` follow-up, once #3523's wire-event contract question settles.
+
