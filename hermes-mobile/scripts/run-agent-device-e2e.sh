@@ -26,6 +26,19 @@ SERIAL=""
 if [ ! -z "$ANDROID_DEVICES" ]; then
     SERIAL=$(echo "$ANDROID_DEVICES" | head -n 1)
     echo "   Targeting Android Device: $SERIAL"
+
+    # Android permits ONE UiAutomation client per device. A driver that died
+    # without cleanup (2026-08-04: dev.mobile.maestro survived a full day)
+    # blocks every later run with misleading transport errors — Maestro says
+    # "gRPC UNAVAILABLE", agent-device says "helper output could not be
+    # parsed"; the truth ("UiAutomationService already registered") is only in
+    # diagnostics. Clearing stale drivers up front removes that flake class.
+    # NOTE: wearables.maestro.companion is Google's Pixel Buds app — not ours.
+    echo "🧹 Clearing stale UiAutomation holders..."
+    for STALE_PKG in dev.mobile.maestro dev.mobile.maestro.test \
+        com.callstack.agentdevice.snapshothelper com.callstack.agentdevice.multitouchhelper; do
+        adb -s "$SERIAL" shell am force-stop "$STALE_PKG" >/dev/null 2>&1 || true
+    done
 else
     echo "🔍 No active Android devices found. Checking iOS Simulators..."
     IOS_SIMULATORS=$(xcrun simctl list devices | grep "Booted") || true
