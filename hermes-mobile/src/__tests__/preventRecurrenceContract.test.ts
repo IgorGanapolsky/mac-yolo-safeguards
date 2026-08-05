@@ -71,6 +71,16 @@ describe('prevent recurrence contract (July 2026 CI gates)', () => {
     ).toBe(true);
   });
 
+  it('GH-#132: relay health merge preserves Mac authMismatch (no false green over 401)', () => {
+    // Source contract: GatewayContext must call mergeRelayAndMacHealth in relay mode.
+    const ctx = read('hermes-mobile/src/context/GatewayContext.tsx');
+    expect(ctx).toContain('mergeRelayAndMacHealth');
+    expect(ctx).toMatch(/connectionMode === ['"]relay['"][\s\S]{0,800}mergeRelayAndMacHealth/);
+    const util = read('hermes-mobile/src/utils/gatewayConnection.ts');
+    expect(util).toContain('export function mergeRelayAndMacHealth');
+    expect(util).toContain('authMismatch');
+  });
+
   it('green health with authMismatch is not mac HTTP ok', () => {
     expect(
       isMacGatewayHttpOk({
