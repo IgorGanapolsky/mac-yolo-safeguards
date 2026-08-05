@@ -200,6 +200,8 @@ import {
   shouldShowChatOutputFeedback,
 } from '../utils/chatOutputFeedback';
 import { isThumbgateLeashUnlocked } from '../utils/thumbgateLeash';
+import { shouldShowThumbGatePromoOnConnectedChat } from '../utils/thumbgatePromoCopy';
+import ThumbGatePromoCard from '../components/ThumbGatePromoCard';
 import {
   displayableLlmModel,
   humanizeComposerStatus,
@@ -1713,6 +1715,10 @@ export default function ChatScreen() {
       userSendFailed,
       profiles: gatewayProfiles,
     });
+  const showThumbGateConnectedPromo = shouldShowThumbGatePromoOnConnectedChat({
+    connectionState: isDemo ? 'demo' : connectionState,
+    hasThumbGateCompanion: Boolean(thumbgateApiKey?.trim()),
+  });
   // Auth mismatch already has the red Re-pair banner — don't stack orange "Can't reach".
   const showMacRetryBanner =
     !effectiveAuthMismatch &&
@@ -8143,6 +8149,12 @@ export default function ChatScreen() {
               hasThumbGateCompanion={Boolean(thumbgateApiKey?.trim())}
             />
           </ScrollView>
+        ) : null}
+
+        {!showMacConnectionHelp && showThumbGateConnectedPromo ? (
+          <View style={{ paddingHorizontal: 16, paddingTop: 8 }} testID="thumbgate-promo-chat-connected-wrap">
+            <ThumbGatePromoCard surface="chat_connected" />
+          </View>
         ) : null}
 
         {!showMacConnectionHelp && (isLoadingMessages && messages.length === 0 ? (

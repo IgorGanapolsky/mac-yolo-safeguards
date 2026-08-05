@@ -195,20 +195,12 @@ export function preferredProfileForMachine(
   }
   const activeInGroup = candidates.find((profile) => profile.id === options.activeProfileId);
   if (activeInGroup) {
-    const activeIsUsb = isLoopbackGatewayUrl(activeInGroup.gatewayUrl);
-    const cableLive = options.liveUsb?.reachable === true;
-    // Preserve Tailscale (and USB when already selected). When a live cable would otherwise
-    // steal the row (USB score 100 > Wi‑Fi 70), also preserve the active Home Wi‑Fi /
-    // Tailscale identity so the picker cannot say "Using USB" while the header says
-    // Home Wi‑Fi. Without a cable, still allow ranking to prefer Tailscale over a stale
-    // home-Wi‑Fi alias (away-from-home).
-    if (
-      activeIsUsb ||
-      isTailscaleGatewayUrl(activeInGroup.gatewayUrl) ||
-      cableLive
-    ) {
-      return activeInGroup;
-    }
+    // Always keep the user's explicit selection as the radio for this machine.
+    // Heal/away-from-home ranking still runs on probe paths that omit activeProfileId
+    // or pass a different candidate set. Never replace Home Wi‑Fi with Tailscale (or
+    // vice versa) just because ranking prefers another transport while the user has
+    // this Mac selected (2026-08-05: mini LAN selected but Tailscale 100.x won the row).
+    return activeInGroup;
   }
   const liveHost = options.liveUsb?.reachable ? options.liveUsb.hostname?.trim() : null;
   const transportFor = (profile: GatewayProfile): ReachabilityTransport => {
