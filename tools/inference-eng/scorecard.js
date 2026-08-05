@@ -101,13 +101,22 @@ function scorePillars() {
   });
 
   // §6 Optimizer loop
+  // STRICT boolean: `a && b && abTestHint` used to leak the AB-hint object into
+  // `pass` (truthy dict), so allPass/aPlus looked green without pass===true.
   const fixturePath = path.join(REPO, 'tests/fixtures/inference-eng/traffic-sample.jsonl');
   let optOk = false;
   let optDetail = 'no fixture';
+  let abTestHint = null;
   if (fs.existsSync(fixturePath)) {
     const report = runOptimizer({ windowHours: 0, logPath: fixturePath });
     // windowHours 0 means no cutoff in loadTraffic - good
-    optOk = Array.isArray(report.proposals) && report.proposals.length >= 1 && report.abTestHint;
+    optOk = Boolean(
+      Array.isArray(report.proposals) &&
+        report.proposals.length >= 1 &&
+        report.abTestHint &&
+        typeof report.abTestHint === 'object',
+    );
+    abTestHint = report.abTestHint || null;
     optDetail = `proposals=${report.proposals.length} n=${report.summary.n}`;
   }
   checks.push({
@@ -116,6 +125,8 @@ function scorePillars() {
     pass: optOk,
     score: optOk ? 10 : 4,
     evidence: optDetail,
+    // Keep experiment plan as metadata — never as `pass`
+    abTestHint: abTestHint || undefined,
   });
 
   // §7 Business KPI linkage
@@ -164,11 +175,16 @@ function gradeFromScores(avg) {
   return 'C';
 }
 
+function isStrictPass(value) {
+  return value === true;
+}
+
 function runScorecard() {
   const checks = scorePillars();
   const scores = checks.map((c) => c.score);
   const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-  const allPass = checks.every((c) => c.pass);
+  // Require boolean true — objects/strings must not inflate aPlus (2026-08-05)
+  const allPass = checks.every((c) => isStrictPass(c.pass));
   const grade = gradeFromScores(avg);
   // A+ requires all pass and avg >= 9.5
   const aPlus = allPass && avg >= 9.5;
@@ -207,4 +223,5 @@ module.exports = {
   runScorecard,
   scorePillars,
   gradeFromScores,
+  isStrictPass,
 };

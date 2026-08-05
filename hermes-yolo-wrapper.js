@@ -32,7 +32,141 @@ const HERMES_YOLO_LATEST_RECEIPT_PATH = process.env.HERMES_YOLO_LATEST_RECEIPT_P
 const HERMES_YOLO_HISTORY_RECEIPT_PATH = process.env.HERMES_YOLO_HISTORY_RECEIPT_PATH || path.join(HERMES_YOLO_RECEIPT_DIR, 'history.jsonl');
 // All thresholds overridable via env vars.
 const HERMES_BIN = process.env.HERMES_BIN || path.join(HOME, '.local/bin/hermes');
-const DEFAULT_TOOLSETS = process.env.HERMES_YOLO_TOOLSETS || 'terminal,file,web,code_execution,memory,clarify,computer_use,vision';
+// Slim default (2026-08 harness research): computer_use + vision spawn Chrome and thrash
+// 24GB multi-agent Macs. Opt in via HERMES_YOLO_TOOLSETS=...computer_use,vision
+const DEFAULT_TOOLSETS = process.env.HERMES_YOLO_TOOLSETS
+  || 'terminal,file,web,code_execution,memory,clarify';
+
+/**
+ * Capability registry for fail-closed model selection (P0).
+ * Availability-only LiteLLM fallbacks can land on chat-tier free models that
+ * cannot tool-call — hermes-yolo must refuse those for agent runs.
+ * agent_capable=true ⇒ expected to support tool/function calling for coding agents.
+ */
+const MODEL_CAPABILITY_REGISTRY = Object.freeze({
+  'glm-coding': { agentCapable: true, class: 'coding' },
+  'glm-5.2': { agentCapable: true, class: 'coding' },
+  'glm-turbo': { agentCapable: true, class: 'coding' },
+  'z-ai/glm-5.2': { agentCapable: true, class: 'coding' },
+  'kimi-code': { agentCapable: true, class: 'coding' },
+  'kimi-for-coding': { agentCapable: true, class: 'coding' },
+  'kimi-code-k3': { agentCapable: true, class: 'coding' },
+  'opencode-go-glm': { agentCapable: true, class: 'coding' },
+  'opencode-go-kimi': { agentCapable: true, class: 'coding' },
+  // DeepSeek V4-Flash-0731 post-trained for agents; open weights MIT 2026-08
+  'deepseek-v4-flash': { agentCapable: true, class: 'coding' },
+  'deepseek-v4-flash-free': { agentCapable: true, class: 'coding' },
+  'openai/deepseek-v4-flash-free': { agentCapable: true, class: 'coding' },
+  'hermes-local': { agentCapable: true, class: 'coding' },
+  'hermes-local-fast': { agentCapable: true, class: 'coding' },
+  'hermes-coder': { agentCapable: true, class: 'coding' },
+  'qwen3:8b-agent-64k': { agentCapable: true, class: 'coding' },
+  'qwen3:8b-64k': { agentCapable: true, class: 'coding' },
+  'qwen3:8b-agent-32k': { agentCapable: true, class: 'coding' },
+  'qwen3:8b': { agentCapable: true, class: 'coding' },
+  'qwen3.6:35b-a3b': { agentCapable: true, class: 'coding' },
+  'gpt-oss:20b': { agentCapable: true, class: 'coding' },
+  // Explicit non-agent / weak rungs — never default primary for YOLO
+  'qwen2.5:3b-64k': { agentCapable: false, class: 'chat' },
+  'qwen2.5:3b': { agentCapable: false, class: 'chat' },
+  'laguna-free': { agentCapable: false, class: 'chat' },
+  'nemotron3-free': { agentCapable: false, class: 'chat' },
+  'opencode-free': { agentCapable: true, class: 'coding' }, // DeepSeek flash free via OpenCode Zen
+});
+
+function modelCapability(modelId) {
+  const id = String(modelId || '').trim();
+  if (!id) return { agentCapable: false, class: 'unknown', known: false };
+  if (MODEL_CAPABILITY_REGISTRY[id]) {
+    return { ...MODEL_CAPABILITY_REGISTRY[id], known: true };
+  }
+  // Heuristic for unlisted models: refuse tiny chat / free junk; allow known coding names
+  const lower = id.toLowerCase();
+  if (/qwen2\.5:3b|3b-chat|tiny|instruct-4bit|gemma-2b/.test(lower)) {
+    return { agentCapable: false, class: 'chat', known: false };
+  }
+  if (/glm|kimi|deepseek|qwen3|coder|coding|hermes|gpt-oss|claude|grok/.test(lower)) {
+    return { agentCapable: true, class: 'coding', known: false };
+  }
+  // Unknown: fail closed for agent primary unless allowlisted via env
+  return { agentCapable: false, class: 'unknown', known: false };
+}
+
+function isAgentCapableModel(modelId, env = process.env) {
+  if (env.HERMES_YOLO_ALLOW_WEAK_MODEL === '1') return true;
+  return modelCapability(modelId).agentCapable === true;
+}
+
+function assertAgentCapableModel(modelId, env = process.env) {
+  if (isAgentCapableModel(modelId, env)) return modelCapability(modelId);
+  const err = new Error(
+    `HERMES_YOLO_FAIL_CLOSED: model "${modelId}" is not agent_capable (tool-calling coding class). `
+    + `Set HERMES_YOLO_ALLOW_WEAK_MODEL=1 to override, or pick glm-coding / deepseek-v4-flash / kimi-code.`
+  );
+  err.code = 'HERMES_YOLO_MODEL_NOT_AGENT_CAPABLE';
+  throw err;
+}
+
+/** Fingerprint a shell command for identical-retry detection (tool thrash). */
+function fingerprintCommand(command, cwd = process.cwd()) {
+  const normalized = String(command || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+  return crypto
+    .createHash('sha256')
+    .update(`${path.resolve(cwd)}\0${normalized}`)
+    .digest('hex')
+    .slice(0, 24);
+}
+
+/**
+ * Per-run tool budget controller. Tracks identical command retries and wall budget.
+ * Exit 124 / timeout on the same fingerprint must not retry forever.
+ */
+function createToolBudget(options = {}) {
+  const maxIdentical = Number(options.maxIdenticalRetries ?? process.env.HERMES_YOLO_MAX_IDENTICAL_TOOL_RETRIES ?? 1);
+  const maxToolCalls = Number(options.maxToolCalls ?? process.env.HERMES_YOLO_MAX_TOOL_CALLS ?? 200);
+  const seen = new Map(); // fingerprint -> { count, lastOutcome }
+  let toolCalls = 0;
+  return {
+    maxIdentical,
+    maxToolCalls,
+    record(command, outcome = 'ok', cwd = process.cwd()) {
+      toolCalls += 1;
+      if (toolCalls > maxToolCalls) {
+        return { allowed: false, reason: 'max_tool_calls', toolCalls, fingerprint: null };
+      }
+      const fp = fingerprintCommand(command, cwd);
+      const prev = seen.get(fp) || { count: 0, lastOutcome: null };
+      const nextCount = prev.count + 1;
+      seen.set(fp, { count: nextCount, lastOutcome: outcome });
+      const isTimeout = outcome === 'timeout' || outcome === 124 || outcome === '124';
+      if (isTimeout && nextCount > maxIdentical) {
+        return {
+          allowed: false,
+          reason: 'identical_timeout_budget',
+          toolCalls,
+          fingerprint: fp,
+          identicalCount: nextCount,
+        };
+      }
+      if (nextCount > maxIdentical + 2) {
+        return {
+          allowed: false,
+          reason: 'identical_retry_budget',
+          toolCalls,
+          fingerprint: fp,
+          identicalCount: nextCount,
+        };
+      }
+      return { allowed: true, toolCalls, fingerprint: fp, identicalCount: nextCount };
+    },
+    snapshot() {
+      return { toolCalls, distinctCommands: seen.size, maxToolCalls, maxIdentical };
+    },
+  };
+}
 
 function parseEnvFile(filePath = HERMES_ENV_PATH) {
   if (!filePath || !fs.existsSync(filePath)) return {};
@@ -78,6 +212,28 @@ function configuredProviderIds(configPath = HERMES_CONFIG_PATH) {
   return ids;
 }
 
+// Reads the `model:` block of ~/.hermes/config.yaml for an explicit default route.
+// Key presence ≠ live quota (z.ai 429 until 2026-08-08; operator may pin deepseek).
+function configuredDefaultModel(configPath = HERMES_CONFIG_PATH) {
+  if (!configPath || !fs.existsSync(configPath)) return null;
+  let text;
+  try {
+    text = fs.readFileSync(configPath, 'utf8');
+  } catch (error) {
+    return null;
+  }
+  let inModelBlock = false;
+  const found = {};
+  for (const line of text.split(/\r?\n/)) {
+    if (/^model:\s*$/.test(line)) { inModelBlock = true; continue; }
+    if (!inModelBlock) continue;
+    if (/^\S/.test(line)) break;
+    const match = line.match(/^\s{2}(default|provider):\s*(\S+)\s*$/);
+    if (match) found[match[1]] = match[2];
+  }
+  return found.default ? { model: found.default, provider: found.provider || null } : null;
+}
+
 function chooseZaiProvider(configuredIds = configuredProviderIds()) {
   const preferred = ['zai-coding-glm', 'zai-coding-nothink'];
   const id = preferred.find((candidate) => configuredIds.includes(candidate));
@@ -115,7 +271,8 @@ function listOllamaModels() {
   }
 }
 
-function chooseLocalModel(availableModels = listOllamaModels()) {
+function chooseLocalModel(availableModels = listOllamaModels(), env = process.env) {
+  // Prefer agent-capable locals; never default to qwen2.5:3b unless forced.
   const candidates = [
     'qwen3.6:35b-a3b',
     'gpt-oss:20b',
@@ -123,37 +280,61 @@ function chooseLocalModel(availableModels = listOllamaModels()) {
     'qwen3:8b-64k',
     'qwen3:8b-agent-32k',
     'qwen3:8b',
-    'qwen2.5:3b-64k',
-    'qwen2.5:3b',
   ];
-  return candidates.find((model) => availableModels.includes(model)) || 'qwen2.5:3b-64k';
+  const weak = ['qwen2.5:3b-64k', 'qwen2.5:3b'];
+  const pick = candidates.find((model) => availableModels.includes(model));
+  if (pick) return pick;
+  if (env.HERMES_YOLO_ALLOW_WEAK_MODEL === '1') {
+    return weak.find((model) => availableModels.includes(model)) || 'qwen2.5:3b-64k';
+  }
+  // Fail closed: still return a name for diagnostics, but mark via capability
+  return weak.find((model) => availableModels.includes(model)) || 'qwen3:8b-64k';
 }
 
 function defaultModelRoute(env = process.env, options = {}) {
   if (env.HERMES_YOLO_PROVIDER || env.HERMES_YOLO_MODEL) {
+    const model = env.HERMES_YOLO_MODEL || chooseLocalModel(options.availableModels, env);
+    // Capability is enforced at spawn (assertAgentCapableModel), not here —
+    // so module load never crashes when a weak model is set in the environment.
     return {
-      provider: env.HERMES_YOLO_PROVIDER || 'custom:ollama-local-64k',
-      model: env.HERMES_YOLO_MODEL || chooseLocalModel(options.availableModels),
+      provider: env.HERMES_YOLO_PROVIDER || 'custom:litellm-gateway',
+      model,
     };
   }
 
-  if (hasZaiKey(env)) {
+  // Explicit model.default in ~/.hermes/config.yaml outranks key-presence heuristics.
+  // 2026-08-03: z.ai key still present but weekly quota exhausted — operator set
+  // default deepseek-v4-flash; hasZaiKey() alone must not pin every launch back to glm.
+  const configuredDefault = options.configuredDefault !== undefined
+    ? options.configuredDefault
+    : configuredDefaultModel(options.configPath || HERMES_CONFIG_PATH);
+  if (configuredDefault && configuredDefault.model) {
     return {
-      provider: chooseZaiProvider(options.configuredProviderIds),
-      model: 'glm-5.2',
+      provider: configuredDefault.provider || 'custom:litellm-gateway',
+      model: configuredDefault.model,
+    };
+  }
+
+  // Fleet default (legacy hermes path only): LiteLLM gateway with agent-class model.
+  // Prefer glm-coding over raw glm-5.2 alias when no config override.
+  if (hasZaiKey(env) || env.HERMES_YOLO_USE_GATEWAY === '1' || env.HERMES_LITELLM_URL) {
+    return {
+      provider: 'custom:litellm-gateway',
+      model: 'glm-coding',
     };
   }
 
   if (hasOpenRouterKey(env)) {
     return {
-      provider: 'custom:openrouter-glm52',
-      model: 'z-ai/glm-5.2',
+      provider: 'custom:litellm-gateway',
+      model: 'glm-coding',
     };
   }
 
+  const local = chooseLocalModel(options.availableModels, env);
   return {
     provider: 'custom:ollama-local-64k',
-    model: chooseLocalModel(options.availableModels),
+    model: local,
   };
 }
 
@@ -288,21 +469,34 @@ function writeRouteReceipt(receipt, paths = {}) {
 function buildRouteReceipt(options = {}) {
   const selectedBackend = options.selectedBackend || 'unknown';
   const model = options.model || null;
+  const requestedModel = options.requestedModel || model;
+  const actualModel = options.actualModel || model;
+  const cap = modelCapability(actualModel || model);
   return {
-    schema: 'hermes-yolo/route-receipt-v1',
+    schema: 'hermes-yolo/route-receipt-v2',
+    runId: options.runId || digest(`run-${Date.now()}`, 16),
     generatedAt: options.generatedAt || new Date().toISOString(),
     host: options.host || os.hostname(),
     cwdDigest: digest(options.cwd || process.cwd()),
     request: options.request || summarizeRouteArgs(options.rawArgs || []),
+    policy: {
+      toolsets: options.toolsets || DEFAULT_TOOLSETS,
+      failClosed: options.failClosed !== false,
+      agentCapableRequired: true,
+    },
     route: {
       requestedBackend: options.requestedBackend || 'grok',
       selectedBackend,
       reason: options.reason || 'unknown',
       provider: options.provider || null,
       model,
+      requestedModel,
+      actualModel,
+      agentCapable: cap.agentCapable,
+      modelClass: cap.class,
       launcher: options.launcher ? path.basename(options.launcher) : null,
       launcherDigest: options.launcher ? fileDigest(options.launcher) : null,
-      fallbackAttempted: false,
+      fallbackAttempted: Boolean(options.fallbackAttempted),
       silentFallback: false,
       qwenSelected: /qwen/i.test(String(model || '')),
       qwenExplicit: /qwen/i.test(String(model || '')) && (
@@ -311,6 +505,7 @@ function buildRouteReceipt(options = {}) {
         options.reason === 'hermes-flag-command'
       ),
     },
+    toolBudget: options.toolBudget || null,
     execution: {
       status: options.status || 'unknown',
       exitCode: Number.isInteger(options.exitCode) ? options.exitCode : null,
@@ -342,12 +537,45 @@ function findGrokYoloBinary(env = process.env) {
   return null;
 }
 
-function classifyBackend(rawArgs, env = process.env) {
+/**
+ * SuperGrok / grok.com OAuth readiness probe (no secrets).
+ * Measured 2026-08-04: SuperGrok Heavy paid while hermes-yolo auto always
+ * selected hermes-legacy → glm-coding/kimi cascade (quota-dead) — underuse of plan.
+ * Inject dependencies.grokReady for unit tests (no doctor spawn).
+ */
+function isGrokBackendReady(env = process.env, dependencies = {}) {
+  if (env.HERMES_YOLO_FORCE_HERMES === '1') return false;
+  if (env.HERMES_YOLO_FORCE_GROK === '1') return true;
+  if (typeof dependencies.grokReady === 'boolean') return dependencies.grokReady;
+  const bin = findGrokYoloBinary(env);
+  if (!bin) return false;
+  try {
+    const runner = dependencies.runner || require('child_process').spawnSync;
+    const result = runner(bin, ['--doctor', '--json'], {
+      encoding: 'utf8',
+      env,
+      timeout: Number(env.HERMES_YOLO_GROK_DOCTOR_TIMEOUT_MS || 15000),
+    });
+    if (result.error || result.status !== 0) return false;
+    const doctor = JSON.parse(result.stdout || '{}');
+    // ready + model available + authenticated (oauth or api)
+    if (!doctor.ready) return false;
+    if (doctor.modelAvailable === false) return false;
+    if (doctor.authenticated === false) return false;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function classifyBackend(rawArgs, env = process.env, dependencies = {}) {
   const backend = String(env.HERMES_YOLO_BACKEND || 'auto').trim().toLowerCase();
   if (!['grok', 'auto', 'hermes'].includes(backend)) {
     throw new Error(`Unsupported HERMES_YOLO_BACKEND=${backend}; expected grok, auto, or hermes`);
   }
-  if (backend === 'hermes') return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'explicit-hermes-backend' };
+  if (backend === 'hermes') {
+    return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'explicit-hermes-backend' };
+  }
   if (rawArgs.length > 0 && ['--version', '-V', '--help', '-h'].includes(rawArgs[0])) {
     return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'hermes-flag-command' };
   }
@@ -360,11 +588,15 @@ function classifyBackend(rawArgs, env = process.env) {
   if (backend === 'grok') {
     return { requestedBackend: backend, selectedBackend: 'grok-4.5', reason: 'explicit-grok-backend' };
   }
-  return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'quota-independent-default' };
+  // auto: prefer SuperGrok/grok-4.5 when grok-yolo doctor is green.
+  if (isGrokBackendReady(env, dependencies)) {
+    return { requestedBackend: backend, selectedBackend: 'grok-4.5', reason: 'auto-supergrok-ready' };
+  }
+  return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'auto-hermes-fallback' };
 }
 
-function shouldUseGrokBackend(rawArgs, env = process.env) {
-  return classifyBackend(rawArgs, env).selectedBackend === 'grok-4.5';
+function shouldUseGrokBackend(rawArgs, env = process.env, dependencies = {}) {
+  return classifyBackend(rawArgs, env, dependencies).selectedBackend === 'grok-4.5';
 }
 
 function buildGrokBackendArgs(rawArgs, options = {}) {
@@ -389,8 +621,9 @@ function routeStatus(env = process.env, dependencies = {}) {
   const base = {
     schema: 'hermes-yolo/route-status-v1',
     generatedAt: new Date().toISOString(),
-    routingMode: 'quota-independent-default',
-    defaultPromptBackend: 'hermes-legacy',
+    // Prefer SuperGrok when doctor-ready; hermes-legacy is fallback only.
+    routingMode: 'auto-supergrok-preferred',
+    defaultPromptBackend: 'auto',
     silentFallbackAllowed: false,
     grokLauncher: grokYoloBin ? path.basename(grokYoloBin) : null,
     grokLauncherDigest: grokYoloBin ? fileDigest(grokYoloBin) : null,
@@ -399,18 +632,50 @@ function routeStatus(env = process.env, dependencies = {}) {
     receiptSchema: 'hermes-yolo/route-receipt-v1',
   };
   if (!hermesReady) return { ...base, ready: false, blocker: 'hermes_not_installed' };
-  if (!grokYoloBin) return { ...base, ready: true, blocker: null, grokReady: false, grokBlocker: 'grok_yolo_not_installed' };
-  const runner = dependencies.runner || require('child_process').spawnSync;
-  const result = runner(grokYoloBin, ['--doctor', '--json'], { encoding: 'utf8', env });
-  if (result.error) return { ...base, ready: true, blocker: null, grokReady: false, grokBlocker: 'grok_doctor_failed_to_start', grokError: safeError(result.error.message) };
-  if (result.status !== 0) return { ...base, ready: true, blocker: null, grokReady: false, grokBlocker: 'grok_doctor_failed', grokExitCode: result.status };
-  try {
-    const doctor = JSON.parse(result.stdout || '{}');
+  if (!grokYoloBin) {
     return {
       ...base,
       ready: true,
       blocker: null,
-      grokReady: Boolean(doctor.ready),
+      grokReady: false,
+      grokBlocker: 'grok_yolo_not_installed',
+      defaultPromptBackend: 'hermes-legacy',
+    };
+  }
+  const runner = dependencies.runner || require('child_process').spawnSync;
+  const result = runner(grokYoloBin, ['--doctor', '--json'], { encoding: 'utf8', env });
+  if (result.error) {
+    return {
+      ...base,
+      ready: true,
+      blocker: null,
+      grokReady: false,
+      grokBlocker: 'grok_doctor_failed_to_start',
+      grokError: safeError(result.error.message),
+      defaultPromptBackend: 'hermes-legacy',
+    };
+  }
+  if (result.status !== 0) {
+    return {
+      ...base,
+      ready: true,
+      blocker: null,
+      grokReady: false,
+      grokBlocker: 'grok_doctor_failed',
+      grokExitCode: result.status,
+      defaultPromptBackend: 'hermes-legacy',
+    };
+  }
+  try {
+    const doctor = JSON.parse(result.stdout || '{}');
+    const grokReady = Boolean(doctor.ready)
+      && doctor.modelAvailable !== false
+      && doctor.authenticated !== false;
+    return {
+      ...base,
+      ready: true,
+      blocker: null,
+      grokReady,
       grokBlocker: doctor.blocker || null,
       version: doctor.version || null,
       model: doctor.model || null,
@@ -419,9 +684,18 @@ function routeStatus(env = process.env, dependencies = {}) {
       authMode: doctor.authMode || 'none',
       billingMode: doctor.billingMode || 'unknown',
       apiBillingActivatedByWrapper: Boolean(doctor.apiBillingActivatedByWrapper),
+      defaultPromptBackend: grokReady ? 'grok-4.5' : 'hermes-legacy',
     };
   } catch (error) {
-    return { ...base, ready: true, blocker: null, grokReady: false, grokBlocker: 'grok_doctor_invalid_json', grokError: safeError(error.message) };
+    return {
+      ...base,
+      ready: true,
+      blocker: null,
+      grokReady: false,
+      grokBlocker: 'grok_doctor_invalid_json',
+      grokError: safeError(error.message),
+      defaultPromptBackend: 'hermes-legacy',
+    };
   }
 }
 
@@ -506,13 +780,13 @@ if (fs.existsSync(LOCK_PATH)) {
   if (alive) {
     let state = '';
     try {
-      state = execSync(`ps -o state= -p ${lockPid}`, { encoding: 'utf8' }).trim();
+      state = execFileSync('ps', ['-o', 'state=', '-p', String(lockPid)], { encoding: 'utf8' }).trim();
     } catch (e) {}
 
     if (state.includes('T') || state.includes('Z')) {
       console.warn(`\x1b[33m[hermes-yolo]\x1b[0m Found stale/suspended hermes-yolo process (PID ${lockPid}, state: ${state}). Cleaning it up.`);
       try {
-        const childrenStr = execSync(`pgrep -P ${lockPid}`, { encoding: 'utf8' }).trim();
+        const childrenStr = execFileSync('pgrep', ['-P', String(lockPid)], { encoding: 'utf8' }).trim();
         if (childrenStr) {
           const children = childrenStr.split(/\s+/).map(p => parseInt(p, 10)).filter(Boolean);
           for (const childPid of children) {
@@ -535,7 +809,7 @@ if (fs.existsSync(LOCK_PATH)) {
 
 // Clean up any other suspended/zombie hermes/hermes-yolo processes owned by the user
 try {
-  const psOutput = execSync(`ps -axo pid,state,command`, { encoding: 'utf8' });
+  const psOutput = execFileSync('ps', ['-axo', 'pid,state,command'], { encoding: 'utf8' });
   const lines = psOutput.split('\n');
   for (const line of lines) {
     const parts = line.trim().split(/\s+/);
@@ -589,6 +863,53 @@ if (process.env.HERMES_YOLO_PREFLIGHT === '1') {
 
 log(`START pid=${process.pid} bin=${HERMES_BIN} extraArgs=${JSON.stringify(EXTRA_ARGS)} args=${JSON.stringify(childPromptArgs)} timeout=${TIMEOUT_MS}ms cpuWatchdog=${CPU_WATCHDOG_ENABLED ? 'enabled' : 'disabled'} cpuThreshold=${CPU_THRESHOLD}% stuckSamples=${CPU_STUCK_SAMPLES}@${CPU_SAMPLE_INTERVAL_MS}ms`);
 
+// Fail-closed capability gate before spawn (P0)
+const runId = digest(`run-${process.pid}-${Date.now()}`, 16);
+const toolBudget = createToolBudget();
+try {
+  if (process.env.HERMES_YOLO_FAIL_CLOSED !== '0') {
+    assertAgentCapableModel(DEFAULT_MODEL, ROUTE_ENV);
+  }
+} catch (capErr) {
+  log(`FAIL_CLOSED ${capErr.message}`);
+  writeRouteReceipt(buildRouteReceipt({
+    runId,
+    rawArgs: args,
+    ...activeClassification,
+    launcher: HERMES_BIN,
+    provider: DEFAULT_PROVIDER,
+    model: DEFAULT_MODEL,
+    requestedModel: DEFAULT_MODEL,
+    toolsets: DEFAULT_TOOLSETS,
+    toolBudget: toolBudget.snapshot(),
+    status: 'blocked',
+    exitCode: 3,
+    durationMs: Date.now() - legacyStartedAt,
+    error: capErr.message,
+  }));
+  console.error(`\x1b[31m[hermes-yolo]\x1b[0m ${capErr.message}`);
+  releaseLock();
+  process.exit(3);
+}
+console.error(
+  `\x1b[36m[hermes-yolo]\x1b[0m run=${runId} provider=${DEFAULT_PROVIDER} model=${DEFAULT_MODEL} `
+  + `toolsets=${DEFAULT_TOOLSETS} agent_capable=${isAgentCapableModel(DEFAULT_MODEL, ROUTE_ENV)}`
+);
+
+// Independent liveness heartbeats for one-shot runs (model may be silent for minutes)
+const HEARTBEAT_MS = parseInt(process.env.HERMES_YOLO_HEARTBEAT_MS || '15000', 10);
+const progressEnabled = process.env.HERMES_YOLO_PROGRESS !== '0';
+let heartbeatHandle = null;
+if (progressEnabled && !wrapperPromptMode && childPromptArgs[0] === '-z') {
+  const t0 = Date.now();
+  console.error(`\x1b[36m[hermes-yolo]\x1b[0m agent started (one-shot); heartbeats every ${HEARTBEAT_MS}ms`);
+  heartbeatHandle = setInterval(() => {
+    const sec = Math.round((Date.now() - t0) / 1000);
+    console.error(`\x1b[36m[hermes-yolo]\x1b[0m still working… ${sec}s run=${runId} model=${DEFAULT_MODEL}`);
+  }, HEARTBEAT_MS);
+  if (typeof heartbeatHandle.unref === 'function') heartbeatHandle.unref();
+}
+
 updateStatus(data => {
   data.savedTokens += 50000;
   const watcher = data.agents.find(a => a.id === 'antigravity-coder-1');
@@ -612,17 +933,31 @@ const env = Object.assign({}, ROUTE_ENV, {
 });
 
 const childStdio = 'inherit';  // interactive chat needs stdin (keyboard), not just stdout/stderr
-const child = spawn(HERMES_BIN, [...EXTRA_ARGS, ...childPromptArgs], { stdio: childStdio, env });
-log(`SPAWNED childPid=${child.pid}`);
+// Detach one-shots so timeout kill can reclaim cargo/rustc grandchildren via pgid.
+// Interactive chat must stay attached for stdin.
+const detachOneshot = process.platform !== 'win32'
+  && !wrapperPromptMode
+  && childPromptArgs[0] === '-z';
+const child = spawn(HERMES_BIN, [...EXTRA_ARGS, ...childPromptArgs], {
+  stdio: childStdio,
+  env,
+  detached: detachOneshot,
+});
+log(`SPAWNED childPid=${child.pid} runId=${runId}`);
 
 child.on('error', (err) => {
+  if (heartbeatHandle) clearInterval(heartbeatHandle);
   log(`SPAWN_ERROR ${err.code} ${err.message}`);
   writeRouteReceipt(buildRouteReceipt({
+    runId,
     rawArgs: args,
     ...activeClassification,
     launcher: HERMES_BIN,
     provider: DEFAULT_PROVIDER,
     model: DEFAULT_MODEL,
+    requestedModel: DEFAULT_MODEL,
+    toolsets: DEFAULT_TOOLSETS,
+    toolBudget: toolBudget.snapshot(),
     status: 'fail',
     exitCode: 127,
     durationMs: Date.now() - legacyStartedAt,
@@ -643,6 +978,10 @@ function killChild(reason) {
   log(`KILL reason=${reason} childPid=${child.pid}`);
   console.error(`\n\x1b[31m[hermes-yolo watchdog]\x1b[0m Killing child (${reason})`);
   
+  // Kill process group when detached (cargo/rustc grandchildren)
+  if (detachOneshot && child.pid) {
+    try { process.kill(-child.pid, 'SIGKILL'); } catch (e) { /* may not be group leader */ }
+  }
   // Kill descendants recursively
   const descendants = getDescendantPids(child.pid);
   for (const pid of descendants) {
@@ -658,7 +997,7 @@ function getDescendantPids(parentPid) {
   while (index < pids.length) {
     const p = pids[index];
     try {
-      const childrenStr = execSync(`pgrep -P ${p}`, { encoding: 'utf8' }).trim();
+      const childrenStr = execFileSync('pgrep', ['-P', String(p)], { encoding: 'utf8' }).trim();
       if (childrenStr) {
         const children = childrenStr.split(/\s+/).map(x => parseInt(x, 10)).filter(Boolean);
         for (const childPid of children) {
@@ -678,7 +1017,7 @@ function getAggregateCpu(pids) {
   let totalCpu = 0;
   for (const pid of pids) {
     try {
-      const cpuStr = execSync(`ps -p ${pid} -o %cpu=`, { encoding: 'utf8' }).trim();
+      const cpuStr = execFileSync('ps', ['-p', String(pid), '-o', '%cpu='], { encoding: 'utf8' }).trim();
       const cpu = parseFloat(cpuStr);
       if (Number.isFinite(cpu)) {
         totalCpu += cpu;
@@ -717,20 +1056,33 @@ const watchdog = CPU_WATCHDOG_ENABLED ? setInterval(() => {
 }, CPU_SAMPLE_INTERVAL_MS) : null;
 
 child.on('close', (code, signal) => {
+  if (heartbeatHandle) clearInterval(heartbeatHandle);
   if (timeoutHandle) clearTimeout(timeoutHandle);
   if (watchdog) clearInterval(watchdog);
   releaseLock();
-  log(`EXIT code=${code} signal=${signal} killed=${killed} reason=${killReason || ''}`);
+  const durationMs = Date.now() - legacyStartedAt;
+  log(`EXIT code=${code} signal=${signal} killed=${killed} reason=${killReason || ''} runId=${runId}`);
+  if (progressEnabled && !wrapperPromptMode) {
+    console.error(
+      `\x1b[36m[hermes-yolo]\x1b[0m done in ${Math.round(durationMs / 1000)}s `
+      + `exit=${killed ? 124 : code} run=${runId}`
+    );
+  }
   writeRouteReceipt(buildRouteReceipt({
+    runId,
     rawArgs: args,
     ...activeClassification,
     launcher: HERMES_BIN,
     provider: DEFAULT_PROVIDER,
     model: DEFAULT_MODEL,
+    requestedModel: DEFAULT_MODEL,
+    actualModel: DEFAULT_MODEL,
+    toolsets: DEFAULT_TOOLSETS,
+    toolBudget: toolBudget.snapshot(),
     status: killed ? 'timeout' : code === 0 ? 'pass' : 'fail',
     exitCode: killed ? 124 : (code ?? 0),
     signal: signal || null,
-    durationMs: Date.now() - legacyStartedAt,
+    durationMs,
     error: killed ? killReason : null,
   }));
 
@@ -778,6 +1130,7 @@ module.exports = {
   chooseLocalModel,
   chooseZaiProvider,
   configuredProviderIds,
+  configuredDefaultModel,
   findOllamaBinary,
   hasOpenRouterKey,
   hasZaiKey,
@@ -787,11 +1140,19 @@ module.exports = {
   findGrokYoloBinary,
   shouldUseGrokBackend,
   classifyBackend,
+  isGrokBackendReady,
   buildRouteReceipt,
   routeStatus,
   summarizeRouteArgs,
   writeRouteReceipt,
   digest,
+  modelCapability,
+  isAgentCapableModel,
+  assertAgentCapableModel,
+  fingerprintCommand,
+  createToolBudget,
+  MODEL_CAPABILITY_REGISTRY,
+  DEFAULT_TOOLSETS,
   HERMES_COMMANDS,
   DEFAULT_READY_PROMPT
 };
