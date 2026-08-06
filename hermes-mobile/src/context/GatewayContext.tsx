@@ -1149,6 +1149,43 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
 
       const activeProfileForFallback = activeProfile(profileStateRef.current);
+
+      // Priority Wi-Fi Failover (2026-08-05): when phone is on Wi-Fi and primary (e.g. Tailscale) fails,
+      // probe Home Wi-Fi LAN IPs immediately to heal to Connected · Home Wi-Fi.
+      if (wifiConnectedRef.current) {
+        const lastLanIp = await storage.loadLastGatewayLanIp();
+        const profileLanIps = profilesForActiveMachine(
+          profileStateRef.current.profiles,
+          activeProfileId,
+        ).map(
+          (profile) => profile.localIp?.trim() || extractLanIpFromGatewayUrl(profile.gatewayUrl),
+        );
+        for (const fallbackUrl of wifiLanFallbackUrls({
+          primaryUrl,
+          wifiConnected: wifiConnectedRef.current,
+          lastLanIp:
+            activeProfileId && lastLanIp && !shouldProbeGatewayUrlForActiveProfile(
+              profileStateRef.current,
+              buildGatewayUrlFromLanIp(lastLanIp),
+            )
+              ? null
+              : lastLanIp,
+          profileLanIps,
+          activeProfileId,
+          profiles: profileStateRef.current.profiles,
+        })) {
+          try {
+            const snapshot = await probeMacGatewayOk(fallbackUrl);
+            const accepted = await acceptHealUrl(fallbackUrl, snapshot);
+            if (accepted) {
+              return accepted;
+            }
+          } catch {
+            // try next
+          }
+        }
+      }
+
       const primaryIsPrivateLan =
         isPrivateLanGatewayUrl(primaryUrl) && !isLoopbackGatewayUrl(primaryUrl);
       if (
