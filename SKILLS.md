@@ -5,6 +5,7 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 | Skill | Description | Definition | Source |
 | :--- | :--- | :--- | :--- |
 | `agent-session-start` | Execute session start verification, LaunchAgent health checks, and continuous E2E status reporting. | `~/workspace/git/igor/mac-yolo-safeguards/.agents/skills/agent-session-start/SKILL.md` | local |
+| `context7-docs` | Upstash Context7 live, version-locked library documentation and code example resolver. Trigger when the user or agent needs up-to-date documentation or code snippets for React Native, Expo, Firebase, Stripe, Tailwind, or Playwright. | `~/workspace/git/igor/mac-yolo-safeguards/.agents/skills/context7-docs/SKILL.md` | local |
 | `mac-freeze-rescue` | Triage and rescue Mac system sluggishness, high CPU load, memory pressure, and fans. | `~/workspace/git/igor/mac-yolo-safeguards/.agents/skills/mac-freeze-rescue/SKILL.md` | local |
 | `multi-agent-coordination-harness` | Skill instructions and usage guide. | `~/workspace/git/igor/mac-yolo-safeguards/.agents/skills/multi-agent-coordination-harness/SKILL.md` | local |
 | `social-publish-gate` | PreToolUse publish gate ensuring mandatory verification before any public social post. | `~/workspace/git/igor/mac-yolo-safeguards/.agents/skills/social-publish-gate/SKILL.md` | local |
@@ -43,4 +44,4 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 
 ---
 
-*Last synchronized: 2026-08-06T14:20:13.604Z*
+*Last synchronized: 2026-08-06T14:45:44.805Z*
