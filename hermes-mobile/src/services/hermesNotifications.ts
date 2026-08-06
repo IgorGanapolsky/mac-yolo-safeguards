@@ -6,6 +6,7 @@ import {
   runCompletedNotificationBody,
   runProgressNotificationBody,
   runProgressNotificationTitleFromState,
+  uberStyleRunNotificationFormatter,
 } from '../utils/runNotificationCopy';
 import {
   approvalNotificationIdentifier,
@@ -682,16 +683,14 @@ export async function scheduleRunProgressNotification(
   }
 
   const replySnippet = options?.replySnippet ?? progress.replyPreview;
-  const body = runProgressNotificationBody({
+  const uberFormatted = uberStyleRunNotificationFormatter({
     phase: progress.phase,
     detail: progress.detail,
     replySnippet,
   });
-  const title = runProgressNotificationTitleFromState({
-    phase: progress.phase,
-    detail: progress.detail,
-    replySnippet,
-  });
+  const body = uberFormatted.body;
+  const title = uberFormatted.title;
+  const subtitle = uberFormatted.subtitle;
   const phase = String(progress.phase ?? '');
   const signature = runProgressNotificationSignature({ phase, title, body });
   const now = Date.now();
@@ -718,7 +717,7 @@ export async function scheduleRunProgressNotification(
     identifier: RUN_STATUS_NOTIFICATION_ID,
     content: {
       title,
-      subtitle: 'Computer',
+      subtitle,
       body,
       categoryIdentifier: CATEGORY_RUN,
       threadIdentifier: THREAD_RUNS,
