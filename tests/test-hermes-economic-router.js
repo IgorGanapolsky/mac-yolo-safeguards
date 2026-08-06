@@ -458,6 +458,83 @@ const catalogK3 = decision(parseArgs([
 ]));
 assert(catalogK3.modelCatalogCandidates.some((model) => model.slug === 'moonshotai/kimi-k3'), 'K3 appears in catalog candidates');
 
+const cloudflareWalletRead = decision(parseArgs([
+  '--task', 'read about Cloudflare Wallets and agent payment identity',
+  '--risk', 'low',
+  '--max-cost-usd', '0',
+  '--latency-ms', '10000',
+]));
+assert.strictEqual(cloudflareWalletRead.signals.asksForCloudflareWallet, true, 'detects Cloudflare Wallet phrase');
+assert.strictEqual(cloudflareWalletRead.signals.paidOrExternal, true, 'wallet research treated as paid/external surface');
+assert.strictEqual(cloudflareWalletRead.requiresApproval, true, 'read-only wallet research still requires approval');
+assert.strictEqual(cloudflareWalletRead.selectedRoute.id, 'local_fast', 'no paid routes without paid-ok');
+
+const cloudflareWalletNoPaid = decision(parseArgs([
+  '--task', 'buy an API with x402 cloudflare wallet',
+  '--risk', 'high',
+  '--max-cost-usd', '0.10',
+  '--latency-ms', '30000',
+]));
+assert.strictEqual(cloudflareWalletNoPaid.signals.asksForCloudflareWallet, true, 'detects x402');
+assert.strictEqual(cloudflareWalletNoPaid.requiresApproval, true, 'approval required without paid-ok');
+assert(
+  cloudflareWalletNoPaid.rejectedRoutes.some((route) => route.id === 'glm52_reasoning' && route.reasons.some((reason) => reason.includes('paid route'))),
+  'GLM rejected without paid-ok',
+);
+
+const cloudflareWalletPaid = decision(parseArgs([
+  '--task', 'buy an API with x402 cloudflare wallet',
+  '--risk', 'high',
+  '--paid-ok',
+  '--latency-ms', '30000',
+  '--ignore-expert-health',
+]));
+assert.strictEqual(cloudflareWalletPaid.signals.asksForCloudflareWallet, true, 'detects cloudflare wallet intent');
+assert.strictEqual(cloudflareWalletPaid.budget.budgetDefaulted, true, 'default cap applied for cloudflare wallet paid work');
+assert.ok(cloudflareWalletPaid.budget.maxCostUsd >= 0.1, 'non-zero default cap for cloudflare wallet');
+assert.strictEqual(cloudflareWalletPaid.selectedRoute.id, 'glm52_reasoning', 'paid route allowed with paid-ok and default cap');
+assert.strictEqual(cloudflareWalletPaid.requiresApproval, true, 'requires approval even when paid route selected');
+assert(cloudflareWalletPaid.approvalReason.includes('x402'), 'approvalReason names x402');
+assert(cloudflareWalletPaid.pipeline.some((stage) => stage.id === 'approval-gate'), 'approval-gate in pipeline');
+assert.strictEqual(cloudflareWalletPaid.microAgentRecipe.id, 'approval_first_workflow', 'approval-first recipe');
+
+const cloudflareWalletExplicitZero = decision(parseArgs([
+  '--task', 'buy an API with x402 cloudflare wallet',
+  '--risk', 'high',
+  '--paid-ok',
+  '--max-cost-usd', '0',
+  '--latency-ms', '30000',
+  '--ignore-expert-health',
+]));
+assert.strictEqual(cloudflareWalletExplicitZero.budget.budgetDefaulted, false, 'explicit $0 cap is not overridden');
+assert.strictEqual(cloudflareWalletExplicitZero.budget.maxCostUsd, 0, 'explicit $0 cap preserved');
+assert.notStrictEqual(cloudflareWalletExplicitZero.selectedRoute.id, 'glm52_reasoning', 'paid route blocked by explicit $0 cap');
+assert.strictEqual(cloudflareWalletExplicitZero.requiresApproval, true, 'approval still required with explicit $0 cap');
+
+const cloudflarePayExplicit = decision(parseArgs([
+  '--task', 'set up research.example.cloudflare.pay identity handle',
+  '--risk', 'medium',
+  '--paid-ok',
+  '--max-cost-usd', '5.00',
+  '--latency-ms', '30000',
+  '--ignore-expert-health',
+]));
+assert.strictEqual(cloudflarePayExplicit.signals.asksForCloudflareWallet, true, 'detects cloudflare.pay handle');
+assert.strictEqual(cloudflarePayExplicit.budget.budgetDefaulted, false, 'explicit cap not overridden');
+assert.strictEqual(cloudflarePayExplicit.budget.maxCostUsd, 5.00, 'explicit cap preserved');
+assert.strictEqual(cloudflarePayExplicit.requiresApproval, true, 'cloudflare.pay handle requires approval');
+
+const virtualWallet = decision(parseArgs([
+  '--task', 'fund a virtual wallet for an AI agent from the account wallet',
+  '--risk', 'critical',
+  '--paid-ok',
+  '--latency-ms', '30000',
+  '--ignore-expert-health',
+]));
+assert.strictEqual(virtualWallet.signals.asksForCloudflareWallet, true, 'detects virtual wallet');
+assert.strictEqual(virtualWallet.budget.budgetDefaulted, true, 'default cap for virtual wallet');
+assert.strictEqual(virtualWallet.requiresApproval, true, 'virtual wallet funding requires approval');
+
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-economic-router-'));
 const receiptPath = path.join(tmp, 'receipts.jsonl');
 writeReceipt(routine, receiptPath);
