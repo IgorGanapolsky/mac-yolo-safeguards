@@ -49,11 +49,18 @@ assert.deepStrictEqual(buildGrokBackendArgs(['-z', 'return', 'marker']), ['-p', 
 assert.deepStrictEqual(classifyBackend(['fix', 'the', 'bug'], {}, noGrok), {
   requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'auto-hermes-fallback',
 });
-// SuperGrok Heavy / grok.com OAuth ready → auto uses grok-4.5 (underuse fix 2026-08-04)
+// 2026-08-06: a green doctor proves OAuth, not balance (Grok Build 402 while
+// green), so auto no longer prefers grok on doctor state alone…
 assert.deepStrictEqual(classifyBackend(['fix', 'the', 'bug'], {}, { grokReady: true }), {
-  requestedBackend: 'auto', selectedBackend: 'grok-4.5', reason: 'auto-supergrok-ready',
+  requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'auto-hermes-fallback',
 });
-assert.strictEqual(shouldUseGrokBackend(['fix'], {}, { grokReady: true }), true);
+assert.strictEqual(shouldUseGrokBackend(['fix'], {}, { grokReady: true }), false);
+// …unless explicitly re-enabled with HERMES_YOLO_AUTO_GROK=1.
+assert.deepStrictEqual(
+  classifyBackend(['fix', 'the', 'bug'], { HERMES_YOLO_AUTO_GROK: '1' }, { grokReady: true }),
+  { requestedBackend: 'auto', selectedBackend: 'grok-4.5', reason: 'auto-supergrok-ready' },
+);
+assert.strictEqual(shouldUseGrokBackend(['fix'], { HERMES_YOLO_AUTO_GROK: '1' }, { grokReady: true }), true);
 // Force hermes even when grok would be ready
 assert.deepStrictEqual(
   classifyBackend(['fix'], { HERMES_YOLO_FORCE_HERMES: '1' }, { grokReady: true }),
