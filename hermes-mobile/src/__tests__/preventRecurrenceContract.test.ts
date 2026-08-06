@@ -479,12 +479,12 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
       liveUsb: { reachable: true, hostname: 'Igors-MacBook-Pro.local' },
     });
     expect(rows.map((r) => r.id)).toEqual(['mac_book_usb', 'mac_book_ts', 'mac_mini_ts']);
-    expect(profileConnectionRouteLabel(rows[0], true)).toBe('USB');
+    expect(profileConnectionRouteLabel(rows[0], true)).toBe('Wi-Fi');
     expect(profileConnectionRouteLabel(rows[1], true)).toBe('Tailscale');
     expect(profilePickerLines(rows[0], { cablePluggedIn: true }).title).toBe(
       'Igors-MacBook-Pro (Mac Pro)',
     );
-    expect(profilePickerLines(rows[0], { cablePluggedIn: true }).detail).toMatch(/USB cable connected/i);
+    expect(profilePickerLines(rows[0], { cablePluggedIn: true }).detail).toMatch(/Same network/i);
     expect(profilePickerLines(rows[2]).title).toBe('Igors-Mac-mini');
   });
 
@@ -857,4 +857,12 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(appConfig).toMatch(/storeReviewDemo = false/);
   });
 
+  it('S54: e2e=skipped is never pass — strict device E2E enforcement contract (2026-08-06)', () => {
+    const mobileAgents = read('hermes-mobile/AGENTS.md');
+    expect(mobileAgents).toContain('`e2e=skipped` is **not** pass');
+    expect(mobileAgents).toContain('`docs/proofs/continuous/latest.json` before saying chat/E2E is healthy');
+
+    const otaGate = read('hermes-mobile/scripts/require-fresh-user-ota-gate.sh');
+    expect(otaGate).toContain('e2e');
+  });
 });

@@ -142,3 +142,60 @@ export function runCompletedNotificationBody(
   }
   return 'Reply ready — open chat to read it.';
 }
+
+/**
+ * Dynamic Uber-app style live trip/run progress notification formatter.
+ * Returns stage-aware title, subtitle badge, and clean snippet body.
+ */
+export function uberStyleRunNotificationFormatter(input: {
+  phase?: string | null;
+  detail?: string | null;
+  replySnippet?: string | null;
+  stepIndex?: number;
+  totalSteps?: number;
+  computerName?: string | null;
+}): {
+  title: string;
+  subtitle: string;
+  body: string;
+} {
+  const phase = (input.phase ?? '').toLowerCase();
+  const snippet = normalizeReplySnippet(input.replySnippet);
+  const computer = input.computerName?.trim() || 'Your computer';
+  const stepText =
+    input.stepIndex && input.totalSteps
+      ? ` (${input.stepIndex}/${input.totalSteps})`
+      : '';
+
+  let title = '⚡ Hermes is working';
+  let subtitle = `📍 ${computer} • Active task`;
+
+  if (phase === 'approval') {
+    title = '🛡️ Action Requires Approval';
+    subtitle = `📍 ${computer} • Security Gate`;
+  } else if (phase === 'completed' || isReplyReadyDetail(input.detail)) {
+    title = snippet ? '✅ Hermes Replied' : '✅ Task Complete';
+    subtitle = `📍 ${computer} • Ready to view`;
+  } else if (phase === 'failed') {
+    title = '🚨 Task Interrupted';
+    subtitle = `📍 ${computer} • Error logged`;
+  } else if (phase === 'streaming' || snippet) {
+    title = `⚡ Hermes Responding${stepText}`;
+    subtitle = `📍 ${computer} • Live stream`;
+  } else if (phase === 'connecting') {
+    title = '🏎️ Dispatching to computer…';
+    subtitle = `📍 ${computer} • Establishing link`;
+  } else if (stepText) {
+    title = `⚡ Executing Step ${input.stepIndex} of ${input.totalSteps}`;
+    subtitle = `📍 ${computer} • In progress`;
+  }
+
+  const body = runProgressNotificationBody(input);
+
+  return {
+    title,
+    subtitle,
+    body,
+  };
+}
+
