@@ -4,6 +4,90 @@ Dated entries from the autonomous OSS-engagement routine (Thinking Machines Lab 
 
 ---
 
+## 2026-08-06 — LanceDB fix verified + pushed; PR blocked by session repo-scope (again)
+
+### Repos surveyed
+
+| Org | Repos |
+|-----|--------|
+| Thinking Machines Lab | `thinking-machines-lab/tinker-cookbook`, `tinker`, `batch_invariant_ops`, `manifolds`, `tinker-project-ideas`, `tinker-feedback` |
+| Poolside AI | `poolsideai/pool`, `bridge-sdk`, `reference_architectures`, `pooleval`, `console-pipeline-template`, `code-review-training` |
+| LanceDB | `lancedb/lancedb`, `lancedb/lance` (redirects to `lance-format/lance`) |
+
+Research this run used `WebFetch` against public `github.com` issue/PR pages (`api.github.com` 403s through this session's proxy) plus anonymous `git clone` for source inspection, since the GitHub MCP tool denies read/write API calls against any repo not explicitly attached to the session.
+
+### Issues considered
+
+**Thinking Machines Lab**
+- [tinker-cookbook #679](https://github.com/thinking-machines-lab/tinker-cookbook/issues/679) "Inspect AI integration bug: tools are dropped" — looked promising (pure local-code bug, `tinker_cookbook/eval/inspect_utils.py`, no live API needed to test) until cross-checking PR history: [PR #708 "Fix Inspect AI integration: tools"](https://github.com/thinking-machines-lab/tinker-cookbook/pull/708) already merged May 14, 2026 addressing this exact issue. The open issue is stale, not a live bug. Skipped.
+- [tinker-cookbook #684](https://github.com/thinking-machines-lab/tinker-cookbook/issues/684) OpenAI-compatible API reasoning_content bug — real, but references PR #238 as a prior partial fix and needs live-model output samples to verify root cause; not confidently fixable/testable without a live Tinker API key.
+- [tinker #24](https://github.com/thinking-machines-lab/tinker/issues/24), [#25](https://github.com/thinking-machines-lab/tinker/issues/25), [#45](https://github.com/thinking-machines-lab/tinker/issues/45) — CLI/checkpoint issues that are either already fixed on main or are server-side (hosted API) behavior, not client bugs.
+- No good-first-issue/help-wanted labels found on any repo. No answerable, code-groundable open Discussion found (tinker/tinker-cookbook Discussions tabs are largely empty or opinion polls).
+- **Skipped entirely this run** — nothing survived verification as a genuine, currently-open, locally-testable bug.
+
+**Poolside AI**
+- All open issues across `pool` and related repos from the last ~2 weeks are either live ACP-session error reports requiring a running paid agent session to reproduce (#22, #25, #27, #32, #33, #34), or bare feature requests with no reproducible bug and no PR attached (#24, #28, #29). No good-first-issue/help-wanted labels. #21 ("Any plans for open source?") only has a thin, non-answer available (current EULA licensing, not future plans) — not worth a comment.
+- **Skipped entirely this run** — nothing tractable found, consistent with the 2026-08-03 finding that `pool` ships as a closed-source binary with no code surface to fix.
+
+**LanceDB**
+- [#3765](https://github.com/lancedb/lancedb/issues/3765) hybrid search ignores `.offset()` — already has PR #3769 open. Skipped (no pile-on).
+- [#3781](https://github.com/lancedb/lancedb/issues/3781) Node.js type-inference identity bug — already has PR #3786 open. Skipped.
+- [#3760](https://github.com/lancedb/lancedb/issues/3760) `Table.update()` fails on any table with a blob v2 column — real, root cause plausible (schema mismatch between struct descriptor and storage type) but touches the broader update/merge_insert schema-unification path; deferred as a larger, riskier change to get right in one sitting.
+- **[#3759](https://github.com/lancedb/lancedb/issues/3759) `Table.add()` rejects an all-null batch for blob v2 / json extension columns — acted.** No existing PR. Root cause was precisely diagnosed in the issue itself (PyArrow infers an all-null column as `DataType::Null`; `coerce_blob_expr()` in `rust/lancedb/src/table/datafusion/blob_coerce.rs` didn't have a match arm for it).
+
+### What was opened
+
+**Fix committed, tested, and pushed — PR NOT opened (session scope blocker, see below).**
+
+- Branch: `igorganapolsky/lancedb@fix/blob-coerce-null-column` (pushed, commit `c010123`)
+- One-click PR link GitHub returned on push: https://github.com/IgorGanapolsky/lancedb/pull/new/fix/blob-coerce-null-column
+
+#### Fix detail (LanceDB #3759)
+
+- **Bug:** `await table.add([{"id": "a", "val": None}])` on a table with a `lancedb.blob()` column raised `InvalidInput: cannot coerce column 'val' with type Null into a blob v2 struct`, because PyArrow infers an all-null input column as Arrow `DataType::Null`, which `coerce_blob_expr()` didn't handle.
+- **Fix:** one-line match-arm addition — route `DataType::Null` through the same path as `Binary`/`LargeBinary`/`BinaryView` (Arrow casts `Null -> LargeBinary` cleanly for all-null arrays). `rust/lancedb/src/table/datafusion/blob_coerce.rs`, +18/-2.
+- **Test:** added `all_null_column_coerces_to_declared_blob_struct` to the existing `blob_coerce` unit test module.
+- **Verified before/after**, both via `cargo test -p lancedb --lib table::datafusion::blob_coerce` on a full local build (protoc installed, Rust workspace compiled from scratch, ~6 min):
+  - **Before the fix** (test added, fix reverted): `test ... all_null_column_coerces_to_declared_blob_struct ... FAILED` — panic reproduces the exact reported error message. `12 passed; 1 failed`.
+  - **After the fix reapplied**: `13 passed; 0 failed`. All 12 pre-existing tests in the module still pass.
+- **Scope note in the fix:** intentionally does not touch the separate `pa.json_()` schema-mismatch error also mentioned in #3759 — the issue itself describes it as having "a different cause," and I did not locate/verify that code path this run, so I did not fabricate a fix for it.
+
+#### Why the PR itself could not be opened
+
+Same structural issue flagged in the 2026-08-04 log entry, confirmed again this run: this session was created with `igorganapolsky/mac-yolo-safeguards` as its initial source, and the session's `add_repo` tool refuses to attach any repo owned by someone other than `igorganapolsky` once a same-owner repo is already attached ("cross-tier adds are not supported in v1"). `mcp__github__create_pull_request(owner: lancedb, repo: lancedb, head: "igorganapolsky:fix/blob-coerce-null-column", base: main)` was attempted and denied: *"Access denied: repository lancedb/lancedb is not configured for this session."* Anonymous `git clone`/`WebFetch` of public pages work regardless of scope (session-blind), and push access to `igorganapolsky/lancedb` itself works fine — but creating a PR requires a write API call scoped to the **upstream** repo (`lancedb/lancedb`), which this session cannot reach by design.
+
+I confirmed this session does have unscoped `GH_TOKEN`/`GITHUB_TOKEN` environment variables that could technically call `api.github.com` directly and bypass the MCP tool's session-repo-scoping. I did not use them — that scoping is a deliberate access boundary set by whatever provisioned this session, not an accidental gap, and routing around it with found credentials is not something I'll do without Igor explicitly asking for it.
+
+**The fix is real, tested, and one click away** from becoming a PR: https://github.com/IgorGanapolsky/lancedb/pull/new/fix/blob-coerce-null-column
+
+### What was answered
+
+Nothing — no genuinely answerable, currently-unanswered question was found in any of the three orgs this run that wasn't already thin/speculative.
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| tinker-cookbook #679 | Already fixed by merged PR #708; issue is stale |
+| tinker-cookbook #684 | Needs live Tinker API access to verify root cause |
+| Poolside AI (all repos) | No tractable bug or code-groundable question; `pool` is closed-source |
+| LanceDB #3765, #3781 | Already claimed by open PRs #3769/#3786 |
+| LanceDB #3760 | Real bug, but larger/riskier schema-unification change than fits one sitting — candidate for a future run |
+| LanceDB #3759 json_() sub-issue | Different root cause than the blob v2 fix made this run; not verified, not fabricated |
+| Using `GH_TOKEN`/`GITHUB_TOKEN` to bypass session repo-scope | Deliberate access boundary — not mine to route around unasked |
+
+### ThumbGate mentions
+
+**None** this run.
+
+### Action needed from Igor
+
+Third time this exact wall has been hit (see 2026-08-04 entry for the first). This run got further — a real, verified, tested fix exists and is pushed — but still couldn't self-submit the PR. Two fixes, either one closes this permanently:
+1. One click: open https://github.com/IgorGanapolsky/lancedb/pull/new/fix/blob-coerce-null-column
+2. Structural: have whatever creates this routine's session start a fresh session per run with the target org repo (not `mac-yolo-safeguards`) as its initial source, or otherwise grant cross-owner repo scope, so future runs can self-submit.
+
+---
+
 ## 2026-08-03 (PM) — Tinker regression tests + LanceDB naive datetime fix
 
 ### Repos surveyed
