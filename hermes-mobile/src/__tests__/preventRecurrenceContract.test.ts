@@ -857,4 +857,12 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(appConfig).toMatch(/storeReviewDemo = false/);
   });
 
+  it('S54: e2e=skipped is never pass — strict device E2E enforcement contract (2026-08-06)', () => {
+    const mobileAgents = read('hermes-mobile/AGENTS.md');
+    expect(mobileAgents).toContain('`e2e=skipped` is **not** pass');
+    expect(mobileAgents).toContain('read `docs/proofs/continuous/latest.json` before saying chat/E2E is healthy');
+
+    const otaGate = read('hermes-mobile/scripts/require-fresh-user-ota-gate.sh');
+    expect(otaGate).toContain('e2e');
+  });
 });

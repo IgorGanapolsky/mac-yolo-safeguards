@@ -476,7 +476,7 @@ jobs:
             /tmp/eas-android-build.json
             /tmp/eas-android-build-view.json
             hermes-mobile/firebase-dist/hermes-mobile-eas-internal.apk
-          retention-days: 14
+          retention-days: 2
 
   ios-eas-internal:
     name: iOS EAS Internal Build
@@ -581,4 +581,4 @@ jobs:
           path: |
             /tmp/eas-ios-build.json
             /tmp/eas-ios-build-view.json
-          retention-days: 14
+          retention-days: 2
