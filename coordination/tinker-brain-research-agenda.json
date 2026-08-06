@@ -1,0 +1,35 @@
+{
+  "updatedAt": "2026-08-04T17:40:57Z",
+  "purpose": "ThumbGate.app sales/marketing research agenda from tinker-brain misses",
+  "coverageGaps": [
+    {
+      "term": "go-to-market",
+      "misses": 1
+    }
+  ],
+  "funnelFails": [],
+  "humanFeedbackOpen": [],
+  "billing": {
+    "ok": true,
+    "unitAmount": 1000,
+    "active": true,
+    "error": null
+  },
+  "healthFindings": [
+    {
+      "severity": "info",
+      "check": "coverage-gaps",
+      "detail": "1 logged questions the card could not answer.",
+      "agenda": [
+        {
+          "term": "go-to-market",
+          "misses": 1
+        }
+      ]
+    }
+  ],
+  "nextActions": [
+    "Research and add card sections covering top gaps: go-to-market.",
+    "Never hard-code Continuity price in promo; live /api/billing/plan outranks card copy."
+  ]
+}
