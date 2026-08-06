@@ -166,6 +166,7 @@ function auditBudgets() {
   const logs = readLogs();
   const budgets = loadBudgets();
   const byWorkload = {};
+  const today = new Date().toISOString().slice(0, 10); // UTC date YYYY-MM-DD
   let dailyTokens = 0;
   for (const log of logs) {
     const wl = log.workload || 'general';
@@ -181,9 +182,10 @@ function auditBudgets() {
     const cfg = budgets.workloads[wl] || budgets.workloads.general;
     if (cfg && log.totalTokens > cfg.hard) byWorkload[wl].hardBreaches += 1;
     else if (cfg && log.totalTokens > cfg.soft) byWorkload[wl].softBreaches += 1;
-    // Daily total snapshot: all logs in this run are counted (log is append-only
-    // per-run; caller reads once, so daily cap is approximated from full history).
-    dailyTokens += log.totalTokens;
+    // Daily cap counts only runs logged today (UTC), so a cap isn't tripped by history.
+    if (log.timestamp && String(log.timestamp).slice(0, 10) === today) {
+      dailyTokens += log.totalTokens;
+    }
   }
   const rows = Object.entries(byWorkload).map(([wl, s]) => {
     const tokensPerDollar = s.totalRevenue > 0 ? +(s.totalTokens / s.totalRevenue).toFixed(1) : null;
