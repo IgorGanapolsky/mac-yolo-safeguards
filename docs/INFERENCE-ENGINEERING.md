@@ -27,6 +27,32 @@ node tools/inference-eng/overview.js --json
 node tools/inference-eng/model-library.js --pick "fix auth" --json
 node tools/inference-eng/model-library.js --techniques
 ```
+## High-ROI defaults (2026-08-05)
+
+Measured fleet traffic (LiteLLM + fleet-health): SuperGrok/`grok-4.5` is the **only** coding path with A+ tool reliability; `glm-coding` / `glm-5.2` were **dropDead** (toolCompliance ~0). Local `qwen3:8b-64k` as `hermes-local` was a stall (p50 ~120s).
+
+| Workload | Primary | Why |
+|----------|---------|-----|
+| `code` / `plan` / `judge` | **grok-4.5** (SuperGrok) | Interactive quality + tools |
+| `smoke` / `classify` | free/fast (kimi-fast / deepseek / local-fast) | Do not burn SuperGrok |
+| `draft` | deepseek → hermes-local | Batch content |
+| Offline emergency | hermes-local = **qwen2.5:3b-64k** | Measured viable local rung |
+
+```bash
+# Install operator env (unset stale glm pins)
+node tools/inference-eng/apply-high-roi.js --write --smoke
+source ~/.hermes/inference-eng/high-roi-route.env
+
+# Verify chains
+node tools/inference-eng/degradation.js --task "fix auth" --json
+node tools/hermes-yolo-route-policy.js --task "draft outreach" --json
+
+# Stable system prefixes (KV/cache-friendly)
+node tools/inference-eng/load-prefix-pack.js coding
+node tools/inference-eng/load-prefix-pack.js draft
+```
+
+**Do not** treat Baseten GLM‑5.2 stand-up as the next step — GLM is already wired and demoted until tool use recovers (`HERMES_ALLOW_GLM=1`).
 
 ## 1. Task decomposition
 
