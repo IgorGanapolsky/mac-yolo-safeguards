@@ -207,10 +207,35 @@ async function transformPrompt(prompt) {
 
 function log(msg) { process.stderr.write(`poolside-acp-imageguard: ${msg}\n`); }
 
+// 2026-08-05: every short-lived `pool` child prints
+//   pool(NNNN) MallocStackLogging: can't turn off malloc stack logging ...
+// to inherited stderr. Over an hours-long session those lines land raw on the
+// TUI's tty and garble it into an unusable smear (the Malloc env vars are NOT
+// set — verified via ps eww — so env-stripping cannot stop it; the binary
+// makes the libmalloc call itself). Pipe child stderr and drop ONLY those
+// lines; everything else passes through line-intact.
+function forwardFilteredStderr(child) {
+  if (!child.stderr) return;
+  let buf = '';
+  child.stderr.on('data', (chunk) => {
+    buf += chunk.toString();
+    const lines = buf.split('\n');
+    buf = lines.pop();
+    for (const line of lines) {
+      if (line.includes('MallocStackLogging')) continue;
+      process.stderr.write(line + '\n');
+    }
+  });
+  child.stderr.on('end', () => {
+    if (buf && !buf.includes('MallocStackLogging')) process.stderr.write(buf);
+  });
+}
+
 function runProxy(argv) {
   const cmd = process.env.POOLSIDE_ACP_COMMAND || 'pool';
   const args = ['acp', ...argv];
-  const child = spawn(cmd, args, { stdio: ['pipe', 'pipe', 'inherit'] });
+  const child = spawn(cmd, args, { stdio: ['pipe', 'pipe', 'pipe'] });
+  forwardFilteredStderr(child);
 
   child.on('error', (e) => {
     log(`failed to start '${cmd} acp': ${e.message}`);
@@ -485,7 +510,8 @@ async function main() {
   if (MODE === 'off') {
     // Explicit passthrough: exec the real server so we are not even in the path.
     const cmd = process.env.POOLSIDE_ACP_COMMAND || 'pool';
-    const child = spawn(cmd, ['acp', ...argv], { stdio: 'inherit' });
+    const child = spawn(cmd, ['acp', ...argv], { stdio: ['inherit', 'inherit', 'pipe'] });
+    forwardFilteredStderr(child);
     child.on('exit', (c, s) => process.exit(s ? 128 + os.constants.signals[s] : (c ?? 0)));
     return;
   }

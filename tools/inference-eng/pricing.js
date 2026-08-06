@@ -21,7 +21,7 @@ const PRICING = Object.freeze({
   'deepseek-v4-flash': { inputPerM: 0, outputPerM: 0, tier: 'free_or_promotional' },
   'deepseek-v4-flash-free': { inputPerM: 0, outputPerM: 0, tier: 'free' },
   'hermes-local': { inputPerM: 0, outputPerM: 0, tier: 'local' },
-  'hermes-local-fast': { inputPerM: 0, outputPerM: 0, tier: 'local' },
+  // hermes-local-fast removed 2026-08-05 (LiteLLM dual-alias hang); cost as hermes-local if seen in logs
   'hermes-coder': { inputPerM: 0, outputPerM: 0, tier: 'local' },
   'qwen3:8b-64k': { inputPerM: 0, outputPerM: 0, tier: 'local' },
   // Metered references (OpenRouter-style) when those paths are used
