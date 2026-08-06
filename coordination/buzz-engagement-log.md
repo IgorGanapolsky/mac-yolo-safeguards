@@ -288,3 +288,76 @@ ThumbGate is not mentioned in this draft — the issue is a runtime liveness/wat
 
 Same as Run 1: this specific session/environment tier has no write path to `block/buzz` (`add_repo` explicitly rejects cross-tier owners, no `gh` CLI present). Run 2's contributions came from elsewhere. If this scheduled task is meant to run from *this* environment tier every time, either grant it broader GitHub scope, or treat this tier's runs as research/drafting-only and have a separate write-capable run post drafts like the #4860 answer above.
 
+---
+
+## 2026-08-06 — Run 7 (same access wall on a live attempt; two new in-domain findings; note on the log-PR backlog)
+
+Note on numbering: `main` still only contains Run 1–3 (`96785b7`). Runs 4–6
+happened and are real (PRs [#1473](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1473),
+[#1510](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1510),
+[#1512](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1512) — all
+still open/draft, unmerged as of this run) but haven't landed on `main` yet.
+This entry is based on current `main` and is numbered Run 7 in true
+chronological sequence, not Run 4.
+
+### What was VERIFIED (Step 0 — reconfirmed, briefly — unchanged from Runs 1–6)
+
+| Fact | Evidence |
+|------|----------|
+| **Canonical repo** | [`github.com/block/buzz`](https://github.com/block/buzz) — unchanged, Apache-2.0, still the sole public surface (issues/PRs only, no Discord/forum) |
+| **Prior fix PR #4624** (multi-`#h` filter narrowing) | Reconfirmed via `mcp__github__search_pull_requests(author:IgorGanapolsky)`: **still open, still unmerged**, 3 days after submission (`#4598` was its DCO-failed predecessor, closed same day it was superseded) |
+| **Prior #4565 comment** | Reconfirmed via `search_issues(commenter:IgorGanapolsky)` — real, present |
+| **This session's access to `block/buzz`** | Identical to every prior run. `mcp__github__issue_read` → *"Access denied: repository 'block/buzz' is not configured for this session. Allowed repositories: igorganapolsky/mac-yolo-safeguards."* `add_repo(block, buzz, access:"push")` → *"cross-tier adds are not supported in v1... session already has repos from owner(s) [igorganapolsky]."* `add_repo(..., access:"read")` → succeeds trivially (public repo, anonymous clone already available) but grants nothing new. `search_issues`/`search_pull_requests` against `block/buzz` work unauthenticated (confirms Run 6's finding: search is unscoped, direct read/write is not). |
+| **Live write test, this run** | Attempted `add_issue_comment` on `block/buzz#5053` with a real, ready, non-promotional technical comment (see below) as a direct test of whether scoping had changed since Run 6, rather than assuming it hadn't. Result: **denied**, identical error to `issue_read`. Scoping has not changed. |
+
+### What was surveyed (last ~72h, as of 2026-08-06 ~17:40 UTC)
+
+Pulled issues created since 2026-08-03 via `search_issues` (works unauthenticated). Volume remains very high — 153 issues matched `created:>2026-08-03` alone, dozens filed today. Two are directly in Igor's stated domain and are genuinely new (not covered by Runs 1–6's drafts):
+
+| Issue | Topic | Action |
+|-------|-------|--------|
+| [**#5042**](https://github.com/block/buzz/issues/5042) | `request_approval silently no-ops on buzz workflows trigger — no token/card; result step never runs`. Filed today, 0 comments. | **This is the fourth independent report of the WF-08 gap**, alongside [#2376](https://github.com/block/buzz/issues/2376) (2026-07-22), [#3525](https://github.com/block/buzz/issues/3525) (2026-07-29, still 0 comments, unclaimed), and [#4335](https://github.com/block/buzz/issues/4335) (2026-08-02). All four describe the same root cause from different angles: `finalize_run` drops the approval token instead of persisting `WaitingApproval` and resuming on decision. Comment drafted (below) cross-referencing all three prior threads so a maintainer landing on any one of the four sees the full picture instead of re-diagnosing from scratch. |
+| [**#5053**](https://github.com/block/buzz/issues/5053) | `HTTP bridge /query with multiple #h values silently narrows to the lexicographically smallest channel UUID`. Filed today, 0 comments. | **This is a duplicate of #4579**, the bug Igor's own PR [#4624](https://github.com/block/buzz/pull/4624) already fixes (tests included, still unmerged after 3 days). Comment drafted and **attempted to post live** — denied by the access wall, same as every write attempt across 7 runs. This is the strongest candidate found so far for an actual write action the moment access is granted: zero new analysis required, just point the reporter and any maintainer at the existing fix. |
+| [#5030](https://github.com/block/buzz/issues/5030) | Hosted-relay reconnects fail ~22% of the time (500 in auth path, 404 on WS upgrade) | Adjacent (reliability) but a connection/infra bug, not a write-gating/idempotency/approval question — outside stated expertise. Skipped. |
+| [#5077](https://github.com/block/buzz/issues/5077) | Deleted workflows still list indefinitely (soft-delete not applied to `kind:30620`) | Adjacent (stale-state bug) but a UI/read-model sync issue, not an execution-guarantee question. Skipped. |
+| [#5017](https://github.com/block/buzz/issues/5017), [#5039](https://github.com/block/buzz/issues/5039), [#5056](https://github.com/block/buzz/issues/5056) | Assorted "doesn't work" reports (workflow creation, cursor integration, relay connection) | Underspecified, not reproducible from the issue text alone, not clearly in-domain. Skipped. |
+| #3525 / #2376 / #4335 (WF-08 family) | See #5042 above | Unclaimed, unchanged — still the standing ready-to-comment finding from prior runs, now reinforced by a fourth report. |
+
+### Drafted comment for #5053 (attempted live, denied — text below is what was actually submitted)
+
+> This looks like the same bug as #4579: `channel_scope_from_filter` (or the HTTP-bridge equivalent) treats a filter with multiple `#h` tags as if only the first (lexicographically-first) channel UUID were requested, so a multi-channel `/query` silently narrows to one channel instead of returning the union.
+>
+> There's an open fix for this at #4624 (`fix(relay): multi-value #h filters must not narrow to first channel`) — tests included, still unmerged. Worth checking whether that PR's fix (or the HTTP bridge if this bug lives there instead of the relay/WS path) resolves this report too, rather than shipping a second independent fix for the same root cause.
+
+ThumbGate is not mentioned — this is a pointer to Igor's own existing fix PR, not a positioning opportunity.
+
+### Drafted comment for #5042 (not attempted live — same wall, no new information from a second identical denial)
+
+> This is the same gap as #2376 / #3525 / #4335: `request_approval` generates a token and the workflow engine returns `Suspended`, but `finalize_run` doesn't persist that as `WaitingApproval` or wire a resume path — so the run either silently drops the token (as reported here) or gets marked failed (as described in #3525), depending on where in `finalize_run` it lands. Four independent reports of the same underlying gap since 2026-07-22 is a strong signal this is worth a dedicated design pass rather than four separate point-fixes. #3525 has the most detailed trace of where in `finalize_run` the token is lost, if a maintainer wants a single thread to consolidate around.
+
+ThumbGate is not mentioned — the issue is entirely about Buzz's own workflow engine internals, not about gating external agent actions.
+
+### What was opened / answered this run
+
+**Nothing posted.** One live write attempt was made (`add_issue_comment` on `#5053`) specifically to test whether access had changed since Run 6 rather than assume the prior denial still held — it was denied with the same error. No PR opened: PR #4624 (the actual fix for #5053's bug) already exists and is unmerged; opening a second, redundant PR against the same root cause would not be "genuinely fixing" anything new, and the write path to open it doesn't exist from this session regardless.
+
+### Positioning read: **neither** (unchanged, reconfirmed — signal keeps strengthening)
+
+- **Not a competitor.** Buzz remains a team workspace (chat + git + workflow automation) built on Nostr; ThumbGate remains a cross-tool pre-action gate for arbitrary agent writes. Different product surface, not mutually exclusive for a user.
+- **Not a partner.** No relationship, no contact, no integration exists.
+- **Technical overlap keeps compounding, not just recurring.** WF-08 (approval persistence/resume) now has **four** independent bug reports across two weeks from different filers, none prompted by Igor. That's Buzz's own contributor base repeatedly hitting exactly the reliability class ThumbGate is built for — a write action (`request_approval`) that reports success/suspension without the state machine actually persisting or resuming correctly. This is real, unmanufactured market signal about the problem's prevalence, not evidence of a partnership path.
+- **Zero ThumbGate mentions** this run, in either drafted comment or anywhere else.
+
+### What was skipped and why
+
+- **#5030, #5077, #5017, #5039, #5056** — surveyed, judged adjacent-but-not-core-domain or underspecified; reasons in the table above.
+- **Second live write attempt** — one denial this run (on #5053) already reconfirms the wall; a second identical attempt on #5042 would burn a call for zero new information, so that comment stays drafted-only.
+- **New PR** — the one live candidate (#5053) already has an existing, unmerged fix (#4624); nothing new to build, and no write path to submit it if there were.
+
+### Action needed from Igor
+
+Unchanged ask, now compounding: **this is the seventh consecutive run** hitting the identical `block/buzz` access wall, confirmed this time with a live write attempt rather than an assumption. Two concrete, low-effort unblocks, both still open from Run 6:
+
+1. **Merge the backlog of open `chore/buzz-engagement-log-*` PRs** on *this* repo (`#1473` Run 4, `#1510` Run 5, `#1512` Run 6, and this run's PR) so future runs build on true latest state instead of re-deriving context from unmerged branches every time.
+2. **Grant this scheduled task's session tier real access to `block/buzz`** (even comment-only would unblock #5053 and #5042 immediately — both comments are fully drafted and ready to paste as-is), or route this task through whichever session/environment produced Run 2's real `#4598`/`#4624`/`#4565` contributions, since that access clearly exists somewhere in Igor's account already.
+
