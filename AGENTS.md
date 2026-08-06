@@ -72,7 +72,8 @@ Tables and full protocol: [docs/agents/decision-stack.md](./docs/agents/decision
 
 - **Expo SDK pins are law** — `react-native`/`react`/`expo*` move only via `npx expo install --fix` in a deliberate SDK upgrade.
 - **Don't close/rebase/fix another agent's PR** (dependabot PRs are ownerless — fair game with a reason).
-- **Merge only when required checks are green** (`strict: true` on main); prefer `gh pr merge --auto --squash`.
+- **Merge only when required checks are green** (`strict: true` on main); prefer `gh pr merge --auto --squash`. In CI queue backlogs, auto-merge handles sequential merging as checks clear.
+- **In high-activity repos, `gh pr list -L 100`** avoids missing PRs beyond the default 30-item page. Flag CONFLICTING PRs to their owning agent — do not resolve another agent's conflicts.
 - **Don't bulk-delete multi-agent worktrees**; prune only merged-PR branches and your own disposable trees.
 - Greptile review comments are required context on connect/onboarding/auth/OTA PRs.
 
