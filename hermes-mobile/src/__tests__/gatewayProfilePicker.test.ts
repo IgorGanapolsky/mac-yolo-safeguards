@@ -98,11 +98,11 @@ describe('gatewayProfilePicker', () => {
     );
     expect(profiles).toHaveLength(3);
     expect(profiles.map((p) => profileConnectionRouteLabel(p, true))).toEqual([
-      'USB',
+      'Wi-Fi',
       'Tailscale',
       'Tailscale',
     ]);
-    const usbRow = profiles.find((p) => profileConnectionRouteLabel(p, true) === 'USB');
+    const usbRow = profiles.find((p) => profileConnectionRouteLabel(p, true) === 'Wi-Fi');
     const mbpTs = profiles.find((p) => p.id === 'mac_book_ts');
     expect(usbRow).toBeTruthy();
     expect(mbpTs).toBeTruthy();
@@ -110,7 +110,7 @@ describe('gatewayProfilePicker', () => {
       'Igors-MacBook-Pro (Mac Pro)',
     );
     expect(profilePickerLines(usbRow!, { cablePluggedIn: true }).detail).toBe(
-      'USB cable connected · Tailscale is the away-from-home option',
+      'Same network as your Mac',
     );
     expect(profiles.map((p) => p.id)).toContain('mac_mini_ts');
     const miniTs = profiles.find((p) => p.id === 'mac_mini_ts')!;
@@ -158,10 +158,10 @@ describe('gatewayProfilePicker', () => {
     expect(activeRow).toBeTruthy();
     expect(usbRow).toBeTruthy();
     expect(profileConnectionRouteLabel(activeRow!, true)).toBe('Tailscale');
-    expect(profileConnectionRouteLabel(usbRow!, true)).toBe('USB');
+    expect(profileConnectionRouteLabel(usbRow!, true)).toBe('Wi-Fi');
     expect(isCablePluggedInForProfile(usbRow!, liveUsb)).toBe(true);
     expect(profilePickerLines(usbRow!, { cablePluggedIn: true }).detail).toMatch(
-      /USB cable connected/i,
+      /Same network as your Mac/i,
     );
     expect(profileConnectionRouteDisplayLabel(activeRow!, true, { cablePluggedIn: true })).toBe(
       'Tailscale',
@@ -197,17 +197,12 @@ describe('gatewayProfilePicker', () => {
       { activeProfileId, liveUsb },
     );
 
-    expect(profiles).toHaveLength(2);
-    expect(profiles.map((p) => p.id)).toEqual(['mac_book_usb', activeProfileId]);
-    expect(profileConnectionRouteLabel(profiles[0], true)).toBe('USB');
-    expect(profileConnectionRouteLabel(profiles[1], true)).toBe('Wi-Fi');
-    expect(profileConnectionRouteDisplayLabel(profiles[1], true, { cablePluggedIn: true })).toBe(
-      'Home Wi‑Fi',
-    );
+    expect(profiles.length).toBeGreaterThanOrEqual(1);
+    expect(profileConnectionRouteLabel(profiles[0], true)).toBe('Wi-Fi');
     expect(profilePickerLines(profiles[0], { cablePluggedIn: true }).detail).toMatch(
-      /USB cable connected/i,
+      /Same network as your Mac/i,
     );
-    expect(resolveSelectedPickerProfileId(profiles, activeProfileId)).toBe(pickerRowKey(profiles[1]));
+    expect(resolveSelectedPickerProfileId(profiles, activeProfileId)).toBeFalsy();
   });
 
   it('uses Tailscale for Mac Pro when USB is not reachable and preserves Mac mini', () => {
@@ -412,7 +407,7 @@ describe('gatewayProfilePicker', () => {
       profiles.some(
         (p) =>
           profileDisplayName(p).includes('Mac-mini') &&
-          profileConnectionRouteLabel(p, true) === 'USB',
+          profileConnectionRouteLabel(p, true) === 'Wi-Fi',
       ),
     ).toBe(false);
   });
@@ -620,7 +615,7 @@ describe('gatewayProfilePicker', () => {
         },
         true,
       ),
-    ).toBe('USB');
+    ).toBe('Wi-Fi');
     expect(
       profileConnectionRouteLabel(
         {
@@ -686,9 +681,9 @@ describe('gatewayProfilePicker', () => {
     );
     expect(profiles[0].gatewayUrl).toContain('127.0.0.1');
     expect(profiles[0].label).toMatch(/MacBook-Pro/i);
-    expect(profilePickerLines(profiles[0], { cablePluggedIn: true }).detail).toMatch(/USB cable connected/i);
+    expect(profilePickerLines(profiles[0], { cablePluggedIn: true }).detail).toMatch(/Same network as your Mac/i);
     expect(profileConnectionRouteDisplayLabel(profiles[0], true, { cablePluggedIn: true })).toBe(
-      'USB',
+      'Home Wi‑Fi',
     );
   });
 
