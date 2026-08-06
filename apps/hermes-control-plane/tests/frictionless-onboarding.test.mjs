@@ -157,11 +157,13 @@ test("keeps the deployed web host DOM-native instead of adding a React Native We
   // Phone must not re-show the route explain card after base CSS (CEO overlap 2026-07-25).
   assert.match(globals, /\.composer-route-explain\{[\s\S]*display:none !important/);
   assert.match(globals, /\.dashboard-header\{[\s\S]*grid-template-columns:1fr/);
-  // Fixed composer dock + measured reserved scroll space (item 3 of mobile UX checklist).
-  assert.match(dashboard, /--composer-dock-space/);
-  assert.match(globals, /--composer-dock-space/);
-  assert.match(globals, /position:absolute !important/);
-  assert.match(globals, /hermes-scroll-pane\{[\s\S]*padding-bottom:max/);
+  // In-flow composer + bounded .hermes-scroll-pane (CEO 2026-08: vertical scroll + Run CTA clip).
+  // Absolute dock was removed — thread scrolls; composer stays fully visible above tabs.
+  assert.match(globals, /hermes-scroll-pane\{[\s\S]*overflow-y:scroll !important/);
+  assert.match(globals, /position:relative !important/);
+  assert.match(globals, /data-mobile-tab="hermes"\] \.task-panel\{[\s\S]*overflow:hidden !important/);
+  assert.match(dashboard, /hermes-scroll-pane/);
+  assert.match(dashboard, /className="composer"/);
 });
 
 test("renders the configured Stripe price instead of duplicating marketing price copy", () => {
@@ -245,7 +247,7 @@ test("lessons workspace activity stats and lesson cards deep-link into Hermes", 
   assert.match(dashboard, /id=\{`task-\$\{task\.id\}`\}/);
   assert.match(dashboard, /taskFilter/);
   assert.match(dashboard, /filter === "unrated"/);
-  assert.match(dashboard, /pairComputerLabel|Pair another computer|Pair computer/);
+  assert.match(dashboard, /pairComputerLabel|Pair another computer|Pair a computer|Pair computer|resolveComposerRunCta/);
   assert.match(dashboard, /Manage machines/);
   assert.match(globals, /\.lesson-activity li a\{/);
   assert.match(globals, /\.lesson-card-actions\{/);
@@ -276,15 +278,20 @@ test("Improve/Helpful metric clicks navigate to Hermes when count is 1, else fil
 test("lets users choose local machine vs Continuity VPS on every task not only offline failover", () => {
   const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
   const taskRouting = readFileSync(new URL("../lib/task-routing.ts", import.meta.url), "utf8");
+  const runCta = readFileSync(new URL("../lib/composer-run-cta.ts", import.meta.url), "utf8");
   assert.match(dashboard, /routePreference/);
   // Unified "Run on" select — honest host names, active pair CTA when unpaired.
   assert.match(dashboard, /autoRouteLabel/);
-  assert.match(dashboard, /needs a paired Mac first/);
+  assert.match(dashboard, /needs a paired Mac|Continuity \(no Mac required\)|resolveAutoRouteLabel/);
   assert.match(dashboard, /composer-unified-target/);
   assert.match(dashboard, /composer-target-select/);
   assert.match(dashboard, /Run on/);
-  assert.match(dashboard, /composer-pair-cta|openPairingSettings/);
-  assert.match(dashboard, /Pair computer →/);
+  assert.match(dashboard, /resolveComposerRunCta|openPairingSettings/);
+  assert.match(runCta, /composer-pair-cta/);
+  assert.match(runCta, /Pair a computer →/);
+  // Continuity selected → never pair kind
+  assert.match(runCta, /routePreference === "cloud"/);
+  assert.match(runCta, /kind: "run"/);
   assert.match(dashboard, /Continuity \(cloud VPS\)/);
   assert.match(dashboard, /aria-labelledby="composer-where-label"/);
   assert.doesNotMatch(dashboard, /composer-route-label/);
