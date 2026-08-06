@@ -31,8 +31,8 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: apps/hermes-control-plane/package-lock.json
-      - run: npm ci
+          cache-dependency-path: package-lock.json
+      - run: npm install
       - name: Unit tests with coverage gates (80% lines/functions, 70% branches)
         run: npm run test:unit
       - name: Build + rendered-HTML tests
