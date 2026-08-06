@@ -9,7 +9,7 @@
  *   node tools/inference-eng/pipeline.js --list
  */
 
-const { selectModelChain, inferMode } = require('./degradation');
+const { selectModelChain, inferMode, POLICY_VERSION } = require('./degradation');
 const { getTask } = require('./task-registry');
 
 /** @type {Record<string, { id: string, description: string, stages: string[], businessKpi: string }>} */
@@ -84,7 +84,7 @@ function expandPipeline(name, opts = {}) {
     mode,
     stages,
     totalLatencyBudgetMs: totalBudgetMs,
-    policyVersion: 2,
+    policyVersion: POLICY_VERSION,
   };
 }
 

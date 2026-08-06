@@ -90,6 +90,10 @@ install_local_files() {
   mkdir -p "$HOME/.hermes/grok45/tools" "$HOME/.local/bin"
   install -m 0755 "$ROOT/grok-yolo-wrapper.js" "$HOME/.hermes/grok45/grok-yolo-wrapper.js"
   install -m 0755 "$wrapper_src" "$HOME/.hermes/hermes-yolo-wrapper.js"
+  # Yugabyte AMP sprawl control (fleet registry, decision traces, guarded autonomy)
+  if [[ -f "$ROOT/tools/hermes-yolo-sprawl-control.js" ]]; then
+    install -m 0755 "$ROOT/tools/hermes-yolo-sprawl-control.js" "$HOME/.hermes/hermes-yolo-sprawl-control.js"
+  fi
   # Progressive Agent Skills lean-context (Google for Devs pattern) — next to wrapper for require()
   if [[ -f "$ROOT/tools/hermes-yolo-lean-context.js" ]]; then
     install -m 0755 "$ROOT/tools/hermes-yolo-lean-context.js" "$HOME/.hermes/hermes-yolo-lean-context.js"
