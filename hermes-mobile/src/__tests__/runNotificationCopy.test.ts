@@ -5,6 +5,7 @@ import {
   runProgressNotificationBody,
   runProgressNotificationTitleFromState,
   stripElapsedFromStatus,
+  uberStyleRunNotificationFormatter,
 } from '../utils/runNotificationCopy';
 
 describe('runNotificationCopy', () => {
@@ -63,4 +64,48 @@ describe('runNotificationCopy', () => {
     expect(isReplyReadyDetail('Reply ready on your computer')).toBe(true);
     expect(isReplyReadyDetail('compiling project')).toBe(false);
   });
+
+  describe('uberStyleRunNotificationFormatter', () => {
+    it('formats connecting state', () => {
+      const result = uberStyleRunNotificationFormatter({
+        phase: 'connecting',
+        computerName: 'Igor Mac Pro',
+      });
+      expect(result.title).toBe('🏎️ Dispatching to computer…');
+      expect(result.subtitle).toBe('📍 Igor Mac Pro • Establishing link');
+    });
+
+    it('formats streaming/responding state with step counter', () => {
+      const result = uberStyleRunNotificationFormatter({
+        phase: 'streaming',
+        stepIndex: 2,
+        totalSteps: 4,
+        replySnippet: 'Fixing AST parser module...',
+        computerName: 'Mac Pro',
+      });
+      expect(result.title).toBe('⚡ Hermes Responding (2/4)');
+      expect(result.subtitle).toBe('📍 Mac Pro • Live stream');
+      expect(result.body).toBe('Fixing AST parser module...');
+    });
+
+    it('formats approval security gate state', () => {
+      const result = uberStyleRunNotificationFormatter({
+        phase: 'approval',
+        computerName: 'Mac Mini',
+      });
+      expect(result.title).toBe('🛡️ Action Requires Approval');
+      expect(result.subtitle).toBe('📍 Mac Mini • Security Gate');
+    });
+
+    it('formats completion state', () => {
+      const result = uberStyleRunNotificationFormatter({
+        phase: 'completed',
+        replySnippet: 'PR merged successfully',
+      });
+      expect(result.title).toBe('✅ Hermes Replied');
+      expect(result.subtitle).toBe('📍 Your computer • Ready to view');
+      expect(result.body).toBe('PR merged successfully');
+    });
+  });
 });
+
