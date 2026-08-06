@@ -61,27 +61,54 @@ function isStatusOnlyPhrase(text: string): boolean {
   return STATUS_ONLY_RE.test(text.trim());
 }
 
-/** Title for sticky live-status / completed run notifications. */
+/** Title for sticky live-status / completed run notifications (August 2026 Uber-style). */
+export function uberStyleRunNotificationFormatter(input: {
+  phase?: string | null;
+  detail?: string | null;
+  replySnippet?: string | null;
+  macName?: string | null;
+}): { title: string; subtitle: string; body: string } {
+  const snippet = normalizeReplySnippet(input.replySnippet);
+  const phase = (input.phase ?? '').toLowerCase();
+  const mac = input.macName ? input.macName.replace(/\.local$/i, '') : 'Your Mac';
+
+  let title = '⚡ Working · Hermes';
+  let defaultBody = 'Processing task on your Mac…';
+
+  if (phase === 'approval' || input.detail?.toLowerCase().includes('approval')) {
+    title = '🛡️ Approval Required';
+    defaultBody = 'A tool call requires your sign-off before proceeding.';
+  } else if (phase === 'completed' || isReplyReadyDetail(input.detail)) {
+    title = snippet ? '💬 Hermes Replied' : '✅ Task Completed';
+    defaultBody = 'Reply ready — tap to open chat.';
+  } else if (phase === 'failed') {
+    title = '⚠️ Run Stopped';
+    defaultBody = 'The run encountered an error. Tap to inspect.';
+  } else if (phase === 'streaming' || snippet) {
+    title = '⚡ Responding · Hermes';
+    defaultBody = 'Writing response…';
+  } else if (phase === 'dispatching' || phase === 'starting') {
+    title = '🏎️ Dispatching · Hermes';
+    defaultBody = 'Initializing agent pipeline…';
+  }
+
+  let body = snippet ? clampSnippet(snippet) : defaultBody;
+  if (!snippet) {
+    const cleaned = stripElapsedFromStatus(input.detail);
+    if (cleaned && !isStatusOnlyPhrase(cleaned)) {
+      body = clampSnippet(cleaned);
+    }
+  }
+
+  return { title, subtitle: mac, body };
+}
+
 export function runProgressNotificationTitleFromState(input: {
   phase?: string | null;
   detail?: string | null;
   replySnippet?: string | null;
 }): string {
-  const hasSnippet = Boolean(normalizeReplySnippet(input.replySnippet));
-  const phase = (input.phase ?? '').toLowerCase();
-  if (phase === 'approval') {
-    return 'Waiting for your approval';
-  }
-  if (phase === 'completed' || isReplyReadyDetail(input.detail)) {
-    return hasSnippet ? 'Hermes replied' : 'Hermes finished';
-  }
-  if (phase === 'failed') {
-    return 'Hermes run stopped';
-  }
-  if (phase === 'streaming' || hasSnippet) {
-    return 'Hermes is responding';
-  }
-  return 'Hermes is working';
+  return uberStyleRunNotificationFormatter(input).title;
 }
 
 /**

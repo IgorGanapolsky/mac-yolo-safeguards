@@ -2,9 +2,31 @@ name: CI
 
 on:
   pull_request:
+    paths-ignore:
+      - '.gitignore'
+      - '.gitattributes'
+      - '.editorconfig'
+      - '.github/CODEOWNERS'
+      - '.prettierrc*'
+      - '.eslintrc*'
+      - '.nvmrc'
+      - '.dockerignore'
+      - 'docs/**'
+      - '**.md'
   push:
     branches:
       - main
+    paths-ignore:
+      - '.gitignore'
+      - '.gitattributes'
+      - '.editorconfig'
+      - '.github/CODEOWNERS'
+      - '.prettierrc*'
+      - '.eslintrc*'
+      - '.nvmrc'
+      - '.dockerignore'
+      - 'docs/**'
+      - '**.md'
   # Required when `main` uses a merge queue: without this trigger the queue never
   # receives status checks for macOS guard / mobile-checks / funnel jobs and merges stall.
   # merge_group uses its own ref (not pull_request); keep per-ref concurrency below so
@@ -251,6 +273,8 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
 
       - name: Public conversion check
         run: node tools/public-conversion-check.js
