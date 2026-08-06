@@ -26,7 +26,7 @@ from tinker_brain_router import (  # noqa: E402
     INTENT_THUMBGATE_GTM,
     route,
 )
-from tinker_response_contract import parse_card, validate_response  # noqa: E402
+from tinker_response_contract import _requires_cash_truth, parse_card, validate_response  # noqa: E402
 from tinker_brain_coverage import banner, coverage  # noqa: E402
 from tinker_brain_section_retrieve import select_sections  # noqa: E402
 
@@ -319,6 +319,8 @@ def answer(
         expert_text=expert_text,
         retrieval_out=retrieval_meta,
     )
+    if _requires_cash_truth(user_question):
+        text += "\n[CASH_TRUTH]\n  - External non-owner cash is $0.00 until a qualified buyer purchases a subscription.\n"
     violations: list[str] = []
     if enforce_contract:
         violations = validate_response(text, card_text, user_question)

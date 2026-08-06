@@ -6,7 +6,7 @@ const fs = require('fs');
 
 const { classifyTask, listTasks, getTask } = require('../tools/inference-eng/task-registry');
 const { enrichRecord, summarize, loadTraffic } = require('../tools/inference-eng/metrics');
-const { selectModelChain, inferMode } = require('../tools/inference-eng/degradation');
+const { selectModelChain, inferMode, POLICY_VERSION } = require('../tools/inference-eng/degradation');
 const { expandPipeline, listPipelines } = require('../tools/inference-eng/pipeline');
 const { runOptimizer, propose } = require('../tools/inference-eng/optimizer');
 const { runScorecard } = require('../tools/inference-eng/scorecard');
@@ -24,6 +24,15 @@ assert.strictEqual(classifyTask('fix the auth bug').id, 'code');
 assert.strictEqual(classifyTask('smoke ping hermes-yolo-ready').id, 'smoke');
 assert.strictEqual(classifyTask('classify this lead').id, 'classify');
 assert.ok(getTask('retrieve').latencyBudgetMs > 0);
+// Prevention: no dual-alias hang debt (hermes-local-fast removed 2026-08-05)
+for (const t of tasks) {
+  assert.ok(
+    !(t.preferredModels || []).includes('hermes-local-fast'),
+    `${t.id} must not prefer removed hermes-local-fast`,
+  );
+}
+assert.ok(getTask('route').preferredModels.includes('hermes-local'));
+assert.ok(getTask('classify').preferredModels.includes('hermes-local'));
 console.log('  tasks: PASS');
 
 // Metrics enrich
@@ -64,7 +73,7 @@ const degGrok = selectModelChain({
 });
 assert.strictEqual(degGrok.primary, 'grok-4.5', `degraded+SuperGrok should prefer grok-4.5, got ${degGrok.primary}`);
 assert.ok(degGrok.chain.includes('grok-4.5'), 'degraded must keep SuperGrok in chain');
-assert.ok(degGrok.policyVersion >= 3);
+assert.ok(degGrok.policyVersion >= 4);
 // Explicit hermes backend + stale glm pin + SuperGrok prefer off → pin wins (no SuperGrok override)
 const degHermesPin = selectModelChain({
   taskText: 'fix login',
@@ -80,6 +89,26 @@ assert.strictEqual(
   'glm-coding',
   `hermes+prefer off should honor glm pin, got ${degHermesPin.primary}`,
 );
+// High-ROI: smoke/draft must NOT burn SuperGrok; dead GLM off code chain by default
+const smokeChain = selectModelChain({
+  taskText: 'smoke ping hermes-yolo-ready',
+  mode: 'normal',
+  env: { HERMES_YOLO_BACKEND: 'auto', HERMES_PREFER_SUPERGROK: '1' },
+});
+assert.notStrictEqual(smokeChain.primary, 'grok-4.5', `smoke must not use SuperGrok, got ${smokeChain.primary}`);
+const draftChain = selectModelChain({
+  taskText: 'draft outreach email for a founder',
+  mode: 'normal',
+  env: { HERMES_YOLO_BACKEND: 'auto', HERMES_PREFER_SUPERGROK: '1' },
+});
+assert.notStrictEqual(draftChain.primary, 'grok-4.5', `draft must not use SuperGrok primary, got ${draftChain.primary}`);
+const codeNoGlm = selectModelChain({
+  taskText: 'implement the auth fix',
+  mode: 'normal',
+  env: { HERMES_YOLO_BACKEND: 'auto', HERMES_DROP_DEAD_GLM: '1' },
+});
+assert.strictEqual(codeNoGlm.primary, 'grok-4.5');
+assert.ok(!codeNoGlm.chain.includes('glm-coding'), 'dead GLM should be demoted off auto code chain');
 console.log('  degradation: PASS');
 
 // Pipelines
@@ -91,6 +120,8 @@ assert.deepStrictEqual(
   ['retrieve', 'plan', 'code'],
 );
 assert.ok(coding.totalLatencyBudgetMs > 0);
+assert.strictEqual(coding.policyVersion, POLICY_VERSION, 'pipeline must share degradation POLICY_VERSION');
+assert.strictEqual(POLICY_VERSION, 4);
 console.log('  pipelines: PASS');
 
 // Optimizer on fixture

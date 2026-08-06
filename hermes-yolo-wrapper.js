@@ -222,7 +222,9 @@ const MODEL_CAPABILITY_REGISTRY = Object.freeze({
   'deepseek-v4-flash-free': { agentCapable: true, class: 'coding' },
   'openai/deepseek-v4-flash-free': { agentCapable: true, class: 'coding' },
   'hermes-local': { agentCapable: true, class: 'coding' },
-  'hermes-local-fast': { agentCapable: true, class: 'coding' },
+  // Alias removed from LiteLLM 2026-08-05 (0-byte hang). Kept as non-agent so historical
+  // traffic never re-selects it as a YOLO primary.
+  'hermes-local-fast': { agentCapable: false, class: 'chat' },
   'hermes-coder': { agentCapable: true, class: 'coding' },
   'qwen3:8b-agent-64k': { agentCapable: true, class: 'coding' },
   'qwen3:8b-64k': { agentCapable: true, class: 'coding' },
