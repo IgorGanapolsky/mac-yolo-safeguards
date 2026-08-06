@@ -345,6 +345,13 @@ check('pr-stack-verifier.js script exists and runs', () => {
   assert.ok(result.ok !== undefined, 'verifyPrStackHygiene missing ok boolean');
 });
 
+// ─── 9. WorkOS Emulation & Failure-Injection Harness Integration ─────────────
+
+check('workos-emulator-harness.js script exists', () => {
+  const harnessScript = path.join(ROOT, 'tools/workos-emulator-harness.js');
+  assert.ok(fs.existsSync(harnessScript), 'workos-emulator-harness.js missing in tools/');
+});
+
 // ─── Report ──────────────────────────────────────────────────────────────────
 
 function main() {
