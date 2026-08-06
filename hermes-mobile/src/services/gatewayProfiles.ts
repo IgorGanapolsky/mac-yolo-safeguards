@@ -299,6 +299,31 @@ function relabelStoredProfile(profile: GatewayProfile): GatewayProfile {
 }
 
 /**
+ * Backfill hostname and localIp onto a saved profile when a live /health probe succeeds.
+ * Resolves Issue #1474 (saved Tailscale profiles losing machine names).
+ */
+export function backfillProfileHealthData(
+  profile: GatewayProfile,
+  healthData: { hostname?: string | null; localIp?: string | null }
+): GatewayProfile {
+  const newHostname = healthData.hostname?.trim() || profile.hostname;
+  const newLocalIp = healthData.localIp?.trim() || profile.localIp;
+
+  if (newHostname === profile.hostname && newLocalIp === profile.localIp) {
+    return profile;
+  }
+
+  const updated: GatewayProfile = {
+    ...profile,
+    hostname: newHostname || profile.hostname,
+    localIp: newLocalIp || profile.localIp,
+    updatedAt: Date.now(),
+  };
+
+  return relabelStoredProfile(updated);
+}
+
+/**
  * Strip transport tokens from a computer name ("Mac mini USB" → "Mac mini").
  * Transport belongs in the route badge, never in the machine title — especially for
  * remote Tailscale Macs (mini in another city must never read as "… USB").
