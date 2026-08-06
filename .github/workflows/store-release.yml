@@ -414,7 +414,7 @@ jobs:
             /tmp/eas-android-production-build.json
             /tmp/eas-android-production-build-view.json
             /tmp/eas-android-submit.txt
-          retention-days: 14
+          retention-days: 2
 
   ios-production:
     name: iOS Production Build
@@ -586,4 +586,4 @@ jobs:
             /tmp/eas-ios-production-build.json
             /tmp/eas-ios-production-build-view.json
             /tmp/eas-ios-submit.txt
-          retention-days: 14
+          retention-days: 2
