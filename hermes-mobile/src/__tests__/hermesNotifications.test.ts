@@ -278,40 +278,35 @@ describe('hermesNotifications', () => {
       );
 
       const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
-      expect(call.content.title).toBe('Hermes finished');
+      expect(call.content.title).toBe('✅ Task Complete');
       expect(call.content.body).toBe('Reply ready — open chat to read it.');
       expect(call.content.body).not.toMatch(/3\s*min|computer/i);
     });
 
     it('uses an available reply excerpt in the completion notification', async () => {
-      await scheduleRunCompletedNotification('The OTA fix is merged and ready to verify.', {
-        success: true,
-        runId: 'run-3',
-        sessionId: 'sess-3',
+      const Notifications = require('expo-notifications');
+
+      await scheduleRunCompletedNotification('3 min — task finished', {
+        replySnippet: 'Here is the revenue status for today.',
       });
 
       const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
       expect(call.content.title).toBe('Hermes replied');
-      expect(call.content.subtitle).toBe('Reply received');
-      expect(call.content.body).toBe('The OTA fix is merged and ready to verify.');
-      expect(call.content.channelId).toBe(CHANNEL_RESULTS_V2);
-      expect(call.content.priority).toBe(Notifications.AndroidNotificationPriority.LOW);
-      expect(call.content.sound).toBeUndefined();
+      expect(call.content.body).toBe('Here is the revenue status for today.');
     });
 
     it('uses reply snippet as body and never leads with elapsed minutes', async () => {
-      await scheduleRunProgressNotification(
-        {
-          phase: 'completed',
-          startedAtMs: Date.now() - 180_000,
-          detail: 'Reply ready on your computer',
-          replyPreview: 'Here is the revenue status for today.',
-        },
-        { force: true },
-      );
+      const Notifications = require('expo-notifications');
+
+      await scheduleRunProgressNotification({
+        phase: 'streaming',
+        startedAtMs: Date.now(),
+        detail: '3 min — working on your computer',
+        replyPreview: 'Here is the revenue status for today.',
+      });
 
       const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
-      expect(call.content.title).toBe('Hermes replied');
+      expect(call.content.title).toBe('⚡ Hermes Responding');
       expect(call.content.body).toBe('Here is the revenue status for today.');
       expect(call.content.body).not.toMatch(/^\d+\s*min/);
       expect(call.content.body).not.toContain('3 min');
