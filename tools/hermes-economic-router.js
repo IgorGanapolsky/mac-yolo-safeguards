@@ -345,6 +345,8 @@ Routes Hermes work through a multi-agent economic pipeline (software MoE).
 Emits receipts and budget gates; does not call paid providers by itself.
 Live traffic DEAD experts are quarantined unless --ignore-expert-health.
 High risk + --paid-ok defaults max-cost to $0.10 unless --max-cost-usd is set.
+Cloudflare Wallet / x402 / cloudflare.pay surfaces are treated as paid external
+actions and require explicit approval with a non-zero cap.
 
 Use --execute-plan to emit a dry-run execution plan with bounded steps, caps,
 and blocked approval surfaces. It still performs no provider calls.`;
@@ -402,12 +404,17 @@ function parseArgs(argv) {
 
 /**
  * High-risk + paid work must not default to a $0 cap that silently excludes GLM.
+ * Cloudflare Wallet / x402 / cloudflare.pay surfaces likewise need a non-zero
+ * default cap when the caller opts into paid work but forgets to set one.
  * Only applies when the caller did not set --max-cost-usd explicitly.
  */
-function applyDefaultBudget(args) {
+function applyDefaultBudget(args, signals = {}) {
   if (args.maxCostUsdExplicit) return args;
-  const risk = normalizeRisk(args.risk || 'medium');
   if (!args.paidOk) return args;
+  const risk = normalizeRisk(args.risk || 'medium');
+  if (signals.asksForCloudflareWallet && args.maxCostUsd === 0) {
+    return { ...args, maxCostUsd: 0.1, budgetDefaulted: true };
+  }
   if (risk === 'high' && args.maxCostUsd === 0) {
     return { ...args, maxCostUsd: 0.1, budgetDefaulted: true };
   }
@@ -441,13 +448,15 @@ function riskValue(risk) {
 function taskSignals(task) {
   const text = String(task || '').toLowerCase();
   const noExternalAction = /\b(?:do not|don't|without)\s+(?:send|publish|post|deploy|deliver|charge|transfer|ship|submit)\b/.test(text);
-  const externalDelivery = !noExternalAction && /\b(?:send|publish|post|deploy|deliver|charge|transfer|ship|submit)\b|stripe payment|wallet payment/.test(text);
+  const externalDelivery = !noExternalAction && /\b(?:send|publish|post|deploy|deliver|charge|transfer|ship|submit)\b|stripe payment|wallet payment|x402 payment|monetization gateway|cloudflare\.pay|cloudflare\s+wallets?\b/i.test(text);
+  const asksForCloudflareWallet = /\bcloudflare\s+(?:wallet|wallets)\b|\bx402\b|\bcloudflare\.pay\b|\bvirtual\s+(?:wallet|wallets)\b|\baccount\s+(?:wallet|wallets)\b|agent\s+(?:wallet|wallets)/i.test(text);
   return {
     asksForGlm: /\bglm\b|glm[- ]?5\.?2|z\.?ai|zai/.test(text),
     asksForFugu: /\bfugu\b|sakana/.test(text),
     asksForNemotron: /\bnemotron\b|\bnvidia\b|\bnim\b/.test(text),
     asksForGrok: /\bgrok\b|grok[- ]?4\.5|\bxai\b|\bx\.ai\b/.test(text),
     asksForParallel: /\bparallel(?:\.ai| search)?\b|dense excerpts/.test(text),
+    asksForCloudflareWallet,
     needsFreshWeb: /\blatest\b|\bcurrent\b|\brecent\b|\btoday\b|\bnews\b|fresh web|web search|new release|company announcement/.test(text),
     fastGrounding: /fast ground|quick ground|low latency|turbo|voice agent|chat agent/.test(text),
     retrievalQuality: /retriev|context build|ranking|rerank|source policy|dense excerpt|rag\b/.test(text),
@@ -462,7 +471,7 @@ function taskSignals(task) {
     architecture: /architecture|cross[- ]file|multi[- ]agent|pipeline|router|design|strategy/.test(text),
     exactContract: /exact answer|strict format|output contract|json schema|answer:\s*[a-z0-9]|sentinel|marker|multiple[- ]choice/.test(text),
     highVarianceReasoning: /hidden[- ]test|livecodebench|gpqa|hle|formal reasoning|hard reasoning|reasoning variance|quorum|synthesis/.test(text),
-    paidOrExternal: /payment|wallet|stablecoin|on[- ]chain|post|send|publish|charge|stripe/.test(text) || externalDelivery,
+    paidOrExternal: /payment|wallet|stablecoin|on[- ]chain|post|send|publish|charge|stripe|x402|cloudflare\.pay|monetization gateway|cloudflare\s+wallets?|virtual wallet|account wallet|agent wallet/i.test(text) || externalDelivery || asksForCloudflareWallet,
     externalDelivery,
     routine: /smoke|small|quick|lint|unit test|local/.test(text),
     longContextOrAgentic: /long[- ]?context|large[- ]?repo|whole[- ]?repo|multi[- ]?step\s+agent|agentic.*workflow|repository.*understand|tool[- ]?use.*debug|debug.*iterate|codebase.*analysis|full.repo|million[\s-]token/.test(text),
@@ -1098,7 +1107,7 @@ function buildMicroAgentRecipe(selected, args, signals, evaluated) {
 function decision(args) {
   // A+ Latency: cache route decisions for identical inputs (5-min TTL)
   const cacheKey = _routeCache
-    ? JSON.stringify({ t: args.task, r: args.risk, c: args.maxCostUsd, p: args.paidOk })
+    ? JSON.stringify({ t: args.task, r: args.risk, c: args.maxCostUsd, p: args.paidOk, explicit: args.maxCostUsdExplicit })
     : null;
   if (_routeCache) {
     const cached = _routeCache.get(cacheKey);
@@ -1117,8 +1126,8 @@ function decision(args) {
     paidOk: Boolean(args.paidOk),
     ignoreExpertHealth: Boolean(args.ignoreExpertHealth),
   };
-  normalizedArgs = applyDefaultBudget(normalizedArgs);
   const signals = taskSignals(normalizedArgs.task);
+  normalizedArgs = applyDefaultBudget(normalizedArgs, signals);
 
   // Live MoE health (traffic DEAD experts). Fail open if log missing — never crash routing.
   // Unit tests set HERMES_IGNORE_EXPERT_HEALTH=1 for hermetic scoring without the live log.
@@ -1213,7 +1222,7 @@ function decision(args) {
     estimatedLatencyMs: selected.latencyMs,
     requiresApproval: Boolean(selected.requiresApproval || signals.paidOrExternal),
     approvalReason: signals.paidOrExternal
-      ? 'task mentions external money/payment/wallet/send/publish surface'
+      ? `task mentions external money/payment/wallet/x402/cloudflare.pay/send/publish surface`
       : selected.requiresApproval ? 'route requires explicit approval' : '',
     signals,
     modelCatalogQuery: signals.needsModelPrice ? providerModelCatalogQuery(signals) : null,
@@ -1233,7 +1242,7 @@ function decision(args) {
       defaultRule: 'Ordinary hermes-yolo prompts use Grok 4.5; this economic router keeps local Hermes as a measured zero-cost baseline and uses paid routes only when ROI and budget justify them.',
       autoRecipeRule: 'Expose one hermes/auto model alias while the router selects bounded confidence, ratings, ReMoM, fusion, or workflow recipes.',
       ornithRule: 'Treat gpt-oss, Qwen3.6, and other new coding models as measured candidates until benchmark receipts promote them.',
-      paymentRule: 'Never execute wallet, stablecoin, Stripe, send, post, or publish actions from this router; emit an approval gate only.',
+      paymentRule: 'Never execute wallet, stablecoin, x402, cloudflare.pay, Stripe, send, post, or publish actions from this router; emit an approval gate only.',
       modelPriceRule: 'Use OpenRouter Models API/MCP-style price and benchmark evidence before committing paid routes.',
       grokRule: 'The user-facing hermes-yolo prompt route defaults to Grok 4.5; inside multi-agent recipes, Grok remains an explicit independent verifier with doctor, auth, billing, and comparison receipts.',
       retrievalRule: 'Trace query construction and retrieval separately from generation; use explicit Parallel Turbo for approved fast grounding, and escalate to basic or advanced only when measured retrieval quality requires it.',
