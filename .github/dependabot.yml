@@ -1,13 +1,38 @@
 version: 2
 updates:
   - package-ecosystem: npm
-    directory: /hermes-mobile
+    # Only /hermes-mobile was covered, so the root lockfile and every app and
+    # package received no version updates at all. `directories` (plural) fans
+    # this one config across all of them.
+    directories:
+      - /
+      - /hermes-mobile
+      - /apps/hermes-control-plane
+      - /apps/hermes-dashboard
+      - /packages/hermes-protocol
+      - /scripts/headless
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 5
+    # Cooldown is the highest-value supply-chain control available here:
+    # malicious npm versions are typically pulled within hours, so simply not
+    # being first to install clears nearly all of them. GitHub made 3 days the
+    # default on 2026-07-14; these are deliberately longer. Security updates
+    # are exempt and still open immediately.
+    cooldown:
+      default-days: 7
+      semver-major-days: 30
+      semver-minor-days: 7
+      semver-patch-days: 3
     groups:
       minor-and-patch:
+        # One grouped PR per cycle means one lockfile rewrite per cycle.
+        # Several separate PRs each rewriting the same lockfile is what
+        # generates the conflict storm when they land together.
+        applies-to: version-updates
+        patterns:
+          - "*"
         update-types:
           - minor
           - patch
