@@ -13,6 +13,11 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: control-plane-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+
 jobs:
   unit-and-coverage:
     runs-on: ubuntu-latest
@@ -21,13 +26,13 @@ jobs:
       run:
         working-directory: apps/hermes-control-plane
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: apps/hermes-control-plane/package-lock.json
-      - run: npm ci
+          cache-dependency-path: package-lock.json
+      - run: npm install
       - name: Unit tests with coverage gates (80% lines/functions, 70% branches)
         run: npm run test:unit
       - name: Build + rendered-HTML tests

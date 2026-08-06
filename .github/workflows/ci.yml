@@ -377,8 +377,37 @@ jobs:
           # Scorecard human line ends with "A+=True required_ok=True"
           grep -q 'A+=True' "$RUNNER_TEMP/tinker-scorecard.log"
 
+  detect-mobile-changes:
+    name: Detect hermes-mobile changes
+    runs-on: ubuntu-latest
+    outputs:
+      mobile: ${{ steps.filter.outputs.mobile }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - id: filter
+        run: |
+          set -eu
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "mobile=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          head="${{ github.event.pull_request.head.sha || github.sha }}"
+          if [ -z "${base:-}" ] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            base="$(git rev-parse HEAD^)"
+          fi
+          if git diff --name-only "$base" "$head"             | grep -qE '^(hermes-mobile/|\.github/workflows/(ci|mobile-).*$)'; then
+            echo "mobile=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "mobile=false" >> "$GITHUB_OUTPUT"
+          fi
+
   mobile-checks:
     name: Hermes Mobile typecheck and tests
+    needs: detect-mobile-changes
+    if: needs.detect-mobile-changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
