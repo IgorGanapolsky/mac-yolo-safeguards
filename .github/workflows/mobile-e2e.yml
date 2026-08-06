@@ -238,6 +238,7 @@ jobs:
           name: maestro-debug-output
           path: ~/.maestro/tests/**
           if-no-files-found: ignore
+          retention-days: 1
 
   # Brand-new user merge gate (T-342). ConnectMacGate is hidden when
   # EXPO_PUBLIC_E2E_AUTOMATION is baked into the APK — so this job builds a SEPARATE
@@ -384,3 +385,4 @@ jobs:
           name: maestro-stranger-cold-start-debug
           path: ~/.maestro/tests/**
           if-no-files-found: ignore
+          retention-days: 1

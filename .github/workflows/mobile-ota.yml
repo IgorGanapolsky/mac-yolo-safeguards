@@ -181,7 +181,7 @@ jobs:
         with:
           name: hermes-mobile-ota-preview
           path: /tmp/eas-ota-preview.json
-          retention-days: 14
+          retention-days: 2
 
   publish-production-ota:
     name: Publish production OTA (fresh-user gated)
@@ -336,4 +336,4 @@ jobs:
           path: |
             /tmp/eas-ota-production.json
             /tmp/eas-ota-production-android-paid.json
-          retention-days: 14
+          retention-days: 2
