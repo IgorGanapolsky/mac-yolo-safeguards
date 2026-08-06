@@ -187,6 +187,36 @@ export default function Home() {
         <StoreBadgeRow className="hero-store-links-lg" size="lg" />
       </section>
 
+      <section id="expertise" className="section-block">
+        <div className="section-heading">
+          <p className="eyebrow">Engineering expertise</p>
+          <h2>Built from live production data, not static claims.</h2>
+          <p>
+            ThumbGate is maintained by the same engineering team that runs the Hermes remote-control stack. Our expertise page pairs original case studies with real D1 telemetry — pairing success, continuity runs, control-plane uptime, and scale metrics.
+          </p>
+        </div>
+        <div className="steps-grid">
+          <article>
+            <span>01</span>
+            <h3>Live telemetry</h3>
+            <p>Success rates, p95 durations, and uptime computed from the production control plane.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>Named case studies</h3>
+            <p>Authored by the engineering team behind ThumbGate, with concrete metrics and outcomes.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Public methodology</h3>
+            <p>Canary runs excluded, privacy boundary documented, raw JSON endpoint at /api/expertise/stats.</p>
+          </article>
+        </div>
+        <div className="hero-actions" style={{ marginTop: "32px" }}>
+          <Link href="/expertise" className="button button-primary">Read the expertise breakdown</Link>
+        </div>
+      </section>
+
       <section id="faq" className="section-block" aria-labelledby="faq-heading">
         <div className="section-heading">
           <p className="eyebrow">Answers</p>
