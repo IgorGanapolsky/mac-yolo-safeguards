@@ -288,3 +288,64 @@ ThumbGate is not mentioned in this draft — the issue is a runtime liveness/wat
 
 Same as Run 1: this specific session/environment tier has no write path to `block/buzz` (`add_repo` explicitly rejects cross-tier owners, no `gh` CLI present). Run 2's contributions came from elsewhere. If this scheduled task is meant to run from *this* environment tier every time, either grant it broader GitHub scope, or treat this tier's runs as research/drafting-only and have a separate write-capable run post drafts like the #4860 answer above.
 
+---
+
+## 2026-08-06 — Run 6 (new in-domain question found; same access wall confirmed on every write path tried)
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+| Fact | Evidence |
+|------|----------|
+| **Canonical repo** | [`github.com/block/buzz`](https://github.com/block/buzz) — unchanged |
+| **Prior runs' PRs (#1473 Run 4, #1510 Run 5)** | Confirmed via `mcp__github__list_pull_requests` on `IgorGanapolsky/mac-yolo-safeguards`: both still **open, unmerged, draft**. `origin/main` (`c8d1972f`) still only contains Run 1–3's log entries — Runs 4 and 5 happened (verified via their branches/PRs) but haven't landed on `main` yet. This run is based on current `main` and numbered Run 6 in sequence, not Run 4. |
+| **`mcp__Claude_Code_Remote__add_repo("block","buzz")`** | Denied again this run, identical error to Runs 1/3/4/5: *"cross-tier adds are not supported in v1... session already has repos from owner(s) [igorganapolsky]"* |
+| **`mcp__github__issue_read` / `add_issue_comment` on `block/buzz`** | Denied this run with a clearer error than prior runs: *"Access denied: repository 'block/buzz' is not configured for this session. Allowed repositories: igorganapolsky/mac-yolo-safeguards."* Notably `igorganapolsky/buzz` (the fork used in Runs 4/5) is **not** in this run's allow-list, so even the fork-based workaround wasn't available this time — session scoping appears to vary run-to-run, not just by "cross-tier" logic. |
+| **`mcp__github__search_issues` / `search_pull_requests`** | Unlike direct `issue_read`/`get_file_contents`, the **search** endpoints work against `block/buzz` without being denied (they're not scoped the same way). This is new, useful signal: surveying is fully unblocked even when reading/writing individual issues is not. |
+| **Issue [#3525](https://github.com/block/buzz/issues/3525)** (WF-08) | Reconfirmed open, 0 comments, no linked PR (`search_pull_requests` for "3525" in PR bodies returns only an unrelated closed PR #740). Fix from Runs 4/5 remains unclaimed. |
+
+### What was surveyed (last 72h, as of 2026-08-06 08:xx UTC)
+
+Used `search_issues`/`search_pull_requests` against `block/buzz` (works even though direct reads don't). Issue/PR velocity remains very high — 127 issues and 261 PRs created since 2026-08-03, dozens today alone.
+
+| Issue | Topic | Action |
+|-------|-------|--------|
+| [**#5010**](https://github.com/block/buzz/issues/5010) | `buzz messages send` returns `accepted:true` / exit 0 even when the send mentions nobody — two independent developers built the identical bug checking only the exit code. Author proposes an opt-in `--require-mention` flag. | **Directly in Igor's domain (verification-vs-self-report).** Drafted and **attempted to post** a substantive technical answer — critiquing the opt-in-flag design (doesn't help callers who don't yet know to ask) and proposing fail-closed-by-default with an explicit opt-out, plus cross-referencing #2509's `verdict_ref` as the same guarantee from the approval side. `add_issue_comment` call **denied** with the same access-wall error as everything else this run. Comment text preserved below so a write-capable run can post it verbatim. |
+| [#4985](https://github.com/block/buzz/issues/4985) | Relay HTTP bridge `/query`/`/count` don't cap filter count — filter-amplification DoS (WS path does cap it) | Adjacent (resource-exhaustion via unbounded work), but a capacity/security-hardening bug, not a write-gating/idempotency question — outside the stated expertise scope. Skipped. |
+| [#4967](https://github.com/block/buzz/issues/4967) | Non-idempotent stale-signature replay (surveyed Run 5) | Still open, now 8 comments (up from 0). Read via `WebFetch` on the HTML page (API `403`s unauthenticated again this run) — comment content not rendered by the fetch, so **not claiming to know what was said**; noting only that discussion is now active, which lowers the value of adding an outside comment restating the original analysis. |
+| [#4966](https://github.com/block/buzz/issues/4966) | Silent mention delivery failure for `steering_supported=false` agents | Still open, 11 comments. Same reasoning as #4967 — active discussion, not investigated further this run. |
+| #3525 (WF-08) | See verification above | Still the standing, ready, unclaimed fix — no new action possible until the access wall changes. |
+
+### Drafted answer for #5010 (not posted — `add_issue_comment` denied)
+
+> This is the same failure shape as "HTTP 200 means the write happened" — `accepted: true` here only certifies "the relay accepted the event," not "the addressed pubkeys are present in `p` tags." Those are different guarantees, and conflating them is exactly why two independent developers built the identical bug: nothing in the interface signals that a caller needs to check further than the exit code.
+>
+> The proposed `--require-mention` flag is a real fix, but it's opt-in, and opt-in flags don't help the callers who don't yet know they need one — which is precisely the population that keeps re-discovering this bug. A stronger default: make `accepted` mean "written to the relay **and** every requested mention round-tripped into signed `p` tags," unconditionally, with an explicit escape hatch (e.g. `--allow-no-mentions`) for the legitimate case of an intentionally mention-less broadcast. That flips the failure mode from silent-by-default to loud-by-default, and costs nothing in the common case where mentions were intended and succeeded — the check is just a diff between requested and signed `p` tags, already available in-process before the command returns.
+>
+> Worth generalizing past this one command: anywhere the CLI's exit code just mirrors "was this event accepted by the relay" rather than "did the effect I actually asked for happen" is the same bug class. #2509's `verdict_ref` proposal is reaching for the same guarantee from the approval side — an independently-checkable claim instead of trusting the actor's own report of success.
+
+ThumbGate is not mentioned in this draft — the issue asks whether Buzz's own CLI should add a verification flag, which is an internal product-design question, not "what tool should gate my agent's actions," so a ThumbGate reference would not be a genuine answer to what's asked.
+
+### What was opened / answered this run
+
+**Nothing posted.** `add_issue_comment` on `block/buzz` #5010 denied by direct attempt (see verification table). No PR opened — no new fix attempted this run; #3525's Run 4/5 fix is unchanged and still blocked at the PR-creation step, not the fix-writing step, so re-verifying it again would not produce new information (per Run 5's reasoning, still valid one day later).
+
+### Positioning read: **neither** (unchanged, reconfirmed)
+
+- Not a competitor — Buzz is a team workspace/chat+git+workflow fabric; ThumbGate is a cross-tool pre-action gate for arbitrary agent actions.
+- Not a partner — no relationship exists.
+- Technical overlap keeps recurring and, this run, produced a third independent example (#5010, alongside WF-08 and #4967) of Buzz's own contributors hitting the exact reliability class ThumbGate is built for: an action reports success without the effect it was supposed to have being verified. That is real, repeated market signal — three separate examples across three runs, none manufactured, none prompted by a pitch.
+- **Zero ThumbGate mentions** this run — no comment or PR was posted at all.
+
+### What was skipped and why
+
+- **#4985** — off-domain (DoS/capacity hardening, not write-gating/idempotency).
+- **#4967, #4966** — now have active community discussion (8 and 11 comments respectively); outside comment would add less value than earlier runs when they were fresh, and this run's access is identical to prior runs regardless.
+- **Second fix / PR attempt on #3525** — no write path exists to open it; repeating verification of unchanged code produces no new signal (Run 5's stated reasoning still holds).
+
+### Action needed from Igor
+
+This is now the **sixth run** blocked on the identical structural wall, and it now blocks *two* independent classes of contribution: the ready WF-08 PR (fix-writing works, PR-creation is blocked) and a same-day comment opportunity on #5010 (no fix needed at all, just a comment — and even that is denied). Additionally, **two prior runs' own log PRs are still unmerged on this repo**: [#1473](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1473) (Run 4) and [#1510](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1510) (Run 5) — both draft, both green, neither merged, which is why this entry is "Run 6" appended after "Run 3" rather than after "Run 5" in `main`'s history. Two concrete, low-effort unblocks:
+
+1. Merge the backlog of open `chore/buzz-engagement-log-*` PRs on this repo so future runs build on the true latest state instead of re-deriving it from unmerged branches.
+2. Grant this scheduled task's session tier real (even read-only-to-comment) access to `block/buzz`, or manually post the #5010 comment and open the WF-08 compare URL from Run 5 — both are ready to paste as-is and neither requires further verification.
+
