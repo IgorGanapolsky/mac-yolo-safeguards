@@ -33,7 +33,7 @@ const REPO = path.resolve(__dirname, '..');
 const DEFAULT_PLAN = path.join(REPO, 'plan.md');
 const DEFAULT_RECEIPTS = path.join(os.homedir(), '.hermes', 'receipts');
 /** Economic router writes a single JSONL here (not under receipts/<runner>/). */
-const ECONOMIC_ROUTER_RECEIPTS = path.join(os.homedir(), '.hermes', 'economic-router-receipts.jsonl');
+const ECONOMIC_ROUTER_RECEIPTS = process.env.ECONOMIC_ROUTER_RECEIPTS_PATH || path.join(os.homedir(), '.hermes', 'economic-router-receipts.jsonl');
 
 const usage = `Usage:
   node tools/agent-cost-analyzer.js [options]
