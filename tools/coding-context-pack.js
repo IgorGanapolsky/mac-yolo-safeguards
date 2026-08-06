@@ -119,6 +119,9 @@ function parseArgs(argv) {
     else if (a.startsWith('--pr=')) out.pr = a.slice('--pr='.length);
     else if (a === '--agent') out.agent = String(argv[++i]);
     else if (a.startsWith('--agent=')) out.agent = a.slice('--agent='.length);
+    else if (a === '--target') out.target = String(argv[++i]);
+    else if (a.startsWith('--target=')) out.target = a.slice('--target='.length);
+    else if (a === '--compile') out.compile = true;
     else throw new Error(`Unknown argument: ${a}`);
   }
   return out;
@@ -497,11 +500,21 @@ function buildPack(args) {
     commands: {
       refresh: 'node tools/coding-context-pack.js',
       focus: 'node tools/coding-context-pack.js --issue <N>',
+      compile: 'node tools/coding-context-pack.js --target <file>',
       sync_buses: 'node tools/coding-context-pack.js --sync',
       ship_check: 'node tools/coding-context-pack.js --ship-check --pr <N> --agent AGENT-XXX',
       session: 'node tools/agent-session-start.js',
     },
   };
+
+  if (args.target) {
+    try {
+      const { compileContext } = require('./context-compiler');
+      pack.compiled_context = compileContext(args.target);
+    } catch (err) {
+      pack.compiled_context = { error: err.message };
+    }
+  }
 
   return pack;
 }
