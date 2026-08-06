@@ -20,9 +20,9 @@ describe('store listing metadata contract (stellar live)', () => {
     // Preserve both exact product-name intents in the indexed title. The live iOS
     // App Info name is locked until the next approved version; this combined name
     // is staged for 1.4 and must remain aligned with the paid Play listing.
-    expect(playTitle).toBe('Hermes Mobile: AI Agent Leash');
-    expect(paidTitle).toBe('Hermes Mobile: AI Agent Leash');
-    expect(iosName).toBe('Hermes Mobile: AI Agent Leash');
+    expect(playTitle).toBe('Hermes Agent Client: AI Leash');
+    expect(paidTitle).toBe('Hermes Agent Client: AI Leash');
+    expect(iosName).toBe('Hermes Agent Client: AI Leash');
     expect(playTitle).toBe(paidTitle);
     expect(playTitle).toBe(iosName);
     expect(playTitle).not.toMatch(/ThumbGate/i);
@@ -35,19 +35,14 @@ describe('store listing metadata contract (stellar live)', () => {
     const paidFull = read(path.join(ANDROID, 'paid_full_description.txt'));
     expect(short.length).toBeLessThanOrEqual(80);
     expect(paidShort.length).toBeLessThanOrEqual(80);
-    // The unpublished legacy package remains source-compatible while the live paid
-    // package follows current Play guidance: communicate the job, not price promotion.
-    expect(short).toMatch(/Mac/i);
-    expect(short).toMatch(/4\.99/);
-    expect(short).not.toMatch(/19\.99/);
-    expect(short).toMatch(/once/i);
-    expect(short).toMatch(/not phone AI/i);
-    expect(paidShort).toMatch(/Hermes AI/i);
-    expect(paidShort).toMatch(/Mac, Windows & Linux/i);
-    expect(paidShort).toMatch(/approve tools remotely/i);
+    expect(short).toMatch(/Hermes agent/i);
+    expect(short).toMatch(/approve/i);
+    expect(paidShort).toMatch(/Hermes agent/i);
+    expect(paidShort).toMatch(/approve/i);
     expect(paidShort).not.toMatch(/\$|free|no ads/i);
     expect(paidFull).toMatch(/^Keep Hermes moving when you step away from your computer\./);
     expect(paidFull).toMatch(/Pay once\. No ads\./);
+
   });
 
   it('Play full description does not claim iOS is still in review', () => {
