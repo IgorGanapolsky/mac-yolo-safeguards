@@ -445,6 +445,32 @@ function riskValue(risk) {
   return RISK_LEVELS.indexOf(normalizeRisk(risk));
 }
 
+const TEACHING_BUDGET_USD = Number(process.env.HERMES_TEACHING_BUDGET_USD || 5);
+
+function classifyTokenClass(task, signals = {}) {
+  const text = String(task || '').toLowerCase();
+  // Produce = shipped, delivered, merged, committed, published (real external outcome).
+  const produceSignals = /\b(ship|merge|publish|deploy|deliver|release|commit|push|pr|open pr|submit|install|enable)\b/i.test(text)
+    || signals.externalDelivery === true;
+  // Teach = onboarding, explaining, docs, skills, context-building, not producing a side effect.
+  const teachSignals = /\b(teach|onboard|learn|skill|explain|how (do|does|can)|tutorial|documentation|docs?|context|knowledge|wiki|memory|rag|understand)\b/i.test(text)
+    || /\b(are you sure|verify|proof|evidence|regression|root cause)\b/i.test(text)
+    || /\b(architecture|cross[- ]file|pipeline|router|design|strategy)\b/i.test(text);
+  // Spin = retries, rework, escalation, wandering, vague do-over, fix repeated failures.
+  const spinSignals = /\b(retry|rework|redo|fix again|again and again|keep failing|stuck|escalat|wander|tangent|debug again|re-run|reproduce)\b/i.test(text)
+    || /\b(try another|spin|loop|endless|never ends)\b/i.test(text);
+
+  if (produceSignals) return 'produce';
+  if (spinSignals) return 'spin';
+  if (teachSignals) return 'teach';
+  // Default: most routed agent work is either context/teach or produce. If it contains a
+  // clear artifact/workflow request but no explicit produce verb, treat it as produce.
+  if (/\b(implement|add|create|build|write|test|fix|refactor|update|change|validate|prove)\b/i.test(text)) {
+    return 'produce';
+  }
+  return 'teach';
+}
+
 function taskSignals(task) {
   const text = String(task || '').toLowerCase();
   const noExternalAction = /\b(?:do not|don't|without)\s+(?:send|publish|post|deploy|deliver|charge|transfer|ship|submit)\b/.test(text);
@@ -607,11 +633,12 @@ function buildPipeline(selected, args, signals) {
   return stages;
 }
 
-function buildOutcomeContract(receiptIdValue, args, signals) {
+function buildOutcomeContract(receiptIdValue, args, signals, tokenClass = 'produce') {
   const deliveryRequired = Boolean(signals.externalDelivery);
   return {
     schema: 'hermes-outcome-contract/v1',
     taskId: receiptIdValue,
+    tokenClass,
     requiredStages: [
       'execution',
       'independent-verification',
@@ -629,8 +656,14 @@ function buildOutcomeContract(receiptIdValue, args, signals) {
       maxCostUsd: Number(args.maxCostUsd || 0),
       valueSignals: 'opaque-labels-only',
       failureStage: 'first-incomplete-or-failed-stage',
+      dollarsPerAcceptedTask: 'actual',
+      acceptedTask: {
+        completed: false,
+        verifiedBy: null,
+        completionGate: 'hermes-outcome-receipt-pass',
+      },
     },
-    completionRule: 'Execution and independent verification must pass with evidence; required delivery must pass with evidence; actual cost must remain within cap.',
+    completionRule: 'Execution and independent verification must pass with evidence; required delivery must pass with evidence; actual cost must remain within cap. dollarsPerAcceptedTask is computed only when acceptedTask.completed=true and verifiedBy is non-null.',
     command: `hermes-outcome-gate --task-id ${receiptIdValue}`,
   };
 }
@@ -1127,6 +1160,7 @@ function decision(args) {
     ignoreExpertHealth: Boolean(args.ignoreExpertHealth),
   };
   const signals = taskSignals(normalizedArgs.task);
+  const tokenClass = classifyTokenClass(normalizedArgs.task, signals);
   normalizedArgs = applyDefaultBudget(normalizedArgs, signals);
 
   // Live MoE health (traffic DEAD experts). Fail open if log missing — never crash routing.
@@ -1198,12 +1232,25 @@ function decision(args) {
   const winner = evaluated.find((item) => item.allowed) || evaluated.find((item) => item.route.id === 'local_fast');
   const selected = winner.route;
   const id = receiptId(normalizedArgs, selected);
+  const teachingBudgetRequested = tokenClass === 'teach' && normalizedArgs.maxCostUsd > TEACHING_BUDGET_USD;
+  const teachingBudgetApproved = teachingBudgetRequested && normalizedArgs.paidOk && normalizedArgs.maxCostUsdExplicit;
+  const selectedRequiresApproval = Boolean(selected.requiresApproval || signals.paidOrExternal);
+  const requiresApproval = selectedRequiresApproval || (teachingBudgetRequested && !teachingBudgetApproved);
+  let approvalReason = signals.paidOrExternal
+    ? `task mentions external money/payment/wallet/x402/cloudflare.pay/send/publish surface`
+    : selected.requiresApproval ? 'route requires explicit approval' : '';
+  if (teachingBudgetRequested && !teachingBudgetApproved) {
+    approvalReason = approvalReason
+      ? `${approvalReason}; teaching budget requested $${normalizedArgs.maxCostUsd} exceeds $${TEACHING_BUDGET_USD} teach cap`
+      : `teaching budget requested $${normalizedArgs.maxCostUsd} exceeds $${TEACHING_BUDGET_USD} teach cap`;
+  }
   const receipt = {
     schema: 'hermes-economic-router/receipt-v1',
     id,
     createdAt: new Date().toISOString(),
     task: normalizedArgs.task,
     risk: normalizedArgs.risk,
+    tokenClass,
     budget: {
       maxCostUsd: normalizedArgs.maxCostUsd,
       latencyMs: normalizedArgs.latencyMs,
@@ -1220,16 +1267,19 @@ function decision(args) {
     selectedRoute: publicRoute(selected),
     estimatedCostUsd: selected.costUsd,
     estimatedLatencyMs: selected.latencyMs,
-    requiresApproval: Boolean(selected.requiresApproval || signals.paidOrExternal),
-    approvalReason: signals.paidOrExternal
-      ? `task mentions external money/payment/wallet/x402/cloudflare.pay/send/publish surface`
-      : selected.requiresApproval ? 'route requires explicit approval' : '',
+    requiresApproval,
+    approvalReason,
+    teachingBudget: {
+      teachCapUsd: TEACHING_BUDGET_USD,
+      requested: teachingBudgetRequested,
+      approved: teachingBudgetApproved,
+    },
     signals,
     modelCatalogQuery: signals.needsModelPrice ? providerModelCatalogQuery(signals) : null,
     modelCatalogCandidates: catalogCandidates(signals),
     microAgentRecipe: buildMicroAgentRecipe(selected, normalizedArgs, signals, evaluated),
     pipeline: buildPipeline(selected, normalizedArgs, signals),
-    outcomeContract: buildOutcomeContract(id, normalizedArgs, signals),
+    outcomeContract: buildOutcomeContract(id, normalizedArgs, signals, tokenClass),
     rejectedRoutes: evaluated
       .filter((item) => item.route.id !== selected.id)
       .map((item) => ({
@@ -1803,6 +1853,7 @@ module.exports = {
   routeAllowed,
   scoreRoute,
   taskSignals,
+  classifyTokenClass,
   writeReceipt,
   // Feedback loop exports (TensorZero-inspired)
   updateRouteReliability,
