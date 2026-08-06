@@ -103,26 +103,26 @@ describe('hermesNotifications', () => {
         phase: 'approval',
         startedAtMs: Date.now(),
       }),
-    ).toBe('Waiting for your approval');
+    ).toBe('🛡️ Approval Required');
     expect(
       runProgressNotificationTitle({
         phase: 'streaming',
         startedAtMs: Date.now(),
       }),
-    ).toBe('Hermes is responding');
+    ).toBe('⚡ Responding · Hermes');
     expect(
       runProgressNotificationTitle({
         phase: 'completed',
         startedAtMs: Date.now(),
         replyPreview: 'The requested work is ready.',
       }),
-    ).toBe('Hermes replied');
+    ).toBe('💬 Hermes Replied');
     expect(
       runProgressNotificationTitle({
         phase: 'completed',
         startedAtMs: Date.now(),
       }),
-    ).toBe('Hermes finished');
+    ).toBe('✅ Task Completed');
   });
 
   it('dismisses run notifications when the app is foregrounded', () => {
@@ -278,8 +278,8 @@ describe('hermesNotifications', () => {
       );
 
       const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
-      expect(call.content.title).toBe('Hermes finished');
-      expect(call.content.body).toBe('Reply ready — open chat to read it.');
+      expect(call.content.title).toBe('✅ Task Completed');
+      expect(call.content.body).toBe('Reply ready — tap to open chat.');
       expect(call.content.body).not.toMatch(/3\s*min|computer/i);
     });
 
@@ -311,7 +311,7 @@ describe('hermesNotifications', () => {
       );
 
       const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
-      expect(call.content.title).toBe('Hermes replied');
+      expect(call.content.title).toBe('💬 Hermes Replied');
       expect(call.content.body).toBe('Here is the revenue status for today.');
       expect(call.content.body).not.toMatch(/^\d+\s*min/);
       expect(call.content.body).not.toContain('3 min');
