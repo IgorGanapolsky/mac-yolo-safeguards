@@ -19,7 +19,12 @@ console.log('Running test-herdr-high-roi-suite.js...');
 // Test 1: CLI Binary Status Check
 {
   const status = checkHerdrCliStatus();
-  assert.strictEqual(status.installed, true, 'Expected Herdr CLI binary to be installed on Mac');
+  assert.strictEqual(typeof status.installed, 'boolean', 'Expected installed flag to be a boolean');
+  if (process.platform !== 'darwin') {
+    console.log('  [SKIP] Herdr CLI binary presence check requires macOS runner (binary is Mac-local)');
+  } else {
+    assert.strictEqual(status.installed, true, 'Expected Herdr CLI binary to be installed on Mac');
+  }
 }
 
 // Test 2: Worktree Provisioning
