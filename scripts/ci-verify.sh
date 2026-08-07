@@ -29,6 +29,7 @@ node --check tools/hermes-self-harness.js
 node --check tools/merge-gateway-readiness.js
 node --check tools/tencentdb-memory-readiness.js
 node --check tools/tencentdb-memory-engine.js
+node --check tools/tencentdb-memory-provider.js
 node --check tools/athena-agent-revenue-gap.js
 node --check tools/revenue-autonomous-loop.js
 node --check tools/ralph-gsd-loop.js
@@ -85,6 +86,7 @@ node tests/test-hermes-self-harness.js
 node tests/test-merge-gateway-readiness.js
 node tests/test-tencentdb-memory-readiness.js
 node tests/test-tencentdb-memory-engine.js
+node tests/test-tencentdb-memory-isolated-proof.js
 node tests/test-athena-agent-revenue-gap.js
 node tests/test-governed-agent-sales-copy.js
 node tests/test-chrome-gmail-sent-verify.js
