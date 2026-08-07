@@ -26,5 +26,6 @@ node tests/test-understudy-distillation-engine.js
 node tests/test-plan-verify-directive.js
 node tests/test-thumbgate-pricing-scorecard.js
 node tests/test-agent-doctor.js
+node tests/test-inference-telemetry.js
 
 echo "✅ All Local CI Verification Checks Passed!"
