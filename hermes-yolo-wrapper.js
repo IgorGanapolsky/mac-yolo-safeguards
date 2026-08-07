@@ -32,6 +32,8 @@ const HERMES_YOLO_LATEST_RECEIPT_PATH = process.env.HERMES_YOLO_LATEST_RECEIPT_P
 const HERMES_YOLO_HISTORY_RECEIPT_PATH = process.env.HERMES_YOLO_HISTORY_RECEIPT_PATH || path.join(HERMES_YOLO_RECEIPT_DIR, 'history.jsonl');
 // All thresholds overridable via env vars.
 const HERMES_BIN = process.env.HERMES_BIN || path.join(HOME, '.local/bin/hermes');
+const VLLM_API_BASE = process.env.VLLM_API_BASE || 'http://localhost:8000/v1';
+const VLLM_MODEL = process.env.VLLM_MODEL || 'Qwen/Qwen2.5-Coder-32B-Instruct';
 // Slim default (2026-08 harness research): computer_use + vision spawn Chrome and thrash
 // 24GB multi-agent Macs. Opt in via HERMES_YOLO_TOOLSETS=...computer_use,vision
 // Progressive disclosure (Google Agent Skills): vision/computer_use also auto-add from task text
