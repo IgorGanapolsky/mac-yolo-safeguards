@@ -94,7 +94,7 @@ install_local_files() {
   if [[ -f "$ROOT/tools/hermes-yolo-sprawl-control.js" ]]; then
     install -m 0755 "$ROOT/tools/hermes-yolo-sprawl-control.js" "$HOME/.hermes/hermes-yolo-sprawl-control.js"
   fi
-  # Progressive Agent Skills lean-context (if present on this branch)
+  # Progressive Agent Skills lean-context (Google for Devs pattern) — next to wrapper for require()
   if [[ -f "$ROOT/tools/hermes-yolo-lean-context.js" ]]; then
     install -m 0755 "$ROOT/tools/hermes-yolo-lean-context.js" "$HOME/.hermes/hermes-yolo-lean-context.js"
   fi
