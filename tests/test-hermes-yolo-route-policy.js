@@ -104,6 +104,42 @@ function testPolicyVersionConsistent() {
   }
 }
 
+function testAutoRouterEnrichment() {
+  const r = selectRoute({
+    task: 'implement the login form validation',
+    env: { ...CLEAN },
+    agent: 'test-agent',
+  });
+  assert.ok(r.taskType, 'taskType missing');
+  assert.ok(r.turnBudget && r.turnBudget.turns >= 1, 'turnBudget missing');
+  assert.ok(r.spendTags && r.spendTags.agent === 'test-agent');
+  assert.ok(r.costQualityTradeoff);
+  const env = commandEnv(r);
+  assert.ok(env.HERMES_TASK_TYPE);
+  assert.ok(env.HERMES_TURN_BUDGET);
+}
+
+function testCheapTradeoffDoesNotUseOpenRouter() {
+  const r = selectRoute({
+    task: 'implement the login form validation',
+    env: { ...CLEAN, HERMES_COST_QUALITY: 'cheap' },
+    tradeoff: 'cheap',
+  });
+  assert.ok(!String(r.model).includes('openrouter'));
+  assert.notStrictEqual(r.model, 'openrouter/auto');
+  assert.notStrictEqual(r.model, 'openrouter/auto-beta');
+  // cheap should not pick SuperGrok for coding when re-rank applies
+  assert.notStrictEqual(r.model, 'grok-4.5', r.reason);
+}
+
+function testNeverOpenRouterAutoSlug() {
+  const r = selectRoute({
+    task: 'use openrouter auto beta please',
+    env: { ...CLEAN },
+  });
+  assert.ok(!/^openrouter\//i.test(r.model));
+}
+
 function main() {
   testSmokeUsesFastNotGrok();
   testHardUsesGrok();
@@ -114,6 +150,9 @@ function main() {
   testLongContextUsesK3Membership();
   testCommandEnv();
   testPolicyVersionConsistent();
+  testAutoRouterEnrichment();
+  testCheapTradeoffDoesNotUseOpenRouter();
+  testNeverOpenRouterAutoSlug();
   console.log('test-hermes-yolo-route-policy: ok');
 }
 
