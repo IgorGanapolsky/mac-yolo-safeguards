@@ -17,5 +17,6 @@ node tests/test-specialist-plugin-scoping.js
 node tests/test-moe-context-slicer.js
 node tests/test-fde-workflow-learning.js
 node tests/test-thumbgate-context-master.js
+node tests/test-vllm-local-harness.js
 
 echo "✅ All Local CI Verification Checks Passed!"
