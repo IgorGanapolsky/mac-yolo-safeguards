@@ -141,6 +141,10 @@ jobs:
           IPAD_RESULT: ${{ needs.ipad-simulator.result }}
         run: |
           set -eu
+          if [ "$DETECT_RESULT" = "cancelled" ]; then
+            echo "Workflow run was superseded/cancelled."
+            exit 0
+          fi
           if [ "$DETECT_RESULT" != "success" ]; then
             echo "::error::iPad change detection failed: $DETECT_RESULT"
             exit 1
