@@ -39,7 +39,7 @@ const VLLM_MODEL = process.env.VLLM_MODEL || 'Qwen/Qwen2.5-Coder-32B-Instruct';
 // Progressive disclosure (Google Agent Skills): vision/computer_use also auto-add from task text
 // when HERMES_YOLO_LEAN_CONTEXT is on (default) and HERMES_YOLO_TOOLSETS is unset.
 const DEFAULT_TOOLSETS = process.env.HERMES_YOLO_TOOLSETS
-  || 'terminal,file,web,code_execution,memory,clarify';
+  || 'terminal,file,web,code_execution,clarify';
 
 /**
  * YugabyteDB AMP sprawl-control module (proliferation, decision traces, guarded autonomy).
