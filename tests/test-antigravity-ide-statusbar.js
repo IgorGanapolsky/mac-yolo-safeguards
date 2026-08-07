@@ -16,5 +16,6 @@ assert.strictEqual(audit.tokenUsage.totalTokens, 1560, 'Expected 1560 total toke
 assert.strictEqual(audit.costUsd, '$0.00', 'Cost must be $0.00');
 assert.strictEqual(audit.harnessHealth.ciSuites, '25/25 PASS', 'Expected 25/25 CI suites');
 assert.strictEqual(audit.harnessHealth.codeqlFindings, 0, 'Expected 0 CodeQL findings');
+assert.ok(audit.engine.length > 0, 'Expected non-empty engine name');
 
 console.log('ok tests/test-antigravity-ide-statusbar.js');
