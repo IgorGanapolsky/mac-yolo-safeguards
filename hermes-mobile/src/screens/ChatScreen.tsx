@@ -200,6 +200,8 @@ import {
   shouldShowChatOutputFeedback,
 } from '../utils/chatOutputFeedback';
 import { isThumbgateLeashUnlocked } from '../utils/thumbgateLeash';
+import { shouldShowThumbGatePromoOnConnectedChat } from '../utils/thumbgatePromoCopy';
+import ThumbGatePromoCard from '../components/ThumbGatePromoCard';
 import {
   displayableLlmModel,
   humanizeComposerStatus,
@@ -474,6 +476,7 @@ import {
   shouldAwaitGatewayReplyAfterSend,
   shouldHardStopEmptyStreamWait,
   shouldKeepAutoPollingForReply,
+  shouldRetainToolsWorkingChrome,
   serverHasAssistantReplyAfterLastUser,
   toolActivityAfterLastUser,
 } from '../utils/emptyStreamReplyRecovery';
@@ -1712,6 +1715,10 @@ export default function ChatScreen() {
       userSendFailed,
       profiles: gatewayProfiles,
     });
+  const showThumbGateConnectedPromo = shouldShowThumbGatePromoOnConnectedChat({
+    connectionState: isDemo ? 'demo' : connectionState,
+    hasThumbGateCompanion: Boolean(thumbgateApiKey?.trim()),
+  });
   // Auth mismatch already has the red Re-pair banner — don't stack orange "Can't reach".
   const showMacRetryBanner =
     !effectiveAuthMismatch &&
@@ -3566,27 +3573,33 @@ export default function ChatScreen() {
               ),
             );
             const activityAfterReply = toolActivityAfterLastUser(msgs);
+            // GH dogfood 2026-08-05: never keep "Using on your computer: tools" after a
+            // substantial reply when tools are only historical, or past hard-stop.
+            const retainTools = shouldRetainToolsWorkingChrome({
+              activityActive: activityAfterReply.active,
+              waitElapsedMs: elapsed,
+            });
             if (
-              activityAfterReply.active ||
+              retainTools ||
               shouldRetainRunProgressAfterVisibleReply({
                 deferredPollActive: Boolean(deferredTelegramPollRef.current),
               })
             ) {
-              setToolStatus(activityAfterReply.active ? activityAfterReply.detail : null);
+              setToolStatus(retainTools ? activityAfterReply.detail : null);
               setRunProgress((prev) =>
                 retainActiveRunProgressForLiveTokens(
                   prev
                     ? {
                         ...prev,
                         phase: 'working',
-                        detail: activityAfterReply.active
+                        detail: retainTools
                           ? activityAfterReply.detail
                           : prev.detail ?? 'Working on your computer…',
                       }
                     : {
                         phase: 'working',
                         startedAtMs: startedAt,
-                        detail: activityAfterReply.active
+                        detail: retainTools
                           ? activityAfterReply.detail
                           : 'Working on your computer…',
                       },
@@ -3600,7 +3613,12 @@ export default function ChatScreen() {
             return;
           }
           const activity = toolActivityAfterLastUser(msgs);
-          if (activity.active) {
+          if (
+            shouldRetainToolsWorkingChrome({
+              activityActive: activity.active,
+              waitElapsedMs: elapsed,
+            })
+          ) {
             sawTools = true;
             // Footer banner only — do not rewrite the transcript bubble every poll.
             setToolStatus(activity.detail);
@@ -3613,6 +3631,8 @@ export default function ChatScreen() {
                     detail: activity.detail,
                   },
             );
+          } else if (activity.active && shouldHardStopEmptyStreamWait(elapsed)) {
+            // Tools labels present but wall-clock expired — fall through to hard stop.
           } else if (elapsed >= EMPTY_STREAM_SELF_HEAL_AFTER_MS) {
             const checkingDetail = emptyStreamCheckingStatus(elapsed);
             setToolStatus(checkingDetail);
@@ -8102,7 +8122,7 @@ export default function ChatScreen() {
               scanResult={profileScanResult}
               profiles={gatewayProfiles}
               activeProfileId={activeGatewayProfile?.id ?? null}
-              activeProfileReachable={macHttpOk}
+              activeProfileReachable={effectiveMacHttpOk}
               activeProfileConnecting={headerConnectionState === 'connecting'}
               usbLoopback={isLoopbackGatewayUrl(gatewayUrl)}
               usbCableLikely={usbCableLikely}
@@ -8129,6 +8149,12 @@ export default function ChatScreen() {
               hasThumbGateCompanion={Boolean(thumbgateApiKey?.trim())}
             />
           </ScrollView>
+        ) : null}
+
+        {!showMacConnectionHelp && showThumbGateConnectedPromo ? (
+          <View style={{ paddingHorizontal: 16, paddingTop: 8 }} testID="thumbgate-promo-chat-connected-wrap">
+            <ThumbGatePromoCard surface="chat_connected" />
+          </View>
         ) : null}
 
         {!showMacConnectionHelp && (isLoadingMessages && messages.length === 0 ? (
@@ -8520,7 +8546,9 @@ export default function ChatScreen() {
                 profiles={switchComputerProfiles}
                 activeProfileId={activeGatewayProfile?.id ?? null}
                 activeProfile={activeGatewayProfile}
-                activeReachable={macHttpOk}
+                // Same SSOT as chat header (effectiveMacHttpOk) — never green "Connected"
+                // while header shows Not connected (authMismatch / connectivity stall).
+                activeReachable={effectiveMacHttpOk}
                 authNeedsRepair={effectiveAuthMismatch}
                 activeConnecting={headerConnectionState === 'connecting'}
                 selectionDisabled={profileSwitchBusy || !macPickerSelectionArmed}
@@ -8565,7 +8593,7 @@ export default function ChatScreen() {
                 tailscaleDiscoveries={tailscaleDiscoveries}
                 activeGatewayUrl={gatewayUrl}
                 wifiConnected={wifiConnected}
-                activeReachable={macHttpOk}
+                activeReachable={effectiveMacHttpOk}
                 addingTailscale={tailscaleDiscoveryProbing}
                 savedProfileCount={switchComputerProfiles.length}
                 helpExpanded={macPickerHelpExpanded}

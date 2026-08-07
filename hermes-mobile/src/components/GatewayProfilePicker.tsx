@@ -16,6 +16,7 @@ import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { colors } from '../theme/colors';
 import { GATEWAY_AUTH_REPAIR_SETTINGS_STATUS } from '../services/gatewayClient';
 import { COMPUTER_PICKER_LIST_MIN_HEIGHT } from '../utils/computerPickerStatus';
+import { PICKER_EMPTY_FOOTER } from '../utils/tailscalePasteIpCopy';
 
 type GatewayProfilePickerProps = {
   profiles: GatewayProfile[];
@@ -79,9 +80,7 @@ export default function GatewayProfilePicker({
         <MacScanProgressCard scanning={scanning} progress={scanProgress} result={scanResult} />
       ) : null}
       {pickerProfiles.length === 0 && !scanning ? (
-        <Text style={styles.emptyText}>
-          No saved computers yet. Paste a Tailscale IP above, or tap Find computers.
-        </Text>
+        <Text style={styles.emptyText}>{PICKER_EMPTY_FOOTER}</Text>
       ) : null}
       {pickerProfiles.length > 0 ? (
         <View

@@ -253,7 +253,8 @@ describe('gatewayProfilePicker', () => {
     expect(profilePickerLines(profiles[1]).title).toBe('Igors-Mac-mini');
   });
 
-  it('does not let an active home Wi-Fi alias hide the same Mac Tailscale route', () => {
+  it('keeps active Home Wi‑Fi as the radio when Tailscale is also saved for the same Mac', () => {
+    // 2026-08-05: collapsing always to Tailscale hid the Wi‑Fi path the user was on.
     const profiles = profilesForSwitchComputerPicker(
       [
         {
@@ -279,8 +280,8 @@ describe('gatewayProfilePicker', () => {
     );
 
     expect(profiles).toHaveLength(1);
-    expect(profiles[0].id).toBe('mac_book_ts');
-    expect(profileConnectionRouteLabel(profiles[0], false)).toBe('Tailscale');
+    expect(profiles[0].id).toBe('mac_book_lan');
+    expect(profiles[0].gatewayUrl).toContain('192.168.68.54');
   });
 
   it('shows Tailscale endpoint instead of home LAN IP for the same Mac mini profile', () => {
@@ -812,6 +813,78 @@ describe('gatewayProfilePicker', () => {
       addedAt: '2026-07-23T12:00:00.000Z',
     };
     expect(profilePickerLines(named).title).toBe('Igors-Mac-mini');
+  });
+
+  it('collapses mini Home Wi‑Fi + named Tailscale into one radio (not Tailscale 100.x twin)', () => {
+    // 2026-08-05 dogfood: same mini as LAN "Igors-Mac-mini" and orphan "Tailscale 100.94…".
+    // After hostname enrichment both share the machine name → one picker row.
+    const rows = profilesForSwitchComputerPicker(
+      [
+        {
+          id: 'mini_lan',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://192.168.68.67:8642',
+          hostname: 'Igors-Mac-mini',
+          localIp: '192.168.68.67',
+          addedAt: '2026-08-05T12:00:00Z',
+          lastConnectedAt: '2026-08-05T12:50:00Z',
+        },
+        {
+          id: 'mini_ts',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini',
+          localIp: '100.94.135.78',
+          addedAt: '2026-08-05T11:00:00Z',
+        },
+        {
+          id: 'pro_ts',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          hostname: 'Igors-MacBook-Pro',
+          localIp: '100.87.85.85',
+          addedAt: '2026-08-05T10:00:00Z',
+        },
+      ],
+      { activeProfileId: 'mini_lan' },
+    );
+    expect(rows).toHaveLength(2);
+    const titles = rows.map((p) => profilePickerLines(p).title);
+    expect(titles).toContain('Igors-Mac-mini');
+    expect(titles).toContain('Igors-MacBook-Pro (Mac Pro)');
+    expect(titles.some((t) => /Tailscale 100/i.test(t))).toBe(false);
+    // Active home Wi‑Fi path preserved for the mini radio.
+    const mini = rows.find((p) => p.hostname?.includes('Mac-mini'));
+    expect(mini?.id).toBe('mini_lan');
+  });
+
+  it('keeps Mac Pro Tailscale and Home Wi‑Fi as distinct routes in storage collapse input', () => {
+    // Both routes available so preferredProfileForMachine can pick Wi‑Fi at home.
+    const rows = profilesForSwitchComputerPicker(
+      [
+        {
+          id: 'pro_ts',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          hostname: 'Igors-MacBook-Pro',
+          localIp: '100.87.85.85',
+          addedAt: '2026-08-05T10:00:00Z',
+        },
+        {
+          id: 'pro_lan',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://192.168.68.50:8642',
+          hostname: 'Igors-MacBook-Pro',
+          localIp: '192.168.68.50',
+          addedAt: '2026-08-05T12:00:00Z',
+          lastConnectedAt: '2026-08-05T12:55:00Z',
+        },
+      ],
+      { activeProfileId: 'pro_lan' },
+    );
+    expect(rows).toHaveLength(1);
+    expect(profilePickerLines(rows[0]).title).toBe('Igors-MacBook-Pro (Mac Pro)');
+    expect(rows[0].id).toBe('pro_lan');
   });
 
 });

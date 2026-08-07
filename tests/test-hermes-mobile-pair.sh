@@ -270,12 +270,22 @@ if run_node "
   if (tunneled.includes(8642) || !tunneled.includes(8765)) process.exit(3);
   const explicitDefault = lib.resolveUsbReversePorts({ explicitGatewayUrl: 'http://127.0.0.1:8642' });
   if (!explicitDefault.includes(8642)) process.exit(4);
+  // Remote mini/Tailscale: never reverse laptop :8642 (steals phone off 100.x path).
   const remote = lib.resolveUsbReversePorts({ explicitGatewayUrl: 'http://100.94.135.78:8642' });
-  if (!remote.includes(8642)) process.exit(5);
+  if (remote.includes(8642) || !remote.includes(8765)) process.exit(5);
+  const miniFlag = lib.resolveUsbReversePorts({ miniTailscale: true, targetGatewayUrl: 'http://100.94.135.78:8642' });
+  if (miniFlag.includes(8642) || !miniFlag.includes(8765)) process.exit(6);
+  const magicDns = lib.resolveUsbReversePorts({ targetGatewayUrl: 'http://igors-mac-mini.tail12aa33.ts.net:8642' });
+  if (magicDns.includes(8642) || !magicDns.includes(8765)) process.exit(7);
+  // Home LAN mini: also skip 8642 (2026-08-05 dogfood re-added reverse on 192.168.x).
+  const lanMini = lib.resolveUsbReversePorts({ explicitGatewayUrl: 'http://192.168.68.67:8642' });
+  if (lanMini.includes(8642) || !lanMini.includes(8765)) process.exit(8);
+  const lanTarget = lib.resolveUsbReversePorts({ targetGatewayUrl: 'http://10.0.0.5:8642' });
+  if (lanTarget.includes(8642) || !lanTarget.includes(8765)) process.exit(9);
 "; then
-  ok "resolveUsbReversePorts drops tcp:8642 only for mini-primary/non-default loopback gateways"
+  ok "resolveUsbReversePorts drops tcp:8642 for mini-primary, non-default loopback, Tailscale, and home LAN targets"
 else
-  bad "resolveUsbReversePorts drops tcp:8642 only for mini-primary/non-default loopback gateways"
+  bad "resolveUsbReversePorts drops tcp:8642 for mini-primary, non-default loopback, Tailscale, and home LAN targets"
 fi
 
 if [[ "$PAIR_JS" == *"usbReverseSkipped8642"* ]] \
@@ -284,6 +294,22 @@ if [[ "$PAIR_JS" == *"usbReverseSkipped8642"* ]] \
   ok "pair script removes a stale tcp:8642 reverse when skipping it for mini-primary"
 else
   bad "pair script removes a stale tcp:8642 reverse when skipping it for mini-primary"
+fi
+
+# adb deep link must use loopback exchange when reverse :8765 is live (phone TS often offline).
+if [[ "$PAIR_JS" == *"adbPairExchangeBase"* ]] \
+  && [[ "$PAIR_JS" == *"127.0.0.1:\${PAIR_PORT}"* || "$PAIR_JS" == *'127.0.0.1:${PAIR_PORT}'* || "$PAIR_JS" == *"USB reverse — reliable while cable in"* ]]; then
+  ok "pair script uses USB reverse loopback for adb pair exchange when reverse is live"
+else
+  bad "pair script uses USB reverse loopback for adb pair exchange when reverse is live"
+fi
+
+# GH-#1451: setup ack timeout must NOT fire leash-unlock (race replaces setup).
+if [[ "$PAIR_JS" == *"NOT sending leash-unlock"* ]] \
+  && [[ "$PAIR_JS" != *"sending secondary intent anyway (best-effort)"* ]]; then
+  ok "pair script never sends leash-unlock after setup ack timeout (GH-#1451)"
+else
+  bad "pair script never sends leash-unlock after setup ack timeout (GH-#1451)"
 fi
 
 # --- 2026-07-24 follow-up: the pairing decision above must be persisted somewhere

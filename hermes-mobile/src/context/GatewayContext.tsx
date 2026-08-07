@@ -175,6 +175,8 @@ import {
   isDiscoveredUrlAllowedForActiveProfile,
   profileDisplayName,
   profileIdFromGatewayUrl,
+  profileNeedsMachineNameEnrichment,
+  propagateMachineIdentityFromHealth,
   resolveHealPersistDecision,
   sanitizeGatewayProfileState,
   shouldProbeGatewayUrlForActiveProfile,
@@ -935,16 +937,52 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         effectiveGatewayUrlRef.current ||
         settingsRef.current.gatewayUrl;
       const sanitizedLocalIp = resolveDisplayLanIp(snapshot.localIp, urlHint);
-      const touched = touchProfileHealth(profileStateRef.current, activeId, {
+      const healthIdentity = {
         hostname: snapshot.hostname,
         localIp: sanitizedLocalIp,
-      });
-      if (touched === profileStateRef.current) {
+      };
+      let next = touchProfileHealth(profileStateRef.current, activeId, healthIdentity);
+
+      // Rename orphan "Tailscale 100.x" / bare-IP rows that answer with the same hostname
+      // so the switcher collapses LAN + Tailscale into one named computer.
+      const hostKey = snapshot.hostname?.trim().toLowerCase().replace(/\.local$/i, '');
+      if (hostKey) {
+        const probeKey = apiKeyRef.current?.trim() || undefined;
+        const anonymous = next.profiles.filter(
+          (profile) =>
+            profile.id !== activeId &&
+            !isLoopbackGatewayUrl(profile.gatewayUrl) &&
+            (isGenericMachineLabel(profileDisplayName(profile)) ||
+              profileNeedsMachineNameEnrichment(profile)),
+        );
+        const matchingIds: string[] = [];
+        await Promise.all(
+          anonymous.slice(0, 6).map(async (profile) => {
+            try {
+              const probe = await fetchGatewayHealth(profile.gatewayUrl, probeKey);
+              const probeHost = probe.hostname?.trim().toLowerCase().replace(/\.local$/i, '');
+              if (probeHost && probeHost === hostKey) {
+                matchingIds.push(profile.id);
+              }
+            } catch {
+              // Best-effort naming only.
+            }
+          }),
+        );
+        if (matchingIds.length > 0) {
+          next = propagateMachineIdentityFromHealth(next, healthIdentity, {
+            sourceProfileId: activeId,
+            matchingProfileIds: matchingIds,
+          });
+        }
+      }
+
+      if (next === profileStateRef.current) {
         return;
       }
-      profileStateRef.current = touched;
-      setProfileState(touched);
-      await gatewayProfiles.save(touched);
+      profileStateRef.current = next;
+      setProfileState(next);
+      await gatewayProfiles.save(next);
     },
     [],
   );

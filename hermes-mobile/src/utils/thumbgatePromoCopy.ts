@@ -22,7 +22,12 @@ export const THUMBGATE_PROMO_BUTTON_LABEL = 'Open ThumbGate.app';
 
 export { THUMBGATE_CONNECTOR_INSTALL_BUTTON_LABEL };
 
-export type ThumbGatePromoSurface = 'leash_disconnected' | 'leash_empty' | 'connection_unreachable';
+export type ThumbGatePromoSurface =
+  | 'leash_disconnected'
+  | 'leash_empty'
+  | 'connection_unreachable'
+  | 'chat_connected'
+  | 'settings';
 
 export type ThumbGatePromoCopy = {
   headline: string;
@@ -35,6 +40,12 @@ export type ThumbGatePromoCopy = {
 const PAID_COMPANION_COPY = {
   headline: 'ThumbGate.app',
   body: 'Web dashboard and Continuity when your computer is offline.',
+} as const;
+
+/** Always-on pitch while Hermes chat works — hero product is ThumbGate.app. */
+const CONNECTED_COMPANION_COPY = {
+  headline: 'ThumbGate.app',
+  body: 'Web dashboard, Continuity, and multi-machine control for your agents.',
 } as const;
 
 /**
@@ -55,6 +66,8 @@ const SURFACE_COPY: Record<
   leash_disconnected: PAID_COMPANION_COPY,
   leash_empty: PAID_COMPANION_COPY,
   connection_unreachable: PAID_COMPANION_COPY,
+  chat_connected: CONNECTED_COMPANION_COPY,
+  settings: CONNECTED_COMPANION_COPY,
 };
 
 export function thumbGatePromoCopy(surface: ThumbGatePromoSurface): ThumbGatePromoCopy {
@@ -93,11 +106,39 @@ export function shouldShowThumbGatePromoOnConnectionPanel(input: {
   if (input.hasThumbGateCompanion) {
     return false;
   }
-  if (input.connectionState === 'connected' || input.connectionState === 'demo') {
+  // Demo stays quiet (store capture / screenshots). Real connected users see the
+  // chat_connected surface on ChatScreen instead of the connection panel.
+  if (input.connectionState === 'demo') {
+    return false;
+  }
+  if (input.connectionState === 'connected') {
     return false;
   }
   if (input.profileCount === 0) {
     return true;
   }
   return input.healExhausted && !input.activeProfileReachable;
+}
+
+/** Always pitch ThumbGate.app on main chat when Mac is connected (cash path). */
+export function shouldShowThumbGatePromoOnConnectedChat(input: {
+  connectionState: 'disconnected' | 'connecting' | 'connected' | 'demo';
+  hasThumbGateCompanion?: boolean;
+  /** User dismissed the connected chip this session (optional). */
+  dismissed?: boolean;
+}): boolean {
+  if (input.hasThumbGateCompanion || input.dismissed) {
+    return false;
+  }
+  if (input.connectionState === 'demo') {
+    return false;
+  }
+  return input.connectionState === 'connected';
+}
+
+/** Settings always shows ThumbGate.app unless companion key is already saved. */
+export function shouldShowThumbGatePromoInSettings(input: {
+  hasThumbGateCompanion?: boolean;
+}): boolean {
+  return !input.hasThumbGateCompanion;
 }
