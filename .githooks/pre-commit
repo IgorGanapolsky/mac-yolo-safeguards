@@ -33,6 +33,15 @@ if [[ -f "$repo_root/tools/codeql-pattern-gate.js" ]]; then
   fi
 fi
 
+# 0c) Local Regression Suite (verify.sh) — runs automatically on every commit
+if [[ -f "$repo_root/scripts/verify.sh" ]]; then
+  echo "=== Running Automated Local Regression Suite (scripts/verify.sh) ==="
+  if ! bash "$repo_root/scripts/verify.sh"; then
+    echo "✗ Local regression suite failed — commit blocked."
+    exit 1
+  fi
+fi
+
 # Only act when hermes-mobile TS/TSX is staged (skip docs/asset/other commits).
 staged=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^hermes-mobile/.*\.(ts|tsx)$' || true)
 [ -z "$staged" ] && exit 0

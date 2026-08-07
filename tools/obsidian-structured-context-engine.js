@@ -58,11 +58,21 @@ function provisionObsidianVaultStructure() {
       try {
         fs.mkdirSync(dirPath, { recursive: true });
         createdDirs.push(dirName);
-      } catch {
-        // Fallback for non-writable environments
+      } catch (err) {
+        // TCC / permission boundary fallback
       }
     }
   });
+
+  // Mirror Obsidian Vault notes into repository docs/vault for GitHub backup
+  const repoVaultDir = path.join(__dirname, '..', 'docs', 'vault');
+  try {
+    if (!fs.existsSync(repoVaultDir)) {
+      fs.mkdirSync(repoVaultDir, { recursive: true });
+    }
+  } catch (err) {
+    // Ignore permission errors
+  }
 
   // Seed default skill notes if missing
   const skillsDir = path.join(obsidianVaultDir, 'Skills');
