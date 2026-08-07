@@ -124,3 +124,63 @@ Nothing against any of the three target orgs — blocked as above.
 This is an environment/session configuration problem, not a "nothing worth doing" day — a real, unclaimed bug was found (LanceDB #3764) and could not be submitted. Whatever creates the session/trigger for this routine needs to either (a) fire into a fresh session per run with the target org repo as its initial source instead of `mac-yolo-safeguards`, or (b) otherwise grant this session cross-owner repo scope. Until that's fixed, every future run of this routine will hit the same wall.
 
 ---
+
+## 2026-08-07 — BLOCKED again (same session-scope wall as 2026-08-04); prior PRs still unreviewed
+
+### Repos surveyed
+
+| Org | Repos |
+|-----|--------|
+| Thinking Machines Lab | `thinking-machines-lab/tinker`, `tinker-cookbook` |
+| Poolside AI | `poolsideai/pool` |
+| LanceDB | `lancedb/lancedb`, `lancedb/lance` (`lance-format/lance`) |
+
+### Confirmed: the 2026-08-04 blocker is unfixed
+
+This run's session was again created with `igorganapolsky/mac-yolo-safeguards` as its only initial source. `add_repo(access:"push")` on `thinking-machines-lab/tinker` failed with the identical error: *"cross-tier adds are not supported in v1... session already has repos from owner(s) [igorganapolsky]."* Unlike 2026-08-04, this run went ahead and directly attempted the write calls this routine depends on (safe to test now that the failure mode is well understood and doesn't require touching a real repo state) — all three denied identically:
+
+- `mcp__github__add_issue_comment(owner: thinking-machines-lab, repo: tinker, issue: 51)` → *"Access denied: repository ... is not configured for this session."*
+- `mcp__github__fork_repository(owner: thinking-machines-lab, repo: tinker)` → same error.
+- `mcp__github__list_issues(owner: lancedb, repo: lancedb)` / `(owner: poolsideai, repo: pool)` / `(owner: thinking-machines-lab, repo: tinker-cookbook)` → same error, confirming even read-only issue listing is blocked once a repo isn't attached.
+
+Workaround used for research this run: anonymous public `git clone` (works for any public repo, no attachment needed) plus `WebFetch` against public `github.com` issue/PR HTML pages, plus `mcp__github__search_issues`/`search_pull_requests` (query-string search, not owner/repo-header-gated, so these still work cross-repo). This is enough to survey and verify but not to comment, fork, or open a PR.
+
+### Issues considered (research only — could not act)
+
+**Tinker / TML** — No issues opened in `tinker` or `tinker-cookbook` in the last 48h. Re-checked [#51](https://github.com/thinking-machines-lab/tinker/issues/51) (pyqwest TLS `UnknownIssuer`) end-to-end as if new, independently re-deriving the same finding as 2026-08-03: diffed the actual PyPI source dists for `tinker==0.23.4` (bug present, confirmed by downloading and grepping `_base_client.py`) vs `tinker==0.24.0` (fix present) — confirms the fix shipped in 0.24.0. Turns out this is moot: PR [#54](https://github.com/thinking-machines-lab/tinker/pull/54) from 2026-08-03 already covers it. [#684](https://github.com/thinking-machines-lab/tinker-cookbook/issues/684) (reasoning tokens collapsed into `message.content`) looked promising but is **not fixable in this repo** — traced `to_openai_message()` across all renderers (`qwen3.py`, `deepseek_v3.py`, `kimi_k2.py`, `gpt_oss.py`, `base.py`) and confirmed the cookbook's client-side renderer code already does correct `reasoning_content` extraction; the bug the reporter describes is in Tinker's *hosted* OpenAI-compatible service, which isn't in any open-source repo. [#268](https://github.com/thinking-machines-lab/tinker-cookbook/issues/268) (tool_use/search example needs 160GB RAM) is a legitimate infra complaint but not a code bug — no clear fix to defend in review. [#790](https://github.com/thinking-machines-lab/tinker-cookbook/issues/790) (docs: model deprecations) has an empty issue body, nothing to act on.
+
+**Poolside** — No issues opened across `poolsideai/*` in the last 48h. [#28](https://github.com/poolsideai/pool/issues/28) (CLI plugin support) is an open-ended feature request with no spec. [#29](https://github.com/poolsideai/pool/issues/29) (docs: add LLMTR provider) — opener already has their own branch ready and is a competing-service maintainer promoting their own product; not mine to preempt or submit on their behalf. `pool` remains closed-source per 2026-08-03 (README/CLI wrapper only).
+
+**LanceDB** — Checked the "good first issue" backlog for anything unclaimed: [#3262](https://github.com/lancedb/lancedb/issues/3262) has PR [#3775](https://github.com/lancedb/lancedb/issues/3775) (2026-08-03, mine). [#1677](https://github.com/lancedb/lancedb/issues/1677) → claimed by PR #3152. [#2343](https://github.com/lancedb/lancedb/issues/2343) → claimed by PR #3145. [#2325](https://github.com/lancedb/lancedb/issues/2325) → claimed by PR #3870. [#1786](https://github.com/lancedb/lancedb/issues/1786) → claimed by PR #3833. [#1959](https://github.com/lancedb/lancedb/issues/1959) → assigned to @vaifai. [#1153](https://github.com/lancedb/lancedb/issues/1153) ("simple.rs uses unreleased IntoArrow API") → **stale**, verified against current `rust/lancedb/examples/simple.rs` on main: the example no longer references `IntoArrow` at all, issue should just be closed. [#1331](https://github.com/lancedb/lancedb/issues/1331) (parallelize Java 11/17 CI) → open since 2024, genuinely unclaimed but a CI config change, not the kind of contribution worth spending the org's only write slot on if we can't even submit it this run. `lance-format/lance` issues from the last 24h (#8317, #8349, #8348, #8336, #8321, #8310, #8307) are deep Rust-internals bugs already carrying detailed root-cause writeups suggesting internal maintainer triage; #8336 specifically already has PR #8344 open.
+
+### Status of prior PRs (informational only — no action possible either way)
+
+Both PRs from 2026-08-03 are still open, unmerged, with no unaddressed reviewer feedback:
+- [tinker#54](https://github.com/thinking-machines-lab/tinker/pull/54) — 1 human comment (mine) + a Codex review-bot rate-limit notice. No maintainer review yet.
+- [lancedb#3775](https://github.com/lancedb/lancedb/pull/3775) — 1 human comment (mine, CI note); PR is waiting on first-time-contributor CI approval from a maintainer. `bug`/`Python` labels auto-applied. No requested changes.
+
+### What was opened
+
+Nothing. Blocked identically to 2026-08-04.
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| Comment on tinker#51 restating the 0.24.0 fix | Already posted 2026-08-03; would be a duplicate, and couldn't post anyway (blocked) |
+| tinker-cookbook#684 | Bug lives in the closed-source hosted service, not the open repo |
+| LanceDB #1153 | Stale — underlying code already fixed on main; nothing to submit |
+| LanceDB #1331 | Genuinely unclaimed but low-value CI reordering; deprioritized given zero write capability this run anyway |
+| Poolside #29 | Third party's own pending contribution about their own competing product |
+| New manufactured question | No real unknown surfaced this run |
+| ThumbGate mentions | Zero |
+
+### ThumbGate mentions
+
+**None** this run.
+
+### Action needed from Igor
+
+Same root cause as 2026-08-04, now confirmed on a second run: this routine's session always starts with `igorganapolsky/mac-yolo-safeguards` as its sole initial source, and the CCR `add_repo` layer refuses to attach any other owner's repo with push/API access once that's set ("cross-tier adds are not supported in v1"). Every `mcp__github__*` call scoped to `owner`/`repo` — reads and writes alike — is denied for `thinking-machines-lab/*`, `poolsideai/*`, and `lancedb/*` as a result. The routine can research (anonymous clone + WebFetch + cross-repo search) but cannot comment, fork, or open a PR. This has now blocked at least two consecutive scheduled runs (2026-08-04, 2026-08-07) and will block every future one until the trigger is reconfigured to either fire into a fresh session seeded with the target repo, or bind a GitHub identity/token to this session that isn't tied to the `mac-yolo-safeguards`-only scope. Separately: the two PRs opened 2026-08-03 (tinker#54, lancedb#3775) are still sitting unreviewed after 4 days — worth a nudge to the maintainers if Igor wants those merged rather than left stale.
+
+---
