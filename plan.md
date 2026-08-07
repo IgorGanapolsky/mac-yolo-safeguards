@@ -1867,6 +1867,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `hermes-mobile/src/__tests__/ChatMessageBubble.test.tsx`, `hermes-mobile/src/__tests__/gatewayFeatureCatalog.test.ts`, `hermes-mobile/src/__tests__/opsToolsets.test.ts`, `plan.md` → **codex-mobile-fix-everything** (exact additional regression-test ownership for T-MOBILE-FIX-EVERYTHING-20260731; CEO's Jul 31 "fix everything" directive supersedes the overlapping stale test claims without changing their unrelated assertions) (2026-07-31T17:28:00Z)
 - `hermes-mobile/scripts/generate-store-screenshots.py`, `hermes-mobile/scripts/test-store-screenshot-assets.py`, `hermes-mobile/fastlane/metadata/android/en-US/images/phoneScreenshots/04_pair.png`, `hermes-mobile/fastlane/screenshots/en-US/04_pair_67.png`, `hermes-mobile/fastlane/screenshots/en-US/04_pair_ipad129.png`, `hermes-mobile/docs/store-assets/generated-manifest.json`, `plan.md` → **codex-mobile-fix-everything** (CI follow-up for T-MOBILE-FIX-EVERYTHING-20260731: keep public screenshot copy aligned with the now-unambiguous Leash tool-denial control) (2026-07-31T17:32:00Z)
 
+- `hermes-mobile/src/components/UberStatusToast.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx` (toast wiring only) → **codex-chat-retry-attachments** (PR #1501: connect-state UberStatusToast trigger; typecheck fix brings component + resolveHeaderTransportLabel import) (2026-08-07T15:30:00Z)
+
 ## 3. Decisions Log
 
 ### D-2026-07-28-buzz-competitor-p0-shared-room

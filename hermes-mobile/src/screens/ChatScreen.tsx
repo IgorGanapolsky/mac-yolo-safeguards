@@ -48,6 +48,7 @@ import { trackProductEvent } from '../services/productAnalytics';
 import { scheduleRunCompletedNotification } from '../services/hermesNotifications';
 import GatewayProfilePicker from '../components/GatewayProfilePicker';
 import { UberStatusToast } from '../components/UberStatusToast';
+import { resolveHeaderTransportLabel } from '../utils/chatMachineHeader';
 import { MAC_PICKER_SUBTITLE } from '../utils/tailscalePasteIpCopy';
 import ComputerPickerStatusRegion from '../components/ComputerPickerStatusRegion';
 import ManualComputerAddressForm from '../components/ManualComputerAddressForm';
