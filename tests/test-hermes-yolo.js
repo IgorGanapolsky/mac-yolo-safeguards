@@ -322,6 +322,8 @@ try {
       GROK_YOLO_BIN: fakeGrokYoloPath,
       HERMES_BIN: '/definitely-not-used/hermes',
       HERMES_YOLO_RECEIPT_DIR: routeReceiptRoot,
+      // Exact prompt contract for this harness; lean-context has its own suite.
+      HERMES_YOLO_LEAN_CONTEXT: '0',
     },
   });
   assert(grokBackendOutput.includes('GROK-BACKEND:-p fix the bug --output-format plain'));
@@ -391,6 +393,7 @@ try {
       HERMES_YOLO_LOCK_PATH: fallbackLockPath,
       HERMES_YOLO_NO_PREFLIGHT: '1',
       HERMES_YOLO_RECEIPT_DIR: fallbackReceiptRoot,
+      HERMES_YOLO_LEAN_CONTEXT: '0',
     },
   });
   assert(output.includes('HERMES-QUOTA-INDEPENDENT-OK'));
