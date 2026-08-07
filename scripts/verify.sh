@@ -20,5 +20,11 @@ node tests/test-thumbgate-context-master.js
 node tests/test-vllm-local-harness.js
 node tests/test-tinker-model-fine-tuner.js
 node tests/test-hermes-yolo-regression-guard.js
+node tests/test-nvidia-agent-harness.js
+node tests/test-tencent-agent-memory.js
+node tests/test-understudy-distillation-engine.js
+node tests/test-plan-verify-directive.js
+node tests/test-thumbgate-pricing-scorecard.js
+node tests/test-agent-doctor.js
 
 echo "✅ All Local CI Verification Checks Passed!"
