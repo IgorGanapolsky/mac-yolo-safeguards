@@ -1,5 +1,9 @@
 name: Agent Handoff Router
 
+concurrency:
+  group: handoff-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 # Cross-agent coordination bus: turns labels on issues/PRs into machine handoffs
 # between the cloud agent (Replit) and local agents (Claude Code, Cursor). No server,
 # no secrets beyond GITHUB_TOKEN. See REPLIT-AGENT-COORDINATION.md + AGENTS.md.
