@@ -3,6 +3,10 @@
 # required-path check that still runs when ci.yml is unparseable.
 name: Conflict marker guard
 
+concurrency:
+  group: conflict-marker-guard-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   pull_request:
   push:
