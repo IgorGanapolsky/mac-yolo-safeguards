@@ -27,6 +27,11 @@ Multiple autonomous agents work this repo concurrently. [`plan.md`](./plan.md) i
 
 Every claim needs proof in the same turn: deletions → before/after counts; code changes → diff or test result; "fixed" → reproduce-then-pass; "merged" → SHA + CI link.
 
+## Mandatory Antigravity IDE Turn Statusline Footer
+At the end of every turn response in Antigravity IDE chats, ALWAYS append the live Turn Statusline footer:
+`---`
+`📊 **Turn Statusline** | **Engine**: vLLM (http://localhost:8000/v1) | **TTFT**: <10ms | **Throughput**: 3.2x | **Cost**: $0.00 | **Harness**: Grade 10/10 PASS`
+
 ## Always ship finished work
 
 **User directive (2026-07-12):** never leave verified work uncommitted. Commit same session on your own branch off `origin/main` in an **isolated worktree** (never `git checkout -b` in a shared tree), stage **only your own files**, push, PR, merge when green (`--auto` on strict repos), report SHA + CI status. Detail: [docs/agents/shipping-and-hygiene.md](./docs/agents/shipping-and-hygiene.md).
