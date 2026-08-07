@@ -1,18 +1,18 @@
 'use strict';
 
 /**
- * Unit Tests for Antigravity IDE Bottom Statusbar Engine (`tools/antigravity-ide-statusbar.js`)
+ * Unit Tests for Antigravity IDE Statusbar Engine (`tools/antigravity-ide-statusbar-engine.js`)
  * Compatible with node tests/test-*.js harness (uses node:assert).
  */
 
 const assert = require('assert');
-const { renderAntigravityIdeStatusbar, STATUSBAR_ITEM } = require('../tools/antigravity-ide-statusbar');
+const { auditAntigravityIdeStatusbar } = require('../tools/antigravity-ide-statusbar-engine');
 
 console.log('Running test-antigravity-ide-statusbar.js...');
 
-const audit = renderAntigravityIdeStatusbar();
+const audit = auditAntigravityIdeStatusbar({ promptTokens: 1250, genTokens: 310 });
 assert.strictEqual(audit.status, 'ANTIGRAVITY_IDE_STATUSBAR_ACTIVE', 'Expected ACTIVE status');
-assert.strictEqual(audit.grade, '10/10 (ANTIGRAVITY_STATUSBAR_EXCELLENCE)', 'Expected 10/10 grade');
-assert.strictEqual(STATUSBAR_ITEM.alignment, 'Right', 'Statusbar alignment must be Right');
+assert.strictEqual(audit.tokenUsage.totalTokens, 1560, 'Expected 1560 total tokens');
+assert.strictEqual(audit.costUsd, '$0.00', 'Cost must be $0.00');
 
 console.log('ok tests/test-antigravity-ide-statusbar.js');
