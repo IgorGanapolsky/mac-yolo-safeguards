@@ -141,11 +141,11 @@ test('config that is not generated output counts as source', () => {
   assert.match(findings[0].detail, /1 SOURCE file/);
 });
 
-test('LaunchAgent paths using $HOME are matched — including this tool\'s own plist', () => {
-  // executedPaths() searched only for the expanded absolute home path, while plists
-  // routinely write $HOME/... — this tool's own plist does. A checkout executed solely
-  // by such an agent therefore stayed WARN, so --check exited 0 and the daily alert
-  // never fired. The audit was blind to its own job.
+test('LaunchAgent paths using $HOME are matched — including this tool\'s own plist', (t) => {
+  if (process.platform !== 'darwin') {
+    t.skip('LaunchAgent plist detection test requires macOS runner');
+    return;
+  }
   const { executedPaths } = require('../tools/stale-checkout-audit.js');
   const map = executedPaths();
   const all = [...map.values()].flatMap((s) => [...s]);
@@ -153,10 +153,11 @@ test('LaunchAgent paths using $HOME are matched — including this tool\'s own p
     'the audit must detect its own $HOME-form LaunchAgent, or it cannot be trusted to see others');
 });
 
-test('a job running from a worktree is attributed to the worktree, not its parent', () => {
-  // <repo>/.worktrees/<name> was collapsed to <repo>. If the parent checkout was clean
-  // the worktree produced no finding — and jobs installed from pruned .worktrees/*
-  // paths are one of the failure cases this tool exists to catch.
+test('a job running from a worktree is attributed to the worktree, not its parent', (t) => {
+  if (process.platform !== 'darwin') {
+    t.skip('LaunchAgent worktree attribution test requires macOS runner');
+    return;
+  }
   const { executedPaths } = require('../tools/stale-checkout-audit.js');
   const keys = [...executedPaths().keys()];
   const worktreeKeys = keys.filter((k) => k.includes('/.worktrees/'));
