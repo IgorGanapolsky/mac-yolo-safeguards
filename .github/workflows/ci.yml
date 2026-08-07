@@ -147,7 +147,12 @@ jobs:
           # @scure/base). This job does not npm ci (speed); the dedicated
           # "Hermes Buzz / Nostr integration" step under Public funnel does.
           failed=0
-          for f in tests/test-*.js; do
+          # Two naming conventions live under tests/: test-*.js and *.test.js.
+          # Globbing only the first silently excluded 4 green suites
+          # (revenue-send-safety, sender-health-gate, smtp-auth-check,
+          # stale-checkout-audit) that had never run in CI. Both shapes now run;
+          # tools/test-discovery-audit.js fails the build if a new test is orphaned.
+          for f in tests/test-*.js tests/*.test.js; do
             case "$f" in
               tests/test-mac-text-hotkeys-config.js) continue ;;
               tests/test-hermes-buzz-integration.js) continue ;;

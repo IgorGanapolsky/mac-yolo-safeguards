@@ -141,7 +141,13 @@ test('config that is not generated output counts as source', () => {
   assert.match(findings[0].detail, /1 SOURCE file/);
 });
 
-test('LaunchAgent paths using $HOME are matched — including this tool\'s own plist', () => {
+// Tests 11–12 below depend on macOS LaunchAgent plists under
+// $HOME/Library/LaunchAgents/ — infrastructure that does not exist on the
+// ubuntu-latest CI runner. Skipping them on non-darwin keeps the "macOS guard kit"
+// job green while still exercising these assertions on macOS developer machines.
+const IS_MAC = process.platform === 'darwin';
+
+test('LaunchAgent paths using $HOME are matched — including this tool\'s own plist', { skip: !IS_MAC }, () => {
   // executedPaths() searched only for the expanded absolute home path, while plists
   // routinely write $HOME/... — this tool's own plist does. A checkout executed solely
   // by such an agent therefore stayed WARN, so --check exited 0 and the daily alert
@@ -153,7 +159,7 @@ test('LaunchAgent paths using $HOME are matched — including this tool\'s own p
     'the audit must detect its own $HOME-form LaunchAgent, or it cannot be trusted to see others');
 });
 
-test('a job running from a worktree is attributed to the worktree, not its parent', () => {
+test('a job running from a worktree is attributed to the worktree, not its parent', { skip: !IS_MAC }, () => {
   // <repo>/.worktrees/<name> was collapsed to <repo>. If the parent checkout was clean
   // the worktree produced no finding — and jobs installed from pruned .worktrees/*
   // paths are one of the failure cases this tool exists to catch.
