@@ -35,5 +35,6 @@ node tests/test-autonomous-chrome-key-sync.js
 node tests/test-chrome-cdp-key-extractor.js
 node tests/test-openrelay-inference-delivery.js
 node tests/test-cognition-devin-background-agent.js
+node tests/test-openai-codex-chatgpt-work-harness.js
 
 echo "✅ All Local CI Verification Checks Passed!"
