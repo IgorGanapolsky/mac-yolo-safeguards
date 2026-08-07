@@ -18,5 +18,6 @@ node tests/test-moe-context-slicer.js
 node tests/test-fde-workflow-learning.js
 node tests/test-thumbgate-context-master.js
 node tests/test-vllm-local-harness.js
+node tests/test-tinker-model-fine-tuner.js
 
 echo "✅ All Local CI Verification Checks Passed!"
