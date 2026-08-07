@@ -47,7 +47,7 @@ jobs:
     steps:
       - name: Checkout connector sources
         if: inputs.phase == 'emit'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             tools/hermes-cloud-connector.js
