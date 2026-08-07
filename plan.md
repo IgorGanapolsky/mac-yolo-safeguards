@@ -93,6 +93,7 @@ File locks (342):
   `hermes-mobile/src/components/ChatEmptyGreeting.tsx`, `hermes-mobile/src/__tests__/ChatEmptyGreeting.test.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx` (empty-greeting transportLabel wire only), `plan.md` → **cursor-greeting-transport** (T-GREETING-TRANSPORT-20260723; audited stale greeting locks have no live worktree) (2026-07-23T20:35:00Z)
   `hermes-mobile/docs/LISTING-ALIGN-HERMES-MOBILE-20260723.md`, `hermes-mobile/docs/ASC-RENAME-HERMES-MOBILE-20260723.md`, `hermes-mobile/scripts/push-asc-listing-copy.js`, `hermes-mobile/fastlane/metadata/ios/en-US/keywords.txt`, `hermes-mobile/fastlane/metadata/ios/en-US/promotional_text.txt`, `plan.md` → **cursor-asc-rename-ship** (T-ASC-RENAME-HERMES-MOBILE-20260723; no pairing/device; no OTA; do not clobber #893/#898) (2026-07-23T17:59:00Z)
   … +334 more (read plan.md §2)
+  `tools/tencentdb-memory-engine.js`, `tests/test-tencentdb-memory-engine.js`, `scripts/ci-verify.sh` (memory-engine check lines only), `plan.md` → **codex-chat-retry-attachments** (T-TENCENTDB-MEMORY-ENGINE-20260807: implement local TencentDB Agent Memory engine — offload refs, Mermaid canvas, layered L0-L3 store, traceable recall — to move readiness 32→80+; do NOT wire hermes plugin route into live runtime) (2026-08-07T14:30:00Z)
 Obsidian agents: read OBSIDIAN.md then claim in plan.md before editing.
 
 === Agent swarm harness (planner/worker economics) ===
