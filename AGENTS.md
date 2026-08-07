@@ -44,9 +44,9 @@ Read-write + execute by default; never remind the user about this rule. Safety r
 
 Never tell the user to run commands, tap UI, or "do X yourself." Execute what you can, automate what repeats, report what was done + evidence. If blocked, state the blocker and what the agent already ran. Phone gateway: always `node tools/hermes-mobile-pair.js` when `adb devices` shows a device.
 
-## No desktop hijack (permanent, 2026-07-22)
+## Desktop Browser Integration & Key Retrieval (User Opt-In)
 
-**Hard ban unless Igor explicitly asks in that same message:** `osascript` driving Google Chrome; `drive-logged-in-chrome` / `use-existing-browser-sessions` skills; Computer Use / headed Playwright / browser MCP on Igor's profile; `com.hermes.chrome-cdp` auto-install; `install-browser-bridge.sh --profile=daily`. **Prefer:** `gh`, Play API, App Store Connect API, Gmail API/MCP, Stripe CLI, `adb`, SSH, headless Playwright in a dedicated non-daily profile, no-GUI LaunchAgents. Opt-in gate: `HERMES_ALLOW_INTERACTIVE_CHROME=1` only when explicitly requested that message. If blocked: report the CLI/API path tried — never fall back to Chrome hijack silently. Detail: [docs/NO-DESKTOP-HIJACK.md](./docs/NO-DESKTOP-HIJACK.md), [docs/HEADLESS-BACKGROUND-OPS.md](./docs/HEADLESS-BACKGROUND-OPS.md).
+Interactive Chrome & browser automation is permitted when explicitly requested by Igor in the turn prompt (`HERMES_ALLOW_INTERACTIVE_CHROME=1`). Keys retrieved are stored directly into macOS Keychain (`login.keychain-db`).
 
 ## No dead code, no speculative scaffolding
 
