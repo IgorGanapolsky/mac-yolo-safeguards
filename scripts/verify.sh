@@ -30,5 +30,6 @@ node tests/test-inference-telemetry.js
 node tests/test-antigravity-ide-statusbar.js
 node tests/test-openai-vercel-plugin-spec.js
 node tests/test-digg-agent-news-aggregator.js
+node tests/test-low-credit-warning.js
 
 echo "✅ All Local CI Verification Checks Passed!"
