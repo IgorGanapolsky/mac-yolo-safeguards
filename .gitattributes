@@ -1,0 +1,15 @@
+# Append-only coordination surfaces.
+#
+# plan.md (§ Decisions / Discovered) and SKILLS.md are written by many agents
+# concurrently, each appending its own rows. A default three-way merge treats two
+# independent appends at the file tail as a conflict, so every concurrent PR pair
+# collides on a file where both sides are always wanted.
+#
+# `merge=union` keeps both sides instead of conflicting. That is the semantically
+# correct resolution for an append-only log and matches the AGENTS.md rule that
+# these logs are never rewritten, only extended.
+#
+# Measured on 2026-08-06: 8 of 11 CONFLICTING open PRs were blocked solely by
+# these two files (plan.md x5, SKILLS.md x3) — zero real code conflicts among them.
+plan.md    merge=union
+SKILLS.md  merge=union
