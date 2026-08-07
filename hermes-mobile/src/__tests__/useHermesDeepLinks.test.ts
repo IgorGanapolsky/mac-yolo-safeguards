@@ -278,6 +278,61 @@ describe('useHermesDeepLinks', () => {
     expect(navigationRef.current.navigate).not.toHaveBeenCalled();
   });
 
+  it('GH-#1451: setup completes before deferred leash-unlock when both arrive ~ms apart', async () => {
+    let resolveSetup!: () => void;
+    const applySetupDeepLink = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSetup = resolve;
+        }),
+    );
+    const activateDeveloperLeashUnlock = jest.fn().mockResolvedValue(undefined);
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ gatewayUrl: 'http://192.168.68.67:8642', apiKey: 'sk-mini' }),
+    });
+    const originalFetch = global.fetch;
+    (global as unknown as { fetch: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
+    try {
+      renderHook(() =>
+        useHermesDeepLinks(
+          navigationRef as never,
+          runAgentTool,
+          refreshHealth,
+          applySetupDeepLink,
+          undefined,
+          activateDeveloperLeashUnlock,
+        ),
+      );
+      const handler = (Linking.addEventListener as jest.Mock).mock.calls[0][1];
+      await act(async () => {
+        // Fire setup then unlock without awaiting setup (pair-script race).
+        void handler({
+          url: 'hermes://setup?pairCode=ZVBWH7NS&pairServer=http://192.168.68.59:8765&name=Igors-Mac-mini',
+        });
+        void handler({ url: 'hermes://dev/leash-unlock' });
+        // Let the queue start setup before we release it.
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(applySetupDeepLink).toHaveBeenCalled();
+      // Unlock must wait until setup finishes.
+      expect(activateDeveloperLeashUnlock).not.toHaveBeenCalled();
+      await act(async () => {
+        resolveSetup();
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(activateDeveloperLeashUnlock).toHaveBeenCalledTimes(1);
+      // Setup applied first (navigate Chat); unlock never steals tab.
+      expect(navigationRef.current.navigate).toHaveBeenCalledWith('Chat');
+    } finally {
+      (global as unknown as { fetch: typeof fetch }).fetch = originalFetch;
+    }
+  });
+
   it('opens Leash and injects smoke preview from hermes://leash?preview=smoke', async () => {
     const injectSmokeApproval = jest.fn();
     renderHook(() =>

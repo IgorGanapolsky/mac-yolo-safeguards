@@ -1254,6 +1254,8 @@ function runPairMain(args) {
   const usbReversePorts = resolveUsbReversePorts({
     explicitGatewayUrl,
     forceMiniUsbPrimary: args.has('--force-mini-usb-primary'),
+    miniTailscale: args.has('--mini-tailscale'),
+    targetGatewayUrl: gatewayUrl || explicitGatewayUrl || '',
   });
   const usbReverseSkipped8642 = !usbReversePorts.includes(8642);
   if (usbPairing) {
@@ -1264,8 +1266,10 @@ function runPairMain(args) {
     writeUsbReversePrimaryIntent({
       skip8642: usbReverseSkipped8642,
       gatewayUrl: gatewayUrl || explicitGatewayUrl || '',
-      forceMiniUsbPrimary: args.has('--force-mini-usb-primary'),
-      reason: usbReverseSkipped8642 ? 'mini-primary-or-explicit-non-default-loopback' : 'default-laptop-primary',
+      forceMiniUsbPrimary: args.has('--force-mini-usb-primary') || args.has('--mini-tailscale'),
+      reason: usbReverseSkipped8642
+        ? 'remote-or-mini-or-non-default-loopback'
+        : 'default-laptop-primary',
     });
     setupUsbAdbReverses(serial, { ports: usbReversePorts });
     if (usbReverseSkipped8642) {
@@ -1408,14 +1412,19 @@ function runPairMain(args) {
   // serve the exchange. `--no-serve` unattended/session-start flows keep the legacy
   // embedded-key link unchanged (no server exists there to exchange a code against).
   // Split audiences:
-  // - adb `am start` deep link: loopback when USB reverse :8765 is up (works on 5G via adb)
-  // - Camera / HTTP /pair remints: Tailscale (or LAN) so cellular+VPN can redeem without USB
+  // - adb `am start` deep link: ALWAYS loopback when USB reverse :8765 is live.
+  //   Phone Tailscale is often offline while the cable is in (2026-08-05: adb deep link
+  //   with pairServer=100.x failed exchange → Leash "Gateway unknown" / setup never applied).
+  // - Camera / HTTP /pair remints: Tailscale (or LAN) so cellular+VPN can redeem without USB.
+  // Gateway URL (mini LAN/TS) is independent of pairServer — exchange only needs :8765 reachability.
   const adbPairExchangeBase =
     usbPairing && reversed8765
       ? `http://127.0.0.1:${PAIR_PORT}`
       : phonePairServer;
   if (adbPairExchangeBase.includes('127.0.0.1')) {
-    console.log('  Pair exchange (adb): http://127.0.0.1:8765 (USB reverse)');
+    console.log('  Pair exchange (adb): http://127.0.0.1:8765 (USB reverse — reliable while cable in)');
+  } else {
+    console.log(`  Pair exchange (adb deep link): ${adbPairExchangeBase}`);
   }
   console.log(`  Pair exchange (Camera/HTTP): ${phonePairServer}`);
   const secretlessPairing = !args.has('--no-serve') && !args.has('--legacy-key-link');
@@ -1528,16 +1537,23 @@ function runPairMain(args) {
         if (!ack.ok && dismissAndroidRuntimePermissionDialogs(serial)) {
           console.log('  adb: dismissed runtime permission dialog after ack timeout');
         }
-        console.log(
-          ack.ok
-            ? `  adb: setup ack confirmed after ${ack.waitedMs}ms (app foreground) — sending secondary intent`
-            : `  adb: setup ack timed out after ${ack.waitedMs}ms — sending secondary intent anyway (best-effort)`,
-        );
-        try {
-          openDeepLinkOnDevice(serial, 'hermes://dev/leash-unlock', targetAndroidPackageName);
-          console.log('  adb: developer Leash unlock intent sent (does not change tab)');
-        } catch {
-          // App may still be cold-starting after install.
+        // GH-#1451 / #132: never fire leash-unlock when setup ack timed out.
+        // A second intent within ~50ms can replace unconsumed hermes://setup on cold launch
+        // (last-write-wins on Android getInitialURL), so pairing silently never applies.
+        if (!ack.ok) {
+          console.log(
+            `  adb: setup ack timed out after ${ack.waitedMs}ms — NOT sending leash-unlock (prevents setup race)`,
+          );
+        } else {
+          console.log(
+            `  adb: setup ack confirmed after ${ack.waitedMs}ms (app foreground) — sending secondary intent`,
+          );
+          try {
+            openDeepLinkOnDevice(serial, 'hermes://dev/leash-unlock', targetAndroidPackageName);
+            console.log('  adb: developer Leash unlock intent sent (does not change tab)');
+          } catch {
+            // App may still be cold-starting after install.
+          }
         }
       }
     }
