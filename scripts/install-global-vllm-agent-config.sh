@@ -1,19 +1,17 @@
 #!/usr/bin/env bash
 # scripts/install-global-vllm-agent-config.sh
-# Configures vLLM globally for all coding agents (Gemini CLI, Claude Code, Cursor, Codex, Herdr) on Igor's Mac.
+# Configures vLLM globally across ALL AI tools (Claude Code, Codex, Cursor, Gemini CLI, OpenCode) on Igor's Mac.
 
 set -euo pipefail
 
 GLOBAL_GEMINI_DIR="$HOME/.gemini/config"
-GLOBAL_SKILLS_DIR="$GLOBAL_GEMINI_DIR/skills/vllm-local-harness"
+PRIMARY_SKILL_DIR="$GLOBAL_GEMINI_DIR/skills/vllm-local-harness"
 
-echo "=== Installing Global vLLM Configuration for All Coding Agents ==="
+echo "=== Installing Global vLLM Configuration Across All Agent Ecosystems ==="
 
-# 1. Ensure Global Skills Directory exists
-mkdir -p "$GLOBAL_SKILLS_DIR"
-
-# 2. Write Global SKILL.md for vllm-local-harness
-cat << 'EOF' > "$GLOBAL_SKILLS_DIR/SKILL.md"
+# 1. Provision Primary Skill
+mkdir -p "$PRIMARY_SKILL_DIR"
+cat << 'EOF' > "$PRIMARY_SKILL_DIR/SKILL.md"
 ---
 name: vllm-local-harness
 description: Global vLLM PagedAttention High-Throughput Local Inference Engine for all coding agents on Igor's Mac. Provides zero-cost local LLM inference via OpenAI-compatible endpoint (http://localhost:8000/v1).
@@ -40,17 +38,20 @@ Enables zero-cost, high-throughput local model serving using vLLM PagedAttention
 - `VLLM_MODEL="Qwen/Qwen2.5-Coder-32B-Instruct"`
 EOF
 
-# 3. Append vLLM Rule to Global AGENTS.md if present
-GLOBAL_AGENTS_MD="$GLOBAL_GEMINI_DIR/AGENTS.md"
-if [ -f "$GLOBAL_AGENTS_MD" ]; then
-  if ! grep -q "vLLM Global Local Inference" "$GLOBAL_AGENTS_MD"; then
-    cat << 'EOF' >> "$GLOBAL_AGENTS_MD"
+# 2. Symlink to Claude Code (~/.claude/skills)
+mkdir -p "$HOME/.claude/skills"
+ln -sfn "$PRIMARY_SKILL_DIR" "$HOME/.claude/skills/vllm-local-harness"
 
-## vLLM Global Local Inference
-- Local vLLM endpoint is available at `http://localhost:8000/v1` (`VLLM_API_BASE`).
-- Prefer local vLLM for high-concurrency sub-agent fan-out, code reviews, and test generation to eliminate cloud API costs.
-EOF
-  fi
-fi
+# 3. Symlink to Codex (~/.codex/skills)
+mkdir -p "$HOME/.codex/skills"
+ln -sfn "$PRIMARY_SKILL_DIR" "$HOME/.codex/skills/vllm-local-harness"
 
-echo "✅ Global vLLM configuration installed at $GLOBAL_SKILLS_DIR/SKILL.md!"
+# 4. Symlink to Cursor (~/.cursor/skills)
+mkdir -p "$HOME/.cursor/skills"
+ln -sfn "$PRIMARY_SKILL_DIR" "$HOME/.cursor/skills/vllm-local-harness"
+
+echo "✅ Global vLLM skill linked into:"
+echo "   - Gemini CLI:  $PRIMARY_SKILL_DIR"
+echo "   - Claude Code: $HOME/.claude/skills/vllm-local-harness"
+echo "   - Codex:       $HOME/.codex/skills/vllm-local-harness"
+echo "   - Cursor:      $HOME/.cursor/skills/vllm-local-harness"
