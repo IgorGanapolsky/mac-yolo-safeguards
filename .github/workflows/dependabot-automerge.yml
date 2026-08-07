@@ -1,4 +1,8 @@
 name: Dependabot auto-merge
+
+concurrency:
+  group: dependabot-automerge-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 on: pull_request
 
 permissions:
