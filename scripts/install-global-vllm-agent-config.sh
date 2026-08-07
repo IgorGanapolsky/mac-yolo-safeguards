@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # scripts/install-global-vllm-agent-config.sh
-# Configures vLLM globally across ALL AI tools (Claude Code, Codex, Cursor, Gemini CLI, OpenCode) on Igor's Mac.
+# Configures vLLM globally across ALL YOLO wrappers (hermes-yolo, poolside-yolo, grok-yolo, ali-yolo, 9router-yolo) and agent tools.
 
 set -euo pipefail
 
 GLOBAL_GEMINI_DIR="$HOME/.gemini/config"
 PRIMARY_SKILL_DIR="$GLOBAL_GEMINI_DIR/skills/vllm-local-harness"
+HERMES_DIR="$HOME/.hermes"
+HERMES_ENV="$HERMES_DIR/.env"
 
-echo "=== Installing Global vLLM Configuration Across All Agent Ecosystems ==="
+echo "=== Installing Global vLLM Configuration Across All YOLO Wrappers & Agent Ecosystems ==="
 
 # 1. Provision Primary Skill
 mkdir -p "$PRIMARY_SKILL_DIR"
@@ -50,8 +52,24 @@ ln -sfn "$PRIMARY_SKILL_DIR" "$HOME/.codex/skills/vllm-local-harness"
 mkdir -p "$HOME/.cursor/skills"
 ln -sfn "$PRIMARY_SKILL_DIR" "$HOME/.cursor/skills/vllm-local-harness"
 
-echo "✅ Global vLLM skill linked into:"
-echo "   - Gemini CLI:  $PRIMARY_SKILL_DIR"
-echo "   - Claude Code: $HOME/.claude/skills/vllm-local-harness"
-echo "   - Codex:       $HOME/.codex/skills/vllm-local-harness"
-echo "   - Cursor:      $HOME/.cursor/skills/vllm-local-harness"
+# 5. Wire into ~/.hermes/.env for hermes-yolo, poolside-yolo, grok-yolo, ali-yolo, 9router-yolo
+mkdir -p "$HERMES_DIR"
+if [ ! -f "$HERMES_ENV" ]; then
+  touch "$HERMES_ENV"
+fi
+
+if ! grep -q "VLLM_API_BASE" "$HERMES_ENV"; then
+  cat << 'EOF' >> "$HERMES_ENV"
+
+# Global vLLM Local Inference Engine for YOLO Wrappers
+VLLM_API_BASE="http://localhost:8000/v1"
+VLLM_MODEL="Qwen/Qwen2.5-Coder-32B-Instruct"
+EOF
+fi
+
+echo "✅ Global vLLM wired into:"
+echo "   - Gemini CLI:    $PRIMARY_SKILL_DIR"
+echo "   - Claude Code:   $HOME/.claude/skills/vllm-local-harness"
+echo "   - Codex:         $HOME/.codex/skills/vllm-local-harness"
+echo "   - Cursor:        $HOME/.cursor/skills/vllm-local-harness"
+echo "   - Hermes/YOLO:   $HERMES_ENV (hermes-yolo, poolside-yolo, grok-yolo, ali-yolo, 9router-yolo)"
