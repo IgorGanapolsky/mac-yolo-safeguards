@@ -181,6 +181,7 @@ assert.strictEqual(inlineOff.promptPrefix, '');
 assert.strictEqual(inlineOff.packSummary, null);
 assert.ok(inlineOff.toolsets.includes('skills'));
 assert.ok(inlineOff.toolsets.includes('context7'));
+assert.ok(!inlineOff.toolsets.split(',').includes('memory'));
 
 const on = wrapper.prepareLeanContextForTask('fix auth pairing QR', {
   HERMES_YOLO_INLINE_SKILLS: '1',

@@ -161,11 +161,14 @@ function prepareLeanContextForTask(taskText, env = process.env, options = {}) {
       error: 'lean-context-module-missing',
     };
   }
-  const toolsets = normalizeToolsets(
-    env.HERMES_YOLO_TOOLSETS
-      ? String(env.HERMES_YOLO_TOOLSETS)
-      : mod.resolveProgressiveToolsets(taskText, env),
-  );
+  const resolvedToolsets = env.HERMES_YOLO_TOOLSETS
+    ? String(env.HERMES_YOLO_TOOLSETS)
+    : String(mod.resolveProgressiveToolsets(taskText, env))
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => item && item !== 'memory')
+      .join(',');
+  const toolsets = normalizeToolsets(resolvedToolsets);
 
   // Ready probes and empty tasks: progressive toolsets only, no skill dump.
   const ready = !taskText
