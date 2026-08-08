@@ -30,6 +30,7 @@ const {
   summarizeRouteArgs,
   digest,
   normalizeToolsets,
+  ensureRequiredToolsetsInArgs,
   resolveTimeoutMs,
   resolveGrokTimeoutMs,
   resolveGrokMaxTurns,
@@ -54,6 +55,10 @@ assert.throws(() => shouldUseGrokBackend([], { HERMES_YOLO_BACKEND: 'unknown' })
 assert.deepStrictEqual(REQUIRED_TOOLSETS, ['skills', 'context7']);
 assert.strictEqual(DEFAULT_TOOLSETS, 'terminal,file,web,code_execution,clarify,skills,context7');
 assert.strictEqual(normalizeToolsets('terminal,file,file'), 'terminal,file,skills,context7');
+assert.deepStrictEqual(
+  ensureRequiredToolsetsInArgs(['--toolsets', 'terminal,file', '-z', 'task']),
+  ['--toolsets', 'terminal,file,skills,context7', '-z', 'task'],
+);
 assert.strictEqual(resolveTimeoutMs({}), 90_000);
 assert.strictEqual(resolveTimeoutMs({ HERMES_YOLO_TIMEOUT_MS: '1234' }), 1234);
 assert.strictEqual(resolveGrokTimeoutMs({}), 90_000);

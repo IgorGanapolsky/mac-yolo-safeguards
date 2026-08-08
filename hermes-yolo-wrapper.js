@@ -42,6 +42,16 @@ function normalizeToolsets(value) {
   return [...new Set([...configured, ...REQUIRED_TOOLSETS])].join(',');
 }
 
+function ensureRequiredToolsetsInArgs(argv) {
+  const out = Array.isArray(argv) ? [...argv] : [];
+  for (let index = 0; index < out.length; index += 1) {
+    if (out[index] === '--toolsets' && out[index + 1]) {
+      out[index + 1] = normalizeToolsets(out[index + 1]);
+    }
+  }
+  return out;
+}
+
 // Slim default (2026-08 harness research): computer_use + vision spawn Chrome and thrash
 // 24GB multi-agent Macs. Opt in via HERMES_YOLO_TOOLSETS=...computer_use,vision
 // Progressive disclosure (Google Agent Skills): vision/computer_use also auto-add from task text
@@ -1472,11 +1482,15 @@ const childStdio = 'inherit';  // interactive chat needs stdin (keyboard), not j
 const detachOneshot = process.platform !== 'win32'
   && !wrapperPromptMode
   && effectiveChildPromptArgs[0] === '-z';
-const child = spawn(HERMES_BIN, [...hermesExtraArgs, ...effectiveChildPromptArgs], {
+const child = spawn(
+  HERMES_BIN,
+  ensureRequiredToolsetsInArgs([...hermesExtraArgs, ...effectiveChildPromptArgs]),
+  {
   stdio: childStdio,
   env,
   detached: detachOneshot,
-});
+  },
+);
 log(`SPAWNED childPid=${child.pid} runId=${runId}`);
 
 child.on('error', (err) => {
@@ -1711,6 +1725,7 @@ module.exports = {
   prepareLeanContextForTask,
   buildHermesExtraArgs,
   normalizeToolsets,
+  ensureRequiredToolsetsInArgs,
   resolveTimeoutMs,
   resolveGrokTimeoutMs,
   resolveGrokMaxTurns,
