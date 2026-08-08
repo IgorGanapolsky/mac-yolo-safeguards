@@ -81,6 +81,26 @@ function resolveGrokTimeoutMs(env = process.env) {
   return positiveInteger(env.HERMES_YOLO_GROK_TIMEOUT_MS, resolveTimeoutMs(env));
 }
 
+function isLegacyOneShot(childArgs) {
+  return Array.isArray(childArgs) && childArgs[0] === '-z';
+}
+
+function isGrokOneShot(grokArgs) {
+  return Array.isArray(grokArgs) && (grokArgs.includes('-p') || grokArgs.includes('--prompt'));
+}
+
+function buildGrokSpawnOptions(grokArgs, env = process.env) {
+  const options = {
+    stdio: 'inherit',
+    env: buildGrokBackendEnv(env),
+  };
+  if (isGrokOneShot(grokArgs)) {
+    options.timeout = resolveGrokTimeoutMs(env);
+    options.killSignal = 'SIGTERM';
+  }
+  return options;
+}
+
 /**
  * YugabyteDB AMP sprawl-control module (proliferation, decision traces, guarded autonomy).
  * Soft-fail if missing — routing still works.
@@ -895,7 +915,9 @@ function buildGrokHeadlessArgs(prompt, rawArgs, env) {
 }
 
 function routeStatus(env = process.env, dependencies = {}) {
-  const grokYoloBin = findGrokYoloBinary(env);
+  const grokYoloBin = Object.prototype.hasOwnProperty.call(dependencies, 'grokYoloBin')
+    ? dependencies.grokYoloBin
+    : findGrokYoloBinary(env);
   const hermesBin = env.HERMES_BIN || HERMES_BIN;
   const hermesReady = fs.existsSync(hermesBin);
   const requestedMode = env.HERMES_YOLO_FORCE_HERMES === '1'
@@ -935,7 +957,7 @@ function routeStatus(env = process.env, dependencies = {}) {
       blocker: wantsGrok ? 'grok_yolo_not_installed' : hermesReady ? null : 'hermes_not_installed',
       grokReady: false,
       grokBlocker: 'grok_yolo_not_installed',
-      defaultPromptBackend: 'hermes-legacy',
+      defaultPromptBackend: wantsGrok ? 'grok-4.5' : 'hermes-legacy',
     };
   }
   const runner = dependencies.runner || require('child_process').spawnSync;
@@ -1049,12 +1071,7 @@ function runGrokBackend(rawArgs, env = process.env, dependencies = {}) {
   }
   console.error('[hermes-yolo] backend=grok-4.5 (set HERMES_YOLO_BACKEND=hermes for the legacy Hermes provider route)');
   const runner = dependencies.runner || require('child_process').spawnSync;
-  const result = runner(grokYoloBin, grokArgs, {
-    stdio: 'inherit',
-    env: buildGrokBackendEnv(env),
-    timeout: resolveGrokTimeoutMs(env),
-    killSignal: 'SIGTERM',
-  });
+  const result = runner(grokYoloBin, grokArgs, buildGrokSpawnOptions(grokArgs, env));
   const leanMeta = lean.packSummary
     ? { enabled: true, ...lean.packSummary, toolsets: lean.toolsets }
     : { enabled: lean.enabled, toolsets: lean.toolsets, error: lean.error || null };
@@ -1438,8 +1455,9 @@ console.error(
 // Independent liveness heartbeats for one-shot runs (model may be silent for minutes)
 const HEARTBEAT_MS = parseInt(process.env.HERMES_YOLO_HEARTBEAT_MS || '15000', 10);
 const progressEnabled = process.env.HERMES_YOLO_PROGRESS !== '0';
+const legacyOneShot = isLegacyOneShot(effectiveChildPromptArgs);
 let heartbeatHandle = null;
-if (progressEnabled && !wrapperPromptMode && effectiveChildPromptArgs[0] === '-z') {
+if (progressEnabled && legacyOneShot) {
   const t0 = Date.now();
   console.error(`\x1b[36m[hermes-yolo]\x1b[0m agent started (one-shot); heartbeats every ${HEARTBEAT_MS}ms`);
   heartbeatHandle = setInterval(() => {
@@ -1480,8 +1498,7 @@ const childStdio = 'inherit';  // interactive chat needs stdin (keyboard), not j
 // Detach one-shots so timeout kill can reclaim cargo/rustc grandchildren via pgid.
 // Interactive chat must stay attached for stdin.
 const detachOneshot = process.platform !== 'win32'
-  && !wrapperPromptMode
-  && effectiveChildPromptArgs[0] === '-z';
+  && legacyOneShot;
 const child = spawn(
   HERMES_BIN,
   ensureRequiredToolsetsInArgs([...hermesExtraArgs, ...effectiveChildPromptArgs]),
@@ -1578,10 +1595,10 @@ function getAggregateCpu(pids) {
 
 // Hard timeout
 // No hard timeout in interactive chat — a human session isn't a stuck task and must not be killed.
-const timeoutHandle = wrapperPromptMode ? null : setTimeout(
+const timeoutHandle = legacyOneShot ? setTimeout(
   () => killChild(`hard timeout (${TIMEOUT_MS}ms)`),
   TIMEOUT_MS
-);
+) : null;
 
 // Stuck-loop watchdog with descendant support. Disabled by default because
 // sustained high CPU is expected while local Ollama models are actively working.
@@ -1703,6 +1720,7 @@ module.exports = {
   parseEnvFile,
   buildGrokBackendArgs,
   buildGrokBackendEnv,
+  buildGrokSpawnOptions,
   findGrokYoloBinary,
   shouldUseGrokBackend,
   classifyBackend,
@@ -1726,6 +1744,8 @@ module.exports = {
   buildHermesExtraArgs,
   normalizeToolsets,
   ensureRequiredToolsetsInArgs,
+  isGrokOneShot,
+  isLegacyOneShot,
   resolveTimeoutMs,
   resolveGrokTimeoutMs,
   resolveGrokMaxTurns,

@@ -14,6 +14,7 @@ const {
   buildChildPromptArgs,
   buildGrokBackendArgs,
   buildGrokBackendEnv,
+  buildGrokSpawnOptions,
   chooseLocalModel,
   chooseZaiProvider,
   configuredProviderIds,
@@ -31,6 +32,7 @@ const {
   digest,
   normalizeToolsets,
   ensureRequiredToolsetsInArgs,
+  isLegacyOneShot,
   resolveTimeoutMs,
   resolveGrokTimeoutMs,
   resolveGrokMaxTurns,
@@ -63,6 +65,9 @@ assert.strictEqual(resolveTimeoutMs({}), 90_000);
 assert.strictEqual(resolveTimeoutMs({ HERMES_YOLO_TIMEOUT_MS: '1234' }), 1234);
 assert.strictEqual(resolveGrokTimeoutMs({}), 90_000);
 assert.strictEqual(resolveGrokTimeoutMs({ HERMES_YOLO_GROK_TIMEOUT_MS: '4321' }), 4321);
+assert.strictEqual(isLegacyOneShot(['-z', 'answer']), true);
+assert.strictEqual(isLegacyOneShot(['chat']), false);
+assert.strictEqual(isLegacyOneShot([]), false);
 assert.strictEqual(resolveGrokReasoningEffort(['what', 'is', 'this'], {}), 'low');
 assert.strictEqual(resolveGrokReasoningEffort(['fix', 'the', 'bug'], {}), 'medium');
 assert.strictEqual(resolveGrokMaxTurns(['what', 'is', 'this'], {}), 6);
@@ -73,8 +78,14 @@ assert.doesNotMatch(DIRECT_RESPONSE_RULES, /all tools.*enabled|full access/i);
 
 const ttyGrokArgs = buildGrokBackendArgs([], { isTty: true, env: {} });
 assert.deepStrictEqual(ttyGrokArgs, ['--reasoning-effort', 'low', '--rules', DIRECT_RESPONSE_RULES]);
+assert.strictEqual(Object.hasOwn(buildGrokSpawnOptions(ttyGrokArgs, {}), 'timeout'), false);
 const readyGrokArgs = buildGrokBackendArgs([], { isTty: false, env: {} });
 assert.deepStrictEqual(readyGrokArgs.slice(0, 3), ['-p', DEFAULT_READY_PROMPT, '--output-format']);
+assert.strictEqual(buildGrokSpawnOptions(readyGrokArgs, {}).timeout, 90_000);
+assert.strictEqual(
+  buildGrokSpawnOptions(readyGrokArgs, { HERMES_YOLO_GROK_TIMEOUT_MS: '4321' }).timeout,
+  4321,
+);
 assert(readyGrokArgs.includes('--no-subagents'));
 assert(readyGrokArgs.includes('--no-memory'));
 assert(readyGrokArgs.includes('--max-turns'));
@@ -432,6 +443,15 @@ try {
   });
   assert.strictEqual(pinnedHermesStatus.routingMode, 'explicit-hermes');
   assert.strictEqual(pinnedHermesStatus.defaultPromptBackend, 'hermes-legacy');
+  const missingExplicitGrokStatus = routeStatus({
+    HERMES_YOLO_BACKEND: 'grok',
+    HERMES_BIN: fakeGrokYoloPath,
+  }, {
+    grokYoloBin: null,
+  });
+  assert.strictEqual(missingExplicitGrokStatus.ready, false);
+  assert.strictEqual(missingExplicitGrokStatus.blocker, 'grok_yolo_not_installed');
+  assert.strictEqual(missingExplicitGrokStatus.defaultPromptBackend, 'grok-4.5');
 } finally {
   fs.unlinkSync(fakeGrokYoloPath);
   fs.rmSync(routeReceiptRoot, { recursive: true, force: true });
@@ -466,6 +486,94 @@ try {
 } finally {
   fs.rmSync(timeoutReceiptRoot, { recursive: true, force: true });
   try { fs.unlinkSync(slowGrokPath); } catch (e) { /* may not exist */ }
+}
+
+const processTreeRoot = fs.mkdtempSync(path.join(require('os').tmpdir(), 'hermes-yolo-process-tree-proof-'));
+const processTreeGrokPath = path.join(processTreeRoot, 'grok');
+const processTreeSentinel = path.join(processTreeRoot, 'late-tool-action.txt');
+const processTreeReceiptRoot = path.join(processTreeRoot, 'receipts');
+fs.writeFileSync(processTreeGrokPath, [
+  '#!/usr/bin/env node',
+  "'use strict';",
+  "const { spawn } = require('child_process');",
+  'const args = process.argv.slice(2);',
+  "if (args[0] === 'version') { console.log('grok 0.2.99 (fake)'); process.exit(0); }",
+  "if (args[0] === 'models') {",
+  "  console.log('You are logged in with grok.com.');",
+  "  console.log('Default model: grok-4.5');",
+  "  console.log('Available models:');",
+  "  console.log('  * grok-4.5 (default)');",
+  '  process.exit(0);',
+  '}',
+  'const stubbornTool = [',
+  "  \"const fs = require('fs');\" ,",
+  "  \"process.on('SIGTERM', () => {});\" ,",
+  "  \"setTimeout(() => { fs.writeFileSync(process.env.GROK_TEST_SENTINEL, 'leaked'); process.exit(0); }, 750);\" ,",
+  "].join('\\n');",
+  "spawn(process.execPath, ['-e', stubbornTool], { stdio: 'ignore', env: process.env });",
+  'setInterval(() => {}, 1000);',
+  '',
+].join('\n'), { mode: 0o755 });
+try {
+  const timedTree = spawnSync(process.execPath, [WRAPPER_PATH, 'answer', 'with', 'a', 'tool'], {
+    encoding: 'utf8',
+    timeout: 3_000,
+    env: {
+      ...process.env,
+      HERMES_YOLO_BACKEND: 'grok',
+      GROK_YOLO_BIN: path.resolve(__dirname, '../grok-yolo-wrapper.js'),
+      GROK_BIN: processTreeGrokPath,
+      HERMES_BIN: '/definitely-not-used/hermes',
+      HERMES_YOLO_RECEIPT_DIR: processTreeReceiptRoot,
+      HERMES_YOLO_GROK_TIMEOUT_MS: '100',
+      HERMES_YOLO_LEAN_CONTEXT: '0',
+      GROK_CLAUDE_MCPS_ENABLED: 'false',
+      GROK_CURSOR_MCPS_ENABLED: 'false',
+      GROK_TEST_SENTINEL: processTreeSentinel,
+    },
+  });
+  assert.strictEqual(timedTree.status, 124, `expected process-tree timeout exit 124: ${timedTree.stderr}`);
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 900);
+  assert.strictEqual(
+    fs.existsSync(processTreeSentinel),
+    false,
+    'a Grok descendant performed a tool action after the timeout receipt',
+  );
+} finally {
+  fs.rmSync(processTreeRoot, { recursive: true, force: true });
+}
+
+const slowInteractiveHermesPath = path.join(require('os').tmpdir(), `slow-interactive-hermes-${process.pid}`);
+const interactiveReceiptRoot = fs.mkdtempSync(path.join(require('os').tmpdir(), 'hermes-yolo-interactive-proof-'));
+const interactiveLockPath = path.join(require('os').tmpdir(), `hermes-yolo-interactive-proof-${process.pid}.lock`);
+fs.writeFileSync(slowInteractiveHermesPath, [
+  '#!/usr/bin/env bash',
+  'sleep 0.15',
+  'printf "INTERACTIVE-STILL-ALIVE\\n"',
+  '',
+].join('\n'), { mode: 0o755 });
+try {
+  const interactive = spawnSync(process.execPath, [WRAPPER_PATH, 'chat'], {
+    encoding: 'utf8',
+    timeout: 2_000,
+    env: {
+      ...process.env,
+      HERMES_YOLO_BACKEND: 'hermes',
+      HERMES_BIN: slowInteractiveHermesPath,
+      HERMES_YOLO_TIMEOUT_MS: '30',
+      HERMES_YOLO_LOCK_PATH: interactiveLockPath,
+      HERMES_YOLO_RECEIPT_DIR: interactiveReceiptRoot,
+      HERMES_YOLO_LEAN_CONTEXT: '0',
+      HERMES_YOLO_SPRAWL: '0',
+      HERMES_YOLO_PROGRESS: '0',
+    },
+  });
+  assert.strictEqual(interactive.status, 0, `interactive chat was timed out: ${interactive.stderr}`);
+  assert.match(interactive.stdout, /INTERACTIVE-STILL-ALIVE/);
+} finally {
+  fs.rmSync(interactiveReceiptRoot, { recursive: true, force: true });
+  try { fs.unlinkSync(interactiveLockPath); } catch (e) { /* may not exist */ }
+  try { fs.unlinkSync(slowInteractiveHermesPath); } catch (e) { /* may not exist */ }
 }
 
 const exhaustedGrokPath = path.join(require('os').tmpdir(), `exhausted-grok-yolo-${process.pid}`);
