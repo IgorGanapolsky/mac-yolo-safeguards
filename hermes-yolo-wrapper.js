@@ -762,8 +762,13 @@ function classifyBackend(rawArgs, env = process.env, dependencies = {}) {
   if (backend === 'grok') {
     return { requestedBackend: backend, selectedBackend: 'grok-4.5', reason: 'explicit-grok-backend' };
   }
-  // auto: prefer SuperGrok/grok-4.5 when grok-yolo doctor is green.
-  if (isGrokBackendReady(env, dependencies)) {
+  // auto: prefer the Hermes gateway route. The SuperGrok doctor only proves
+  // OAuth, not usable balance — on 2026-08-06 it reported green while Grok
+  // Build was 402 "usage balance exhausted", so every auto-mode spawn (Herdr
+  // panes carry HERMES_YOLO_BACKEND=auto) opened a dead Grok TUI. Auto picks
+  // grok only when explicitly re-enabled via HERMES_YOLO_AUTO_GROK=1 AND the
+  // doctor is green; explicit HERMES_YOLO_BACKEND=grok is unaffected.
+  if (String(env.HERMES_YOLO_AUTO_GROK || '').trim() === '1' && isGrokBackendReady(env, dependencies)) {
     return { requestedBackend: backend, selectedBackend: 'grok-4.5', reason: 'auto-supergrok-ready' };
   }
   return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'auto-hermes-fallback' };
