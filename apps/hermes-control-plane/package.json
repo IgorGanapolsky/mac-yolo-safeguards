@@ -76,8 +76,7 @@
     "minimatch": "10.2.5",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "react-server-dom-webpack": "19.2.8",
-    "undici": "7.29.0"
+    "react-server-dom-webpack": "19.2.8"
   },
   "type": "module"
 }
