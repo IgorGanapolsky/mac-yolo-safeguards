@@ -288,3 +288,81 @@ ThumbGate is not mentioned in this draft — the issue is a runtime liveness/wat
 
 Same as Run 1: this specific session/environment tier has no write path to `block/buzz` (`add_repo` explicitly rejects cross-tier owners, no `gh` CLI present). Run 2's contributions came from elsewhere. If this scheduled task is meant to run from *this* environment tier every time, either grant it broader GitHub scope, or treat this tier's runs as research/drafting-only and have a separate write-capable run post drafts like the #4860 answer above.
 
+---
+
+## 2026-08-07 — Run 8 (8th consecutive access wall; two new in-domain findings; backlog now 5 unmerged log PRs)
+
+Note on numbering: `main` still only contains Run 1–3. Runs 4–7 happened and
+are real (PRs [#1473](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1473),
+[#1510](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1510),
+[#1512](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1512),
+[#1543](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1543) —
+all still open/draft, unmerged as of this run) but haven't landed on `main`
+yet. This entry is based on current `main` (Run 1–3 only) and is numbered
+Run 8 in true chronological sequence.
+
+### What was VERIFIED (Step 0 — reconfirmed, briefly — unchanged from Runs 1–7)
+
+| Fact | Evidence |
+|------|----------|
+| **Canonical repo** | [`github.com/block/buzz`](https://github.com/block/buzz) — unchanged, Apache-2.0, still the sole public surface (issues/PRs only, no Discord/forum) |
+| **Prior fix PR #4624** (multi-`#h` filter narrowing) | Reconfirmed via `search_pull_requests(repo:block/buzz author:IgorGanapolsky)`: **still open, still unmerged**, now 4 days after submission. `#4598` (DCO-failed predecessor) confirmed still closed. |
+| **Prior #4565 comment** | Reconfirmed via `search_issues(repo:block/buzz commenter:IgorGanapolsky)` — real, present, issue still open. |
+| **This session's access to `block/buzz`** | Identical to every prior run. `mcp__github__issue_read` on `#5122`, `#5109`, `#5099` → *"Access denied: repository 'block/buzz' is not configured for this session. Allowed repositories: igorganapolsky/mac-yolo-safeguards."* `mcp__github__pull_request_read` (`get_status` on `#4624`) → same denial. `search_issues`/`search_pull_requests` continue to work unauthenticated (confirms Run 6/7's finding: search is unscoped, direct read/write is not). `WebFetch` on `api.github.com/repos/block/buzz/issues/*` returned HTTP 403 (proxy-level, unauthenticated REST API rate-limited); the plain `github.com/block/buzz/issues/*` HTML pages fetched fine and were used to read full issue bodies instead. |
+| **No live write attempt this run** | Run 7 already ran a live `add_issue_comment` test against `#5053` and got the same denial as every read call — repeating that exact test this run would burn a call for zero new information. Read-path denials (`issue_read`, `pull_request_read`) were tested fresh instead, and denied identically, so the wall is reconfirmed on both axes without assuming either. |
+
+### What was surveyed (last ~24–72h, as of 2026-08-07 ~00:30 UTC)
+
+`search_issues(repo:block/buzz created:>2026-08-05)` returned 49 issues — volume remains very high. Filtered to items created after Run 7's survey cutoff (~2026-08-06 17:40 UTC) and screened for Igor's stated domain (reliability, idempotency, double-execution, write-gating, leases/fencing, retries, audit trails, verification-vs-self-report):
+
+| Issue | Topic | Action |
+|-------|-------|--------|
+| [**#5122**](https://github.com/block/buzz/issues/5122) | `[Bug] Workflow call_webhook action never delivers — silent, no error, no run record`. Reporter tested 3 independent destinations (SSH tunnel, httpbin.org, webhook.site), all zero-delivery; the workflow reports success while the write never happens, and there's no run history to diagnose it. Filed 2026-08-06 23:48, 0 comments. | **Strongest new candidate this run** — squarely "verification vs. self-report": the workflow engine's own success signal is decoupled from whether the effect actually occurred, with no audit trail to catch the gap. Comment drafted (below). |
+| [**#5109**](https://github.com/block/buzz/issues/5109) | Editing a community's Relay URL orphans the existing Welcome Team and mints a fresh Fizz/Honey/Bumble trio — exact-string relay-URL comparison (two separate cache/scope-check call sites, one of them via `normalizeRelayUrl`, which only trims trailing slashes) causes cache misses on any URL variant, so the provisioning path re-runs and mints new agent identities instead of recognizing the existing ones. Reporter has real-world reproduction: 9 orphaned managed-agent records from 3 relay-URL variants of the same community. Filed 2026-08-06 20:55, 0 comments. | Also in-domain — a **missing idempotency key**: the provisioning path uses the raw URL string as its identity key instead of a canonical community ID, so a cosmetic input change (not a real state change) is read as "never provisioned" and re-executes a create. Comment drafted (below), secondary to #5122. |
+| [#5099](https://github.com/block/buzz/issues/5099) | Mentioning a provider-backed agent the desktop can't start drops the message instead of publishing it | Adjacent (silent drop on a write path) but read the issue text alone as UI-launch-state handling, not clearly a fencing/retry/audit question without more detail than the title gives — lower confidence than #5122/#5109. Skipped. |
+| [#5101](https://github.com/block/buzz/issues/5101) | `conformance_multitenant` workflow row stale vs. schema (missing `d` tag → 400) | Schema/migration drift, not an execution-guarantee question. Skipped. |
+| [#5090](https://github.com/block/buzz/issues/5090) | Artifacts as shared objects (canvas CAS, anchored comments, AG-UI cards) | Design proposal, not a reliability bug. Skipped. |
+| [#5126, #5125, #5124, #5121](https://github.com/block/buzz/issues/5126) | NIP-32 labels feature request; signup email never arrives; apply-to-join-private-community; relay DNS failure | Feature requests / infra-config issues, outside stated domain. Skipped. |
+| WF-08 family (#2376, #3525, #4335, #5042) | No new reports since Run 7; unchanged, still unclaimed, drafted comment from Run 7 still ready to post. | No new action this run — re-drafting an unchanged finding adds nothing. |
+
+### Drafted comment for #5122 (not posted — no write access this run)
+
+> This is a "success" signal that isn't backed by the actual effect happening — the workflow run reports as completed, but the webhook was never sent, and with run history empty there's no audit trail to even notice the gap after the fact. Two things worth separating, since they compound:
+>
+> 1. **The webhook dispatch itself is silently swallowing a failure** (or never actually firing — the report doesn't distinguish "request sent, got no response" from "request never left the process"). Whichever it is, `call_webhook` needs to write its outcome — success, non-2xx, timeout, DNS failure, whatever — to a place a caller can read, rather than the workflow completing green regardless.
+> 2. **"Workflow run history always empty" is the more load-bearing bug.** Even if #1 gets fixed, without persisted run records there's no way to distinguish "delivered," "attempted and failed," and "never attempted" after the fact — which means every future workflow-action bug in this class will look identical from the outside (step ran, no observable effect, no record to diagnose from). A durable run/step-outcome log (attempted-at, outcome, response code or error) would make this entire bug class self-diagnosing instead of needing a reporter to manually probe three external endpoints to prove a negative, the way this issue's reporter had to.
+>
+> Fixing 2 before or alongside 1 is probably the higher-leverage order — it's the difference between "workflow actions occasionally fail silently" (bad, but discoverable) and "workflow actions occasionally fail silently and you can't tell from the inside" (this issue).
+
+ThumbGate is not mentioned — the issue is entirely about Buzz's own workflow-run observability, not about gating an external agent's actions.
+
+### Drafted comment for #5109 (not posted — no write access this run)
+
+> The root cause described here — keying "has this community already been provisioned" off the raw relay URL string instead of the community's actual identity — is a missing idempotency key, not just a normalization gap. `normalizeRelayUrl` trimming trailing slashes handles one cosmetic variant; it doesn't (and structurally can't, string-by-string) handle every equivalent way to spell the same relay (hostname vs. IP, `ws://` vs `wss://` vs a tailscale MagicDNS name pointing at the same host). Canonicalizing by community ID rather than URL string, as the issue proposes, is the right fix in the sense that it moves the idempotency check from "does this string exactly match a string we've seen" to "does this community already have a Welcome Team," which is the actual invariant that should hold regardless of how the relay URL is currently spelled. Worth flagging for whoever picks this up: the fix should also cover the *existing* orphaned agent records (the reporter has 9 from 3 URL variants of one community) — a canonicalization fix that only prevents new orphans, without a migration/merge path for records already split across URL variants, leaves the reported real-world damage in place.
+
+ThumbGate is not mentioned — the issue is about Buzz's own relay-identity provisioning, not about gating external agent writes.
+
+### What was opened / answered this run
+
+**Nothing posted.** Same access wall as Runs 1, 3–7 blocks both `issue_read` and `add_issue_comment` (and now confirmed `pull_request_read`) on `block/buzz`. No PR opened: no new fixable bug was found with a clean, isolated repro (both #5122 and #5109 require touching workflow-execution or provisioning internals with more context than the issue text gives — not "one surgical PR" material sight-unseen), and there is no write path to submit one from this session regardless.
+
+### Positioning read: **neither** (unchanged, reconfirmed — signal keeps compounding)
+
+- **Not a competitor.** Buzz remains a team workspace (chat + git + workflow automation) built on Nostr; ThumbGate remains a cross-tool pre-action gate for arbitrary agent writes. Different product surface.
+- **Not a partner.** No relationship, no contact, no integration exists.
+- **Technical overlap keeps compounding, now in a new shape.** Runs 1–7 mostly surfaced the WF-08 approval-persistence gap (4 independent reports) as the recurring reliability signal. This run's strongest finding, #5122, is a *different* instance of the same underlying class: a write step (`call_webhook`) that reports completion without verifying the effect occurred, with no audit trail to catch the discrepancy after the fact. That two unrelated Buzz subsystems (workflow approvals, workflow webhook delivery) both independently hit "reports success without verifying the effect" is stronger market signal than either alone — it suggests the gap is structural to how Buzz's workflow engine treats step completion, not a one-off bug in one action type.
+- **Zero ThumbGate mentions** this run, in either drafted comment or anywhere else.
+
+### What was skipped and why
+
+- **#5099, #5101, #5090, #5126, #5125, #5124, #5121** — surveyed, judged adjacent-but-low-confidence, off-domain, or feature-request/infra-config; reasons in the table above.
+- **Re-drafting the WF-08 comment** — unchanged since Run 7; no new information to add by repeating it.
+- **A second live write-access test** — Run 7 already ran one (`add_issue_comment` on `#5053`, denied); this run tested the read path instead (`issue_read`, `pull_request_read`) to confirm the wall on a different axis rather than repeat an already-answered question.
+
+### Action needed from Igor
+
+Unchanged, now compounding further: **this is the 8th consecutive run** hitting the identical `block/buzz` access wall, confirmed again this time on the read path specifically. The backlog on *this* repo has grown to **5 open, unmerged `chore/buzz-engagement-log-*` PRs** (#1473 Run 4, #1510 Run 5, #1512 Run 6, #1543 Run 7, and this run's PR) — none has landed on `main` yet, so every run is still deriving context from Run 1–3 plus manually re-reading the unmerged branches rather than from a merged history. Two concrete unblocks, both open since Run 6:
+
+1. **Merge the `chore/buzz-engagement-log-*` PR backlog** so future runs build on true latest state.
+2. **Grant this scheduled task's session tier real access to `block/buzz`** (even comment-only would unblock #5122 and #5109 immediately — both comments above are fully drafted and ready to paste as-is), or route this task through whichever session/environment produced Run 2's real `#4598`/`#4624`/`#4565` contributions.
+
