@@ -556,13 +556,64 @@ function renderDoctor(doctor) {
   return lines.join('\n');
 }
 
+function signalChildProcessTree(child, signal = 'SIGTERM', options = {}) {
+  if (!child || !child.pid) return false;
+  const platform = options.platform || process.platform;
+  const detached = options.detached !== undefined ? options.detached : platform !== 'win32';
+  const kill = options.kill || process.kill;
+  if (detached && platform !== 'win32') {
+    try {
+      kill(-child.pid, signal);
+      return true;
+    } catch {
+      // The process may have exited between the signal and this call. Fall
+      // through to the direct-child path for platforms without a live pgid.
+    }
+  }
+  try {
+    return child.kill(signal);
+  } catch {
+    return false;
+  }
+}
+
 function spawnGrok(binary, args, env = process.env) {
-  const child = spawn(binary, args, { stdio: 'inherit', env });
+  // A separate process group lets the outer hermes-yolo deadline terminate
+  // Grok and every tool process it spawned. Inherited stdio preserves the TUI;
+  // wrapper signal forwarding preserves Ctrl-C for interactive sessions.
+  const detached = process.platform !== 'win32';
+  const child = spawn(binary, args, { stdio: 'inherit', env, detached });
+  const forwardedSignals = ['SIGINT', 'SIGTERM', 'SIGHUP'];
+  let terminationForwarded = false;
+  let forceKillTimer = null;
+
+  const cleanupSignalHandlers = () => {
+    for (const signal of forwardedSignals) process.removeListener(signal, handleSignal);
+  };
+  const handleSignal = (signal) => {
+    terminationForwarded = true;
+    process.exitCode = 1;
+    signalChildProcessTree(child, signal, { detached });
+    if (!forceKillTimer) {
+      // Keep this launcher alive long enough to reclaim descendants that trap
+      // the graceful signal, then release the event loop.
+      forceKillTimer = setTimeout(() => {
+        signalChildProcessTree(child, 'SIGKILL', { detached });
+        cleanupSignalHandlers();
+      }, 250);
+    }
+  };
+  for (const signal of forwardedSignals) process.once(signal, handleSignal);
   child.on('error', (error) => {
+    cleanupSignalHandlers();
+    if (forceKillTimer) clearTimeout(forceKillTimer);
     console.error(`grok-yolo: ${redact(error.message)}`);
     process.exitCode = 127;
   });
   child.on('exit', (code, signal) => {
+    // On a forwarded deadline signal, keep the force-kill timer alive even if
+    // the group leader exits first; stubborn descendants may still be running.
+    if (!terminationForwarded) cleanupSignalHandlers();
     if (signal) {
       console.error(`grok-yolo: Grok exited on ${signal}`);
       process.exitCode = 1;
@@ -570,6 +621,7 @@ function spawnGrok(binary, args, env = process.env) {
       process.exitCode = code == null ? 1 : code;
     }
   });
+  return child;
 }
 
 function main(argv = process.argv.slice(2)) {
@@ -663,6 +715,8 @@ module.exports = {
   parseWrapperArgs,
   redact,
   renderDoctor,
+  signalChildProcessTree,
+  spawnGrok,
   validateLocalModel,
   versionAtLeast,
 };
