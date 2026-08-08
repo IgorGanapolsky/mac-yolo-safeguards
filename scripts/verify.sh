@@ -37,5 +37,6 @@ node tests/test-openrelay-inference-delivery.js
 node tests/test-cognition-devin-background-agent.js
 node tests/test-openai-codex-chatgpt-work-harness.js
 node tests/test-databricks-omnigent-meta-harness.js
+node tests/test-nvidia-dynamo-inference-engine.js
 
 echo "✅ All Local CI Verification Checks Passed!"
