@@ -720,7 +720,20 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           const hasValidActive =
             loadedProfiles.activeProfileId &&
             loadedProfiles.profiles.some((p) => p.id === loadedProfiles.activeProfileId);
-          if (!hasValidActive) {
+
+          // Prefer real Mac profile (e.g. Igors-MacBook-Pro) over loopback (S25-Termux)
+          const nonLoopbackProfile = loadedProfiles.profiles.find(
+            (p) => !isLoopbackGatewayUrl(p.gatewayUrl) && p.hostname && p.hostname !== 'S25-Termux',
+          );
+          if (
+            nonLoopbackProfile &&
+            (!loadedProfiles.activeProfileId ||
+              isLoopbackGatewayUrl(
+                loadedProfiles.profiles.find((p) => p.id === loadedProfiles.activeProfileId)?.gatewayUrl ?? '',
+              ))
+          ) {
+            loadedProfiles = { ...loadedProfiles, activeProfileId: nonLoopbackProfile.id };
+          } else if (!hasValidActive) {
             const lastSelectedValid =
               lastSelectedProfileId &&
               loadedProfiles.profiles.some(
