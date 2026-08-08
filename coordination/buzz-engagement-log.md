@@ -288,3 +288,76 @@ ThumbGate is not mentioned in this draft — the issue is a runtime liveness/wat
 
 Same as Run 1: this specific session/environment tier has no write path to `block/buzz` (`add_repo` explicitly rejects cross-tier owners, no `gh` CLI present). Run 2's contributions came from elsewhere. If this scheduled task is meant to run from *this* environment tier every time, either grant it broader GitHub scope, or treat this tier's runs as research/drafting-only and have a separate write-capable run post drafts like the #4860 answer above.
 
+---
+
+## 2026-08-05 — Run 4 (WF-08 fix independently verified, PR still blocked — same wall, real progress)
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+| Fact | Evidence |
+|------|----------|
+| **Canonical repo** | [`github.com/block/buzz`](https://github.com/block/buzz) — unchanged, still the only public surface |
+| **`add_repo("block","buzz")`** | Rejected again this run: *"cross-tier adds are not supported in v1... requested block/buzz but session already has repos from owner(s) [igorganapolsky]"* — same wall as Runs 1 and 3 |
+| **`add_repo("IgorGanapolsky","buzz")`** | **Succeeded** — same owner as this session's existing `igorganapolsky/mac-yolo-safeguards` source, so the fork (not `block/buzz` itself) is addable. Cloned to `/workspace/buzz`. This is new: no prior run recorded getting a working clone with push access. |
+| **PR #4624** (Run 2's multi-`#h` fix) | Confirmed still **open**, no reviews, checks green — same as Run 3. Nothing actionable. |
+| **`fix/wf08-approval-gate-finalize-run` branch** | Confirmed real on `igorganapolsky/buzz` (pushed 2026-08-05, one commit `7af7bf0`, by a prior parallel session per its unmerged log entry on `chore/buzz-engagement-log-2026-08-05`). Read the full diff and commit message directly — did not trust the prior claim, verified independently (see below). |
+| **Issue #3525** (`WF-08: approval gate is ~90% built — finalize_run drops the token instead of creating WaitingApproval`) | Confirmed open, no assignee, no linked PR, matches the branch's fix exactly |
+
+### Independent verification of the WF-08 fix (this run, not reused from prior claims)
+
+Per the hard rule ("never fabricate verification or test results"), re-ran everything myself rather than trusting the branch's commit message or Run 3's unmerged log claim:
+
+1. **Code review**: read the full diff (`crates/buzz-workflow/src/lib.rs`, `executor.rs`, `crates/buzz-relay/src/api/bridge.rs`, `handlers/command_executor.rs`, new test `crates/buzz-workflow/tests/wf08_approval_gate.rs`). Fix threads an `ApprovalContext` (step_id, approver_spec, expires_at) through `Suspended`, and `finalize_run` now calls `create_approval` + sets `WaitingApproval` instead of unconditionally failing. All 5 `finalize_run` call sites updated to pass `workflow_id`. Sound, narrowly scoped, matches the issue exactly.
+2. **Environment**: this session has local `cargo`, Postgres 16, and Redis binaries (no Docker daemon). Started both services directly (`service postgresql start`, `service redis-server start`), created the `buzz`/`buzz_dev` role+DB per `scripts/run-tests.sh` defaults, installed `sqlx-cli`, ran all 26 migrations.
+3. **Results**, all executed live this run:
+   - `cargo check -p buzz-workflow -p buzz-relay` → clean.
+   - `cargo test -p buzz-workflow --lib -- --include-ignored` → **155 passed, 0 failed** (this includes 2 Postgres-gated tests that were failing before migrations ran — fixed by running migrations, not by the code change).
+   - `cargo test -p buzz-workflow --test wf08_approval_gate -- --include-ignored --nocapture` → **`suspended_run_persists_approval_and_waits_for_grant` ... ok. 1 passed, 0 failed.** This is the actual regression test for the fix — read it in full, it's non-trivial (asserts exact `RunStatus::WaitingApproval`, exactly one `Pending` approval row, correct `step_id`/`step_index`/`approver_spec`/`expires_at` within 30s of the `4h` timeout).
+   - `cargo test -p buzz-relay --lib` → 837 passed, 1 failed (`api::mesh_demo::tests::demo_join_forwarded_arm_round_trips_echo`). Re-ran that one test in isolation → passed. Pre-existing flake, unrelated subsystem (mesh-demo websocket echo, not workflow/approval); this diff's `buzz-relay` changes are two 1-line call-site edits threading `workflow_id` through.
+   - `cargo fmt -p buzz-workflow -p buzz-relay -- --check` → clean.
+   - `cargo clippy -p buzz-workflow -p buzz-relay --lib --tests -- -D warnings` → clean.
+4. **Base freshness**: the fork's `main` was 2 days stale vs `block/buzz`'s `main` (Aug 3 vs Aug 5). Added `upstream` remote, fetched `block/buzz` `main` anonymously (unauthenticated `git fetch` against the public repo works from this session, confirming Run 1's finding). A full local rebase attempt produced spurious add/add conflicts across unrelated files — a shallow-clone (`--depth 1`) artifact, not real conflicts (both local histories were independently truncated, so git had no common ancestor to diff from). Aborted that rebase and instead diffed only the 5 touched files between the fork's base and current `upstream/main` directly: **zero differences** — none of the files this fix touches were modified upstream in the interim. The PR is safe to open against current `main` as-is.
+
+### What was opened / answered this run
+
+**Still nothing posted to `block/buzz`.** Attempted `mcp__github__create_pull_request(owner: "block", repo: "buzz", head: "igorganapolsky:fix/wf08-approval-gate-finalize-run", base: "main")` → **`Access denied: repository "block/buzz" is not configured for this session. Allowed repositories: igorganapolsky/mac-yolo-safeguards, igorganapolsky/buzz`**. Getting push access to the *fork* this run was real, new progress — the `mcp__github__*` tool layer still enforces the base-repo allowlist independently of what the fork's own permissions allow, so opening a cross-repo PR against `block/buzz` is still blocked by this session tier specifically.
+
+**Ready-made PR, one click away for a write-capable session:**
+- Branch: `igorganapolsky/buzz@fix/wf08-approval-gate-finalize-run`
+- Compare URL: https://github.com/block/buzz/compare/main...igorganapolsky:buzz:fix/wf08-approval-gate-finalize-run
+- Title: `fix(workflow): finalize_run must persist approval gate, not fail it`
+- Fixes: #3525
+- Full verified PR body (compiled from this run's own test output, not reused) is in this run's session transcript, ready to paste as-is.
+
+### Survey (last 72h, as of 2026-08-05)
+
+Public search API (`created:>2026-08-02`) — ~17 new issues since the last survey, all Aug 5, mostly desktop/mobile/ACP bugs from external contributors. Two read in full for domain relevance:
+
+| Issue | Topic | Action |
+|-------|-------|--------|
+| [#4884](https://github.com/block/buzz/issues/4884) | Feature request: a `RunCommand` workflow action — pre-registered, allowlisted, schema-constrained commands, not arbitrary shell, run under systemd sandboxing, for scheduled/local jobs without exposing a public webhook endpoint | Read in full — squarely Igor's domain (allowlisting + schema-constrained args + sandboxing is exactly pre-action-gate design). **Not answered**: no write access this run, and it's a green-field feature design, not a fix — better suited to a design comment from a write-capable run than something to draft speculatively here. |
+| [#4860](https://github.com/block/buzz/issues/4860) | buzz-acp hung turn / no watchdog (from Run 3) | Confirmed **still open, still 0 comments** — Run 3's drafted answer was never posted (further confirmation this session tier's access blocker is persistent across runs, not a one-off). |
+
+No new fix candidate surveyed this run beyond WF-08 — the run's effort went into independently verifying WF-08 rather than finding a second candidate, per the "max 1 PR per run" rule and because a verified-but-unopened PR is the highest-value output blocked purely on access, not on more research.
+
+### Positioning read: **neither** (unchanged, reconfirmed)
+
+- Not a competitor — Buzz remains a team workspace/chat+git+workflow fabric; ThumbGate remains a cross-tool pre-action gate for arbitrary agent actions.
+- Not a partner — no relationship exists.
+- Technical overlap keeps compounding: WF-08 (this run, verified) and #4884 (this run, surveyed) are both, independently of ThumbGate, Buzz's own contributors arriving at "we need a scoped, auditable, pre-action gate for agent-triggered writes/commands." That's real market signal for the problem class ThumbGate addresses — not a pitch, not fabricated, just what's actually in the issue tracker.
+- **Zero ThumbGate mentions** in any PR body, comment, or draft this run — none of the surveyed items were genuine ThumbGate questions.
+
+### What was skipped and why
+
+- **#4884 comment** — in-domain and genuinely answerable, but skipped drafting speculative design commentary on a brand-new feature request (0 comments, opened same day) when the session can't post it anyway; better ROI to let a write-capable run engage with it once there's some maintainer signal on direction, same reasoning Run 3 applied to #4822.
+- **Second PR/fix** — moot regardless of candidates found; this run's write path to `block/buzz` is identical to Runs 1 and 3 (denied), so the ROI was in de-risking WF-08 to "ready, verified, one PR call away" rather than researching a second blocked fix.
+- **Re-attempting `add_repo("block","buzz")` after the fork succeeded** — not attempted a second time; the fork add's success is owner-scoped (`IgorGanapolsky` same as `igorganapolsky`), not a signal that `block` would now work, and the `create_pull_request` call already confirmed `block/buzz` is still outside this session's allowed-repository list.
+
+### Action needed from Igor
+
+This run got materially further than Runs 1 and 3: the fork is now clone-and-push-capable from this session tier, and the WF-08 fix is fully independently verified (compiles, fmt, clippy, and both the full `buzz-workflow` suite and the new regression test pass live against a real Postgres+Redis in this environment) — not just trusted from a prior claim. The **only** remaining blocker is that `mcp__github__create_pull_request` still enforces `block/buzz` is outside this session's allowed-repository list, separately from the fork's own push access. Either:
+1. Add `block/buzz` (read-only is enough — PR creation via a fork only needs the base repo readable, not writable) to this environment tier's allowed repositories, or
+2. Have a session/environment that already has `block/buzz` in scope pull the compare URL above and open the PR — no further verification work is needed, it's ready to paste as-is.
+
+Until one of those happens, future runs will keep re-verifying the same green fix without being able to ship it — same shape of waste flagged in Run 3's action item, now with a completed artifact sitting behind the wall instead of just a plan.
+
