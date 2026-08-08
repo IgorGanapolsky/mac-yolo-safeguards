@@ -782,6 +782,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
 - `poolside-yolo`, `tests/test-poolside-yolo.sh`, `plan.md` → **codex-agent-50** (T-AGENT-50-POOLSIDE-SPEED-20260808 / Linear AGENT-50: Pool v1.0.15 fast-model defaults, ACP mode correction, latency diagnostics, regression tests, and live benchmark evidence.) (2026-08-08T19:10:00Z)
+- `tests/test-harness-verifier-integrity.sh`, `plan.md` → **codex-agent-50** (T-AGENT-50-POOLSIDE-SPEED-20260808 / Linear AGENT-50: CI remediation for the Pool v1.0.15 mutation anchor after `plan` moved out of approval modes.) (2026-08-08T19:24:00Z)
 
 - `hermes-yolo-wrapper.js`, `tests/test-hermes-yolo.js`, `tools/hermes-yolo-supervisor.js`, `tests/test-hermes-yolo-supervisor.js`, `plan.md` → **codex-agent-328** (T-AGENT-328-HERMES-YOLO-QUALITY-20260808 / Linear AGENT-328: repair live latency, tool-access truth, and direct human response quality; supersede the unmerged PR #1574 wrapper/supervisor regression without editing that branch.) (2026-08-08T17:25:00Z)
 - `grok-yolo-wrapper.js`, `tests/test-grok-yolo.js` → **codex-agent-328** (T-AGENT-328-HERMES-YOLO-QUALITY-20260808 / Linear AGENT-328: post-review process-tree cleanup and interactive timeout correction for PR #1582.) (2026-08-08T17:49:00Z)
