@@ -12,6 +12,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+process.env.ECONOMIC_ROUTER_RECEIPTS_PATH = path.join(os.tmpdir(), 'aca-non-existent-economic-router-receipts.jsonl');
+
 const {
   parseArgs,
   readReceipts,
