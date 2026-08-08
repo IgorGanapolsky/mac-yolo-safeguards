@@ -2,7 +2,12 @@ import { Platform } from 'react-native';
 import type { GatewayProfile } from '../types/gatewayProfile';
 import { profileMachineKey, profilesForActiveMachine } from '../services/gatewayProfiles';
 import { isPrivateLanGatewayUrl } from './gatewayEndpoint';
-import { buildGatewayUrlFromLanIp, isLoopbackGatewayUrl } from './gatewayUrlPolicy';
+import {
+  buildGatewayUrlFromLanIp,
+  extractLanIpFromGatewayUrl,
+  isLoopbackGatewayUrl,
+  isLoopbackHost,
+} from './gatewayUrlPolicy';
 import { buildTailscaleGatewayUrl, isTailscaleGatewayUrl } from './tailscaleHosts';
 
 export const USB_LOOPBACK_GATEWAY_URL = 'http://127.0.0.1:8642';
@@ -38,7 +43,7 @@ export function usbLoopbackFallbackUrls(primaryUrl: string): string[] {
   return [USB_LOOPBACK_GATEWAY_URL];
 }
 
-/** When USB adb reverse is down but phone is on Wi‑Fi, try saved LAN addresses. */
+/** When USB loopback or Tailscale fails while phone is on Wi‑Fi, try saved LAN addresses. */
 export function wifiLanFallbackUrls(input: {
   primaryUrl: string;
   wifiConnected: boolean;
@@ -47,21 +52,49 @@ export function wifiLanFallbackUrls(input: {
   activeProfileId?: string | null;
   profiles?: GatewayProfile[];
 }): string[] {
-  if (Platform.OS === 'web' || !input.wifiConnected || !isLoopbackGatewayUrl(input.primaryUrl)) {
+  if (
+    Platform.OS === 'web' ||
+    !input.wifiConnected ||
+    (!isLoopbackGatewayUrl(input.primaryUrl) && !isTailscaleGatewayUrl(input.primaryUrl))
+  ) {
     return [];
   }
   const scopedProfiles = input.profiles?.length
     ? profilesForActiveMachine(input.profiles, input.activeProfileId)
     : undefined;
-  const profileLanIps =
-    scopedProfiles?.map((profile) => profile.localIp?.trim() || undefined) ??
-    input.profileLanIps ??
-    [];
+  const profileLanIps = scopedProfiles
+    ? scopedProfiles
+        .map(
+          (profile) =>
+            profile.localIp?.trim() || extractLanIpFromGatewayUrl(profile.gatewayUrl) || undefined,
+        )
+        .filter(Boolean)
+    : input.profileLanIps ?? [];
+
+  let lastLanIp = input.lastLanIp?.trim();
+  if (lastLanIp && input.profiles?.length && input.activeProfileId) {
+    const activeMachineProfiles = profilesForActiveMachine(input.profiles, input.activeProfileId);
+    const lastLanIpMatchesActiveMachine = activeMachineProfiles.some(
+      (profile) =>
+        profile.localIp?.trim() === lastLanIp ||
+        extractLanIpFromGatewayUrl(profile.gatewayUrl) === lastLanIp,
+    );
+    const lastLanIpMatchesOtherMachine = input.profiles.some(
+      (profile) =>
+        !activeMachineProfiles.includes(profile) &&
+        (profile.localIp?.trim() === lastLanIp ||
+          extractLanIpFromGatewayUrl(profile.gatewayUrl) === lastLanIp),
+    );
+    if (lastLanIpMatchesOtherMachine && !lastLanIpMatchesActiveMachine) {
+      lastLanIp = undefined;
+    }
+  }
+
   const seen = new Set<string>([input.primaryUrl.trim()]);
   const urls: string[] = [];
-  for (const rawIp of [input.lastLanIp, ...profileLanIps]) {
+  for (const rawIp of [lastLanIp, ...profileLanIps]) {
     const ip = rawIp?.trim();
-    if (!ip) {
+    if (!ip || isLoopbackHost(ip)) {
       continue;
     }
     const url = buildGatewayUrlFromLanIp(ip);
