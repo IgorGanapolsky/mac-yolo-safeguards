@@ -191,6 +191,49 @@ test('outboundClaim write re-checks under lock (duplicate after race)', () => {
   fs.unlinkSync(ledger);
 });
 
+test('outboundClaim fails CLOSED when a non-final ledger line is corrupt', () => {
+  const ledger = path.join(os.tmpdir(), `outbound-corrupt-${Date.now()}.jsonl`);
+  const first = outboundClaim({ campaign: 'c1', email: 'a@b.com', status: 'sent', ledgerPath: ledger });
+  assert.strictEqual(first.ok, true);
+  first.write(ledger);
+  const lines = fs.readFileSync(ledger, 'utf8').trim().split('\n');
+  lines[0] = lines[0].slice(0, 30); // damage the sent record
+  lines.push(JSON.stringify({ pk: 'zzz', campaign: 'c2', email: 'z@z.com', status: 'sent', ts: 'x' }));
+  fs.writeFileSync(ledger, `${lines.join('\n')}\n`);
+
+  // Old behavior: the damaged "sent" row vanished silently and the same
+  // prospect could be emailed again. Must now fail closed instead.
+  const resend = outboundClaim({ campaign: 'c1', email: 'a@b.com', status: 'sent', ledgerPath: ledger });
+  assert.strictEqual(resend.ok, false);
+  assert.strictEqual(resend.reason, 'ledger_corrupt_fail_closed');
+  assert.ok(fs.existsSync(`${ledger}.rejects.jsonl`), 'rejects were not quarantined');
+  fs.unlinkSync(ledger);
+  fs.unlinkSync(`${ledger}.rejects.jsonl`);
+});
+
+test('outboundClaim tolerates a torn final line and still dedupes earlier sends', () => {
+  const ledger = path.join(os.tmpdir(), `outbound-torn-${Date.now()}.jsonl`);
+  const first = outboundClaim({ campaign: 'c1', email: 'a@b.com', status: 'sent', ledgerPath: ledger });
+  first.write(ledger);
+  fs.appendFileSync(ledger, '{"pk":"torn'); // crash mid-append
+
+  const dup = outboundClaim({ campaign: 'c1', email: 'a@b.com', status: 'sent', ledgerPath: ledger });
+  assert.strictEqual(dup.ok, false, 'earlier send must still be remembered');
+  assert.strictEqual(dup.reason, 'duplicate_pk');
+
+  // A different prospect proceeds; the write heals + acknowledges the fragment,
+  // so status reads report zero unexplained rejects afterwards.
+  const other = outboundClaim({ campaign: 'c1', email: 'b@c.com', status: 'sent', ledgerPath: ledger });
+  assert.strictEqual(other.ok, true);
+  const w = other.write(ledger);
+  assert.ok(!w.blocked, JSON.stringify(w));
+  const st = outboundStatus({ campaign: 'c1', ledgerPath: ledger });
+  assert.strictEqual(st.ledgerRejects, 0, 'healed torn tail must not count as corruption');
+  assert.strictEqual(st.uniqueEmails, 2);
+  fs.unlinkSync(ledger);
+  if (fs.existsSync(`${ledger}.rejects.jsonl`)) fs.unlinkSync(`${ledger}.rejects.jsonl`);
+});
+
 test('highStakesEvalRules cover invent-cash and LIVE proof', () => {
   const rules = highStakesEvalRules();
   const ids = rules.rules.map((r) => r.id);
