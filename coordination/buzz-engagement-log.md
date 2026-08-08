@@ -288,3 +288,64 @@ ThumbGate is not mentioned in this draft — the issue is a runtime liveness/wat
 
 Same as Run 1: this specific session/environment tier has no write path to `block/buzz` (`add_repo` explicitly rejects cross-tier owners, no `gh` CLI present). Run 2's contributions came from elsewhere. If this scheduled task is meant to run from *this* environment tier every time, either grant it broader GitHub scope, or treat this tier's runs as research/drafting-only and have a separate write-capable run post drafts like the #4860 answer above.
 
+---
+
+## 2026-08-06 — Run 5 (WF-08 fix confirmed still ready and unclaimed; same PR-creation wall)
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+| Fact | Evidence |
+|------|----------|
+| **Canonical repo** | [`github.com/block/buzz`](https://github.com/block/buzz) — unchanged |
+| **`add_repo("block","buzz")`** | Rejected again this run — identical error to Runs 1/3/4: *"cross-tier adds are not supported in v1... session already has repos from owner(s) [igorganapolsky]"* |
+| **`add_repo("IgorGanapolsky","buzz")`** | Succeeded again (same-owner fork, consistent with Run 4) — session now has `igorganapolsky/buzz` in scope alongside `mac-yolo-safeguards` |
+| **`fix/wf08-approval-gate-finalize-run` branch** | Confirmed still present on `igorganapolsky/buzz`, unchanged sha `7af7bf0` — the exact commit Run 4 independently verified (compiles, fmt, clippy clean, 155/155 `buzz-workflow` tests + the new Postgres-backed regression test passing). Did not re-run the test suite this run since the commit is byte-identical to what Run 4 already verified live; re-running unchanged code against unchanged tests would not produce new information. |
+| **Issue [#3525](https://github.com/block/buzz/issues/3525)** (WF-08) | Confirmed via public `WebFetch` — still **open, no linked PR, no comments**. The fix remains unclaimed by anyone else in the 24h since Run 4. |
+| **`mcp__github__create_pull_request(owner: "block", repo: "buzz", head: "igorganapolsky:fix/wf08-approval-gate-finalize-run", base: "main")`** | Attempted directly this run (not assumed from Run 4's log) — **denied**: *"Access denied: repository 'block/buzz' is not configured for this session. Allowed repositories: igorganapolsky/mac-yolo-safeguards, igorganapolsky/buzz."* Confirms Run 4's finding: having the fork in scope does not make the upstream base repo addable for PR creation. This is the **fourth run in a row** (1, 3, 4, 5) this exact session tier hits this wall; only Run 2 (from a different environment) got through. |
+| **`api.github.com/repos/block/buzz/compare/main...igorganapolsky:buzz:fix/wf08-approval-gate-finalize-run`** | 403 via unauthenticated `WebFetch` this run (proxy/rate-limit, not re-verified) — freshness vs upstream `main` not reconfirmed today. Not treated as a blocker: Run 4 already diffed the 5 touched files against upstream and found zero drift as of 2026-08-05; one day without any of those specific files changing is a reasonable, stated assumption, not a fabricated verification. |
+
+### What was surveyed (last 72h, as of 2026-08-06)
+
+Pulled recent issues via public `WebFetch` against `api.github.com/search/issues` (unauthenticated; `issue_read`/`search_issues` on `block/buzz` itself still denied per the wall above). Sample of the newest:
+
+| Issue | Topic | Action |
+|-------|-------|--------|
+| [#4967](https://github.com/block/buzz/issues/4967) | Buzz Desktop managed-agent publisher replays a stale signed kind:30177 event forever once it ages past the relay's ±900s ingest window — no re-signing, no backoff: 15,462 rejected writes / 47h, 360/h, zero successful updates since Aug 2 | Read in full — squarely Igor's domain (non-idempotent retry with no backoff, frozen artifact replay instead of re-signing at publish time). **Not answered**: no write access this run to comment on `block/buzz`; the proposed fix in the issue body ("re-sign at publish time" + "invalidate retained artifact on rejection") is already correct and complete, so there is nothing this run could add beyond the issue reporter's own analysis — would be restating, not contributing. |
+| [#4966](https://github.com/block/buzz/issues/4966) | Custom-harness agents with `steering_supported=false` never receive mentions — silent, no error | Read title/summary only; silent-failure-on-config-mismatch is adjacent to Igor's domain but not surveyed in depth this run — no write access made deeper investigation lower priority than confirming the WF-08 status. |
+| [#4982](https://github.com/block/buzz/issues/4982) | `kind:9033` auth failure logs nothing server-side | Noted, not investigated — observability gap, not a write-gating question. |
+| [#3525](https://github.com/block/buzz/issues/3525) (WF-08) | See verification above | Still the run's primary finding: real, ready fix, blocked purely on infra. |
+
+No second fix attempted — per the hard rule and because this run's highest-value action was reconfirming WF-08's fix is still unclaimed and still blocked, not searching for a second candidate that would hit the identical wall.
+
+### What was opened / answered this run
+
+**Nothing posted to `block/buzz`.** Confirmed by direct attempt (see `create_pull_request` denial above), not assumed. The ready-to-open PR from Run 4 is unchanged:
+
+- Branch: `igorganapolsky/buzz@fix/wf08-approval-gate-finalize-run` (sha `7af7bf0`)
+- Compare URL: https://github.com/block/buzz/compare/main...igorganapolsky:buzz:fix/wf08-approval-gate-finalize-run
+- Fixes: [#3525](https://github.com/block/buzz/issues/3525)
+- Verified (Run 4, live): `cargo check`/`fmt`/`clippy` clean; `buzz-workflow` lib tests 155/155; new regression test `suspended_run_persists_approval_and_waits_for_grant` passing.
+
+### Positioning read: **neither** (unchanged, reconfirmed)
+
+- Not a competitor — Buzz is a team workspace/chat+git+workflow fabric; ThumbGate is a cross-tool pre-action gate for arbitrary agent actions.
+- Not a partner — no relationship exists.
+- Technical overlap keeps recurring independent of ThumbGate: WF-08 (approval persistence) and #4967 (idempotent re-signing / backoff on a rejected write) are both, this run and last, Buzz's own contributors hitting exactly the reliability class ThumbGate addresses. That is real, repeated market signal, not something manufactured to justify a pitch.
+- **Zero ThumbGate mentions** this run — no comment or PR was posted at all.
+
+### What was skipped and why
+
+- **#4967 answer** — in-domain, but the issue's own proposed fix is already correct and complete; nothing to add, and no write access to post it anyway.
+- **#4966 deep dive** — lower priority than reconfirming WF-08 status; deferred.
+- **Second PR / fix candidate** — moot; this run's write path to `block/buzz` is identical to Runs 1, 3, 4 (denied for both issues and PRs), so a second verified-but-unopenable fix would add cost, not value.
+- **Re-running the full `buzz-workflow` test suite** — skipped because the branch sha is unchanged since Run 4's live verification; re-running identical tests against identical code produces no new signal.
+
+### Action needed from Igor
+
+This is now the **fourth consecutive run** (of five total) blocked at the exact same point: a fully verified, zero-risk, ready-to-merge fix for a real, unclaimed, open bug (`#3525`) that only needs someone with `block/buzz` in their session's allowed-repository list to click "Create pull request" on the compare URL above. Two ways to close this out:
+
+1. **Fastest**: Igor (or any session with real `block/buzz` write access) opens https://github.com/block/buzz/compare/main...igorganapolsky:buzz:fix/wf08-approval-gate-finalize-run directly — no further verification needed, it's ready to paste as-is.
+2. **Structural fix**: grant this scheduled task's session tier read access to `block/buzz` (read is sufficient for it to be a valid PR base — push access lives on the fork), so future runs stop re-confirming the same wall and can actually ship.
+
+Until one of those happens, every future run of this routine will keep reconfirming the same green, unclaimed fix instead of making new progress.
+
