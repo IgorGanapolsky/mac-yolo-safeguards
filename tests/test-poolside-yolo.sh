@@ -36,7 +36,7 @@ cat >"$STUB" <<EOF
 #!/bin/sh
 if [ "\$1" = "--version" ]; then echo "1.0.15"; exit 0; fi
 printf '%s\n' "\$@" > "$ARGS_OUT"
-printf 'BASE=%s\nMODEL=%s\nKEY=%s\n' "\$POOLSIDE_STANDALONE_BASE_URL" "\$POOLSIDE_STANDALONE_MODEL" "\$POOLSIDE_API_KEY" > "$ENV_OUT"
+printf 'BASE=%s\nMODEL=%s\nKEY=%s\nTHOUGHT=%s\n' "\$POOLSIDE_STANDALONE_BASE_URL" "\$POOLSIDE_STANDALONE_MODEL" "\$POOLSIDE_API_KEY" "\$POOLSIDE_YOLO_SESSION_THOUGHT_LEVEL" > "$ENV_OUT"
 echo STUB-RAN
 EOF
 chmod +x "$STUB"
@@ -101,7 +101,8 @@ base_env() {
   export POOLSIDE_YOLO_MODE_PROBE_TIMEOUT_MS=50
   unset POOLSIDE_API_KEY POOLSIDE_STANDALONE_BASE_URL POOLSIDE_STANDALONE_MODEL \
         POOLSIDE_YOLO_LOCAL_MODEL POOLSIDE_YOLO_ZERO_SPEND_STRICT POOLSIDE_YOLO_LANE \
-        POOLSIDE_YOLO_NATIVE_MODEL POOLSIDE_YOLO_THOUGHT_LEVEL POOLSIDE_YOLO_FAST_DEFAULTS 2>/dev/null || true
+        POOLSIDE_YOLO_NATIVE_MODEL POOLSIDE_YOLO_THOUGHT_LEVEL POOLSIDE_YOLO_FAST_DEFAULTS \
+        POOLSIDE_YOLO_SESSION_THOUGHT_LEVEL 2>/dev/null || true
 }
 base_env
 
@@ -186,29 +187,25 @@ grep -q -- "--mode" "$ARGS_OUT" && grep -qx "always-allow" "$ARGS_OUT" && ok "ba
 #     CLI can make the choice deterministically.
 FAST_CREDS="$ROOT/fast-creds.json"
 printf '[{"stub":"token"}]\n' > "$FAST_CREDS"
+cat >>"$POOLSIDE_SETTINGS" <<'YAML'
+default_config_options:
+    thought_level: max
+    model: user/intentional-default
+YAML
+FAST_SETTINGS_HASH="$(shasum -a 256 "$POOLSIDE_SETTINGS" | awk '{print $1}')"
 rm -f "$ARGS_OUT"
 POOLSIDE_YOLO_CREDENTIALS="$FAST_CREDS" "$WRAPPER" >/dev/null 2>&1 || true
-{ grep -q -- "--model" "$ARGS_OUT" && grep -qx "poolside/laguna-xs-2.1" "$ARGS_OUT"; } \
+{ grep -q -- "--model" "$ARGS_OUT" && grep -qx "poolside/laguna-xs-2.1" "$ARGS_OUT" && grep -qx "THOUGHT=none" "$ENV_OUT"; } \
   && ok "native interactive defaults to Laguna XS" \
   || no "native interactive fast model missing ($(tr '\n' ' ' < "$ARGS_OUT" 2>/dev/null))"
 
-# 5b. Thinking is a session config option but has no pool startup flag. Persist only
-#     that option in the client settings; the model stays lane-specific on --model so
-#     a later gateway/local session is never handed an invalid Poolside model ID.
-python3 - "$POOLSIDE_SETTINGS" <<'PY' && ok "fast defaults persist thought=none without leaking model" || no "fast defaults settings are unsafe"
-import re, sys
-text = open(sys.argv[1], encoding='utf-8').read()
-m = re.search(r'^default_config_options:\s*\n((?:[ \t]+.*\n?)*)', text, re.M)
-assert m, text
-block = m.group(1)
-assert re.search(r'^\s+thought_level:\s*none\s*$', block, re.M), block
-assert not re.search(r'^\s+model:', block, re.M), block
-PY
-
-FAST_SETTINGS_HASH="$(shasum -a 256 "$POOLSIDE_SETTINGS" | awk '{print $1}')"
-POOLSIDE_YOLO_CREDENTIALS="$FAST_CREDS" "$WRAPPER" >/dev/null 2>&1 || true
+# 5b. Both fast options are session-scoped. A raw `pool` invocation or a later opt-out
+#     must retain the user's existing thought and model preferences byte-for-byte.
 [ "$(shasum -a 256 "$POOLSIDE_SETTINGS" | awk '{print $1}')" = "$FAST_SETTINGS_HASH" ] \
-  && ok "fast settings update is idempotent" || no "fast settings rewrote an unchanged file"
+  && grep -q 'thought_level: max' "$POOLSIDE_SETTINGS" \
+  && grep -q 'model: user/intentional-default' "$POOLSIDE_SETTINGS" \
+  && ok "native fast defaults preserve user settings byte-for-byte" \
+  || no "native fast defaults rewrote user settings"
 
 # 5c. Explicit quality selection wins and is not duplicated.
 rm -f "$ARGS_OUT"
@@ -229,9 +226,19 @@ grep -qx "poolside/laguna-xs-2.1" "$ARGS_OUT" 2>/dev/null \
 # 5e. Fast defaults are intentionally reversible.
 rm -f "$ARGS_OUT"
 POOLSIDE_YOLO_CREDENTIALS="$FAST_CREDS" POOLSIDE_YOLO_FAST_DEFAULTS=off "$WRAPPER" >/dev/null 2>&1 || true
-grep -qx "poolside/laguna-xs-2.1" "$ARGS_OUT" 2>/dev/null \
-  && no "fast-default opt-out still injected Laguna XS" \
-  || ok "POOLSIDE_YOLO_FAST_DEFAULTS=off disables model injection"
+if grep -qx "poolside/laguna-xs-2.1" "$ARGS_OUT" 2>/dev/null || ! grep -qx 'THOUGHT=' "$ENV_OUT"; then
+  no "fast-default opt-out still injected a native fast option"
+else
+  ok "POOLSIDE_YOLO_FAST_DEFAULTS=off disables native fast options"
+fi
+
+# 5f. An explicit ACP server has its own model/config inventory, even when native
+#     Poolside credentials are available. Never inject Poolside-only defaults there.
+rm -f "$ARGS_OUT" "$ENV_OUT"
+POOLSIDE_YOLO_CREDENTIALS="$FAST_CREDS" "$WRAPPER" -s CustomServer >/dev/null 2>&1 || true
+{ ! grep -qx "poolside/laguna-xs-2.1" "$ARGS_OUT" 2>/dev/null && grep -qx 'THOUGHT=' "$ENV_OUT"; } \
+  && ok "explicit agent server gets no Poolside-native defaults" \
+  || no "explicit agent server received Poolside defaults ($(tr '\n' ' ' < "$ARGS_OUT" 2>/dev/null))"
 
 # 6. `login` passes through untouched, without the gateway env shadowing real auth
 rm -f "$ARGS_OUT" "$ENV_OUT"

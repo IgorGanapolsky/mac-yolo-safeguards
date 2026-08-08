@@ -70,9 +70,9 @@ MARKER="${HERMES_ZERO_SPEND_MARKER:-$HOME/.hermes/NO_PAID_SPEND}"
 
 # Native interactive speed profile. Poolside documents Laguna XS as its lightest and
 # fastest agentic coding model. The CLI exposes a startup --model flag but no equivalent
-# flag for thought_level, so the latter is persisted in default_config_options. Model
-# is deliberately NOT persisted globally: gateway/local agent servers advertise a
-# different model inventory and must never inherit a Poolside-native model ID.
+# flag for thought_level, so the existing ACP proxy applies that option to the new
+# session. Neither setting is persisted globally: gateway/local/custom agent servers
+# have different option inventories, and an opt-out must restore the user's defaults.
 NATIVE_MODEL="${POOLSIDE_YOLO_NATIVE_MODEL:-poolside/laguna-xs-2.1}"
 THOUGHT_LEVEL="${POOLSIDE_YOLO_THOUGHT_LEVEL:-none}"
 FAST_DEFAULTS="${POOLSIDE_YOLO_FAST_DEFAULTS:-on}"
@@ -152,88 +152,6 @@ ensure_image_guard() {
 # network round trip (or a multi-second stall whenever the gateway happens to be down).
 image_guard_settings() {
   printf '%s\n' "${POOLSIDE_SETTINGS:-${XDG_CONFIG_HOME:-$HOME/.config}/poolside/settings.yaml}"
-}
-
-# Persist only the thought level. Pool's settings are shared by every configured ACP
-# server, while its native and gateway/local servers have disjoint model inventories.
-# A globally persisted `model: poolside/laguna-xs-2.1` therefore makes the gateway try
-# an invalid model. Remove that unsafe legacy key and pass the native model explicitly
-# on the CLI instead. The rewrite is atomic, dependency-free, and preserves unrelated
-# hand-written YAML.
-ensure_native_fast_settings() {
-  local settings
-  settings="$(image_guard_settings)"
-  command -v python3 >/dev/null 2>&1 || return 1
-  POOL_FAST_SETTINGS="$settings" POOL_FAST_THOUGHT="$THOUGHT_LEVEL" python3 - <<'PY'
-import os
-import re
-import tempfile
-
-path = os.environ['POOL_FAST_SETTINGS']
-thought = os.environ['POOL_FAST_THOUGHT']
-try:
-    with open(path, encoding='utf-8') as handle:
-        text = handle.read()
-except FileNotFoundError:
-    text = ''
-original = text
-
-lines = text.splitlines(keepends=True)
-start = None
-for index, line in enumerate(lines):
-    if re.match(r'^default_config_options:\s*(?:#.*)?$', line.rstrip('\r\n')):
-        start = index
-        break
-
-if start is None:
-    if text and not text.endswith('\n'):
-        text += '\n'
-    if text and not text.endswith('\n\n'):
-        text += '\n'
-    text += f'default_config_options:\n    thought_level: {thought}\n'
-else:
-    end = len(lines)
-    for index in range(start + 1, len(lines)):
-        raw = lines[index].rstrip('\r\n')
-        if raw and not raw.startswith((' ', '\t', '#')):
-            end = index
-            break
-
-    block = lines[start + 1:end]
-    rewritten = []
-    found_thought = False
-    for line in block:
-        key = re.match(r'^([ \t]+)([A-Za-z0-9_-]+)\s*:', line)
-        if key and key.group(2) == 'model':
-            continue
-        if key and key.group(2) == 'thought_level':
-            if not found_thought:
-                rewritten.append(f'{key.group(1)}thought_level: {thought}\n')
-                found_thought = True
-            continue
-        rewritten.append(line)
-    if not found_thought:
-        rewritten.append(f'    thought_level: {thought}\n')
-    lines[start + 1:end] = rewritten
-    text = ''.join(lines)
-
-if text == original:
-    raise SystemExit(0)
-
-directory = os.path.dirname(os.path.abspath(path))
-os.makedirs(directory, exist_ok=True)
-fd, temporary = tempfile.mkstemp(prefix='.poolside-settings-', dir=directory, text=True)
-try:
-    with os.fdopen(fd, 'w', encoding='utf-8') as handle:
-        handle.write(text)
-    os.chmod(temporary, 0o600)
-    os.replace(temporary, path)
-finally:
-    try:
-        os.unlink(temporary)
-    except FileNotFoundError:
-        pass
-PY
 }
 
 image_guard_installed() {
@@ -746,7 +664,17 @@ FAST_ARGS=()
 
 fast_args_for_interactive() {
   FAST_ARGS=()
+  unset POOLSIDE_YOLO_SESSION_THOUGHT_LEVEL
   [[ "$RESOLVED_LANE" == "native" ]] || return 0
+
+  # `-s` selects an arbitrary ACP server whose model and config inventories may have
+  # nothing to do with Poolside. The caller's explicit server choice owns all defaults.
+  local a
+  for a in "$@"; do
+    [[ "$a" == "--" ]] && break
+    case "$a" in -s|--agent-server|-s=*|--agent-server=*) return 0 ;; esac
+  done
+
   case "$FAST_DEFAULTS" in
     off) return 0 ;;
     on) ;;
@@ -760,11 +688,10 @@ fast_args_for_interactive() {
     ''|*[!A-Za-z0-9._:/-]*) echo "poolside-yolo: invalid POOLSIDE_YOLO_NATIVE_MODEL '$NATIVE_MODEL'" >&2; exit 2 ;;
   esac
 
-  if ! ensure_native_fast_settings; then
-    echo "poolside-yolo: WARNING could not persist thought_level=$THOUGHT_LEVEL in $(image_guard_settings); model acceleration still applies" >&2
-  fi
+  # pool has no thought-level startup flag. The default HermesImageGuard ACP proxy
+  # consumes this internal env var and applies it to the newly created session only.
+  export POOLSIDE_YOLO_SESSION_THOUGHT_LEVEL="$THOUGHT_LEVEL"
 
-  local a
   for a in "$@"; do
     [[ "$a" == "--" ]] && break
     case "$a" in -m|--model|-m=*|--model=*) return 0 ;; esac
