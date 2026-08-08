@@ -18,11 +18,7 @@ describe('AI glasses checklist (repo contract)', () => {
     expect(read('native-glasses/kotlin/HermesGatewayClient.kt')).toContain('/health');
   });
 
-  it('exposes launch-on-glasses from Settings', () => {
-    expect(read('src/native/hermesGlasses.ts')).toContain('launchHermesOnGlasses');
-    expect(read('src/screens/SettingsScreen.tsx')).toContain('launch-on-glasses-button');
-    expect(read('app.json')).toContain('withHermesAiGlasses');
-  });
+    expect(read('src/screens/SettingsScreen.tsx')).not.toContain('launch-on-glasses-button');
 
   it('documents the 9-step I/O checklist', () => {
     const doc = read('docs/AI_GLASSES_CHECKLIST.md');

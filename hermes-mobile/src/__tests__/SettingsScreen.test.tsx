@@ -238,7 +238,7 @@ describe('SettingsScreen', () => {
     });
     expect(alertSpy).toHaveBeenCalledWith(
       'Lock-screen approvals ready',
-      'Approval requests can arrive anywhere. This does not provide live Chat or computer tools; connect to your computer with Tailscale, USB, or home Wi‑Fi.',
+      'Approval requests can arrive anywhere. This does not provide live Chat or computer tools; connect to your computer with Tailscale or home Wi‑Fi.',
     );
   });
 
