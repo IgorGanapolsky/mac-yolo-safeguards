@@ -123,7 +123,7 @@ export function profileConnectionRouteDisplayLabel(
   const route = profileConnectionRouteLabel(profile, wifiConnected);
   switch (route) {
     case 'USB':
-      return 'USB';
+      return 'Home Wi‑Fi';
     case 'Tailscale':
       return 'Tailscale';
     case 'Wi-Fi':
@@ -176,38 +176,37 @@ export function machinePickerGroupKey(profile: GatewayProfile): string {
   return `id:${profile.id}`;
 }
 
-/**
- * Pick the best path for a machine: cable when plugged in, else Tailscale, else Wi‑Fi.
- * Used for auto-heal, default selection, and the single physical-machine picker row.
- */
-export function preferredProfileForMachine(
+type ReachabilityTransportCategory = 'usb' | 'tailscale' | 'wifi' | 'tunnel';
+
+function transportCategoryForProfile(profile: GatewayProfile): ReachabilityTransportCategory {
+  if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
+    return 'usb';
+  }
+  if (isTailscaleGatewayUrl(profile.gatewayUrl)) {
+    return 'tailscale';
+  }
+  if (isPrivateLanGatewayUrl(profile.gatewayUrl)) {
+    return 'wifi';
+  }
+  return 'tunnel';
+}
+
+function rankProfilesForMachine(
   candidates: GatewayProfile[],
   options: {
     liveUsb?: LiveUsbPickerInput | null;
     activeProfileId?: string | null;
   } = {},
-): GatewayProfile {
-  if (candidates.length === 0) {
-    throw new Error('preferredProfileForMachine requires at least one profile');
-  }
-  if (candidates.length === 1) {
-    return candidates[0];
+): GatewayProfile[] {
+  if (candidates.length <= 1) {
+    return candidates;
   }
   const activeInGroup = candidates.find((profile) => profile.id === options.activeProfileId);
   if (activeInGroup) {
     const activeIsUsb = isLoopbackGatewayUrl(activeInGroup.gatewayUrl);
     const cableLive = options.liveUsb?.reachable === true;
-    // Preserve Tailscale (and USB when already selected). When a live cable would otherwise
-    // steal the row (USB score 100 > Wi‑Fi 70), also preserve the active Home Wi‑Fi /
-    // Tailscale identity so the picker cannot say "Using USB" while the header says
-    // Home Wi‑Fi. Without a cable, still allow ranking to prefer Tailscale over a stale
-    // home-Wi‑Fi alias (away-from-home).
-    if (
-      activeIsUsb ||
-      isTailscaleGatewayUrl(activeInGroup.gatewayUrl) ||
-      cableLive
-    ) {
-      return activeInGroup;
+    if (activeIsUsb || isTailscaleGatewayUrl(activeInGroup.gatewayUrl) || cableLive) {
+      return [activeInGroup, ...candidates.filter((p) => p.id !== activeInGroup.id)];
     }
   }
   const liveHost = options.liveUsb?.reachable ? options.liveUsb.hostname?.trim() : null;
@@ -237,12 +236,35 @@ export function preferredProfileForMachine(
       };
     }),
   );
-  const bestId = ranked.find((prediction) => prediction.score > 0)?.id;
-  return candidates.find((profile) => profile.id === bestId) ?? candidates[0];
+  return ranked
+    .filter((prediction) => prediction.score > 0)
+    .map((prediction) => candidates.find((p) => p.id === prediction.id)!)
+    .filter(Boolean);
 }
 
-/** Collapse every saved route for one physical machine into its best currently usable row. */
-export function collapseToOneProfilePerMachine(
+/**
+ * Pick the best path for a machine: cable when plugged in, else Tailscale, else Wi‑Fi.
+ * Used for auto-heal and default selection.
+ */
+export function preferredProfileForMachine(
+  candidates: GatewayProfile[],
+  options: {
+    liveUsb?: LiveUsbPickerInput | null;
+    activeProfileId?: string | null;
+  } = {},
+): GatewayProfile {
+  if (candidates.length === 0) {
+    throw new Error('preferredProfileForMachine requires at least one profile');
+  }
+  const ranked = rankProfilesForMachine(candidates, options);
+  return ranked[0] ?? candidates[0];
+}
+
+/**
+ * Show one row per reachable route per machine (e.g. MacBook Pro via Tailscale AND via Home Wi‑Fi).
+ * The user can explicitly pick the route; auto-heal still uses preferredProfileForMachine.
+ */
+export function reachableRoutesPerMachine(
   profiles: GatewayProfile[],
   options: {
     liveUsb?: LiveUsbPickerInput | null;
@@ -256,11 +278,19 @@ export function collapseToOneProfilePerMachine(
     list.push(profile);
     groups.set(key, list);
   }
-  const collapsed: GatewayProfile[] = [];
+  const result: GatewayProfile[] = [];
   for (const group of groups.values()) {
-    collapsed.push(preferredProfileForMachine(group, options));
+    const ranked = rankProfilesForMachine(group, options);
+    const seenCategories = new Set<ReachabilityTransportCategory>();
+    for (const profile of ranked) {
+      const category = transportCategoryForProfile(profile);
+      if (!seenCategories.has(category)) {
+        seenCategories.add(category);
+        result.push(profile);
+      }
+    }
   }
-  return collapsed.sort((a, b) => {
+  return result.sort((a, b) => {
     const aCable = isCablePluggedInForProfile(a, options.liveUsb) ? 0 : 1;
     const bCable = isCablePluggedInForProfile(b, options.liveUsb) ? 0 : 1;
     if (aCable !== bCable) {
@@ -574,12 +604,12 @@ export function profilesForSwitchComputerPicker(
     ? valid.filter((profile) => isLoopbackGatewayUrl(profile.gatewayUrl))
     : [];
   const remoteRows = valid.filter((profile) => !isLoopbackGatewayUrl(profile.gatewayUrl));
-  const collapsedRemote = collapseToOneProfilePerMachine(remoteRows, {
+  const expandedRemote = reachableRoutesPerMachine(remoteRows, {
     liveUsb,
     activeProfileId: options.activeProfileId,
   });
   return dedupePickerProfilesById(
-    sortUsbProfilesFirst([...liveUsbRows, ...collapsedRemote]),
+    sortUsbProfilesFirst([...liveUsbRows, ...expandedRemote]),
   );
 }
 
@@ -639,7 +669,7 @@ export function profileConnectionRouteLabel(
   wifiConnected: boolean,
 ): ProfileConnectionRoute {
   if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
-    return 'USB';
+    return 'Wi-Fi';
   }
   if (isTailscaleGatewayUrl(profile.gatewayUrl)) {
     return 'Tailscale';
