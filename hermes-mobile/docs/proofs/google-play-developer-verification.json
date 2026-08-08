@@ -1,0 +1,10 @@
+{
+  "packageName": "com.iganapolsky.hermesmobile.paid",
+  "playStoreUrl": "https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile.paid",
+  "liveStatus": "PASS (HTTP 200)",
+  "verificationDeadline": "2026-09-30",
+  "daysRemaining": 56,
+  "autoRegisteredStatus": "ELIGIBLE_AUTOMATIC_REGISTRATION",
+  "actionRequired": "Verify package and signing keys on Google Play Console Home",
+  "auditedAt": "2026-08-06T18:01:54.881Z"
+}
