@@ -5,6 +5,9 @@
  * CLI hub for inference engineering.
  *
  *   node tools/inference-eng/index.js scorecard
+ *   node tools/inference-eng/index.js overview
+ *   node tools/inference-eng/index.js library --list
+ *   node tools/inference-eng/index.js fleet --json
  *   node tools/inference-eng/index.js tasks
  *   node tools/inference-eng/index.js metrics --json
  *   node tools/inference-eng/index.js optimize --json
@@ -19,6 +22,9 @@ const map = {
   scorecard: 'scorecard.js',
   fleet: 'fleet-health.js',
   'fleet-health': 'fleet-health.js',
+  overview: 'overview.js',
+  library: 'model-library.js',
+  'model-library': 'model-library.js',
   tasks: 'task-registry.js',
   metrics: 'metrics.js',
   optimize: 'optimizer.js',
