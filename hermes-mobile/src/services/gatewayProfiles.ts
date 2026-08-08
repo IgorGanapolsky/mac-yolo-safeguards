@@ -996,6 +996,14 @@ export function upsertDiscoveredProfile(
         localIp,
       });
       const nextHostname = acceptIncomingIdentity ? hostname || p.hostname : p.hostname;
+      // Issue #1474 safety net: a profile with no hostname has no identity to
+      // protect. Backfill unconditionally so saved-but-inactive Tailscale rows
+      // are named even when the machine-key guard rejects the incoming health
+      // data (e.g. stale label vs live /health hostname mismatch).
+      const backfilledWhenNameless = !p.hostname
+        ? backfillProfileHealthData(p, { hostname, localIp })
+        : p;
+      const safeHostname = backfilledWhenNameless.hostname || nextHostname;
       const keepExistingLabel =
         p.label &&
         !isGenericProfileLabel(p.label) &&
@@ -1004,8 +1012,8 @@ export function upsertDiscoveredProfile(
         ? p.label
         : resolveStoredProfileLabel({
             gatewayUrl,
-            hostname: nextHostname,
-            label: discovered.label || label || p.label,
+            hostname: safeHostname,
+            label: discovered.label || backfilledWhenNameless.label || label || p.label,
             localIp: localIp || p.localIp,
           });
 
@@ -1013,7 +1021,7 @@ export function upsertDiscoveredProfile(
         ...p,
         gatewayUrl: preserveSelectedRoute ? p.gatewayUrl : gatewayUrl,
         label: finalLabel,
-        hostname: nextHostname,
+        hostname: safeHostname,
         localIp: preserveSelectedRoute ? p.localIp : localIp || p.localIp,
         lastConnectedAt: now,
       };
