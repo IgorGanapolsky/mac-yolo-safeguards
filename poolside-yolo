@@ -176,6 +176,7 @@ try:
         text = handle.read()
 except FileNotFoundError:
     text = ''
+original = text
 
 lines = text.splitlines(keepends=True)
 start = None
@@ -216,7 +217,10 @@ else:
     lines[start + 1:end] = rewritten
     text = ''.join(lines)
 
-directory = os.path.dirname(path)
+if text == original:
+    raise SystemExit(0)
+
+directory = os.path.dirname(os.path.abspath(path))
 os.makedirs(directory, exist_ok=True)
 fd, temporary = tempfile.mkstemp(prefix='.poolside-settings-', dir=directory, text=True)
 try:

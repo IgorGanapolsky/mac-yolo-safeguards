@@ -205,6 +205,11 @@ assert re.search(r'^\s+thought_level:\s*none\s*$', block, re.M), block
 assert not re.search(r'^\s+model:', block, re.M), block
 PY
 
+FAST_SETTINGS_HASH="$(shasum -a 256 "$POOLSIDE_SETTINGS" | awk '{print $1}')"
+POOLSIDE_YOLO_CREDENTIALS="$FAST_CREDS" "$WRAPPER" >/dev/null 2>&1 || true
+[ "$(shasum -a 256 "$POOLSIDE_SETTINGS" | awk '{print $1}')" = "$FAST_SETTINGS_HASH" ] \
+  && ok "fast settings update is idempotent" || no "fast settings rewrote an unchanged file"
+
 # 5c. Explicit quality selection wins and is not duplicated.
 rm -f "$ARGS_OUT"
 POOLSIDE_YOLO_CREDENTIALS="$FAST_CREDS" "$WRAPPER" --model poolside/laguna-s-2.1 >/dev/null 2>&1 || true
