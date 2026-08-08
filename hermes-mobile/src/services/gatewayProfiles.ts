@@ -72,10 +72,10 @@ const GENERIC_PROFILE_LABELS = new Set([
   'https',
 ]);
 
-export const GENERIC_USB_PROFILE_LABEL = 'Computer via USB';
+export const GENERIC_USB_PROFILE_LABEL = 'Computer';
 export const GENERIC_TAILSCALE_PROFILE_LABEL = 'Computer via Tailscale';
 
-export const LEGACY_USB_PROFILE_LABEL = 'Mac via USB';
+export const LEGACY_USB_PROFILE_LABEL = 'Computer';
 
 const GENERIC_COMPUTER_IP_LABEL = /^computer \d{1,3}(\.\d{1,3}){3}$/i;
 const GENERIC_TAILSCALE_IP_LABEL = /^tailscale \d{1,3}(\.\d{1,3}){3}$/i;
