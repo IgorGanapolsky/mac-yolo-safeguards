@@ -28,9 +28,9 @@ Multiple autonomous agents work this repo concurrently. [`plan.md`](./plan.md) i
 Every claim needs proof in the same turn: deletions → before/after counts; code changes → diff or test result; "fixed" → reproduce-then-pass; "merged" → SHA + CI link.
 
 ## Mandatory Antigravity IDE Turn Statusline Footer
-At the end of every turn response in Antigravity IDE chats, ALWAYS append the live Turn Statusline footer:
+At the end of every turn response in Antigravity IDE chats, append the clean execution statusline:
 `---`
-`📊 **Turn Statusline** | **Engine**: Ollama (http://localhost:11434/v1/models) | **TTFT**: <10ms | **Throughput**: 3.2x | **Tokens**: 1,420 (Prompt: 1,180 | Gen: 240) | **Cost**: $0.00 | **Harness**: 10/10 PASS (27/27 CI Suites | 0 CodeQL | NVIDIA Dynamo Disaggregated Engine)`
+`📊 **Turn Statusline** | **Engine**: Ollama (http://localhost:11434/v1/models) | **TTFT**: <10ms | **Cost**: $0.00`
 
 ## Always ship finished work
 
