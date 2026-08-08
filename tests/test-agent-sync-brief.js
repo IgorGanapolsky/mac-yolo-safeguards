@@ -76,6 +76,15 @@ test('parseFileLocks excludes released and free rows from active locks', () => {
   assert.deepStrictEqual(locks.map((lock) => lock.active), [true, true, false]);
 });
 
+test('parseFileLocks marks an earlier claim inactive after its matching release event', () => {
+  const locks = parseFileLocks(`## 2. File Ownership Map
+- \`shared.ts\` → **codex-agent-328** (claim)
+- \`shared.ts\` → **released by codex-agent-328** (done)
+`);
+  assert.strictEqual(locks.length, 2);
+  assert.deepStrictEqual(locks.map((lock) => lock.active), [false, false]);
+});
+
 test('redact strips common credential forms', () => {
   const fakePat = `ghp_${'2'.repeat(36)}`;
   const fakeOpenAiKey = `sk-${'3'.repeat(24)}`;
