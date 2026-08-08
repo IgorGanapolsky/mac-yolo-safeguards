@@ -469,20 +469,78 @@ function outboundPk(campaign, email) {
   return crypto.createHash('sha256').update(norm).digest('hex').slice(0, 24);
 }
 
+/**
+ * Quarantine malformed ledger lines (once per distinct content) instead of
+ * dropping them. A silently dropped "sent" row is how the same prospect gets
+ * emailed twice — the dedupe guard would be fail-open exactly when the ledger
+ * is damaged.
+ */
+function quarantineLedgerRejects(ledgerPath, bad) {
+  if (!bad.length) return;
+  const qPath = `${ledgerPath}.rejects.jsonl`;
+  const seen = new Set(
+    fs.existsSync(qPath)
+      ? fs
+          .readFileSync(qPath, 'utf8')
+          .split('\n')
+          .filter(Boolean)
+          .map((l) => {
+            try {
+              return JSON.parse(l).rawSha256;
+            } catch {
+              return null;
+            }
+          })
+      : [],
+  );
+  const fresh = bad
+    .map((b) => ({
+      quarantinedAt: new Date().toISOString(),
+      source: ledgerPath,
+      lineNumber: b.lineNumber,
+      raw: b.raw.slice(0, 500),
+      reason: b.reason,
+      rawSha256: crypto.createHash('sha256').update(b.raw).digest('hex'),
+    }))
+    .filter((b) => !seen.has(b.rawSha256));
+  if (!fresh.length) return;
+  fs.mkdirSync(path.dirname(qPath), { recursive: true });
+  fs.appendFileSync(qPath, `${fresh.map((b) => JSON.stringify(b)).join('\n')}\n`);
+}
+
+/**
+ * Read the ledger with explicit outcomes for malformed lines: a malformed FINAL
+ * line is torn-tail crash debris (append-only contract accepts that loss); a
+ * malformed line anywhere earlier means pk-dedupe can no longer be trusted.
+ */
+function readLedgerAudited(ledgerPath) {
+  if (!fs.existsSync(ledgerPath)) return { rows: [], rejects: [], tornTail: null };
+  const lines = fs.readFileSync(ledgerPath, 'utf8').split(/\r?\n/);
+  const rows = [];
+  const bad = [];
+  let lastContentLine = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    lastContentLine = i + 1;
+    try {
+      rows.push(JSON.parse(lines[i]));
+    } catch (err) {
+      bad.push({ lineNumber: i + 1, raw: lines[i], reason: String((err && err.message) || err) });
+    }
+  }
+  const acked = new Set(
+    rows.filter((r) => r && r.type === 'torn_tail_acknowledged').map((r) => r.rawSha256),
+  );
+  const sha = (b) => crypto.createHash('sha256').update(b.raw).digest('hex');
+  const debris = bad.filter((b) => acked.has(sha(b)));
+  const tornTail = bad.find((b) => b.lineNumber === lastContentLine && !acked.has(sha(b))) || null;
+  const rejects = bad.filter((b) => b !== tornTail && !acked.has(sha(b)));
+  quarantineLedgerRejects(ledgerPath, bad);
+  return { rows, rejects, tornTail, debris };
+}
+
 function readLedger(ledgerPath) {
-  if (!fs.existsSync(ledgerPath)) return [];
-  return fs
-    .readFileSync(ledgerPath, 'utf8')
-    .split(/\r?\n/)
-    .filter(Boolean)
-    .map((line) => {
-      try {
-        return JSON.parse(line);
-      } catch {
-        return null;
-      }
-    })
-    .filter(Boolean);
+  return readLedgerAudited(ledgerPath).rows;
 }
 
 /**
@@ -511,7 +569,22 @@ function outboundClaim({
     };
   }
   const pk = outboundPk(campaign, email);
-  const existing = readLedger(ledgerPath).filter((r) => r.pk === pk);
+  const audit = readLedgerAudited(ledgerPath);
+  if (audit.rejects.length && !force) {
+    // Damaged non-final lines: the missing rows could be prior sends, so the
+    // unique-pk guarantee is void. Fail CLOSED rather than risk a double email.
+    return {
+      ok: false,
+      blocked: true,
+      reason: 'ledger_corrupt_fail_closed',
+      rejects: audit.rejects.length,
+      quarantine: `${ledgerPath}.rejects.jsonl`,
+      interface: 'outbound_durable_ledger',
+      hint:
+        'Malformed non-final ledger lines mean pk dedupe cannot be trusted. Inspect the quarantine file and verify no prior send before using --force.',
+    };
+  }
+  const existing = audit.rows.filter((r) => r.pk === pk);
   const last = existing[existing.length - 1] || null;
 
   if (last && !force) {
@@ -565,8 +638,16 @@ function outboundClaim({
       }
     }
     try {
-      // Re-check under lock for duplicate / non-progressing status
-      const underLock = readLedger(p).filter((r) => r.pk === pk);
+      // Re-check under lock for corruption and duplicate / non-progressing status
+      const auditUnder = readLedgerAudited(p);
+      if (auditUnder.rejects.length && !force) {
+        return {
+          blocked: true,
+          reason: 'ledger_corrupt_fail_closed',
+          quarantine: `${p}.rejects.jsonl`,
+        };
+      }
+      const underLock = auditUnder.rows.filter((r) => r.pk === pk);
       const lastUnder = underLock[underLock.length - 1] || null;
       if (lastUnder && !force) {
         const progress = { sent: 1, bounce: 2, lost: 2, skipped: 2, replied: 3, interested: 4 };
@@ -574,6 +655,30 @@ function outboundClaim({
         const nextRank = progress[status] || 0;
         if (status === lastUnder.status || nextRank <= prevRank) {
           return { blocked: true, existing: lastUnder };
+        }
+      }
+      // Self-heal a torn tail before appending: gluing a valid row onto a torn
+      // fragment would corrupt the new row too. Annotate the fragment as
+      // acknowledged debris so future reads keep tolerating it once it sits
+      // mid-file, instead of failing closed forever.
+      if (fs.existsSync(p)) {
+        const content = fs.readFileSync(p, 'utf8');
+        if (content.length && !content.endsWith('\n')) {
+          const fragment = content.slice(content.lastIndexOf('\n') + 1);
+          let fragmentParses = true;
+          try { JSON.parse(fragment); } catch { fragmentParses = false; }
+          fs.appendFileSync(p, '\n', 'utf8');
+          if (!fragmentParses) {
+            fs.appendFileSync(
+              p,
+              `${JSON.stringify({
+                type: 'torn_tail_acknowledged',
+                rawSha256: crypto.createHash('sha256').update(fragment).digest('hex'),
+                notedAt: now,
+              })}\n`,
+              'utf8',
+            );
+          }
         }
       }
       fs.appendFileSync(p, `${JSON.stringify(row)}\n`, 'utf8');
@@ -600,7 +705,8 @@ function outboundStatus({ campaign, ledgerPath = DEFAULT_LEDGER } = {}) {
   if (!campaign) {
     return { ok: false, error: 'campaign_required', interface: 'outbound_durable_ledger' };
   }
-  const rows = readLedger(ledgerPath).filter((r) => r.campaign === campaign);
+  const audit = readLedgerAudited(ledgerPath);
+  const rows = audit.rows.filter((r) => r.campaign === campaign);
   const byEmail = new Map();
   for (const r of rows) byEmail.set(r.email, r);
   const latest = [...byEmail.values()];
@@ -615,6 +721,8 @@ function outboundStatus({ campaign, ledgerPath = DEFAULT_LEDGER } = {}) {
     uniqueEmails: latest.length,
     counts,
     rows: latest,
+    ledgerRejects: audit.rejects.length,
+    ledgerTornTail: Boolean(audit.tornTail),
   };
 }
 
@@ -885,6 +993,7 @@ module.exports = {
   outboundPk,
   outboundClaim,
   outboundStatus,
+  readLedgerAudited,
   classifyStripeCharges,
   buildRevenueReceiptFromClassification,
   highStakesEvalRules,
