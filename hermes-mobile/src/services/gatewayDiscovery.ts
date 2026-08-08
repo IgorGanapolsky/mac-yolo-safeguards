@@ -289,7 +289,7 @@ function buildHostOrder(phoneIp: string, preferLanIp?: string | null): string[] 
   return hostNumbers.map((host) => `${a}.${b}.${c}.${host}`);
 }
 
-async function probeGatewayDetailed(
+export async function probeGatewayDetailed(
   url: string,
   timeoutMs = PROBE_TIMEOUT_MS,
 ): Promise<DiscoveredGateway | null> {
