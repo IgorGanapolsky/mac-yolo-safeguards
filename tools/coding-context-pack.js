@@ -125,17 +125,23 @@ function parseArgs(argv) {
 }
 
 function run(cmd, args, opts = {}) {
+  const env = opts.env ? opts.env : { ...process.env };
   return spawnSync(cmd, args, {
     cwd: opts.cwd || REPO,
     encoding: 'utf8',
     timeout: opts.timeout || 45_000,
     maxBuffer: 8 * 1024 * 1024,
-    env: { ...process.env, ...(opts.env || {}) },
+    env,
   });
 }
 
 function ghJson(args) {
-  const r = run('gh', args, { timeout: 60_000 });
+  let r = run('gh', args, { timeout: 60_000 });
+  if (r.status !== 0 && process.env.GITHUB_TOKEN) {
+    const cleanEnv = { ...process.env };
+    delete cleanEnv.GITHUB_TOKEN;
+    r = run('gh', args, { timeout: 60_000, env: cleanEnv });
+  }
   if (r.status !== 0) {
     const err = (r.stderr || r.stdout || '').trim().slice(0, 400);
     throw new Error(`gh ${args.join(' ')} failed: ${err || r.status}`);
