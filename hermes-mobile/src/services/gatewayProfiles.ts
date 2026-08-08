@@ -317,7 +317,7 @@ export function backfillProfileHealthData(
     ...profile,
     hostname: newHostname || profile.hostname,
     localIp: newLocalIp || profile.localIp,
-    updatedAt: Date.now(),
+    lastConnectedAt: new Date().toISOString(),
   };
 
   return relabelStoredProfile(updated);
