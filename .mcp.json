@@ -21,6 +21,13 @@
         "mcp-serve",
         "/Users/igorganapolsky/.hermes/semantic-index/mac-yolo-safeguards"
       ]
+    },
+    "semrush": {
+      "type": "http",
+      "url": "https://mcp.semrush.com/claude/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer ${SEMRUSH_API_KEY:-}"
+      }
     }
   }
 }
