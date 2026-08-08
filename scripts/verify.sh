@@ -39,5 +39,7 @@ node tests/test-openai-codex-chatgpt-work-harness.js
 node tests/test-databricks-omnigent-meta-harness.js
 node tests/test-nvidia-dynamo-inference-engine.js
 node tests/test-microsoft-rpi-unit-test-agent.js
+node tests/test-turn-telemetry-dashboard.js
+node tests/test-memalign-agent-judge.js
 
 echo "✅ All Local CI Verification Checks Passed!"

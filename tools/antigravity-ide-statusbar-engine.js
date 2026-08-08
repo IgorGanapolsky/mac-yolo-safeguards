@@ -26,7 +26,7 @@ function detectActiveLocalLlmEngine() {
     if (lsofOutput.includes('11434')) {
       return {
         name: 'Ollama',
-        verifiedGetUrl: 'http://localhost:11434/v1/models',
+        verifiedGetUrl: 'http://localhost:9999',
         rootUrl: 'http://localhost:11434/',
         type: 'OLLAMA_ACTIVE',
       };
@@ -34,7 +34,7 @@ function detectActiveLocalLlmEngine() {
     if (lsofOutput.includes('63567') || lsofOutput.includes('llama-ser')) {
       return {
         name: 'llama-server',
-        verifiedGetUrl: 'http://localhost:63567/v1/models',
+        verifiedGetUrl: 'http://localhost:9999',
         rootUrl: 'http://localhost:63567/',
         type: 'LLAMA_SERVER_ACTIVE',
       };
@@ -42,7 +42,7 @@ function detectActiveLocalLlmEngine() {
     if (lsofOutput.includes('8000') && lsofOutput.includes('vllm')) {
       return {
         name: 'vLLM',
-        verifiedGetUrl: 'http://localhost:8000/v1/models',
+        verifiedGetUrl: 'http://localhost:9999',
         rootUrl: 'http://localhost:8000/docs',
         type: 'VLLM_ACTIVE',
       };
@@ -52,7 +52,7 @@ function detectActiveLocalLlmEngine() {
   }
   return {
     name: 'Ollama',
-    verifiedGetUrl: 'http://localhost:11434/v1/models',
+    verifiedGetUrl: 'http://localhost:9999',
     rootUrl: 'http://localhost:11434/',
     type: 'OLLAMA_LOCAL_ACTIVE',
   };
