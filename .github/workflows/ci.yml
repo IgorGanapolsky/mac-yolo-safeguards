@@ -413,6 +413,13 @@ jobs:
           REQUIRE_EAS_PROJECT: "1"
         run: npm run release:check
 
+      # Issue #1452: E2E must be a real release gate — fail on skipped, cancelled or missing proof.
+      # hermes-mobile-ci-proof-gate.js enforces fresh e2e=pass + unit=pass on the latest.json
+      # continuous proof record. This is a visibility check (exit 1 is surfaced as a check annotation);
+      # blocking PR merges requires branch-protection enforcement of this job name.
+      - name: Hermes Mobile continuous E2E proof gate
+        run: node ../../tools/hermes-mobile-ci-proof-gate.js --fresh-hours 72
+
       - name: Type check
         run: npm run typecheck
 
