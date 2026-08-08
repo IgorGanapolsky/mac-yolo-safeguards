@@ -124,3 +124,59 @@ Nothing against any of the three target orgs — blocked as above.
 This is an environment/session configuration problem, not a "nothing worth doing" day — a real, unclaimed bug was found (LanceDB #3764) and could not be submitted. Whatever creates the session/trigger for this routine needs to either (a) fire into a fresh session per run with the target org repo as its initial source instead of `mac-yolo-safeguards`, or (b) otherwise grant this session cross-owner repo scope. Until that's fixed, every future run of this routine will hit the same wall.
 
 ---
+
+## 2026-08-06 — BLOCKED (still unresolved): same session GitHub scope wall as 2026-08-04
+
+### Repos surveyed
+
+| Org | Repos |
+|-----|--------|
+| Thinking Machines Lab | `thinking-machines-lab/tinker`, `tinker-cookbook` |
+| Poolside AI | `poolsideai/pool` |
+| LanceDB | `lancedb/lancedb` (org repo list via `search_repositories`; no separate `lance` repo exists — Lance format lives inside `lancedb/lancedb`) |
+
+### What happened
+
+Identical wall to 2026-08-04, confirmed again today: this session was created with `igorganapolsky/mac-yolo-safeguards` as its only source, and `add_repo` still refuses any other owner ("cross-tier adds are not supported in v1"). `search_issues`/`search_repositories` (no `owner`/`repo` header) work across all orgs, but every structured call — `issue_read`, `fork_repository`, and by the same enforcement `add_issue_comment`/`create_pull_request`/`create_branch` — is denied for `thinking-machines-lab/*`, `poolsideai/*`, and `lancedb/lancedb` with "not configured for this session." Confirmed concretely today via `issue_read(get_comments)` on `tinker-cookbook#689` and `fork_repository(lancedb/lancedb)`, both denied. Public read still works around this via `git clone` (unauthenticated) and `WebFetch`, which is how the research below was done.
+
+This is the **third run in a row** hitting this (2026-08-03 could still act; 2026-08-04 and 2026-08-06 could not) — the fix requested on 2026-08-04 (fresh session per run seeded with the target repo, or cross-owner scope) has not landed yet.
+
+### Issues considered (research only — could not act)
+
+**Tinker / tinker-cookbook**
+- [#51](https://github.com/thinking-machines-lab/tinker/issues/51) pyqwest TLS `UnknownIssuer` — cloned `main`, confirmed the `try/except TypeError` fix (`_default_pyqwest_transport()`, `src/tinker/_base_client.py:748-765`) is still in place; this is the same fix the 2026-08-03 run wrote regression tests for (PR #54). Nothing new to do.
+- [#24](https://github.com/thinking-machines-lab/tinker/issues/24) checkpoint delete rejected positional paths — confirmed `tinker checkpoint delete` (`src/tinker/cli/commands/checkpoint.py:979-1085`) already accepts `checkpoint_paths` as `nargs=-1` positional args with full validation; stale, already fixed upstream.
+- [#689](https://github.com/thinking-machines-lab/tinker-cookbook/issues/689) — genuine, well-reasoned, unanswered question about why non-1.0 rollout temperature breaks the KL penalty term. Cloned `tinker-cookbook` and `tinker`, traced `incorporate_kl_penalty` (`tinker_cookbook/rl/metrics.py:120-168`) against `SamplingClient.compute_logprobs`/`compute_logprobs_async` (`tinker/src/tinker/lib/public_interfaces/sampling_client.py:385-427`): `compute_logprobs` always issues `SamplingParams(max_tokens=1)` with **no temperature override**, and `SamplingParams.temperature` defaults to `1` (`tinker/src/tinker/types/_pydantic_types/sampling_params.py:16`). That confirms the asker's hypothesis exactly — `base_sampling_client.compute_logprobs_async(...)` always scores under T=1, while the rollout-side `datum.loss_fn_inputs["logprobs"]` were sampled under whatever temperature training used, so the "KL" term is comparing a temperature-processed distribution to a raw one whenever `temperature != 1`. Wrote up a source-grounded answer (issue body body/line refs above) but **could not post it** — `issue_read`/`add_issue_comment` on `tinker-cookbook` denied for the reason above.
+- No issues opened in either repo in the last 48h.
+
+**Poolside** — `poolsideai/pool` is still an issue tracker for a closed binary (feedback reports, crash logs, feature requests only — no source tree). Nothing to fix in code even with scope. No issues opened in the last 48h with anything actionable regardless.
+
+**LanceDB** — every open, unclaimed-looking good-first-issue/bug already has a PR:
+- [#3781](https://github.com/lancedb/lancedb/issues/3781) (Node.js schema-inference identity-comparison bug) → already has [#3786](https://github.com/lancedb/lancedb/pull/3786), opened by an automated bot (`lancedb-gatefixer[bot]`) same day.
+- [#3262](https://github.com/lancedb/lancedb/issues/3262) (datetime timezone `lit()` integration tests) → already has [#3775](https://github.com/lancedb/lancedb/pull/3775), which is **this routine's own PR from 2026-08-03** — not a new find, just confirming it's still open/unmerged.
+- [#3211](https://github.com/lancedb/lancedb/issues/3211) (camelCase `col()` handling) → already has open PR #3290 from another contributor.
+- [#3765](https://github.com/lancedb/lancedb/issues/3765) (hybrid search ignores `.offset()`) → reporter already attached their own fix PR in the issue body.
+No new unclaimed candidate surfaced this run.
+
+### What was opened
+
+Nothing against any of the three target orgs — blocked as above. No PRs, no comments.
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| Tinker-cookbook #689 answer | Drafted, source-verified, ready to post — blocked by session scope, not by lack of content |
+| Tinker #51 / #24 | Already fixed on `main` (own prior PR / upstream fix respectively) |
+| LanceDB #3781 / #3262 / #3211 / #3765 | All already have open PRs (bot, own prior run, or the reporter) |
+| Poolside | Still closed-source; no issues in scope even if access were fixed |
+
+### ThumbGate mentions
+
+**None** this run.
+
+### Action needed from Igor
+
+Same ask as 2026-08-04, now on its second consecutive occurrence: the trigger/session for this routine needs either (a) a fresh session per run seeded with the target org repo as its initial `add_repo` source instead of `mac-yolo-safeguards`, or (b) cross-owner repo scope granted to this session. Until one of those lands, this routine can research and draft but cannot act, and today it had a specific, ready-to-post, source-verified answer (tinker-cookbook #689) sitting blocked on exactly this.
+
+---
