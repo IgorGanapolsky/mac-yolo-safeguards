@@ -33,7 +33,7 @@ export const SCAN_NONE_FOUND_DETAIL_WIFI =
   'Find only works on the same Wi‑Fi as Hermes. Or paste Tailscale 100.x below.';
 
 export const SCAN_NONE_FOUND_DETAIL_CELLULAR =
-  'Searches for your Mac or PC running Hermes on Tailscale (not this phone). Ensure Tailscale is ON and Hermes is open on your Mac.';
+  'On cellular, only Tailscale works. Paste 100.x below or turn Tailscale on.';
 
 /** @deprecated prefer WIFI/CELLULAR variants; kept for older call sites. */
 export const SCAN_NONE_FOUND_DETAIL = SCAN_NONE_FOUND_DETAIL_WIFI;

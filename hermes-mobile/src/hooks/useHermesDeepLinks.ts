@@ -213,35 +213,10 @@ export function useHermesDeepLinks(
       }
     };
 
-    const queueRef = { current: [] as string[] };
-    let isProcessing = false;
-
-    const processQueue = async () => {
-      if (isProcessing) return;
-      isProcessing = true;
-      try {
-        while (queueRef.current.length > 0) {
-          const nextUrl = queueRef.current.shift();
-          if (nextUrl) {
-            await handleUrl(nextUrl);
-          }
-        }
-      } finally {
-        isProcessing = false;
-      }
-    };
-
-    const enqueueUrl = (url: string | null) => {
-      if (!url) return;
-      queueRef.current.push(url);
-      processQueue();
-    };
-
-    Linking.getInitialURL().then((url) => enqueueUrl(url));
+    Linking.getInitialURL().then((url) => handleUrl(url));
     const sub = Linking.addEventListener('url', (event) => {
-      enqueueUrl(event.url);
+      handleUrl(event.url);
     });
     return () => sub.remove();
   }, [activateDeveloperLeashUnlock, activateStoreLeashPreview, applySetupDeepLink, focusChatSession, forceE2eDemoMode, injectSmokeApproval, navigationRef, refreshHealth, runAgentTool]);
 }
-

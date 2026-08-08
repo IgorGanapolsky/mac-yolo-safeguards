@@ -32,12 +32,15 @@ const HERMES_YOLO_LATEST_RECEIPT_PATH = process.env.HERMES_YOLO_LATEST_RECEIPT_P
 const HERMES_YOLO_HISTORY_RECEIPT_PATH = process.env.HERMES_YOLO_HISTORY_RECEIPT_PATH || path.join(HERMES_YOLO_RECEIPT_DIR, 'history.jsonl');
 // All thresholds overridable via env vars.
 const HERMES_BIN = process.env.HERMES_BIN || path.join(HOME, '.local/bin/hermes');
+const VLLM_API_BASE = process.env.VLLM_API_BASE || 'http://localhost:8000/v1';
+const VLLM_MODEL = process.env.VLLM_MODEL || 'Qwen/Qwen2.5-Coder-32B-Instruct';
 // Slim default (2026-08 harness research): computer_use + vision spawn Chrome and thrash
 // 24GB multi-agent Macs. Opt in via HERMES_YOLO_TOOLSETS=...computer_use,vision
 // Progressive disclosure (Google Agent Skills): vision/computer_use also auto-add from task text
 // when HERMES_YOLO_LEAN_CONTEXT is on (default) and HERMES_YOLO_TOOLSETS is unset.
+// Full toolset availability for hermes-yolo (terminal, file, web, code_execution, clarify, mcp, github, skills, context_engine, browser, vision, computer_use)
 const DEFAULT_TOOLSETS = process.env.HERMES_YOLO_TOOLSETS
-  || 'terminal,file,web,code_execution,memory,clarify';
+  || 'terminal,file,web,code_execution,clarify,mcp,github,skills,context_engine,browser,vision,computer_use';
 
 /**
  * YugabyteDB AMP sprawl-control module (proliferation, decision traces, guarded autonomy).
@@ -98,9 +101,14 @@ function extractTaskText(rawArgs, commands = HERMES_COMMANDS) {
 }
 
 function composePromptWithLeanContext(userPrompt, lean) {
+  const antiBotSlopDirective = `# Direct Human Response & Tool Execution Obligation
+- Never output conversational filler, robotic disclaimers ('As an AI model...', 'Here is a breakdown...'), or generic bullet templates.
+- Give concise, direct, human answers. Execute required tools immediately without idle chit-chat.
+- Full access to all tools (terminal, file, web, code_execution, mcp, github, skills, context_engine, browser, vision, computer_use) is enabled and active.`;
+
   const prefix = lean && lean.promptPrefix ? String(lean.promptPrefix).trim() : '';
-  if (!prefix) return userPrompt;
-  return `${prefix}\n\n---\n\n# User task\n\n${userPrompt}`;
+  if (!prefix) return `${antiBotSlopDirective}\n\n${userPrompt}`;
+  return `${antiBotSlopDirective}\n\n${prefix}\n\n---\n\n# User task\n\n${userPrompt}`;
 }
 
 /**
