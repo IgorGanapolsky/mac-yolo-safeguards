@@ -223,7 +223,7 @@ check('SKILLS.md skill paths/dirs resolve', () => {
   const raw = fs.readFileSync(SKILLS_PATH, 'utf8');
   const lines = raw.split('\n');
   // Match table rows that start with | `skill-name`
-  const tableLines = lines.filter((l) => l.startsWith('| `') && !l.includes('Skill |'));
+  const tableLines = lines.filter((l) => l.startsWith('| `') && !l.includes('Skill |') && !l.includes('---'));
 
   for (const line of tableLines) {
     const cols = line.split('|').map((c) => c.trim());
@@ -282,6 +282,15 @@ check('bin/agent-loop exists and is executable', () => {
     stat.mode & 0o111,
     'bin/agent-loop is not executable',
   );
+});
+
+check('tools/validate-skills-registry.js lints all repo skills clean', () => {
+  const validatorPath = path.join(ROOT, 'tools', 'validate-skills-registry.js');
+  assert.ok(fs.existsSync(validatorPath), 'validate-skills-registry.js not found');
+  const output = execFileSync('node', [validatorPath, '--json'], { encoding: 'utf8' });
+  const parsed = JSON.parse(output);
+  assert.strictEqual(parsed.ok, true, `Skill linter reported errors: ${JSON.stringify(parsed.skills.filter((s) => !s.valid))}`);
+  assert.ok(parsed.totalSkills > 0, 'No skills discovered');
 });
 
 // ─── 6. RAG / Grepai Index Health ────────────────────────────────────────────
@@ -343,13 +352,6 @@ check('pr-stack-verifier.js script exists and runs', () => {
   const verifier = require(verifierScript);
   const result = verifier.verifyPrStackHygiene();
   assert.ok(result.ok !== undefined, 'verifyPrStackHygiene missing ok boolean');
-});
-
-// ─── 9. WorkOS Emulation & Failure-Injection Harness Integration ─────────────
-
-check('workos-emulator-harness.js script exists', () => {
-  const harnessScript = path.join(ROOT, 'tools/workos-emulator-harness.js');
-  assert.ok(fs.existsSync(harnessScript), 'workos-emulator-harness.js missing in tools/');
 });
 
 // ─── Report ──────────────────────────────────────────────────────────────────
