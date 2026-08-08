@@ -77,7 +77,7 @@ Tables and full protocol: [docs/agents/decision-stack.md](./docs/agents/decision
 
 - **Expo SDK pins are law** — `react-native`/`react`/`expo*` move only via `npx expo install --fix` in a deliberate SDK upgrade.
 - **Don't close/rebase/fix another agent's PR** (dependabot PRs are ownerless — fair game with a reason).
-- **Merge only when required checks are green** (`strict: true` on main); prefer `gh pr merge --auto --squash`.
+- **Merge only when required checks are green** (`strict: true` on main); prefer `gh pr merge --auto --squash`. A "ready" PR must be up-to-date with `main`; BEHIND/CONFLICTING PRs need rebase + green rerun, not a force-merge.
 - **Don't bulk-delete multi-agent worktrees**; prune only merged-PR branches and your own disposable trees.
 - Greptile review comments are required context on connect/onboarding/auth/OTA PRs.
 - **A wall of `BLOCKED` PRs is an outage until proven otherwise.** If required contexts are *absent* from the PR rollup (not failing — missing), check <https://www.githubstatus.com/api/v2/summary.json> **before** blaming code, runners, or a wedged queue. All 7 required checks run on `ubuntu-latest`, so a GitHub-hosted outage stalls every PR while self-hosted runners sit idle and green. `main` has `enforce_admins=true` — there is no override; the queue drains itself once Actions recovers. Never `gh run rerun` a queued run (no-op).
