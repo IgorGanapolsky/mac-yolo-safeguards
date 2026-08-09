@@ -349,7 +349,7 @@ export default function ConnectMacGate() {
                     </Text>
                   ) : (
                     <Text style={styles.findHint} testID="connect-find-cellular-hint">
-                      Cellular cannot scan home Wi‑Fi. Use Tailscale or paste 100.x above.
+                      Searches for your Mac or PC running Hermes on Tailscale (not this phone). Ensure Tailscale is ON on your Mac.
                     </Text>
                   )}
                 </View>
