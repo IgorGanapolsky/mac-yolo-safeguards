@@ -43,6 +43,9 @@ rl.on('line', (line) => {
     process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, result: {
       agentCapabilities: { loadSession: true, promptCapabilities: { image: true } },
       agentInfo: { name: 'stub' }, protocolVersion: 1 } }) + '\n');
+  } else if (m.method === 'session/new') {
+    process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, result: {
+      sessionId: 's1', configOptions: [{ id: 'thought_level', currentValue: 'max' }] } }) + '\n');
   } else if (m.id !== undefined) {
     process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, result: { ok: true } }) + '\n');
   }
@@ -99,8 +102,19 @@ drive() {
     node "$GUARD" 2>/dev/null
 }
 
+drive_fast() {
+  printf '%s\n' "$@" | env \
+    POOLSIDE_ACP_COMMAND="$STUB" \
+    POOLSIDE_IMAGE_GUARD=strip \
+    POOLSIDE_YOLO_SESSION_THOUGHT_LEVEL=none \
+    PATH="$ROOT:$PATH" \
+    node "$GUARD" 2>/dev/null
+}
+
 INIT='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1}}'
 IMG_PROMPT="{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"session/prompt\",\"params\":{\"sessionId\":\"s1\",\"prompt\":[{\"type\":\"text\",\"text\":\"why broken?\"},{\"type\":\"image\",\"mimeType\":\"image/png\",\"data\":\"$PNG\"}]}}"
+SESSION_NEW='{"jsonrpc":"2.0","id":3,"method":"session/new","params":{"cwd":"/tmp","mcpServers":[]}}'
+CLIENT_THOUGHT='{"jsonrpc":"2.0","id":4,"method":"session/set_config_option","params":{"sessionId":"s1","configId":"thought_level","value":"max"}}'
 
 # --- 1. the capability lie is corrected when we CANNOT transcribe ------------------
 OUT="$(drive strip "$INIT")"
@@ -181,6 +195,30 @@ const got=fs.readFileSync(process.argv[1],"utf8").trim().split("\n").find(l=>l.i
 if(got!==want){console.error("mutated:\n"+got+"\n"+want);process.exit(1)}
 ' "$RECV" "$OTHER" && ok "pass-through: unrelated methods forwarded byte-for-byte" \
                    || no "pass-through: unrelated method was rewritten"
+
+# --- 5b. fast thought is session-scoped through ACP -------------------------------
+# The wrapper must not rewrite global settings.yaml. The proxy applies the option to
+# the created session and rewrites a client's saved max default for this session only;
+# its internal JSON-RPC response must never leak into the client stream.
+: >"$RECV"
+OUT="$(drive_fast "$INIT" "$SESSION_NEW" "$CLIENT_THOUGHT")"
+node - "$RECV" "$OUT" <<'JS' && ok "session thought=none is injected without touching global settings" || no "session-scoped thought injection failed"
+const fs = require('fs');
+const received = fs.readFileSync(process.argv[2], 'utf8').trim().split('\n').map(JSON.parse);
+const injected = received.find((m) => m.method === 'session/set_config_option' &&
+  String(m.id).startsWith('hermes-thought-'));
+const client = received.find((m) => m.id === 4 && m.method === 'session/set_config_option');
+if (!injected || injected.params.sessionId !== 's1' || injected.params.configId !== 'thought_level' || injected.params.value !== 'none') {
+  throw new Error('missing/invalid injected config: ' + JSON.stringify(injected));
+}
+if (!client || client.params.value !== 'none') {
+  throw new Error('client saved default was not overridden for this session: ' + JSON.stringify(client));
+}
+const visible = process.argv[3].trim().split('\n').filter(Boolean).map(JSON.parse);
+if (visible.some((m) => String(m.id).startsWith('hermes-thought-'))) {
+  throw new Error('internal config response leaked to ACP client');
+}
+JS
 
 # --- 6. malformed lines are forwarded, not dropped ----------------------------------
 : >"$RECV"
