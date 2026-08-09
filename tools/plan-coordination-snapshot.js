@@ -77,25 +77,68 @@ function parseActiveTasks(text) {
   return tasks;
 }
 
-function parseFileLocks(text) {
-  const locks = [];
+function releaseOwner(owner) {
+  const value = String(owner || '').trim();
+  const releasedBy = value.match(/^released\s+by\s+(.+)$/i);
+  if (releasedBy) return releasedBy[1].trim();
+  return /^released$/i.test(value) ? null : value || null;
+}
+
+function formatLockFiles(files) {
+  return files.map((file) => `\`${file}\``).join(', ');
+}
+
+function parseLockEvents(text) {
+  const events = [];
   for (const line of text.split('\n')) {
     if (!line.startsWith('- `')) continue;
-    if (line.includes('(free)') || /released/i.test(line)) continue;
     if (!line.includes('→')) continue;
-    locks.push(line.replace(/^-\s*/, '').trim());
+    const raw = line.replace(/^-\s*/, '').trim();
+    const owner = line.match(/→\s*\*\*([^*]+)\*\*/)?.[1]?.trim() || null;
+    const files = [...line.matchAll(/`([^`]+)`/g)]
+      .map((match) => match[1].trim())
+      .filter(Boolean);
+    const free = line.includes('(free)');
+    const released = /\breleased\b/i.test(line);
+    const event = {
+      raw,
+      owner,
+      files,
+      activeFiles: released || free ? [] : [...files],
+      released,
+      free,
+    };
+    if (released) {
+      const releasedOwner = releaseOwner(owner);
+      if (releasedOwner) {
+        const releasedFiles = new Set(files);
+        for (const prior of events) {
+          if (prior.owner !== releasedOwner || prior.activeFiles.length === 0) continue;
+          prior.activeFiles = prior.activeFiles.filter((file) => !releasedFiles.has(file));
+        }
+      }
+    }
+    events.push(event);
   }
-  return locks;
+  return events.map((event) => ({
+    ...event,
+    active: event.activeFiles.length > 0,
+    activeRaw: event.activeFiles.length > 0
+      ? `${formatLockFiles(event.activeFiles)} → **${event.owner}**`
+      : event.raw,
+  }));
+}
+
+function parseFileLocks(text) {
+  return parseLockEvents(text)
+    .filter((event) => event.active)
+    .map((event) => event.activeRaw);
 }
 
 function parseOwnershipLocks(text) {
-  return text
-    .split('\n')
-    .filter((line) => line.startsWith('- `') && line.includes('→') && !line.includes('(free)') && !/released/i.test(line))
-    .map((line) => ({
-      owner: line.match(/→\s*\*\*([^*]+)\*\*/)?.[1]?.trim() || null,
-      files: [...line.matchAll(/`([^`]+)`/g)].map((match) => match[1].trim()).filter(Boolean),
-    }))
+  return parseLockEvents(text)
+    .filter((event) => event.active)
+    .map((event) => ({ owner: event.owner, files: event.activeFiles }))
     .filter((lock) => lock.owner && lock.files.length > 0);
 }
 
@@ -238,6 +281,7 @@ module.exports = {
   parseActiveTasks,
   parseClaimedFiles,
   parseFileLocks,
+  parseLockEvents,
   parseOwnershipLocks,
   validateOwnership,
   parseMeta,
