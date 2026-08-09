@@ -310,4 +310,33 @@ describe('useHermesDeepLinks', () => {
     });
     expect(navigationRef.current.navigate).toHaveBeenCalledWith('Settings');
   });
+
+  it('Issue #1451: processes setup intent completely even when a second dev/leash-unlock intent arrives within 37 ms', async () => {
+    const applySetupDeepLink = jest.fn().mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    const activateDeveloperLeashUnlock = jest.fn().mockResolvedValue(undefined);
+
+    renderHook(() =>
+      useHermesDeepLinks(
+        navigationRef as never,
+        runAgentTool,
+        refreshHealth,
+        applySetupDeepLink,
+        undefined,
+        activateDeveloperLeashUnlock,
+      ),
+    );
+
+    const handler = (Linking.addEventListener as jest.Mock).mock.calls[0][1];
+    await act(async () => {
+      handler({ url: 'hermes://setup?pairCode=CODE1234&pairServer=http://127.0.0.1:8765' });
+      await new Promise((r) => setTimeout(r, 10));
+      handler({ url: 'hermes://dev/leash-unlock' });
+      await new Promise((r) => setTimeout(r, 100));
+    });
+
+    expect(applySetupDeepLink).toHaveBeenCalled();
+    expect(activateDeveloperLeashUnlock).toHaveBeenCalled();
+    expect(navigationRef.current.navigate).toHaveBeenCalledWith('Chat');
+  });
 });
+
