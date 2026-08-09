@@ -19,6 +19,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 ## 1. Task Board
 
+| T-SECURE-LOCKSCREEN-NOTIFICATIONS-141 | Secure lock-screen approvals by default (PRIVATE visibility, no DND bypass) (#141) | in_progress | antigravity | `hermes-mobile/src/services/hermesNotifications.ts`, `hermes-mobile/src/__tests__/approvalNotificationsSecurity.test.ts`, `plan.md` | Channel configuration PRIVATE visibility & unit tests green |
 <<<<<<< HEAD
 | T-ASO-REPOSITION-HERMES-AGENT-CLIENT-1469 | Reposition Play/iOS listing title & short description to capture 'Hermes Agent Client' search query | in_progress | antigravity | `hermes-mobile/fastlane/metadata/android/en-US/title.txt`, `hermes-mobile/fastlane/metadata/android/en-US/paid_title.txt`, `hermes-mobile/fastlane/metadata/ios/en-US/name.txt`, `hermes-mobile/fastlane/metadata/android/en-US/short_description.txt`, `hermes-mobile/fastlane/metadata/android/en-US/paid_short_description.txt`, `hermes-mobile/src/__tests__/storeListingMetadataContract.test.ts`, `plan.md` | Store listing contract unit tests green |
 ||||||| f5020553e
@@ -107,6 +108,7 @@ Active tasks (84):
   T-EAS-GUARD-DATE-ROLL-20260723 [in_progress] cursor-silent-bubble-hide: Remove UTC-midnight flake from EAS hard-stop process contract blocking all mobile PRs
   … +72 more (run node tools/agent-swarm-harness.js --json)
 File locks (342):
+- `hermes-mobile/src/services/hermesNotifications.ts`, `hermes-mobile/src/__tests__/approvalNotificationsSecurity.test.ts`, `plan.md` → **antigravity** (T-SECURE-LOCKSCREEN-NOTIFICATIONS-141: Secure lock-screen approvals by default (PRIVATE visibility, no DND bypass) (#141)) (2026-08-06T22:25:00Z)
 <<<<<<< HEAD
 - `hermes-mobile/fastlane/metadata/android/en-US/title.txt`, `hermes-mobile/fastlane/metadata/android/en-US/paid_title.txt`, `hermes-mobile/fastlane/metadata/ios/en-US/name.txt`, `hermes-mobile/fastlane/metadata/android/en-US/short_description.txt`, `hermes-mobile/fastlane/metadata/android/en-US/paid_short_description.txt`, `hermes-mobile/src/__tests__/storeListingMetadataContract.test.ts`, `plan.md` → **antigravity** (T-ASO-REPOSITION-HERMES-AGENT-CLIENT-1469: Reposition Play/iOS listing title & short description to capture 'Hermes Agent Client' search query) (2026-08-06T19:23:00Z)
 ||||||| f5020553e
