@@ -19,6 +19,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 ## 1. Task Board
 
+| T-SECURE-LOCKSCREEN-NOTIFICATIONS-141 | Secure lock-screen approvals by default (PRIVATE visibility, no DND bypass) (#141) | in_progress | antigravity | `hermes-mobile/src/services/hermesNotifications.ts`, `hermes-mobile/src/__tests__/approvalNotificationsSecurity.test.ts`, `plan.md` | Channel configuration PRIVATE visibility & unit tests green |
 | T-AGENT-50-POOLSIDE-SPEED-20260808 | Speed up `poolside-yolo` with August 2026 Poolside defaults and preserve tool correctness | in_progress | codex-agent-50 | `poolside-yolo`, `tests/test-poolside-yolo.sh`, `plan.md` | Linear AGENT-50 resumed; isolate hosted-vs-local latency, default new interactive sessions to Laguna XS with no thinking, update Pool v1.0.15 ACP mode assumptions, and verify with focused plus live benchmarks. |
 
 | T-AGENT-328-HERMES-YOLO-QUALITY-20260808 | Repair `hermes-yolo` latency, tool-access truth, direct human response quality, and reliable release synchronization | done | released (codex-agent-328) | released | PASS: PR #1582 merged as `d91607abb0dd6667bf6ab61f84f00990bc42cd81`; installed wrapper hashes matched `main`; live terminal-tool and direct-response proofs completed in 10.44s and 9.55s; PR #1583 fixed append-only lock release semantics in both the executable ownership gate and Obsidian sync brief with focused regressions, live snapshot proof, review, and required CI green. |
@@ -102,6 +103,7 @@ Active tasks (84):
   T-EAS-GUARD-DATE-ROLL-20260723 [in_progress] cursor-silent-bubble-hide: Remove UTC-midnight flake from EAS hard-stop process contract blocking all mobile PRs
   … +72 more (run node tools/agent-swarm-harness.js --json)
 File locks (342):
+- `hermes-mobile/src/services/hermesNotifications.ts`, `hermes-mobile/src/__tests__/approvalNotificationsSecurity.test.ts`, `plan.md` → **antigravity** (T-SECURE-LOCKSCREEN-NOTIFICATIONS-141: Secure lock-screen approvals by default (PRIVATE visibility, no DND bypass) (#141)) (2026-08-06T22:25:00Z)
 - `tools/reversible-deployment-engine.js`, `tests/test-reversible-deployment.js`, `hermes-mobile/src/utils/gatewayConnection.ts`, `hermes-mobile/src/__tests__/connectionIdentityAuthInvariants.test.tsx`, `plan.md` → **antigravity** (T-REVERSIBLE-DEPLOYMENT-EXPAND-CONTRACT-20260806: Reversible Deployment Engine, Expand-and-Contract DB Protocol & Connection Auth Invariants (#132)) (2026-08-06T22:48:00Z)
 - `tools/local-ci-dagger-act-engine.js`, `scripts/verify.sh`, `tests/test-local-ci-stack.js`, `plan.md` → **antigravity** (T-LOCAL-CI-DAGGER-ACT-20260806: Local CI Stack, Dagger Portable Pipeline & `act` GitHub Runner Engine (`scripts/verify.sh`)) (2026-08-06T23:03:00Z)
 - `hermes-mobile/src/__tests__/chatMachineHeader.test.ts`, `plan.md` → **antigravity** (T-ROUTE-IDENTITY-TRANSPORT-MATCH-1449: Guarantee displayed machine label matches exact transport & route) (2026-08-06T19:04:00Z)
