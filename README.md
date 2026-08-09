@@ -15,6 +15,19 @@
 
 **Paid reliability help:** [Book 20-min triage](https://cal.com/igor-g-kvqxfo/30min) | [Partner Pilot](./docs/PARTNER-PILOT.md) | [Public-safe paid inquiry](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=paid-hardening-inquiry.yml)
 
+<details>
+<summary><b>load average 307, in one picture</b> (a meme that's not wrong)</summary>
+
+```
+   me:  it's just ONE simulator, what could go wrong
+   Mac:  *256 simruntime processes, fan = jet engine, load 307*
+
+        ...the guard (with sunglasses):
+        nice sims, you won't need them anymore
+        ^--- this repo ---^
+```
+</details>
+
 **Hosted Hermes / always-on agents:** platforms keep agents online; this kit stops **runaway loops and Mac freezes** when real work still burns tokens or load. Positioning: [docs/HERMES-HOSTED-RELIABILITY.md](./docs/HERMES-HOSTED-RELIABILITY.md).
 
 ## For Teams And Partners

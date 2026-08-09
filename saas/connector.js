@@ -23,7 +23,7 @@ function req(method, urlPath, bodyObj) {
     const u = new URL(RELAY + urlPath);
     const mod = u.protocol === 'https:' ? https : http;
     const data = bodyObj ? JSON.stringify(bodyObj) : null;
-    const r = mod.request(u, { method, timeout: 30000, headers: data ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) } : {} },
+    const r = mod.request(u, { method, timeout: 30000, headers: data ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data), 'X-Hermes-Device-Id': deviceId() } : { 'X-Hermes-Device-Id': deviceId() } },
       (resp) => { let b = ''; resp.on('data', (c) => (b += c)); resp.on('end', () => { try { resolve({ code: resp.statusCode, json: JSON.parse(b || '{}') }); } catch { resolve({ code: resp.statusCode, json: {} }); } }); });
     r.on('error', reject); r.on('timeout', () => { r.destroy(); reject(new Error('timeout')); });
     if (data) r.write(data); r.end();
@@ -85,6 +85,10 @@ async function run() {
         const result = handle(request.op, request.args);
         await req('POST', '/v1/connector/reply', { token, id: request.id, result });
       }
+      if (r.json && r.json.authMismatch) {
+        console.error('relay reports auth mismatch; identity may have changed. Stopping.');
+        process.exit(1);
+      }
     } catch (e) {
       await new Promise((s) => setTimeout(s, backoff));
       backoff = Math.min(backoff * 2, 30000); // exponential backoff so drops reconnect silently
@@ -96,4 +100,4 @@ const [cmd, arg] = process.argv.slice(2);
 if (cmd === 'pair' && arg) pair(arg);
 else if (cmd === 'run') run();
 else { console.log('usage: node connector.js pair <CODE>   |   node connector.js run'); process.exit(cmd ? 1 : 0); }
-module.exports = { handle, listSessions, readThread };
+module.exports = { handle, listSessions, readThread, req, deviceId, loadState, saveState };
