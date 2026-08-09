@@ -325,12 +325,12 @@ export async function initHermesNotifications(): Promise<void> {
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(CHANNEL_APPROVALS, {
       name: 'Approvals',
-      description: 'Urgent Hermes approvals with Approve and Deny actions',
+      description: 'Time-sensitive Hermes decision alerts — authentication required for command details',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 220, 120, 220],
       lightColor: NOTIFICATION_COLOR,
-      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-      bypassDnd: true,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
+      bypassDnd: false,
     });
     // New ids — Android refuses to downgrade hermes-runs / hermes-results importance.
     await Notifications.setNotificationChannelAsync(CHANNEL_STATUS_V2, {
@@ -682,12 +682,8 @@ export async function scheduleRunProgressNotification(
   }
 
   const replySnippet = options?.replySnippet ?? progress.replyPreview;
+  const title = runProgressNotificationTitle(progress);
   const body = runProgressNotificationBody({
-    phase: progress.phase,
-    detail: progress.detail,
-    replySnippet,
-  });
-  const title = runProgressNotificationTitleFromState({
     phase: progress.phase,
     detail: progress.detail,
     replySnippet,
@@ -718,7 +714,7 @@ export async function scheduleRunProgressNotification(
     identifier: RUN_STATUS_NOTIFICATION_ID,
     content: {
       title,
-      subtitle: 'Computer',
+      subtitle: 'Your Mac',
       body,
       categoryIdentifier: CATEGORY_RUN,
       threadIdentifier: THREAD_RUNS,
