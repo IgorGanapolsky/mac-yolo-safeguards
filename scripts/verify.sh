@@ -43,5 +43,7 @@ node tests/test-turn-telemetry-dashboard.js
 node tests/test-memalign-agent-judge.js
 node tests/test-poolside-yolo-computer-use-optimizer.js
 node tests/test-skool-browser-automation.js
+node tests/test-linear-agent-telemetry.js
+node tests/test-peter-yang-ai-operator.js
 
 echo "✅ All Local CI Verification Checks Passed!"
