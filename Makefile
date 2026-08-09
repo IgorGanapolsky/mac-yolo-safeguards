@@ -16,7 +16,7 @@ endif
 ACT_IMAGE := ubuntu-22.04
 ACT_FLAGS := --platform linux/amd64 --reuse --cache
 
-.PHONY: ci ci-fast ci-check ci-mobile help
+.PHONY: ci ci-fast ci-check ci-mobile help next-dollar
 
 help:
 	@echo "Available targets:"
@@ -24,7 +24,16 @@ help:
 	@echo "  ci-fast     - Run fast CI checks only (no E2E/simulator)"
 	@echo "  ci-check    - Run scripts/ci-verify.sh without Docker"
 	@echo "  ci-mobile   - Run hermes-mobile typecheck + unit tests"
+	@echo "  next-dollar - Regenerate today's next-dollar send plan from live Skool leads"
 
+next-dollar:
+	python3 tools/gen-next-dollar-plan.py
+	node tools/send-plan.js --date $$(date -u +%F) \
+		--actions data/outreach-actions-$$(date -u +%F).tsv \
+		--pipeline data/pipeline-status-$$(date -u +%F).tsv \
+		--stripe-offer-map data/stripe-offer-map-$$(date -u +%F).tsv \
+		--stripe-status missing \
+		--out docs/next-dollar-send-plan-$$(date -u +%F).md
 ci:
 	$(ACT) -P ubuntu-latest=$(ACT_IMAGE) $(ACT_FLAGS) -W .github/workflows/ci.yml
 
