@@ -1113,6 +1113,35 @@ describe('gatewayProfiles', () => {
     expect(profileNeedsMachineNameEnrichment(mini)).toBe(false);
   });
 
+  it('Issue #1474: backfills hostname onto saved Tailscale profile even when label identity mismatches', () => {
+    // Profile has a non-generic label ("Mac mini") but no hostname. The machine-key
+    // guard (shouldAcceptHealthIdentityForProfile) would reject "Igors-Mac-mini.local"
+    // because priorKey="mac mini" !== incomingKey="igors-mac-mini". The nameless safety
+    // net backfills unconditionally instead of leaving the row nameless.
+    const namelessWithCustomLabel = {
+      id: 'mac_100_94_135_78',
+      label: 'Mac mini',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      localIp: '100.94.135.78',
+      addedAt: '2026-07-23T12:00:00.000Z',
+    };
+
+    const next = applyTailscaleDiscoveriesToProfileState(
+      { profiles: [namelessWithCustomLabel], activeProfileId: null },
+      [
+        {
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini.local',
+          localIp: '192.168.68.67',
+          label: 'Igors-Mac-mini',
+        },
+      ],
+    );
+    const mini = next.profiles.find((p) => p.gatewayUrl.includes('100.94.135.78'))!;
+    expect(mini.hostname).toMatch(/Igors-Mac-mini/i);
+    expect(profileNeedsMachineNameEnrichment(mini)).toBe(false);
+  });
+
   it('sanitize relabels Tailscale IP label once hostname is known', () => {
     const state = sanitizeGatewayProfileState({
       profiles: [

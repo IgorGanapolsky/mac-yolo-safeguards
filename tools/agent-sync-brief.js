@@ -5,6 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { parseLockEvents } = require('./plan-coordination-snapshot');
 
 const DEFAULT_REPO = path.resolve(__dirname, '..');
 const DEFAULT_OUT_DIR = path.join(DEFAULT_REPO, 'artifacts', 'agent-sync');
@@ -129,17 +130,10 @@ function parsePlanTasks(planText) {
 }
 
 function parseFileLocks(planText) {
-  const locks = [];
-  for (const line of planText.split('\n')) {
-    if (!line.startsWith('- `') || !line.includes('→')) continue;
-    const released = /\breleased\b/i.test(line);
-    const free = /\(free\)/i.test(line);
-    locks.push({
-      raw: redact(line.replace(/^-\s*/, '').trim()),
-      active: !released && !free,
-    });
-  }
-  return locks;
+  return parseLockEvents(planText).map((event) => ({
+    raw: redact(event.active ? event.activeRaw : event.raw),
+    active: event.active,
+  }));
 }
 
 function parseRecentDecisions(planText, limit = 8) {
