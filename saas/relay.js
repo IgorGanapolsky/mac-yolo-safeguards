@@ -23,10 +23,11 @@ const HOST = process.env.RELAY_HOST || '0.0.0.0';
 // VPS fallback: a Hermes instance the relay itself can reach when the user's Mac is down.
 const VPS_FALLBACK = process.env.RELAY_VPS_FALLBACK_URL || ''; // e.g. http://127.0.0.1:4010
 const OFFLINE_MS = parseInt(process.env.RELAY_CONNECTOR_OFFLINE_MS || '15000', 10);
+const PAIR_TTL_MS = parseInt(process.env.RELAY_PAIR_TTL_MS || '600000', 10); // 10 min
 
 // --- In-memory state (a real deploy swaps this for Postgres; shape is identical) ---
 const pairings = new Map();   // code -> {accountId, createdAt}
-const tokens = new Map();     // token -> {accountId, deviceId, lastSeen}
+const tokens = new Map();     // token -> {accountId, deviceId, lastSeen, boundIp}
 const inbox = new Map();      // token -> [{id, op, args}]           (requests waiting for the connector)
 const waiters = new Map();    // token -> [res]                       (connector long-poll responses held open)
 const pending = new Map();    // reqId -> {resolve, timer}            (browser requests awaiting a connector reply)
@@ -39,6 +40,12 @@ function body(req) { return new Promise((r) => { let b = ''; req.on('data', (c) 
 function connectorOnline(token) {
   const t = tokens.get(token);
   return !!t && (now() - t.lastSeen) < OFFLINE_MS;
+}
+
+function authContext(token) {
+  const t = tokens.get(token);
+  if (!t) return null;
+  return { accountId: t.accountId, deviceId: t.deviceId, online: connectorOnline(token) };
 }
 
 // Deliver a queued request to a connector that is currently long-polling, if any.
@@ -54,7 +61,7 @@ function flush(token) {
 function ask(token, op, args, timeoutMs = 12000) {
   return new Promise(async (resolve) => {
     if (!connectorOnline(token)) {
-      // FAILOVER: user's Mac is offline → serve from the VPS instance if configured.
+      // FAILOVER: user's Mac is offline -> serve from the VPS instance if configured.
       if (VPS_FALLBACK) {
         try {
           const r = await fetchJson(`${VPS_FALLBACK}/api/${op}${args && args.id ? '?id=' + encodeURIComponent(args.id) : ''}`);
@@ -79,6 +86,18 @@ function fetchJson(u) {
   });
 }
 
+// Extract a client-identity signal without trusting it for access control.
+function clientIp(req) {
+  const xf = req.headers['x-forwarded-for'];
+  if (typeof xf === 'string') return xf.split(',')[0].trim();
+  return req.socket.remoteAddress || 'unknown';
+}
+
+function deviceId(req) {
+  const d = req.headers['x-hermes-device-id'];
+  return typeof d === 'string' && d.trim() ? d.trim() : null;
+}
+
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, `http://${req.headers.host}`);
   const p = u.pathname;
@@ -92,12 +111,17 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { pairingCode: code });
     }
     if (p === '/v1/pair/redeem' && req.method === 'POST') {
-      const { code, deviceId } = await body(req);
+      const { code, deviceId: d } = await body(req);
       const pr = pairings.get(code);
       if (!pr) return json(res, 400, { error: 'invalid or used pairing code' });
+      if (now() - pr.createdAt > PAIR_TTL_MS) {
+        pairings.delete(code);
+        return json(res, 400, { error: 'pairing code expired' });
+      }
       pairings.delete(code);
+      const finalDeviceId = (d && String(d).trim()) || 'unknown';
       const token = 'hcx_' + crypto.randomBytes(24).toString('hex');
-      tokens.set(token, { accountId: pr.accountId, deviceId: deviceId || 'unknown', lastSeen: now() });
+      tokens.set(token, { accountId: pr.accountId, deviceId: finalDeviceId, lastSeen: now(), boundIp: clientIp(req) });
       return json(res, 200, { deviceToken: token, accountId: pr.accountId });
     }
     // --- Connector long-poll (outbound-dial): holds open until there's work or ~25s ---
@@ -106,11 +130,14 @@ const server = http.createServer(async (req, res) => {
       const t = tokens.get(token);
       if (!t) return json(res, 401, { error: 'unknown token' });
       t.lastSeen = now();
+      // Optional binding check: if the connector's visible IP changed dramatically, surface it.
+      const ip = clientIp(req);
+      const authMismatch = t.boundIp && t.boundIp !== ip && t.boundIp !== '127.0.0.1' && ip !== '127.0.0.1';
       (inbox.get(token) || inbox.set(token, []).get(token));
-      if ((inbox.get(token) || []).length) return flush(token) || undefined;
+      if ((inbox.get(token) || []).length) return flush(token) || json(res, 200, { request: null, authMismatch });
       const arr = waiters.get(token) || waiters.set(token, []).get(token);
       arr.push(res);
-      const to = setTimeout(() => { const i = arr.indexOf(res); if (i >= 0) arr.splice(i, 1); json(res, 200, { request: null }); }, 25000);
+      const to = setTimeout(() => { const i = arr.indexOf(res); if (i >= 0) arr.splice(i, 1); json(res, 200, { request: null, authMismatch }); }, 25000);
       req.on('close', () => { clearTimeout(to); const i = arr.indexOf(res); if (i >= 0) arr.splice(i, 1); });
       return;
     }
@@ -125,17 +152,21 @@ const server = http.createServer(async (req, res) => {
     // --- Browser-facing (a real deploy gates these behind the SSO session + Stripe) ---
     if (p === '/v1/sessions') {
       const token = u.searchParams.get('token');
-      if (!tokens.has(token)) return json(res, 401, { error: 'unknown token' });
+      const ctx = authContext(token);
+      if (!ctx) return json(res, 401, { error: 'unknown token' });
       return json(res, 200, await ask(token, 'sessions', {}));
     }
     if (p === '/v1/thread') {
       const token = u.searchParams.get('token');
-      if (!tokens.has(token)) return json(res, 401, { error: 'unknown token' });
+      const ctx = authContext(token);
+      if (!ctx) return json(res, 401, { error: 'unknown token' });
       return json(res, 200, await ask(token, 'thread', { id: u.searchParams.get('id') }));
     }
     if (p === '/v1/status') {
       const token = u.searchParams.get('token');
-      return json(res, 200, { online: connectorOnline(token), vpsFallback: !!VPS_FALLBACK });
+      const ctx = authContext(token);
+      if (!ctx) return json(res, 401, { error: 'unknown token', online: false });
+      return json(res, 200, { online: ctx.online, accountId: ctx.accountId, deviceId: ctx.deviceId, vpsFallback: !!VPS_FALLBACK });
     }
     if (p === '/health') return json(res, 200, { ok: true, service: 'hermes-relay' });
     return json(res, 404, { error: 'not found' });
@@ -150,4 +181,4 @@ const server = http.createServer(async (req, res) => {
 if (require.main === module) {
   server.listen(PORT, HOST, () => console.log(`hermes-relay listening on ${HOST}:${PORT} (vpsFallback=${VPS_FALLBACK ? 'on' : 'off'})`));
 }
-module.exports = { server };
+module.exports = { server, pairings, tokens, inbox, waiters, pending, connectorOnline, authContext };
