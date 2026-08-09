@@ -2,6 +2,7 @@ import type { GatewayHealthSnapshot } from '../types/gateway';
 import type { LeashConnectionState } from './gatewayEndpoint';
 import { isLoopbackGatewayUrl } from './gatewayUrlPolicy';
 import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
+export { GATEWAY_AUTH_REPAIR_HEADER };
 
 export type GatewayBootstrapPhase = 'booting' | 'searching' | 'connected' | 'needs_setup';
 
