@@ -9,11 +9,9 @@
       }
     },
     "context7": {
+      "$comment": "Keyless mode on purpose: an unset CONTEXT7_API_KEY used to interpolate an EMPTY 'Bearer ' header, which the server rejects as an invalid key (verified live 2026-08-06). Keyless = low rate limits (fine for JIT doc lookups). If we mint a ctx7sk key (context7.com/dashboard, free tier 1000 req/mo), re-add headers.Authorization = 'Bearer <key from env>' AND actually set the env var everywhere agents run.",
       "type": "http",
-      "url": "https://mcp.context7.com/mcp",
-      "headers": {
-        "Authorization": "Bearer ${CONTEXT7_API_KEY:-}"
-      }
+      "url": "https://mcp.context7.com/mcp"
     },
     "grepai": {
       "command": "grepai",
@@ -21,6 +19,13 @@
         "mcp-serve",
         "/Users/igorganapolsky/.hermes/semantic-index/mac-yolo-safeguards"
       ]
+    },
+    "semrush": {
+      "type": "http",
+      "url": "https://mcp.semrush.com/claude/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer ${SEMRUSH_API_KEY:-}"
+      }
     }
   }
 }
