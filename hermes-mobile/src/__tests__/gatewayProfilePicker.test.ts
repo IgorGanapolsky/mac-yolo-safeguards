@@ -1,4 +1,4 @@
-import { profileDisplayName } from '../services/gatewayProfiles';
+import { profileDisplayName, backfillProfileHealthData } from '../services/gatewayProfiles';
 import {
   detectUsbHostMismatch,
   formatUsbHostMismatchMessage,
@@ -814,4 +814,22 @@ describe('gatewayProfilePicker', () => {
     expect(profilePickerLines(named).title).toBe('Igors-Mac-mini');
   });
 
+  it('Issue #1474: backfills hostname onto saved Tailscale profile when live probe succeeds', () => {
+    const namelessTailscaleProfile = {
+      id: 'mac_100_94_135_78',
+      label: 'Tailscale 100.94.135.78',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      addedAt: '2026-08-05T12:50:00.000Z',
+    };
+    const backfilled = backfillProfileHealthData(namelessTailscaleProfile, {
+      hostname: 'Igors-Mac-mini.local',
+      localIp: '192.168.68.67',
+    });
+    expect(backfilled.hostname).toBe('Igors-Mac-mini.local');
+    expect(backfilled.localIp).toBe('192.168.68.67');
+    expect(profileDisplayName(backfilled)).toBe('Igors-Mac-mini');
+  });
+
 });
+
+
