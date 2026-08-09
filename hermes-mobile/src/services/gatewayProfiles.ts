@@ -299,6 +299,31 @@ function relabelStoredProfile(profile: GatewayProfile): GatewayProfile {
 }
 
 /**
+ * Backfill hostname and localIp onto a saved profile when a live /health probe succeeds.
+ * Resolves Issue #1474 (saved Tailscale profiles losing machine names).
+ */
+export function backfillProfileHealthData(
+  profile: GatewayProfile,
+  healthData: { hostname?: string | null; localIp?: string | null }
+): GatewayProfile {
+  const newHostname = healthData.hostname?.trim() || profile.hostname;
+  const newLocalIp = healthData.localIp?.trim() || profile.localIp;
+
+  if (newHostname === profile.hostname && newLocalIp === profile.localIp) {
+    return profile;
+  }
+
+  const updated: GatewayProfile = {
+    ...profile,
+    hostname: newHostname || profile.hostname,
+    localIp: newLocalIp || profile.localIp,
+    lastConnectedAt: new Date().toISOString(),
+  };
+
+  return relabelStoredProfile(updated);
+}
+
+/**
  * Strip transport tokens from a computer name ("Mac mini USB" → "Mac mini").
  * Transport belongs in the route badge, never in the machine title — especially for
  * remote Tailscale Macs (mini in another city must never read as "… USB").
@@ -971,6 +996,14 @@ export function upsertDiscoveredProfile(
         localIp,
       });
       const nextHostname = acceptIncomingIdentity ? hostname || p.hostname : p.hostname;
+      // Issue #1474 safety net: a profile with no hostname has no identity to
+      // protect. Backfill unconditionally so saved-but-inactive Tailscale rows
+      // are named even when the machine-key guard rejects the incoming health
+      // data (e.g. stale label vs live /health hostname mismatch).
+      const backfilledWhenNameless = !p.hostname
+        ? backfillProfileHealthData(p, { hostname, localIp })
+        : p;
+      const safeHostname = backfilledWhenNameless.hostname || nextHostname;
       const keepExistingLabel =
         p.label &&
         !isGenericProfileLabel(p.label) &&
@@ -979,8 +1012,8 @@ export function upsertDiscoveredProfile(
         ? p.label
         : resolveStoredProfileLabel({
             gatewayUrl,
-            hostname: nextHostname,
-            label: discovered.label || label || p.label,
+            hostname: safeHostname,
+            label: discovered.label || backfilledWhenNameless.label || label || p.label,
             localIp: localIp || p.localIp,
           });
 
@@ -988,7 +1021,7 @@ export function upsertDiscoveredProfile(
         ...p,
         gatewayUrl: preserveSelectedRoute ? p.gatewayUrl : gatewayUrl,
         label: finalLabel,
-        hostname: nextHostname,
+        hostname: safeHostname,
         localIp: preserveSelectedRoute ? p.localIp : localIp || p.localIp,
         lastConnectedAt: now,
       };
