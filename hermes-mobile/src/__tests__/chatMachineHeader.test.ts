@@ -284,6 +284,35 @@ describe('resolveChatMachineHeaderDisplay', () => {
     expect(withHealthHost.machineLabel).not.toMatch(/127\.0\.0\.1/);
   });
 
+  it('Issue #1449: selecting mini yields Tailscale, selecting local Pro yields USB — displayed route matches transport', () => {
+    const miniTailscale = resolveChatMachineHeaderDisplay({
+      activeProfile: macMini,
+      gatewayUrl: macMini.gatewayUrl,
+      health: { level: 'green', checkedAt: '2026-06-24T00:00:00.000Z', hostname: 'Igors-Mac-mini.local' },
+      connectionMode: 'gateway',
+      isPaired: true,
+      workers: [],
+      savedMacCount: 2,
+    });
+    expect(miniTailscale.machineLabel).toBe('Mac mini');
+
+    expect(miniTailscale.machineEndpoint).toBe('Home Wi‑Fi');
+
+    const proUsb = resolveChatMachineHeaderDisplay({
+      activeProfile: { ...macBook, gatewayUrl: 'http://127.0.0.1:8642' },
+      gatewayUrl: 'http://127.0.0.1:8642',
+      health: { level: 'green', checkedAt: '2026-06-24T00:00:00.000Z', hostname: 'Igors-MacBook-Pro.local' },
+      connectionMode: 'gateway',
+      isPaired: true,
+      workers: [],
+      savedMacCount: 2,
+    });
+    expect(proUsb.machineLabel).toBe('Igors-MacBook-Pro');
+    expect(proUsb.machineEndpoint).toBe('USB');
+    expect(formatChatMachineHeaderLine(proUsb)).not.toContain('Mac-mini');
+  });
+
+
   it('INVARIANT: never borrows Mini name for generic USB while reconnecting (health null)', () => {
     const usbProfile = {
       id: 'mac_127_0_0_1',
