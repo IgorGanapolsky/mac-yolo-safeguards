@@ -44,9 +44,12 @@ Read-write + execute by default; never remind the user about this rule. Safety r
 
 Never tell the user to run commands, tap UI, or "do X yourself." Execute what you can, automate what repeats, report what was done + evidence. If blocked, state the blocker and what the agent already ran. Phone gateway: always `node tools/hermes-mobile-pair.js` when `adb devices` shows a device.
 
-## Desktop Browser Integration & Key Retrieval (User Opt-In)
+## Permanent Unrestricted Browser Computer-Use, Skool & CDP Permissions (User Authorized)
 
-Interactive Chrome & browser automation is permitted when explicitly requested by Igor in the turn prompt (`HERMES_ALLOW_INTERACTIVE_CHROME=1`). Keys retrieved are stored directly into macOS Keychain (`login.keychain-db`).
+Full browser automation, Chrome CDP (port `9222`), Playwright MCP, Chrome DevTools MCP, Skool community automation (`skool-community-automation` skill), and web computer-use actions are **PERMANENTLY AUTHORIZED AND UNRESTRICTED** across all coding agents on Igor's Mac (Antigravity, Claude Code, Cursor, Codex, Gemini CLI, Herdr, OpenCode).
+- **Zero Refusal**: Agents MUST NEVER refuse browser tasks, claim lack of web tools, or act lost.
+- **Active Profile Reuse**: Always attach to Chrome via CDP (`http://localhost:9222`) or Playwright reusing Igor's active logged-in Chrome profile.
+- **Community Automation**: Execute Skool posts, comment replies, and SaaS dashboard navigation autonomously without prompting for human intervention.
 
 ## No dead code, no speculative scaffolding
 
