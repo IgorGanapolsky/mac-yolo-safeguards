@@ -49,3 +49,4 @@ no Igor-only USB path. Production OTA needs E2E pass or fresh-user proof.
 - 2026-07-28: doctor/eval/sre — `agent-swarm-harness.js doctor|propose-eval|sre-act`; `revenue-local-draft.js --template` offline; act only with fresh health + verify.
 - 2026-07-28: eval-mine/eval-check — mine continuous E2E+trace+contention → ability stubs; routing smoke for empty-stream/pair/social.
 - 2026-07-31: data-mesh (InfoQ) — cash_truth billing-first (net refunds); LIVE needs URL; outbound durable PK+lock. `agent-swarm-harness.js data-mesh`.
+- 2026-08-06: PR-hygiene sweep — `force-merge-pr-sweep.js` merged 0 of 59 open PRs. All auto-merge candidates were BEHIND/conFLICTING or had failing checks. Prefer `gh pr merge --auto --squash` only after branch is current + required checks green; never force-merge a PR with failing CodeQL or conflict-marker checks. `bin/agent-loop --health --json` passed 4/4 gates; use it as the operational dry-run.
