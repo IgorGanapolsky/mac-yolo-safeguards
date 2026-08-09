@@ -86,6 +86,24 @@ test('parseOwnershipLocks maps claimed files to the active owner', () => {
   assert.deepStrictEqual(locks[0], { owner: 'gemini', files: ['foo.ts'] });
 });
 
+test('append-only release events cancel only matching earlier owner locks', () => {
+  const plan = `## 2. File Ownership Map
+- \`shared.ts\`, \`codex-only.ts\` → **codex-agent-328** (claim)
+- \`other.ts\` → **gemini** (claim)
+- \`shared.ts\`, \`codex-only.ts\` → **released by codex-agent-328** (done)
+- \`shared.ts\` → **cursor** (new claim)
+`;
+  assert.deepStrictEqual(parseOwnershipLocks(plan), [
+    { owner: 'gemini', files: ['other.ts'] },
+    { owner: 'cursor', files: ['shared.ts'] },
+  ]);
+  const locks = parseFileLocks(plan);
+  assert.strictEqual(locks.length, 2);
+  assert(!locks.some((lock) => /codex-agent-328/.test(lock)));
+  assert(locks.some((lock) => /gemini/.test(lock) && /other\.ts/.test(lock)));
+  assert(locks.some((lock) => /cursor/.test(lock) && /shared\.ts/.test(lock)));
+});
+
 test('validateOwnership blocks unclaimed or foreign Hermes Mobile files', () => {
   const plan = `${SAMPLE}
 - \`hermes-mobile/src/screens/ChatScreen.tsx\` → **cursor** (T-99)`;

@@ -29,9 +29,18 @@ const {
   parseVersion,
   parseWrapperArgs,
   redact,
+  signalChildProcessTree,
   validateLocalModel,
   versionAtLeast,
 } = require(WRAPPER);
+
+const groupSignals = [];
+assert.strictEqual(signalChildProcessTree({ pid: 321, kill() {} }, 'SIGTERM', {
+  detached: true,
+  platform: 'darwin',
+  kill: (pid, signal) => groupSignals.push([pid, signal]),
+}), true);
+assert.deepStrictEqual(groupSignals, [[-321, 'SIGTERM']]);
 
 assert.strictEqual(parseVersion('grok 0.2.94 (abc123)'), '0.2.94');
 assert.strictEqual(parseVersion('unknown'), null);
