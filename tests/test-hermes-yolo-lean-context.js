@@ -131,7 +131,7 @@ const off = wrapper.prepareLeanContextForTask('fix pairing', {
   HERMES_YOLO_TOOLSETS: 'terminal,file',
 });
 assert.strictEqual(off.enabled, false);
-assert.strictEqual(off.toolsets, 'terminal,file');
+assert.strictEqual(off.toolsets, 'terminal,file,skills,context7');
 assert.strictEqual(off.promptPrefix, '');
 
 // Ready probe: no skill dump
@@ -172,7 +172,20 @@ const fakeMod = {
   renderLeanContextMarkdown: LEAN.renderLeanContextMarkdown,
 };
 
-const on = wrapper.prepareLeanContextForTask('fix auth pairing QR', process.env, {
+const inlineOff = wrapper.prepareLeanContextForTask('fix auth pairing QR', {}, {
+  module: fakeMod,
+  receiptDir,
+});
+assert.strictEqual(inlineOff.enabled, true);
+assert.strictEqual(inlineOff.promptPrefix, '');
+assert.strictEqual(inlineOff.packSummary, null);
+assert.ok(inlineOff.toolsets.includes('skills'));
+assert.ok(inlineOff.toolsets.includes('context7'));
+assert.ok(!inlineOff.toolsets.split(',').includes('memory'));
+
+const on = wrapper.prepareLeanContextForTask('fix auth pairing QR', {
+  HERMES_YOLO_INLINE_SKILLS: '1',
+}, {
   module: fakeMod,
   receiptDir,
 });
