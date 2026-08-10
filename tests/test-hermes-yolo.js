@@ -665,4 +665,31 @@ try {
   fs.rmSync(versionReceiptRoot, { recursive: true, force: true });
 }
 
+// Test Self-Healing Harness & Stream Stall Auto-Recovery Guard
+const { checkAndHealSelfHealingHarness, detectAndHealStreamStall, MAX_COMPRESSIONS_CEILING } = require(binaryPath);
+console.log('Testing Self-Healing Harness & Stream Stall Auto-Recovery...');
+assert.strictEqual(typeof checkAndHealSelfHealingHarness, 'function');
+assert.strictEqual(typeof detectAndHealStreamStall, 'function');
+assert.strictEqual(MAX_COMPRESSIONS_CEILING, 15);
+
+// Test under-threshold (no reset)
+const noReset = checkAndHealSelfHealingHarness(process.env, process.cwd(), { compressions: 5 });
+assert.strictEqual(noReset.healed, false);
+assert.strictEqual(noReset.compressions, 5);
+
+// Test over-threshold (auto-reset and auto-heal)
+const healed = checkAndHealSelfHealingHarness(process.env, process.cwd(), { compressions: 62 });
+assert.strictEqual(healed.healed, true);
+assert.strictEqual(healed.compressions, 0);
+assert.strictEqual(healed.previousCompressions, 62);
+assert.ok(healed.message.includes('auto-healed'));
+
+// Test Stream Stall Interception
+const stallOutput = '▲ Stream stalled mid tool-call (terminal); the action was not executed.';
+const stallRes = detectAndHealStreamStall(stallOutput);
+assert.strictEqual(stallRes.stalled, true);
+assert.strictEqual(stallRes.recovered, true);
+assert.strictEqual(stallRes.action, 'AUTO_RETRY_TOOL_CALL');
+console.log('✅ Self-Healing Harness & Stream Stall Auto-Recovery unit test passed.');
+
 console.log('\n=== All tests passed successfully! ===');
