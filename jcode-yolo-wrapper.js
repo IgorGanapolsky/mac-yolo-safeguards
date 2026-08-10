@@ -30,15 +30,22 @@ function getJcodeBinary() {
   return null;
 }
 
+function buildJcodeArgs(args = []) {
+  const hasProvider = args.some((arg) => arg === '-p' || arg === '--provider' || arg.startsWith('--provider='));
+  if (hasProvider) return args;
+  // Fallback to openai provider if not specified, preventing expired Claude OAuth token crashes
+  return ['--provider', 'openai', ...args];
+}
+
 function runJcodeYolo(args = []) {
   const jcodeBin = getJcodeBinary();
-  const prompt = args.join(' ') || 'Report status and active subagent memory footprint';
+  const effectiveArgs = buildJcodeArgs(args);
 
   console.log('[jcode-yolo] amp-role=architect autonomy=execute ram_target=<28MB latency_target=<15ms');
 
   if (jcodeBin) {
-    console.log(`[jcode-yolo] Executing native binary: ${jcodeBin}`);
-    return spawnSync(jcodeBin, args, { stdio: 'inherit' });
+    console.log(`[jcode-yolo] Executing native binary: ${jcodeBin} with provider fallback`);
+    return spawnSync(jcodeBin, effectiveArgs, { stdio: 'inherit' });
   }
 
   // Fallback to high-efficiency node runner adapter if native Rust binary isn't compiled locally yet
@@ -55,4 +62,4 @@ if (require.main === module) {
   process.exit(result.status || 0);
 }
 
-module.exports = { runJcodeYolo, getJcodeBinary };
+module.exports = { runJcodeYolo, getJcodeBinary, buildJcodeArgs };
