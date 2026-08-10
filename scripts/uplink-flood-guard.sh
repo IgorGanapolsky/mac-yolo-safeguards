@@ -1,9 +1,18 @@
 #!/bin/bash
 # uplink-flood-guard.sh — pause (SIGSTOP) an agent process that saturates the
-# uplink while a screen-share session is active; auto-resume (SIGCONT) when the
-# session ends. Never kills anything, so no agent WIP is destroyed.
+# uplink, then auto-resume (SIGCONT). Never kills anything, so no agent WIP is
+# destroyed. Two triggers:
+#   1. screen-share mode (v1): pause while a screen-share session is active;
+#      resume when the session ends.
+#   2. chronic mode (v2, 2026-08-10): even with no screen share, a flooder that
+#      saturates the uplink for CHRONIC_RUNS consecutive checks WHILE internet
+#      RTT is degraded gets paused for a bounded CHRONIC_PAUSE_SECS, then
+#      auto-resumes. Duty-cycles a persistent flooder (~50%) instead of letting
+#      it drown the link for hours. Born from 2026-08-10: fleet upload measured
+#      at 13.4 of 14.5 Mbps (93%) on T-Mobile Home Internet, 700-1100ms RTT,
+#      sites/email timing out; v1 correctly logged FLOOD all day and did nothing.
 #
-# Born 2026-07-07: agy (Antigravity CLI) uploaded 415MB w/ 25M TCP re-tx to
+# v1 born 2026-07-07: agy (Antigravity CLI) uploaded 415MB w/ 25M TCP re-tx to
 # Google's backend on the mini's T-Mobile uplink -> screen share fully frozen
 # while load avg was 3 and RAM 81% free. No existing guard branch saw it.
 #
@@ -14,15 +23,27 @@
 set -u
 
 LOG="$HOME/Library/Logs/uplink-flood-guard.log"
-STATE="/tmp/uplink-flood-guard.paused"      # "<pid> <procname>" of a paused flooder
+STATE="/tmp/uplink-flood-guard.paused"      # "<pid> <procname> <kind> <deadline>"; kind=share|chronic
 NTFY_TOPIC="yolo-guard-fdh8ktuw1vtxb5sb"
 SAMPLE_SECS=10
 BPS_THRESHOLD=$((1500*1024))   # 1.5 MB/s sustained outbound (~12 Mbps, most of a T-Mobile uplink)
 RETX_THRESHOLD=500             # per-proc retransmits during the sample window = link is drowning
 COOLDOWN_SECS=600
 COOLDOWN_FILE="/tmp/uplink-flood-guard.lastalert"
-# only ever pause known agent/automation processes — never system or transport
-AGENT_RE='^(agy|codex|claude|node|python[0-9.]*|ollama|gemini|deno|bun)\.'
+# chronic mode: N consecutive flood detections (launchd runs 60s apart) with a
+# degraded internet path -> bounded pause. Counter resets if detections stop.
+CHRONIC_RUNS=3
+CHRONIC_GAP_SECS=240           # max age of the previous detection to count as consecutive
+CHRONIC_RTT_MS=300             # only pause when the link is actually suffering
+CHRONIC_PAUSE_SECS=180
+CHRONIC_FILE="/tmp/uplink-flood-guard.chronic"        # "<procname> <count> <epoch>"
+CHRONIC_NOTIFY_FILE="/tmp/uplink-flood-guard.chronicnotify"
+CHRONIC_NOTIFY_COOLDOWN=1800   # ntfy at most every 30 min; every action still hits the log
+PROBE_HOST="1.1.1.1"
+# only ever pause known agent/automation processes — never system or transport.
+# language_server + grok added 2026-08-10: Antigravity's language_server and the
+# grok desktop helper were the measured top uploaders (4.3 + 1.7 Mbps sustained).
+AGENT_RE='^(agy|codex|claude|node|python[0-9.]*|ollama|gemini|deno|bun|language_server|grok.*)\.'
 # never flag these even for alerts: their outbound IS the interactive session/transport
 EXCLUDE_RE='^(screensharingd|ScreensharingAgent|IPNExtension|Tailscale|tailscaled|sshd)'
 DRY_RUN="${1:-}"
@@ -38,20 +59,37 @@ screen_share_active() {
   lsof -n -a -i TCP -c screensharingd -c ScreensharingAgent 2>/dev/null | grep -q ESTABLISHED
 }
 
-# --- resume a previously paused flooder once screen share is gone ---
+# avg internet RTT in integer ms (9999 on total loss)
+net_rtt_ms() {
+  ping -c 3 -t 5 "$PROBE_HOST" 2>/dev/null | awk '
+    /round-trip/ { split($4, a, "/"); avg=a[2] }
+    END { printf "%d", (avg==""?9999:avg) }'
+}
+
+# --- resume a previously paused flooder ---
 if [[ -f "$STATE" ]]; then
-  read -r ppid pname < "$STATE"
+  read -r ppid pname pkind pdeadline < "$STATE" || true
+  pkind="${pkind:-share}"; pdeadline="${pdeadline:-0}"
+  now=$(date +%s)
   if ! kill -0 "$ppid" 2>/dev/null; then
     rm -f "$STATE"; log "paused pid $ppid ($pname) no longer exists; state cleared"
-  elif ! screen_share_active; then
-    cur=$(ps -o comm= -p "$ppid" 2>/dev/null | xargs basename 2>/dev/null)
-    if [[ "$cur" == "$pname" ]]; then
-      kill -CONT "$ppid" && log "screen share ended -> resumed $pname ($ppid)" \
-        && notify "Screen share ended — resumed paused agent $pname (pid $ppid)."
+  else
+    resume=""
+    if [[ "$pkind" == "chronic" ]]; then
+      (( now >= pdeadline )) && resume="chronic pause window (${CHRONIC_PAUSE_SECS}s) elapsed"
     else
-      log "pid $ppid reused by '$cur' (was $pname); not sending CONT"
+      screen_share_active || resume="screen share ended"
     fi
-    rm -f "$STATE"
+    if [[ -n "$resume" ]]; then
+      cur=$(ps -o comm= -p "$ppid" 2>/dev/null | xargs basename 2>/dev/null)
+      if [[ "$cur" == "$pname" ]]; then
+        kill -CONT "$ppid" && log "$resume -> resumed $pname ($ppid)"
+        [[ "$pkind" != "chronic" ]] && notify "Screen share ended — resumed paused agent $pname (pid $ppid)."
+      else
+        log "pid $ppid reused by '$cur' (was $pname); not sending CONT"
+      fi
+      rm -f "$STATE"
+    fi
   fi
   exit 0   # while something is paused (or just resumed), don't hunt for more
 fi
@@ -77,6 +115,7 @@ pid="${proc_pid##*.}"
 name="${proc_pid%.*}"
 
 if (( rate < BPS_THRESHOLD )) || (( ${retx:-0} < RETX_THRESHOLD )); then
+  rm -f "$CHRONIC_FILE"   # flood over (or never was) — reset the consecutive counter
   exit 0
 fi
 
@@ -120,15 +159,47 @@ if screen_share_active; then
   if [[ "$DRY_RUN" == "--dry-run" ]]; then
     log "DRY-RUN: would SIGSTOP $name ($pid)"
   else
-    kill -STOP "$pid" && echo "$pid $name" > "$STATE" \
+    kill -STOP "$pid" && echo "$pid $name share 0" > "$STATE" \
       && log "SIGSTOP $name ($pid) — screen share active" \
       && notify "Paused $name (pid $pid): it was saturating the uplink ($((rate/1024))KB/s, $retx re-tx) and freezing your screen share. It auto-resumes when you disconnect, or run: kill -CONT $pid"
   fi
+  exit 0
+fi
+
+# --- chronic mode: no screen share, but the flood is sustained and the link is
+# degraded for everyone (browsing, email). Count consecutive detections.
+now=$(date +%s)
+read -r cname ccount cts < "$CHRONIC_FILE" 2>/dev/null || { cname=""; ccount=0; cts=0; }
+if [[ "$cname" == "$name" ]] && (( now - cts <= CHRONIC_GAP_SECS )); then
+  ccount=$(( ccount + 1 ))
 else
-  # nobody is interactively suffering — let the agent work, just tell Igor once
-  now=$(date +%s); last=$(cat "$COOLDOWN_FILE" 2>/dev/null || echo 0)
-  if (( now - last > COOLDOWN_SECS )); then
-    echo "$now" > "$COOLDOWN_FILE"
-    notify "Heads-up: $name (pid $pid) is saturating the uplink ($((rate/1024))KB/s, $retx re-tx). No screen share active, so it was left running."
+  ccount=1
+fi
+echo "$name $ccount $now" > "$CHRONIC_FILE"
+
+if (( ccount < CHRONIC_RUNS )); then
+  log "chronic: $name flood streak $ccount/$CHRONIC_RUNS"
+  exit 0
+fi
+
+rtt=$(net_rtt_ms)
+if (( rtt < CHRONIC_RTT_MS )); then
+  log "chronic: $name streak $ccount but RTT ${rtt}ms < ${CHRONIC_RTT_MS}ms — link is coping, not pausing"
+  exit 0
+fi
+
+if [[ "$DRY_RUN" == "--dry-run" ]]; then
+  log "DRY-RUN: would chronic-SIGSTOP $name ($pid) for ${CHRONIC_PAUSE_SECS}s (streak=$ccount rtt=${rtt}ms)"
+  exit 0
+fi
+
+if kill -STOP "$pid"; then
+  echo "$pid $name chronic $(( now + CHRONIC_PAUSE_SECS ))" > "$STATE"
+  rm -f "$CHRONIC_FILE"
+  log "CHRONIC SIGSTOP $name ($pid) for ${CHRONIC_PAUSE_SECS}s — $((rate/1024))KB/s, retx=$retx, rtt=${rtt}ms, streak=$ccount"
+  last=$(cat "$CHRONIC_NOTIFY_FILE" 2>/dev/null || echo 0)
+  if (( now - last > CHRONIC_NOTIFY_COOLDOWN )); then
+    echo "$now" > "$CHRONIC_NOTIFY_FILE"
+    notify "Chronic uplink flood: paused $name (pid $pid) for ${CHRONIC_PAUSE_SECS}s — it held the uplink at $((rate/1024))KB/s with $retx re-tx while internet RTT was ${rtt}ms. Auto-resumes; resume now: kill -CONT $pid"
   fi
 fi
