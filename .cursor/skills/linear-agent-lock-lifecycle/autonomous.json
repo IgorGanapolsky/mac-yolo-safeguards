@@ -1,0 +1,65 @@
+{
+  "name": "linear-agent-lock-lifecycle",
+  "version": "1.0.0",
+  "trigger": "on issue pickup / abandon / close",
+  "steps": [
+    {
+      "step": 1,
+      "name": "sync-session",
+      "action": "run",
+      "cmd": "node tools/linear-agent-bridge.js --coord-status --json",
+      "expect_exit_code": 0,
+      "gate": "ghostCount for this agent's lane == 0 before claiming a new issue"
+    },
+    {
+      "step": 2,
+      "name": "claim",
+      "action": "run",
+      "cmd": "node tools/linear-agent-bridge.js --claim ID --agent <agent> --files a,b",
+      "expect_exit_code": 0,
+      "post": [
+        "issue moved to In Progress",
+        "agent-lock family labels applied (agent-lock, agent:<agent>, status:agent-working, lock:claimed)",
+        "vault Handoffs/linear-claims/YYYY-MM-DD_ID_AGENT.md written"
+      ]
+    },
+    {
+      "step": 3,
+      "name": "work",
+      "action": "work",
+      "rules": [
+        "append-only plan.md for megafiles",
+        "mirror file claims in AI-Agent-Sync Agent-State/<agent>.md",
+        "never leave mid-flight edit to a file another agent has claimed"
+      ]
+    },
+    {
+      "step": 4,
+      "name": "complete",
+      "action": "branch",
+      "choices": [
+        {
+          "case": "done",
+          "cmd": "node tools/linear-agent-bridge.js --done ID --agent <agent> --comment <sha|msg>",
+          "expect_exit_code": 0,
+          "post": [
+            "state -> Done",
+            "agent-lock family stripped (resolved by UUID, id matches /^[0-9a-f-]{36}$/i, never 'undefined')",
+            "same-day vault closeout note written with duration_m + prevention_note"
+          ]
+        },
+        {
+          "case": "release",
+          "cmd": "node tools/linear-agent-bridge.js --release ID --agent <agent>",
+          "expect_exit_code": 0,
+          "post": [
+            "agent-lock family stripped (resolved by UUID; full label-id regression check)",
+            "vault release note written (Handoffs/linear-claims/YYYY-MM-DD_ID_AGENT.md)",
+            "state unchanged (abandon/restart, not close)"
+          ]
+        }
+      ]
+    }
+  ],
+  "regression_test": "labelIdIsUuid — for lock-family labels, require id to match /^[0-9a-f-]{36}$/i; query shape issue(id: $id) { labels { nodes { id name } } } with $id: String!."
+}
