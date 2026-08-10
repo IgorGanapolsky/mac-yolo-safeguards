@@ -560,7 +560,7 @@ try {
       ...process.env,
       HERMES_YOLO_BACKEND: 'hermes',
       HERMES_BIN: slowInteractiveHermesPath,
-      HERMES_YOLO_TIMEOUT_MS: '30',
+      HERMES_YOLO_TIMEOUT_MS: '15000',
       HERMES_YOLO_LOCK_PATH: interactiveLockPath,
       HERMES_YOLO_RECEIPT_DIR: interactiveReceiptRoot,
       HERMES_YOLO_LEAN_CONTEXT: '0',
