@@ -11,6 +11,13 @@ export interface HermesCapabilities {
   models?: Array<string | { id?: string; name?: string; model?: string }>;
   features?: Record<string, boolean | string>;
   endpoints?: Record<string, { method: string; path: string }>;
+  /** Memory system status - local or sidecar. */
+  memory?: {
+    enabled?: boolean;
+    backend?: 'local' | 'sidecar' | 'hybrid';
+    /** Estimated RAM overhead in MB */
+    ram_estimate_mb?: number;
+  };
 }
 
 export interface HermesSkill {

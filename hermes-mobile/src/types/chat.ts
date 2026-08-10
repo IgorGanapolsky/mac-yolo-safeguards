@@ -48,6 +48,10 @@ export interface HermesMessage {
   outboundRetryEnvelope?: OutboundRetryEnvelope;
   isCollapsedToolActivity?: boolean;
   activities?: HermesMessage[];
+  /** Memory tags extracted from this message for local recall */
+  memoryTags?: string[];
+  /** Embedded context for faster recall (summary of key points) */
+  embeddedContext?: string;
 }
 
 export interface SessionListResponse {

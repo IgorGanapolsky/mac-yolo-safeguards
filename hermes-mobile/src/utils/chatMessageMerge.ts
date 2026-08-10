@@ -9,6 +9,7 @@ import {
   isSilentAssistantCompletion,
   preferRicherAssistantText,
 } from './streamAssistantText';
+import type { MemoryCategory, ChatMemoryEntry } from '../services/chatMemory';
 
 /** Normalize text so optimistic phone bubbles match gateway transcript formatting. */
 export function normalizeMessageText(text: string): string {
@@ -665,4 +666,60 @@ export function transcriptDigest(messages: HermesMessage[]): string {
       return `${id}:${message.role}:${len}:${truncated}`;
     })
     .join('|');
+}
+
+/**
+ * Extract memory from a message and store it for future recall.
+ * This is called after a message is successfully persisted to the gateway.
+ */
+export async function extractAndStoreMemoryFromMessage(
+  message: HermesMessage,
+): Promise<ChatMemoryEntry | null> {
+  // Skip system/assistant messages; only user messages are worth remembering
+  if (message.role?.toLowerCase() !== 'user') {
+    return null;
+  }
+
+  // Skip deferred placeholders and empty content
+  if (isDeferredStreamPlaceholder(message.content) || isMessageBodyEmpty(message.content)) {
+    return null;
+  }
+
+  // Use require to avoid circular dependency (works in both Jest and Node)
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const chatMemory = require('../services/chatMemory') as typeof import('../services/chatMemory');
+
+  const entry = await chatMemory.extractMemoryFromMessage(message, {
+    skipCategories: ['correction'], // Let corrections be explicit
+  });
+
+  if (!entry) {
+    return null;
+  }
+
+  await chatMemory.storeMemory(entry);
+  return entry;
+}
+
+/**
+ * Build memory context from recent messages for context-aware prompting.
+ * Returns the injected context string and any memories found.
+ */
+export async function buildMemoryContextFromMessages(
+  messages: HermesMessage[],
+  options?: {
+    maxMemories?: number;
+    includeCategories?: MemoryCategory[];
+  },
+): Promise<string> {
+  // Use require to avoid circular dependency (works in both Jest and Node)
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const chatMemory = require('../services/chatMemory') as typeof import('../services/chatMemory');
+
+  const { injectedContext, memories } = await chatMemory.buildMemoryPromptContext(messages, options);
+
+  // Update messages with memory tags for future reference
+  // This is done lazily - memory is extracted when messages are finalized
+
+  return injectedContext;
 }
