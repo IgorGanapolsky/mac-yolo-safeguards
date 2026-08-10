@@ -130,6 +130,22 @@ A genuinely good move here is to make your beat the *inverse* of the morning's r
 merely a different topic — e.g. AM ran "nobody was watching," PM ran "someone was watching
 and still missed it." Same territory, opposite claim, no cannibalization.
 
+### Is your slot already filled?
+
+Scheduled runs fire late, retry, and sometimes double-fire. Before drafting, check whether a
+run for **your own slot** already exists today — again including unmerged PRs, since content
+PRs sit open for a while.
+
+If one does, your slot is consumed. Do not draft a second beat for it. Say so, and spend the
+run on what the existing one couldn't do: verify its claims, answer comments, or re-check the
+blockers it recorded. If those blockers are unchanged, note that and stop rather than
+re-enumerating them a third time.
+
+This check is what separates a useful run from an expensive one. Four consecutive runs
+re-derived the same empty Zapier connections; the fourth added nothing the third hadn't
+already written down. Repeating a verification that nobody has acted on is not diligence,
+it is burning budget to produce a duplicate.
+
 ## Then, and only then
 
 Draft. Anything you assert in the copy still needs its own live verification, and anything
