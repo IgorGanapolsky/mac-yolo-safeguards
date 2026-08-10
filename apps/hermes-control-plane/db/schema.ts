@@ -233,3 +233,24 @@ export const funnelAttributionCounters = sqliteTable("funnel_attribution_counter
     ],
   }),
 ]);
+
+// Agent lessons — the capture_feedback / recall store. Lives in D1 rather than
+// ~/.thumbgate on the Mac so unattended cloud runs, which are the ones nobody is
+// watching, can actually record what went wrong.
+export const agentLessons = sqliteTable("agent_lessons", {
+  id: text("id").primaryKey(),
+  organizationId: text("organization_id").notNull(),
+  deviceId: text("device_id"),
+  agentId: text("agent_id").notNull(),
+  kind: text("kind").notNull(),
+  severity: text("severity").notNull().default("info"),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  rule: text("rule"),
+  source: text("source").notNull().default("agent"),
+  sessionRef: text("session_ref"),
+  fingerprint: text("fingerprint").notNull(),
+  occurrences: integer("occurrences").notNull().default(1),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
