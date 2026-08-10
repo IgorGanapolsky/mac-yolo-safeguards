@@ -9,8 +9,10 @@ Dated entries from the autonomous OSS-engagement routine (Thinking Machines Lab 
 Igor's live directive this run: engage https://github.com/1jehuang/jcode (16.8k★ Rust agent
 harness) — "open PRs, solve issues, answer questions, promote us." Also: the 2026-08-06 entry
 (LanceDB #3759 fix) never merged — its PR #1513 was closed per backlog policy; that fix remains
-live at `igorganapolsky/lancedb@fix/blob-coerce-null-column`, and a relay session
-(`cse_01SJca4WbW1AtQZmPP8uSQnx`) holding its upstream-PR step is parked pending approval.
+live at `igorganapolsky/lancedb@fix/blob-coerce-null-column`. The relay session
+(`cse_01SJca4WbW1AtQZmPP8uSQnx`) that held its upstream-PR step was garbage-collected
+unapproved — the parked fork branch is now the sole artifact; do not rebuild relay machinery
+for it (anti-babysitting: a relay whose only output is an unseen approval prompt is not a park).
 
 ### Key structural finding
 
