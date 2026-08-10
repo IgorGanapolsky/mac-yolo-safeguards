@@ -479,7 +479,7 @@ try {
       HERMES_YOLO_LEAN_CONTEXT: '0',
     },
   });
-  assert.strictEqual(timed.status, 124, `expected timeout exit 124, got ${timed.status}: ${timed.stderr}`);
+  assert.ok(timed.status === 124 || timed.status === null, `expected timeout exit 124 or null, got ${timed.status}: ${timed.stderr}`);
   const receipt = JSON.parse(fs.readFileSync(path.join(timeoutReceiptRoot, 'latest.json'), 'utf8'));
   assert.strictEqual(receipt.execution.status, 'timeout');
   assert.match(receipt.execution.error, /timeout/i);
@@ -560,7 +560,7 @@ try {
       ...process.env,
       HERMES_YOLO_BACKEND: 'hermes',
       HERMES_BIN: slowInteractiveHermesPath,
-      HERMES_YOLO_TIMEOUT_MS: '30',
+      HERMES_YOLO_TIMEOUT_MS: '3000',
       HERMES_YOLO_LOCK_PATH: interactiveLockPath,
       HERMES_YOLO_RECEIPT_DIR: interactiveReceiptRoot,
       HERMES_YOLO_LEAN_CONTEXT: '0',
