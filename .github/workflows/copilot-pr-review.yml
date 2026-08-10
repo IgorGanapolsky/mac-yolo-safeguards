@@ -1,0 +1,41 @@
+name: Copilot PR review
+
+# High-ROI / Aug 2026: every PR is auto-requested for a Copilot code review at
+# ready-for-review, so review cycles are cut without anyone typing `@copilot review`.
+# Mirrors pr-hygiene.yml conventions (gh CLI, no checkout, per-PR concurrency).
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+concurrency:
+  group: copilot-pr-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  request-copilot-review:
+    name: Request Copilot code review
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comment @copilot review (deduped)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          # Draft PRs are not ready for review; skip silently.
+          if gh pr view "$PR" --repo "$REPO" --json isDraft --jq '.isDraft' | grep -q true; then
+            echo "draft PR #$PR — skipping Copilot review request"; exit 0
+          fi
+          # Avoid duplicate review requests: if any existing comment already asked
+          # Copilot to review this PR, do not post again (prevents double-posting).
+          EXISTING=$(gh api "repos/$REPO/issues/$PR/comments" --jq '.[].body // ""' 2>/dev/null || true)
+          if printf '%s\n' "$EXISTING" | grep -qi '@copilot review'; then
+            echo "Copilot review already requested on PR #$PR"; exit 0
+          fi
+          gh pr comment "$PR" --repo "$REPO" --body "@copilot review"
+          echo "requested Copilot code review on PR #$PR"
