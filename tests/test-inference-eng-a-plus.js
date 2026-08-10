@@ -183,4 +183,30 @@ assert.ok(dual.grokN >= 1, `expected grok receipts, grokN=${dual.grokN}`);
 assert.ok(dual.metrics.some((m) => /grok/i.test(m.model)), 'merged metrics should include grok');
 console.log(`  fleet dual-source merge grokN=${dual.grokN} droppedDead=${dual.droppedDeadN}: PASS`);
 
+// Baseten-inspired model library + overview
+const { listRoutes, pickRoute, techniqueChecklist } = require('../tools/inference-eng/model-library');
+const routes = listRoutes();
+assert.ok(routes.length >= 5);
+assert.ok(routes.every((r) => r.basetenAnalog && r.slaClass && r.tier));
+const pick = pickRoute({
+  taskText: 'fix login',
+  env: { HERMES_YOLO_BACKEND: 'grok', HERMES_PREFER_SUPERGROK: '1' },
+});
+assert.strictEqual(pick.route.model, 'grok-4.5');
+const tech = techniqueChecklist();
+assert.ok(tech.length >= 6);
+assert.ok(tech.filter((t) => t.owned === true).length >= 4);
+console.log('  model-library: PASS');
+
+const { buildOverview } = require('../tools/inference-eng/overview');
+const ov = buildOverview({
+  env: { HERMES_YOLO_BACKEND: 'grok', HERMES_YOLO_FORCE_GROK: '1' },
+  windowHours: 6,
+});
+assert.strictEqual(ov.schema, 'hermes-inference-platform/overview-v1');
+assert.ok(ov.surfaces.designScorecard);
+assert.ok(ov.recommendedCodingRoute);
+assert.ok(Array.isArray(ov.basetenInspiration) && ov.basetenInspiration.length >= 4);
+console.log(`  overview platformAPlus=${ov.platformAPlus}: PASS`);
+
 console.log('\n=== inference-eng A+ suite: ALL PASS ===');
