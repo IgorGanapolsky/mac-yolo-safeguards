@@ -32,6 +32,26 @@ const HERMES_YOLO_LATEST_RECEIPT_PATH = process.env.HERMES_YOLO_LATEST_RECEIPT_P
 const HERMES_YOLO_HISTORY_RECEIPT_PATH = process.env.HERMES_YOLO_HISTORY_RECEIPT_PATH || path.join(HERMES_YOLO_RECEIPT_DIR, 'history.jsonl');
 // All thresholds overridable via env vars.
 const HERMES_BIN = process.env.HERMES_BIN || path.join(HOME, '.local/bin/hermes');
+const REQUIRED_TOOLSETS = Object.freeze(['skills', 'context7']);
+
+function normalizeToolsets(value) {
+  const configured = String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return [...new Set([...configured, ...REQUIRED_TOOLSETS])].join(',');
+}
+
+function ensureRequiredToolsetsInArgs(argv) {
+  const out = Array.isArray(argv) ? [...argv] : [];
+  for (let index = 0; index < out.length; index += 1) {
+    if (out[index] === '--toolsets' && out[index + 1]) {
+      out[index + 1] = normalizeToolsets(out[index + 1]);
+    }
+  }
+  return out;
+}
+
 // Slim default (2026-08 harness research): computer_use + vision spawn Chrome and thrash
 // 24GB multi-agent Macs. Opt in via HERMES_YOLO_TOOLSETS=...computer_use,vision
 // Progressive disclosure (Google Agent Skills): vision/computer_use also auto-add from task text
@@ -513,7 +533,7 @@ const EXTRA_ARGS = process.env.HERMES_YOLO_NO_DEFAULT_ARGS
   ? []
   : ['--provider', DEFAULT_PROVIDER, '--model', DEFAULT_MODEL, '--yolo', '--accept-hooks', '--toolsets', DEFAULT_TOOLSETS];
 
-const TIMEOUT_MS = parseInt(process.env.HERMES_YOLO_TIMEOUT_MS || (120 * 60 * 1000), 10);
+const TIMEOUT_MS = resolveTimeoutMs(process.env);
 const CPU_SAMPLE_INTERVAL_MS = parseInt(process.env.HERMES_YOLO_CPU_SAMPLE_MS || 30000, 10);
 const CPU_THRESHOLD = parseFloat(process.env.HERMES_YOLO_CPU_THRESHOLD || 90);
 const CPU_STUCK_SAMPLES = parseInt(process.env.HERMES_YOLO_CPU_STUCK_SAMPLES || 0, 10);
@@ -728,7 +748,7 @@ function isGrokBackendReady(env = process.env, dependencies = {}) {
     const result = runner(bin, ['--doctor', '--json'], {
       encoding: 'utf8',
       env,
-      timeout: Number(env.HERMES_YOLO_GROK_DOCTOR_TIMEOUT_MS || 15000),
+      timeout: positiveInteger(env.HERMES_YOLO_GROK_DOCTOR_TIMEOUT_MS, 5_000),
     });
     if (result.error || result.status !== 0) return false;
     const doctor = JSON.parse(result.stdout || '{}');
@@ -774,29 +794,96 @@ function shouldUseGrokBackend(rawArgs, env = process.env, dependencies = {}) {
 }
 
 function buildGrokBackendArgs(rawArgs, options = {}) {
+  const env = options.env || process.env;
   const isTty = options.isTty !== undefined ? options.isTty : Boolean(process.stdin.isTTY && process.stdout.isTTY);
+  const interactiveControls = [
+    '--reasoning-effort', resolveGrokReasoningEffort(rawArgs, env),
+    '--rules', DIRECT_RESPONSE_RULES,
+  ];
   if (rawArgs.length === 0) {
-    return isTty ? [] : ['-p', DEFAULT_READY_PROMPT, '--output-format', 'plain'];
+    if (isTty) return interactiveControls;
+    return buildGrokHeadlessArgs(DEFAULT_READY_PROMPT, rawArgs, env);
   }
   if (rawArgs[0] === '-z' || rawArgs[0] === '--single') {
     const prompt = rawArgs.slice(1).join(' ').trim() || DEFAULT_READY_PROMPT;
-    return ['-p', prompt, '--output-format', 'plain'];
+    return buildGrokHeadlessArgs(prompt, rawArgs, env);
   }
   if (!rawArgs[0].startsWith('-')) {
-    return ['-p', rawArgs.join(' '), '--output-format', 'plain'];
+    return buildGrokHeadlessArgs(rawArgs.join(' '), rawArgs, env);
   }
   return rawArgs;
 }
 
+function buildGrokBackendEnv(env = process.env) {
+  const childEnv = { ...env };
+  // One-shot Grok runs were spending seconds initializing unrelated Claude and
+  // Cursor MCP registries, then printing OAuth failures before the answer. Keep
+  // Grok's built-in tools and project-native MCPs; compatibility fan-out remains
+  // an explicit opt-in for tasks that genuinely need it.
+  if (String(env.HERMES_YOLO_GROK_COMPAT_MCP || '0') !== '1') {
+    childEnv.GROK_CLAUDE_MCPS_ENABLED = 'false';
+    childEnv.GROK_CURSOR_MCPS_ENABLED = 'false';
+  }
+  return childEnv;
+}
+
+function grokTaskIsComplex(rawArgs) {
+  const task = extractTaskText(rawArgs).toLowerCase();
+  return /\b(fix|implement|debug|build|test|refactor|audit|migrate|deploy|integrate|review|investigate)\b/.test(task);
+}
+
+function resolveGrokReasoningEffort(rawArgs, env = process.env) {
+  if (env.HERMES_YOLO_GROK_REASONING) return String(env.HERMES_YOLO_GROK_REASONING);
+  return grokTaskIsComplex(rawArgs) ? 'medium' : 'low';
+}
+
+function resolveGrokMaxTurns(rawArgs, env = process.env) {
+  const fallback = grokTaskIsComplex(rawArgs) ? 12 : 6;
+  return positiveInteger(env.HERMES_YOLO_GROK_MAX_TURNS, fallback);
+}
+
+function grokTaskNeedsMcp(rawArgs, env = process.env) {
+  if (String(env.HERMES_YOLO_GROK_MCP || '0') === '1') return true;
+  const task = extractTaskText(rawArgs).toLowerCase();
+  return /\b(mcp|model context protocol|context7|semrush)\b/.test(task);
+}
+
+function buildGrokHeadlessArgs(prompt, rawArgs, env) {
+  return [
+    '-p', prompt,
+    '--output-format', 'plain',
+    '--no-subagents',
+    '--no-memory',
+    '--max-turns', String(resolveGrokMaxTurns(rawArgs, env)),
+    '--reasoning-effort', resolveGrokReasoningEffort(rawArgs, env),
+    ...(grokTaskNeedsMcp(rawArgs, env)
+      ? []
+      : ['--disallowed-tools', 'search_tool,use_tool']),
+    '--rules', DIRECT_RESPONSE_RULES,
+  ];
+}
+
 function routeStatus(env = process.env, dependencies = {}) {
-  const grokYoloBin = findGrokYoloBinary(env);
+  const grokYoloBin = Object.prototype.hasOwnProperty.call(dependencies, 'grokYoloBin')
+    ? dependencies.grokYoloBin
+    : findGrokYoloBinary(env);
   const hermesBin = env.HERMES_BIN || HERMES_BIN;
   const hermesReady = fs.existsSync(hermesBin);
+  const requestedMode = env.HERMES_YOLO_FORCE_HERMES === '1'
+    ? 'hermes'
+    : env.HERMES_YOLO_FORCE_GROK === '1'
+      ? 'grok'
+      : String(env.HERMES_YOLO_BACKEND || 'auto').trim().toLowerCase();
+  const routingMode = requestedMode === 'hermes'
+    ? 'explicit-hermes'
+    : requestedMode === 'grok'
+      ? 'explicit-grok'
+      : 'auto-supergrok-preferred';
   const base = {
     schema: 'hermes-yolo/route-status-v1',
     generatedAt: new Date().toISOString(),
     // Prefer SuperGrok when doctor-ready; hermes-legacy is fallback only.
-    routingMode: 'auto-supergrok-preferred',
+    routingMode,
     defaultPromptBackend: 'auto',
     silentFallbackAllowed: false,
     grokLauncher: grokYoloBin ? path.basename(grokYoloBin) : null,
@@ -805,39 +892,49 @@ function routeStatus(env = process.env, dependencies = {}) {
     legacyModel: DEFAULT_MODEL,
     receiptSchema: 'hermes-yolo/route-receipt-v1',
   };
-  if (!hermesReady) return { ...base, ready: false, blocker: 'hermes_not_installed' };
+  if (!['auto', 'grok', 'hermes'].includes(requestedMode)) {
+    return { ...base, ready: false, blocker: 'unsupported_backend_mode' };
+  }
+  if (!hermesReady && requestedMode === 'hermes') {
+    return { ...base, ready: false, blocker: 'hermes_not_installed', defaultPromptBackend: 'hermes-legacy' };
+  }
   if (!grokYoloBin) {
+    const wantsGrok = requestedMode === 'grok';
     return {
       ...base,
-      ready: true,
-      blocker: null,
+      ready: wantsGrok ? false : hermesReady,
+      blocker: wantsGrok ? 'grok_yolo_not_installed' : hermesReady ? null : 'hermes_not_installed',
       grokReady: false,
       grokBlocker: 'grok_yolo_not_installed',
-      defaultPromptBackend: 'hermes-legacy',
+      defaultPromptBackend: wantsGrok ? 'grok-4.5' : 'hermes-legacy',
     };
   }
   const runner = dependencies.runner || require('child_process').spawnSync;
-  const result = runner(grokYoloBin, ['--doctor', '--json'], { encoding: 'utf8', env });
+  const result = runner(grokYoloBin, ['--doctor', '--json'], {
+    encoding: 'utf8',
+    env,
+    timeout: positiveInteger(env.HERMES_YOLO_GROK_DOCTOR_TIMEOUT_MS, 5_000),
+  });
   if (result.error) {
     return {
       ...base,
-      ready: true,
-      blocker: null,
+      ready: requestedMode === 'grok' ? false : hermesReady,
+      blocker: requestedMode === 'grok' ? 'grok_doctor_failed_to_start' : hermesReady ? null : 'hermes_not_installed',
       grokReady: false,
       grokBlocker: 'grok_doctor_failed_to_start',
       grokError: safeError(result.error.message),
-      defaultPromptBackend: 'hermes-legacy',
+      defaultPromptBackend: requestedMode === 'grok' ? 'grok-4.5' : 'hermes-legacy',
     };
   }
   if (result.status !== 0) {
     return {
       ...base,
-      ready: true,
-      blocker: null,
+      ready: requestedMode === 'grok' ? false : hermesReady,
+      blocker: requestedMode === 'grok' ? 'grok_doctor_failed' : hermesReady ? null : 'hermes_not_installed',
       grokReady: false,
       grokBlocker: 'grok_doctor_failed',
       grokExitCode: result.status,
-      defaultPromptBackend: 'hermes-legacy',
+      defaultPromptBackend: requestedMode === 'grok' ? 'grok-4.5' : 'hermes-legacy',
     };
   }
   try {
@@ -845,10 +942,22 @@ function routeStatus(env = process.env, dependencies = {}) {
     const grokReady = Boolean(doctor.ready)
       && doctor.modelAvailable !== false
       && doctor.authenticated !== false;
+    const selectedBackend = requestedMode === 'hermes'
+      ? 'hermes-legacy'
+      : requestedMode === 'grok'
+        ? 'grok-4.5'
+        : grokReady
+          ? 'grok-4.5'
+          : 'hermes-legacy';
+    const selectedReady = selectedBackend === 'grok-4.5' ? grokReady : hermesReady;
     return {
       ...base,
-      ready: true,
-      blocker: null,
+      ready: selectedReady,
+      blocker: selectedReady
+        ? null
+        : selectedBackend === 'grok-4.5'
+          ? doctor.blocker || 'grok_not_ready'
+          : 'hermes_not_installed',
       grokReady,
       grokBlocker: doctor.blocker || null,
       version: doctor.version || null,
@@ -858,17 +967,17 @@ function routeStatus(env = process.env, dependencies = {}) {
       authMode: doctor.authMode || 'none',
       billingMode: doctor.billingMode || 'unknown',
       apiBillingActivatedByWrapper: Boolean(doctor.apiBillingActivatedByWrapper),
-      defaultPromptBackend: grokReady ? 'grok-4.5' : 'hermes-legacy',
+      defaultPromptBackend: selectedBackend,
     };
   } catch (error) {
     return {
       ...base,
-      ready: true,
-      blocker: null,
+      ready: requestedMode === 'grok' ? false : hermesReady,
+      blocker: requestedMode === 'grok' ? 'grok_doctor_invalid_json' : hermesReady ? null : 'hermes_not_installed',
       grokReady: false,
       grokBlocker: 'grok_doctor_invalid_json',
       grokError: safeError(error.message),
-      defaultPromptBackend: 'hermes-legacy',
+      defaultPromptBackend: requestedMode === 'grok' ? 'grok-4.5' : 'hermes-legacy',
     };
   }
 }
@@ -919,20 +1028,27 @@ function runGrokBackend(rawArgs, env = process.env, dependencies = {}) {
     ? { enabled: true, ...lean.packSummary, toolsets: lean.toolsets }
     : { enabled: lean.enabled, toolsets: lean.toolsets, error: lean.error || null };
   if (result.error) {
+    const timedOut = result.error.code === 'ETIMEDOUT'
+      || result.error.errno === 'ETIMEDOUT'
+      || /timed?\s*out/i.test(String(result.error.message || ''));
+    const exitCode = timedOut ? 124 : 127;
+    const error = timedOut
+      ? `Grok backend timeout after ${resolveGrokTimeoutMs(env)}ms`
+      : result.error.message;
     writeRouteReceipt(buildRouteReceipt({
       rawArgs,
       ...classification,
       launcher: grokYoloBin,
       model: 'grok-4.5',
-      status: 'fail',
-      exitCode: 127,
+      status: timedOut ? 'timeout' : 'fail',
+      exitCode,
       durationMs: Date.now() - started,
       error: result.error.message,
       toolsets: lean.toolsets,
       leanContext: leanMeta,
     }));
-    console.error(`[hermes-yolo] Grok 4.5 backend failed to start: ${result.error.message}`);
-    process.exit(127);
+    console.error(`[hermes-yolo] ${timedOut ? error : `Grok 4.5 backend failed to start: ${result.error.message}`}`);
+    process.exit(exitCode);
   }
   const exitCode = result.status === null ? 1 : result.status;
   writeRouteReceipt(buildRouteReceipt({
@@ -1351,6 +1467,7 @@ console.error(
 // Independent liveness heartbeats for one-shot runs (model may be silent for minutes)
 const HEARTBEAT_MS = parseInt(process.env.HERMES_YOLO_HEARTBEAT_MS || '15000', 10);
 const progressEnabled = process.env.HERMES_YOLO_PROGRESS !== '0';
+const legacyOneShot = isLegacyOneShot(effectiveChildPromptArgs);
 let heartbeatHandle = null;
 if (progressEnabled && !wrapperPromptMode && effectiveChildPromptArgs[0] === '-z') {
   const t0 = Date.now();
@@ -1379,10 +1496,14 @@ updateStatus(data => {
   data.termHistory.push(`[Hermes YOLO Wrapper] Spawned ${HERMES_BIN} ${hermesExtraArgs.join(' ')}`);
 });
 
-// Run with HERMES_YOLO=1 and HERMES_ACCEPT_HOOKS=1 env set.
+// Keep wrapper answers direct and truthful without rewriting the user's global
+// Hermes persona. Hermes treats this ephemeral value as the per-process system
+// prompt, so other launchers and existing interactive sessions are unaffected.
 const env = Object.assign({}, ROUTE_ENV, {
   HERMES_YOLO: '1',
-  HERMES_ACCEPT_HOOKS: '1'
+  HERMES_ACCEPT_HOOKS: '1',
+  HERMES_EPHEMERAL_SYSTEM_PROMPT:
+    ROUTE_ENV.HERMES_EPHEMERAL_SYSTEM_PROMPT || DIRECT_RESPONSE_RULES,
 });
 
 const childStdio = 'inherit';  // interactive chat needs stdin (keyboard), not just stdout/stderr
@@ -1395,7 +1516,8 @@ const child = spawn(HERMES_BIN, [...hermesExtraArgs, ...effectiveChildPromptArgs
   stdio: childStdio,
   env,
   detached: detachOneshot,
-});
+  },
+);
 log(`SPAWNED childPid=${child.pid} runId=${runId}`);
 
 child.on('error', (err) => {
@@ -1483,10 +1605,10 @@ function getAggregateCpu(pids) {
 
 // Hard timeout
 // No hard timeout in interactive chat — a human session isn't a stuck task and must not be killed.
-const timeoutHandle = wrapperPromptMode ? null : setTimeout(
+const timeoutHandle = legacyOneShot ? setTimeout(
   () => killChild(`hard timeout (${TIMEOUT_MS}ms)`),
   TIMEOUT_MS
-);
+) : null;
 
 // Stuck-loop watchdog with descendant support. Disabled by default because
 // sustained high CPU is expected while local Ollama models are actively working.
@@ -1607,6 +1729,8 @@ module.exports = {
   mergedHermesEnv,
   parseEnvFile,
   buildGrokBackendArgs,
+  buildGrokBackendEnv,
+  buildGrokSpawnOptions,
   findGrokYoloBinary,
   shouldUseGrokBackend,
   classifyBackend,
@@ -1629,8 +1753,13 @@ module.exports = {
   prepareLeanContextForTask,
   buildHermesExtraArgs,
   MODEL_CAPABILITY_REGISTRY,
+  DIRECT_RESPONSE_RULES,
+  REQUIRED_TOOLSETS,
   DEFAULT_TOOLSETS,
   HERMES_COMMANDS,
-  DEFAULT_READY_PROMPT
+  DEFAULT_READY_PROMPT,
+  checkAndHealSelfHealingHarness,
+  detectAndHealStreamStall,
+  MAX_COMPRESSIONS_CEILING,
 };
 }

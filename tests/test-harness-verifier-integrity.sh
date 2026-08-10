@@ -74,8 +74,8 @@ import sys
 p = sys.argv[1]; s = open(p).read()
 for a, b in (('YOLO_MODE="${POOLSIDE_YOLO_MODE:-always-allow}"',
               'YOLO_MODE="${POOLSIDE_YOLO_MODE:-allow-all}"'),
-             ('KNOWN_MODES="default accept-edits plan always-allow"',
-              'KNOWN_MODES="default accept-edits plan allow-all"')):
+             ('KNOWN_MODES="default accept-edits always-allow"',
+              'KNOWN_MODES="default accept-edits allow-all"')):
     assert a in s, f"mutation anchor not found: {a}"
     s = s.replace(a, b, 1)
 open(p, "w").write(s)
