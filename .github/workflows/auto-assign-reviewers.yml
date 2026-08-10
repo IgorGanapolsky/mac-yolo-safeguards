@@ -49,24 +49,30 @@ jobs:
               }
             }
             
-            const reviewerArray = [...recommendedReviewers].slice(0, 2); // Max 2 reviewers
-            
-            if (reviewerArray.length > 0) {
+            // GitHub rejects a review request naming the PR author (422),
+            // so the author must never appear in the final list.
+            const author = context.payload.pull_request.user.login.toLowerCase();
+            const reviewerArray = ([...recommendedReviewers].slice(0, 2).length > 0
+              ? [...recommendedReviewers].slice(0, 2)
+              : ['igorganapolsky'])
+              .map(r => r.replace('@', ''))
+              .filter(r => r.toLowerCase() !== author);
+
+            if (reviewerArray.length === 0) {
+              console.log(`No assignable reviewers (author ${author} excluded) — skipping`);
+              return;
+            }
+
+            try {
               await github.rest.pulls.requestReviewers({
                 owner,
                 repo,
                 pull_number: context.payload.pull_request.number,
-                reviewers: reviewerArray.map(r => r.replace('@', ''))
+                reviewers: reviewerArray
               });
-              
-              console.log(`Recommended reviewers: ${reviewerArray.join(', ')}`);
-            } else {
-              // Default reviewer
-              await github.rest.pulls.requestReviewers({
-                owner,
-                repo,
-                pull_number: context.payload.pull_request.number,
-                reviewers: ['igorganapolsky']
-              });
-              console.log('Using default reviewer');
+              console.log(`Requested reviewers: ${reviewerArray.join(', ')}`);
+            } catch (e) {
+              // Reviewer assignment is best-effort advisory metadata; a 422
+              // (non-collaborator or otherwise unassignable) must not fail CI.
+              core.warning(`Could not request reviewers [${reviewerArray.join(', ')}]: ${e.message}`);
             }
