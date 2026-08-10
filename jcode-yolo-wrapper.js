@@ -66,10 +66,11 @@ function classifyJcodeProvider(env = process.env) {
 /**
  * 3. Build Arguments for jcode execution
  */
-function buildJcodeChildArgs(rawArgs = []) {
+function buildJcodeChildArgs(rawArgs = [], providerInfo = { provider: 'openai' }) {
   const args = [...rawArgs];
-  if (!args.includes('--yolo') && !args.includes('-y')) {
-    args.unshift('--yolo');
+  const hasProviderFlag = args.some((a) => a === '-p' || a === '--provider' || a.startsWith('--provider='));
+  if (!hasProviderFlag) {
+    args.unshift('-p', providerInfo.provider);
   }
   return args;
 }

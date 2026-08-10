@@ -13,9 +13,8 @@ const {
 console.log('=== Testing jcode-yolo-wrapper Unit Suite ===');
 
 // 1. Test buildJcodeChildArgs
-assert.deepStrictEqual(buildJcodeChildArgs([]), ['--yolo']);
-assert.deepStrictEqual(buildJcodeChildArgs(['run', 'task']), ['--yolo', 'run', 'task']);
-assert.deepStrictEqual(buildJcodeChildArgs(['--yolo', 'task']), ['--yolo', 'task']);
+assert.deepStrictEqual(buildJcodeChildArgs([]), ['-p', 'openai']);
+assert.deepStrictEqual(buildJcodeChildArgs(['run', 'task']), ['-p', 'openai', 'run', 'task']);
 
 // 2. Test classifyJcodeProvider fallback
 assert.strictEqual(classifyJcodeProvider({}).provider, 'openai');
