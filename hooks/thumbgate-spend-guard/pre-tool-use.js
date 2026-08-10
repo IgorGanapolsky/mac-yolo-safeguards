@@ -77,6 +77,17 @@ function evaluateSpend(toolName, toolInput) {
   const name = String(toolName || '');
   const text = flatten(toolInput);
 
+  // P0 Defect Fix: satisfy_gate, approve_protected_action, and gate management tools must be exempt
+  if (/(?:satisfy_gate|approve_protected_action|gate_check|mcp__thumbgate__satisfy_gate)/i.test(name)) {
+    return { decision: 'allow' };
+  }
+
+  // P0 Defect Fix: git checkout / git switch / git commit developer commands must never trigger checkout/switch payment gates
+  const isGitCheckoutOrSwitch = /\bgit\s+(?:checkout|switch|commit)\b/i.test(text);
+  if (isGitCheckoutOrSwitch && !FINANCIAL_OBJECT.test(text)) {
+    return { decision: 'allow' };
+  }
+
   for (const rule of DIRECT_TOOL_RULES) {
     if (rule.re.test(name)) return { decision: 'deny', ruleId: rule.id, reason: DENY_REASON };
   }
