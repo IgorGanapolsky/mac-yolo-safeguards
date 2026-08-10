@@ -862,27 +862,16 @@ function isGrokBackendReady(env = process.env, dependencies = {}) {
 }
 
 function classifyBackend(rawArgs, env = process.env, dependencies = {}) {
-  const hasExplicitBackend = Boolean(env.HERMES_YOLO_BACKEND);
   const backend = String(env.HERMES_YOLO_BACKEND || 'hermes').trim().toLowerCase();
   if (!['grok', 'auto', 'hermes'].includes(backend)) {
     throw new Error(`Unsupported HERMES_YOLO_BACKEND=${backend}; expected grok, auto, or hermes`);
   }
-  if (backend === 'hermes' || backend === 'auto') {
-    return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: hasExplicitBackend ? 'explicit-hermes-backend' : 'default-hermes-backend' };
+  const hasGrokArg = rawArgs.some((a) => a === '--backend=grok' || a === 'grok');
+  const forceGrok = env.HERMES_YOLO_FORCE_GROK === '1' || env.HERMES_YOLO_BACKEND === 'grok' || hasGrokArg;
+  if (forceGrok) {
+    return { requestedBackend: 'grok', selectedBackend: 'grok-4.5', reason: 'explicit-grok-backend' };
   }
-  if (rawArgs.length > 0 && ['--version', '-V', '--help', '-h'].includes(rawArgs[0])) {
-    return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'hermes-flag-command' };
-  }
-  if (rawArgs.length > 0 && ['--provider', '--model', '--toolsets'].includes(rawArgs[0])) {
-    return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'hermes-flag-command' };
-  }
-  if (rawArgs.length > 0 && HERMES_COMMANDS.has(rawArgs[0])) {
-    return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'hermes-admin-command' };
-  }
-  if (backend === 'grok') {
-    return { requestedBackend: backend, selectedBackend: 'grok-4.5', reason: 'explicit-grok-backend' };
-  }
-  return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'default-hermes-backend' };
+  return { requestedBackend: 'hermes', selectedBackend: 'hermes-legacy', reason: 'default-hermes-backend' };
 }
 
 function shouldUseGrokBackend(rawArgs, env = process.env, dependencies = {}) {
@@ -969,7 +958,7 @@ function routeStatus(env = process.env, dependencies = {}) {
     ? 'hermes'
     : env.HERMES_YOLO_FORCE_GROK === '1'
       ? 'grok'
-      : String(env.HERMES_YOLO_BACKEND || 'auto').trim().toLowerCase();
+      : String(env.HERMES_YOLO_BACKEND || 'hermes').trim().toLowerCase();
   const routingMode = requestedMode === 'hermes'
     ? 'explicit-hermes'
     : requestedMode === 'grok'
@@ -1038,13 +1027,9 @@ function routeStatus(env = process.env, dependencies = {}) {
     const grokReady = Boolean(doctor.ready)
       && doctor.modelAvailable !== false
       && doctor.authenticated !== false;
-    const selectedBackend = requestedMode === 'hermes'
-      ? 'hermes-legacy'
-      : requestedMode === 'grok'
-        ? 'grok-4.5'
-        : grokReady
-          ? 'grok-4.5'
-          : 'hermes-legacy';
+    const selectedBackend = requestedMode === 'grok'
+      ? 'grok-4.5'
+      : 'hermes-legacy';
     const selectedReady = selectedBackend === 'grok-4.5' ? grokReady : hermesReady;
     return {
       ...base,
