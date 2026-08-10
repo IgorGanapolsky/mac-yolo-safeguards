@@ -161,6 +161,38 @@ function scorePillars() {
     evidence: `swap95+fail70 → ${em}`,
   });
 
+  // Baseten-inspired: Model Library + technique checklist + overview surface
+  let libraryOk = false;
+  let libraryDetail = 'model-library missing';
+  let techniquesOk = false;
+  let techniquesDetail = 'techniques missing';
+  try {
+    const lib = require('./model-library');
+    const routes = lib.listRoutes();
+    libraryOk = Array.isArray(routes) && routes.length >= 5 && routes.every((r) => r.model && r.tier && r.slaClass);
+    libraryDetail = `routes=${routes.length} tiers=${[...new Set(routes.map((r) => r.tier))].join(',')}`;
+    const tech = lib.techniqueChecklist();
+    const owned = tech.filter((t) => t.owned === true).length;
+    techniquesOk = tech.length >= 6 && owned >= 4;
+    techniquesDetail = `techniques=${tech.length} owned=${owned}`;
+  } catch (e) {
+    libraryDetail = String(e.message || e).slice(0, 80);
+  }
+  checks.push({
+    pillar: 'baseten',
+    name: 'model_library',
+    pass: libraryOk,
+    score: libraryOk ? 10 : 4,
+    evidence: libraryDetail,
+  });
+  checks.push({
+    pillar: 'baseten',
+    name: 'inference_techniques_owned',
+    pass: techniquesOk,
+    score: techniquesOk ? 10 : 4,
+    evidence: techniquesDetail,
+  });
+
   return checks;
 }
 
