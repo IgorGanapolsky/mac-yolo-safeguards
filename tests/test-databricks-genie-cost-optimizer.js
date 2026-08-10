@@ -1,38 +1,25 @@
 'use strict';
 
-/**
- * Unit Tests for Databricks Genie Cost Optimizer (`tools/databricks-genie-cost-optimizer.js`)
- * Compatible with node tests/test-*.js harness (uses node:assert).
- */
-
 const assert = require('assert');
-const { executeAnalyticsQuery, auditAnalyticsPortfolio } = require('../tools/databricks-genie-cost-optimizer');
+const { DatabricksGenieCostOptimizer } = require('../tools/databricks-genie-cost-optimizer');
 
-console.log('Running test-databricks-genie-cost-optimizer.js...');
+console.log('=== Testing Databricks Genie Code Cost & Context Optimizer ===');
 
-// Test 1: Cached query execution (0 cost)
-{
-  const res = executeAnalyticsQuery('SELECT COUNT(*) FROM active_subscribers');
-  assert.strictEqual(res.cacheHit, true, 'Expected cache hit');
-  assert.strictEqual(res.dbuCost, 0.00, 'Expected $0.00 DBU cost for cached query');
-  assert.strictEqual(res.computeTier, 'CACHE_LOOKUP_FREE', 'Expected CACHE_LOOKUP_FREE compute tier');
-}
+const optimizer = new DatabricksGenieCostOptimizer();
 
-// Test 2: Fresh heavy query execution
-{
-  const res = executeAnalyticsQuery('SELECT * FROM large_table GROUP BY region', true);
-  assert.strictEqual(res.cacheHit, false, 'Expected cache miss');
-  assert.strictEqual(res.computeTier, 'HEAVY_WAREHOUSE_CLUSTER', 'Expected HEAVY_WAREHOUSE_CLUSTER tier');
-}
+// 1. Test context optimization under cost cap
+const efficientResult = optimizer.optimizeTaskContext({ tokenCount: 50_000 });
+assert.strictEqual(efficientResult.isCostCompliant, true);
+assert.strictEqual(efficientResult.recommendedStrategy, 'full_context');
 
-// Test 3: Portfolio audit metrics
-{
-  const portfolio = auditAnalyticsPortfolio([
-    'SELECT COUNT(*) FROM active_subscribers',
-    'SELECT AVG(mrr) FROM paying_customers'
-  ]);
-  assert.strictEqual(portfolio.summary.cacheHitRatioPercent, 100, 'Expected 100% cache hit ratio');
-  assert.strictEqual(portfolio.summary.status, 'OPTIMAL_GENIE_COST_EFFICIENCY', 'Expected OPTIMAL_GENIE_COST_EFFICIENCY status');
-}
+// 2. Test context pruning when exceeding $0.55 cost cap
+const heavyResult = optimizer.optimizeTaskContext({ tokenCount: 300_000 });
+assert.strictEqual(heavyResult.isCostCompliant, false);
+assert.strictEqual(heavyResult.recommendedStrategy, 'semantic_pruned_context');
 
-console.log('ok tests/test-databricks-genie-cost-optimizer.js');
+// 3. Test execution profile generation
+const profile = optimizer.generateExecutionProfile('test-query');
+assert.strictEqual(profile.benchmarkParity.databricksBenchmarkParity, true);
+assert.strictEqual(profile.harnessDirectives.length, 4);
+
+console.log('✅ Databricks Genie Cost & Context Optimizer Tests PASSED!');

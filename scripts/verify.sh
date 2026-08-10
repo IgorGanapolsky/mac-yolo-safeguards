@@ -17,5 +17,6 @@ node tests/test-hermes-yolo.js
 node tests/test-jcode-harness-suite.js
 node tests/test-meta-harness-engine.js
 node tests/test-multiagent-operating-template.js
+node tests/test-databricks-genie-cost-optimizer.js
 
 echo "✅ All Local CI Verification Checks Passed!"
