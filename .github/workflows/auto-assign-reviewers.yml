@@ -49,24 +49,32 @@ jobs:
               }
             }
             
-            const reviewerArray = [...recommendedReviewers].slice(0, 2); // Max 2 reviewers
-            
-            if (reviewerArray.length > 0) {
+            // GitHub 422s a review request naming the PR author, and every
+            // agent-opened PR is authored by the repo owner — so the author
+            // must be filtered out, and an empty result is success, not failure.
+            const prAuthor = context.payload.pull_request.user.login.toLowerCase();
+            const mapped = [...recommendedReviewers]
+              .slice(0, 2) // Max 2 reviewers
+              .map(r => r.replace('@', ''))
+              .filter(r => r.toLowerCase() !== prAuthor);
+            const fallback = ['igorganapolsky'].filter(r => r !== prAuthor);
+            const toRequest = mapped.length > 0 ? mapped : fallback;
+
+            if (toRequest.length === 0) {
+              console.log('Only candidate reviewer is the PR author; nothing to assign.');
+              return;
+            }
+
+            try {
               await github.rest.pulls.requestReviewers({
                 owner,
                 repo,
                 pull_number: context.payload.pull_request.number,
-                reviewers: reviewerArray.map(r => r.replace('@', ''))
+                reviewers: toRequest
               });
-              
-              console.log(`Recommended reviewers: ${reviewerArray.join(', ')}`);
-            } else {
-              // Default reviewer
-              await github.rest.pulls.requestReviewers({
-                owner,
-                repo,
-                pull_number: context.payload.pull_request.number,
-                reviewers: ['igorganapolsky']
-              });
-              console.log('Using default reviewer');
+              console.log(`Requested reviewers: ${toRequest.join(', ')}`);
+            } catch (e) {
+              // Reviewer assignment is advisory; a non-collaborator handle or
+              // race must not fail the PR's checks.
+              console.log(`Could not request reviewers (${toRequest.join(', ')}): ${e.message}`);
             }
