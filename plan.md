@@ -1907,6 +1907,9 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 - `docs/social/hermes-mobile-content-log.tsv` (2026-08-10 PM rows only), `docs/social/drafts/2026-08-10-pm-*.md`, `docs/social/assets/2026-08-10-pm-*.png`, `.claude/skills/scheduled-publish-preflight/**`, `.claude/skills/blocked-run-still-ships/**` → **claude-content-pm-20260810** (T-CONTENT-PM-20260810: evening content run + preflight/blocked-run skills; PRs #1603 and #1612, both draft. Claimed retroactively — work was already pushed before claiming, which is out of order; registering now so no sibling stomps the in-flight branches. Does NOT touch `AGENTS.md` (owned by cursor-no-desktop-hijack, T-NO-DESKTOP-HIJACK-20260722) nor `.github/workflows/auto-assign-reviewers.yml` (owned by the #1598 author).) (2026-08-10T19:30:00Z)
 
+- `apps/hermes-control-plane/app/api/lessons/agent/route.ts` (new), `apps/hermes-control-plane/drizzle/0006_agent_lessons.sql` (new), `apps/hermes-control-plane/db/schema.ts` (agentLessons table append only), `tools/thumbgate-capture-feedback.js` (new), `tests/test-thumbgate-capture-feedback.js` (new) → **claude-content-pm-20260810** (T-THUMBGATE-LESSONS-20260810: device-signed lessons store so unattended runs can capture_feedback; PR #1627 draft. Does NOT touch `app/api/lessons/route.ts` — that is the existing dashboard view over `response_feedback` and is byte-identical to main; an early draft clobbered it and it was restored.) (2026-08-10T23:35:00Z)
+
+
 
 ## 3. Decisions Log
 
