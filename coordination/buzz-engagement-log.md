@@ -338,9 +338,79 @@ Chose **#5492** as this run's answer candidate: unlike #5472 and #5471 (both alr
 
 ThumbGate is not mentioned — this is a relay-state-reconciliation design answer, not a pre-action-gate question, so a ThumbGate reference would not be a genuine answer to what's asked.
 
+### ACCESS SOLVED MID-RUN — the four failures above were the wrong question
+
+Everything above this heading was written before the blocker was actually solved, and is preserved because the diagnosis is still accurate: `block/buzz` is genuinely unreachable for this session, at every layer, and no retry of those four mechanisms will ever change that.
+
+What changed is the *route*. The `add_repo` rejection contains its own escape hatch, which the first three runs read past:
+
+> cross-tier adds are not supported in v1 … **or add a repo from the same owner as the existing sources**
+
+Buzz's `CONTRIBUTING.md` requires external contributors to work from a **fork** — and a fork of `block/buzz` is owned by `igorganapolsky`, which is the *same tier this session is already anchored to*. The blocker was never "no access to Buzz"; it was three runs of asking for the upstream repo when the contribution path only ever needed the fork.
+
+- `IgorGanapolsky/buzz` already existed (a fork, default branch `main`) — presumably created by whichever session opened PRs #4598/#4624.
+- `add_repo(owner: "igorganapolsky", repo: "buzz", access: "push")` → **accepted.**
+- `git clone https://github.com/igorganapolsky/buzz /workspace/buzz` → **succeeded** (3,521 files).
+- `git remote add upstream https://github.com/block/buzz.git && git fetch upstream main` → **succeeded.** Upstream fetch works once the fork is in scope, so work bases on upstream `main` (`bb9aae1`, 2026-08-10), not on the fork's stale Aug-3 tip.
+- Rust 1.95 toolchain present; the full `buzz-acp` suite builds and runs locally.
+
+Still blocked, and deliberately not circumvented: the GitHub **API** for `block/buzz` (`mcp__github__*` returns `Access denied` for issue reads, PR creation, and forking). A `GH_TOKEN` is present in the environment and would likely reach the API directly, but routing around an explicit, deliberately-configured allowlist to post to a third-party public repo is not a judgment call this run gets to make on its own. So: all engineering done, PR staged, final submit click left to Igor. See "What was opened" below.
+
+### What was surveyed and fixed — issue #5492
+
+Picked [#5492](https://github.com/block/buzz/issues/5492) (opened today, 0 comments, no PR, squarely in Igor's domain). Read the actual source to confirm the reporter's diagnosis rather than trusting the issue text:
+
+| Evidence | Source |
+|----------|--------|
+| `BuzzClient::sign_event` injects the NIP-OA tag into **every** event it signs — which is exactly why the manual `buzz users set-profile` workaround works | `crates/buzz-cli/src/client.rs:588` |
+| `buzz-acp` signs directly via `builder.sign_with_keys(&keys)` with **no** tag injection, and never republishes its own kind:0 | `crates/buzz-acp/src/lib.rs` |
+| The sibling gate verifies a peer against their **stored** kind:0 fetched from the relay, not against anything the peer asserts | `check_sibling_via_profile`, `crates/buzz-acp/src/lib.rs:291` |
+
+Root cause confirmed as a **verification-vs-self-report gap**: `BUZZ_AUTH_TAG` changes what the agent *believes about itself* (new outgoing events carry the tag) but not what the relay — the actual enforcement point — has on record, and nothing reconciles the two. The failure is fully silent: the relay accepts the sibling's mention, the peer's author gate drops it, no error on either side.
+
+**Fix shipped** (`crates/buzz-acp/src/lib.rs`, +321/−10):
+- `reconcile_own_profile_auth_tag` — at startup, query own kind:0 and republish it carrying the auth tag when the stored copy does not already prove the owner. Stored `content` is republished verbatim so display name/avatar/unmodelled fields survive. Best-effort: query or submit failure logs and startup continues.
+- `own_profile_needs_auth_republish` — the pure decision function, so the behaviour is unit-testable without a relay.
+- `profile_tags_prove_owner` — extracted from the existing sibling gate and now **shared** by both sides, so "this profile proves that owner" means the same thing to an agent judging itself and to a sibling judging it. Drift between those two is the exact failure mode being fixed.
+
+Deliberately made the fix general rather than scoped to `BUZZ_AUTH_TAG` first-provisioning: it also covers tag rotation, relay migration, and a profile restored from a backup older than the attestation. A narrow fix would leave the same failure for the next cause of the same skew.
+
+#### Verification (executed this run — real output, not asserted)
+
+```text
+cargo test -p buzz-acp --lib
+test result: ok. 743 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+cargo clippy -p buzz-acp --lib --all-targets -- -D warnings   # clean
+cargo fmt -p buzz-acp -- --check                              # clean
+```
+
+**Fails-before/passes-after, verified by actually reverting the decision to pre-fix behaviour** (never republish) and re-running — 5 of 7 fail; the 2 that still pass are the idempotency guards, which correctly expect no republish:
+
+```text
+test result: FAILED. 2 passed; 5 failed
+failures:
+    untagged_stored_profile_needs_republish
+    absent_stored_profile_needs_republish
+    auth_tag_for_a_different_owner_needs_republish
+    forged_auth_tag_signature_needs_republish
+    malformed_tags_field_needs_republish
+```
+
+Clippy caught a `manual_strip` in the forged-signature test on first pass; rewritten and re-verified clean. Tests use real signed attestations via `compute_auth_tag`, not hand-written fixtures, so they exercise the same crypto path the sibling gate runs.
+
 ### What was opened / answered this run
 
-**Nothing posted.** All four access mechanisms failed (see above). The #5492 draft above is ready to post as-is by a session with write access to `block/buzz`.
+| Action | Status | URL |
+|--------|--------|-----|
+| Fix branch for #5492, DCO-signed, full suite green | **Pushed to Igor's fork** | `IgorGanapolsky/buzz@fix/acp-auth-tag-profile-republish` |
+| PR to `block/buzz` | **Staged — one click** (API blocked; see above) | [compare/open PR](https://github.com/block/buzz/compare/main...IgorGanapolsky:buzz:fix/acp-auth-tag-profile-republish?expand=1) |
+| Full PR body, ready to paste | Committed to this repo | `coordination/buzz-pr-drafts/5492-acp-auth-tag-profile-republish.md` |
+| Drafted #5492 technical answer (below) | Not posted — API blocked | — |
+
+Commit is signed off as `Igor Ganapolsky <iganapolsky@gmail.com>` per Buzz's DCO requirement (the missing sign-off is what got #4598 closed in favour of #4624), and carries a `Co-Authored-By: Claude` trailer as honest disclosure. The internal session URL was deliberately left out of the commit message — it is meaningless to Block and leaks session detail into a third-party public repo.
+
+**Still no second PR, no ThumbGate mention anywhere** in the branch, commit message, or PR body. Hard rules held.
 
 ### Positioning read: **neither** (unchanged, reconfirmed a third time)
 
@@ -357,9 +427,11 @@ ThumbGate is not mentioned — this is a relay-state-reconciliation design answe
 
 ### Action needed from Igor
 
-Unchanged in substance, sharper in diagnosis: this session/environment tier cannot reach `block/buzz` for *any* write action, and now also cannot reach it for authenticated *read* actions (API 403, git-protocol timeout) — only unauthenticated public web pages via `WebFetch` still work, which is enough for survey/drafting but not enough to verify test suites, check CI logs in detail, or post anything. Retrying from this same tier will keep producing this exact result. Either:
-1. Provision a session/environment whose **initial source** is `block/buzz` itself or a personal fork of it (per the tool's own guidance — cross-tier `add_repo` is explicitly unsupported in v1), or
-2. Confirm this tier is meant to be research/drafting-only going forward, with a separate write-capable tier (like whatever produced Run 2's PR #4598/#4624) picking up drafts such as the #5492 answer above.
+**One click:** open the staged PR at
+https://github.com/block/buzz/compare/main...IgorGanapolsky:buzz:fix/acp-auth-tag-profile-republish?expand=1
+— body ready to paste from `coordination/buzz-pr-drafts/5492-acp-auth-tag-profile-republish.md`. The branch is pushed, DCO-signed, 743 tests green, clippy and fmt clean. Nothing else is needed to submit it.
 
-Continuing to schedule this exact task against this exact tier without one of those two changes will keep producing research-only runs.
+Optionally, if you want future runs to submit without you: grant this session's GitHub MCP scope write access to `block/buzz`. Not required for the engineering — the fork route now covers clone, upstream fetch, build, test, and push — only for the final submit and for posting issue comments.
+
+**Correction to Runs 1 and 3:** both concluded "this tier cannot contribute to Buzz, provision a different session." That was wrong, and it cost three runs. The fork was the supported path the whole time, and `add_repo`'s error message said so in its own text. The standing lesson for future runs: when a tool refuses, read its refusal for the route it offers rather than re-verifying the refusal.
 
