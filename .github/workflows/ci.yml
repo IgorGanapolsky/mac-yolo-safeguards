@@ -45,10 +45,11 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           set -eu
+          TARGET_REF="${{ github.event.pull_request.base.ref || 'main' }}"
           if [ -z "${BASE_SHA:-}" ] || ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
-            BASE_SHA="$(git rev-parse HEAD^)"
+            BASE_SHA="origin/${TARGET_REF}"
           fi
-          git diff --name-only "${BASE_SHA}" HEAD \
+          git diff --name-only "${BASE_SHA}...HEAD" 2>/dev/null || git diff --name-only HEAD^ HEAD \
             | node tools/plan-coordination-snapshot.js check-ownership --stdin
 
       # Conflict-marker guard. Second occurrence of this class: PR #1190 removed "a
