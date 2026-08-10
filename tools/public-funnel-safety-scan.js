@@ -16,6 +16,8 @@ const publicArtifacts = [
   'docs/CASE-STUDY.md',
   'docs/CHANGELOG.md',
   'docs/AI-AGENT-HARDENING.md',
+  'docs/AGENT-RISK-SCORECARD.md',
+  'docs/funnel/agent-risk-scorecard.html',
   'docs/PARTNER-PILOT.md',
   'docs/REVENUE-OPERATING-PLAN.md',
   'docs/SALES-CLOSE-KIT.md',
