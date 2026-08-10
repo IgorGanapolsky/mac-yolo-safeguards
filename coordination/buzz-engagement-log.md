@@ -288,3 +288,67 @@ ThumbGate is not mentioned in this draft — the issue is a runtime liveness/wat
 
 Same as Run 1: this specific session/environment tier has no write path to `block/buzz` (`add_repo` explicitly rejects cross-tier owners, no `gh` CLI present). Run 2's contributions came from elsewhere. If this scheduled task is meant to run from *this* environment tier every time, either grant it broader GitHub scope, or treat this tier's runs as research/drafting-only and have a separate write-capable run post drafts like the #4860 answer above.
 
+
+---
+
+## 2026-08-10 — Run 4 (still read-only; source-verified survey + second drafted answer)
+
+### What was VERIFIED (Step 0 — reconfirmed against live sources)
+
+| Fact | Evidence |
+|------|----------|
+| **Canonical repo** | [`github.com/block/buzz`](https://github.com/block/buzz) — cloned fresh this run (shallow, anonymous git read via session proxy); `origin` confirmed `https://github.com/block/buzz`, HEAD `bb9aae1` committed 2026-08-10 09:47 -0700 — actively developed today |
+| **PR #4624 status** | [Still **open**](https://github.com/block/buzz/pull/4624), author `IgorGanapolsky`, title `fix(relay): multi-value #h filters must not narrow to first channel (#4579)`. **No review comments, no requested changes, no maintainer response** visible — 7 days since submission (2026-08-03). Nothing actionable from our side; it is simply waiting on code-owner review. |
+| **#4860 (watchdog issue)** | [Still open, still **zero comments**](https://github.com/block/buzz/issues/4860) — Run 3's drafted answer remains unposted and remains relevant |
+| **WF-08 approval gap** | **Re-verified at source level** (not just from memory) against today's HEAD `bb9aae1`: `crates/buzz-workflow/src/executor.rs:663` — `// TODO (WF-08): create approval record in DB, emit kind:46010.`; `crates/buzz-workflow/src/lib.rs:229-246` — runs hitting an approval gate are explicitly marked `Failed` with reason "approval gates not yet implemented — see WF-08". The gap Igor's `buzz-approval.js` maps onto is still open as of today. |
+
+### Access this session (same wall, one new detail)
+
+- `add_repo(block/buzz, access:"push")` → rejected again ("cross-tier adds are not supported in v1").
+- No `gh` CLI; GitHub API via curl/WebFetch → 403 from the session proxy for unattached repos.
+- **New this run:** `add_repo(block/buzz, access:"read")` revealed the proxy *does* serve anonymous git reads of public repos — a full shallow clone of `block/buzz` succeeded at `/workspace/block/buzz`. So this tier can do **source-level research** (grep, read, blame) but still has **no write path** (no API, no fork, no push, no comments). GitHub **HTML** pages are also fetchable read-only via WebFetch, which is how PR/issue states above were verified.
+
+### What was surveyed (last 72h, as of 2026-08-10)
+
+12 issues created since 2026-08-07 (via the public issues page):
+
+| Issue | Topic | In-domain? / Action |
+|-------|-------|---------------------|
+| [#5472](https://github.com/block/buzz/issues/5472) | No correlation trail across ACP socket → relay → Redis fan-out; all disconnects look identical; can't tell zero-subscriber publish from dropped event | In-domain (verification-vs-self-report, observability). **Skipped**: reporter already has [PR #4769](https://github.com/block/buzz/pull/4769) implementing the correlation-ID approach, awaiting design discussion — no gap for an outside comment to fill. |
+| [#5488](https://github.com/block/buzz/issues/5488) | Relay-URL change appends new managed-agent keypairs, never cleans up old ones → 9 duplicate mention-picker entries after 3 relay switches | In-domain (identity lifecycle, idempotency). **Answer drafted** (below). |
+| [#5492](https://github.com/block/buzz/issues/5492) | `BUZZ_AUTH_TAG` never reaches headless agent's kind:0 profile → NIP-OA sibling admission **silently fails** | In-domain (silent failure / fail-closed), but requires reproducing a headless-agent + managed-relay setup to say anything beyond restating the report. Skipped this run. |
+| [#5489](https://github.com/block/buzz/issues/5489) | mDNS `.local` relay URL ~5s/request resolution delay on macOS | Platform networking; out of domain. Skipped. |
+| [#5477](https://github.com/block/buzz/issues/5477), [#5468](https://github.com/block/buzz/issues/5468) | Docs/onboarding complaints | Out of domain; README-adjacent work is banned anyway. Skipped. |
+| [#5470](https://github.com/block/buzz/issues/5470) | Pre-push hooks start build-heavy jobs with no disk preflight | Marginal. Skipped. |
+| [#5471](https://github.com/block/buzz/issues/5471), [#5469](https://github.com/block/buzz/issues/5469), [#5467](https://github.com/block/buzz/issues/5467), [#5462](https://github.com/block/buzz/issues/5462), [#5461](https://github.com/block/buzz/issues/5461) | CLI refactor / UI / feature requests | Out of domain. Skipped. |
+
+### Drafted answer for #5488 (not posted — no write access this run)
+
+> Two separate defects here, worth fixing independently:
+>
+> 1. **Lifecycle, not cleanup.** The bug isn't "forgot to delete" — it's that `managed-agents.json` entries have no lifecycle key. If entries were keyed by `(relay_url, agent_slot)` with an `active` flag, a relay switch would be an idempotent *deactivate-old + activate-new* transition instead of an append, and switching back to `relay-a` would reactivate the original three keypairs rather than minting a fourth set.
+> 2. **Archive, don't delete.** The stale entries are keypairs, i.e. identity material. Past events on the old relays were signed by those npubs; deleting the keys destroys the ability to prove authorship of (or decrypt DMs addressed to) that history. So the picker should filter on `active`-for-current-community, but the entries themselves should be archived, never destroyed — the mention-picker bug is a *filtering* bug, and the fix should not quietly become a key-destruction bug.
+
+ThumbGate not mentioned — it's a desktop identity-lifecycle bug; a ThumbGate reference would not be a genuine answer.
+
+### What was opened / answered this run
+
+**Nothing posted** — same hard access blocker as Runs 1 and 3. This run produced: source-verified WF-08 status, PR #4624 status check, a 72h survey, and a second ready-to-post draft (#5488, above; #4860's draft from Run 3 also still ready).
+
+### Positioning read: **neither** (unchanged; now source-verified as of today)
+
+- Not a competitor, not a partner — unchanged reasoning from Runs 2–3.
+- The technical-overlap claim is now anchored to today's HEAD, not memory: WF-08 (approval persistence/resume) is still an explicit TODO in `buzz-workflow` at `bb9aae1`, and runs hitting an approval gate still hard-fail. The place where a pre-action gate on agent writes matters inside Buzz **still exists and is still unbuilt**. That keeps the honest answer at "real overlap, no relationship" — and keeps the WF-08 contribution (per `buzz-wf08-pr-plan.md`) the single highest-value candidate PR once a write-capable run picks it up.
+
+### What was skipped and why
+
+- **Posting #4860/#5488 answers, any PR** — no write path (see access section).
+- **#5472** — already has an implementation PR (#4769) by the reporter; commenting would add noise, not signal.
+- **#5492** — real and in-domain but needs a live repro to say anything non-obvious; candidate for a write-capable run with time to set up a headless agent.
+- **WF-08 implementation** — still deferred to a dedicated write-capable run; plan unchanged in `buzz-wf08-pr-plan.md`.
+
+### Action needed from Igor (3rd blocked run — worth acting on)
+
+1. **This environment tier cannot write to `block/buzz`** and `add_repo` confirms it never will in v1 (cross-tier). Either point this scheduled task at a write-capable environment, or accept this tier as research/drafting-only.
+2. **PR #4624 has sat 7 days with green checks and no review.** A polite ping in the PR thread from a write-capable session (or Igor manually) is now reasonable; nothing else on it is actionable.
+3. Two drafted answers (#4860 from Run 3, #5488 from this run) are ready to paste as-is by any session with comment access.
