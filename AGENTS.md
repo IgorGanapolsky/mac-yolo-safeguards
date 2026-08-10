@@ -76,6 +76,8 @@ Tables and full protocol: [docs/agents/decision-stack.md](./docs/agents/decision
 - **In high-activity repos, `gh pr list -L 100`** avoids missing PRs beyond the default 30-item page. Flag CONFLICTING PRs to their owning agent — do not resolve another agent's conflicts.
 - **Don't bulk-delete multi-agent worktrees**; prune only merged-PR branches and your own disposable trees.
 - Greptile review comments are required context on connect/onboarding/auth/OTA PRs.
+- **A wall of `BLOCKED` PRs is an outage until proven otherwise.** If required contexts are *absent* from the PR rollup (not failing — missing), check <https://www.githubstatus.com/api/v2/summary.json> **before** blaming code, runners, or a wedged queue. All 7 required checks run on `ubuntu-latest`, so a GitHub-hosted outage stalls every PR while self-hosted runners sit idle and green. `main` has `enforce_admins=true` — there is no override; the queue drains itself once Actions recovers. Never `gh run rerun` a queued run (no-op).
+- **`CONFLICTING` usually means the coordination logs, not code.** Run `git merge-tree --write-tree origin/main <head>` to name the files first. `plan.md` and `SKILLS.md` are `merge=union` in `.gitattributes` so concurrent appends stop colliding — if one still conflicts, fix the driver, never rebase another agent's in-flight branch.
 
 Full policy (Dependabot, security alerts, CI queue storms, Code Quality): [docs/agents/shipping-and-hygiene.md](./docs/agents/shipping-and-hygiene.md).
 

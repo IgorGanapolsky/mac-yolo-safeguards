@@ -659,4 +659,17 @@ describe('Android security audit (Jul 2026)', () => {
     const pkg = JSON.parse(read('hermes-mobile/package.json'));
     expect(pkg.scripts['privacy:scan']).toContain('scan-public-mobile-artifacts.js --source');
   });
+
+  it('Issue #1452: E2E gate fails on skipped, cancelled or missing proof', () => {
+    const ipadWorkflow = read('.github/workflows/ipad-simulator-e2e.yml');
+    expect(ipadWorkflow).toContain('IPAD_RESULT');
+    expect(ipadWorkflow).toContain('!= "success"');
+    expect(ipadWorkflow).toContain('::error::Required real-user iPad E2E did not pass');
+
+
+    const verifyContinuousScript = read('hermes-mobile/scripts/verify-continuous-e2e.sh');
+    expect(verifyContinuousScript).toContain('deviceVerified=${device_verified} (true only when e2e=pass)');
+    expect(verifyContinuousScript).toContain('STRICT: device not verified');
+  });
 });
+
