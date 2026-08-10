@@ -1,4 +1,4 @@
-import { profileDisplayName } from '../services/gatewayProfiles';
+import { profileDisplayName, backfillProfileHealthData } from '../services/gatewayProfiles';
 import {
   detectUsbHostMismatch,
   formatUsbHostMismatchMessage,
@@ -888,3 +888,5 @@ describe('gatewayProfilePicker', () => {
   });
 
 });
+
+
