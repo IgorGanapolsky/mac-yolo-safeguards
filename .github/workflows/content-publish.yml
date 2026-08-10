@@ -1,0 +1,103 @@
+name: Content publish
+
+# Publishing that does not depend on a Claude session or a Mac.
+#
+# The problem this solves: scheduled agent runs execute in an ephemeral container
+# that is rebuilt every time, so a credential pasted into a chat is gone by the next
+# run. Five content runs in a row shipped nothing for that reason. GitHub Actions
+# secrets, by contrast, persist — set DEVTO_API_KEY once in
+# Settings > Secrets and variables > Actions, and this workflow publishes on its own
+# from then on, whether or not anyone is at a keyboard.
+#
+# Safety: it only publishes a draft that explicitly opts in with a `publish: ready`
+# front-matter line, so an in-progress draft on a branch can never ship by accident.
+
+on:
+  schedule:
+    # 13:07 and 21:07 UTC — off the :00 mark so it does not pile onto the hour.
+    - cron: '7 13,21 * * *'
+  workflow_dispatch:
+    inputs:
+      draft:
+        description: 'Path to a specific draft to publish (optional; defaults to any ready draft)'
+        required: false
+        type: string
+      dry_run:
+        description: 'Validate only — no network writes'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  # Never let two runs publish the same draft twice.
+  group: content-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify publisher tests before touching anything live
+        run: node tests/test-social-publish.js
+
+      - name: Find a draft marked ready
+        id: find
+        run: |
+          set -euo pipefail
+          if [ -n "${{ inputs.draft }}" ]; then
+            candidate="${{ inputs.draft }}"
+          else
+            # Only drafts that opt in. Absence of a ready draft is a normal no-op.
+            candidate="$(grep -rl '^publish: ready$' docs/social/drafts/ 2>/dev/null | head -1 || true)"
+          fi
+          if [ -z "$candidate" ] || [ ! -f "$candidate" ]; then
+            echo "found=" >> "$GITHUB_OUTPUT"
+            echo "No draft marked 'publish: ready'. Nothing to do."
+            exit 0
+          fi
+          echo "found=$candidate" >> "$GITHUB_OUTPUT"
+          echo "Draft: $candidate"
+
+      - name: Publish to dev.to
+        if: steps.find.outputs.found != ''
+        env:
+          DEVTO_API_KEY: ${{ secrets.DEVTO_API_KEY }}
+        run: |
+          set -euo pipefail
+          draft="${{ steps.find.outputs.found }}"
+          if [ -z "${DEVTO_API_KEY:-}" ]; then
+            echo "::error::DEVTO_API_KEY is not set. Add it under Settings > Secrets and variables > Actions. This is the one-time step that makes every future run autonomous."
+            exit 1
+          fi
+          # Title is the leading H1; dev.to renders it separately, so strip it from the body.
+          title="$(head -1 "$draft" | sed 's/^#\+[[:space:]]*//')"
+          tail -n +2 "$draft" | sed '/^publish: ready$/d' > /tmp/body.md
+          sentinel="$(grep -oE '[0-9][0-9,]{3,}' /tmp/body.md | head -1 || echo '')"
+          args=(--platform devto --title "$title" --body-file /tmp/body.md --tags "devops,ai,security,sre" --json)
+          [ -n "$sentinel" ] && args+=(--must-contain "$sentinel")
+          ${{ inputs.dry_run && 'echo DRY RUN:' || '' }} node tools/social-publish.js "${args[@]}" | tee /tmp/result.json
+          # The tool exits non-zero unless it refetched the URL and confirmed the content,
+          # so a green step here means genuinely published, not merely accepted.
+
+      - name: Mark the draft published so it cannot ship twice
+        if: steps.find.outputs.found != '' && inputs.dry_run != true
+        run: |
+          set -euo pipefail
+          draft="${{ steps.find.outputs.found }}"
+          url="$(python3 -c "import json;print(json.load(open('/tmp/result.json')).get('url',''))")"
+          [ -z "$url" ] && exit 0
+          sed -i "s|^publish: ready$|publish: done\npublished_url: $url|" "$draft"
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add "$draft"
+          git commit -m "content: published $draft -> $url" || exit 0
+          git push
