@@ -9,6 +9,10 @@ const { SeedYoloWrapper } = require('../tools/seed-yolo-wrapper');
 console.log('=== Testing seed-yolo Command & Harness Suite ===');
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'seed-yolo-test-'));
+const testLockPath = path.join(tmpDir, 'test-seed-yolo.lock');
+process.env.HERMES_YOLO_LOCK_PATH = testLockPath;
+process.env.HERMES_YOLO_MODEL = 'deepseek-v4-flash';
+
 try {
   const wrapper = new SeedYoloWrapper({ receiptDir: tmpDir });
 
