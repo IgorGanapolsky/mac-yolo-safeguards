@@ -17,6 +17,7 @@
  *
  *   dev.to    DEVTO_API_KEY
  *   Hashnode  HASHNODE_TOKEN  (publication must be on Pro — API paid-only since May 2026)
+ *   LinkedIn  LINKEDIN_ACCESS_TOKEN  (w_member_social — OPEN/self-serve for your own profile)
  *   Bluesky   BLUESKY_HANDLE + BLUESKY_APP_PASSWORD
  *
  * Deliberately NOT implemented (verified 2026-08-10, do not "fix" these):
@@ -26,7 +27,7 @@
  *   Medium  — stopped issuing integration tokens in 2023; no new integrations.
  *             Supported path is publish to dev.to, then Medium's "Import a Story",
  *             which sets the canonical URL back to dev.to automatically.
- *   LinkedIn/Threads — no token path; they need OAuth via a connected account.
+ *   Threads — no token path; needs OAuth via a connected account.
  *
  * Honesty contract: this tool refuses to report success without re-fetching the
  * resulting URL and confirming it contains the intended content. A publish whose
@@ -48,6 +49,10 @@ const fs = require('fs');
 const BLUESKY_PDS = 'https://bsky.social';
 const DEVTO_API = 'https://dev.to/api/articles';
 const HASHNODE_API = 'https://gql.hashnode.com/';
+const LINKEDIN_API = 'https://api.linkedin.com';
+// LinkedIn versions its API by YYYYMM and sunsets old ones; override via LINKEDIN_VERSION.
+const LINKEDIN_VERSION_DEFAULT = '202607';
+const LINKEDIN_MAX_CHARS = 3000;
 const BLUESKY_MAX_GRAPHEMES = 300;
 
 /* ------------------------------------------------------------------ *
@@ -237,6 +242,81 @@ function normalizeHashnodeTags(raw) {
   return normalizeTags(raw).map((slug) => ({ slug, name: slug }));
 }
 
+
+/**
+ * LinkedIn — posting to your OWN profile needs only `w_member_social`, which is an OPEN,
+ * self-serve permission via the "Share on LinkedIn" product. It is NOT the approval-gated
+ * Community Management API; that one is `w_organization_social`, for company pages.
+ * So this needs no partner review, no browser, and no third-party service.
+ *
+ * Details the docs are explicit about and that break the request if missed:
+ *  - BOTH `X-Restli-Protocol-Version: 2.0.0` and `Linkedin-Version: YYYYMM` are required.
+ *  - Success is 201, and the post id comes back in the `x-restli-id` RESPONSE HEADER,
+ *    not in the body. Parsing the body for an id finds nothing and looks like a failure.
+ *  - commentary caps at 3000 chars; over that is 400 FIELD_LENGTH_TOO_LONG.
+ *  - Plain `#hashtags` are fine on input; LinkedIn converts them on read. Do not pre-escape.
+ *
+ * Never drive LinkedIn with a scripted browser login instead of this: automating a human
+ * session violates LinkedIn's terms and risks the account being restricted, whereas the
+ * official API carries no such risk.
+ */
+async function publishLinkedIn(opts, deps) {
+  const token = deps.env.LINKEDIN_ACCESS_TOKEN;
+  if (!token) {
+    return { ok: false, code: 2, error: 'LINKEDIN_ACCESS_TOKEN not set. Create an app at developer.linkedin.com, add the self-serve "Share on LinkedIn" + "Sign In with LinkedIn" products, and authorize w_member_social. No partner approval needed for your own profile.' };
+  }
+  const text = opts.text || opts.body;
+  if (!text) return { ok: false, code: 2, error: 'linkedin: --text (or --body-file) is required.' };
+  if (text.length > LINKEDIN_MAX_CHARS) {
+    return { ok: false, code: 2, error: `linkedin: commentary is ${text.length} chars; the limit is ${LINKEDIN_MAX_CHARS} and LinkedIn rejects longer with 400 FIELD_LENGTH_TOO_LONG.` };
+  }
+  const version = deps.env.LINKEDIN_VERSION || LINKEDIN_VERSION_DEFAULT;
+  const headers = {
+    authorization: `Bearer ${token}`,
+    'x-restli-protocol-version': '2.0.0',
+    'linkedin-version': version,
+    'content-type': 'application/json',
+  };
+
+  if (opts.dryRun) {
+    return { ok: true, dryRun: true, wouldSend: { chars: text.length, version }, note: 'author URN resolves at publish time from /v2/userinfo' };
+  }
+
+  // The author URN is derived from the OpenID `sub`, not from the vanity profile name.
+  let authorUrn = opts.authorUrn;
+  if (!authorUrn) {
+    const who = await deps.fetch(`${LINKEDIN_API}/v2/userinfo`, { headers: { authorization: `Bearer ${token}` } });
+    if (!who.ok) {
+      return { ok: false, code: 1, error: `${describeHttpFailure(who.status, 'linkedin(userinfo)')} If 403, the token is missing the openid/profile scope.` };
+    }
+    const info = await who.json();
+    if (!info.sub) return { ok: false, code: 1, error: 'linkedin: /v2/userinfo returned no `sub`, so the author URN cannot be built.' };
+    authorUrn = `urn:li:person:${info.sub}`;
+  }
+
+  const body = {
+    author: authorUrn,
+    commentary: text,
+    visibility: 'PUBLIC',
+    distribution: { feedDistribution: 'MAIN_FEED', targetEntities: [], thirdPartyDistributionChannels: [] },
+    lifecycleState: 'PUBLISHED',
+    isReshareDisabledByAuthor: false,
+  };
+
+  const res = await deps.fetch(`${LINKEDIN_API}/rest/posts`, { method: 'POST', headers, body: JSON.stringify(body) });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    let hint = '';
+    if (res.status === 403) hint = ' The token likely lacks w_member_social — re-authorize with that scope.';
+    if (res.status === 401) hint = ' LinkedIn access tokens expire after 60 days; refresh it.';
+    return { ok: false, code: 1, error: `${describeHttpFailure(res.status, 'linkedin')}${hint} ${detail.slice(0, 300)}`.trim() };
+  }
+  // 201 Created — the id lives in the header, not the body.
+  const urn = res.headers.get('x-restli-id');
+  if (!urn) return { ok: false, code: 1, error: 'linkedin: 201 but no x-restli-id header, so the post URL cannot be built — treat as unverified.' };
+  return { ok: true, url: `https://www.linkedin.com/feed/update/${urn}/`, urn };
+}
+
 async function publishBluesky(opts, deps) {
   const handle = deps.env.BLUESKY_HANDLE;
   const password = deps.env.BLUESKY_APP_PASSWORD;
@@ -308,9 +388,10 @@ async function run(opts, deps) {
   const publisher = opts.platform === 'devto' ? publishDevto
     : opts.platform === 'bluesky' ? publishBluesky
       : opts.platform === 'hashnode' ? publishHashnode
-        : null;
+        : opts.platform === 'linkedin' ? publishLinkedIn
+          : null;
   if (!publisher) {
-    return { ok: false, code: 2, error: `Unsupported platform "${opts.platform}". Only devto, hashnode and bluesky have a token path; see the header for why X, Medium, LinkedIn and Threads do not.` };
+    return { ok: false, code: 2, error: `Unsupported platform "${opts.platform}". Only devto, hashnode, linkedin and bluesky have a token path; see the header for why X, Medium, LinkedIn and Threads do not.` };
   }
 
   const published = await publisher(opts, deps);
@@ -373,5 +454,5 @@ if (require.main === module) {
 module.exports = {
   detectLinkFacets, graphemeLength, parseRetryAfter, describeHttpFailure,
   normalizeTags, normalizeHashnodeTags, publishDevto, publishBluesky,
-  publishHashnode, hashnodeGraphql, verifyPublished, run,
+  publishHashnode, hashnodeGraphql, publishLinkedIn, verifyPublished, run,
 };
