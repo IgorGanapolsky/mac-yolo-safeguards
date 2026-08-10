@@ -106,6 +106,23 @@ capable of observing, and re-run it a second way if the answer is surprising. Fi
 inherited from a subagent deserve the same treatment; a plausible one repeated into a skill
 or a log becomes tomorrow's false premise.
 
+## First make sure you are actually blocked
+
+Before shipping a draft instead of a post, try the token route — it needs no browser and no
+Keychain, so it works from a cloud container:
+
+```bash
+node tools/social-publish.js --platform devto   --title "..." --body-file draft.md
+node tools/social-publish.js --platform bluesky --text "..."
+```
+
+If `DEVTO_API_KEY` or `BLUESKY_HANDLE`/`BLUESKY_APP_PASSWORD` are set, you are not blocked and
+this skill does not apply. Everything below is for when they are genuinely absent.
+
+**Why:** four consecutive runs shipped drafts under "no publish path exists." That was true of
+the browser and Keychain routes and false in general, and repeating it in the ledger taught
+every later run to stop looking.
+
 ## Do not manufacture a publish
 
 There is always some surface that would technically yield a URL — spin up a microsite, post

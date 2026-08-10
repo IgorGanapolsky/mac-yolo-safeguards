@@ -82,6 +82,33 @@ It checks, in one pass: execution environment, the macOS Keychain secret-store, 
 tokens in env, `.env` files, `~/.hermes`, browser profiles, and browser binaries — then
 prints a verdict per publishing route.
 
+### Try the token route before concluding anything
+
+Two platforms publish with a single secret and no browser, which means a cloud run can ship
+them unattended:
+
+```bash
+node tools/social-publish.js --platform devto   --title "..." --body-file draft.md --dry-run
+node tools/social-publish.js --platform bluesky --text "..." --dry-run
+```
+
+`--dry-run` touches no network, so it is always safe to run first. Drop it to publish. The
+tool re-fetches the resulting URL and confirms the content before reporting success; if it
+cannot verify, it exits non-zero and you log `Blocked`, never `Published`.
+
+Needs `DEVTO_API_KEY`, or `BLUESKY_HANDLE` + `BLUESKY_APP_PASSWORD`. If they are absent, the
+blocker to record is *the missing env var name* — not "no publish path exists", which is now
+false and was the single most repeated wrong note in this ledger.
+
+Three platforms are settled and should not be re-litigated each run:
+
+- **Medium** — no new integration tokens since 2023. It will never work by API. Publish to
+  dev.to, then use Medium's *Import a Story*; it sets canonical back to dev.to for you.
+- **X** — no free tier for new developers since Feb 2026, and pay-per-use charges $0.20 for
+  a post containing a URL. Our posts contain one, so the API route is declined on cost, not
+  unavailable. A browser session on the Mac still posts free.
+- **LinkedIn / Threads** — OAuth only; a token will not get you there.
+
 For Zapier, check connections rather than enabled actions, because they are different things:
 
 - `inspect_zapier_actions` shows what is *enabled*. An app can be enabled with zero
