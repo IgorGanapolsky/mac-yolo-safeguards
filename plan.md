@@ -19,6 +19,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 ## 1. Task Board
 
+| T-ANTI-BABYSITTING-20260810 | Durable anti-babysitting directive per Igor's live order (2026-08-10): never end a turn asking for approvals; exhaust-then-park ladder for platform walls; pre-authorized action classes vs unchanged safety floor | in_progress | claude-scorecard-20260810 | `skills/anti-babysitting/SKILL.md` (new), `docs/agents/anti-babysitting.md` (new), `plan.md` | Skill frontmatter parses; AGENTS.md pointer deliberately deferred (AGENTS.md owned by cursor-no-desktop-hijack) with handoff note in the doc; PR |
 | T-SECURE-LOCKSCREEN-NOTIFICATIONS-141 | Secure lock-screen approvals by default (PRIVATE visibility, no DND bypass) (#141) | in_progress | antigravity | `hermes-mobile/src/services/hermesNotifications.ts`, `hermes-mobile/src/__tests__/approvalNotificationsSecurity.test.ts`, `plan.md` | Channel configuration PRIVATE visibility & unit tests green |
 | T-AGENT-50-POOLSIDE-SPEED-20260808 | Speed up `poolside-yolo` with August 2026 Poolside defaults and preserve tool correctness | in_progress | codex-agent-50 | `poolside-yolo`, `tests/test-poolside-yolo.sh`, `plan.md` | Linear AGENT-50 resumed; isolate hosted-vs-local latency, default new interactive sessions to Laguna XS with no thinking, update Pool v1.0.15 ACP mode assumptions, and verify with focused plus live benchmarks. |
 
