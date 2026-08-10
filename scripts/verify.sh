@@ -16,6 +16,7 @@ node tests/test-github-runner-roi-auditor.js
 node tests/test-openrouter-workload-router.js
 node tests/test-posthog-error-tracking-auditor.js
 node tests/test-pr-backlog-janitor.js
+node tests/test-pr-fast-queue-orchestrator.js
 node tests/test-hermes-yolo.js
 
 echo "✅ All Local CI Verification Checks Passed!"
