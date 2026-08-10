@@ -21,14 +21,15 @@ jobs:
             const changedFiles = context.payload.pull_request.changed_files;
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            
+            const prAuthor = context.payload.pull_request.user.login.toLowerCase();
+
             // Get the file changes
             const files = await github.rest.pulls.listFiles({
               owner,
               repo,
               pull_number: context.payload.pull_request.number
             });
-            
+
             // Owner-based mapping (customize for your team)
             const reviewerMap = {
               'src/components/': ['@codex', '@grok'],
@@ -38,9 +39,9 @@ jobs:
               '__tests__/': ['@igor', '@igor-team'],
               'hermes-mobile/src/': ['@igor', '@igor-mobile-team']
             };
-            
+
             const recommendedReviewers = new Set();
-            
+
             for (const { filename } of files.data) {
               for (const [pattern, reviewers] of Object.entries(reviewerMap)) {
                 if (filename.startsWith(pattern)) {
@@ -48,20 +49,25 @@ jobs:
                 }
               }
             }
-            
-            const reviewerArray = [...recommendedReviewers].slice(0, 2); // Max 2 reviewers
-            
+
+            // GitHub rejects requesting a review from the PR's own author (422),
+            // so the author can never be a valid candidate here.
+            const reviewerArray = [...recommendedReviewers]
+              .map(r => r.replace('@', ''))
+              .filter(r => r.toLowerCase() !== prAuthor)
+              .slice(0, 2); // Max 2 reviewers
+
             if (reviewerArray.length > 0) {
               await github.rest.pulls.requestReviewers({
                 owner,
                 repo,
                 pull_number: context.payload.pull_request.number,
-                reviewers: reviewerArray.map(r => r.replace('@', ''))
+                reviewers: reviewerArray
               });
-              
+
               console.log(`Recommended reviewers: ${reviewerArray.join(', ')}`);
-            } else {
-              // Default reviewer
+            } else if (prAuthor !== 'igorganapolsky') {
+              // Default reviewer, unless the author already is the default
               await github.rest.pulls.requestReviewers({
                 owner,
                 repo,
@@ -69,4 +75,6 @@ jobs:
                 reviewers: ['igorganapolsky']
               });
               console.log('Using default reviewer');
+            } else {
+              console.log('No eligible reviewer (only candidate is the PR author) — skipping.');
             }
