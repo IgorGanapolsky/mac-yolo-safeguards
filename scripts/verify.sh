@@ -18,5 +18,6 @@ node tests/test-jcode-harness-suite.js
 node tests/test-seed21-adaptive-thinking-engine.js
 node tests/test-ark-cli-harness.js
 node tests/test-seed-yolo.js
+node tests/test-ai-automation-offer-engine.js
 
 echo "✅ All Local CI Verification Checks Passed!"

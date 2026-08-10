@@ -370,7 +370,7 @@ function modelCapability(modelId) {
   if (/qwen2\.5:3b|3b-chat|tiny|instruct-4bit|gemma-2b/.test(lower)) {
     return { agentCapable: false, class: 'chat', known: false };
   }
-  if (/glm|kimi|deepseek|qwen3|coder|coding|hermes|gpt-oss|claude|grok/.test(lower)) {
+  if (/glm|kimi|deepseek|qwen3|coder|coding|hermes|gpt-oss|claude|grok|seed/.test(lower)) {
     return { agentCapable: true, class: 'coding', known: false };
   }
   // Unknown: fail closed for agent primary unless allowlisted via env
