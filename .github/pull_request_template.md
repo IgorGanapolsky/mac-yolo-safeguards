@@ -33,3 +33,13 @@
 ## Risk / rollback
 
 <!-- Hot files, user-visible behavior, OTA implications -->
+
+## Merge fast-lane (high-ROI, Aug-2026 Copilot)
+
+- [ ] Risk tier chosen (low/medium/high). Auto-merge eligible only for low + green.
+- [ ] Up to date with base (no merge conflicts) — or routed through merge queue.
+- [ ] Copilot code review requested (`@copilot review`) — link or note N/A.
+- [ ] No new CodeQL/security alerts (or Autfix branch linked).
+- [ ] Agent iteration notes (review replies applied via `@copilot`) — or "none."
+- [ ] Body metadata: `Closes AGENT-XX` + this commit SHA + verification output.
+- [ ] `agent:copilot` (+ primary agent) label + cycle-time frontmatter in Linear.
