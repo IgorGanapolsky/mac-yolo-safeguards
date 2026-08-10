@@ -11,7 +11,7 @@ setup list once, then never again.**
 
 | Shape | Usable by an unattended run? | What to do |
 |---|---|---|
-| **API token** (dev.to, Hashnode, Bluesky app password) | Yes | Read from env. Permanent fix: environment config. |
+| **API token** (dev.to, LinkedIn, Bluesky app password) | Yes | Read from env / GitHub Actions secret. |
 | **OAuth connection** (LinkedIn, Threads, Buffer) | Yes, *after* one authorization click | Emit the `auth_url` once. Never ask again after that. |
 | **Username + password** | **Never** | Cannot be used. See below. |
 
@@ -47,7 +47,7 @@ for repeatedly, and the reason asking again never fixes it.
 At the start of a run, resolve every channel's auth state **without asking**:
 
 ```bash
-env | grep -E 'DEVTO_API_KEY|HASHNODE_TOKEN|BLUESKY_HANDLE|BLUESKY_APP_PASSWORD' | sed 's/=.*/=<set>/'
+env | grep -E 'DEVTO_API_KEY|LINKEDIN_ACCESS_TOKEN|BLUESKY_HANDLE|BLUESKY_APP_PASSWORD' | sed 's/=.*/=<set>/'
 ```
 
 For OAuth channels, resolve the link yourself rather than reporting "not connected":

@@ -16,7 +16,6 @@
  * no browser. Set the env var and unattended runs publish.
  *
  *   dev.to    DEVTO_API_KEY
- *   Hashnode  HASHNODE_TOKEN  (publication must be on Pro — API paid-only since May 2026)
  *   LinkedIn  LINKEDIN_ACCESS_TOKEN  (w_member_social — OPEN/self-serve for your own profile)
  *   Bluesky   BLUESKY_HANDLE + BLUESKY_APP_PASSWORD
  *
@@ -24,6 +23,7 @@
  *   X       — no free tier for new developers since Feb 2026; pay-per-use bills
  *             $0.015/post and $0.20 for a post containing a URL. Every ThumbGate
  *             post contains a URL, and the standing rule forbids spending money.
+ *   Hashnode— PERMANENTLY FROZEN by AGENTS.md:63 and the hard gate. Do not re-add.
  *   Medium  — stopped issuing integration tokens in 2023; no new integrations.
  *             Supported path is publish to dev.to, then Medium's "Import a Story",
  *             which sets the canonical URL back to dev.to automatically.
@@ -48,7 +48,6 @@ const fs = require('fs');
 
 const BLUESKY_PDS = 'https://bsky.social';
 const DEVTO_API = 'https://dev.to/api/articles';
-const HASHNODE_API = 'https://gql.hashnode.com/';
 const LINKEDIN_API = 'https://api.linkedin.com';
 // LinkedIn versions its API by YYYYMM and sunsets old ones; override via LINKEDIN_VERSION.
 const LINKEDIN_VERSION_DEFAULT = '202607';
@@ -168,80 +167,19 @@ async function publishDevto(opts, deps) {
 }
 
 /**
- * Hashnode — GraphQL, and three details that each cost a failed request:
- *  1. The Authorization header carries the raw token with NO "Bearer " prefix.
- *  2. Tags are objects ({slug, name}), not strings like dev.to's.
- *  3. GraphQL returns HTTP 200 with an `errors` array on failure, so checking
- *     res.ok alone reports a rejected publish as a success.
- * Since May 2026 the API is Pro-only for BOTH queries and mutations, so a free
- * publication fails here no matter how valid the token is — surfaced explicitly
- * rather than as a generic auth error.
+ * Hashnode is PERMANENTLY FROZEN for this repo — AGENTS.md:63 ("no Hashnode") and
+ * tools/social-publish-gate.js FROZEN_PLATFORMS. A working publisher was written for it
+ * and then removed: shipping one would let the CLI and the skill route around a standing
+ * ban that the hard gate enforces. Refusing loudly here is the point; a missing dispatch
+ * would just look like an oversight and get "fixed" by the next agent.
  */
-async function hashnodeGraphql(query, variables, token, deps) {
-  const res = await deps.fetch(HASHNODE_API, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: token },
-    body: JSON.stringify({ query, variables }),
-  });
-  if (!res.ok) return { error: describeHttpFailure(res.status, 'hashnode') };
-  const json = await res.json();
-  if (json.errors && json.errors.length) {
-    const msg = json.errors.map((e) => e.message).join('; ');
-    if (/pro|plan|subscription|not allowed|forbidden/i.test(msg)) {
-      return { error: `hashnode: ${msg} — the GraphQL API has required a Pro publication since May 2026, for queries and mutations alike. A valid token on a free publication still fails.` };
-    }
-    return { error: `hashnode: ${msg}` };
-  }
-  return { data: json.data };
-}
-
-async function publishHashnode(opts, deps) {
-  const token = deps.env.HASHNODE_TOKEN;
-  if (!token) {
-    return { ok: false, code: 2, error: 'HASHNODE_TOKEN not set. Create one at hashnode.com/settings/developer. Note the publication must be on Pro — the API has been paid-only since May 2026.' };
-  }
-
-  if (opts.dryRun) {
-    return { ok: true, dryRun: true, wouldSend: { title: opts.title, tags: normalizeHashnodeTags(opts.tags), canonical: opts.canonicalUrl || null, bodyChars: (opts.body || '').length } };
-  }
-
-  // Resolve the publication automatically; making the caller hunt for an opaque
-  // id is the kind of friction that turns an unattended run into a blocked one.
-  let publicationId = opts.publicationId;
-  if (!publicationId) {
-    const q = await hashnodeGraphql(
-      'query { me { publications(first: 1) { edges { node { id title } } } } }', {}, token, deps);
-    if (q.error) return { ok: false, code: 1, error: q.error };
-    const edge = q.data && q.data.me && q.data.me.publications && q.data.me.publications.edges[0];
-    if (!edge) return { ok: false, code: 1, error: 'hashnode: token valid but no publication found on this account.' };
-    publicationId = edge.node.id;
-  }
-
-  const mutation = `mutation Publish($input: PublishPostInput!) {
-    publishPost(input: $input) { post { id url slug } }
-  }`;
-  const input = {
-    publicationId,
-    title: opts.title,
-    contentMarkdown: opts.body,
-    tags: normalizeHashnodeTags(opts.tags),
+function publishHashnodeFrozen() {
+  return {
+    ok: false,
+    code: 2,
+    error: 'hashnode is permanently frozen for this repo (AGENTS.md:63 "no Hashnode"; social-publish-gate.js FROZEN_PLATFORMS). Not a capability gap — a policy. Lift the ban in AGENTS.md and the gate first if this should change.',
   };
-  // Cross-posts must point search engines back at the original, or the syndicated
-  // copy competes with the post it was copied from.
-  if (opts.canonicalUrl) input.originalArticleURL = opts.canonicalUrl;
-
-  const r = await hashnodeGraphql(mutation, { input }, token, deps);
-  if (r.error) return { ok: false, code: 1, error: r.error };
-  const post = r.data && r.data.publishPost && r.data.publishPost.post;
-  if (!post || !post.url) return { ok: false, code: 1, error: 'hashnode: mutation returned no post URL — cannot verify, so not Published.' };
-  return { ok: true, url: post.url, id: post.id };
 }
-
-/** Hashnode tags are {slug, name} objects; sending dev.to-style strings is rejected. */
-function normalizeHashnodeTags(raw) {
-  return normalizeTags(raw).map((slug) => ({ slug, name: slug }));
-}
-
 
 /**
  * LinkedIn — posting to your OWN profile needs only `w_member_social`, which is an OPEN,
@@ -369,6 +307,12 @@ async function publishBluesky(opts, deps) {
  * ------------------------------------------------------------------ */
 
 async function verifyPublished(url, mustContain, deps) {
+  // A 2xx alone is not evidence: SPA shells, login walls and error pages all return 200
+  // with none of the post on them. Without a required substring there is nothing to check,
+  // so this reports NOT verified rather than quietly passing.
+  if (!mustContain) {
+    return { verified: false, reason: 'no content evidence supplied (mustContain is required) — a 2xx response alone does not prove the post is live' };
+  }
   try {
     const res = await deps.fetch(url, { headers: { 'user-agent': 'thumbgate-content-engine/1.0' } });
     if (!res.ok) return { verified: false, reason: `refetch returned HTTP ${res.status}` };
@@ -387,11 +331,11 @@ async function verifyPublished(url, mustContain, deps) {
 async function run(opts, deps) {
   const publisher = opts.platform === 'devto' ? publishDevto
     : opts.platform === 'bluesky' ? publishBluesky
-      : opts.platform === 'hashnode' ? publishHashnode
+      : opts.platform === 'hashnode' ? publishHashnodeFrozen
         : opts.platform === 'linkedin' ? publishLinkedIn
           : null;
   if (!publisher) {
-    return { ok: false, code: 2, error: `Unsupported platform "${opts.platform}". Only devto, hashnode, linkedin and bluesky have a token path; see the header for why X, Medium, LinkedIn and Threads do not.` };
+    return { ok: false, code: 2, error: `Unsupported platform "${opts.platform}". Only devto, linkedin and bluesky have a token path; see the header for why X, Medium, LinkedIn and Threads do not.` };
   }
 
   const published = await publisher(opts, deps);
@@ -453,6 +397,6 @@ if (require.main === module) {
 
 module.exports = {
   detectLinkFacets, graphemeLength, parseRetryAfter, describeHttpFailure,
-  normalizeTags, normalizeHashnodeTags, publishDevto, publishBluesky,
-  publishHashnode, hashnodeGraphql, publishLinkedIn, verifyPublished, run,
+  normalizeTags, publishDevto, publishBluesky,
+  publishHashnodeFrozen, publishLinkedIn, verifyPublished, run,
 };

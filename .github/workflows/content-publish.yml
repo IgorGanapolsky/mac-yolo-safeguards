@@ -67,37 +67,96 @@ jobs:
           echo "found=$candidate" >> "$GITHUB_OUTPUT"
           echo "Draft: $candidate"
 
-      - name: Publish to dev.to
+      - name: Prepare title and body
         if: steps.find.outputs.found != ''
-        env:
-          DEVTO_API_KEY: ${{ secrets.DEVTO_API_KEY }}
+        id: prep
         run: |
           set -euo pipefail
           draft="${{ steps.find.outputs.found }}"
-          if [ -z "${DEVTO_API_KEY:-}" ]; then
-            echo "::error::DEVTO_API_KEY is not set. Add it under Settings > Secrets and variables > Actions. This is the one-time step that makes every future run autonomous."
-            exit 1
-          fi
           # Title is the leading H1; dev.to renders it separately, so strip it from the body.
           title="$(head -1 "$draft" | sed 's/^#\+[[:space:]]*//')"
           tail -n +2 "$draft" | sed '/^publish: ready$/d' > /tmp/body.md
-          sentinel="$(grep -oE '[0-9][0-9,]{3,}' /tmp/body.md | head -1 || echo '')"
-          args=(--platform devto --title "$title" --body-file /tmp/body.md --tags "devops,ai,security,sre" --json)
-          [ -n "$sentinel" ] && args+=(--must-contain "$sentinel")
-          ${{ inputs.dry_run && 'echo DRY RUN:' || '' }} node tools/social-publish.js "${args[@]}" | tee /tmp/result.json
-          # The tool exits non-zero unless it refetched the URL and confirmed the content,
-          # so a green step here means genuinely published, not merely accepted.
+          echo "title=$title" >> "$GITHUB_OUTPUT"
 
-      - name: Mark the draft published so it cannot ship twice
+      # AGENTS.md:63 — the gate runs BEFORE any publish, exit 1 = BLOCK.
+      # "Skill prose alone is not compliance." This step is the compliance.
+      - name: Hard gate (mandatory)
+        if: steps.find.outputs.found != ''
+        run: |
+          set -euo pipefail
+          node tools/social-publish-gate.js \
+            --platform dev.to \
+            --campaign "$(basename '${{ steps.find.outputs.found }}' .md)" \
+            --title "${{ steps.prep.outputs.title }}" \
+            --body-file /tmp/body.md \
+            --json | tee /tmp/gate.json
+          # Non-zero already fails the step; this makes the reason obvious in the log.
+          python3 -c "
+          import json,sys
+          g=json.load(open('/tmp/gate.json'))
+          if not g.get('allow'):
+              print('::error::gate BLOCKED: ' + '; '.join(g.get('blocks', [])))
+              sys.exit(1)
+          print('gate ALLOW')
+          "
+
+      - name: Publish to dev.to
         if: steps.find.outputs.found != '' && inputs.dry_run != true
+        id: publish
+        env:
+          DEVTO_API_KEY: ${{ secrets.DEVTO_API_KEY }}
+        run: |
+          set -uo pipefail   # NOT -e: a failed verification must still let us record the URL
+          if [ -z "${DEVTO_API_KEY:-}" ]; then
+            echo "::error::DEVTO_API_KEY is not set. Add it under Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          # The title is always present, so it is a reliable content sentinel. Deriving one from
+          # a four-digit number silently produced NO sentinel for drafts without one, and a
+          # publish with no content evidence is not a verified publish.
+          node tools/social-publish.js \
+            --platform devto \
+            --title "${{ steps.prep.outputs.title }}" \
+            --body-file /tmp/body.md \
+            --tags "devops,ai,security,sre" \
+            --must-contain "${{ steps.prep.outputs.title }}" \
+            --json > /tmp/result.json 2>/tmp/result.err || true
+          cat /tmp/result.json /tmp/result.err 2>/dev/null || true
+          url="$(python3 -c "import json;print(json.load(open('/tmp/result.json')).get('url',''))" 2>/dev/null || echo '')"
+          verified="$(python3 -c "import json;print(json.load(open('/tmp/result.json')).get('verified',False))" 2>/dev/null || echo False)"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "verified=$verified" >> "$GITHUB_OUTPUT"
+
+      # Runs whenever dev.to returned a URL, EVEN IF verification was inconclusive.
+      # Otherwise a transient refetch failure leaves the draft 'publish: ready' and the next
+      # scheduled run republishes the same article — a duplicate, from a post that succeeded.
+      - name: Record the URL so the draft can never publish twice
+        if: steps.publish.outputs.url != ''
         run: |
           set -euo pipefail
           draft="${{ steps.find.outputs.found }}"
-          url="$(python3 -c "import json;print(json.load(open('/tmp/result.json')).get('url',''))")"
-          [ -z "$url" ] && exit 0
-          sed -i "s|^publish: ready$|publish: done\npublished_url: $url|" "$draft"
+          url="${{ steps.publish.outputs.url }}"
+          state="done"
+          note=""
+          if [ "${{ steps.publish.outputs.verified }}" != "True" ]; then
+            state="done-unverified"
+            note=$'\nverify: inconclusive — URL returned by the API but the refetch did not confirm content. Check it by hand; do NOT republish.'
+          fi
+          python3 - "$draft" "$url" "$state" "$note" <<'PY'
+          import sys
+          draft, url, state, note = sys.argv[1:5]
+          t = open(draft, encoding='utf-8').read()
+          t = t.replace('publish: ready', f'publish: {state}\npublished_url: {url}{note}', 1)
+          open(draft, 'w', encoding='utf-8').write(t)
+          PY
           git config user.name  'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
           git add "$draft"
-          git commit -m "content: published $draft -> $url" || exit 0
+          git commit -m "content: published $draft -> $url ($state)" || exit 0
           git push
+
+      - name: Fail the run if the publish was not verified
+        if: steps.find.outputs.found != '' && inputs.dry_run != true && steps.publish.outputs.verified != 'True'
+        run: |
+          echo "::error::Publish did not verify. URL (if any): ${{ steps.publish.outputs.url }}. The draft has been marked so it will not republish; confirm the post by hand."
+          exit 1

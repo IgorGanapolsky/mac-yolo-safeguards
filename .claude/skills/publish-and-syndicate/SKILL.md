@@ -19,7 +19,7 @@ cannot verify.
 ## 0. Find the credentials before claiming you lack them
 
 ```bash
-env | grep -E 'DEVTO_API_KEY|HASHNODE_TOKEN|BLUESKY_HANDLE|BLUESKY_APP_PASSWORD' | sed 's/=.*/=<set>/'
+env | grep -E 'DEVTO_API_KEY|LINKEDIN_ACCESS_TOKEN|BLUESKY_HANDLE|BLUESKY_APP_PASSWORD' | sed 's/=.*/=<set>/'
 ```
 
 Print only the *names*. Never echo a token value, never write one into a file, never put one
@@ -46,6 +46,7 @@ unreachable, and how to resolve an OAuth link yourself instead of asking.
 dev.to is the origin. Everything else syndicates from it and points back.
 
 ```bash
+node tools/social-publish-gate.js --platform dev.to --campaign <id> --body-file body.md  # MANDATORY, exit 1 = BLOCK
 node tools/social-publish.js --platform devto \
   --title "$TITLE" --body-file body.md --tags "devops,ai,security,sre" \
   --must-contain "<a distinctive phrase from the body>" --json
@@ -64,7 +65,7 @@ A syndicated copy that does not name its original competes with the original in 
 
 | Target | How | Canonical |
 |---|---|---|
-| Hashnode | `--platform hashnode --canonical-url <dev.to URL>` | `originalArticleURL`, set automatically |
+| Hashnode | **BANNED** — AGENTS.md:63 and the hard gate freeze it. Do not add. | n/a |
 | Medium | Import a Story, paste the dev.to URL | Medium sets it back to dev.to for you |
 | Bluesky | `--platform bluesky --text "..."` with the link in the text | n/a |
 
@@ -86,9 +87,9 @@ Four runs burned time rediscovering them:
   session on the Mac still posts free.
 - **Medium** — no new API integration tokens since 2023. It will never work by API. Import a
   Story is the whole path.
-- **Hashnode** — the GraphQL API has been **Pro-only since May 2026**, for reads *and* writes.
-  A perfectly valid token on a free publication still fails. That is a spend decision the
-  operator owns; surface it, don't quietly retry.
+- **Hashnode** — **permanently banned in this repo** (AGENTS.md:63 "no Hashnode";
+  `social-publish-gate.js` FROZEN_PLATFORMS). The CLI refuses it by design. Separately its
+  API went Pro-only in May 2026, but the ban is the binding reason. Do not re-add it.
 - **dev.to comments** — the API is **read-only**. There is no POST endpoint, so replying to a
   commenter genuinely needs a browser. Draft the reply to a file and say where it is.
 - **LinkedIn** — reachable, but only through OAuth. `LinkedInCLIAPI` is already enabled with
