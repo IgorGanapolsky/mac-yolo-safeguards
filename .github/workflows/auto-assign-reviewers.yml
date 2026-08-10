@@ -49,32 +49,45 @@ jobs:
               }
             }
             
-            // GitHub 422s a review request naming the PR author, and every
-            // agent-opened PR is authored by the repo owner — so the author
-            // must be filtered out, and an empty result is success, not failure.
-            const prAuthor = context.payload.pull_request.user.login.toLowerCase();
-            const mapped = [...recommendedReviewers]
-              .slice(0, 2) // Max 2 reviewers
-              .map(r => r.replace('@', ''))
-              .filter(r => r.toLowerCase() !== prAuthor);
-            const fallback = ['igorganapolsky'].filter(r => r !== prAuthor);
-            const toRequest = mapped.length > 0 ? mapped : fallback;
+            // GitHub rejects a review request that includes the PR author with a hard
+            // 422 ("Review cannot be requested from pull request author"), which fails
+            // this whole check. Drop the author before asking.
+            const author = context.payload.pull_request.user.login.toLowerCase();
+            const DEFAULT_REVIEWER = 'igorganapolsky';
 
-            if (toRequest.length === 0) {
-              console.log('Only candidate reviewer is the PR author; nothing to assign.');
+            const mapped = [...recommendedReviewers]
+              .map(r => r.replace('@', ''))
+              .filter(r => r.toLowerCase() !== author)
+              .slice(0, 2); // Max 2 reviewers
+
+            const reviewerArray = mapped.length > 0
+              ? mapped
+              : [DEFAULT_REVIEWER].filter(r => r.toLowerCase() !== author);
+
+            if (reviewerArray.length === 0) {
+              // Author is the only candidate — e.g. Igor opening a PR that touches no
+              // mapped path. Nothing to request, and that is not a failure.
+              console.log(`No reviewer to assign: author ${author} is the only candidate.`);
               return;
             }
 
+            // A handle in reviewerMap that is not a repo collaborator also 422s. That is
+            // a config problem, not a reason to fail the PR, so warn instead of throwing.
             try {
               await github.rest.pulls.requestReviewers({
                 owner,
                 repo,
                 pull_number: context.payload.pull_request.number,
-                reviewers: toRequest
+                reviewers: reviewerArray
               });
-              console.log(`Requested reviewers: ${toRequest.join(', ')}`);
-            } catch (e) {
-              // Reviewer assignment is advisory; a non-collaborator handle or
-              // race must not fail the PR's checks.
-              console.log(`Could not request reviewers (${toRequest.join(', ')}): ${e.message}`);
+              console.log(`Requested reviewers: ${reviewerArray.join(', ')}`);
+            } catch (error) {
+              if (error.status === 422) {
+                core.warning(
+                  `Could not request ${reviewerArray.join(', ')}: ${error.message}. ` +
+                  `Check that each handle in reviewerMap is a collaborator on this repo.`
+                );
+              } else {
+                throw error;
+              }
             }
