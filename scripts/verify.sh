@@ -14,5 +14,9 @@ node tests/test-github-copilot-agent-harness.js
 node tests/test-browseros-agent-harness.js
 node tests/test-github-runner-roi-auditor.js
 node tests/test-hermes-yolo.js
+node tests/test-jcode-harness-suite.js
+node tests/test-seed21-adaptive-thinking-engine.js
+node tests/test-ark-cli-harness.js
+node tests/test-seed-yolo.js
 
 echo "✅ All Local CI Verification Checks Passed!"
