@@ -1,0 +1,64 @@
+{
+  "name": "linear-agent-same-day-closeout",
+  "version": "1.0.0",
+  "trigger": "on issue close (Done transition)",
+  "steps": [
+    {
+      "step": 1,
+      "name": "close",
+      "action": "run",
+      "cmd": "node tools/linear-agent-bridge.js --done ID --agent <agent> --comment <sha|evidence-link>",
+      "expect_exit_code": 0,
+      "post": ["state -> Done", "evidence comment posted on Linear issue"]
+    },
+    {
+      "step": 2,
+      "name": "strip-locks",
+      "action": "run",
+      "cmd": "node tools/linear-agent-bridge.js --release ID --agent <agent>",
+      "expect_exit_code": 0,
+      "post": [
+        "agent-lock family stripped",
+        "every lock label id matches /^[0-9a-f-]{36}$/i (never 'undefined')",
+        "vault release note appended Handoffs/linear-claims/YYYY-MM-DD_ID_AGENT.md"
+      ]
+    },
+    {
+      "step": 3,
+      "name": "vault-closeout",
+      "action": "write",
+      "path": "Documents/AI-Agent-Sync/Handoffs/linear-claims/YYYY-MM-DD_ID_AGENT.md",
+      "frontmatter": {
+        "linear_id": "<AGENT-N>",
+        "linear_uuid": "<uuid>",
+        "linear_url": "https://linear.app/igorganapolsky/issue/<id>/<slug>",
+        "status": "Done",
+        "agent": "<agent>",
+        "action": "closeout",
+        "updated_at": "<ISO-8601 same-day>",
+        "duration_m": "<int>"
+      },
+      "body": [
+        "## Evidence",
+        "- Linear state: Done",
+        "- Lock-family labels stripped: confirmed via issue(id:) UUID-scoped query",
+        "- git ref: <sha>",
+        "## Prevention rule",
+        "- <the rule that prevents recurrence of this issue type>"
+      ]
+    },
+    {
+      "step": 4,
+      "name": "validate",
+      "action": "assert",
+      "checks": [
+        "state.name == Done",
+        "lock_family_label_count == 0",
+        "vault closeout note exists and same-day",
+        "last command exit code == 0"
+      ]
+    }
+  ],
+  "idempotent": true,
+  "same_day_only": true
+}
