@@ -13,7 +13,7 @@
 const assert = require('assert');
 const {
   detectLinkFacets, graphemeLength, parseRetryAfter, describeHttpFailure,
-  normalizeTags, verifyPublished, run,
+  normalizeTags, normalizeHashnodeTags, verifyPublished, run,
 } = require('../tools/social-publish.js');
 
 let passed = 0;
@@ -202,6 +202,70 @@ console.log('credential absence is a usage error, not a crash');
       { fetch: async () => { throw new Error('ECONNRESET'); } });
     assert.strictEqual(r.verified, false);
     assert.match(r.reason, /ECONNRESET/);
+  });
+
+
+  console.log('hashnode — GraphQL traps');
+
+  await ta('tags become {slug,name} objects, not dev.to strings', () => {
+    assert.deepStrictEqual(normalizeHashnodeTags('DevOps, AI'),
+      [{ slug: 'devops', name: 'devops' }, { slug: 'ai', name: 'ai' }]);
+  });
+
+  await ta('Authorization header carries the raw token with NO Bearer prefix', async () => {
+    let seen = null;
+    const fetchStub = async (url, init) => {
+      seen = init.headers.authorization;
+      return { ok: true, status: 200, json: async () => ({ data: { me: { publications: { edges: [{ node: { id: 'pub1' } } ] } } } }) };
+    };
+    await run({ platform: 'hashnode', title: 'T', body: 'B' },
+      { fetch: fetchStub, env: { HASHNODE_TOKEN: 'raw-token' }, now: () => new Date() });
+    assert.strictEqual(seen, 'raw-token');
+    assert.ok(!/Bearer/i.test(seen), 'must not prepend Bearer');
+  });
+
+  await ta('GraphQL 200 carrying an errors array is a FAILURE, not a success', async () => {
+    const fetchStub = async () => ({ ok: true, status: 200,
+      json: async () => ({ errors: [{ message: 'Something broke' }] }) });
+    const r = await run({ platform: 'hashnode', title: 'T', body: 'B' },
+      { fetch: fetchStub, env: { HASHNODE_TOKEN: 't' }, now: () => new Date() });
+    assert.strictEqual(r.ok, false);
+    assert.match(r.error, /Something broke/);
+  });
+
+  await ta('Pro-plan rejection is explained, not reported as a generic auth error', async () => {
+    const fetchStub = async () => ({ ok: true, status: 200,
+      json: async () => ({ errors: [{ message: 'This publication requires a Pro plan' }] }) });
+    const r = await run({ platform: 'hashnode', title: 'T', body: 'B' },
+      { fetch: fetchStub, env: { HASHNODE_TOKEN: 't' }, now: () => new Date() });
+    assert.strictEqual(r.ok, false);
+    assert.match(r.error, /Pro publication since May 2026/);
+  });
+
+  await ta('publicationId is auto-resolved and canonical maps to originalArticleURL', async () => {
+    let mutationInput = null;
+    const fetchStub = async (url, init) => {
+      const b = JSON.parse(init.body);
+      if (b.query.includes('publications(first: 1)')) {
+        return { ok: true, status: 200, json: async () => ({ data: { me: { publications: { edges: [{ node: { id: 'PUB-42' } }] } } } }) };
+      }
+      mutationInput = b.variables.input;
+      return { ok: true, status: 200, json: async () => ({ data: { publishPost: { post: { id: '1', url: 'https://x.hashnode.dev/p' } } } }) };
+    };
+    const r = await run({ platform: 'hashnode', title: 'T', body: 'B', tags: 'ai', canonicalUrl: 'https://dev.to/orig' },
+      { fetch: fetchStub, env: { HASHNODE_TOKEN: 't' }, now: () => new Date() });
+    assert.strictEqual(mutationInput.publicationId, 'PUB-42');
+    assert.strictEqual(mutationInput.originalArticleURL, 'https://dev.to/orig',
+      'cross-post must point canonical back at the original or it competes with it');
+    assert.strictEqual(r.url, 'https://x.hashnode.dev/p');
+  });
+
+  await ta('hashnode without a token exits 2 and names the Pro requirement', async () => {
+    const r = await run({ platform: 'hashnode', title: 'T', body: 'B' },
+      { fetch: async () => { throw new Error('must not be called'); }, env: {}, now: () => new Date() });
+    assert.strictEqual(r.code, 2);
+    assert.match(r.error, /HASHNODE_TOKEN/);
+    assert.match(r.error, /Pro/);
   });
 
   console.log(`\n${passed} passed${process.exitCode ? ' — WITH FAILURES' : ''}`);

@@ -16,6 +16,7 @@
  * no browser. Set the env var and unattended runs publish.
  *
  *   dev.to    DEVTO_API_KEY
+ *   Hashnode  HASHNODE_TOKEN  (publication must be on Pro — API paid-only since May 2026)
  *   Bluesky   BLUESKY_HANDLE + BLUESKY_APP_PASSWORD
  *
  * Deliberately NOT implemented (verified 2026-08-10, do not "fix" these):
@@ -46,6 +47,7 @@ const fs = require('fs');
 
 const BLUESKY_PDS = 'https://bsky.social';
 const DEVTO_API = 'https://dev.to/api/articles';
+const HASHNODE_API = 'https://gql.hashnode.com/';
 const BLUESKY_MAX_GRAPHEMES = 300;
 
 /* ------------------------------------------------------------------ *
@@ -160,6 +162,81 @@ async function publishDevto(opts, deps) {
   return { ok: true, url: json.url || json.canonical_url, id: json.id };
 }
 
+/**
+ * Hashnode — GraphQL, and three details that each cost a failed request:
+ *  1. The Authorization header carries the raw token with NO "Bearer " prefix.
+ *  2. Tags are objects ({slug, name}), not strings like dev.to's.
+ *  3. GraphQL returns HTTP 200 with an `errors` array on failure, so checking
+ *     res.ok alone reports a rejected publish as a success.
+ * Since May 2026 the API is Pro-only for BOTH queries and mutations, so a free
+ * publication fails here no matter how valid the token is — surfaced explicitly
+ * rather than as a generic auth error.
+ */
+async function hashnodeGraphql(query, variables, token, deps) {
+  const res = await deps.fetch(HASHNODE_API, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: token },
+    body: JSON.stringify({ query, variables }),
+  });
+  if (!res.ok) return { error: describeHttpFailure(res.status, 'hashnode') };
+  const json = await res.json();
+  if (json.errors && json.errors.length) {
+    const msg = json.errors.map((e) => e.message).join('; ');
+    if (/pro|plan|subscription|not allowed|forbidden/i.test(msg)) {
+      return { error: `hashnode: ${msg} — the GraphQL API has required a Pro publication since May 2026, for queries and mutations alike. A valid token on a free publication still fails.` };
+    }
+    return { error: `hashnode: ${msg}` };
+  }
+  return { data: json.data };
+}
+
+async function publishHashnode(opts, deps) {
+  const token = deps.env.HASHNODE_TOKEN;
+  if (!token) {
+    return { ok: false, code: 2, error: 'HASHNODE_TOKEN not set. Create one at hashnode.com/settings/developer. Note the publication must be on Pro — the API has been paid-only since May 2026.' };
+  }
+
+  if (opts.dryRun) {
+    return { ok: true, dryRun: true, wouldSend: { title: opts.title, tags: normalizeHashnodeTags(opts.tags), canonical: opts.canonicalUrl || null, bodyChars: (opts.body || '').length } };
+  }
+
+  // Resolve the publication automatically; making the caller hunt for an opaque
+  // id is the kind of friction that turns an unattended run into a blocked one.
+  let publicationId = opts.publicationId;
+  if (!publicationId) {
+    const q = await hashnodeGraphql(
+      'query { me { publications(first: 1) { edges { node { id title } } } } }', {}, token, deps);
+    if (q.error) return { ok: false, code: 1, error: q.error };
+    const edge = q.data && q.data.me && q.data.me.publications && q.data.me.publications.edges[0];
+    if (!edge) return { ok: false, code: 1, error: 'hashnode: token valid but no publication found on this account.' };
+    publicationId = edge.node.id;
+  }
+
+  const mutation = `mutation Publish($input: PublishPostInput!) {
+    publishPost(input: $input) { post { id url slug } }
+  }`;
+  const input = {
+    publicationId,
+    title: opts.title,
+    contentMarkdown: opts.body,
+    tags: normalizeHashnodeTags(opts.tags),
+  };
+  // Cross-posts must point search engines back at the original, or the syndicated
+  // copy competes with the post it was copied from.
+  if (opts.canonicalUrl) input.originalArticleURL = opts.canonicalUrl;
+
+  const r = await hashnodeGraphql(mutation, { input }, token, deps);
+  if (r.error) return { ok: false, code: 1, error: r.error };
+  const post = r.data && r.data.publishPost && r.data.publishPost.post;
+  if (!post || !post.url) return { ok: false, code: 1, error: 'hashnode: mutation returned no post URL — cannot verify, so not Published.' };
+  return { ok: true, url: post.url, id: post.id };
+}
+
+/** Hashnode tags are {slug, name} objects; sending dev.to-style strings is rejected. */
+function normalizeHashnodeTags(raw) {
+  return normalizeTags(raw).map((slug) => ({ slug, name: slug }));
+}
+
 async function publishBluesky(opts, deps) {
   const handle = deps.env.BLUESKY_HANDLE;
   const password = deps.env.BLUESKY_APP_PASSWORD;
@@ -230,9 +307,10 @@ async function verifyPublished(url, mustContain, deps) {
 async function run(opts, deps) {
   const publisher = opts.platform === 'devto' ? publishDevto
     : opts.platform === 'bluesky' ? publishBluesky
-      : null;
+      : opts.platform === 'hashnode' ? publishHashnode
+        : null;
   if (!publisher) {
-    return { ok: false, code: 2, error: `Unsupported platform "${opts.platform}". Only devto and bluesky have a token path; see the header for why X, Medium, LinkedIn and Threads do not.` };
+    return { ok: false, code: 2, error: `Unsupported platform "${opts.platform}". Only devto, hashnode and bluesky have a token path; see the header for why X, Medium, LinkedIn and Threads do not.` };
   }
 
   const published = await publisher(opts, deps);
@@ -264,6 +342,7 @@ function parseArgs(argv) {
     else if (a === '--body-file') o.body = fs.readFileSync(next(), 'utf8');
     else if (a === '--tags') o.tags = next();
     else if (a === '--canonical-url') o.canonicalUrl = next();
+    else if (a === '--publication-id') o.publicationId = next();
     else if (a === '--must-contain') o.mustContain = next();
     else if (a === '--dry-run') o.dryRun = true;
     else if (a === '--json') o.json = true;
@@ -293,5 +372,6 @@ if (require.main === module) {
 
 module.exports = {
   detectLinkFacets, graphemeLength, parseRetryAfter, describeHttpFailure,
-  normalizeTags, publishDevto, publishBluesky, verifyPublished, run,
+  normalizeTags, normalizeHashnodeTags, publishDevto, publishBluesky,
+  publishHashnode, hashnodeGraphql, verifyPublished, run,
 };
