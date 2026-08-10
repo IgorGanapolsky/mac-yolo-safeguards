@@ -1906,6 +1906,9 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `hermes-mobile/scripts/generate-store-screenshots.py`, `hermes-mobile/scripts/test-store-screenshot-assets.py`, `hermes-mobile/fastlane/metadata/android/en-US/images/phoneScreenshots/04_pair.png`, `hermes-mobile/fastlane/screenshots/en-US/04_pair_67.png`, `hermes-mobile/fastlane/screenshots/en-US/04_pair_ipad129.png`, `hermes-mobile/docs/store-assets/generated-manifest.json`, `plan.md` → **codex-mobile-fix-everything** (CI follow-up for T-MOBILE-FIX-EVERYTHING-20260731: keep public screenshot copy aligned with the now-unambiguous Leash tool-denial control) (2026-07-31T17:32:00Z)
 - `.github/workflows/ci.yml` (Hermes Mobile typecheck and tests job — continuous E2E proof gate step only, no other lines) → **antigravity** (T-1452-E2E-RELEASE-GATE-20260808: wire hermes-mobile-ci-proof-gate.js into CI for issue #1452 — fail on e2e=skipped/cancelled/missing as required by issue; all existing §2 claims on ci.yml are for completed tasks with different sections) (2026-08-08T15:30:00Z)
 
+- `tools/social-publish.js` (new), `tests/test-social-publish.js` (new) → **claude-content-pm-20260810** (T-TOKEN-PUBLISHER-20260810: token-based dev.to + Bluesky publisher so unattended cloud runs can publish without a browser session; publish-then-verify, refuses Published without a refetched URL. Claimed BEFORE touching, per protocol. Deliberately does NOT implement X (no free tier since Feb 2026; pay-per-use $0.20/post containing a URL — violates the no-spend rule) or Medium (API closed to new integration tokens since 2023; use dev.to -> Medium Import a Story, which sets canonical back automatically).) (2026-08-10T19:45:00Z)
+
+
 ## 3. Decisions Log
 
 ### D-2026-07-28-buzz-competitor-p0-shared-room
