@@ -115,6 +115,20 @@ Then list open PRs and read the same-day one. **Content PRs frequently sit unmer
 `main` alone will not show you what today's other run did — on 2026-08-10 the morning run
 lived only in PR #1595 and was invisible from `main`.
 
+This is the step most likely to be skipped, and skipping it is expensive. A control run that
+did everything else in this preflight correctly — right date, right environment, correctly
+verified blockers — still concluded "no content-engine run is recorded for today" because it
+checked `main`, the working tree, and public social feeds but never opened the PR list. Two
+runs had already happened. It would have drafted as the day's first beat.
+
+Public feeds are also the wrong instrument here: nothing published today precisely *because*
+publishing is blocked, so an empty timeline says nothing about whether a run occurred. Git
+refs and PRs are the record; the timeline is not.
+
+Note too that the engine's Mac-local state (`content-engine/ledger.tsv`, `RUN-LOCK`,
+`frozen/`) is untracked and unreachable from a cloud container. When you can't read it, say
+that the sibling-run check is best-effort rather than treating a clean result as proof.
+
 Compare against the other run and confirm you differ on **persona, pain, hook, and meme**.
 Overlapping on any one of them is a same-day duplicate. Record the comparison as a small
 table in your output so the difference is auditable rather than asserted:

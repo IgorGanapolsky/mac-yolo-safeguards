@@ -87,6 +87,25 @@ Prices are the sharpest case: read them live every run, never from memory or fro
 log row. And keep the free things clearly free — approve/deny gating is free on web and
 mobile, and copy must never imply a price is required for it.
 
+**Check that your instrument could actually see what you claim.** A run reported that
+`social-publish-gate.js` "returns BLOCK but exits 0, so callers must parse stdout rather than
+`$?`" — a scary-sounding finding about a safety gate, and completely false. It came from
+running the gate through a pipe, where `$?` reports the last element of the pipeline (`head`)
+rather than `node`. Tested without the pipe, the gate is correct: exit 1 on BLOCK, 0 on ALLOW.
+
+```bash
+node tools/social-publish-gate.js --platform X --campaign Y >/dev/null 2>&1; echo $?   # real
+node tools/social-publish-gate.js ... | head -2; echo $?                               # lies
+```
+
+The general form matters more than the example: a non-JS fetch can't see rendered UI, an
+empty API result isn't proof of absence, a 429 means *unverified* rather than *verified
+absent*, and a piped exit code isn't the command's exit code. Before reporting a finding —
+especially one that indicts a safety mechanism — ask what the tool you used was actually
+capable of observing, and re-run it a second way if the answer is surprising. Findings
+inherited from a subagent deserve the same treatment; a plausible one repeated into a skill
+or a log becomes tomorrow's false premise.
+
 ## Do not manufacture a publish
 
 There is always some surface that would technically yield a URL — spin up a microsite, post
