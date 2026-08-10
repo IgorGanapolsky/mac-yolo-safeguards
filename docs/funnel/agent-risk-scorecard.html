@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Agent Risk Scorecard — free 5-minute self-assessment</title>
+<style>
+  :root{
+    --bg:#ffffff; --fg:#1a1d21; --muted:#5b6470; --line:#e3e7ec;
+    --accent:#0b6e4f; --warn:#b3541e; --bad:#a1272e; --card:#f6f8fa;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#12151a; --fg:#e8eaed; --muted:#9aa4b2; --line:#2a3140;
+           --accent:#4cc38a; --warn:#e8955d; --bad:#e5717a; --card:#1a1f28; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  main{max-width:720px;margin:0 auto;padding:2rem 1.25rem 4rem}
+  h1{font-size:1.6rem;line-height:1.25;margin:0 0 .5rem}
+  h2{font-size:1.1rem;margin:2rem 0 .25rem;color:var(--accent)}
+  p.lead{color:var(--muted);margin:.25rem 0 1.5rem}
+  fieldset{border:1px solid var(--line);border-radius:10px;margin:0 0 1rem;padding:1rem}
+  legend{font-weight:600;padding:0 .4rem}
+  .q{margin:.75rem 0 .25rem;font-weight:500}
+  .opts{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem}
+  .opts label{border:1px solid var(--line);border-radius:8px;padding:.35rem .8rem;cursor:pointer;
+              background:var(--card);user-select:none}
+  .opts input{margin-right:.35rem}
+  .opts label:has(input:checked){border-color:var(--accent);outline:2px solid var(--accent)}
+  button{background:var(--accent);color:#fff;border:0;border-radius:8px;
+         padding:.7rem 1.4rem;font-size:1rem;cursor:pointer;margin-top:1rem}
+  button.secondary{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+  #result{display:none;border:1px solid var(--line);border-radius:10px;padding:1.25rem;margin-top:1.5rem}
+  #band{font-size:1.35rem;font-weight:700}
+  .band-exposed{color:var(--bad)} .band-atrisk{color:var(--warn)}
+  .band-guarded{color:var(--accent)} .band-hardened{color:var(--accent)}
+  table{border-collapse:collapse;width:100%;margin:.75rem 0}
+  td,th{border:1px solid var(--line);padding:.4rem .6rem;text-align:left;font-size:.95rem}
+  textarea{width:100%;min-height:180px;margin-top:.5rem;font:13px/1.4 ui-monospace,Menlo,monospace;
+           background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:.6rem}
+  .cta{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:1rem;margin-top:1rem}
+  .cta a{color:var(--accent);font-weight:600}
+  .note{color:var(--muted);font-size:.85rem;margin-top:1.5rem}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<main>
+  <h1>AI Agent Risk Scorecard</h1>
+  <p class="lead">12 questions, 5 minutes. Scores how exposed your setup is to the three ways autonomous
+  coding agents actually hurt people: a frozen machine, a surprise bill, and an action you can't take back.
+  Runs entirely in this file — nothing is sent anywhere.</p>
+
+  <form id="quiz"></form>
+
+  <button type="button" id="scoreBtn">Get my score</button>
+
+  <div id="result">
+    <div id="band"></div>
+    <p id="bandDesc"></p>
+    <table id="catTable">
+      <thead><tr><th>Category</th><th>Score</th><th>Status</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p id="focus"></p>
+    <div class="cta" id="cta"></div>
+    <h2>Share your result</h2>
+    <textarea id="shareText" readonly></textarea>
+    <button type="button" class="secondary" id="copyBtn">Copy results</button>
+  </div>
+
+  <p class="note">Free and open source, from the maintainer of
+  <a href="https://github.com/IgorGanapolsky/mac-yolo-safeguards">mac-yolo-safeguards</a> — OS-level
+  runaway-kill, timeouts &amp; resource limits for coding agents in YOLO mode. If your agent failures cost
+  you less than $1,500, use the free kit and keep your money.</p>
+</main>
+
+<script>
+"use strict";
+const CATS = [
+  { key:"A", name:"Runaway control", qs:[
+    "If an agent enters an infinite retry/edit loop right now, does anything stop it automatically (timeout, loop detector, watchdog)?",
+    "Do agent processes run under hard CPU/memory limits (ulimits, containers, memory-pressure guards) so one runaway can't freeze the machine?",
+    "Can you kill every running agent with one documented, tested command — without hunting PIDs?"
+  ]},
+  { key:"B", name:"Spend & token burn", qs:[
+    "Is there a hard cap that stops an agent mid-run when it exceeds a token/dollar budget (not just a dashboard you check later)?",
+    "Are purchases, subscription changes, and checkout flows hard-blocked for agents, so an agent cannot complete a payment on its own?",
+    "Do you review per-run cost receipts (model, tokens, dollars) at least weekly?"
+  ]},
+  { key:"C", name:"Action gating & blast radius", qs:[
+    "Are destructive actions (deletes, force-push, prod deploys, mass sends) gated behind approval, or can YOLO mode reach them directly?",
+    "Does the agent run with least-privilege, per-task credentials rather than your full personal GitHub/cloud/email tokens?",
+    "If an agent goes rogue in one project, is it sandboxed (worktree, container, separate user) so it can't touch unrelated repos and data?"
+  ]},
+  { key:"D", name:"Recovery & evidence", qs:[
+    "When a run misbehaves, do your logs/receipts let you reconstruct what happened — commands run, files touched, cost incurred?",
+    "Must agent work pass a smoke test or verification gate before it ships (merge, deploy, publish)?",
+    "After an incident, do you install a mechanical guard against that failure class — not just \"prompt it better next time\"?"
+  ]},
+];
+const OPTS = [["No",0],["Partial",1],["Yes",2]];
+const LINKS = {
+  repo: "https://github.com/IgorGanapolsky/mac-yolo-safeguards",
+  diagStripe: "https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k",
+  cal: "https://cal.com/igor-g-kvqxfo/30min",
+  sprintStripe: "https://buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38",
+  inquiry: "https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=paid-hardening-inquiry.yml"
+};
+
+const form = document.getElementById("quiz");
+let qn = 0;
+for (const cat of CATS) {
+  const fs = document.createElement("fieldset");
+  fs.innerHTML = `<legend>${cat.key}. ${cat.name}</legend>`;
+  cat.qs.forEach((q) => {
+    qn += 1;
+    const id = `q${qn}`;
+    const div = document.createElement("div");
+    div.innerHTML = `<div class="q">${qn}. ${q}</div>
+      <div class="opts">` + OPTS.map(([label,v]) =>
+        `<label><input type="radio" name="${id}" value="${v}">${label}</label>`).join("") +
+      `</div>`;
+    fs.appendChild(div);
+  });
+  form.appendChild(fs);
+}
+const TOTAL_QS = qn;
+
+function bandFor(score){
+  if (score <= 9)  return ["Exposed","band-exposed",
+    "You're one bad loop away from a frozen machine or a surprise bill. Start with the free kit today — it exists for exactly this."];
+  if (score <= 15) return ["At Risk","band-atrisk",
+    "Some walls are up, but at least one failure class has a clear path through. Fix your lowest-scoring category first."];
+  if (score <= 20) return ["Guarded","band-guarded",
+    "Solid posture. The remaining gaps are specific — worth a targeted look, not a rebuild."];
+  return ["Hardened","band-hardened",
+    "You're ahead of nearly everyone. Nothing here to sell you — share your setup; the ecosystem needs the example."];
+}
+
+function ctaFor(bandName, weakest){
+  const free = `<p><strong>Free, right now:</strong> the guards in
+    <a href="${LINKS.repo}">mac-yolo-safeguards</a> — runaway-kill, timeouts, resource limits, spend gates.</p>`;
+  const diag = `<p><strong>$499 Diagnostic Call:</strong> 20-min live review of your
+    <em>${weakest}</em> gaps, root-cause triage readout, no installation.
+    <a href="${LINKS.diagStripe}">Book via Stripe</a> or <a href="${LINKS.cal}">pick a slot first</a>.</p>`;
+  const sprint = `<p><strong>$1,500 Hardening Sprint:</strong> one recurring failure pattern, root-caused,
+    guardrails installed, before/after evidence. <a href="${LINKS.sprintStripe}">Stripe</a> ·
+    <a href="${LINKS.inquiry}">public-safe inquiry</a>.</p>`;
+  if (bandName === "Exposed")  return free + diag;
+  if (bandName === "At Risk")  return free + diag + sprint;
+  if (bandName === "Guarded")  return diag;
+  return `<p>Genuinely: nothing to sell you. <a href="${LINKS.repo}">Star the repo</a> if the checklist was useful.</p>`;
+}
+
+document.getElementById("scoreBtn").addEventListener("click", () => {
+  const answers = [];
+  for (let i = 1; i <= TOTAL_QS; i++) {
+    const el = document.querySelector(`input[name="q${i}"]:checked`);
+    if (!el) { alert(`Question ${i} is unanswered.`); return; }
+    answers.push(Number(el.value));
+  }
+  const total = answers.reduce((a,b)=>a+b,0);
+  const cats = CATS.map((cat, ci) => {
+    const s = answers.slice(ci*3, ci*3+3).reduce((a,b)=>a+b,0);
+    return { name:cat.name, score:s };
+  });
+  // Weakest wall: lowest score; ties resolve A→B→C→D (array order is already that priority).
+  const weakest = cats.reduce((min,c)=> c.score < min.score ? c : min, cats[0]);
+  const [bandName, bandClass, bandDesc] = bandFor(total);
+
+  document.getElementById("band").textContent = `${total} / ${TOTAL_QS*2} — ${bandName}`;
+  document.getElementById("band").className = bandClass;
+  document.getElementById("bandDesc").textContent = bandDesc;
+
+  const tbody = document.querySelector("#catTable tbody");
+  tbody.innerHTML = "";
+  for (const c of cats) {
+    const status = c.score <= 2 ? "Open gap" : c.score <= 4 ? "Partial" : "Covered";
+    const row = document.createElement("tr");
+    const cells = [c.name, `${c.score} / 6`, status];
+    for (const text of cells) {
+      const td = document.createElement("td");
+      td.textContent = text;
+      row.appendChild(td);
+    }
+    tbody.appendChild(row);
+  }
+  document.getElementById("focus").innerHTML =
+    `<strong>Fix first:</strong> ${weakest.name} (${weakest.score}/6). ` +
+    `A runaway freezes you today, spend leaks bleed weekly, gating failures are rare but irreversible, ` +
+    `and recovery gaps only bite after the others already have.`;
+  document.getElementById("cta").innerHTML = ctaFor(bandName, weakest.name);
+
+  document.getElementById("shareText").value =
+`AI Agent Risk Scorecard: ${total}/${TOTAL_QS*2} — ${bandName}
+${cats.map(c => `  ${c.name}: ${c.score}/6`).join("\n")}
+Weakest wall: ${weakest.name}
+Take it yourself (free, offline, open source): ${LINKS.repo}/blob/main/docs/AGENT-RISK-SCORECARD.md`;
+
+  document.getElementById("result").style.display = "block";
+  document.getElementById("result").scrollIntoView({behavior:"smooth"});
+});
+
+document.getElementById("copyBtn").addEventListener("click", async () => {
+  const ta = document.getElementById("shareText");
+  ta.select();
+  try { await navigator.clipboard.writeText(ta.value); } catch (e) { document.execCommand("copy"); }
+});
+</script>
+</body>
+</html>
