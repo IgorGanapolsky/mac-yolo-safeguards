@@ -1,0 +1,72 @@
+name: Auto-Assign Reviewers
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, synchronize]
+
+jobs:
+  assign_reviewers:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Analyze changes and assign reviewers
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // High-ROI: Smart reviewer assignment based on code ownership
+            const changedFiles = context.payload.pull_request.changed_files;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            
+            // Get the file changes
+            const files = await github.rest.pulls.listFiles({
+              owner,
+              repo,
+              pull_number: context.payload.pull_request.number
+            });
+            
+            // Owner-based mapping (customize for your team)
+            const reviewerMap = {
+              'src/components/': ['@codex', '@grok'],
+              'src/screens/': ['@codex', '@helium'],
+              'src/services/': ['@grok', '@ion'],
+              'src/utils/': ['@igor'],
+              '__tests__/': ['@igor', '@igor-team'],
+              'hermes-mobile/src/': ['@igor', '@igor-mobile-team']
+            };
+            
+            const recommendedReviewers = new Set();
+            
+            for (const { filename } of files.data) {
+              for (const [pattern, reviewers] of Object.entries(reviewerMap)) {
+                if (filename.startsWith(pattern)) {
+                  reviewers.forEach(r => recommendedReviewers.add(r));
+                }
+              }
+            }
+            
+            const reviewerArray = [...recommendedReviewers].slice(0, 2); // Max 2 reviewers
+            
+            if (reviewerArray.length > 0) {
+              await github.rest.pulls.requestReviewers({
+                owner,
+                repo,
+                pull_number: context.payload.pull_request.number,
+                reviewers: reviewerArray.map(r => r.replace('@', ''))
+              });
+              
+              console.log(`Recommended reviewers: ${reviewerArray.join(', ')}`);
+            } else {
+              // Default reviewer
+              await github.rest.pulls.requestReviewers({
+                owner,
+                repo,
+                pull_number: context.payload.pull_request.number,
+                reviewers: ['igorganapolsky']
+              });
+              console.log('Using default reviewer');
+            }

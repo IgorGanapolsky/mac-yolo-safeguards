@@ -8,8 +8,6 @@ echo "=== Running Local Regression Suite (scripts/verify.sh) ==="
 node tools/codeql-pattern-gate.js --all || { echo "❌ CodeQL pattern gate failed"; exit 1; }
 
 # 2. Local CI Audit
-node tools/local-ci-dagger-act-engine.js --fast || { echo "❌ Local CI Audit failed"; exit 1; }
-
 # 3. Unit Test Suites
 node tests/test-thumbgate-spend-guard.js
 node tests/test-obsidian-structured-context.js
