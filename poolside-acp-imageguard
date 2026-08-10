@@ -87,6 +87,9 @@ const VISION_MODELS = (process.env.POOLSIDE_IMAGE_GUARD_MODELS ||
   'glm-vision,vision-gemini,vision-free,vision-local')
   .split(',').map((s) => s.trim()).filter(Boolean);
 const TIMEOUT_MS = Number(process.env.POOLSIDE_IMAGE_GUARD_TIMEOUT || 45000);
+// Internal wrapper-only control: apply Poolside's thought option to this ACP session
+// without rewriting the user's shared settings.yaml. Empty means transparent.
+const SESSION_THOUGHT_LEVEL = process.env.POOLSIDE_YOLO_SESSION_THOUGHT_LEVEL || '';
 
 const DESCRIBE_PROMPT =
   'You are transcribing an image for a CODING AGENT that cannot see images. ' +
@@ -248,6 +251,14 @@ function runProxy(argv) {
   // id of the initialize request, so we rewrite only ITS result and not some other
   // response that happens to carry an agentCapabilities-shaped object.
   let initializeId = null;
+  const sessionNewIds = new Set();
+  const internalConfigIds = new Set();
+  let internalConfigSequence = 0;
+  let inputClosed = false;
+
+  const maybeEndAgentInput = () => {
+    if (inputClosed && sessionNewIds.size === 0) child.stdin.end();
+  };
 
   // Client -> agent. Transforming a prompt needs an await, and ACP responses are
   // correlated by id, so we must not let a later message overtake an earlier one
@@ -263,6 +274,19 @@ function runProxy(argv) {
 
       if (msg && msg.method === 'initialize' && msg.id !== undefined) {
         initializeId = msg.id;
+      }
+      if (SESSION_THOUGHT_LEVEL && msg && msg.method === 'session/new' && msg.id !== undefined) {
+        sessionNewIds.add(msg.id);
+      }
+
+      // Pool's client may apply a saved global thought default immediately after
+      // session/new. Keep the fast choice scoped to this proxied session by rewriting
+      // only this config option; every other message remains byte-identical.
+      if (SESSION_THOUGHT_LEVEL && msg && msg.method === 'session/set_config_option' &&
+          msg.params && msg.params.configId === 'thought_level') {
+        msg.params.value = SESSION_THOUGHT_LEVEL;
+        child.stdin.write(JSON.stringify(msg) + '\n');
+        return;
       }
 
       if (msg && msg.method === 'session/prompt' && msg.params && Array.isArray(msg.params.prompt)) {
@@ -283,7 +307,12 @@ function runProxy(argv) {
       child.stdin.write(line + '\n');
     });
   });
-  toAgent.on('close', () => { chain.then(() => child.stdin.end()); });
+  toAgent.on('close', () => {
+    chain.then(() => {
+      inputClosed = true;
+      maybeEndAgentInput();
+    });
+  });
 
   // Agent -> client: correct the capability lie, pass everything else through.
   const toClient = readline.createInterface({ input: child.stdout, crlfDelay: Infinity });
@@ -291,6 +320,36 @@ function runProxy(argv) {
     if (!line.trim()) { process.stdout.write(line + '\n'); return; }
     let msg;
     try { msg = JSON.parse(line); } catch { process.stdout.write(line + '\n'); return; }
+
+    // Responses to our session-scoped config request are an implementation detail;
+    // forwarding them would give the client a response ID it never issued.
+    if (internalConfigIds.has(msg.id)) {
+      internalConfigIds.delete(msg.id);
+      return;
+    }
+
+    if (SESSION_THOUGHT_LEVEL && sessionNewIds.has(msg.id)) {
+      sessionNewIds.delete(msg.id);
+      const sessionId = msg?.result?.sessionId;
+      if (sessionId) {
+        const internalId = `hermes-thought-${process.pid}-${++internalConfigSequence}`;
+        internalConfigIds.add(internalId);
+        child.stdin.write(JSON.stringify({
+          jsonrpc: '2.0',
+          id: internalId,
+          method: 'session/set_config_option',
+          params: { sessionId, configId: 'thought_level', value: SESSION_THOUGHT_LEVEL },
+        }) + '\n');
+        const option = Array.isArray(msg.result.configOptions)
+          ? msg.result.configOptions.find((item) => item && item.id === 'thought_level') : null;
+        if (option) option.currentValue = SESSION_THOUGHT_LEVEL;
+      } else {
+        log('session/new returned no sessionId; thought-level fast default was not applied');
+      }
+      process.stdout.write(JSON.stringify(msg) + '\n');
+      maybeEndAgentInput();
+      return;
+    }
 
     const caps = msg?.result?.agentCapabilities?.promptCapabilities;
     if (initializeId !== null && msg.id === initializeId && caps && typeof caps === 'object') {
@@ -505,6 +564,10 @@ async function main() {
 
   if (!KNOWN_MODES.includes(MODE)) {
     log(`refusing to run — POOLSIDE_IMAGE_GUARD='${MODE}' is not a mode (${KNOWN_MODES.join(' ')})`);
+    process.exit(2);
+  }
+  if (SESSION_THOUGHT_LEVEL && !['none', 'max'].includes(SESSION_THOUGHT_LEVEL)) {
+    log(`refusing to run — POOLSIDE_YOLO_SESSION_THOUGHT_LEVEL='${SESSION_THOUGHT_LEVEL}' is invalid (none max)`);
     process.exit(2);
   }
   if (MODE === 'off') {
