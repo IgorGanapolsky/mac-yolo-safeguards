@@ -14,5 +14,11 @@ node tests/test-github-copilot-agent-harness.js
 node tests/test-browseros-agent-harness.js
 node tests/test-github-runner-roi-auditor.js
 node tests/test-hermes-yolo.js
+node tests/test-jcode-harness-suite.js
+node tests/test-meta-harness-engine.js
+node tests/test-multiagent-operating-template.js
+node tests/test-databricks-genie-cost-optimizer.js
+node tests/test-coral-agent-evolution-engine.js
+node tests/test-shepherd-fork-replay-engine.js
 
 echo "✅ All Local CI Verification Checks Passed!"
