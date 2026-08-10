@@ -17,56 +17,87 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            // High-ROI: Smart reviewer assignment based on code ownership
-            const changedFiles = context.payload.pull_request.changed_files;
+            // High-ROI: Smart reviewer assignment based on code ownership.
+            // Only real GitHub collaborators may be requested; requesting a
+            // nonexistent user makes the API return 422 and marks this check
+            // red on every PR. All reviewer names below are validated against
+            // `collaborators` before the request.
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            
+
+            // Fetch actual collaborators once (empty for public repos where
+            // the token lacks read:org; fall back to the repo owner).
+            let collaborators = [];
+            try {
+              const collab = await github.rest.repos.listCollaborators({
+                owner,
+                repo,
+                affiliation: 'direct',
+                per_page: 100,
+              });
+              collaborators = collab.data.map((u) => u.login);
+            } catch (err) {
+              console.log(`collaborator lookup failed: ${err.message}`);
+            }
+            if (collaborators.length === 0) {
+              collaborators = [owner];
+            }
+
             // Get the file changes
             const files = await github.rest.pulls.listFiles({
               owner,
               repo,
-              pull_number: context.payload.pull_request.number
+              pull_number: context.payload.pull_request.number,
             });
-            
-            // Owner-based mapping (customize for your team)
+
+            // Owner-based mapping. Keep handles aligned with the GitHub org:
+            // names that are not real users are filtered out below.
             const reviewerMap = {
-              'src/components/': ['@codex', '@grok'],
-              'src/screens/': ['@codex', '@helium'],
-              'src/services/': ['@grok', '@ion'],
-              'src/utils/': ['@igor'],
-              '__tests__/': ['@igor', '@igor-team'],
-              'hermes-mobile/src/': ['@igor', '@igor-mobile-team']
+              'src/components/': ['codex', 'grok'],
+              'src/screens/': ['codex', 'helium'],
+              'src/services/': ['grok', 'ion'],
+              'src/utils/': [],
+              '__tests__/': [],
+              'hermes-mobile/src/': [],
             };
-            
+
             const recommendedReviewers = new Set();
-            
             for (const { filename } of files.data) {
               for (const [pattern, reviewers] of Object.entries(reviewerMap)) {
                 if (filename.startsWith(pattern)) {
-                  reviewers.forEach(r => recommendedReviewers.add(r));
+                  reviewers.forEach((r) => recommendedReviewers.add(r));
                 }
               }
             }
-            
-            const reviewerArray = [...recommendedReviewers].slice(0, 2); // Max 2 reviewers
-            
-            if (reviewerArray.length > 0) {
-              await github.rest.pulls.requestReviewers({
-                owner,
-                repo,
-                pull_number: context.payload.pull_request.number,
-                reviewers: reviewerArray.map(r => r.replace('@', ''))
-              });
-              
-              console.log(`Recommended reviewers: ${reviewerArray.join(', ')}`);
-            } else {
-              // Default reviewer
-              await github.rest.pulls.requestReviewers({
-                owner,
-                repo,
-                pull_number: context.payload.pull_request.number,
-                reviewers: ['igorganapolsky']
-              });
-              console.log('Using default reviewer');
+
+            // Only request reviewers that actually exist in the repo.
+            const valid = [...recommendedReviewers].filter((r) =>
+              collaborators.includes(r),
+            );
+            const reviewerArray = valid.slice(0, 2); // Max 2 reviewers
+
+            try {
+              if (reviewerArray.length > 0) {
+                await github.rest.pulls.requestReviewers({
+                  owner,
+                  repo,
+                  pull_number: context.payload.pull_request.number,
+                  reviewers: reviewerArray,
+                });
+                console.log(`Recommended reviewers: ${reviewerArray.join(', ')}`);
+              } else {
+                // Default reviewer (the repo owner).
+                if (collaborators.includes(owner)) {
+                  await github.rest.pulls.requestReviewers({
+                    owner,
+                    repo,
+                    pull_number: context.payload.pull_request.number,
+                    reviewers: [owner],
+                  });
+                }
+                console.log('Using default reviewer');
+              }
+            } catch (err) {
+              // Reviewer assignment is advisory; never let it block a merge.
+              console.log(`reviewer assignment skipped (non-blocking): ${err.message}`);
             }
