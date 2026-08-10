@@ -34,6 +34,7 @@ outreach-actions*.tsv
 
 # Private generated manual send plans. Keep prospect-specific action links out of git.
 send-plan*.md
+next-dollar-send-plan*.md
 
 # Private proposal and payment handoff plans.
 proposal-plan*.md
