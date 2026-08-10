@@ -1,0 +1,101 @@
+{
+  "_comment": "Tests deliberately NOT executed by any workflow. Every entry needs a reason. tools/test-discovery-audit.js fails CI on any test that is neither reachable nor listed here, and fails on stale entries so this cannot rot into a mute button. Baseline captured 2026-08-06: 27 orphans found, 4 fixed by glob, 23 recorded here as debt.",
+  "excluded": {
+    "tests/test-fleet-heartbeat.sh": {
+      "reason": "Needs host hardware/network unavailable to a clean CI runner (LaunchAgents, VPN, emulator, installer or a live model). Unverified debt: it has never run in CI. Wire it to a gated job or delete it.",
+      "debt": true
+    },
+    "tests/test-hermes-tailscale-health-watchdog.sh": {
+      "reason": "Needs host hardware/network unavailable to a clean CI runner (LaunchAgents, VPN, emulator, installer or a live model). Unverified debt: it has never run in CI. Wire it to a gated job or delete it.",
+      "debt": true
+    },
+    "tests/test-memory-pressure-guardian.sh": {
+      "reason": "Needs host hardware/network unavailable to a clean CI runner (LaunchAgents, VPN, emulator, installer or a live model). Unverified debt: it has never run in CI. Wire it to a gated job or delete it.",
+      "debt": true
+    },
+    "tests/test-mac-freeze-prevention-install.sh": {
+      "reason": "Needs host hardware/network unavailable to a clean CI runner (LaunchAgents, VPN, emulator, installer or a live model). Unverified debt: it has never run in CI. Wire it to a gated job or delete it.",
+      "debt": true
+    },
+    "tests/test-install-grok-yolo-supergrok-gate.sh": {
+      "reason": "Needs host hardware/network unavailable to a clean CI runner (LaunchAgents, VPN, emulator, installer or a live model). Unverified debt: it has never run in CI. Wire it to a gated job or delete it.",
+      "debt": true
+    },
+    "tests/test-hermes-context.sh": {
+      "reason": "Needs host hardware/network unavailable to a clean CI runner (LaunchAgents, VPN, emulator, installer or a live model). Unverified debt: it has never run in CI. Wire it to a gated job or delete it.",
+      "debt": true
+    },
+    "tests/test-kimi-tinker-yolo.sh": {
+      "reason": "Needs host hardware/network unavailable to a clean CI runner (LaunchAgents, VPN, emulator, installer or a live model). Unverified debt: it has never run in CI. Wire it to a gated job or delete it.",
+      "debt": true
+    },
+    "tests/test-ibm-yolo.sh": {
+      "reason": "Needs host hardware/network unavailable to a clean CI runner (LaunchAgents, VPN, emulator, installer or a live model). Unverified debt: it has never run in CI. Wire it to a gated job or delete it.",
+      "debt": true
+    },
+    "tests/test-ralph-pr-loop.sh": {
+      "reason": "Needs host hardware/network unavailable to a clean CI runner (LaunchAgents, VPN, emulator, installer or a live model). Unverified debt: it has never run in CI. Wire it to a gated job or delete it.",
+      "debt": true
+    },
+    "tests/test-tinker-yolo-ask.sh": {
+      "reason": "Needs host hardware/network unavailable to a clean CI runner (LaunchAgents, VPN, emulator, installer or a live model). Unverified debt: it has never run in CI. Wire it to a gated job or delete it.",
+      "debt": true
+    },
+    "tests/test-tinker-yolo-agent.py": {
+      "reason": "Needs host hardware/network unavailable to a clean CI runner (LaunchAgents, VPN, emulator, installer or a live model). Unverified debt: it has never run in CI. Wire it to a gated job or delete it.",
+      "debt": true
+    },
+    "tests/test-tinker-yolo-computer.py": {
+      "reason": "Needs host hardware/network unavailable to a clean CI runner (LaunchAgents, VPN, emulator, installer or a live model). Unverified debt: it has never run in CI. Wire it to a gated job or delete it.",
+      "debt": true
+    },
+    "tests/test-grok-yolo-leak-reaper.sh": {
+      "reason": "Needs host hardware/network unavailable to a clean CI runner (LaunchAgents, VPN, emulator, installer or a live model). Unverified debt: it has never run in CI. Wire it to a gated job or delete it.",
+      "debt": true
+    },
+    "tests/test-hermes-chrome-cdp.sh": {
+      "reason": "Drives a real device or emulator; running it on the self-hosted runner would collide with the live workstation. Unverified debt: never runs in CI.",
+      "debt": true
+    },
+    "tests/test-opencode-yolo.sh": {
+      "reason": "Drives a real device or emulator; running it on the self-hosted runner would collide with the live workstation. Unverified debt: never runs in CI.",
+      "debt": true
+    },
+    "tests/test-orphan-emulator-reclaim.sh": {
+      "reason": "Drives a real device or emulator; running it on the self-hosted runner would collide with the live workstation. Unverified debt: never runs in CI.",
+      "debt": true
+    },
+    "tests/test-browser-efficiency.sh": {
+      "reason": "Drives a real device or emulator; running it on the self-hosted runner would collide with the live workstation. Unverified debt: never runs in CI.",
+      "debt": true
+    },
+    "tests/e2e-thumbgate.sh": {
+      "reason": "Hits a remote endpoint, so it is not hermetic. Unverified debt: never runs in CI. Needs a stub before it can be wired in.",
+      "debt": true
+    },
+    "tests/test-external-pr-watch.sh": {
+      "reason": "Hits a remote endpoint, so it is not hermetic. Unverified debt: never runs in CI. Needs a stub before it can be wired in.",
+      "debt": true
+    },
+    "tests/test-hermes-dashboard.sh": {
+      "reason": "Hits a remote endpoint, so it is not hermetic. Unverified debt: never runs in CI. Needs a stub before it can be wired in.",
+      "debt": true
+    },
+    "tests/test-saas-relay-connector.sh": {
+      "reason": "Hits a remote endpoint, so it is not hermetic. Unverified debt: never runs in CI. Needs a stub before it can be wired in.",
+      "debt": true
+    },
+    "tests/test-global-phone-pipeline-lock.sh": {
+      "reason": "Referenced by a script but by no workflow, so CI never runs it. Unverified debt: promote to a workflow or delete.",
+      "debt": true
+    },
+    "tests/test-revenue-loop-watchdog.sh": {
+      "reason": "Referenced by a script but by no workflow, so CI never runs it. Unverified debt: promote to a workflow or delete.",
+      "debt": true
+    },
+    "tests/test-mac-text-hotkeys-config.js": {
+      "reason": "Asserts against a personal Hammerspoon config not checked into the repo; ci.yml skips it by name in the glob loop.",
+      "debt": false
+    }
+  }
+}

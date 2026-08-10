@@ -1253,10 +1253,22 @@ export default function DashboardClient() {
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
+                  if ((event.key === "Enter" || event.keyCode === 13) && !event.shiftKey) {
+                    if (event.nativeEvent.isComposing) return;
                     event.preventDefault();
                     if (prompt.trim() && !busy) {
-                      event.currentTarget.form?.requestSubmit();
+                      const form = event.currentTarget.form;
+                      if (form) {
+                        if (typeof form.requestSubmit === "function") {
+                          try {
+                            form.requestSubmit();
+                          } catch {
+                            form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+                          }
+                        } else {
+                          form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+                        }
+                      }
                     }
                   }
                 }}
@@ -1358,6 +1370,8 @@ export default function DashboardClient() {
                 </div>
               ) : null}
               <div className="composer-actions">
+                {/* Fallback hidden submit button so form.requestSubmit() and soft keyboard Enter always find a submitter */}
+                <button type="submit" className="sr-only" aria-hidden="true" tabIndex={-1}>Submit</button>
                 {(() => {
                   const cta = resolveComposerRunCta({
                     routePreference,
@@ -1369,11 +1383,16 @@ export default function DashboardClient() {
                   if (cta.kind === "pair") {
                     return (
                       <button
-                        type="button"
+                        type="submit"
                         className="button button-primary button-small composer-run"
                         data-testid={cta.testId}
                         disabled={cta.disabled}
-                        onClick={() => openPairingSettings("pair")}
+                        onClick={(e) => {
+                          if (!prompt.trim()) {
+                            e.preventDefault();
+                            openPairingSettings("pair");
+                          }
+                        }}
                       >
                         {cta.label}
                       </button>
@@ -1382,14 +1401,17 @@ export default function DashboardClient() {
                   if (cta.kind === "upgrade") {
                     return (
                       <button
-                        type="button"
+                        type="submit"
                         className="button button-primary button-small composer-run"
                         data-testid={cta.testId}
                         disabled={cta.disabled}
-                        onClick={() => {
-                          setNotice("Continuity needs a trial or Pro plan. Open Manage plan to start Continuity.");
-                          document.getElementById("billing")?.scrollIntoView({ behavior: "smooth" });
-                          window.location.hash = "billing";
+                        onClick={(e) => {
+                          if (!prompt.trim()) {
+                            e.preventDefault();
+                            setNotice("Continuity needs a trial or Pro plan. Open Manage plan to start Continuity.");
+                            document.getElementById("billing")?.scrollIntoView({ behavior: "smooth" });
+                            window.location.hash = "billing";
+                          }
                         }}
                       >
                         {cta.label}
