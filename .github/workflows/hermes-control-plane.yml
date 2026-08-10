@@ -1,5 +1,9 @@
 name: Hermes control plane
 
+concurrency:
+  group: hermes-control-plane-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
   pull_request:
