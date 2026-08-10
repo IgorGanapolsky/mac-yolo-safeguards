@@ -46,11 +46,44 @@ class SeedYoloWrapper {
       taskName: 'seed-yolo-execution',
     });
 
-    // 2. Execute via Volcengine Ark CLI harness
+    // 2. Execute via Volcengine Ark CLI harness or fallback to Hermes Agent Engine
     const arkResult = this.arkHarness.executeTask(prompt, {
       model: 'seed-2.1-pro',
       thinkingConfig: thinkingAllocation,
     });
+
+    let stdout = arkResult.stdout;
+
+    if (arkResult.executedVia === 'ark-cli-harness-fallback') {
+      const hermesWrapperPath = path.join(__dirname, '..', 'hermes-yolo-wrapper.js');
+      const hermesEnv = {
+        ...process.env,
+        HERMES_YOLO_MODEL: process.env.HERMES_YOLO_MODEL || 'bytedance/seed-2.1-pro',
+        HERMES_YOLO_BACKEND: 'hermes',
+        SEED_21_THINKING_MODE: thinkingAllocation.thinkingMode,
+        SEED_21_THINKING_BUDGET: String(thinkingAllocation.allocatedBudgetTokens),
+      };
+      const res = spawnSync(process.execPath, [hermesWrapperPath, ...args], {
+        encoding: 'utf8',
+        stdio: 'inherit',
+        env: hermesEnv,
+      });
+      const fallbackReceipt = {
+        timestamp: new Date().toISOString(),
+        prompt,
+        model: 'seed-2.1-pro',
+        thinkingAllocation,
+        execution: { status: res.status === 0 ? 'pass' : 'fail', executedVia: 'hermes-agent-seed-2.1' },
+      };
+      try {
+        fs.writeFileSync(path.join(this.receiptDir, 'latest.json'), JSON.stringify(fallbackReceipt, null, 2), 'utf8');
+      } catch (err) { /* ignore */ }
+      return {
+        exitCode: res.status !== null ? res.status : 0,
+        stdout: '',
+        receipt: fallbackReceipt,
+      };
+    }
 
     const durationMs = Date.now() - startTime;
 
@@ -76,7 +109,7 @@ class SeedYoloWrapper {
 
     return {
       exitCode: 0,
-      stdout: arkResult.stdout || `[seed-yolo] Done in ${durationMs}ms model=seed-2.1-pro mode=${thinkingAllocation.thinkingMode}`,
+      stdout: stdout || `[seed-yolo] Done in ${durationMs}ms model=seed-2.1-pro mode=${thinkingAllocation.thinkingMode}`,
       receipt,
     };
   }

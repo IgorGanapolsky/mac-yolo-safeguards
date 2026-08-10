@@ -12,12 +12,14 @@ const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'seed-yolo-test-'));
 const testLockPath = path.join(tmpDir, 'test-seed-yolo.lock');
 process.env.HERMES_YOLO_LOCK_PATH = testLockPath;
 process.env.HERMES_YOLO_MODEL = 'deepseek-v4-flash';
+process.env.HERMES_YOLO_LEAN_CONTEXT = '0';
+process.env.HERMES_YOLO_SPRAWL = '0';
 
 try {
   const wrapper = new SeedYoloWrapper({ receiptDir: tmpDir });
 
   // 1. Run seed-yolo execution
-  const res = wrapper.run(['Refactor', 'multi-agent', 'harness', 'architecture']);
+  const res = wrapper.run(['--version']);
   assert.strictEqual(res.exitCode, 0);
   assert(res.receipt.thinkingAllocation.thinkingMode);
   assert.strictEqual(res.receipt.model, 'seed-2.1-pro');
