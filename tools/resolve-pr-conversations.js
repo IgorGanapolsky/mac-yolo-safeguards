@@ -4,12 +4,15 @@
  */
 const { execSync, execFileSync } = require('child_process');
 
+const ghEnv = { ...process.env };
+delete ghEnv.GITHUB_TOKEN;
+
 function queryGh(query, variables = {}) {
   const args = ['api', 'graphql', '-f', `query=${query}`];
   for (const [k, v] of Object.entries(variables)) {
     args.push('-f', `${k}=${v}`);
   }
-  const out = execFileSync('gh', args, { encoding: 'utf8' });
+  const out = execFileSync('gh', args, { encoding: 'utf8', env: ghEnv });
   return JSON.parse(out);
 }
 
@@ -41,7 +44,7 @@ async function resolvePrThreads(prNumber) {
     '-F', 'repo=mac-yolo-safeguards',
     '-F', `prNumber=${prNumber}`,
     '-f', `query=${query}`
-  ], { encoding: 'utf8' });
+  ], { encoding: 'utf8', env: ghEnv });
 
   const data = JSON.parse(raw);
   const threads = data.data?.repository?.pullRequest?.reviewThreads?.nodes || [];
@@ -61,7 +64,7 @@ async function resolvePrThreads(prNumber) {
         'api', 'graphql',
         '-F', `threadId=${t.id}`,
         '-f', `query=${mut}`
-      ], { encoding: 'utf8' });
+      ], { encoding: 'utf8', env: ghEnv });
       console.log(`  ✅ Resolved thread ${t.id}`);
     } catch (e) {
       console.error(`  ❌ Failed to resolve thread ${t.id}: ${e.message}`);

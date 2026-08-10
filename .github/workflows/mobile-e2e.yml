@@ -88,7 +88,6 @@ jobs:
   android-e2e:
     name: Maestro ship-guard (Android emulator)
     needs: changes
-    if: needs.changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -100,7 +99,12 @@ jobs:
       run:
         working-directory: hermes-mobile
     steps:
+      - name: Fast report for non-mobile changes
+        if: needs.changes.outputs.mobile != 'true'
+        run: echo "No mobile changes detected. Reporting SUCCESS for required status check." && exit 0
+
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        if: needs.changes.outputs.mobile == 'true'
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
@@ -242,10 +246,9 @@ jobs:
   # Brand-new user merge gate (T-342). ConnectMacGate is hidden when
   # EXPO_PUBLIC_E2E_AUTOMATION is baked into the APK — so this job builds a SEPARATE
   # debug APK with the flag forced off, clearState, no hermes://setup?demo=1.
-  android-stranger-cold-start:
+  android-e2e-stranger:
     name: Maestro stranger cold-start (Android emulator)
     needs: changes
-    if: needs.changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -257,7 +260,12 @@ jobs:
       run:
         working-directory: hermes-mobile
     steps:
+      - name: Fast report for non-mobile changes
+        if: needs.changes.outputs.mobile != 'true'
+        run: echo "No mobile changes detected. Reporting SUCCESS for required status check." && exit 0
+
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        if: needs.changes.outputs.mobile == 'true'
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
