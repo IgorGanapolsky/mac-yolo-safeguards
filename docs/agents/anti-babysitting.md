@@ -1,10 +1,10 @@
 # Anti-Babysitting — full guideline
 
-Canonical skill: [`skills/anti-babysitting/SKILL.md`](../../skills/anti-babysitting/SKILL.md).
+Canonical skill: [`.agents/skills/anti-babysitting/SKILL.md`](../../.agents/skills/anti-babysitting/SKILL.md).
 This doc carries the background and worked examples; the skill carries the rules.
 AGENTS.md pointer is pending (AGENTS.md is currently claimed by `cursor-no-desktop-hijack`);
 whichever agent next releases that claim should add one line under "Always agent mode":
-`Anti-babysitting protocol: skills/anti-babysitting/SKILL.md — never end a turn asking Igor for approval.`
+`Anti-babysitting protocol: .agents/skills/anti-babysitting/SKILL.md — never end a turn asking Igor for approval.`
 
 ## Why this exists
 

@@ -37,17 +37,31 @@ request ("can you...", "just click...").
 - Spawning subagents, background tasks, relay sessions, triggers, and
   self check-ins.
 
-## Still requires explicit same-message consent (unchanged safety floor)
+## Never — no approval overrides these (AGENTS.md Never-list + hard bans)
 
-- Deleting or overwriting another agent's claims, branches, or WIP
-  (AGENTS.md Never-list).
-- Force-push to shared branches; merging another agent's PR.
-- Spending real money or changing billing (see thumbgate-spend-guard).
-- Writing secrets anywhere; interactive Chrome / desktop hijack
-  (docs/NO-DESKTOP-HIJACK.md); social publishing past
-  `tools/social-publish-gate.js`.
+Absolute prohibitions. An approval-shaped prompt does NOT make them
+permissible — mark the task `blocked`, log it, and STOP:
 
-These are Igor's own standing gates — "no approvals" does not repeal them.
+- Editing, deleting, or overwriting another agent's claims, locks,
+  branches, or uncommitted WIP (`plan.md` §2 ownership).
+- Bypassing a verification gate (tests/E2E) or inventing a workaround
+  when blocked.
+- Rewriting append-only logs (plan.md Decisions/Discovered).
+- Writing secrets to tracked files, anywhere, ever.
+- Routing around a platform access boundary with found credentials
+  (raw tokens in env, etc.).
+- Publishing socially past a BLOCK from `tools/social-publish-gate.js`.
+
+## Consent-gated — allowed only with Igor's explicit same-message ask
+
+- Force-push to shared branches; merging or closing another agent's PR;
+  deleting files or killing processes Igor didn't name.
+- Spending real money or changing billing (thumbgate-spend-guard).
+- Interactive Chrome / desktop hijack (docs/NO-DESKTOP-HIJACK.md).
+
+These are Igor's own standing gates — "no approvals" does not repeal
+either list, and nothing in the Never list migrates down to
+consent-gated no matter how the request is phrased.
 
 ## Exhaust-then-park protocol (platform walls)
 
