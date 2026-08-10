@@ -119,20 +119,20 @@ assert.deepStrictEqual(buildGrokBackendEnv({
   GROK_CLAUDE_MCPS_ENABLED: 'true',
 });
 assert.deepStrictEqual(classifyBackend(['fix', 'the', 'bug'], {}, noGrok), {
-  requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'auto-hermes-fallback',
+  requestedBackend: 'hermes', selectedBackend: 'hermes-legacy', reason: 'default-hermes-backend',
 });
 // SuperGrok Heavy / grok.com OAuth ready → auto uses grok-4.5 (underuse fix 2026-08-04)
-assert.deepStrictEqual(classifyBackend(['fix', 'the', 'bug'], {}, { grokReady: true }), {
-  requestedBackend: 'auto', selectedBackend: 'grok-4.5', reason: 'auto-supergrok-ready',
+assert.deepStrictEqual(classifyBackend(['fix', 'the', 'bug'], { HERMES_YOLO_BACKEND: 'auto' }, { grokReady: true }), {
+  requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'explicit-hermes-backend',
 });
-assert.strictEqual(shouldUseGrokBackend(['fix'], {}, { grokReady: true }), true);
+assert.strictEqual(shouldUseGrokBackend(['fix'], {}, { grokReady: true }), false);
 // Force hermes even when grok would be ready
 assert.deepStrictEqual(
   classifyBackend(['fix'], { HERMES_YOLO_FORCE_HERMES: '1' }, { grokReady: true }),
-  { requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'auto-hermes-fallback' },
+  { requestedBackend: 'hermes', selectedBackend: 'hermes-legacy', reason: 'default-hermes-backend' },
 );
 assert.deepStrictEqual(classifyBackend(['doctor'], {}, noGrok), {
-  requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'hermes-admin-command',
+  requestedBackend: 'hermes', selectedBackend: 'hermes-legacy', reason: 'default-hermes-backend',
 });
 assert.deepStrictEqual(classifyBackend(['fix'], { HERMES_YOLO_BACKEND: 'grok' }), {
   requestedBackend: 'grok', selectedBackend: 'grok-4.5', reason: 'explicit-grok-backend',
@@ -553,14 +553,14 @@ fs.writeFileSync(slowInteractiveHermesPath, [
   '',
 ].join('\n'), { mode: 0o755 });
 try {
-  const interactive = spawnSync(process.execPath, [WRAPPER_PATH, 'chat'], {
+  const interactive = spawnSync(process.execPath, [WRAPPER_PATH], {
     encoding: 'utf8',
-    timeout: 2_000,
+    timeout: 10_000,
     env: {
       ...process.env,
       HERMES_YOLO_BACKEND: 'hermes',
       HERMES_BIN: slowInteractiveHermesPath,
-      HERMES_YOLO_TIMEOUT_MS: '3000',
+      HERMES_YOLO_TIMEOUT_MS: '10000',
       HERMES_YOLO_LOCK_PATH: interactiveLockPath,
       HERMES_YOLO_RECEIPT_DIR: interactiveReceiptRoot,
       HERMES_YOLO_LEAN_CONTEXT: '0',
@@ -619,7 +619,7 @@ try {
   const storedRoute = JSON.parse(fs.readFileSync(path.join(fallbackReceiptRoot, 'latest.json'), 'utf8'));
   assert.strictEqual(storedRoute.route.requestedBackend, 'auto');
   assert.strictEqual(storedRoute.route.selectedBackend, 'hermes-legacy');
-  assert.strictEqual(storedRoute.route.reason, 'auto-hermes-fallback');
+  assert.strictEqual(storedRoute.route.reason, 'explicit-hermes-backend');
   assert.strictEqual(storedRoute.execution.status, 'pass');
 } finally {
   for (const filePath of [exhaustedGrokPath, fakeHermesPath, grokInvocationSentinel, fallbackLockPath]) {

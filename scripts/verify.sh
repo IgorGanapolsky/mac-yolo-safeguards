@@ -20,6 +20,7 @@ node tests/test-jcode-harness-adapter.js
 node tests/test-jcode-yolo.js
 node tests/test-modal-agent-sandbox-harness.js
 node tests/test-muse-glimmer-harness.js
+node tests/test-cot-self-improving-harness.js
 node tests/test-hermes-yolo.js
 
 echo "✅ All Local CI Verification Checks Passed!"

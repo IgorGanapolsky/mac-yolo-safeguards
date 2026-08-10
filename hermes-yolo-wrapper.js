@@ -862,12 +862,13 @@ function isGrokBackendReady(env = process.env, dependencies = {}) {
 }
 
 function classifyBackend(rawArgs, env = process.env, dependencies = {}) {
-  const backend = String(env.HERMES_YOLO_BACKEND || 'auto').trim().toLowerCase();
+  const hasExplicitBackend = Boolean(env.HERMES_YOLO_BACKEND);
+  const backend = String(env.HERMES_YOLO_BACKEND || 'hermes').trim().toLowerCase();
   if (!['grok', 'auto', 'hermes'].includes(backend)) {
     throw new Error(`Unsupported HERMES_YOLO_BACKEND=${backend}; expected grok, auto, or hermes`);
   }
-  if (backend === 'hermes') {
-    return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'explicit-hermes-backend' };
+  if (backend === 'hermes' || backend === 'auto') {
+    return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: hasExplicitBackend ? 'explicit-hermes-backend' : 'default-hermes-backend' };
   }
   if (rawArgs.length > 0 && ['--version', '-V', '--help', '-h'].includes(rawArgs[0])) {
     return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'hermes-flag-command' };
@@ -881,11 +882,7 @@ function classifyBackend(rawArgs, env = process.env, dependencies = {}) {
   if (backend === 'grok') {
     return { requestedBackend: backend, selectedBackend: 'grok-4.5', reason: 'explicit-grok-backend' };
   }
-  // auto: prefer SuperGrok/grok-4.5 when grok-yolo doctor is green.
-  if (isGrokBackendReady(env, dependencies)) {
-    return { requestedBackend: backend, selectedBackend: 'grok-4.5', reason: 'auto-supergrok-ready' };
-  }
-  return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'auto-hermes-fallback' };
+  return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'default-hermes-backend' };
 }
 
 function shouldUseGrokBackend(rawArgs, env = process.env, dependencies = {}) {
