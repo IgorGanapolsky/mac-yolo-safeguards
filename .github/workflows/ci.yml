@@ -147,7 +147,12 @@ jobs:
           # @scure/base). This job does not npm ci (speed); the dedicated
           # "Hermes Buzz / Nostr integration" step under Public funnel does.
           failed=0
-          for f in tests/test-*.js; do
+          # Two naming conventions live under tests/: test-*.js and *.test.js.
+          # Globbing only the first silently excluded 4 green suites
+          # (revenue-send-safety, sender-health-gate, smtp-auth-check,
+          # stale-checkout-audit) that had never run in CI. Both shapes now run;
+          # tools/test-discovery-audit.js fails the build if a new test is orphaned.
+          for f in tests/test-*.js tests/*.test.js; do
             case "$f" in
               tests/test-mac-text-hotkeys-config.js) continue ;;
               tests/test-hermes-buzz-integration.js) continue ;;
@@ -407,6 +412,17 @@ jobs:
         env:
           REQUIRE_EAS_PROJECT: "1"
         run: npm run release:check
+
+      # Issue #1452: E2E must be a real release gate — fail on skipped, cancelled or missing proof.
+      # hermes-mobile-ci-proof-gate.js enforces fresh e2e=pass + unit=pass on the latest.json
+      # continuous proof record. This is a visibility check (exit 1 is surfaced as a check annotation);
+      # blocking PR merges requires branch-protection enforcement of this job name.
+      # continue-on-error: true allows PRs to merge while the gate is still stabilizing; once
+      # continuous E2E produces e2e=pass consistently, remove continue-on-error to make this
+      # a hard merge gate (per strict:true on main).
+      - name: Hermes Mobile continuous E2E proof gate
+        continue-on-error: true
+        run: node ../../tools/hermes-mobile-ci-proof-gate.js --fresh-hours 72
 
       - name: Type check
         run: npm run typecheck
