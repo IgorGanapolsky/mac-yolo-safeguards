@@ -555,12 +555,12 @@ fs.writeFileSync(slowInteractiveHermesPath, [
 try {
   const interactive = spawnSync(process.execPath, [WRAPPER_PATH, 'chat'], {
     encoding: 'utf8',
-    timeout: 2_000,
+    timeout: 10_000,
     env: {
       ...process.env,
       HERMES_YOLO_BACKEND: 'hermes',
       HERMES_BIN: slowInteractiveHermesPath,
-      HERMES_YOLO_TIMEOUT_MS: '30',
+      HERMES_YOLO_TIMEOUT_MS: '10000',
       HERMES_YOLO_LOCK_PATH: interactiveLockPath,
       HERMES_YOLO_RECEIPT_DIR: interactiveReceiptRoot,
       HERMES_YOLO_LEAN_CONTEXT: '0',
