@@ -1,0 +1,57 @@
+name: Copilot security autofix
+
+# High-ROI / Aug 2026: every PR that introduces a NEW CodeQL / code-scanning
+# alert gets a Copilot-generated fix requested automatically — cutting the
+# security-review back-and-forth that stalls merges.
+#
+# Trigger strategy: fire after the repo's "CI" workflow completes on a PR
+# (workflow_run on the documented CodeQL job), then query the code-scanning
+# REST API for open alerts on the PR head. If any new alert exists and the PR
+# is not a draft and we haven't already asked Copilot to fix it, comment
+# `@copilot fix` on the PR thread. Grounded in the responsible-use doc:
+# "automated security scanning" + "verify output" + agentic autofix.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: read
+
+concurrency:
+  group: copilot-security-autofix-${{ github.event.workflow_run.pull_requests[0].number }}
+  cancel-in-progress: false
+
+jobs:
+  request-copilot-fix:
+    name: Request Copilot fix for new PR alerts
+    runs-on: ubuntu-latest
+    # Only act on workflow runs tied to a PR; repo-level CI runs have no PR.
+    if: github.event.workflow_run.pull_requests[0].number != null
+    steps:
+      - name: Request Copilot autofix for new code-scanning alerts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          # Count open code-scanning alerts on this PR head that Copilot hasn't
+          # already autofixed (autofix==null). Alert numbers are integers, so the
+          # interpolated filter is safe. No alerts -> nothing to do.
+          NEW=$(gh api "repos/${GH_REPO}/code-scanning/alerts?ref=${HEAD_SHA}" \
+            --jq --raw '[.[] | select(.pull_request.number == '"${PR_NUMBER}"' and .state == "open" and (.autofix // null) == null) | .number] | length')
+          echo "new open code-scanning alerts on PR #${PR_NUMBER}: ${NEW}"
+          [ "${NEW}" = "0" ] && exit 0
+          # Never auto-fix WIP branches.
+          IS_DRAFT=$(gh pr view "${PR_NUMBER}" --repo "${GH_REPO}" --json isDraft --jq '.isDraft')
+          [ "${IS_DRAFT}" = "true" ] && { echo "PR #${PR_NUMBER} is a draft — deferring"; exit 0; }
+          # Never double-request a fix for the same PR.
+          ALREADY=$(gh api "repos/${GH_REPO}/issues/${PR_NUMBER}/comments" --jq '.[].body // ""' 2>/dev/null || true)
+          printf '%s\n' "${ALREADY}" | grep -qi 'copilot fix' && { echo "fix already requested for PR #${PR_NUMBER}"; exit 0; }
+          gh pr comment "${PR_NUMBER}" --repo "${GH_REPO}" \
+            --body "@copilot fix the ${NEW} new code-scanning alert(s) on this PR — see CodeQL details and apply suggested fixes."
+          echo "requested Copilot autofix for PR #${PR_NUMBER}"
