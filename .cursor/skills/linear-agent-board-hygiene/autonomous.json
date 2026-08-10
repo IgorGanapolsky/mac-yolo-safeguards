@@ -1,0 +1,66 @@
+{
+  "name": "linear-agent-board-hygiene",
+  "version": "1.0.0",
+  "trigger": "cron: hourly + on coord-status",
+  "steps": [
+    {
+      "step": 1,
+      "name": "coord-status",
+      "action": "run",
+      "cmd": "node tools/linear-agent-bridge.js --coord-status --json",
+      "expect_exit_code": 0,
+      "parse": {
+        "ghostCount": ".ghostCount",
+        "agentLockedCount": ".agentLockedCount",
+        "agentLocked": ".agentLocked",
+        "inProgress": ".inProgress",
+        "vaultAgents": ".vaultAgents"
+      }
+    },
+    {
+      "step": 2,
+      "name": "ghost-scrub",
+      "action": "conditional",
+      "when": "ghostCount > 0",
+      "do": [
+        {
+          "for_each": "agentLocked",
+          "if": "vault_age_hours(identifier) > 12 and not owner_active_within(6h)",
+          "then": {
+            "cmd": "node tools/linear-agent-bridge.js --release ID --agent <idle-agent>",
+            "expect_exit_code": 0,
+            "post": [
+              "agent-lock family stripped (UUID-scoped label ids)",
+              "Handoffs/linear-claims/YYYY-MM-DD_ID_<agent>.md written, action=auto-release-stale"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "step": 3,
+      "name": "ghost-issue-remediation",
+      "action": "conditional",
+      "when": "ghostCount > 0 and any ghost whose vault claim references a missing/archived Linear issue",
+      "do": [
+        "delete orphan Handoffs/linear-claims/<id>_*.md",
+        "create AGENT-infra regression ticket: lost Linear identifier <id>"
+      ]
+    },
+    {
+      "step": 4,
+      "name": "persist",
+      "action": "write",
+      "path": "cron/linear-hygiene.log",
+      "format": "append JSON snapshot + timestamp"
+    }
+  ],
+  "rules": [
+    "NEVER auto-release a lock whose owner has an active claim or an In-Progress issue within 6h",
+    "ghostCount must read 0 for the owning agent's lane at session start"
+  ],
+  "thresholds": {
+    "stale_hours": 12,
+    "active_window_hours": 6
+  }
+}

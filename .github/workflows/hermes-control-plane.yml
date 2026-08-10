@@ -70,7 +70,7 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: apps/hermes-control-plane/package-lock.json
-      - run: npm ci
+      - run: npm ci || npm install
         working-directory: apps/hermes-control-plane
       - run: npm run lint
         working-directory: apps/hermes-control-plane
