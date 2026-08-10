@@ -36,6 +36,11 @@ is genuinely gone today. The permanent fix, done once:
 Say that once, then proceed with whatever you *can* do. Asking a third time for a key the
 operator believes they already provided reads as refusing to work.
 
+**Never ask twice.** Before writing any sentence that requests a credential, read
+`never-ask-again.md` in this skill directory. It covers the three credential shapes (only two
+are usable), why a username+password can never work here, why a secret can be both saved and
+unreachable, and how to resolve an OAuth link yourself instead of asking.
+
 ## 1. Publish to the canonical home first
 
 dev.to is the origin. Everything else syndicates from it and points back.
@@ -86,7 +91,12 @@ Four runs burned time rediscovering them:
   operator owns; surface it, don't quietly retry.
 - **dev.to comments** — the API is **read-only**. There is no POST endpoint, so replying to a
   commenter genuinely needs a browser. Draft the reply to a file and say where it is.
-- **LinkedIn / Threads** — OAuth only; no token path exists.
+- **LinkedIn** — reachable, but only through OAuth. `LinkedInCLIAPI` is already enabled with
+  write actions `share` and `create_company_update`; it needs one click at
+  `https://mcp.zapier.com/api/v1/connect-auth/LinkedInCLIAPI?accountId=5986707`. Once clicked
+  the connection lives at Zapier, not in the container, so it survives every future run. A
+  LinkedIn password cannot substitute for this and must never be accepted or stored.
+- **Threads** — OAuth only; no token path exists.
 
 ## 5. Engage, because reach is the point
 
