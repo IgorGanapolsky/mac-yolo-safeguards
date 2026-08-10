@@ -139,11 +139,40 @@ Also available on phone — Hermes Mobile, $4.99: https://thumbgate.app/go/andro
 
 ---
 
-## Meme concept (logged, not generated)
+## Meme — RENDERED
 
-Phone lock screen at 2:47 AM. Notification: **"Approve `rm -rf` on prod? [Approve] [Deny]"**.
-Below it, a second notification from four seconds later: **"Nevermind."**
-Caption: *the nine seconds you were asleep for.*
+**Asset:** `docs/social/assets/2026-08-10-am/lockscreen-nine-seconds.png` (1080×1350, 4:5)
+**Source:** `docs/social/assets/2026-08-10-am/lockscreen-nine-seconds.html` (re-render command below)
 
-Not rendered this run — Higgsfield balance is 0.5 credits on the free plan and the standing rule
-forbids buying credits. Original generation only when credits exist; no third-party templates.
+A phone lock screen at 2:47 AM. The approval request arrives and is marked *Delivered. Not opened.*
+Underneath it, in the same minute: **No response. Proceeding. ✓** · **Dropped `production`. Purged
+14 backups. ✓** · **All done — finished in 9s.**
+
+Caption: **Nine seconds. Every notification arrived.**
+Sub: *An approval that reaches you after the checkmark isn't an approval.*
+
+Attach to X, Bluesky, Threads, and as the dev.to cover. For LinkedIn attach the image **or** post the
+text story — never both the same day (see the 2026-08-05 double-post incident in the log).
+
+### How it was made — and why not an image model
+
+Authored directly as HTML/CSS and rasterized with headless Chromium. Nothing about it is
+third-party: no meme template, no trademarked format, no copyrighted film or TV still, and no paid
+image credits.
+
+This was the right tool rather than the fallback. The entire joke is exact strings — `DROP DATABASE
+production;`, *Delivered. Not opened.*, *finished in 9s* — and diffusion image models reliably
+garble small text, which would have destroyed the payload. Hand-authored vector/DOM text renders
+exactly and stays editable: change a line, re-render, done.
+
+```bash
+/opt/pw-browsers/chromium-1194/chrome-linux/chrome \
+  --headless --no-sandbox --disable-gpu --hide-scrollbars \
+  --force-device-scale-factor=1 --window-size=1080,1350 \
+  --screenshot=lockscreen-nine-seconds.png \
+  file://$PWD/docs/social/assets/2026-08-10-am/lockscreen-nine-seconds.html
+```
+
+**Factual care:** the lock screen reads *Tuesday, June 2* — June 2 2026 is genuinely a Tuesday.
+June 3 is a Wednesday, which is what the first draft said. The `9s` and the destroyed-backups
+detail both trace to the real incident in the Research Receipt, not invention.

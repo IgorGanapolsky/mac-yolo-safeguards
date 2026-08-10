@@ -1,0 +1,134 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { width:1080px; min-height:1350px; background-color:#070a12; }
+  body {
+    width:1080px; height:1350px; overflow:hidden;
+    background:
+      radial-gradient(120% 80% at 20% 0%, #1d3a5c 0%, transparent 55%),
+      radial-gradient(120% 90% at 90% 15%, #3a2352 0%, transparent 50%),
+      linear-gradient(170deg, #0b1220 0%, #070a12 100%);
+    font-family: "DejaVu Sans", "Liberation Sans", system-ui, sans-serif;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+  }
+
+  .phone {
+    width:660px; height:742px; border-radius:60px;
+    background:linear-gradient(165deg,#0f1826 0%,#0a0f1a 100%);
+    border:3px solid rgba(255,255,255,.13);
+    box-shadow:0 40px 90px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.09);
+    padding:28px 26px; position:relative; overflow:hidden;
+  }
+  .glow { position:absolute; inset:0;
+    background:radial-gradient(90% 45% at 50% 0%, rgba(90,150,255,.20), transparent 60%);
+    pointer-events:none; }
+
+  .statusbar { display:flex; justify-content:space-between; align-items:center;
+    color:rgba(255,255,255,.72); font-size:19px; padding:2px 12px 0; letter-spacing:.3px; }
+  .bars { display:flex; gap:5px; align-items:flex-end; }
+  .bars i { width:4px; background:rgba(255,255,255,.72); border-radius:1px; display:block; }
+
+  .clock { text-align:center; margin-top:22px; }
+  .time { font-size:124px; font-weight:300; color:#fff; line-height:1;
+    letter-spacing:-3px; text-shadow:0 3px 24px rgba(0,0,0,.5); }
+  .ampm { font-size:42px; font-weight:300; margin-left:8px; color:rgba(255,255,255,.82); }
+  .date { color:rgba(255,255,255,.62); font-size:22px; margin-top:11px; letter-spacing:.2px; }
+
+  .stack { margin-top:34px; display:flex; flex-direction:column; gap:12px; }
+  .notif {
+    background:rgba(232,238,248,.90); border-radius:23px; padding:15px 17px;
+    display:flex; gap:13px; align-items:flex-start;
+    box-shadow:0 8px 26px rgba(0,0,0,.34);
+  }
+  .icon { width:41px; height:41px; border-radius:11px; flex:none;
+    background:linear-gradient(150deg,#2b3446,#161c28);
+    color:#8fb6ff; font-size:21px; font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+    font-family:"DejaVu Sans Mono", monospace; }
+  .body { flex:1; min-width:0; }
+  .head { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+  .app { font-size:15.5px; font-weight:700; color:#4c5464; letter-spacing:.7px; }
+  .when { font-size:14.5px; color:#7a8394; flex:none; }
+  .msg { font-size:20px; color:#111722; margin-top:5px; line-height:1.36; }
+  code { font-family:"DejaVu Sans Mono", monospace; font-size:18.5px;
+    background:#dbe2ee; padding:1px 6px; border-radius:6px; color:#0d1220; }
+
+  .ask { background:rgba(255,255,255,.96); border:2px solid #ffb020; }
+  .ask .icon { background:linear-gradient(150deg,#ffb020,#e08a00); color:#241500; }
+  .btns { display:flex; gap:9px; margin-top:11px; }
+  .btn { flex:1; text-align:center; padding:9px 0; border-radius:12px;
+    font-size:16.5px; font-weight:700; letter-spacing:.3px;
+    background:#e6ebf3; color:#5b6474; }
+  .unread { font-size:14.5px; color:#96604a; margin-top:9px; font-weight:600; }
+  .tick { color:#1f9d55; font-weight:700; }
+
+  .caption { width:920px; text-align:center; margin-top:46px; }
+  .punch { color:#fff; font-size:44px; font-weight:700; line-height:1.22; letter-spacing:-.5px; }
+  .sub { color:rgba(255,255,255,.62); font-size:25px; margin-top:18px; line-height:1.4; }
+</style>
+</head>
+<body>
+  <div class="phone">
+    <div class="glow"></div>
+
+    <div class="statusbar">
+      <span>2:47</span>
+      <div class="bars"><i style="height:7px"></i><i style="height:10px"></i><i style="height:13px"></i><i style="height:16px"></i></div>
+    </div>
+
+    <div class="clock">
+      <div class="time">2:47<span class="ampm">AM</span></div>
+      <div class="date">Tuesday, June 2</div>
+    </div>
+
+    <div class="stack">
+
+      <div class="notif ask">
+        <div class="icon">!</div>
+        <div class="body">
+          <div class="head"><span class="app">AGENT</span><span class="when">2:47 AM</span></div>
+          <div class="msg">Approve <code>DROP DATABASE production;</code> ?</div>
+          <div class="btns">
+            <div class="btn">Approve</div>
+            <div class="btn">Deny</div>
+          </div>
+          <div class="unread">Delivered. Not opened.</div>
+        </div>
+      </div>
+
+      <div class="notif">
+        <div class="icon">&#9656;</div>
+        <div class="body">
+          <div class="head"><span class="app">AGENT</span><span class="when">2:47 AM</span></div>
+          <div class="msg">No response. Proceeding. <span class="tick">&#10003;</span></div>
+        </div>
+      </div>
+
+      <div class="notif">
+        <div class="icon">&#9656;</div>
+        <div class="body">
+          <div class="head"><span class="app">AGENT</span><span class="when">2:47 AM</span></div>
+          <div class="msg">Dropped <code>production</code>. Purged 14 backups. <span class="tick">&#10003;</span></div>
+        </div>
+      </div>
+
+      <div class="notif">
+        <div class="icon">&#9656;</div>
+        <div class="body">
+          <div class="head"><span class="app">AGENT</span><span class="when">2:47 AM</span></div>
+          <div class="msg">All done &#8212; finished in 9s.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="caption">
+    <div class="punch">Nine seconds.<br>Every notification arrived.</div>
+    <div class="sub">An approval that reaches you after the checkmark isn't an approval.</div>
+  </div>
+</body>
+</html>
