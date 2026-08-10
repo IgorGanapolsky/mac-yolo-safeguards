@@ -4,6 +4,66 @@ Dated entries from the autonomous OSS-engagement routine (Thinking Machines Lab 
 
 ---
 
+## 2026-08-10 — jcode engagement (Igor-directed): #869 fix verified + forensic packet parked; 2 answer drafts
+
+Igor's live directive this run: engage https://github.com/1jehuang/jcode (16.8k★ Rust agent
+harness) — "open PRs, solve issues, answer questions, promote us." Also: the 2026-08-06 entry
+(LanceDB #3759 fix) never merged — its PR #1513 was closed per backlog policy; that fix remains
+live at `igorganapolsky/lancedb@fix/blob-coerce-null-column`, and a relay session
+(`cse_01SJca4WbW1AtQZmPP8uSQnx`) holding its upstream-PR step is parked pending approval.
+
+### Key structural finding
+
+**jcode does not accept external PRs at all** — PR creation is collaborator-restricted
+(confirmed firsthand by #870's reporter, who had a finished fix branch and could not open a PR);
+CONTRIBUTING.md says external patches are reference material the maintainer rewrites, and an
+automated triage pipeline sweeps issue bands within days. The accepted contribution format is a
+**forensic issue comment**: confirmed root cause + minimal patch + regression tests + evidence.
+That's what was produced.
+
+### What was produced (all verified locally on jcode master `5ae2385`)
+
+1. **#869 (Codex quota widget shows two weekly bars when hourly window absent) — solved.**
+   Root cause: `classify_openai_limits` (`crates/jcode-base/src/usage/openai_helpers.rs:80`)
+   classifies a weekly-only limit into `seven_day` AND lets the blind `five_hour` fallback
+   (`generic_non_spark.first()`) re-adopt the same window; the existing dedupe only guards the
+   other direction. Fix: symmetric dedupe in the `five_hour` fallback. Two regression tests
+   added. **Before fix:** `test_classify_openai_limits_weekly_only_does_not_duplicate_into_hourly`
+   FAILS (reproduces the double bar), 3 others pass. **After fix:** full
+   `cargo test -p jcode-base usage::` = **44 passed, 0 failed**.
+   Parked: `coordination/patches/jcode-869-weekly-only-dedupe.patch` (git-am-able) +
+   `coordination/ready-to-post/jcode-869-forensic-issue-comment.md`.
+2. **#866 (how to migrate memory from `~/.jcode` to project `.jcode`) — answered from code.**
+   `jcode_dir()` (`crates/jcode-storage/src/lib.rs:150`) honors `$JCODE_HOME`; project memory is
+   already per-project but centrally stored under `memory/projects/<DefaultHasher(path)>.json`
+   (`crates/jcode-base/src/memory.rs:252`), with a hash-stability caveat worth flagging.
+   Parked: `coordination/ready-to-post/jcode-866-memory-migration-answer.md`.
+3. **#803 (`jcode run` has no turn/step limit — runaway gap) — the one genuine ThumbGate
+   opening.** The issue is literally about runaway-agent limits, this repo's core domain. Drafted
+   a value-first comment (three-guard pattern: max-turns + per-turn timeout + no-progress
+   detector, exit semantics) with the single permitted ThumbGate/mac-yolo-safeguards mention.
+   Parked: `coordination/ready-to-post/jcode-803-max-turns-thumbgate-comment.md`.
+
+### Why parked instead of posted
+
+Cross-owner GitHub API writes (issues/comments/forks on `1jehuang/jcode`) are scope-blocked in
+this session type (`fork_repository` denied; same wall as 2026-08-04/08-06 entries). The
+ready-to-post files carry posting instructions + freshness checks; the Mac-side fleet (`gh`
+authenticated) or any properly-scoped session can post them verbatim. Per the new
+anti-babysitting protocol (`skills/anti-babysitting/SKILL.md`), this is a park, not an ask.
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| jcode PR | Structurally impossible — collaborator-only PR creation |
+| #874, #873 | Real bugs, but triage-bot sweep imminent and root causes already stated in the issues; #869 chosen as the deepest verifiable value-add |
+| #870 | Reporter already has a complete fix branch awaiting the maintainer |
+| #861, #830, #834 | Duplicate / already fixed-pending-release |
+| Blanket promo | Spam-guard rules stand; one genuine mention drafted (#803), zero elsewhere |
+
+---
+
 ## 2026-08-03 (PM) — Tinker regression tests + LanceDB naive datetime fix
 
 ### Repos surveyed
