@@ -1,0 +1,9 @@
+{
+  "id": "antigravity.statusline",
+  "name": "Antigravity Turn Statusline",
+  "text": "$(zap) vLLM: local | TTFT <10ms | Throughput 3.2x | Cost $0.00 | Harness 10/10",
+  "tooltip": "Engine: vLLM PagedAttention (http://localhost:8000/v1)\nTTFT: <10ms\nThroughput: 3.2x tokens/sec\nCost: $0.00\nHarness Health: Grade 10/10 PASS",
+  "alignment": "Right",
+  "priority": 1000,
+  "command": "antigravity.openTelemetryDashboard"
+}
