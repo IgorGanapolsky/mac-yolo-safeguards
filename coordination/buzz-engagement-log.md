@@ -288,3 +288,77 @@ ThumbGate is not mentioned in this draft — the issue is a runtime liveness/wat
 
 Same as Run 1: this specific session/environment tier has no write path to `block/buzz` (`add_repo` explicitly rejects cross-tier owners, no `gh` CLI present). Run 2's contributions came from elsewhere. If this scheduled task is meant to run from *this* environment tier every time, either grant it broader GitHub scope, or treat this tier's runs as research/drafting-only and have a separate write-capable run post drafts like the #4860 answer above.
 
+---
+
+## 2026-08-10 — Run 4 (access blocked again; verified prior contributions still stand; new drafted answer)
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+| Fact | Evidence |
+|------|----------|
+| **Canonical repo** | [`github.com/block/buzz`](https://github.com/block/buzz) — Apache-2.0, **~26,000★** (up from ~21.7k at Run 2), still the sole public community surface (issues/PRs; no separate Discord/forum found) |
+| **Maintainer** | Block (Jack Dorsey org) |
+| **Product/architecture** | Unchanged from Run 2/3 — Nostr-relay-backed human+agent workspace (chat/git/workflow), Rust workspace, Apache 2.0 |
+| **This repo's prior context** | Re-checked: **no `buzz-wf08-pr-plan.md` file and no `feat/buzz-nostr-acp-bridge*` branch exist anywhere in this repo's history** (`git log --all --grep`, `git branch -a`, filesystem search all came back empty). Run 2's log entry claims these existed in "this repo" at the time, but that could not be reproduced here — either it was written from a different clone/session state, or it referred to artifacts that were since squashed/removed. Flagging the discrepancy rather than re-asserting it as fact. |
+
+Confidence: **high** on the live repo facts (re-confirmed via `WebFetch` against `github.com/block/buzz` and search), **unverifiable** on the "prior plan file" claim from Run 2's log — noted, not repeated.
+
+### Prior contributions re-verified against the live repo
+
+| Item | Status checked this run |
+|------|--------------------------|
+| PR [#4624](https://github.com/block/buzz/pull/4624) (multi-`#h` channel filter fix, DCO-signed follow-up to #4598) | **Still open.** Author `IgorGanapolsky`. A code-owner review was requested 2026-08-03; the only activity since is a bot comment (`chatgpt-codex-connector`) noting its review-usage limit was reached. **No human maintainer review yet, 7 days later.** No action needed from this run — nothing to respond to, and pinging maintainers is not this task's job. |
+| Comment on [#4565](https://github.com/block/buzz/issues/4565) (fail-closed permission auto-response) | Not re-checked in detail this run (previously confirmed real in Run 3); no new activity surfaced in the 72h survey below. |
+| Drafted answer for [#4860](https://github.com/block/buzz/issues/4860) (ACP watchdog hang, drafted Run 3, never posted) | **Issue still open, still zero comments.** The Run 3 draft remains accurate and unposted — still blocked on write access, not on the content going stale. |
+
+### Access this session (Step 0 continued — same wall as Runs 1 and 3)
+
+- `add_repo(owner: "block", repo: "buzz", access: "push")` → rejected: *"cross-tier adds are not supported in v1: requested 'block/buzz' but session already has repos from owner(s) [igorganapolsky]."*
+- No `gh` CLI on this machine (`command not found`).
+- `WebFetch` against `api.github.com/repos/block/buzz` → HTTP 403 this run (rate-limited/blocked); `WebFetch` against the `github.com` HTML pages worked and was used for all verification and survey work instead.
+- Net: **read-only, unauthenticated access only.** No fork, no push, no PR, no issue comment possible from this session against `block/buzz`. This is the third consecutive run to hit this exact wall (Runs 1, 3, 4); only Run 2 — evidently a different session/environment tier — had write access.
+
+### What was surveyed (last ~72h, as of 2026-08-10)
+
+Pulled issues created `>=2026-08-07` via the public issues search page. Volume remains high (12+ new issues in the window sampled). Reviewed in Igor's stated domain (agent reliability, idempotency, double-execution, write-gating, leases/fencing, retries, audit trails, verification-vs-self-report):
+
+| Issue | Topic | Action |
+|-------|-------|--------|
+| [#5492](https://github.com/block/buzz/issues/5492) | `buzz-acp` logs `"owner resolved from BUZZ_AUTH_TAG"` (self-reported success) at startup, but never republishes the agent's `kind:0` profile — so the relay keeps serving the *old* profile without the auth tag, and all sibling-to-sibling events are **silently rejected** with no error on either side. Manual `buzz users set-profile` is the only workaround. | **Answer drafted** (below) — this is a textbook verification-vs-self-report gap: the log line asserts success but nothing checks the actually-published, externally-observable state |
+| [#5472](https://github.com/block/buzz/issues/5472) | No correlation ID linking relay ↔ Redis pub/sub ↔ ACP socket logs; a dropped event (0 Redis subscribers) is indistinguishable from a delivered one; close codes aren't preserved. Author already proposes a specific, well-scoped fix (ID/timestamp/count correlation tracing, no payload/key logging). | Skipped — the proposal is already well-formed and complete; a comment would just be agreement, not new signal |
+| [#5495](https://github.com/block/buzz/issues/5495) | Agent failed to respond to DM mentions, filed as "reliability gap" with no repro details yet | Skipped — too underspecified to answer usefully; would need the reporter's logs first |
+| [#5471](https://github.com/block/buzz/issues/5471) | Relay client policy (signing, auth, scoping, retries) duplicated per client instead of centralized in one library | Skipped — real architecture debt, but a refactor-scope proposal, not a reliability bug with a concrete failure mode to speak to |
+| [#5488](https://github.com/block/buzz/issues/5488) | Desktop: stale agent identities accumulate in `managed-agents.json` when relay URL changes | Skipped — cleanup/UX issue, not in Igor's stated domain |
+| [#2509](https://github.com/block/buzz/issues/2509) | `verdict_ref` on `request_approval` | Reconfirmed still open, still no maintainer response, no new activity since Run 2/3 |
+| WF-08 (approval persistence/resume gap) | No new evidence surfaced this run on whether it has shipped; unauthenticated code-search still blocked (403), same as Run 3. Status treated as unchanged. | Not re-verified |
+
+### Drafted answer for #5492 (not yet posted — no write access this run)
+
+> This is a verification-vs-self-report gap, not just a startup-ordering bug. `"owner resolved from BUZZ_AUTH_TAG"` is a **local** claim — it says the env var was read and the tag was attached to *future signed events* — but it says nothing about whether the **externally observable** state (the stored `kind:0` the relay actually serves to other clients) matches. Those two facts silently diverge here: the agent believes it's authenticated because it can read its own config, while every sibling querying the relay sees the pre-tag profile.
+>
+> The fix in the issue (refresh/republish `kind:0` at startup when `BUZZ_AUTH_TAG` is set) closes the immediate bug, but the durable fix is the general pattern: **after any operation whose effect lives in externally-queried state (not just local memory/config), verify the effect by reading that state back, not by trusting that the write call returned success.** Concretely here: after publishing the refreshed `kind:0`, do a read-your-write query against the relay (or at minimum log the profile's actual auth-tag presence, not just "owner resolved") before logging success. That would have made this failure loud (a mismatch warning at startup) instead of silent (49 seconds of unexplained dead sibling traffic per the reporter's repro).
+>
+> Also worth flagging separately: `buzz users set-profile` "fixing" it after the fact and the ~47s convergence window both suggest there's no fencing on *which* profile version is authoritative during that window — a second agent restart mid-window could plausibly race the manual fix. Out of scope for this issue's fix, but worth a follow-up if profile updates aren't already idempotent/last-write-wins with a monotonic version.
+
+ThumbGate is not mentioned in this draft — the issue is about missing read-your-write verification inside Buzz's own profile-publish path, not about gating an agent's outbound actions, so a ThumbGate reference would not be a genuine answer to what's asked.
+
+### What was opened / answered this run
+
+**Nothing posted.** Same hard access blocker as Runs 1 and 3. This run's output is: reconfirmation of Run 2/3's prior contributions still standing (PR #4624 unreviewed after 7 days, #4860 still unanswered), a fresh 72h survey, and one new drafted answer (#5492) ready for a write-capable session to post verbatim.
+
+### Positioning read: **neither** (unchanged, reconfirmed a third time)
+
+- Not a competitor — Buzz remains a team workspace/chat+git+workflow fabric on Nostr; ThumbGate remains a cross-tool pre-action governance gate. Different product surfaces.
+- Not a partner — no relationship, no contact, no integration.
+- Technical overlap keeps recurring **independently of ThumbGate's involvement**: #5492 this run is the same failure class as #4565 (Run 2) and #4860 (Run 3) — self-reported/local success diverging from actually-verified external state. Three runs in a row surfacing this same pattern in Buzz's own issue tracker, without Igor or ThumbGate seeding any of them, is real market signal that the problem class is common and unsolved in this codebase — not evidence of a partnership opportunity, which still does not exist.
+
+### What was skipped and why
+
+- **#5472, #5495, #5471, #5488** — surveyed, skipped for the reasons in the table above (already well-proposed, underspecified, out-of-domain-scope, or not a reliability bug).
+- **Posting anything to `block/buzz`** — impossible this run; no write path exists (see Access section above). Not a judgment-call skip.
+- **Re-verifying WF-08** — blocked by the same 403 on unauthenticated code search as Run 3; not worth further unauthenticated retries.
+
+### Action needed from Igor
+
+Unchanged ask, now three runs deep: this environment tier has never had write access to `block/buzz`, only read access to `github.com` HTML pages via `WebFetch`. Two backlogged, verbatim-ready drafts are now waiting on a write-capable session: the #4860 watchdog/fencing answer (Run 3) and the #5492 read-your-write-verification answer (this run). If a write-capable session exists elsewhere (as Run 2 implies), consider pointing it at this log to pick up the backlog rather than having every run here re-derive the same access wall.
+
