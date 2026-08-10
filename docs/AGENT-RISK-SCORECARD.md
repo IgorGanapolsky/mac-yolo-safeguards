@@ -4,7 +4,11 @@ Score how exposed your setup is to the three ways autonomous coding agents actua
 a frozen machine, a surprise bill, and an action you can't take back.
 
 Answer 12 questions. **No = 0, Partial = 1, Yes = 2.** Add it up (max 24). Bands and next steps at the bottom.
-Interactive version: [`docs/funnel/agent-risk-scorecard.html`](./funnel/agent-risk-scorecard.html) — a single HTML file, works offline, sends nothing anywhere.
+
+**Interactive version** (auto-scores + gap analysis + copyable share block):
+[right-click and save this file](https://raw.githubusercontent.com/IgorGanapolsky/mac-yolo-safeguards/main/docs/funnel/agent-risk-scorecard.html),
+then open it in any browser — it's a single HTML file that works offline and sends nothing anywhere.
+([view source](./funnel/agent-risk-scorecard.html))
 
 Why these 12 questions: they're the failure classes documented across 2026's agent incidents — from the
 [Moltbook exposure](https://www.wiz.io/blog/exposed-moltbook-database-reveals-millions-of-api-keys) (1.5M API tokens leaked from an app whose founder "didn't write one line of code") to
