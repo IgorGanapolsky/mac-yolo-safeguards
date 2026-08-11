@@ -103,7 +103,10 @@ class SeedAgentCli {
     const startTime = Date.now();
     const thinking = this.adaptiveEngine.allocateThinkingBudget({ prompt });
 
-    console.log(`\x1b[36m[seed-yolo]\x1b[0m model=${this.model} mode=${thinking.thinkingMode} budget=${thinking.allocatedBudgetTokens}t`);
+    if (!this.printedStatusHeader) {
+      console.log(`\x1b[36m[seed-yolo]\x1b[0m model=${this.model} mode=${thinking.thinkingMode} budget=${thinking.allocatedBudgetTokens}t`);
+      this.printedStatusHeader = true;
+    }
 
     let resultText = '';
     let success = false;
@@ -119,7 +122,10 @@ class SeedAgentCli {
 
     // 2. Fallback to Local Zero-Cost Ollama Endpoint if remote endpoint fails or 402s
     if (!success) {
-      console.log(`\x1b[33m[seed-yolo] Streaming via local zero-cost inference engine (deepseek-r1:8b / Ollama :11434)...\x1b[0m`);
+      if (!this.printedFallbackHeader) {
+        console.log(`\x1b[33m[seed-yolo] Streaming via local zero-cost inference engine (deepseek-r1:8b / Ollama :11434)...\x1b[0m`);
+        this.printedFallbackHeader = true;
+      }
       resultText = await this.streamLocalOllama(prompt, thinking);
     }
 
@@ -275,25 +281,45 @@ class SeedAgentCli {
       prompt: '\x1b[36mseed-2.1-pro > \x1b[0m',
     });
 
-    rl.prompt();
+    let buffer = [];
+    let pasteTimer = null;
+    let isExecuting = false;
 
-    rl.on('line', async (line) => {
-      const input = line.trim();
-      if (!input) {
+    const processBuffer = async () => {
+      if (isExecuting) return;
+      const fullPrompt = buffer.join('\n').trim();
+      buffer = [];
+      pasteTimer = null;
+
+      if (!fullPrompt) {
         rl.prompt();
         return;
       }
-      if (input === 'exit' || input === 'quit') {
+      if (fullPrompt === 'exit' || fullPrompt === 'quit') {
         console.log('Goodbye!');
         process.exit(0);
       }
-      if (input === 'doctor') {
+      if (fullPrompt === 'doctor') {
         this.runDoctor();
         rl.prompt();
         return;
       }
-      await this.executePrompt(input);
-      rl.prompt();
+
+      isExecuting = true;
+      try {
+        await this.executePrompt(fullPrompt);
+      } finally {
+        isExecuting = false;
+        rl.prompt();
+      }
+    };
+
+    rl.prompt();
+
+    rl.on('line', (line) => {
+      buffer.push(line);
+      if (pasteTimer) clearTimeout(pasteTimer);
+      pasteTimer = setTimeout(processBuffer, 150);
     });
   }
 
