@@ -95,6 +95,37 @@ function readAllStdin() {
     process.stdin.on('end', () => resolve(data));
   });
 }
+function buildSeedSystemPrompt(promptText = '') {
+  let projectDirectives = '';
+  const cwd = process.cwd();
+  const agentsMdPath = path.join(cwd, 'AGENTS.md');
+  const planMdPath = path.join(cwd, 'plan.md');
+
+  if (fs.existsSync(agentsMdPath)) {
+    try {
+      const agentsContent = fs.readFileSync(agentsMdPath, 'utf8').substring(0, 2000);
+      projectDirectives += `\n\n[WORKSPACE AGENTS.MD DIRECTIVE]\n${agentsContent}`;
+    } catch (e) {}
+  }
+
+  if (fs.existsSync(planMdPath)) {
+    try {
+      const planContent = fs.readFileSync(planMdPath, 'utf8').substring(0, 1000);
+      projectDirectives += `\n\n[WORKSPACE LIVE PLAN.MD BOARD]\n${planContent}`;
+    } catch (e) {}
+  }
+
+  return [
+    'You are Seed Agent 2.1, ByteDance’s next-generation autonomous AI engine operating directly on Igor’s local workspace.',
+    'DIRECTIVE & CAPABILITIES:',
+    '- You are an integrated coding agent with full workspace context, project directives, file access, and execution toolsets (terminal, file, web, code_execution, clarify, skills, context7).',
+    '- Answer Igor like a direct human collaborator. Lead with the exact technical result, solution, or code diff first.',
+    '- NEVER output excuses like "I don\'t have access to your local filesystem", "I don\'t hold a Linear seat", or "I cannot access GitHub repos". You operate inside a live workspace agent harness.',
+    '- Honor AGENTS.md rules, require explicit consent for destructive operations, and deliver verified, production-ready outputs.',
+    `[CURRENT WORKING DIRECTORY]: ${cwd}`,
+    projectDirectives,
+  ].filter(Boolean).join('\n');
+}
 
 class SeedAgentCli {
   constructor(options = {}) {
@@ -300,7 +331,7 @@ class SeedAgentCli {
         messages: [
           {
             role: 'system',
-            content: 'You are Seed Agent 2.1, ByteDance’s next-generation autonomous AI model. Provide concise, highly actionable, strategic technical & revenue guidance.',
+            content: buildSeedSystemPrompt(prompt),
           },
           { role: 'user', content: prompt },
         ],
@@ -409,7 +440,7 @@ class SeedAgentCli {
         messages: [
           {
             role: 'system',
-            content: 'You are Seed Agent 2.1 (Local Mode). Provide concise, strategic, high-impact guidance.',
+            content: buildSeedSystemPrompt(prompt),
           },
           { role: 'user', content: prompt },
         ],
