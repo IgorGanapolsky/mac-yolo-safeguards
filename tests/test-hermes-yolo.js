@@ -118,20 +118,20 @@ assert.deepStrictEqual(buildGrokBackendEnv({
   HERMES_YOLO_GROK_COMPAT_MCP: '1',
   GROK_CLAUDE_MCPS_ENABLED: 'true',
 });
-assert.deepStrictEqual(classifyBackend(['fix', 'the', 'bug'], {}, noGrok), {
+assert.deepStrictEqual(classifyBackend(['fix', 'the', 'bug'], { HERMES_YOLO_BACKEND: 'auto' }, noGrok), {
   requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'auto-hermes-fallback',
 });
 // SuperGrok Heavy / grok.com OAuth ready → auto uses grok-4.5 (underuse fix 2026-08-04)
-assert.deepStrictEqual(classifyBackend(['fix', 'the', 'bug'], {}, { grokReady: true }), {
+assert.deepStrictEqual(classifyBackend(['fix', 'the', 'bug'], { HERMES_YOLO_BACKEND: 'auto' }, { grokReady: true }), {
   requestedBackend: 'auto', selectedBackend: 'grok-4.5', reason: 'auto-supergrok-ready',
 });
-assert.strictEqual(shouldUseGrokBackend(['fix'], {}, { grokReady: true }), true);
+assert.strictEqual(shouldUseGrokBackend(['fix'], { HERMES_YOLO_BACKEND: 'auto' }, { grokReady: true }), true);
 // Force hermes even when grok would be ready
 assert.deepStrictEqual(
-  classifyBackend(['fix'], { HERMES_YOLO_FORCE_HERMES: '1' }, { grokReady: true }),
+  classifyBackend(['fix'], { HERMES_YOLO_BACKEND: 'auto', HERMES_YOLO_FORCE_HERMES: '1' }, { grokReady: true }),
   { requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'auto-hermes-fallback' },
 );
-assert.deepStrictEqual(classifyBackend(['doctor'], {}, noGrok), {
+assert.deepStrictEqual(classifyBackend(['doctor'], { HERMES_YOLO_BACKEND: 'auto' }, noGrok), {
   requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'hermes-admin-command',
 });
 assert.deepStrictEqual(classifyBackend(['fix'], { HERMES_YOLO_BACKEND: 'grok' }), {
