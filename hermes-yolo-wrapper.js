@@ -861,31 +861,12 @@ function isGrokBackendReady(env = process.env, dependencies = {}) {
   }
 }
 
-function classifyBackend(rawArgs, env = process.env, dependencies = {}) {
-  const backend = String(env.HERMES_YOLO_BACKEND || 'auto').trim().toLowerCase();
-  if (!['grok', 'auto', 'hermes'].includes(backend)) {
-    throw new Error(`Unsupported HERMES_YOLO_BACKEND=${backend}; expected grok, auto, or hermes`);
+function classifyBackend(rawArgs = [], env = process.env, dependencies = {}) {
+  const hasExplicitGrokFlag = Array.isArray(rawArgs) && (rawArgs.includes('--grok') || rawArgs.includes('--backend=grok'));
+  if (hasExplicitGrokFlag) {
+    return { requestedBackend: 'grok', selectedBackend: 'grok-4.5', reason: 'explicit-grok-flag' };
   }
-  if (backend === 'hermes') {
-    return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'explicit-hermes-backend' };
-  }
-  if (rawArgs.length > 0 && ['--version', '-V', '--help', '-h'].includes(rawArgs[0])) {
-    return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'hermes-flag-command' };
-  }
-  if (rawArgs.length > 0 && ['--provider', '--model', '--toolsets'].includes(rawArgs[0])) {
-    return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'hermes-flag-command' };
-  }
-  if (rawArgs.length > 0 && HERMES_COMMANDS.has(rawArgs[0])) {
-    return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'hermes-admin-command' };
-  }
-  if (backend === 'grok') {
-    return { requestedBackend: backend, selectedBackend: 'grok-4.5', reason: 'explicit-grok-backend' };
-  }
-  // auto: prefer SuperGrok/grok-4.5 when grok-yolo doctor is green.
-  if (isGrokBackendReady(env, dependencies)) {
-    return { requestedBackend: backend, selectedBackend: 'grok-4.5', reason: 'auto-supergrok-ready' };
-  }
-  return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'auto-hermes-fallback' };
+  return { requestedBackend: 'hermes', selectedBackend: 'hermes-legacy', reason: 'hermes-default-backend' };
 }
 
 function shouldUseGrokBackend(rawArgs, env = process.env, dependencies = {}) {
@@ -894,23 +875,24 @@ function shouldUseGrokBackend(rawArgs, env = process.env, dependencies = {}) {
 
 function buildGrokBackendArgs(rawArgs, options = {}) {
   const env = options.env || process.env;
+  const cleanArgs = (rawArgs || []).filter(a => a !== '--grok' && !a.startsWith('--backend='));
   const isTty = options.isTty !== undefined ? options.isTty : Boolean(process.stdin.isTTY && process.stdout.isTTY);
   const interactiveControls = [
-    '--reasoning-effort', resolveGrokReasoningEffort(rawArgs, env),
+    '--reasoning-effort', resolveGrokReasoningEffort(cleanArgs, env),
     '--rules', DIRECT_RESPONSE_RULES,
   ];
-  if (rawArgs.length === 0) {
+  if (cleanArgs.length === 0) {
     if (isTty) return interactiveControls;
-    return buildGrokHeadlessArgs(DEFAULT_READY_PROMPT, rawArgs, env);
+    return buildGrokHeadlessArgs(DEFAULT_READY_PROMPT, cleanArgs, env);
   }
-  if (rawArgs[0] === '-z' || rawArgs[0] === '--single') {
-    const prompt = rawArgs.slice(1).join(' ').trim() || DEFAULT_READY_PROMPT;
-    return buildGrokHeadlessArgs(prompt, rawArgs, env);
+  if (cleanArgs[0] === '-z' || cleanArgs[0] === '--single') {
+    const prompt = cleanArgs.slice(1).join(' ').trim() || DEFAULT_READY_PROMPT;
+    return buildGrokHeadlessArgs(prompt, cleanArgs, env);
   }
-  if (!rawArgs[0].startsWith('-')) {
-    return buildGrokHeadlessArgs(rawArgs.join(' '), rawArgs, env);
+  if (!cleanArgs[0].startsWith('-')) {
+    return buildGrokHeadlessArgs(cleanArgs.join(' '), cleanArgs, env);
   }
-  return rawArgs;
+  return cleanArgs;
 }
 
 function buildGrokBackendEnv(env = process.env) {
