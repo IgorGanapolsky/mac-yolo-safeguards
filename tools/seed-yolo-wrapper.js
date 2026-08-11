@@ -105,7 +105,8 @@ class SeedAgentCli {
     this.baseUrl = this.isArk
       ? (process.env.ARK_BASE_URL || 'https://ark.cn-beijing.volces.com/api/v3')
       : 'https://openrouter.ai/api/v1';
-    this.model = process.env.SEED_YOLO_MODEL || (this.isArk ? 'seed-2.1-pro' : 'openrouter/auto');
+    this.model = process.env.SEED_YOLO_MODEL || (this.isArk ? 'doubao-seed-2.1-pro' : 'bytedance/seed-2.1-pro:free');
+    this.history = [];
     this.ensureDirs();
   }
 
@@ -289,7 +290,24 @@ class SeedAgentCli {
       // Ignore
     }
 
-    return { exitCode: ok ? 0 : 1, stdout: resultText, receipt };
+    if (ok && resultText) {
+      const cleanOutput = sanitizeAgentOutput(resultText);
+      this.history.push({ role: 'user', content: prompt });
+      this.history.push({ role: 'assistant', content: cleanOutput });
+      if (this.history.length > 20) this.history = this.history.slice(-20);
+    }
+
+    return { exitCode: ok ? 0 : 1, stdout: sanitizeAgentOutput(resultText), receipt };
+  }
+
+  buildMessages(prompt) {
+    const sysPrompt = buildSeedSystemPrompt(prompt);
+    const messages = [{ role: 'system', content: sysPrompt }];
+    if (this.history && this.history.length) {
+      messages.push(...this.history);
+    }
+    messages.push({ role: 'user', content: prompt });
+    return messages;
   }
 
   /** Stream from Remote API */
@@ -297,13 +315,7 @@ class SeedAgentCli {
     return new Promise((resolve) => {
       const payload = {
         model: remoteModel,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are Seed Agent 2.1, ByteDance’s next-generation autonomous AI model. Provide concise, highly actionable, strategic technical & revenue guidance.',
-          },
-          { role: 'user', content: prompt },
-        ],
+        messages: this.buildMessages(prompt),
         stream: true,
         temperature: 0.2,
       };
@@ -406,13 +418,7 @@ class SeedAgentCli {
     return new Promise((resolve) => {
       const payload = {
         model: localModel,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are Seed Agent 2.1 (Local Mode). Provide concise, strategic, high-impact guidance.',
-          },
-          { role: 'user', content: prompt },
-        ],
+        messages: this.buildMessages(prompt),
         stream: true,
       };
 
