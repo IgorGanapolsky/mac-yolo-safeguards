@@ -71,6 +71,30 @@ BUFFER_CHANNELS="LinkedIn,Instagram" ./scripts/content-engine-preflight.sh
 5. **Never spend money.** No credits, no upgrades, no payment methods, no checkout — on
    Zapier, Higgsfield, Gamma, or anything else. Blocked-and-move-on beats a purchase.
 
+## Step 3b — "But the Mac's browser is logged in" is not a path from a cloud run
+
+Do not burn a run trying to reach the Mac's browser over the network. It is closed by
+design, in this repo:
+
+- `com.hermes.chrome-cdp.plist` sets `HERMES_CDP_BIND=127.0.0.1`
+- `com.hermes.chrome-debugger.plist` sets `HERMES_DEBUGGER_BIND=127.0.0.1`
+
+Both bind **loopback-only**, and that is correct — an exposed CDP port is full browser
+takeover: any peer that reaches it can read every cookie and act as the operator. Do not
+"fix" this by rebinding to `0.0.0.0`. Cloud containers also carry no tailnet membership
+(no `tailscale`, no route), so there is no transport even if it were bound wider.
+
+**Google SSO does not transfer either.** A channel being logged in via
+`iganapolsky@gmail.com` on the Mac means a session cookie exists *in that browser profile*.
+Recreating it elsewhere needs the Google password and 2FA — a hard ban. "It's logged in"
+describes the Mac, not the run.
+
+**The correct read when a cloud run is asked to post to X / Bluesky / Threads:** those are
+not blocked by login state, they are blocked by *not being connected as channels inside
+Buffer*. Buffer is the only publisher reachable headlessly. Connecting a channel there is a
+one-time human OAuth click that permanently unblocks every future run on every host.
+Say that, rather than reporting the channel as broken.
+
 ## Step 4 — Report the gap as a fix, not an excuse
 
 When channels are unreachable, the run report must name **the change that would make them
