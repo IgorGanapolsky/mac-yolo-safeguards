@@ -13,6 +13,28 @@ Hermes Mobile and thumbgate.ai are **downstream defaults** from the web funnel.
 
 ---
 
+## STEP 0 — Capability gate (MANDATORY, before anything else)
+
+**Run `./scripts/content-engine-preflight.sh` before drafting a single word.**
+Full rules: `.claude/skills/content-engine-capability-gate/SKILL.md`.
+
+This engine assumes a signed-in Chrome on Igor's Mac. **Scheduled runs do not always get
+one** — the 2026-08-11 AM run fired in a remote Linux container with no browser, no cookie
+jar, and no `claude-in-chrome` tool, discovered it channel-by-channel *after* writing the
+content, and shipped 1 of 9 channels.
+
+Write for the channels you can reach, not the channels this document lists:
+
+- **exit 0** → stdout is the publish set. Draft for exactly those.
+- **exit 10** → zero reachable. **Abort. Do not produce drafts.** Report the gap and stop.
+
+Three traps the gate encodes, all observed live on 2026-08-11:
+a browser *binary* with no cookies is not a capability; an enabled Zapier app with **0
+connections** is not a channel; and Buffer's `status: sent` is not published until a
+`service_update_id` exists **and** the public URL fetches back with matching content.
+
+---
+
 ## Purpose
 
 Research, create, and when authorized publish platform-native content that drives this **ordered** funnel:
