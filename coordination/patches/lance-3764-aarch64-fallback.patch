@@ -1,0 +1,37 @@
+diff --git a/rust/lance-core/src/utils/cpu.rs b/rust/lance-core/src/utils/cpu.rs
+index 58adeb2..9812c5d 100644
+--- a/rust/lance-core/src/utils/cpu.rs
++++ b/rust/lance-core/src/utils/cpu.rs
+@@ -299,6 +299,32 @@ mod aarch64 {
+     }
+ }
+ 
++// Fallback for aarch64 targets on operating systems not covered above
++// (e.g. FreeBSD, OpenBSD, NetBSD, illumos). Without this arm, `SIMD_SUPPORT`
++// unconditionally references `aarch64::has_neon_f16_support()` for any
++// non-ios/tvos aarch64 target, but no `aarch64` module was ever defined for
++// these OSes, so the crate failed to compile with:
++// `error[E0433]: failed to resolve: use of unresolved module or unlinked
++// crate `aarch64`` (rust/lance-core/src/utils/cpu.rs:172).
++// See https://github.com/lancedb/lancedb/issues/3764. Conservatively report
++// no fp16 NEON support, matching the existing windows/android fallbacks.
++#[cfg(all(
++    target_arch = "aarch64",
++    not(any(
++        target_os = "macos",
++        target_os = "linux",
++        target_os = "windows",
++        target_os = "android",
++        target_os = "ios",
++        target_os = "tvos"
++    ))
++))]
++mod aarch64 {
++    pub fn has_neon_f16_support() -> bool {
++        false
++    }
++}
++
+ #[cfg(test)]
+ mod tests {
+     use super::*;

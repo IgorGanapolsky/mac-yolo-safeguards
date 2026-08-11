@@ -4,6 +4,120 @@ Dated entries from the autonomous OSS-engagement routine (Thinking Machines Lab 
 
 ---
 
+## 2026-08-11 — Tinker #38 fix pushed to fork (PR open blocked); LanceDB #3764 fix parked; Poolside empty
+
+Same structural wall as 2026-08-04/08-10: this session's GitHub scope is locked to
+`igorganapolsky/mac-yolo-safeguards` + its two attached forks (`igorganapolsky/tinker`,
+`igorganapolsky/lancedb`); `add_repo` still refuses any other owner ("cross-tier adds are not
+supported") once `mac-yolo-safeguards` is attached, and `mcp__github__*` denies every call —
+read or write — against an unattached repo. This run made one real (non-probing)
+`create_pull_request` attempt against `thinking-machines-lab/tinker` to confirm the wall is
+still live rather than assume it: denied, identical error to prior runs. Public reads
+(anonymous `git clone`, `WebFetch` against `api.github.com`) are unaffected and did all of this
+run's research.
+
+### Repos surveyed
+
+| Org | Repos |
+|-----|--------|
+| Thinking Machines Lab | `tinker`, `tinker-cookbook`, `tinker-feedback`, `batch_invariant_ops`, `manifolds`, `lws`, `tinker-project-ideas` (~90 open issues/PRs reviewed) |
+| Poolside AI | all 19 `poolsideai/*` repos (8 real + 11 forks) — confirmed `poolside-engineering` org from a prior briefing doesn't exist (404) |
+| LanceDB | `lancedb/lancedb` (#3889–#3918), `lancedb/lance` (#8432–#8458), plus re-checks of #3764 and parked branch #3775 |
+
+### Issues considered
+
+**Tinker** — [#38](https://github.com/thinking-machines-lab/tinker/issues/38) (Kimi K2 loading
+error) chosen: buried in the same error text is an independent, genuine client-side SDK bug —
+`make_error_message()` in `sync_only.py` appends `_async` to method names unconditionally, but
+methods already suffixed `_sync` (e.g. `Telemetry.log_fatal_exception_sync`) need the suffix
+*replaced*, not appended, so the warning suggested the nonexistent
+`log_fatal_exception_sync_async` instead of the real `log_fatal_exception`. #24 (checkpoint
+delete) already fixed on main, stale. #25 (`sampler_weights`) is server-side validation, not
+client-fixable. `batch_invariant_ops` #23/#14 already have open PRs (#24/#26). `tinker-cookbook`
+open items are all already-PRs, not open issues. `tinker-feedback` is a closed-source hosted
+service, no source to patch.
+
+**Poolside** — nothing actionable. `pool` is still closed-source (verified fresh: repo root is
+`README.md`/`CHANGELOG.md`/`LICENSE.md`/`third_party/` only, real bug reports exist in Issues
+but no source to fix them). Every source-available repo (`bridge-sdk`, `pooleval`,
+`reference_architectures`, `n8n-poolside-node`) currently has **zero open issues** — the API's
+"issues" for those repos were actually already-open PRs from bots/contributors. Forks don't
+accept issues (redirect to upstream). Discussions disabled org-wide.
+
+**LanceDB** — [#3764](https://github.com/lancedb/lancedb/issues/3764) (arm64 build failure,
+still open/unclaimed since 08-04) chosen: root cause confirmed in `lance-core`'s `cpu.rs` —
+`SIMD_SUPPORT` calls `aarch64::has_neon_f16_support()` unconditionally for non-iOS/tvOS aarch64
+targets, but the `aarch64` module is only defined for macos/linux/windows/android, so any other
+OS (FreeBSD as reported, also OpenBSD/NetBSD/illumos) fails `E0433` module-not-found at compile
+time. Re-checked #3262/PR #3775 (2026-08-03 fix, parked at
+`igorganapolsky/lancedb@fix/blob-coerce-null-column`): **still open**, not closed as previously
+believed — reviewer `wjones127` approved with a minor suggestion, blocked only on a maintainer
+approving first-time-contributor CI, nothing actionable from this session. #3915/#3914/#3907/
+#3902/#3905/#3903 already have same-day maintainer PRs closing them. #3899 is docs-only,
+excluded.
+
+### What was pushed / parked
+
+| Item | Status | Where |
+|------|--------|-------|
+| **Tinker #38 fix** | Branch pushed to fork, PR open **blocked by session scope** | `igorganapolsky/tinker@fix/sync-only-async-method-name-issue-38` (commit `a2ba02e`); PR body ready at `coordination/ready-to-post/tinker-38-pr-body.md` |
+| **LanceDB #3764 fix** | No fork exists, patch parked (not pushed) | `coordination/patches/lance-3764-aarch64-fallback.patch`; PR body + fork/push instructions at `coordination/ready-to-post/lance-3764-pr-body.md` |
+
+#### Tinker #38 fix detail
+
+`_suggest_async_method_name()` strips a trailing `_sync` when present instead of blindly
+appending `_async`. **Independently re-verified in a fresh clone of the fork** (not just trusted
+from the research pass): fresh `uv venv --python 3.12`, `pip install -e . pytest
+pytest-asyncio pytest-xdist` against public PyPI. **Before fix** (`git stash` of just the
+`sync_only.py` change, `pytest -o addopts=""`): `ImportError: cannot import name
+'_suggest_async_method_name'` — collection fails. **After fix:**
+`pytest src/tinker/lib/sync_only_test.py -v` → **5 passed**;
+`pytest src/tinker/lib/telemetry_test.py src/tinker/lib/sync_only_test.py -v` → **65 passed, 0
+failed** (no regressions).
+
+#### LanceDB #3764 fix detail
+
+Added a catch-all `aarch64` fallback module for OSes not already covered
+(FreeBSD/OpenBSD/NetBSD/illumos), reporting no NEON fp16 support — same conservative pattern as
+the existing Windows/Android arms. No aarch64-FreeBSD toolchain available in this environment
+(Tier-3 target, `rustup target add` fails), so the compile-time defect was isolated with a
+minimal `rustc --cfg` structural repro instead of real cross-compilation (documented honestly in
+the parked PR body, before/after output included). Applied fix to a real `lance-core` clone and
+ran `cargo test -p lance-core utils::cpu::` → **13 passed** (corroborating regression evidence
+on the host arch, doesn't exercise the FreeBSD path itself).
+
+### What was answered
+
+Nothing posted — same access wall blocks issue comments too (`add_issue_comment` needs the same
+owner/repo scope).
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| Tinker #24, #25 | Already fixed on main / server-side, not client-fixable |
+| `batch_invariant_ops` #23/#14, `tinker-cookbook` open items | Already have open PRs from others |
+| Poolside `pool` bug reports (#38, #33, #32, #25, #22, #23) | Real bugs, closed-source binary, no code to patch |
+| Poolside `bridge-sdk`/`pooleval` items | Already resolved by open bot/community PRs |
+| LanceDB #3915/#3914/#3907/#3902/#3905/#3903 | Same-day maintainer PRs already closing them |
+| LanceDB #3899 | Docs-only |
+| Second PR (LanceDB) | Hard rule: max 1 PR/org/run; #3764 chosen as the deeper, still-unclaimed find |
+
+### ThumbGate mentions
+
+**None** — no issue in any of the three orgs asked an on-topic question about gating/limiting
+agent actions this run.
+
+### Action needed from Igor
+
+Same ask as 2026-08-04, now confirmed live for a third time: this session type cannot open PRs
+or post comments against `thinking-machines-lab/*`, `poolsideai/*`, or `lancedb/*` — only
+against `igorganapolsky`-owned repos/forks. Two verified, tested fixes (Tinker #38, LanceDB
+#3764) are ready to post from the artifacts above; they need either the Mac-side `gh`-authenticated
+fleet, or a session/environment with real cross-owner GitHub scope, to actually land.
+
+---
+
 ## 2026-08-10 — jcode engagement (Igor-directed): #869 fix verified + forensic packet parked; 2 answer drafts
 
 Igor's live directive this run: engage https://github.com/1jehuang/jcode (16.8k★ Rust agent
