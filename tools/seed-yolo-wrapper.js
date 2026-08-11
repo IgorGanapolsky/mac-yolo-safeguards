@@ -227,11 +227,12 @@ class SeedAgentCli {
       let fullText = '';
 
       const reqOptions = {
-        hostname: 'localhost',
+        hostname: '127.0.0.1',
         port: 11434,
         path: '/v1/chat/completions',
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        timeout: 120000,
       };
 
       const req = http.request(reqOptions, (res) => {
@@ -275,25 +276,45 @@ class SeedAgentCli {
       prompt: '\x1b[36mseed-2.1-pro > \x1b[0m',
     });
 
-    rl.prompt();
+    let buffer = [];
+    let pasteTimer = null;
+    let isExecuting = false;
 
-    rl.on('line', async (line) => {
-      const input = line.trim();
-      if (!input) {
+    const processBuffer = async () => {
+      if (isExecuting) return;
+      const fullPrompt = buffer.join('\n').trim();
+      buffer = [];
+      pasteTimer = null;
+
+      if (!fullPrompt) {
         rl.prompt();
         return;
       }
-      if (input === 'exit' || input === 'quit') {
+      if (fullPrompt === 'exit' || fullPrompt === 'quit') {
         console.log('Goodbye!');
         process.exit(0);
       }
-      if (input === 'doctor') {
+      if (fullPrompt === 'doctor') {
         this.runDoctor();
         rl.prompt();
         return;
       }
-      await this.executePrompt(input);
-      rl.prompt();
+
+      isExecuting = true;
+      try {
+        await this.executePrompt(fullPrompt);
+      } finally {
+        isExecuting = false;
+        rl.prompt();
+      }
+    };
+
+    rl.prompt();
+
+    rl.on('line', (line) => {
+      buffer.push(line);
+      if (pasteTimer) clearTimeout(pasteTimer);
+      pasteTimer = setTimeout(processBuffer, 150);
     });
   }
 
