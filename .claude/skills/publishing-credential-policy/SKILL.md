@@ -65,6 +65,49 @@ reached `x.com` fine — with `auth_token: NONE`, `ct0: NONE`, `0` cookies total
 control plus zero session equals a browser the platform treats as a stranger. Control was
 never the missing ingredient; inherited session state was.
 
+## Secure store — `scripts/hermes-secret.sh` (macOS Keychain)
+
+Secrets are referenced by **NAME** everywhere: prompts, code, logs, skills, commits.
+Values live in the Keychain and are read at point of use.
+
+```bash
+./scripts/hermes-secret.sh set DEVTO_API_KEY     # silent prompt; value never in argv
+./scripts/hermes-secret.sh get DEVTO_API_KEY     # value to stdout only
+./scripts/hermes-secret.sh list                  # names only -- no command dumps values
+```
+
+It refuses to run on a host without the Keychain rather than falling back to a dotfile or
+env var. On a headless host the answer is delegated OAuth, not a copied secret.
+
+### What belongs in it — and what never does
+
+Research current as of **August 2026**:
+
+| Store this | Why |
+|---|---|
+| `DEVTO_API_KEY` | Forem API v1 is alive and sanctioned: `POST /api/articles` with an `api-key` header. Revocable at dev.to/settings/extensions. **Unblocks dev.to headlessly.** |
+| `BLUESKY_APP_PASSWORD` | App Passwords are deprecated in favor of OAuth but remain explicitly fine "if scripting against your own account" — exactly this use case. Scoped and revocable without touching the main password. **Unblocks Bluesky headlessly.** |
+
+| Never store this | Why |
+|---|---|
+| A platform **account password** | 2026 practice is scoped, short-lived credentials. A long-lived password is unscoped: one leak yields everything the account can do. There is also no publishing path that needs it. |
+| **Session cookies** (`li_at`, `auth_token`, `sessionid`) | Full account takeover, usually bypassing 2FA. Strictly worse than a password. |
+
+### LinkedIn is a special case — browser automation is the ban vector
+
+LinkedIn User Agreement §8.2 bars bots, browser injection, and automated access. Enforcement
+escalated sharply in 2026: LinkedIn reported flagging **23.5M automated sessions in one
+quarter**, now skips warnings and moves straight to suspension, and requires government-ID
+upload to restore an account. In March 2026 it permanently removed HeyReach's company page
+**and banned the founder's personal profile**.
+
+Tools operating through **verified API channels were not caught in that enforcement wave.**
+
+**Therefore: never drive LinkedIn via CDP/browser automation from this engine.** Publish it
+through Buffer's verified API integration. This is not a convenience preference — browser
+automation is the specific behavior that gets accounts permanently banned, and the operator's
+LinkedIn presence is not a recoverable asset.
+
 ## Escalate rather than improvise
 
 If a run cannot reach a channel and neither auth path is available, **say so and name the
