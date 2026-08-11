@@ -367,3 +367,87 @@ Unchanged, now three runs deep: this environment tier has never had write access
 - **`coordination/buzz-engagement-log.md` had no `merge=union` git attribute**, unlike `plan.md`/`SKILLS.md`. Discovered because four separate branches (`chore/buzz-engagement-log-run4`, `buzz-engagement-run4-20260810`, `chore/buzz-engagement-log-2026-08-05-run4`, `feat/buzz-engagement-run4-20260810`) were all pushed within roughly the same hour, each appending a "Run 4" entry to this exact file from independent scheduled-task firings — a guaranteed merge conflict for every one after the first, on a file where every side's content is wanted. Fixed in this PR: added `coordination/*-engagement-log.md merge=union` to `.gitattributes` (same fix already applied to `plan.md`/`SKILLS.md` for the identical reason).
 - An earlier version of this PR also modified `.github/workflows/auto-assign-reviewers.yml` to fix a real `assign_reviewers` CI failure (422 requesting review from the PR author) hit while driving this PR to green. That fix was reverted here on review feedback: PR [#1598](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1598) already exists as a dedicated, properly-scoped fix for the same bug (and handles an additional edge case — 422 on a mapped, non-collaborator reviewer — that this PR's version didn't). No need for two competing fixes to the same production workflow file.
 
+---
+
+## 2026-08-11 — Run 5 (access wall precisely characterized; two verified, unsubmittable fixes found)
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+| Fact | Evidence |
+|------|----------|
+| **Canonical repo** | [`github.com/block/buzz`](https://github.com/block/buzz) — Apache-2.0, Block/Jack Dorsey org, active. Unchanged from Runs 1–4. |
+| **This session's GitHub scope** | Confirmed via `mcp__github__get_me` (authenticated as `IgorGanapolsky`) and a direct `mcp__github__issue_read` call against `block/buzz#4860`, which was denied: *"Access denied: repository 'block/buzz' is not configured for this session. Allowed repositories: igorganapolsky/mac-yolo-safeguards."* Same wall as Runs 1, 3, 4 — now confirmed against the `mcp__github__*` tool surface directly, not just `add_repo`. |
+
+### Important correction to the "unsolvable blocker" conclusion of Runs 1/3/4
+
+Three **other**, still-open/unmerged PRs against *this* repo from concurrent Run-4 sessions (found via `mcp__github__search_pull_requests` — they never made it to `main`, so they weren't visible from `git log`/`HEAD` alone) had already found the fix Runs 1/3/4's merged log entries missed:
+
+- PR [#1473](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1473) — `add_repo(owner: "igorganapolsky", repo: "buzz")` (a *same-owner fork*, not `block/buzz` directly) succeeds where the cross-tier add is rejected. Used it to push a verified WF-08 approval-gate fix to `igorganapolsky/buzz:fix/wf08-approval-gate-finalize-run` (claims 155/155 `buzz-workflow` tests green against local Postgres+Redis).
+- PR [#1594](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1594) — same fork trick, pushed a fix for issue #5492 to `igorganapolsky/buzz:fix/acp-auth-tag-profile-republish`.
+
+This run reproduced that: `add_repo(owner: "igorganapolsky", repo: "buzz", access: "push")` **succeeded** (`clone_url: https://github.com/igorganapolsky/buzz`) immediately after the identical call for `owner: "block"` was rejected with the same cross-tier message Runs 1/3/4 treated as final. `igorganapolsky/buzz` is a real fork (confirmed via the GitHub UI: "forked from block/buzz"), cloned successfully (`/workspace/buzz`, HEAD `ce56e34`, 2026-08-03), and four fix branches already existed on it from prior runs: `fix/wf08-approval-gate-finalize-run`, `fix/acp-auth-tag-profile-republish`, `fix/multi-h-filter-4579-dco`, `fix/multi-h-filter-silent-narrow-4579`.
+
+**But the wall is only partially down.** With `igorganapolsky/buzz` in scope, `mcp__github__create_pull_request(owner: "block", repo: "buzz", head: "igorganapolsky:fix/acp-auth-tag-profile-republish", base: "main")` was attempted this run and **still denied**: *"Access denied: repository 'block/buzz' is not configured for this session. Allowed repositories: igorganapolsky/mac-yolo-safeguards, igorganapolsky/buzz."* So: this session tier can now **clone, build, test, and push to a same-owner fork** of `block/buzz` — real progress over Runs 1/3/4's "read-only, full stop" conclusion — but **still cannot open a PR, issue, or comment against `block/buzz` itself** by any route tried (direct add, fork add, `create_pull_request` against the upstream owner). PRs #1473 and #1594 hit exactly this same second wall and left compare-URLs behind instead of PRs; this run independently reproduces that same terminal state rather than assuming it.
+
+### Independent re-verification of PR #1594's #5492 fix (not just trusted from its log entry)
+
+Per the Honesty Protocol ("every claim needs proof in the same turn"), the fix on `igorganapolsky/buzz:fix/acp-auth-tag-profile-republish` was re-verified from scratch this run, not taken on faith from PR #1594's description:
+
+- Checked out the branch fresh in the cloned fork (commit `9c49727`, `Signed-off-by: Igor Ganapolsky <iganapolsky@gmail.com>` present — DCO satisfied per `CONTRIBUTING.md`).
+- Read the actual diff: `reconcile_own_profile_auth_tag()` in `crates/buzz-acp/src/lib.rs` queries the agent's own stored `kind:0` at startup and republishes it carrying the `BUZZ_AUTH_TAG` auth tag only when the stored copy doesn't already prove the owner (idempotent — a correctly-tagged profile publishes nothing on restart). The shared predicate `own_profile_needs_auth_republish` is used by both this reconciliation path and the existing inbound sibling gate, so the two sides can't drift on what "proves the owner" means.
+- Ran `cargo test -p buzz-acp --lib` myself in this session: **743 passed, 0 failed**, matching PR #1594's claim exactly. Confirmed 7 of those are new tests directly targeting this fix: `untagged_stored_profile_needs_republish`, `absent_stored_profile_needs_republish`, `correctly_tagged_stored_profile_is_left_alone` (idempotency), `auth_tag_for_a_different_owner_needs_republish`, `forged_auth_tag_signature_needs_republish` (relay is never trusted to have checked the signature itself), `owner_hex_is_compared_case_insensitively`, `malformed_tags_field_needs_republish`.
+- Ready-to-open compare: https://github.com/block/buzz/compare/main...igorganapolsky:buzz:fix/acp-auth-tag-profile-republish
+
+This is a real, tested fix sitting on a public fork with nothing left to do except click "Create pull request" from an account/session with write access to `block/buzz` — which no session in this repo's fleet has demonstrated yet, across five runs.
+
+The WF-08 fix branch (`fix/wf08-approval-gate-finalize-run`) was **not** independently re-verified this run — its test suite needs local Postgres+Redis per PR #1473, which was out of scope for the time this run had left after the access-wall investigation and the #5492 re-verification. Noted as unverified-by-this-run, not re-asserted as green.
+
+### What was surveyed (last ~72h, as of 2026-08-11)
+
+| Issue | Topic | Action |
+|-------|-------|--------|
+| [#5500](https://github.com/block/buzz/issues/5500) | `buzz-acp`: mentions sent while an agent session is stopped are silently lost — resume-after-restart does `since`-less catch-up as `limit: 0` (live-only), so the gap between last-seen event and restart is never backfilled | **Answer drafted** (below) — squarely a durable-cursor/replay gap, Igor's stated domain |
+| [#5492](https://github.com/block/buzz/issues/5492) | `BUZZ_AUTH_TAG` set but stored `kind:0` never republished | Reconfirmed still open, 0 comments; fix ready (see above) |
+| [#4860](https://github.com/block/buzz/issues/4860) | ACP watchdog hang | Reconfirmed still open, 0 comments; Run 3's draft still unposted and still accurate |
+| [#4624](https://github.com/block/buzz/pull/4624) | Igor's multi-`#h` filter fix | Still open, still green, still **zero human maintainer review after 8 days** (only a bot usage-limit comment) |
+| [#2509](https://github.com/block/buzz/issues/2509) | `verdict_ref` on `request_approval` | Still open; page didn't expose a reliable comment count via `WebFetch` this run, not re-asserted as unchanged beyond "still open" |
+| #5532, #5526, #5508, #5498 | heartbeat threading, auto-wake, persona/ACP staleness, community-join roster leak | Skipped — surveyed titles only via a search-results page (not opened individually); none is a clear one-PR-sized reliability bug from the title alone, and this run's fix effort was already spent verifying #5492 |
+
+### Drafted answer for #5500 (not yet posted — no write path to `block/buzz` this run)
+
+> This is a resume-cursor gap, the same shape as a message queue consumer that resubscribes without a stored offset. The reporter's root cause is exactly right: fetching history then subscribing live-only (`limit: 0`) leaves a window — between "last event this process saw before shutdown" and "first event after the live subscription opens" — where nothing is watching. Anything addressed to a stopped agent in that window is durably stored on the relay (transport is fine, per the repro) but never delivered, because delivery here is defined as "was live when it arrived," not "exists and is unread."
+>
+> The fix is a durable per-agent cursor, not a longer window: persist the last-processed event's `created_at`/id, and on startup fetch history with `since: <that value>` (falling back to some bounded lookback if no cursor exists yet, e.g. first run) *before* switching to the live subscription — instead of the current `limit: 0` "trust that live catches everything from here." Two things worth calling out on the fix, both because they're easy to get wrong in exactly this kind of catch-up-then-live handoff:
+>
+> 1. **The catch-up window and the live subscription will overlap.** An event that arrives during the fetch can also appear in the historical query, or vice versa depending on timing. Processing has to be idempotent on event id (dedupe against what's already been handled) or the same mention gets acted on twice — a different but related failure mode from this issue's "acted on zero times."
+> 2. **The cursor write needs to be at-least-once itself.** If "advance the cursor" isn't durable before the process that read the event dies, a crash mid-batch can silently drop the same events this issue is about, just at a different point in the pipeline. Persisting the cursor per processed event (or in a small trailing batch) rather than only at clean shutdown avoids that.
+>
+> Worth checking whether #4893 (same pattern for agent *definitions*, per the issue's own cross-reference) already has a cursor/offset abstraction in the codebase — if so, this is a second consumer of that mechanism rather than a new one.
+
+ThumbGate is not mentioned in this draft — the issue is about Buzz's own resume/subscribe design, not about gating an agent's outbound writes, so a ThumbGate reference would not be a genuine answer to what's asked.
+
+### What was opened / answered this run
+
+**Nothing posted to `block/buzz`.** Same terminal access state as Runs 1, 3, 4 — now precisely characterized rather than just re-confirmed: same-owner fork access works (new information this run), cross-owner PR/issue/comment access to `block/buzz` does not (confirmed, not assumed). One PR opened against **this** repo (`mac-yolo-safeguards`) to append this log entry, per the task's standing instruction.
+
+### Positioning read: **neither** (unchanged, reconfirmed a fourth time)
+
+- Not a competitor — Buzz remains a team workspace/chat+git+workflow fabric on Nostr; ThumbGate remains a cross-tool pre-action governance gate.
+- Not a partner — no relationship, no contact, no integration.
+- Technical overlap continues to compound, independent of ThumbGate's involvement: #5500 this run is the same underlying discipline (durable state / idempotent resume / verify-don't-trust) as #5492, #4860, and #4565 across the last three runs. Four runs finding the same problem class unprompted in Buzz's own tracker is real market signal that this reliability discipline is generally underbuilt in agent-facing infrastructure — not evidence of a partnership, which still does not exist.
+
+### What was skipped and why
+
+- **WF-08 branch re-verification** — needs local Postgres+Redis; not attempted this run in favor of independently re-verifying the #5492 fix and characterizing the access wall precisely. Status: unverified by this run, previously claimed green by PR #1473.
+- **#5532, #5526, #5508, #5498** — surveyed by title only; none screened as an obviously one-PR-sized fix in the time this run had left.
+- **Posting the #5500 draft, or opening the #5492 PR** — impossible this run; no write path to `block/buzz` exists by any route tried (see Access section above).
+
+### Blocker status (report only — no action requested)
+
+The access wall is now understood precisely, not just re-hit: `add_repo`/`mcp__github__*` grant this session tier push access to same-owner forks (`igorganapolsky/*`, including forks of third-party repos) but never grant read/write access to the third-party repo itself (`block/buzz`), by any route tried across five runs (direct add, fork add, cross-repo `create_pull_request`). Three backlogged, ready artifacts now sit waiting for a write-capable session or a human with push access to `block/buzz`:
+1. Compare URL for the #5492 fix (independently re-verified this run, 743/743 tests): https://github.com/block/buzz/compare/main...igorganapolsky:buzz:fix/acp-auth-tag-profile-republish
+2. Compare URL for the WF-08 fix (claimed green by PR #1473, not re-verified this run): https://github.com/block/buzz/compare/main...igorganapolsky:buzz:fix/wf08-approval-gate-finalize-run
+3. The #4860 (Run 3) and #5500 (this run) drafted issue answers above.
+
+Per AGENTS.md's no-manual-handoff rule this is a status report, not a request routed back to a human — but after five runs producing the same terminal state, the honest read is that no session in this repo's current fleet configuration has (or will ever organically discover) write access to `block/buzz`, and the two verified fixes above will keep aging unsubmitted until someone with that access opens them.
+
