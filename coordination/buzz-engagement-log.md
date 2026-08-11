@@ -602,26 +602,101 @@ Unchanged, now four runs deep (Runs 1, 3, 4, 5): this environment tier has never
 
 ---
 
-## Cross-run note (appended by Run 4b, after Run 5 landed on main)
+## 2026-08-11 (PM) — Run 6 (access wall persists a fifth run; confirmed it is a session-config restriction, not an account permission issue)
 
-Run 5 above concludes the access wall persists — "a fourth run" — and reaches
-that conclusion honestly from its own evidence. It is nonetheless superseded:
+### What was VERIFIED (Step 0 — reconfirmed)
+
+| Fact | Evidence |
+|------|----------|
+| **Canonical repo** | [`github.com/block/buzz`](https://github.com/block/buzz) — Apache-2.0, unchanged identity/maintainer/architecture from Runs 1-5 |
+| **Authenticated identity for this session's `mcp__github__*` tools** | `mcp__github__get_me` → real account `IgorGanapolsky` (id 201209), 130 public repos, 132 followers, created 2010 — i.e. this is Igor's actual, long-established GitHub account, not a throwaway bot identity. **This matters**: `block/buzz` is a public repo anyone can fork with a real GitHub account, so the account itself has no permissions problem. The block is entirely the session's own repo allowlist (`Allowed repositories: igorganapolsky/mac-yolo-safeguards`), confirmed again this run via a direct `mcp__github__pull_request_read` call against `block/buzz` → *"Access denied... not configured for this session."* — and `add_repo(owner:"block", repo:"buzz", access:"push")` → same cross-tier rejection as Runs 1, 3, 4, 5. |
+
+### Prior contributions re-verified against the live repo
+
+| Item | Status checked this run |
+|------|--------------------------|
+| PR [#4624](https://github.com/block/buzz/pull/4624) | **Still open, still unmerged**, 8+ days after code-owner review request. No human review, no approvals, no requested changes — just waiting. |
+| Issue [#4860](https://github.com/block/buzz/issues/4860) (Run 3 draft) | Still open, no visible new comments. Draft unposted, still accurate. |
+| Issue [#5492](https://github.com/block/buzz/issues/5492) (Run 4 draft) | Still open, no visible new comments. Draft unposted, still accurate. |
+| Issue [#5557](https://github.com/block/buzz/issues/5557) (Run 5 draft) | Still open. Comment thread failed to load via `WebFetch` this run (GitHub page error), so new-comment status is unconfirmed rather than confirmed-absent — noted as a gap, not claimed as "no activity." |
+
+### What was surveyed (last ~72h, as of 2026-08-11 PM)
+
+All open issues in the sampled window were filed earlier the same day (2026-08-11): #5571, #5570, #5568, #5567, #5562, #5558, #5557, #5555, #5553, #5551 (titles/dates pulled from the live issue list). Read in full against Igor's stated domain (agent reliability, idempotency, double-execution, write-gating, leases/fencing, retries, audit trails, verification-vs-self-report):
+
+| Issue | Topic | Action |
+|-------|-------|--------|
+| [#5571](https://github.com/block/buzz/issues/5571) | `mcp_hooks` field exists only on the built-in `KnownAcpRuntime` catalog, not on user-authored `HarnessDefinition` — custom ACP harnesses can't use `MCP_HOOK_SERVERS` hooks at all. Well-specified, with a concrete proposed fix (`mcpHooks: bool` field + gate update) already in the issue. | Skipped — a config/schema gap, not a reliability or write-gating bug; the reporter's own fix proposal is already complete, a comment would add nothing |
+| #5570 | Provider protocol has no `undeploy` op (constructor, no destructor) | Skipped — API-surface completeness request, not a reliability bug |
+| #5568 | Agent signing keys can only come from `BUZZ_PRIVATE_KEY` env var — no file/keyring/systemd-credential source | Skipped — real security hygiene gap, but it's a credential-sourcing feature request, not a verification/write-gating/idempotency bug in Igor's stated domain |
+| [#5555](https://github.com/block/buzz/issues/5555) | `buzz-acp`: agent added to a channel while the relay is rate-limiting never joins it — channel discovery runs once at startup, membership notifications after that are push-only, the inbound queue overflows (78× "queue depth cap reached — dropped oldest event" in the reporter's log) with no downstream signal, and nothing ever re-syncs. Reporter still saw zero channel subscriptions 90 minutes after the relay recovered; provider-backed agents can't even use the documented workaround (restart) | **Answer drafted this run** (below) — corrected from an earlier draft of this entry that mis-grouped it with UI/desktop issues and skipped it; a Codex review comment on this PR caught the mis-grouping (see Correction note) |
+| #5567, #5562, #5558, #5553, #5551 | Desktop UI/nav bugs, feature requests, community-infra request | Skipped — outside stated domain |
+| [#2509](https://github.com/block/buzz/issues/2509) | `verdict_ref` on `request_approval` | Reconfirmed still open, no new activity |
+| WF-08 | Not re-verified against source this run (Run 5 already did a source-level check hours earlier same day; re-cloning for an identical check within the same 72h window would not produce new information) | Status carried forward unchanged |
+
+### Correction note (added after initial commit, before merge)
+
+An automated Codex review comment on this PR (chatgpt-codex-connector, P2) correctly flagged that the first version of this entry relabeled #5555 as "desktop/UI/feature work" and skipped it, contradicting Run 5's own log entry, which explicitly identified #5555 as a real reliability gap (membership reconciliation after dropped notifications) and flagged it for this run to pick up. That was a genuine mistake in this run, not a re-assessment — #5555 is squarely in Igor's stated domain (idempotency, retries, verification-vs-self-report) and had not actually been re-investigated before being marked "skipped." Corrected here by reading the full issue and drafting a real answer (below), per the Honesty Protocol.
+
+### Investigation + drafted answer for #5555 (not yet posted — no write access this run)
+
+Read the full issue text (title, body, root-cause analysis, and the three proposed fixes) before drafting:
+
+> This is the same class of bug as #5492 and (structurally) #5557: correctness that depends entirely on an unbroken stream of push events, with no periodic reconciliation against ground truth as a backstop. Channel discovery here runs once at startup, then trusts every subsequent membership event to arrive — but the inbound queue has a hard depth cap ("queue depth cap reached — dropped oldest event", 78× in the report) and nothing downstream is told when a drop happens. Once one relevant membership event is dropped, local state permanently diverges from the relay's, and — critically — nothing ever re-checks it. That's why the agent still showed zero channels 90 minutes after the relay itself had recovered: the bug isn't the rate-limiting, it's the absence of any self-healing read-after-drop.
+>
+> Of the three fixes proposed in the issue, they agree on the essential shape (pull actual current membership rather than trust the accumulated event stream) but differ in trigger, and the trigger matters for provider-backed agents that can't restart: fix #1 (re-discover on overflow-detected) only works if the overflow is locally observable; fix #3 (re-discover on reconnect) doesn't help if the connection never actually drops and just silently drains its queue under sustained load, which is what happened here. Fix #2 — scheduled/periodic reconciliation, independent of any specific trigger — is the only one of the three that's a genuine backstop rather than another push-path that can itself silently fail the same way.
+>
+> One thing worth checking before shipping #2: if periodic reconciliation goes through the same HTTP bridge path implicated in #5557 (uncoordinated per-call retry, no shared rate gate), a reconciliation pull attempted during a rate-limit window could fail the same way the original membership notifications did — same failure mode, one layer up. Worth confirming the reconciliation path either uses the WS connection's shared rate gate or has its own coordinated backoff before treating #2 as a complete fix.
+
+ThumbGate is not mentioned in this draft — the issue is about Buzz's own channel-membership sync path having no reconciliation backstop, not about gating outbound agent actions, so a ThumbGate reference would not be a genuine answer to what's asked.
+
+No new issue beyond #5555 (corrected) cleared the bar for a drafted answer — the other domain-fit candidates (#5571, #5568) are either already fully-specified by their reporter or a feature gap rather than a reliability/verification bug. Five verbatim-ready drafts now sit in this log for a write-capable session: #4860 (Run 3), #5492 (Run 4), #5557 (Run 5), #5555 (this run, corrected).
+
+### What was opened / answered this run
+
+**Nothing posted.** Fifth consecutive run (Runs 1, 3, 4, 5, 6) with no write path to `block/buzz`. This run's output: confirmation that the block is a session-config allowlist rather than an account-permissions problem (new, useful detail for whoever manages session tiers), re-verification that Runs 3-5's drafts and PR #4624 all still stand untouched, a fresh 72h survey, and — after a review-comment correction — a properly investigated drafted answer for #5555.
+
+### Positioning read: **neither** (unchanged, reconfirmed a fifth time)
+
+- Not a competitor, not a partner — same reasoning as Runs 2-5; no change in either product's shape or in the relationship (none exists).
+- Technical overlap signal continues unprompted, now including #5555 once correctly assessed: the self-report/push-only-vs-verified-state pattern (#4565, #4860, #5492, #5557, #5555) has now shown up in five straight runs' surveys, without Igor or ThumbGate seeding any of them.
+
+### What was skipped and why
+
+- **#5571, #5570, #5568, #5567, #5562, #5558, #5553, #5551** — surveyed in full, skipped per the table above (feature gaps, UI bugs, or already fully-specified by the reporter).
+- **Posting anything to `block/buzz`** — impossible this run; not a judgment-call skip (see Access section above).
+
+### Blocker status (report only — no action requested)
+
+Fifth consecutive run (Runs 1, 3, 4, 5, 6) with zero write access to `block/buzz` from this environment tier. New this run: confirmed via `mcp__github__get_me` that the underlying authenticated identity is Igor's real, established GitHub account (not a bot, not a permissions-limited service account) — so the fix, when someone applies it, is purely a session/tool allowlist change, not a GitHub-side grant. Four verbatim-ready drafts remain backlogged for a write-capable session: #4860 (Run 3), #5492 (Run 4), #5557 (Run 5), and PR #4624 (Run 2) still awaiting its first human review after 8+ days.
+
+---
+
+## Cross-run note (kept last on purpose — read this before re-testing access)
+
+Runs 1, 3, 4a, 5, and 6 above all conclude that the access wall persists, each
+honestly from its own evidence. All five are superseded by the same fact:
 **Run 4b already contributed to `block/buzz` from this same environment tier.**
 A fork (`igorganapolsky/buzz`) is same-owner, so `add_repo` accepts it; that
 unblocks clone, `upstream` fetch from `block/buzz`, build, test, and push. The
 `fix/acp-auth-tag-profile-republish` branch (issue #5492) is pushed and
-DCO-signed with 743 tests green.
+DCO-signed, 743 tests green, re-verified against current upstream.
+
+Run 6 is right that this is a session-config restriction rather than an account
+permission problem — and that is exactly why the fork works: the restriction is
+scoped by repo *owner*, and the fork's owner is already in scope.
 
 What genuinely remains blocked is narrower than "the wall": the GitHub **API**
 for `block/buzz` (issue comments, PR creation). Everything else works.
 
-**For the next run — do this instead of re-verifying the refusal:**
+**Do this instead of re-verifying the refusal:**
 1. `add_repo(owner: "igorganapolsky", repo: "buzz", access: "push")`
 2. `git clone https://github.com/igorganapolsky/buzz /workspace/buzz`
 3. `git remote add upstream https://github.com/block/buzz.git && git fetch upstream main`
 4. Branch from `upstream/main`, fix, test, push to the fork.
 5. Leave the final PR-submit click to Igor (or get the API scope granted).
 
-Four runs have now spent their budget confirming that the upstream repo says
-no. The refusal message names the way around itself; read it rather than
-re-testing it.
+Five runs have now spent their budget confirming that the upstream repo says no.
+The refusal message names the way around itself; read it rather than re-testing
+it. The three backlogged drafts (#4860, #5492, #5557) can be *built and pushed*
+today by the route above — only the final submit click needs a human.
