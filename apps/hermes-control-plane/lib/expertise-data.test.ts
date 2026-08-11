@@ -67,6 +67,48 @@ describe("collectExpertiseData", () => {
     expect(data.availability).toHaveProperty("orgsWithOnlineMachine");
   });
 
+  it("degrades availability uptime to null when optional health tables throw", async () => {
+    const { db } = await import("./runtime.ts");
+    const prepare = vi.fn((sql: string) => {
+      if (
+        typeof sql === "string" &&
+        (sql.includes("health_checks") || sql.includes("runner_health_checks"))
+      ) {
+        return {
+          bind: () => ({
+            first: async () => {
+              throw new Error("no such table: health_checks");
+            },
+            all: async () => {
+              throw new Error("no such table: health_checks");
+            },
+          }),
+          first: async () => {
+            throw new Error("no such table: health_checks");
+          },
+          all: async () => {
+            throw new Error("no such table: health_checks");
+          },
+        };
+      }
+      return {
+        first: vi.fn(async () => ({ count: 0, total: 0, ok: 0 })),
+        all: vi.fn(async () => ({ results: [] })),
+        bind: vi.fn(() => ({
+          first: vi.fn(async () => ({ count: 2, total: 0, ok: 0 })),
+          all: vi.fn(async () => ({ results: [] })),
+        })),
+      };
+    });
+    vi.mocked(db).mockReturnValue({ prepare } as ReturnType<typeof db>);
+
+    const data = await collectExpertiseData();
+    expect(data.availability.controlPlaneUptime30d).toBeNull();
+    expect(data.availability.runnerUptime30d).toBeNull();
+    // devices query still works under the mock
+    expect(typeof data.availability.orgsWithOnlineMachine).toBe("number");
+  });
+
   it("scale stats include total machines, sessions, tasks", async () => {
     const data = await collectExpertiseData();
     expect(data.scale).toHaveProperty("totalPairedMachines");
