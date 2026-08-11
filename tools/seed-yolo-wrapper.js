@@ -55,7 +55,7 @@ const LOCAL_MODEL = process.env.SEED_YOLO_LOCAL_MODEL || 'deepseek-r1:8b';
 // models. A metered model runs only with SEED_YOLO_ALLOW_METERED=1, and the
 // fleet-wide cost-guard marker in ~/.hermes overrides even that.
 const FREE_MODEL_CHAIN = (process.env.SEED_YOLO_FREE_MODELS
-  || 'nvidia/nemotron-3.5-lightning:free,openai/gpt-oss-20b:free,openrouter/free')
+  || 'qwen/qwen-2.5-coder-32b-instruct:free,deepseek/deepseek-r1:free,meta-llama/llama-3.3-70b-instruct:free,nvidia/nemotron-3.5-lightning:free')
   .split(',').map((s) => s.trim()).filter(Boolean);
 // Marker filename assembled from parts so lexical policy scanners that key on
 // the literal do not misfire on this file; runtime behavior is unchanged.
