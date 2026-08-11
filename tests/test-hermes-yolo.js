@@ -49,11 +49,10 @@ console.log('Testing SuperGrok-preferred auto backend routing...');
 const noGrok = { grokReady: false };
 assert.strictEqual(shouldUseGrokBackend([], {}, noGrok), false);
 assert.strictEqual(shouldUseGrokBackend(['fix', 'the', 'bug'], {}, noGrok), false);
-assert.strictEqual(shouldUseGrokBackend(['fix', 'the', 'bug'], { HERMES_YOLO_BACKEND: 'grok' }, noGrok), true);
+assert.strictEqual(shouldUseGrokBackend(['fix', 'the', 'bug', '--grok'], {}, noGrok), true);
 assert.strictEqual(shouldUseGrokBackend(['doctor'], {}, noGrok), false);
 assert.strictEqual(shouldUseGrokBackend(['--version'], {}, noGrok), false);
 assert.strictEqual(shouldUseGrokBackend(['fix'], { HERMES_YOLO_BACKEND: 'hermes' }, noGrok), false);
-assert.throws(() => shouldUseGrokBackend([], { HERMES_YOLO_BACKEND: 'unknown' }), /Unsupported/);
 assert.deepStrictEqual(REQUIRED_TOOLSETS, ['skills', 'context7']);
 assert.strictEqual(DEFAULT_TOOLSETS, 'terminal,file,web,code_execution,clarify,skills,context7');
 assert.strictEqual(normalizeToolsets('terminal,file,file'), 'terminal,file,skills,context7');
@@ -119,26 +118,17 @@ assert.deepStrictEqual(buildGrokBackendEnv({
   GROK_CLAUDE_MCPS_ENABLED: 'true',
 });
 assert.deepStrictEqual(classifyBackend(['fix', 'the', 'bug'], {}, noGrok), {
-  requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'auto-hermes-fallback',
+  requestedBackend: 'hermes', selectedBackend: 'hermes-legacy', reason: 'hermes-default-backend',
 });
-// SuperGrok Heavy / grok.com OAuth ready → auto uses grok-4.5 (underuse fix 2026-08-04)
-assert.deepStrictEqual(classifyBackend(['fix', 'the', 'bug'], {}, { grokReady: true }), {
-  requestedBackend: 'auto', selectedBackend: 'grok-4.5', reason: 'auto-supergrok-ready',
-});
-assert.strictEqual(shouldUseGrokBackend(['fix'], {}, { grokReady: true }), true);
-// Force hermes even when grok would be ready
-assert.deepStrictEqual(
-  classifyBackend(['fix'], { HERMES_YOLO_FORCE_HERMES: '1' }, { grokReady: true }),
-  { requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'auto-hermes-fallback' },
-);
+assert.strictEqual(shouldUseGrokBackend(['fix'], {}, { grokReady: true }), false);
 assert.deepStrictEqual(classifyBackend(['doctor'], {}, noGrok), {
-  requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'hermes-admin-command',
+  requestedBackend: 'hermes', selectedBackend: 'hermes-legacy', reason: 'hermes-default-backend',
 });
-assert.deepStrictEqual(classifyBackend(['fix'], { HERMES_YOLO_BACKEND: 'grok' }), {
-  requestedBackend: 'grok', selectedBackend: 'grok-4.5', reason: 'explicit-grok-backend',
+assert.deepStrictEqual(classifyBackend(['fix', '--grok']), {
+  requestedBackend: 'grok', selectedBackend: 'grok-4.5', reason: 'explicit-grok-flag',
 });
-assert.deepStrictEqual(classifyBackend(['fix'], { HERMES_YOLO_BACKEND: 'hermes' }), {
-  requestedBackend: 'hermes', selectedBackend: 'hermes-legacy', reason: 'explicit-hermes-backend',
+assert.deepStrictEqual(classifyBackend(['fix']), {
+  requestedBackend: 'hermes', selectedBackend: 'hermes-legacy', reason: 'hermes-default-backend',
 });
 const summarizedPrompt = summarizeRouteArgs(['fix', 'private', 'bug']);
 assert.strictEqual(summarizedPrompt.kind, 'prompt');
@@ -386,7 +376,7 @@ fs.writeFileSync(fakeGrokYoloPath, [
   '',
 ].join('\n'), { mode: 0o755 });
 try {
-  const grokBackendOutput = execFileSync(process.execPath, [WRAPPER_PATH, 'fix', 'the', 'bug'], {
+  const grokBackendOutput = execFileSync(process.execPath, [WRAPPER_PATH, 'fix', 'the', 'bug', '--grok'], {
     encoding: 'utf8',
     env: {
       ...process.env,
@@ -466,7 +456,7 @@ fs.writeFileSync(slowGrokPath, [
   '',
 ].join('\n'), { mode: 0o755 });
 try {
-  const timed = spawnSync(process.execPath, [WRAPPER_PATH, 'answer', 'quickly'], {
+  const timed = spawnSync(process.execPath, [WRAPPER_PATH, 'answer', 'quickly', '--grok'], {
     encoding: 'utf8',
     timeout: 2_000,
     env: {
@@ -515,7 +505,7 @@ fs.writeFileSync(processTreeGrokPath, [
   '',
 ].join('\n'), { mode: 0o755 });
 try {
-  const timedTree = spawnSync(process.execPath, [WRAPPER_PATH, 'answer', 'with', 'a', 'tool'], {
+  const timedTree = spawnSync(process.execPath, [WRAPPER_PATH, 'answer', 'with', 'a', 'tool', '--grok'], {
     encoding: 'utf8',
     timeout: 3_000,
     env: {
@@ -617,9 +607,9 @@ try {
   assert(output.includes('Lead with the result'));
   assert.strictEqual(fs.existsSync(grokInvocationSentinel), false, 'default route must not touch exhausted Grok');
   const storedRoute = JSON.parse(fs.readFileSync(path.join(fallbackReceiptRoot, 'latest.json'), 'utf8'));
-  assert.strictEqual(storedRoute.route.requestedBackend, 'auto');
+  assert.strictEqual(storedRoute.route.requestedBackend, 'hermes');
   assert.strictEqual(storedRoute.route.selectedBackend, 'hermes-legacy');
-  assert.strictEqual(storedRoute.route.reason, 'auto-hermes-fallback');
+  assert.strictEqual(storedRoute.route.reason, 'hermes-default-backend');
   assert.strictEqual(storedRoute.execution.status, 'pass');
 } finally {
   for (const filePath of [exhaustedGrokPath, fakeHermesPath, grokInvocationSentinel, fallbackLockPath]) {
