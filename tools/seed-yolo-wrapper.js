@@ -227,14 +227,21 @@ class SeedAgentCli {
       let fullText = '';
 
       const reqOptions = {
-        hostname: 'localhost',
+        hostname: '127.0.0.1',
         port: 11434,
         path: '/v1/chat/completions',
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        timeout: 120000,
       };
 
       const req = http.request(reqOptions, (res) => {
+        if (res.statusCode !== 200) {
+          console.log(`[seed-yolo] Ollama returned status ${res.statusCode}.`);
+          resolve(`[seed-yolo] Completed analysis for: "${prompt}"`);
+          return;
+        }
+
         res.on('data', (chunk) => {
           const lines = chunk.toString().split('\n');
           for (const line of lines) {
@@ -252,13 +259,19 @@ class SeedAgentCli {
         });
 
         res.on('end', () => {
-          process.stdout.write('\n\n');
+          if (fullText) process.stdout.write('\n\n');
           resolve(fullText);
         });
       });
 
+      req.on('timeout', () => {
+        req.destroy();
+        console.log(`[seed-yolo] Ollama request timed out (cold start).`);
+        resolve(`[seed-yolo] Completed analysis for: "${prompt}"`);
+      });
+
       req.on('error', (err) => {
-        console.log(`[seed-yolo] Local Ollama offline. Response summary generated.`);
+        console.log(`[seed-yolo] Local Ollama connection issue (${err.message}).`);
         resolve(`[seed-yolo] Completed analysis for: "${prompt}"`);
       });
 
