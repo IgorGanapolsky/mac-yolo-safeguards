@@ -5,6 +5,7 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 | Skill | Description | Definition | Source |
 | :--- | :--- | :--- | :--- |
 | `agent-session-start` | Execute session start verification, LaunchAgent health checks, and continuous E2E status reporting. | `~/workspace/git/igor/mac-yolo-safeguards/.agents/skills/agent-session-start/SKILL.md` | local |
+| `anti-babysitting` | Igor's standing directive (2026-08-10): never end a turn asking him for approval, a click, or a decision the agent could make. Pre-authorized action classes, exhaust-then-park ladder for platform walls, absolute Never-list vs consent-gated actions. | `~/workspace/git/igor/mac-yolo-safeguards/.agents/skills/anti-babysitting/SKILL.md` | local |
 | `context7-docs` | Upstash Context7 live, version-locked library documentation and code example resolver. Trigger when the user or agent needs up-to-date documentation or code snippets for React Native, Expo, Firebase, Stripe, Tailwind, or Playwright. | `~/workspace/git/igor/mac-yolo-safeguards/.agents/skills/context7-docs/SKILL.md` | local |
 | `mac-freeze-rescue` | Triage and rescue Mac system sluggishness, high CPU load, memory pressure, and fans. | `~/workspace/git/igor/mac-yolo-safeguards/.agents/skills/mac-freeze-rescue/SKILL.md` | local |
 | `multi-agent-coordination-harness` | Skill instructions and usage guide. | `~/workspace/git/igor/mac-yolo-safeguards/.agents/skills/multi-agent-coordination-harness/SKILL.md` | local |
