@@ -1,0 +1,103 @@
+From 4ab40d2c5009a91c1428e69292b8674432d30ebe Mon Sep 17 00:00:00 2001
+From: Igor Ganapolsky <iganapolsky@gmail.com>
+Date: Tue, 11 Aug 2026 06:33:47 +0000
+Subject: [PATCH] fix(rust): list_tables() pagination must not skip the first
+ table of each page
+
+page_token is documented (docs/openapi.yml) as the inclusive starting
+position of the next page, but the consuming filter compared with a
+strict '>', excluding that exact table on every page boundary.
+
+Regression test for lancedb/lancedb#3915.
+---
+ rust/lancedb/src/database/listing.rs | 64 +++++++++++++++++++++++++++-
+ 1 file changed, 62 insertions(+), 2 deletions(-)
+
+diff --git a/rust/lancedb/src/database/listing.rs b/rust/lancedb/src/database/listing.rs
+index 0ab3614..4b906d0 100644
+--- a/rust/lancedb/src/database/listing.rs
++++ b/rust/lancedb/src/database/listing.rs
+@@ -1009,11 +1009,17 @@ impl Database for ListingDatabase {
+             .collect::<Vec<String>>();
+         f.sort();
+ 
+-        // Handle pagination with page_token
++        // Handle pagination with page_token. Per the API contract (see
++        // docs/openapi.yml: "Specifies the starting position of the next
++        // query"), page_token is the name of the first row of the page being
++        // requested, i.e. inclusive - not the last row of the previous page.
++        // It is produced below as `f[limit]`, the first name past the
++        // truncation point, so the comparison here must be `>=` to include
++        // it; `>` would skip that table on every page boundary.
+         if let Some(ref page_token) = request.page_token {
+             let index = f
+                 .iter()
+-                .position(|name| name.as_str() > page_token.as_str())
++                .position(|name| name.as_str() >= page_token.as_str())
+                 .unwrap_or(f.len());
+             f.drain(0..index);
+         }
+@@ -1378,6 +1384,60 @@ mod tests {
+         assert!(!tempdir.path().join("__manifest").exists());
+     }
+ 
++    /// Regression test for https://github.com/lancedb/lancedb/issues/3915.
++    ///
++    /// `list_tables()` paginated through 15 tables with `limit: 5` used to
++    /// drop exactly one table at every page boundary: the `page_token`
++    /// returned for the next page was the first name of that page
++    /// (inclusive, per the API contract), but the token was then compared
++    /// with `>` on the next call, excluding that very table.
++    #[tokio::test]
++    async fn test_list_tables_pagination_does_not_skip_boundary_table() {
++        let (_tempdir, db) = setup_database().await;
++
++        let schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int32, false)]));
++        let mut expected_names = Vec::new();
++        for i in 0..15 {
++            let name = format!("t{i:02}");
++            db.create_table(CreateTableRequest {
++                name: name.clone(),
++                namespace_path: vec![],
++                data: Box::new(RecordBatch::new_empty(schema.clone())) as Box<dyn Scannable>,
++                mode: CreateTableMode::Create,
++                write_options: Default::default(),
++                location: None,
++                namespace_client: None,
++            })
++            .await
++            .unwrap();
++            expected_names.push(name);
++        }
++        expected_names.sort();
++
++        let mut collected = Vec::new();
++        let mut page_token = None;
++        loop {
++            let response = db
++                .list_tables(ListTablesRequest {
++                    limit: Some(5),
++                    page_token,
++                    ..Default::default()
++                })
++                .await
++                .unwrap();
++            collected.extend(response.tables);
++            page_token = response.page_token;
++            if page_token.is_none() {
++                break;
++            }
++        }
++
++        assert_eq!(
++            collected, expected_names,
++            "paginated list_tables must return every table exactly once, in order"
++        );
++    }
++
+     /// Regression test for https://github.com/lancedb/lancedb/issues/1600.
+     ///
+     /// Opening a table used to create a separate object-store client instead of
+-- 
+2.43.0
+
