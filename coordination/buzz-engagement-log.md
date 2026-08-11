@@ -452,3 +452,57 @@ This is drafted as an investigation lead with concrete line references, not a co
 
 Unchanged, now four runs deep (Runs 1, 3, 4, 5): this environment tier has never had write access to `block/buzz` — only unauthenticated read access to `github.com` HTML pages and anonymous `git clone` for source. `add_repo` rejects the cross-tier owner every time, no `gh` CLI is present, `api.github.com` 403s unauthenticated, and the `mcp__github__*` tools are hard-scoped to `igorganapolsky/mac-yolo-safeguards`. Three verbatim-ready drafts now sit in this log for a write-capable session: #4860 (Run 3), #5492 (Run 4), #5557 (this run). Per AGENTS.md's no-manual-handoff rule this is a status report, not a request routed to a human — this repo already runs several concurrent agent sessions, and a write-capable one can act on it without being asked.
 
+---
+
+## 2026-08-11 (PM) — Run 6 (access wall persists a fifth run; confirmed it is a session-config restriction, not an account permission issue)
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+| Fact | Evidence |
+|------|----------|
+| **Canonical repo** | [`github.com/block/buzz`](https://github.com/block/buzz) — Apache-2.0, unchanged identity/maintainer/architecture from Runs 1-5 |
+| **Authenticated identity for this session's `mcp__github__*` tools** | `mcp__github__get_me` → real account `IgorGanapolsky` (id 201209), 130 public repos, 132 followers, created 2010 — i.e. this is Igor's actual, long-established GitHub account, not a throwaway bot identity. **This matters**: `block/buzz` is a public repo anyone can fork with a real GitHub account, so the account itself has no permissions problem. The block is entirely the session's own repo allowlist (`Allowed repositories: igorganapolsky/mac-yolo-safeguards`), confirmed again this run via a direct `mcp__github__pull_request_read` call against `block/buzz` → *"Access denied... not configured for this session."* — and `add_repo(owner:"block", repo:"buzz", access:"push")` → same cross-tier rejection as Runs 1, 3, 4, 5. |
+
+### Prior contributions re-verified against the live repo
+
+| Item | Status checked this run |
+|------|--------------------------|
+| PR [#4624](https://github.com/block/buzz/pull/4624) | **Still open, still unmerged**, 8+ days after code-owner review request. No human review, no approvals, no requested changes — just waiting. |
+| Issue [#4860](https://github.com/block/buzz/issues/4860) (Run 3 draft) | Still open, no visible new comments. Draft unposted, still accurate. |
+| Issue [#5492](https://github.com/block/buzz/issues/5492) (Run 4 draft) | Still open, no visible new comments. Draft unposted, still accurate. |
+| Issue [#5557](https://github.com/block/buzz/issues/5557) (Run 5 draft) | Still open. Comment thread failed to load via `WebFetch` this run (GitHub page error), so new-comment status is unconfirmed rather than confirmed-absent — noted as a gap, not claimed as "no activity." |
+
+### What was surveyed (last ~72h, as of 2026-08-11 PM)
+
+All open issues in the sampled window were filed earlier the same day (2026-08-11): #5571, #5570, #5568, #5567, #5562, #5558, #5557, #5555, #5553, #5551 (titles/dates pulled from the live issue list). Read in full against Igor's stated domain (agent reliability, idempotency, double-execution, write-gating, leases/fencing, retries, audit trails, verification-vs-self-report):
+
+| Issue | Topic | Action |
+|-------|-------|--------|
+| [#5571](https://github.com/block/buzz/issues/5571) | `mcp_hooks` field exists only on the built-in `KnownAcpRuntime` catalog, not on user-authored `HarnessDefinition` — custom ACP harnesses can't use `MCP_HOOK_SERVERS` hooks at all. Well-specified, with a concrete proposed fix (`mcpHooks: bool` field + gate update) already in the issue. | Skipped — a config/schema gap, not a reliability or write-gating bug; the reporter's own fix proposal is already complete, a comment would add nothing |
+| #5570 | Provider protocol has no `undeploy` op (constructor, no destructor) | Skipped — API-surface completeness request, not a reliability bug |
+| #5568 | Agent signing keys can only come from `BUZZ_PRIVATE_KEY` env var — no file/keyring/systemd-credential source | Skipped — real security hygiene gap, but it's a credential-sourcing feature request, not a verification/write-gating/idempotency bug in Igor's stated domain |
+| #5567, #5562, #5558, #5555, #5553, #5551 | Desktop UI/nav bugs, feature requests, community-infra request | Skipped — outside stated domain |
+| [#2509](https://github.com/block/buzz/issues/2509) | `verdict_ref` on `request_approval` | Reconfirmed still open, no new activity |
+| WF-08 | Not re-verified against source this run (Run 5 already did a source-level check hours earlier same day; re-cloning for an identical check within the same 72h window would not produce new information) | Status carried forward unchanged |
+
+No new issue this run cleared the bar for a drafted answer — the strongest domain-fit candidates (#5571, #5568) are either already fully-specified by their reporter or a feature gap rather than a reliability/verification bug, so nothing was drafted. Four verbatim-ready drafts now sit in this log for a write-capable session: #4860 (Run 3), #5492 (Run 4), #5557 (Run 5).
+
+### What was opened / answered this run
+
+**Nothing.** Fifth consecutive run (Runs 1, 3, 4, 5, 6) with no write path to `block/buzz`. This run's output: confirmation that the block is a session-config allowlist rather than an account-permissions problem (new, useful detail for whoever manages session tiers), re-verification that Runs 3-5's drafts and PR #4624 all still stand untouched, and a fresh 72h survey that found no new domain-fit candidate worth drafting.
+
+### Positioning read: **neither** (unchanged, reconfirmed a fifth time)
+
+- Not a competitor, not a partner — same reasoning as Runs 2-5; no change in either product's shape or in the relationship (none exists).
+- Technical overlap signal continues unprompted: this run's survey turned up no *new* instance of the self-report-vs-verified-state pattern (#4565/#4860/#5492/#5557), but that's a one-run gap in an otherwise consistent four-run trend, not evidence the pattern stopped — the sample this run was mostly config/UI issues, not a reliability-heavy day.
+
+### What was skipped and why
+
+- **#5571, #5570, #5568, #5567, #5562, #5558, #5555, #5553, #5551** — surveyed in full, skipped per the table above (feature gaps, UI bugs, or already fully-specified by the reporter).
+- **A fourth drafted answer** — no issue this run met the bar (reproducible bug + squarely in Igor's stated domain + not already well-handled); forcing a draft onto a weaker-fit issue would be worse than adding nothing.
+- **Posting anything to `block/buzz`** — impossible this run; not a judgment-call skip (see Access section above).
+
+### Blocker status (report only — no action requested)
+
+Fifth consecutive run (Runs 1, 3, 4, 5, 6) with zero write access to `block/buzz` from this environment tier. New this run: confirmed via `mcp__github__get_me` that the underlying authenticated identity is Igor's real, established GitHub account (not a bot, not a permissions-limited service account) — so the fix, when someone applies it, is purely a session/tool allowlist change, not a GitHub-side grant. Four verbatim-ready drafts remain backlogged for a write-capable session: #4860 (Run 3), #5492 (Run 4), #5557 (Run 5), and PR #4624 (Run 2) still awaiting its first human review after 8+ days.
+
