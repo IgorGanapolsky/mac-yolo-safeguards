@@ -105,7 +105,7 @@ class SeedAgentCli {
     this.baseUrl = this.isArk
       ? (process.env.ARK_BASE_URL || 'https://ark.cn-beijing.volces.com/api/v3')
       : 'https://openrouter.ai/api/v1';
-    this.model = process.env.SEED_YOLO_MODEL || (this.isArk ? 'seed-2.1-pro' : 'openrouter/auto');
+    this.model = process.env.SEED_YOLO_MODEL || (this.isArk ? 'doubao-seed-2.1-pro' : 'bytedance/seed-2.1-pro:free');
     this.ensureDirs();
   }
 
