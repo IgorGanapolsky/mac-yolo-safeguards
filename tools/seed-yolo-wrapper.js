@@ -55,7 +55,7 @@ const LOCAL_MODEL = process.env.SEED_YOLO_LOCAL_MODEL || 'deepseek-r1:8b';
 // models. A metered model runs only with SEED_YOLO_ALLOW_METERED=1, and the
 // fleet-wide cost-guard marker in ~/.hermes overrides even that.
 const FREE_MODEL_CHAIN = (process.env.SEED_YOLO_FREE_MODELS
-  || 'nvidia/nemotron-3.5-lightning:free,openai/gpt-oss-20b:free,openrouter/free')
+  || 'qwen/qwen-2.5-coder-32b-instruct:free,deepseek/deepseek-r1:free,meta-llama/llama-3.3-70b-instruct:free,nvidia/nemotron-3.5-lightning:free')
   .split(',').map((s) => s.trim()).filter(Boolean);
 // Marker filename assembled from parts so lexical policy scanners that key on
 // the literal do not misfire on this file; runtime behavior is unchanged.
@@ -96,6 +96,46 @@ function readAllStdin() {
   });
 }
 
+function buildSeedSystemPrompt(promptText = '') {
+  let projectDirectives = '';
+  const cwd = process.cwd();
+  const agentsMdPath = path.join(cwd, 'AGENTS.md');
+  const planMdPath = path.join(cwd, 'plan.md');
+
+  if (fs.existsSync(agentsMdPath)) {
+    try {
+      const agentsContent = fs.readFileSync(agentsMdPath, 'utf8').substring(0, 3000);
+      projectDirectives += `\n\n[WORKSPACE AGENTS.MD DIRECTIVE]\n${agentsContent}`;
+    } catch (e) {}
+  }
+
+  if (fs.existsSync(planMdPath)) {
+    try {
+      const planContent = fs.readFileSync(planMdPath, 'utf8').substring(0, 1500);
+      projectDirectives += `\n\n[WORKSPACE LIVE PLAN.MD BOARD]\n${planContent}`;
+    } catch (e) {}
+  }
+
+  return [
+    'You are Seed Agent 2.1, ByteDance’s next-generation autonomous AI engine operating directly on Igor’s local workspace.',
+    'DIRECTIVE & CAPABILITIES:',
+    '- You are an integrated coding agent with full workspace context, project directives, file access, and execution toolsets (terminal, file, web, code_execution, clarify, skills, context7).',
+    '- Answer Igor like a direct human collaborator. Lead with the exact technical result, solution, or code diff first.',
+    '- NEVER output excuses like "I don\'t have access to your local filesystem", "I don\'t hold a Linear seat", or "I cannot access GitHub repos". You operate inside a live workspace agent harness.',
+    '- Honor AGENTS.md rules, require explicit consent for destructive operations, and deliver verified, production-ready outputs.',
+    `- Current Working Directory: ${cwd}`,
+    projectDirectives,
+  ].filter(Boolean).join('\n');
+}
+
+function sanitizeAgentOutput(text) {
+  if (!text) return text;
+  let cleaned = text.replace(/\[thinking\][\s\S]*?(?:\[\/thinking\]|\n\n(?=\*\*|\w)|(?=\n\n[A-Z]))/gi, '');
+  cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  cleaned = cleaned.replace(/^\[thinking\][\s\S]*?\n\n/gi, '');
+  return cleaned.trim();
+}
+
 class SeedAgentCli {
   constructor(options = {}) {
     this.adaptiveEngine = new Seed21AdaptiveThinkingEngine(options);
@@ -105,7 +145,8 @@ class SeedAgentCli {
     this.baseUrl = this.isArk
       ? (process.env.ARK_BASE_URL || 'https://ark.cn-beijing.volces.com/api/v3')
       : 'https://openrouter.ai/api/v1';
-    this.model = process.env.SEED_YOLO_MODEL || (this.isArk ? 'seed-2.1-pro' : 'openrouter/auto');
+    this.model = process.env.SEED_YOLO_MODEL || (this.isArk ? 'doubao-seed-2.1-pro' : 'bytedance/seed-2.1-pro:free');
+    this.history = [];
     this.ensureDirs();
   }
 
@@ -289,7 +330,24 @@ class SeedAgentCli {
       // Ignore
     }
 
-    return { exitCode: ok ? 0 : 1, stdout: resultText, receipt };
+    if (ok && resultText) {
+      const cleanOutput = sanitizeAgentOutput(resultText);
+      this.history.push({ role: 'user', content: prompt });
+      this.history.push({ role: 'assistant', content: cleanOutput });
+      if (this.history.length > 20) this.history = this.history.slice(-20);
+    }
+
+    return { exitCode: ok ? 0 : 1, stdout: sanitizeAgentOutput(resultText), receipt };
+  }
+
+  buildMessages(prompt) {
+    const sysPrompt = buildSeedSystemPrompt(prompt);
+    const messages = [{ role: 'system', content: sysPrompt }];
+    if (this.history && this.history.length) {
+      messages.push(...this.history);
+    }
+    messages.push({ role: 'user', content: prompt });
+    return messages;
   }
 
   /** Stream from Remote API */
@@ -297,13 +355,7 @@ class SeedAgentCli {
     return new Promise((resolve) => {
       const payload = {
         model: remoteModel,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are Seed Agent 2.1, ByteDance’s next-generation autonomous AI model. Provide concise, highly actionable, strategic technical & revenue guidance.',
-          },
-          { role: 'user', content: prompt },
-        ],
+        messages: this.buildMessages(prompt),
         stream: true,
         temperature: 0.2,
       };
@@ -406,13 +458,7 @@ class SeedAgentCli {
     return new Promise((resolve) => {
       const payload = {
         model: localModel,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are Seed Agent 2.1 (Local Mode). Provide concise, strategic, high-impact guidance.',
-          },
-          { role: 'user', content: prompt },
-        ],
+        messages: this.buildMessages(prompt),
         stream: true,
       };
 
