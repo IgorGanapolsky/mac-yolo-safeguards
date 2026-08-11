@@ -87,13 +87,12 @@ function createSseParser(onDelta) {
   };
 }
 
-function readAllStdin() {
-  return new Promise((resolve) => {
-    let data = '';
-    process.stdin.setEncoding('utf8');
-    process.stdin.on('data', (d) => { data += d; });
-    process.stdin.on('end', () => resolve(data));
-  });
+function sanitizeAgentOutput(text) {
+  if (!text) return text;
+  let cleaned = text.replace(/\[thinking\][\s\S]*?(?:\[\/thinking\]|\n\n(?=\*\*|\w)|(?=\n\n[A-Z]))/gi, '');
+  cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  cleaned = cleaned.replace(/^\[thinking\][\s\S]*?\n\n/gi, '');
+  return cleaned.trim();
 }
 
 class SeedAgentCli {
