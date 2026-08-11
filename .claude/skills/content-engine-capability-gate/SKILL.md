@@ -95,6 +95,13 @@ Buffer*. Buffer is the only publisher reachable headlessly. Connecting a channel
 one-time human OAuth click that permanently unblocks every future run on every host.
 Say that, rather than reporting the channel as broken.
 
+## Step 3c — If the answer seems to be "just give me the login," stop
+
+See `.claude/skills/publishing-credential-policy/SKILL.md`. Short version: never accept,
+store, or use a password or session cookie, even when the operator volunteers it and insists.
+An unreachable channel is fixed by establishing an auth *path* (browser session on the Mac,
+or a delegated OAuth connection in Buffer) — never by handing the agent a secret.
+
 ## Step 4 — Report the gap as a fix, not an excuse
 
 When channels are unreachable, the run report must name **the change that would make them
