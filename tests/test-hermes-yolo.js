@@ -9,6 +9,16 @@ const WRAPPER_PATH = path.resolve(__dirname, '../hermes-yolo-wrapper.js');
 
 console.log('=== Running hermes-yolo-wrapper tests ===\n');
 
+// Symlink Integrity Gate (Prevention Guard)
+const installedBin = path.join(require('os').homedir(), '.local/bin/hermes-yolo');
+if (fs.existsSync(installedBin)) {
+  const lstat = fs.lstatSync(installedBin);
+  assert(lstat.isSymbolicLink(), `~/.local/bin/hermes-yolo must be a symlink to ${WRAPPER_PATH}`);
+  const realPath = fs.realpathSync(installedBin);
+  assert.strictEqual(realPath, fs.realpathSync(WRAPPER_PATH), `~/.local/bin/hermes-yolo points to ${realPath}, expected ${WRAPPER_PATH}`);
+  console.log('✅ Symlink Integrity Gate PASSED: ~/.local/bin/hermes-yolo -> repo wrapper');
+}
+
 // 1. Load the wrapper module (thanks to our module.exports check)
 const {
   buildChildPromptArgs,
