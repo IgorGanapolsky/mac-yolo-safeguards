@@ -275,25 +275,38 @@ class SeedAgentCli {
       prompt: '\x1b[36mseed-2.1-pro > \x1b[0m',
     });
 
-    rl.prompt();
+    let buffer = [];
+    let pasteTimer = null;
 
-    rl.on('line', async (line) => {
-      const input = line.trim();
-      if (!input) {
+    const processBuffer = async () => {
+      const fullPrompt = buffer.join('\n').trim();
+      buffer = [];
+      pasteTimer = null;
+
+      if (!fullPrompt) {
         rl.prompt();
         return;
       }
-      if (input === 'exit' || input === 'quit') {
+      if (fullPrompt === 'exit' || fullPrompt === 'quit') {
         console.log('Goodbye!');
         process.exit(0);
       }
-      if (input === 'doctor') {
+      if (fullPrompt === 'doctor') {
         this.runDoctor();
         rl.prompt();
         return;
       }
-      await this.executePrompt(input);
+
+      await this.executePrompt(fullPrompt);
       rl.prompt();
+    };
+
+    rl.prompt();
+
+    rl.on('line', (line) => {
+      buffer.push(line);
+      if (pasteTimer) clearTimeout(pasteTimer);
+      pasteTimer = setTimeout(processBuffer, 50);
     });
   }
 
