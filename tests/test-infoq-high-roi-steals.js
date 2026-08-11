@@ -1,51 +1,49 @@
 'use strict';
 
-/**
- * Unit Tests for InfoQ High-ROI Architectural Steals Harness (`tools/infoq-high-roi-steals.js`)
- * Compatible with node tests/test-*.js harness (uses node:assert).
- */
-
 const assert = require('assert');
 const {
-  runInfoQStealsSuite,
-  auditMcpToolPruning,
-  evaluateLocalFirstRouting,
-  evaluateHybridRrfRetrieval
+  evaluateContextInfrastructure,
+  resolveRemediationTransition,
+  runFastEvalProbe,
+  auditOverBuilding,
+  FAILURE_STATES,
 } = require('../tools/infoq-high-roi-steals');
 
-console.log('Running test-infoq-high-roi-steals.js...');
+console.log('=== Testing InfoQ High-ROI Steals Engine ===');
 
-// Test 1: MCP Tool Pruning audit
-{
-  const mcpAudit = auditMcpToolPruning();
-  assert.strictEqual(mcpAudit.estimatedTokenSavingsPercent, 62, 'Expected 62% token savings from MCP pruning');
-  assert.strictEqual(mcpAudit.status, 'OPTIMIZED', 'Expected OPTIMIZED status');
-}
+// 1. Context Infrastructure Test (Tacnode Pattern)
+const contextEval = evaluateContextInfrastructure({ tokenBudget: 65536, currentTokens: 15000, fragmentationScore: 0.1 });
+assert.strictEqual(contextEval.status, 'OPTIMAL');
+assert.strictEqual(contextEval.recommendedAction, 'PROCEED');
 
-// Test 2: Local-First Deterministic Fallback Routing
-{
-  const workloads = [
-    { id: 'W1', isDeterministic: true, complexity: 'LOW' },
-    { id: 'W2', isDeterministic: true, complexity: 'LOW' },
-    { id: 'W3', isDeterministic: true, complexity: 'LOW' },
-    { id: 'W4', isDeterministic: false, complexity: 'HIGH' }
-  ];
-  const routing = evaluateLocalFirstRouting(workloads);
-  assert.strictEqual(routing.localRatioPercent, 75, 'Expected 75% local routing ratio');
-  assert.ok(routing.status.startsWith('PASS'), 'Expected PASS status for local routing');
-}
+const fragmentedEval = evaluateContextInfrastructure({ tokenBudget: 65536, currentTokens: 55000, fragmentationScore: 0.45 });
+assert.strictEqual(fragmentedEval.status, 'FRAGMENTED_REQUIRES_COMPACTION');
+assert.strictEqual(fragmentedEval.recommendedAction, 'COMPACT_CONTEXT_PACK');
 
-// Test 3: Hybrid RAG RRF Fusion Evaluation
-{
-  const hybridRag = evaluateHybridRrfRetrieval('test query');
-  assert.ok(hybridRag.ndcgScore >= 0.95, 'Expected nDCG >= 0.95');
-  assert.strictEqual(hybridRag.status, 'A_PLUS (nDCG >= 0.95)', 'Expected A_PLUS rating');
-}
+// 2. State-Machine Remediation Test (Stripe Pattern)
+const authError = resolveRemediationTransition('HEALTHY', { message: 'Claude OAuth refresh token was rejected' });
+assert.strictEqual(authError.nextState, FAILURE_STATES.AUTH_REJECTED);
+assert.strictEqual(authError.actionCode, 'RETRY_WITH_OPENAI');
 
-// Test 4: Full suite execution
-{
-  const suite = runInfoQStealsSuite();
-  assert.strictEqual(suite.overallScore, '10/10 (A+)', 'Expected 10/10 (A+) overall score');
-}
+const contextError = resolveRemediationTransition('HEALTHY', { message: 'Compacting context before next turn' });
+assert.strictEqual(contextError.nextState, FAILURE_STATES.CONTEXT_CEILING);
 
-console.log('ok tests/test-infoq-high-roi-steals.js');
+// 3. Fast-Eval Probe Test (Spotify Honk Pattern)
+const cleanOutput = runFastEvalProbe('All PRs have been merged and CI is passing.');
+assert.strictEqual(cleanOutput.pass, true);
+assert.strictEqual(cleanOutput.score, 1.0);
+
+const slopOutput = runFastEvalProbe('Open PRs: all three are BLOCKED - Compacting context before next call');
+assert.strictEqual(slopOutput.pass, false);
+assert(slopOutput.violations.includes('BOT_SLOP_META_COMMENTARY'));
+
+// 4. Over-Building Audit Test (Ponytail Pattern)
+const sampleDiff = `
++ function addA() {}
++ function addB() {}
+- function removeOld() {}
+`;
+const audit = auditOverBuilding(sampleDiff, 50);
+assert.strictEqual(audit.recommendation, 'PASS_LEAN_DIFF');
+
+console.log('✅ InfoQ High-ROI Steals Engine Unit Tests PASSED!');

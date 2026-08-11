@@ -1,155 +1,130 @@
-#!/usr/bin/env node
 'use strict';
 
 /**
- * InfoQ High-ROI Architectural Steals Harness
- * --------------------------------------------
- * Implements core architectural breakthroughs from InfoQ AI/ML Round-Up:
- *   1. GitHub MCP Pruning & Tool Overhead Auditor (Slashes token spend up to 62%)
- *   2. Local-First Deterministic Fallback Router (Cuts LLM costs 75% by handling 70-80% locally)
- *   3. Hybrid RAG Retrieval Evaluator (BM25 + Vector RRF for nDCG >= 0.95)
- *   4. Context Engineering Root-Cause Diagnostic Gate
- *
- * Usage:
- *   node tools/infoq-high-roi-steals.js                   # Run full InfoQ steals diagnostic
- *   node tools/infoq-high-roi-steals.js --json            # Output JSON for CI/CD
+ * InfoQ High-ROI Steals Engine (August 2026 Industry Architecture Benchmark)
+ * Inspired by InfoQ August 11, 2026 Architecture Digest:
+ * 
+ * 1. Context Infrastructure Evaluator (Tacnode Infrastructure Pattern)
+ * 2. State-Machine Remediation Harness (Stripe Graph + State Machine Pattern)
+ * 3. Runtime-Agnostic Fast-Eval Engine (Spotify Honk + Production Durability Pattern)
+ * 4. Over-Building Benchmark Auditor (Ponytail Agent Skill Pattern)
  */
 
 const fs = require('fs');
 const path = require('path');
 
-const JSON_MODE = process.argv.includes('--json');
-const REPO_ROOT = path.resolve(__dirname, '..');
+// 1. Context Infrastructure Evaluator
+function evaluateContextInfrastructure(contextConfig = {}) {
+  const tokenBudget = contextConfig.tokenBudget || 65536;
+  const currentTokens = contextConfig.currentTokens || 12000;
+  const fragmentationScore = contextConfig.fragmentationScore || 0.15;
 
-/**
- * 1. GitHub MCP Tool Pruning & Overhead Audit
- */
-function auditMcpToolPruning() {
-  const skillsPath = path.join(REPO_ROOT, 'SKILLS.md');
-  const mcpConfigPath = path.join(REPO_ROOT, '.cursor/mcp.json');
+  const utilizationRatio = currentTokens / tokenBudget;
+  const isHealthy = utilizationRatio <= 0.75 && fragmentationScore <= 0.30;
 
-  let totalSkills = 0;
-  if (fs.existsSync(skillsPath)) {
-    const content = fs.readFileSync(skillsPath, 'utf8');
-    totalSkills = (content.match(/^### /gm) || []).length;
+  return {
+    utilizationRatio: Math.round(utilizationRatio * 100) / 100,
+    fragmentationScore,
+    status: isHealthy ? 'OPTIMAL' : 'FRAGMENTED_REQUIRES_COMPACTION',
+    recommendedAction: isHealthy ? 'PROCEED' : 'COMPACT_CONTEXT_PACK',
+  };
+}
+
+// 2. State-Machine Remediation Harness (Stripe Remediation Pattern)
+const FAILURE_STATES = Object.freeze({
+  HEALTHY: 'HEALTHY',
+  AUTH_REJECTED: 'AUTH_REJECTED',
+  CONTEXT_CEILING: 'CONTEXT_CEILING',
+  OLLAMA_COLDSTART: 'OLLAMA_COLDSTART',
+  RATE_LIMITED: 'RATE_LIMITED',
+});
+
+function resolveRemediationTransition(currentState, errorEvent = {}) {
+  const code = errorEvent.code || errorEvent.status || '';
+  const message = String(errorEvent.message || '').toLowerCase();
+
+  if (code === 401 || message.includes('auth') || message.includes('refresh token')) {
+    return {
+      nextState: FAILURE_STATES.AUTH_REJECTED,
+      remediation: 'AUTO_SWITCH_PROVIDER_TO_OPENAI',
+      actionCode: 'RETRY_WITH_OPENAI',
+    };
   }
 
-  // Calculate estimated token savings by filtering unused MCP tools from system prompts
-  const estimatedTokenSavingsPercent = 62;
-  const prunedToolCount = Math.max(0, totalSkills - 5); // Active working context capped at 5 tools
-
-  return {
-    name: 'GitHub MCP Pruning & Overhead Audit',
-    totalSkills,
-    prunedToolCount,
-    estimatedTokenSavingsPercent,
-    status: 'OPTIMIZED'
-  };
-}
-
-/**
- * 2. Local-First Deterministic Fallback Router (75% Cost Cut)
- */
-function evaluateLocalFirstRouting(workloads) {
-  let localDeterministicRuns = 0;
-  let llmFrontierRuns = 0;
-
-  for (const w of workloads) {
-    if (w.isDeterministic || w.complexity === 'LOW') {
-      localDeterministicRuns++;
-    } else {
-      llmFrontierRuns++;
-    }
+  if (message.includes('context') || message.includes('compacting') || message.includes('limit')) {
+    return {
+      nextState: FAILURE_STATES.CONTEXT_CEILING,
+      remediation: 'TRIGGER_LEAN_CONTEXT_RESET',
+      actionCode: 'TRUNCATE_CONVERSATION_HISTORY',
+    };
   }
 
-  const total = workloads.length || 1;
-  const localRatioPercent = Math.round((localDeterministicRuns / total) * 100);
-  const costReductionPercent = Math.round(localRatioPercent * 0.95); // 95% savings on local runs
-
-  return {
-    name: 'Local-First Deterministic Fallback Router',
-    totalWorkloads: total,
-    localDeterministicRuns,
-    llmFrontierRuns,
-    localRatioPercent,
-    costReductionPercent,
-    status: localRatioPercent >= 70 ? 'PASS (70%+ Local)' : 'WARN (Needs More Local Fallbacks)'
-  };
-}
-
-/**
- * 3. Hybrid RAG Retrieval (BM25 + Vector Reciprocal Rank Fusion)
- */
-function evaluateHybridRrfRetrieval(query) {
-  // Simulates hybrid RRF fusion score
-  const bm25Score = 0.92;
-  const vectorScore = 0.94;
-  const rrfScore = 0.97; // RRF fusion surpasses single vector or BM25 score
-
-  return {
-    name: 'Hybrid RAG Retrieval (BM25 + Vector RRF)',
-    query: query || 'context engineering architecture',
-    bm25Score,
-    vectorScore,
-    rrfScore,
-    ndcgScore: 0.97,
-    status: rrfScore >= 0.95 ? 'A_PLUS (nDCG >= 0.95)' : 'NEEDS_TUNING'
-  };
-}
-
-function runInfoQStealsSuite() {
-  const mcpAudit = auditMcpToolPruning();
-
-  const sampleWorkloads = [
-    { id: 'SKILL_MANIFEST_SYNC', isDeterministic: true, complexity: 'LOW' },
-    { id: 'PRETOOLUSE_SAFETY_CHECK', isDeterministic: true, complexity: 'LOW' },
-    { id: 'TOKEN_ECONOMICS_TELEMETRY', isDeterministic: true, complexity: 'LOW' },
-    { id: 'COMPLEX_CREATIVE_STRATEGY', isDeterministic: false, complexity: 'HIGH' }
-  ];
-  const localRouting = evaluateLocalFirstRouting(sampleWorkloads);
-  const hybridRag = evaluateHybridRrfRetrieval();
-
-  return {
-    timestamp: new Date().toISOString(),
-    overallScore: '10/10 (A+)',
-    mcpAudit,
-    localRouting,
-    hybridRag
-  };
-}
-
-function main() {
-  const results = runInfoQStealsSuite();
-
-  if (JSON_MODE) {
-    console.log(JSON.stringify(results, null, 2));
-    process.exit(0);
+  if (message.includes('socket') || message.includes('econnrefused') || message.includes('timeout')) {
+    return {
+      nextState: FAILURE_STATES.OLLAMA_COLDSTART,
+      remediation: 'SWITCH_TO_IPV4_SOCKET_WITH_120S_TIMEOUT',
+      actionCode: 'RETRY_LOCAL_SOCKET',
+    };
   }
 
-  console.log('====================================================');
-  console.log('INFOQ HIGH-ROI ARCHITECTURAL STEALS HARNESS');
-  console.log('====================================================\n');
-
-  console.log(`Overall System Rating: ${results.overallScore}\n`);
-
-  console.log(`1. ${results.mcpAudit.name}`);
-  console.log(`   - Registered Skills:  ${results.mcpAudit.totalSkills}`);
-  console.log(`   - Pruned from Prompt: ${results.mcpAudit.prunedToolCount} tools`);
-  console.log(`   - Token Cost Savings: ${results.mcpAudit.estimatedTokenSavingsPercent}% [${results.mcpAudit.status}]\n`);
-
-  console.log(`2. ${results.localRouting.name}`);
-  console.log(`   - Local Ratio:        ${results.localRouting.localRatioPercent}% (${results.localRouting.localDeterministicRuns}/${results.localRouting.totalWorkloads} workloads local)`);
-  console.log(`   - LLM Cost Cut:       ${results.localRouting.costReductionPercent}% [${results.localRouting.status}]\n`);
-
-  console.log(`3. ${results.hybridRag.name}`);
-  console.log(`   - Query:              "${results.hybridRag.query}"`);
-  console.log(`   - RRF Fusion nDCG:    ${results.hybridRag.ndcgScore} [${results.hybridRag.status}]\n`);
-
-  console.log('InfoQ architectural steals suite PASSED with 10/10 A+ rating.');
+  return {
+    nextState: FAILURE_STATES.HEALTHY,
+    remediation: 'NO_ACTION_REQUIRED',
+    actionCode: 'PASS',
+  };
 }
 
-if (require.main === module) {
-  main();
+// 3. Runtime-Agnostic Fast-Eval Engine (Spotify Honk Pattern)
+function runFastEvalProbe(llmOutput, rules = []) {
+  if (!llmOutput || typeof llmOutput !== 'string') {
+    return { pass: false, score: 0, violations: ['EMPTY_OUTPUT'] };
+  }
+
+  const violations = [];
+  const text = llmOutput.toLowerCase();
+
+  // Check anti-bot slop rules
+  if (text.includes('open prs:') || text.includes('compacting context') || text.includes('noting that and moving')) {
+    violations.push('BOT_SLOP_META_COMMENTARY');
+  }
+
+  if (text.includes('as an ai') || text.includes('i am an ai')) {
+    violations.push('AI_SELF_IDENTIFICATION');
+  }
+
+  const pass = violations.length === 0;
+  const score = pass ? 1.0 : Math.max(0, 1.0 - violations.length * 0.4);
+
+  return {
+    pass,
+    score: Math.round(score * 100) / 100,
+    violations,
+  };
 }
 
-module.exports = { runInfoQStealsSuite, auditMcpToolPruning, evaluateLocalFirstRouting, evaluateHybridRrfRetrieval };
+// 4. Over-Building Benchmark Auditor (Ponytail Pattern)
+function auditOverBuilding(proposedDiff = '', baselineLines = 100) {
+  const additions = (proposedDiff.match(/^\+[^+]/gm) || []).length;
+  const deletions = (proposedDiff.match(/^-[^-]/gm) || []).length;
+  const netChange = additions - deletions;
+
+  const codeReductionRatio = baselineLines > 0 ? (deletions / baselineLines) : 0;
+  const isOverbuilding = additions > 250 && deletions < 10;
+
+  return {
+    additions,
+    deletions,
+    netChange,
+    codeReductionRatio: Math.round(codeReductionRatio * 100) / 100,
+    isOverbuilding,
+    recommendation: isOverbuilding ? 'REJECT_OVERBUILDING_SIMPLIFY' : 'PASS_LEAN_DIFF',
+  };
+}
+
+module.exports = {
+  evaluateContextInfrastructure,
+  resolveRemediationTransition,
+  runFastEvalProbe,
+  auditOverBuilding,
+  FAILURE_STATES,
+};
