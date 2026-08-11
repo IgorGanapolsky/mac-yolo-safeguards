@@ -139,37 +139,72 @@ async function computePairingStats(): Promise<ExpertiseData["pairing"]> {
   };
 }
 
+/**
+ * Optional uptime series tables are not in every D1 migration set.
+ * Missing tables must not 503 the public stats endpoint — return null.
+ */
+async function queryOptionalUptime(
+  sql: string,
+  windowStart: number,
+): Promise<{ total: number; ok: number } | null> {
+  try {
+    const row = await db()
+      .prepare(sql)
+      .bind(windowStart)
+      .first<{ total: number; ok: number }>();
+    return row ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function computeAvailabilityStats(): Promise<ExpertiseData["availability"]> {
   const now = Date.now();
   const window30d = now - 30 * 24 * 60 * 60 * 1000;
 
-  const controlPlane = await db().prepare(
+  // health_checks / runner_health_checks are operational series tables; they are
+  // not created by the tracked drizzle migrations. Prefer live data when present;
+  // otherwise leave uptime null rather than failing the whole collector.
+  const controlPlane = await queryOptionalUptime(
     `SELECT COUNT(*) as total, SUM(CASE WHEN status = 'ok' THEN 1 ELSE 0 END) as ok
        FROM health_checks
-      WHERE created_at >= ?`
-  ).bind(window30d).first<{ total: number; ok: number }>();
+      WHERE created_at >= ?`,
+    window30d,
+  );
 
-  const runner = await db().prepare(
+  const runner = await queryOptionalUptime(
     `SELECT COUNT(*) as total, SUM(CASE WHEN ok = 1 THEN 1 ELSE 0 END) as ok
        FROM runner_health_checks
-      WHERE created_at >= ?`
-  ).bind(window30d).first<{ total: number; ok: number }>();
+      WHERE created_at >= ?`,
+    window30d,
+  );
 
-  const orgsWithOnlineMachine = await db().prepare(
-    `SELECT COUNT(DISTINCT organization_id) as count
-       FROM devices
-      WHERE revoked_at IS NULL
-        AND last_seen_at >= ?`
-  ).bind(now - 60_000).first<{ count: number }>();
+  let orgsWithOnlineMachine = 0;
+  try {
+    const row = await db()
+      .prepare(
+        `SELECT COUNT(DISTINCT organization_id) as count
+           FROM devices
+          WHERE revoked_at IS NULL
+            AND last_seen_at >= ?`,
+      )
+      .bind(now - 60_000)
+      .first<{ count: number }>();
+    orgsWithOnlineMachine = Number(row?.count ?? 0);
+  } catch {
+    orgsWithOnlineMachine = 0;
+  }
 
   return {
-    controlPlaneUptime30d: controlPlane?.total && controlPlane.total > 0
-      ? Number((controlPlane.ok / controlPlane.total).toFixed(4))
-      : null,
-    runnerUptime30d: runner?.total && runner.total > 0
-      ? Number((runner.ok / runner.total).toFixed(4))
-      : null,
-    orgsWithOnlineMachine: Number(orgsWithOnlineMachine?.count ?? 0),
+    controlPlaneUptime30d:
+      controlPlane?.total && controlPlane.total > 0
+        ? Number((controlPlane.ok / controlPlane.total).toFixed(4))
+        : null,
+    runnerUptime30d:
+      runner?.total && runner.total > 0
+        ? Number((runner.ok / runner.total).toFixed(4))
+        : null,
+    orgsWithOnlineMachine,
   };
 }
 
