@@ -19,7 +19,7 @@
     "test:e2e:prod-copy": "node tests/prod-dashboard-copy-smoke.mjs",
     "test:e2e:browser": "npm run build:cloudflare && playwright test",
     "test:e2e": "npm run build:cloudflare && node tests/cloudflare-worker-smoke.mjs && PLAYWRIGHT_E2E=${PLAYWRIGHT_E2E:-0} node tests/dashboard-machine-routing-e2e.mjs",
-    "test:security": "npm audit --audit-level=high",
+    "test:security": "node scripts/security-audit.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
     "cloudflare:validate-production": "node -e \"import('./build/cloudflare-target.mjs').then(({ assertProductionCloudflareEnvironment }) => assertProductionCloudflareEnvironment())\"",
@@ -43,8 +43,8 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "1.45.1",
-    "@cloudflare/workers-types": "5.20260719.1",
+    "@cloudflare/vite-plugin": "^1.51.2",
+    "@cloudflare/workers-types": "^5.20260810.1",
     "@playwright/test": "^1.62.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
@@ -64,7 +64,7 @@
     "vinext": "0.0.50",
     "vite": "8.1.5",
     "vitest": "^4.1.10",
-    "wrangler": "4.112.0"
+    "wrangler": "^4.120.0"
   },
   "overrides": {
     "@esbuild-kit/core-utils": {
