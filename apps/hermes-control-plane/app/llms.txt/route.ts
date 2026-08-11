@@ -29,7 +29,7 @@ const body = `# ThumbGate for Hermes
 - Live public stats endpoint: https://thumbgate.app/api/expertise/stats
 
 ## Expertise
-- `/expertise` surfaces live production telemetry, pairing/availability/scale metrics, and case studies authored by the ThumbGate engineering team.
+- \`/expertise\` surfaces live production telemetry, pairing/availability/scale metrics, and case studies authored by the ThumbGate engineering team.
 - All numbers are computed from the production control plane (D1) and refresh at most every 5 minutes; synthetic canary runs are excluded.
 - No customer names, machine identifiers, prompts, or conversation contents are exposed.
 

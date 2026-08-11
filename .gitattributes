@@ -13,3 +13,11 @@
 # these two files (plan.md x5, SKILLS.md x3) — zero real code conflicts among them.
 plan.md    merge=union
 SKILLS.md  merge=union
+
+# coordination/*-engagement-log.md: same append-only shape as plan.md/SKILLS.md above,
+# written by concurrently-scheduled OSS-engagement runs (Buzz, jcode, etc). Discovered
+# 2026-08-10 when four Buzz-engagement "Run 4" branches were pushed within the same
+# hour by different sessions, each appending to coordination/buzz-engagement-log.md —
+# without this, the first to merge forces every other one into an avoidable CONFLICTING
+# state on a file where both sides are always wanted.
+coordination/*-engagement-log.md  merge=union
