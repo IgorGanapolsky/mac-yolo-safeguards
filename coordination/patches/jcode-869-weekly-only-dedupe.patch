@@ -1,0 +1,92 @@
+From e6354313f3dee8052e190eaa7e775d78379bff2b Mon Sep 17 00:00:00 2001
+From: Igor Ganapolsky <iganapolsky@gmail.com>
+Date: Mon, 10 Aug 2026 18:32:08 +0000
+Subject: [PATCH] fix(usage): weekly-only Codex account must not duplicate
+ weekly window into hourly slot
+
+Regression tests for 1jehuang/jcode#869
+---
+ crates/jcode-base/src/usage/openai_helpers.rs | 12 +++++-
+ crates/jcode-base/src/usage/tests.rs          | 43 +++++++++++++++++++
+ 2 files changed, 54 insertions(+), 1 deletion(-)
+
+diff --git a/crates/jcode-base/src/usage/openai_helpers.rs b/crates/jcode-base/src/usage/openai_helpers.rs
+index a96de90..6c8584f 100644
+--- a/crates/jcode-base/src/usage/openai_helpers.rs
++++ b/crates/jcode-base/src/usage/openai_helpers.rs
+@@ -104,7 +104,17 @@ pub(super) fn classify_openai_limits(limits: &[UsageLimit]) -> OpenAIUsageData {
+     }
+ 
+     if five_hour.is_none() {
+-        five_hour = generic_non_spark.first().cloned();
++        // A window already classified as weekly must not also fill the hourly
++        // slot, or a weekly-only account renders two identical weekly bars.
++        five_hour = generic_non_spark
++            .iter()
++            .find(|w| {
++                seven_day
++                    .as_ref()
++                    .map(|s| s.name != w.name || s.resets_at != w.resets_at)
++                    .unwrap_or(true)
++            })
++            .cloned();
+     }
+     if seven_day.is_none() {
+         seven_day = generic_non_spark
+diff --git a/crates/jcode-base/src/usage/tests.rs b/crates/jcode-base/src/usage/tests.rs
+index 8b2bc0b..8a431f3 100644
+--- a/crates/jcode-base/src/usage/tests.rs
++++ b/crates/jcode-base/src/usage/tests.rs
+@@ -227,6 +227,49 @@ fn test_classify_openai_limits_recognizes_five_weekly_and_spark() {
+     assert_eq!(classified.spark.as_ref().map(|w| w.usage_ratio), Some(0.75));
+ }
+ 
++#[test]
++fn test_classify_openai_limits_weekly_only_does_not_duplicate_into_hourly() {
++    // Regression for #869: with the hourly window absent, the weekly limit was
++    // classified as seven_day AND swept into the generic five_hour fallback,
++    // rendering two identical weekly bars in the quota widget.
++    let limits = vec![UsageLimit {
++        name: "Codex weekly".to_string(),
++        usage_percent: 40.0,
++        resets_at: Some("2026-01-07T00:00:00Z".to_string()),
++    }];
++
++    let classified = openai_helpers::classify_openai_limits(&limits);
++
++    assert_eq!(
++        classified.seven_day.as_ref().map(|w| w.usage_ratio),
++        Some(0.4)
++    );
++    assert!(
++        classified.five_hour.is_none(),
++        "weekly window must not also fill the hourly slot, got {:?}",
++        classified.five_hour
++    );
++}
++
++#[test]
++fn test_classify_openai_limits_generic_only_still_fills_hourly_slot() {
++    // The pre-#869 fallback behavior for an unnamed window must survive the
++    // dedupe: a window matching neither pattern still lands in five_hour.
++    let limits = vec![UsageLimit {
++        name: "Codex usage".to_string(),
++        usage_percent: 30.0,
++        resets_at: Some("2026-01-01T00:00:00Z".to_string()),
++    }];
++
++    let classified = openai_helpers::classify_openai_limits(&limits);
++
++    assert_eq!(
++        classified.five_hour.as_ref().map(|w| w.usage_ratio),
++        Some(0.3)
++    );
++    assert!(classified.seven_day.is_none());
++}
++
+ #[test]
+ fn test_parse_usage_percent_supports_used_limit_shape() {
+     let mut obj = serde_json::Map::new();
+-- 
+2.43.0
+
