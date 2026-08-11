@@ -367,3 +367,88 @@ Unchanged, now three runs deep: this environment tier has never had write access
 - **`coordination/buzz-engagement-log.md` had no `merge=union` git attribute**, unlike `plan.md`/`SKILLS.md`. Discovered because four separate branches (`chore/buzz-engagement-log-run4`, `buzz-engagement-run4-20260810`, `chore/buzz-engagement-log-2026-08-05-run4`, `feat/buzz-engagement-run4-20260810`) were all pushed within roughly the same hour, each appending a "Run 4" entry to this exact file from independent scheduled-task firings — a guaranteed merge conflict for every one after the first, on a file where every side's content is wanted. Fixed in this PR: added `coordination/*-engagement-log.md merge=union` to `.gitattributes` (same fix already applied to `plan.md`/`SKILLS.md` for the identical reason).
 - An earlier version of this PR also modified `.github/workflows/auto-assign-reviewers.yml` to fix a real `assign_reviewers` CI failure (422 requesting review from the PR author) hit while driving this PR to green. That fix was reverted here on review feedback: PR [#1598](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1598) already exists as a dedicated, properly-scoped fix for the same bug (and handles an additional edge case — 422 on a mapped, non-collaborator reviewer — that this PR's version didn't). No need for two competing fixes to the same production workflow file.
 
+---
+
+## 2026-08-11 — Run 5 (access blocked a fourth time; source-verified WF-08 + a concrete retry-storm lead)
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+| Fact | Evidence |
+|------|----------|
+| **Canonical repo** | [`github.com/block/buzz`](https://github.com/block/buzz) — Apache-2.0, **~26.2k★** (up from ~26.0k at Run 4), still the sole public community surface |
+| **Maintainer** | Block, Inc. (Jack Dorsey org) |
+| **Product/architecture** | Unchanged — "a workspace where humans and agents build together, on a relay you own"; Rust + TypeScript + Flutter; desktop (macOS/Linux/Windows) + mobile; Nostr relay backbone |
+| **WF-08 approval-gate gap** | **Re-confirmed by reading actual source this run**, not by unauthenticated code search (which 403'd in Runs 3 and 4). Anonymous `git clone https://github.com/block/buzz.git` still succeeds read-only. `crates/buzz-workflow/src/lib.rs:235-251` still logs `"Workflow hit approval gate — not yet implemented, marking as failed"` and marks the run `Failed` with reason `"approval gates not yet implemented — see WF-08"`. `crates/buzz-workflow/src/executor.rs:459-666` still returns `StepResult::Suspended { approval_token }` with a comment `"For now, return Suspended with the token so the caller can persist state"` — i.e. the resume-after-decision path is still unbuilt. **Unchanged since Run 1**, now verified against the live source tree instead of inferred from stale log text. |
+
+### Prior contributions re-verified against the live repo
+
+| Item | Status checked this run |
+|------|--------------------------|
+| PR [#4624](https://github.com/block/buzz/pull/4624) (multi-`#h` channel filter fix) | **Still open, still unmerged, 8 days after the code-owner review request** (requested 2026-08-03). Only bot activity since (`chatgpt-codex-connector` usage-limit notice). No human maintainer review. Nothing actionable — did not touch it. |
+| Issue [#4860](https://github.com/block/buzz/issues/4860) (ACP watchdog hang, drafted answer from Run 3) | **Still open, no visible comments.** Draft remains unposted, still accurate. |
+| Issue [#5492](https://github.com/block/buzz/issues/5492) (`BUZZ_AUTH_TAG` profile-republish gap, drafted answer from Run 4) | **Still open, no visible comments.** Draft remains unposted, still accurate. |
+| Issue [#2509](https://github.com/block/buzz/issues/2509) (`verdict_ref` on `request_approval`) | Not re-checked in detail this run; no new activity surfaced in the 72h survey below. |
+
+Three backlogged, verbatim-ready drafts now sit in this log (Run 3's #4860 answer, Run 4's #5492 answer, this run's #5557 answer below) for whichever session next has write access to `block/buzz`.
+
+### Access this session (Step 0 continued — same wall as Runs 1, 3, 4)
+
+- `add_repo(owner: "block", repo: "buzz", access: "push")` → rejected: *"cross-tier adds are not supported in v1: requested block/buzz but session already has repos from owner(s) [igorganapolsky]."*
+- `mcp__github__pull_request_read` on `block/buzz` → *"Access denied: repository 'block/buzz' is not configured for this session. Allowed repositories: igorganapolsky/mac-yolo-safeguards."*
+- `mcp__github__search_issues` scoped to `owner=block, repo=buzz` silently returned `total_count: 0` (the MCP server enforces the same scope boundary rather than erroring loudly for search).
+- No `gh` CLI on this machine (`command not found`).
+- `WebFetch` against `api.github.com/repos/block/buzz` → HTTP 403 (same as Run 4).
+- `WebFetch` against `github.com/block/buzz/...` HTML pages → worked, used for all verification and survey.
+- Anonymous `git clone https://github.com/block/buzz.git` → worked, used to read live source for the WF-08 re-check and the #5557 investigation below.
+- Net: **read-only access only, fourth consecutive run** (Runs 1, 3, 4, 5) from this environment tier. Only Run 2 had write access, from a different session/environment.
+
+### What was surveyed (last ~72h, as of 2026-08-11)
+
+All 12 open issues visible in the `created:>2026-08-08` window were filed on 2026-08-11 itself (i.e. the survey window is effectively "today"):
+
+| Issue | Topic | Action |
+|-------|-------|--------|
+| [#5557](https://github.com/block/buzz/issues/5557) | `buzz-acp`: 429s retried with no visible backoff — median gap 0.0000s, 20-42 req/sec sustained storm; concurrent `curl` to the same relay succeeds | **Investigated + answer drafted** (below) — squarely "retries," one of Igor's named domains |
+| [#5555](https://github.com/block/buzz/issues/5555) | `buzz-acp`: agent added to a channel during relay rate-limiting never joins it, no reconciliation after queue overflow, only manual delete+redeploy recovers | Skipped this run — real reliability gap (membership reconciliation after dropped notifications), but #5557 was the sharper, code-verifiable lead this run; flagging for next run |
+| [#5532](https://github.com/block/buzz/issues/5532) | `buzz-acp`: heartbeat feed mentions have no thread context | Skipped — UX/context issue, not a reliability/write-gating bug |
+| [#5529](https://github.com/block/buzz/issues/5529) | Proposal: headless relay-side agent-team supervisor for server-only deployments | Skipped — architecture proposal, not a reproducible bug; would need a full design response, not a comment |
+| [#5548](https://github.com/block/buzz/issues/5548) | Provider protocol: `launch.command` is the inner ACP agent | Skipped — protocol/config clarification, not in stated domain |
+| [#5550](https://github.com/block/buzz/issues/5550) | NIP-11 relay info document not CORS-accessible | Skipped — CORS/config bug, not reliability-domain |
+| [#5542](https://github.com/block/buzz/issues/5542), [#5540](https://github.com/block/buzz/issues/5540), [#5543](https://github.com/block/buzz/issues/5543), [#5553](https://github.com/block/buzz/issues/5553), [#5551](https://github.com/block/buzz/issues/5551) | UI/desktop bugs, feature request, community-infra request | Skipped — outside stated expertise (agent reliability, idempotency, write-gating, leases/fencing, retries, audit trails, verification-vs-self-report) |
+| [#2509](https://github.com/block/buzz/issues/2509) | `verdict_ref` on `request_approval` | Reconfirmed still open; no new activity to add |
+| WF-08 | Re-verified against live source this run (see above) — still unimplemented |
+
+### Investigation + drafted answer for #5557 (not yet posted — no write access this run)
+
+Read the actual retry/backoff code in the cloned source (`crates/buzz-acp/src/relay.rs`) before drafting, rather than answering from the issue text alone:
+
+- `request_with_retry` (`relay.rs:317-366`) already retries `429/502/503/504`/timeout/connect errors up to 3 times with **jittered exponential backoff** (`REST_RETRY_BASE_DELAYS`), and every HTTP bridge call (`submit_event`, `query`, `count` — `relay.rs:371-434`) routes through it.
+- Separately, the WebSocket event-publish path has a **shared, stateful** rate gate (`set_rate_limit_gate`/`check_rate_gate`, `relay.rs:1172-1189`, consulted at ~15 call sites) that coordinates pacing across the whole connection once the relay signals a rate limit.
+- The HTTP bridge path (`bridge_post` → `submit_event`/`query`/`count`) has **no equivalent shared gate** — it only has the *per-call* backoff above. Call sites are independent and concurrent (`config.rs`, `engram_fetch.rs`, `lib.rs`, `pool.rs` all call these directly).
+
+That structural gap matches the reporter's exact symptom: each individual call *does* back off (500ms → 1s → 2s, jittered), but with N concurrent, independent callers each running their own 4-attempt backoff clock, the *aggregate* request rate hitting the relay never actually drops — which is consistent with "concurrent curl succeeds" (the relay itself is fine) plus "median gap 0.0000s across samples" (the gaps are real per-caller, just invisible in an aggregate trace of many uncoordinated callers).
+
+> Drafted comment for #5557: "The per-call retry logic here (`relay.rs::request_with_retry`) already does jittered exponential backoff on 429/5xx — so this likely isn't a *missing* backoff, it's an *uncoordinated* one. The WebSocket publish path has a shared `check_rate_gate`/`set_rate_limit_gate` that all callers on that connection consult before sending, so a 429 pauses the whole connection, not just one caller. The HTTP bridge path (`submit_event`/`query`/`count` via `bridge_post`) has no equivalent — each of the independent call sites (config fetch, engram fetch, main harness, pool) runs its own private backoff clock, so N concurrent callers each individually 'backing off' can still sum to a sustained per-second rate that never drops, which matches the reported 20-42/sec with 0.0000s median gaps and healthy concurrent `curl`. If this diagnosis holds, the fix is the same pattern already proven on the WS path — a shared rate-gate consulted by `bridge_post` before every attempt, not more retries per call — plus honoring `Retry-After` into that shared gate's expiry the way `set_rate_limit_gate` already does for the WS side."
+
+This is drafted as an investigation lead with concrete line references, not a confirmed root cause — worth a maintainer or the reporter confirming with a trace before treating it as the fix. ThumbGate is not mentioned — this is entirely about Buzz's own internal retry-coordination, not about gating outbound agent actions.
+
+### What was opened / answered this run
+
+**Nothing posted.** Fourth consecutive run with no write path to `block/buzz`. Output: WF-08 status re-confirmed against live source (stronger evidence than prior runs' log-text inference), prior contributions re-verified as still standing/unreviewed, 72h survey, and one new source-grounded drafted answer (#5557) ready for a write-capable session to post verbatim or adapt.
+
+### Positioning read: **neither** (unchanged, reconfirmed a fourth time)
+
+- Not a competitor — Buzz remains a team workspace/chat+git+workflow fabric on Nostr; ThumbGate remains a cross-tool pre-action governance gate for arbitrary agent actions. Different product surfaces, no overlap in what either actually ships.
+- Not a partner — no relationship, no contact, no integration, and nothing this run changes that.
+- Technical overlap keeps recurring, independently of ThumbGate: #5557 (uncoordinated retry backoff) and #5555 (no membership reconciliation after dropped events) this run are both instances of the same pattern flagged in Runs 2-4 (#4565, #4860, #5492) — local/per-unit correctness that doesn't add up to system-level correctness under concurrency or partial failure. Four runs straight surfacing this class in Buzz's own tracker, unprompted, is real signal the problem is general — it is not, and does not need to be spun as, evidence of a partnership.
+
+### What was skipped and why
+
+- **#5555, #5532, #5529, #5548, #5550, #5542, #5540, #5543, #5553, #5551** — surveyed, skipped per the table above (out of domain, needs a design response rather than a comment, or not a reliability bug).
+- **Posting anything to `block/buzz`** — impossible this run; no write path (see Access section). Not a judgment-call skip.
+- **A second drafted answer** — #5555 is a strong candidate but this run's time went to verifying the #5557 hypothesis against actual source rather than spreading across two unverified drafts; flagged above for next run.
+
+### Blocker status (report only — no action requested)
+
+Unchanged, now four runs deep (Runs 1, 3, 4, 5): this environment tier has never had write access to `block/buzz` — only unauthenticated read access to `github.com` HTML pages and anonymous `git clone` for source. `add_repo` rejects the cross-tier owner every time, no `gh` CLI is present, `api.github.com` 403s unauthenticated, and the `mcp__github__*` tools are hard-scoped to `igorganapolsky/mac-yolo-safeguards`. Three verbatim-ready drafts now sit in this log for a write-capable session: #4860 (Run 3), #5492 (Run 4), #5557 (this run). Per AGENTS.md's no-manual-handoff rule this is a status report, not a request routed to a human — this repo already runs several concurrent agent sessions, and a write-capable one can act on it without being asked.
+
