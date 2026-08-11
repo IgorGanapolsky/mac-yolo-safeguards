@@ -481,25 +481,41 @@ All open issues in the sampled window were filed earlier the same day (2026-08-1
 | [#5571](https://github.com/block/buzz/issues/5571) | `mcp_hooks` field exists only on the built-in `KnownAcpRuntime` catalog, not on user-authored `HarnessDefinition` — custom ACP harnesses can't use `MCP_HOOK_SERVERS` hooks at all. Well-specified, with a concrete proposed fix (`mcpHooks: bool` field + gate update) already in the issue. | Skipped — a config/schema gap, not a reliability or write-gating bug; the reporter's own fix proposal is already complete, a comment would add nothing |
 | #5570 | Provider protocol has no `undeploy` op (constructor, no destructor) | Skipped — API-surface completeness request, not a reliability bug |
 | #5568 | Agent signing keys can only come from `BUZZ_PRIVATE_KEY` env var — no file/keyring/systemd-credential source | Skipped — real security hygiene gap, but it's a credential-sourcing feature request, not a verification/write-gating/idempotency bug in Igor's stated domain |
-| #5567, #5562, #5558, #5555, #5553, #5551 | Desktop UI/nav bugs, feature requests, community-infra request | Skipped — outside stated domain |
+| [#5555](https://github.com/block/buzz/issues/5555) | `buzz-acp`: agent added to a channel while the relay is rate-limiting never joins it — channel discovery runs once at startup, membership notifications after that are push-only, the inbound queue overflows (78× "queue depth cap reached — dropped oldest event" in the reporter's log) with no downstream signal, and nothing ever re-syncs. Reporter still saw zero channel subscriptions 90 minutes after the relay recovered; provider-backed agents can't even use the documented workaround (restart) | **Answer drafted this run** (below) — corrected from an earlier draft of this entry that mis-grouped it with UI/desktop issues and skipped it; a Codex review comment on this PR caught the mis-grouping (see Correction note) |
+| #5567, #5562, #5558, #5553, #5551 | Desktop UI/nav bugs, feature requests, community-infra request | Skipped — outside stated domain |
 | [#2509](https://github.com/block/buzz/issues/2509) | `verdict_ref` on `request_approval` | Reconfirmed still open, no new activity |
 | WF-08 | Not re-verified against source this run (Run 5 already did a source-level check hours earlier same day; re-cloning for an identical check within the same 72h window would not produce new information) | Status carried forward unchanged |
 
-No new issue this run cleared the bar for a drafted answer — the strongest domain-fit candidates (#5571, #5568) are either already fully-specified by their reporter or a feature gap rather than a reliability/verification bug, so nothing was drafted. Four verbatim-ready drafts now sit in this log for a write-capable session: #4860 (Run 3), #5492 (Run 4), #5557 (Run 5).
+### Correction note (added after initial commit, before merge)
+
+An automated Codex review comment on this PR (chatgpt-codex-connector, P2) correctly flagged that the first version of this entry relabeled #5555 as "desktop/UI/feature work" and skipped it, contradicting Run 5's own log entry, which explicitly identified #5555 as a real reliability gap (membership reconciliation after dropped notifications) and flagged it for this run to pick up. That was a genuine mistake in this run, not a re-assessment — #5555 is squarely in Igor's stated domain (idempotency, retries, verification-vs-self-report) and had not actually been re-investigated before being marked "skipped." Corrected here by reading the full issue and drafting a real answer (below), per the Honesty Protocol.
+
+### Investigation + drafted answer for #5555 (not yet posted — no write access this run)
+
+Read the full issue text (title, body, root-cause analysis, and the three proposed fixes) before drafting:
+
+> This is the same class of bug as #5492 and (structurally) #5557: correctness that depends entirely on an unbroken stream of push events, with no periodic reconciliation against ground truth as a backstop. Channel discovery here runs once at startup, then trusts every subsequent membership event to arrive — but the inbound queue has a hard depth cap ("queue depth cap reached — dropped oldest event", 78× in the report) and nothing downstream is told when a drop happens. Once one relevant membership event is dropped, local state permanently diverges from the relay's, and — critically — nothing ever re-checks it. That's why the agent still showed zero channels 90 minutes after the relay itself had recovered: the bug isn't the rate-limiting, it's the absence of any self-healing read-after-drop.
+>
+> Of the three fixes proposed in the issue, they agree on the essential shape (pull actual current membership rather than trust the accumulated event stream) but differ in trigger, and the trigger matters for provider-backed agents that can't restart: fix #1 (re-discover on overflow-detected) only works if the overflow is locally observable; fix #3 (re-discover on reconnect) doesn't help if the connection never actually drops and just silently drains its queue under sustained load, which is what happened here. Fix #2 — scheduled/periodic reconciliation, independent of any specific trigger — is the only one of the three that's a genuine backstop rather than another push-path that can itself silently fail the same way.
+>
+> One thing worth checking before shipping #2: if periodic reconciliation goes through the same HTTP bridge path implicated in #5557 (uncoordinated per-call retry, no shared rate gate), a reconciliation pull attempted during a rate-limit window could fail the same way the original membership notifications did — same failure mode, one layer up. Worth confirming the reconciliation path either uses the WS connection's shared rate gate or has its own coordinated backoff before treating #2 as a complete fix.
+
+ThumbGate is not mentioned in this draft — the issue is about Buzz's own channel-membership sync path having no reconciliation backstop, not about gating outbound agent actions, so a ThumbGate reference would not be a genuine answer to what's asked.
+
+No new issue beyond #5555 (corrected) cleared the bar for a drafted answer — the other domain-fit candidates (#5571, #5568) are either already fully-specified by their reporter or a feature gap rather than a reliability/verification bug. Five verbatim-ready drafts now sit in this log for a write-capable session: #4860 (Run 3), #5492 (Run 4), #5557 (Run 5), #5555 (this run, corrected).
 
 ### What was opened / answered this run
 
-**Nothing.** Fifth consecutive run (Runs 1, 3, 4, 5, 6) with no write path to `block/buzz`. This run's output: confirmation that the block is a session-config allowlist rather than an account-permissions problem (new, useful detail for whoever manages session tiers), re-verification that Runs 3-5's drafts and PR #4624 all still stand untouched, and a fresh 72h survey that found no new domain-fit candidate worth drafting.
+**Nothing posted.** Fifth consecutive run (Runs 1, 3, 4, 5, 6) with no write path to `block/buzz`. This run's output: confirmation that the block is a session-config allowlist rather than an account-permissions problem (new, useful detail for whoever manages session tiers), re-verification that Runs 3-5's drafts and PR #4624 all still stand untouched, a fresh 72h survey, and — after a review-comment correction — a properly investigated drafted answer for #5555.
 
 ### Positioning read: **neither** (unchanged, reconfirmed a fifth time)
 
 - Not a competitor, not a partner — same reasoning as Runs 2-5; no change in either product's shape or in the relationship (none exists).
-- Technical overlap signal continues unprompted: this run's survey turned up no *new* instance of the self-report-vs-verified-state pattern (#4565/#4860/#5492/#5557), but that's a one-run gap in an otherwise consistent four-run trend, not evidence the pattern stopped — the sample this run was mostly config/UI issues, not a reliability-heavy day.
+- Technical overlap signal continues unprompted, now including #5555 once correctly assessed: the self-report/push-only-vs-verified-state pattern (#4565, #4860, #5492, #5557, #5555) has now shown up in five straight runs' surveys, without Igor or ThumbGate seeding any of them.
 
 ### What was skipped and why
 
-- **#5571, #5570, #5568, #5567, #5562, #5558, #5555, #5553, #5551** — surveyed in full, skipped per the table above (feature gaps, UI bugs, or already fully-specified by the reporter).
-- **A fourth drafted answer** — no issue this run met the bar (reproducible bug + squarely in Igor's stated domain + not already well-handled); forcing a draft onto a weaker-fit issue would be worse than adding nothing.
+- **#5571, #5570, #5568, #5567, #5562, #5558, #5553, #5551** — surveyed in full, skipped per the table above (feature gaps, UI bugs, or already fully-specified by the reporter).
 - **Posting anything to `block/buzz`** — impossible this run; not a judgment-call skip (see Access section above).
 
 ### Blocker status (report only — no action requested)
