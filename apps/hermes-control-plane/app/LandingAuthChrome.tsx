@@ -102,13 +102,16 @@ export function LandingAuthHero() {
         </>
       ) : isSession ? (
         <>
-          <a
-            href="/api/billing/checkout"
-            className="button button-primary"
-            data-funnel-event="upgrade_pro_click"
-          >
-            Start Continuity trial <span aria-hidden="true">→</span>
-          </a>
+          {/* Checkout is POST-only — never <a href> (GET → 405). */}
+          <form action="/api/billing/checkout" method="POST" className="hero-cta-form">
+            <button
+              type="submit"
+              className="button button-primary"
+              data-funnel-event="upgrade_pro_click"
+            >
+              Start Continuity trial <span aria-hidden="true">→</span>
+            </button>
+          </form>
           <a
             href="/dashboard"
             className="button button-secondary"

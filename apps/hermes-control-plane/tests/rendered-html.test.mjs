@@ -32,8 +32,9 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /Continue with Google today/);
   assert.doesNotMatch(page, /Continue with Google or Apple/);
   // Continuity-first product (2026-08): Hermes owns machine chat; ThumbGate.app sells VPS failover.
+  // Leash approvals are Mac/Hermes-scoped — cloud runner has no tool-approval handshake.
   assert.match(page, /Hermes already chats with your real machines/);
-  assert.match(page, /approve or deny each tool call before it runs/);
+  assert.match(page, /Leash approvals stay on the paired Mac/);
   assert.match(page, /fenced VPS runner/);
   assert.doesNotMatch(page, /still proving/);
   assert.match(page, /by ThumbGate/);

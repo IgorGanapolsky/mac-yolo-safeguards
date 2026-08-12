@@ -99,7 +99,7 @@ export default function Home() {
           <p className="eyebrow"><span className="live-dot" /> Continuity · VPS for Hermes</p>
           <h1>Keep Hermes work running<br /><span>when the Mac closes.</span></h1>
           <p className="hero-lede">
-            Hermes already chats with your real machines. ThumbGate Continuity syncs with those same agents and hands eligible work to a fenced VPS runner when the laptop is offline—approve or deny each tool call before it runs, under the policy you set.
+            Hermes already chats with your real machines—and Leash approvals stay on the paired Mac while it is online. ThumbGate Continuity syncs with those same agents and hands eligible work to a fenced VPS runner when the laptop is offline, under the offline policy you set (pause, ask, or auto-continue).
           </p>
           <LandingAuthHero />
           <p className="signin-note">Continuity by ThumbGate. Continue with Google today — more providers activate once configured.</p>
