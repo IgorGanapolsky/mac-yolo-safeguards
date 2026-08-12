@@ -16,6 +16,7 @@ node tests/test-github-runner-roi-auditor.js
 node tests/test-rteb-retrieval-evaluator.js
 node tests/test-vercel-connect-cli-harness.js
 node tests/test-mcp-seo-data-harness.js
+node tests/test-milp-solver-benchmark-harness.js
 node tests/test-hermes-yolo.js
 
 echo "✅ All Local CI Verification Checks Passed!"
