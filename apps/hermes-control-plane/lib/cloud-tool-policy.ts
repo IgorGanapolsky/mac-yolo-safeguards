@@ -1,7 +1,17 @@
 /**
  * Continuity is queued handoff, not Mac tool parity.
  * Block prompts that clearly require local-only surfaces before cloud claim/admission.
+ *
+ * Decision-contract framing (TDS agent-ready warehouse pattern):
+ * local-only tools may be *recommended* from cloud context, but must not *execute*
+ * on the Continuity runner — separate recommend vs action.
  */
+
+import {
+  contractForCloudContinuity,
+  evaluateDecisionContract,
+  type DecisionContractEvaluation,
+} from "./decision-contract";
 
 export type CloudToolDecision =
   | { allowed: true }
@@ -30,4 +40,37 @@ export function evaluateCloudPromptToolPolicy(prompt: string): CloudToolDecision
     }
   }
   return { allowed: true };
+}
+
+/**
+ * Decision-contract view of Continuity tool policy:
+ * - mode=recommend → always allowed (provisional if local-only matched)
+ * - mode=execute → denied when local-only patterns match (action boundary)
+ */
+export function evaluateCloudPromptDecisionContract(input: {
+  prompt: string;
+  mode: "recommend" | "execute";
+  entitled?: boolean;
+  offlinePolicy?: "disabled" | "manual" | "auto";
+  generatedAt?: string;
+}): DecisionContractEvaluation & { matchedLocalOnly?: string } {
+  const policy = evaluateCloudPromptToolPolicy(input.prompt);
+  const matched = policy.allowed ? undefined : policy.matched;
+  const contract = contractForCloudContinuity(input.offlinePolicy ?? "manual");
+  // Local-only tools are never an approved execute source on cloud.
+  const sourceApproved = policy.allowed;
+  const evaluation = evaluateDecisionContract({
+    contract,
+    mode: input.mode,
+    entitled: input.entitled,
+    generatedAt: input.generatedAt,
+    evidence: {
+      machineOnline: false,
+      leaseHeld: false,
+      offlinePolicy: input.offlinePolicy ?? "manual",
+      sourceApproved,
+      evidenceComplete: policy.allowed,
+    },
+  });
+  return matched ? { ...evaluation, matchedLocalOnly: matched } : evaluation;
 }

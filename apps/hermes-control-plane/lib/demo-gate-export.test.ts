@@ -25,6 +25,9 @@ describe("buildDemoGateExport (Amphi-style visual → code)", () => {
     expect(exp.hookSnippet).toMatch(/npm run deploy|--prod/);
     expect(exp.clipboardText).toContain("durable gate JSON");
     expect(exp.clipboardText).toContain(exp.gateJson.trim());
+    expect(exp.decisionContractJson).toContain("decision_contract");
+    expect(exp.decisionContractJson).toContain("tool_call_local");
+    expect(exp.clipboardText).toContain("decision contract");
   });
 
   it("exports approve_local_lease with two visual steps after approve", () => {

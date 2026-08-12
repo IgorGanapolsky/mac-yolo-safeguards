@@ -5,7 +5,16 @@
  * Source inspiration (not affiliation): amphi-ai/amphi-etl visual pipelines
  * generate exportable Python. ThumbGate exports a durable gate receipt +
  * PreToolUse-style matcher for the demo tool call path.
+ *
+ * Also embeds a TDS-style decision contract (recommend vs execute, evidence).
  */
+
+import {
+  contractForLocalToolCall,
+  evaluateDecisionContract,
+  formatDecisionContractDocument,
+  type OfflinePolicy as DecisionOfflinePolicy,
+} from "./decision-contract";
 
 export type DemoPhase =
   | "pending"
@@ -37,6 +46,8 @@ export type DemoGateExport = {
   language: "json" | "bash";
   /** Durable gate / offline policy receipt (JSON) */
   gateJson: string;
+  /** TDS-style decision contract document (JSON) */
+  decisionContractJson: string;
   /** Optional PreToolUse-style matcher shell/JSON for local hooks */
   hookSnippet: string;
   /** Single clipboard payload (gate + hook) */
@@ -127,6 +138,39 @@ export function buildDemoGateExport(input: DemoGateExportInput): DemoGateExport 
 
   const gateJson = `${JSON.stringify(gate, null, 2)}\n`;
 
+  const offlinePolicy = input.policy as DecisionOfflinePolicy;
+  const contract = contractForLocalToolCall(offlinePolicy);
+  const mode = input.phase === "pending" || input.phase === "denied" ? "recommend" : "execute";
+  const evaluation = evaluateDecisionContract({
+    contract,
+    mode: input.phase === "denied" ? "execute" : mode,
+    generatedAt,
+    evidence: {
+      machineOnline: input.phase !== "offline_choice" && input.phase !== "paused" && input.phase !== "ask" && input.phase !== "cloud",
+      leaseHeld: input.phase === "running" || input.phase === "cloud" || input.phase === "ask",
+      offlinePolicy,
+      sourceApproved: input.phase !== "denied",
+      evidenceComplete: input.phase === "running" || input.phase === "cloud",
+      heartbeatAgeSec: input.phase === "running" ? 5 : input.phase === "cloud" ? null : 5,
+    },
+  });
+  // Force deny evaluation for explicit demo deny path
+  const denyEval =
+    input.phase === "denied"
+      ? evaluateDecisionContract({
+          contract,
+          mode: "execute",
+          generatedAt,
+          evidence: {
+            machineOnline: true,
+            leaseHeld: false,
+            offlinePolicy,
+            sourceApproved: false,
+          },
+        })
+      : evaluation;
+  const decisionContractJson = formatDecisionContractDocument(contract, input.phase === "denied" ? denyEval : evaluation);
+
   // PreToolUse-style matcher: deny destructive-looking deploys when demo is denied;
   // otherwise export an allowlist receipt + offline policy comment for local hooks.
   const hookSnippet =
@@ -158,6 +202,9 @@ export function buildDemoGateExport(input: DemoGateExportInput): DemoGateExport 
     "# --- durable gate JSON ---",
     gateJson.trimEnd(),
     "",
+    "# --- decision contract (recommend vs execute) ---",
+    decisionContractJson.trimEnd(),
+    "",
     "# --- optional local hook snippet ---",
     hookSnippet.trimEnd(),
     "",
@@ -169,6 +216,7 @@ export function buildDemoGateExport(input: DemoGateExportInput): DemoGateExport 
     decision,
     language: "json",
     gateJson,
+    decisionContractJson,
     hookSnippet,
     clipboardText,
   };

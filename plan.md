@@ -19,6 +19,9 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 ## 1. Task Board
 
+| T-TDS-DECISION-CONTRACT-20260812 | TDS agent-ready warehouse → ThumbGate decision contracts: separate recommend vs execute, evidence completeness, portable contract export | done | released (grok-decision-contract-20260812) | `apps/hermes-control-plane/lib/decision-contract.ts`, `apps/hermes-control-plane/lib/decision-contract.test.ts`, `apps/hermes-control-plane/lib/demo-gate-export.ts`, `apps/hermes-control-plane/lib/demo-gate-export.test.ts`, `apps/hermes-control-plane/lib/cloud-tool-policy.ts`, `apps/hermes-control-plane/lib/cloud-tool-policy.test.ts`, `plan.md` | Pure evaluateDecisionContract + tests; wire Continuity local-only policy; export contract from demo |
+
+
 | T-AMPHI-VISUAL-EXPORT-GATE-20260812 | Steal Amphi ETL high-ROI: visual control path → copyable durable gate/export code (not rebuild ETL) | done | released (grok-amphi-export-20260812) | `apps/hermes-control-plane/lib/demo-gate-export.ts`, `apps/hermes-control-plane/lib/demo-gate-export.test.ts`, `apps/hermes-control-plane/app/FailoverPathDemo.tsx`, `apps/hermes-control-plane/app/failover-demo.module.css`, `apps/hermes-control-plane/tests/rendered-html.test.mjs`, `apps/hermes-control-plane/tests/frictionless-onboarding.test.mjs`, `plan.md` | Pure export helpers + unit tests; demo Copy gate panel; focused control-plane tests green |
 
 
