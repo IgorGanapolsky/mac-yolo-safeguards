@@ -95,7 +95,7 @@ describe('defect 1 — USB is never surfaced to the user', () => {
     expect(resolveGreetingTransportLabel('USB · Igors-MacBook-Pro')).toBeUndefined();
     // Tailscale / Wi‑Fi chips still echo.
     expect(resolveGreetingTransportLabel('Tailscale')).toBe('Tailscale');
-    expect(resolveGreetingTransportLabel('Home Wi‑Fi')).toBe('Home Wi‑Fi');
+    expect(resolveGreetingTransportLabel('Home Wi‑Fi')).toBe('Wi‑Fi');
   });
 
   it('keeps USB out of the fresh-user connection surface', () => {
