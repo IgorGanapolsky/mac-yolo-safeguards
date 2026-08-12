@@ -164,7 +164,7 @@ try {
 
   const llms = await fetch(`http://127.0.0.1:${port}/llms.txt`);
   assert.equal(llms.status, 200);
-  assert.match(await llms.text(), /# ThumbGate for Hermes/);
+  assert.match(await llms.text(), /# ThumbGate Continuity/);
 
   const health = await fetch(`http://127.0.0.1:${port}/api/health`);
   assert.equal(health.status, 200);
@@ -302,7 +302,7 @@ try {
   const authenticatedHtml = await authenticatedLanding.text();
   assert.equal(authenticatedLanding.status, 200);
   // Marketing HTML is static (no D1 session read). Session chrome comes from /api/me.
-  assert.match(authenticatedHtml, /Sign in to Hermes Web|Open Hermes on the web/);
+  assert.match(authenticatedHtml, /Try Continuity — 14 days free|Sign in to pair free|Open Continuity dashboard/);
   assert.doesNotMatch(authenticatedHtml, /e2e@example\.com/);
   // With a session cookie, HTML must not be edge-cached for other users.
   const landingCache = authenticatedLanding.headers.get("cache-control") || "";
@@ -348,7 +348,8 @@ try {
   const postLogoutHtml = await postLogoutLanding.text();
   assert.equal(postLogoutLanding.status, 200);
   assert.match(postLogoutHtml, /Sign-in required|Checking session/);
-  assert.match(postLogoutHtml, /Sign in to Hermes Web/);
+  assert.match(postLogoutHtml, /Sign in to pair free/);
+  assert.match(postLogoutHtml, /Try Continuity — 14 days free/);
   assert.equal((postLogoutHtml.match(/data-funnel-event="sign_in_click"/g) ?? []).length, 1);
   assert.doesNotMatch(postLogoutHtml, />Sign out</);
   const postLogoutMe = await fetch(`http://127.0.0.1:${port}/api/me`, { headers: authenticatedHeaders });
