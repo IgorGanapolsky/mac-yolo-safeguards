@@ -74,6 +74,18 @@ const SYNONYM_RULES = [
     expand: ['appOtaUpdate', 'otaClientPromptPolicy', 'checkAutomatically', 'EAS'],
   },
   {
+    id: 'agentic-memory-before-gen',
+    match: /agentic\s+memory|memory.?before.?gen|token\s*overrun|reuse\s+prior\s+answer|similarity\s+search\s+past/i,
+    expand: [
+      'agent-memory-before-gen',
+      'REUSE',
+      'ADAPT',
+      'GENERATE',
+      'agent-memory.jsonl',
+      'estimated_tokens_saved',
+    ],
+  },
+  {
     id: 'moe-routing',
     match: /\bmoe\b|mixture\s+of\s+experts|dead\s+expert|economic\s+router|model\s+route/i,
     expand: ['hermes-economic-router', 'moe-expert-health', 'retired-experts', 'route-quality'],
