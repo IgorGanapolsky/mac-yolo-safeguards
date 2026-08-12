@@ -4,6 +4,146 @@ Dated entries from the autonomous OSS-engagement routine (Thinking Machines Lab 
 
 ---
 
+## 2026-08-12 (PM) — New LanceDB bug (#3923) found, root-caused, fixed, and fully verified end-to-end; pushed to fork; upstream PR still blocked
+
+### Repos surveyed
+
+| Org | Repos |
+|-----|-------|
+| Thinking Machines Lab | `thinking-machines-lab/tinker`, `tinker-cookbook`, `tinker-feedback` (issue lists, last 48h + general freshness pass) |
+| Poolside AI | `poolsideai/pool` (issue list, last 48h) |
+| LanceDB | `lancedb/lancedb` (issue list, last 48h + open-PR check to rule out pile-on) |
+
+### The recurring cross-owner wall — re-confirmed, same as every run since 08-04
+
+`add_repo` for `igorganapolsky/lancedb` (Igor's own fork, same owner as this session's
+initial source) succeeded and granted push access, same as this morning's run. A real
+`mcp__github__create_pull_request` attempt against `lancedb/lancedb` (not a no-op probe —
+the actual PR for this run's fix, title/body fully drafted) failed with `"repository
+lancedb/lancedb is not configured for this session"`, identical in form to every prior
+day back to 08-04. Read access to `lancedb/lancedb`/`thinking-machines-lab/tinker` via
+`list_issues`/`list_pull_requests` is also still denied; `search_issues`/`search_pull_requests`
+(no owner/repo header requirement) continue to be the only read path that works cross-org.
+
+### Issues considered
+
+**LanceDB** — surveyed `lancedb/lancedb` issues created since this morning's run.
+[#3923](https://github.com/lancedb/lancedb/issues/3923) (`merge_insert` on a JSON column
+stores the raw string, breaking `json_extract` for the whole table) — filed today at
+15:57 UTC, **after** this morning's survey closed, 0 comments, no open PR referencing it
+(confirmed via `search_pull_requests`) — **acted**. The issue itself was filed by another
+AI coding agent on a user's behalf, with a thorough repro and a same-symptom/different-file
+cross-link to `lance-format/lance#8519` for the `update()` variant (not fixable from this
+repo — out of scope, left for lance-core). No other LanceDB issue from today competed for
+attention; the routine's per-run cap is one candidate per org regardless.
+
+**Tinker** — `tinker` unchanged since #51 (Jul 20); `tinker-cookbook`'s newest issues
+(#857, #847) are open feature/recipe requests, not reproducible bugs; `tinker-feedback`
+unchanged since #139 (Aug 3, already ruled out — requires the unpublished `tml_tokenizers`
+package). Nothing newly actionable.
+
+**Poolside AI** — `pool`'s newest issue is still #38 (Aug 7, already known). No action
+possible.
+
+### What was opened
+
+Nothing directly — cross-owner PR creation confirmed still blocked (see above). What
+exists instead:
+
+| Artifact | Where |
+|----------|-------|
+| LanceDB #3923 fix + regression test, pushed, fully verified | `igorganapolsky/lancedb@fix/merge-insert-json-encoding` — compare: https://github.com/lancedb/lancedb/compare/main...IgorGanapolsky:fix/merge-insert-json-encoding?expand=1 |
+
+#### Root cause
+
+`merge_insert` unconditionally routes new data through `AsyncTable._do_merge` →
+`_sanitize_data(new_data, schema, ..., allow_subschema=True)` using the **table's live
+schema** as the cast target — unlike `add()`, which only does this for the bad-vectors/
+embedding-metadata edge cases and otherwise skips straight to the Rust binding (where
+`cast_to_table_schema` already special-cases `arrow.json → lance.json` for exactly this
+reason). For a `pa.json_()` input column, the table's JSON field is reported as
+`LargeBinary` + `ARROW:extension:name=lance.json`. Python's `_align_field_types` forced
+the input field to that type via a plain `pa.Table.cast()`; PyArrow casts an extension
+array to a non-matching type by casting its *storage* array, so this silently
+reinterpreted the raw JSON text bytes as opaque binary instead of routing through
+lance-core's `arrow.json → lance.json` JSONB encoder. Confirmed this exact mechanism
+stand-alone at the pyarrow level before touching lancedb's code at all.
+
+#### Fix
+
+`python/python/lancedb/schema.py`: added `is_arrow_json_field`/`is_lance_json_field`
+helpers (mirroring the existing `is_blob_v2_field` pattern) — note `pa.json_()` is
+`pyarrow.lib.JsonType`, a `BaseExtensionType` (PyArrow's canonical extension types), not
+the user-registerable `pa.ExtensionType` that `BlobType` uses; first draft of this check
+used only `isinstance(..., pa.ExtensionType)` and silently failed to detect `arrow.json`
+fields at all (caught by the regression test still failing after the "fix" — fixed by
+checking both classes before moving on).
+
+`python/python/lancedb/table.py`: `_align_field_types` now special-cases
+`is_arrow_json_field(field) and is_lance_json_field(target_field)` to pass the field
+through unchanged instead of casting, matching the Rust side's existing behavior.
+
+#### Verified, not assumed
+
+- Built the full `_lancedb` extension from scratch via `maturin develop` in a fresh venv
+  (`protobuf-compiler` installed first; ~16 min cold Rust compile of lance-core +
+  datafusion + the rest of the workspace).
+- New regression test `test_cast_to_target_schema_preserves_arrow_json_for_merge_insert`
+  (`python/tests/test_util.py`): reverted just `schema.py`+`table.py` (kept the test),
+  reran — **FAILED**, asserting the field was cast away to `large_binary` instead of
+  staying `arrow.json`. Restored the fix, reran — **1 passed**.
+- Ran the issue's own end-to-end repro directly (not just the unit test) against a real
+  in-memory table: pre-fix, the `json_extract` filter after `merge_insert` raised
+  `RuntimeError: ... InvalidJsonb` — an exact match to the issue's reported error text.
+  Post-fix, the same sequence succeeded and the updated value read back re-serialized
+  without whitespace (`{"k":2}` vs. the raw `{"k": 2}` written), which is the issue's own
+  tell for JSONB-encoded vs. raw-copied data.
+- `python -m pytest python/tests/test_util.py`: **66 passed, 1 skipped** (pre-existing
+  Windows-only skip), no regressions.
+- `python -m pytest python/tests/test_table.py -k "merge or json"`: **13 passed**.
+- `python -m pytest python/tests/ -k "blob"` (since `schema.py`'s `isinstance` check is
+  shared with blob-field detection, and I widened it): **73 passed, 4 skipped**, no
+  regressions.
+- `ruff check` / `ruff format --check`: clean.
+
+PR title/body fully drafted (problem, root cause, fix, before/after, verification) and
+submitted to `create_pull_request` this run; failed with the same "not configured for
+this session" error as every prior day. Whoever next has upstream PR scope can open it
+verbatim from the compare link above.
+
+### What was answered
+
+Nothing (same cross-owner block covers `add_issue_comment`; not re-tested this run per
+the anti-babysitting protocol — the read-side and write-side denials have been
+consistently identical since 08-04).
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| `lance-format/lance#8519` (the `update()` sibling bug, cross-linked from #3923) | Lives in a different repo this session cannot fork/push to (`lance-format/lance`, not `lancedb/lancedb`); out of scope for this run regardless since #3923 already used the one-fix-per-org budget |
+| Tinker, Poolside | Nothing newly actionable beyond what earlier runs already logged (see repos-surveyed table) |
+| New manufactured question | No real unknown hit this run |
+
+### ThumbGate mentions
+
+**None** this run — no one asked about agent write-gating in anything surveyed.
+
+### Action needed from Igor
+
+Same standing ask as every entry since 08-04: the upstream-PR-creation wall for
+`lancedb/lancedb` and `thinking-machines-lab/tinker` is a session-scope limitation, not a
+"nothing to do" day. This run adds a third fully-verified, ready-to-open fix on top of the
+two from this morning:
+- https://github.com/lancedb/lancedb/compare/main...IgorGanapolsky:fix/merge-insert-json-encoding?expand=1
+  (new this run — #3923, JSON columns corrupted by `merge_insert`)
+- https://github.com/lancedb/lancedb/compare/main...IgorGanapolsky:fix/list-tables-pagination-boundary-v2?expand=1
+  (from this morning — #3915, pagination boundary loss)
+- https://github.com/thinking-machines-lab/tinker/compare/main...IgorGanapolsky:fix/sync-only-async-method-name-v2?expand=1
+  (from this morning — #38 partial, `sync_only` async-method-name warning)
+
+---
+
 ## 2026-08-12 — Push access to Igor's forks restored; both parked fixes rebased, re-verified, pushed; upstream PR creation still blocked
 
 ### Repos surveyed
