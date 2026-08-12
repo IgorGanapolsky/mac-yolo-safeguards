@@ -231,9 +231,9 @@ fi
 
 # Never push an unverified / foreign key onto the phone (2026-07-14 Wrong key after fresh install)
 if [[ "$PAIR_JS" == *"verifyGatewayAuthSync"* ]] && [[ "$PAIR_JS" == *"buildVerifiedExtraComputer"* ]] && [[ "$PAIR_JS" == *"Refusing to pair"* ]]; then
-  ok "pair refuses deep link without verified /api/sessions 200"
+  ok "pair refuses deep link without verified /v1/models 200"
 else
-  bad "pair refuses deep link without verified /api/sessions 200"
+  bad "pair refuses deep link without verified /v1/models 200"
 fi
 
 if [[ "$PAIR_JS" == *"127.0.0.1:8642"* ]] && [[ "$PAIR_JS" == *"USB pairing: primary URL"* || "$PAIR_JS" == *"loopback primary"* ]]; then

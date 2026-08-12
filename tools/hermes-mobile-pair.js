@@ -1382,7 +1382,7 @@ function runPairMain(args) {
           `Fix API_SERVER_KEY on the target Mac or re-run after hermes gateway is up. Never push a wrong key to the phone.`,
       );
     }
-    console.log('  Auth: verified /api/sessions 200 with embedded key');
+    console.log('  Auth: verified /v1/models 200 with embedded key');
   } else {
     console.warn('  Auth: skipped (--skip-auth-probe)');
   }

@@ -257,7 +257,10 @@ function classifyMiniApiKeyResolution(localKey, options = {}) {
 
 /**
  * Auth probe: /health is unauthenticated (always 200 when up). Chat needs a key.
- * GET /api/sessions?limit=1 with Bearer must be 200 — never pair a key that 401s.
+ *
+ * Prefer GET /v1/models with Bearer — large local session DBs can hang
+ * GET /api/sessions?limit=1 for tens of seconds (false "auth failed" / wrong key).
+ * Never pair a key that 401/403s.
  */
 function verifyGatewayAuth(gatewayUrl, apiKey, options = {}) {
   const base = String(gatewayUrl || '')
@@ -281,7 +284,7 @@ function verifyGatewayAuth(gatewayUrl, apiKey, options = {}) {
 
   let parsed;
   try {
-    parsed = new URL(`${base}/api/sessions?limit=1`);
+    parsed = new URL(`${base}/v1/models`);
   } catch {
     return { ok: false, status: 0, reason: 'invalid_url' };
   }
@@ -341,7 +344,8 @@ function verifyGatewayAuthSync(gatewayUrl, apiKey, options = {}) {
       return { ok: false, status: 0, reason: err instanceof Error ? err.message : String(err) };
     }
   }
-  const url = `${base}/api/sessions?limit=1`;
+  // /v1/models is auth-gated and stays fast on large session DBs (unlike /api/sessions list).
+  const url = `${base}/v1/models`;
   const curl = spawnSync(
     options.curlCommand ?? 'curl',
     ['-sS', '-m', String(options.timeoutSec ?? 5), '-o', '/dev/null', '-w', '%{http_code}', '-H', `Authorization: Bearer ${key}`, url],
