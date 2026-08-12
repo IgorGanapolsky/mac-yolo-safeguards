@@ -23,18 +23,19 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(layout, /images: \["\/og\.png"\]/);
   assert.match(layout, /agent observability/);
   assert.match(page, /ThumbGate/);
-  assert.match(page, /Hermes dashboard/);
+  assert.match(page, /Keep Hermes work running/);
   assert.match(page, /Continuity/);
   assert.doesNotMatch(page, /Self-Improving Firewall|self-improving firewall/);
-  assert.match(page, /Free control\. Paid continuity\./);
-  assert.match(page, /Web Control/);
+  assert.match(page, /Free pair\. Paid Continuity\./);
+  assert.match(page, /Pair &amp; status|Pair & status/);
   assert.match(page, /Pro Continuity|Cloud Continuity/);
   assert.match(page, /Continue with Google today/);
   assert.doesNotMatch(page, /Continue with Google or Apple/);
-  // Hero states the mechanism, not a self-disclaimer: 12 landing views/day converted 0 sign-in
-  // clicks while the lede called the paid capability "still proving this out" (2026-07-30).
-  assert.match(page, /approve or deny each tool call before it runs/);
-  assert.match(page, /fenced VPS runner under the policy you set/);
+  // Continuity-first product (2026-08): Hermes owns machine chat; ThumbGate.app sells VPS failover.
+  // Leash approvals are Mac/Hermes-scoped — cloud runner has no tool-approval handshake.
+  assert.match(page, /Hermes already chats with your real machines/);
+  assert.match(page, /Leash approvals stay on the paired Mac/);
+  assert.match(page, /fenced VPS runner/);
   assert.doesNotMatch(page, /still proving/);
   assert.match(page, /by ThumbGate/);
   assert.match(page, /Your Hermes work/);
@@ -68,7 +69,7 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /LandingAuthHero|LandingAuthNav/);
   assert.doesNotMatch(page, /currentSession\(/);
   assert.match(page, /<FailoverPathDemo \/>/);
-  assert.match(page, /Remote control\. Keep going offline\./);
+  assert.match(page, /Chat stays in Hermes\. Continuity keeps work alive\./);
   assert.doesNotMatch(page, /\$29|price: "29"/);
   const failoverDemo = await readFile(new URL("../app/FailoverPathDemo.tsx", import.meta.url), "utf8");
   assert.match(failoverDemo, /Deny call/);
@@ -96,14 +97,16 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(dashboard, /\? manageBilling\(\) : subscribe\(\)/);
   assert.match(page, /100 cloud continuations/);
   assert.match(page, /Run one installer/);
-  assert.match(page, /Connect your Mac\. Open the dashboard\./);
+  assert.match(page, /Connect your Mac\. Enable Continuity\./);
   assert.match(page, /Continuity \(VPS\)/);
   // Pricing CTAs live in client chrome (static shell + /api/me personalization).
+  // Continuity is primary; free pair is secondary (dual-track).
   const chrome = await readFile(new URL("../app/LandingAuthChrome.tsx", import.meta.url), "utf8");
   assert.match(chrome, /data-funnel-event="free_control_click"/);
   assert.match(chrome, /data-funnel-event="cloud_continuity_click"/);
-  assert.match(chrome, /data-funnel-event=\{isSession \? "dashboard_open_click" : "sign_in_click"\}/);
+  assert.match(chrome, /data-funnel-event="sign_in_click"/);
   assert.match(chrome, /Try Continuity — 14 days free/);
+  assert.match(chrome, /Sign in to pair free/);
   assert.match(chrome, /Hands eligible work to a fenced VPS runner when your Mac is offline/);
   assert.doesNotMatch(chrome, /still proving/);
   assert.equal((chrome.match(/"sign_in_click"/g) ?? []).length, 1);
@@ -123,8 +126,9 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /SoftwareApplication/);
   assert.match(page, /RemoteControlDiagram/);
   const diagram = await readFile(new URL("../app/RemoteControlDiagram.tsx", import.meta.url), "utf8");
-  assert.match(diagram, /Your phone/);
+  assert.match(diagram, /Hermes chat/);
   assert.match(diagram, /Encrypted pairing/);
+  assert.match(diagram, /Continuity VPS when offline/);
   // AEO contract (config/thumbgate-aeo-prompts.json): landing must ship a
   // visible FAQ + FAQPage JSON-LD so answer engines can cite it.
   assert.match(page, /FAQPage/);
@@ -136,10 +140,10 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(robots, /https:\/\/thumbgate\.app\/sitemap\.xml/);
   assert.match(sitemap, /https:\/\/thumbgate\.app\//);
   assert.match(sitemap, /2026-07-22/);
-  assert.match(llms, /# ThumbGate for Hermes/);
+  assert.match(llms, /# ThumbGate Continuity/);
   assert.match(llms, /Aggregate, content-free product analytics/);
   assert.match(llms, /## Direct answers/);
-  assert.match(llms, /web dashboard for Hermes remote control/);
+  assert.match(llms, /VPS failover for Hermes agents/);
   assert.match(llms, /CloudCLI is a separate/);
   assert.doesNotMatch(page, /Igor|Ganapolsky/i);
   assert.doesNotMatch(`${layout}\n${robots}\n${sitemap}\n${llms}`, /Igor|Ganapolsky/i);
