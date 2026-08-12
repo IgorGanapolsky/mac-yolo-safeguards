@@ -22,8 +22,11 @@ export function resolveGreetingTransportLabel(
   machineEndpoint?: string | null,
 ): string | undefined {
   const first = machineEndpoint?.split(' · ')[0]?.trim();
-  if (first === 'Tailscale' || first === 'Home Wi‑Fi') {
+  if (first === 'Tailscale') {
     return first;
+  }
+  if (first === 'Wi‑Fi' || first === 'Home Wi‑Fi') {
+    return 'Wi‑Fi';
   }
   return undefined;
 }
@@ -31,7 +34,7 @@ export function resolveGreetingTransportLabel(
 type ChatEmptyGreetingProps = {
   /** Only for routes not already shown in the chat header (e.g. unpaired relay). */
   routeLabel?: string;
-  /** Active path chip from header SSoT (USB / Tailscale / Home Wi‑Fi). */
+  /** Active path chip from header SSoT (USB / Tailscale / Wi‑Fi). */
   transportLabel?: string;
   isConnected?: boolean;
   /** Bootstrap / silent heal — avoid flashing unreachable copy on cold start. */

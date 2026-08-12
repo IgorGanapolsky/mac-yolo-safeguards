@@ -71,11 +71,11 @@ describe('resolveChatMachineHeaderDisplay', () => {
       savedMacCount: 2,
     });
     expect(display.machineLabel).toBe('Igors-MacBook-Pro');
-    expect(display.machineEndpoint).toBe('Home Wi‑Fi');
+    expect(display.machineEndpoint).toBe('Wi‑Fi');
     expect(display.showDetailWhenConnected).toBe(true);
   });
 
-  it('shows Home Wi‑Fi for single Mac LAN reach path', () => {
+  it('shows Wi‑Fi for single Mac LAN reach path', () => {
     const display = resolveChatMachineHeaderDisplay({
       activeProfile: { ...macMini, label: 'Igors-Mac-mini' },
       gatewayUrl: macMini.gatewayUrl,
@@ -86,7 +86,7 @@ describe('resolveChatMachineHeaderDisplay', () => {
       savedMacCount: 1,
     });
     expect(display.machineLabel).toBe('Igors-Mac-mini');
-    expect(display.machineEndpoint).toBe('Home Wi‑Fi');
+    expect(display.machineEndpoint).toBe('Wi‑Fi');
   });
 
   it('includes relay worker when different from chat Mac', () => {
@@ -296,7 +296,7 @@ describe('resolveChatMachineHeaderDisplay', () => {
     });
     expect(miniTailscale.machineLabel).toBe('Mac mini');
 
-    expect(miniTailscale.machineEndpoint).toBe('Home Wi‑Fi');
+    expect(miniTailscale.machineEndpoint).toBe('Wi‑Fi');
 
     const proUsb = resolveChatMachineHeaderDisplay({
       activeProfile: { ...macBook, gatewayUrl: 'http://127.0.0.1:8642' },
@@ -617,7 +617,7 @@ describe('formatMacConnectionRetryBanner', () => {
 });
 
 describe('resolveHeaderTransportLabel / USB allow rule', () => {
-  it('labels Tailscale and Home Wi‑Fi from successful reach URL', () => {
+  it('labels Tailscale and Wi‑Fi from successful reach URL', () => {
     expect(
       resolveHeaderTransportLabel({ gatewayUrl: 'http://100.87.85.85:8642' }),
     ).toBe('Tailscale');
@@ -628,7 +628,7 @@ describe('resolveHeaderTransportLabel / USB allow rule', () => {
     ).toBe('Tailscale');
     expect(
       resolveHeaderTransportLabel({ gatewayUrl: 'http://10.2.29.103:8642' }),
-    ).toBe('Home Wi‑Fi');
+    ).toBe('Wi‑Fi');
   });
 
   it('allows USB for loopback on Wi‑Fi; cellular needs live /health (ghost guard)', () => {
