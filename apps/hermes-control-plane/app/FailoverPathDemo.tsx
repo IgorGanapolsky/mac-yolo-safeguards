@@ -1,10 +1,16 @@
 "use client";
 
 import { useEffect, useId, useMemo, useState } from "react";
+import {
+  buildDemoGateExport,
+  isDemoExportReady,
+  type DemoOfflinePolicy,
+  type DemoPhase,
+} from "../lib/demo-gate-export";
 import styles from "./failover-demo.module.css";
 
-type Phase = "pending" | "denied" | "running" | "offline_choice" | "paused" | "ask" | "cloud";
-type OfflinePolicy = "disabled" | "manual" | "auto";
+type Phase = DemoPhase;
+type OfflinePolicy = DemoOfflinePolicy;
 
 const TOOL_CALL = {
   name: "Bash",
@@ -51,9 +57,25 @@ function phaseLabel(phase: Phase): string {
 export function FailoverPathDemo() {
   const titleId = useId();
   const liveId = useId();
+  const exportTitleId = useId();
   const [phase, setPhase] = useState<Phase>("pending");
   const [policy, setPolicy] = useState<OfflinePolicy>("manual");
   const [autoplay, setAutoplay] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+
+  const gateExport = useMemo(
+    () =>
+      buildDemoGateExport({
+        phase,
+        policy,
+        // Stable for SSR/hydration; clipboard still has a real timestamp only when copying
+        // is not required for render — export panel uses this memoized artifact.
+        generatedAt: "demo-local",
+      }),
+    [phase, policy],
+  );
+
+  const exportReady = isDemoExportReady(phase);
 
   const liveMessage = useMemo(() => {
     switch (phase) {
@@ -137,6 +159,26 @@ export function FailoverPathDemo() {
     setPhase("cloud");
   }
 
+  async function copyGateExport() {
+    const payload = buildDemoGateExport({
+      phase,
+      policy,
+      generatedAt: new Date().toISOString(),
+    }).clipboardText;
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(payload);
+      } else {
+        throw new Error("clipboard unavailable");
+      }
+      setCopyState("copied");
+      window.setTimeout(() => setCopyState("idle"), 2000);
+    } catch {
+      setCopyState("failed");
+      window.setTimeout(() => setCopyState("idle"), 2500);
+    }
+  }
+
   return (
     <section className={styles.demo} aria-labelledby={titleId}>
       <div className={styles.header}>
@@ -145,6 +187,7 @@ export function FailoverPathDemo() {
           <h3 id={titleId}>Watch ThumbGate approve, deny, and fail over</h3>
           <p className={styles.lede}>
             Click the buttons. This is the exact product path: Leash decides the call, then your offline policy decides who finishes the work.
+            Like a visual pipeline that exports code you can keep — when you act, copy a durable gate artifact.
           </p>
         </div>
         <div className={styles.headerActions}>
@@ -301,6 +344,38 @@ export function FailoverPathDemo() {
       <p id={liveId} className={styles.live} aria-live="polite">
         {liveMessage}
       </p>
+
+      <aside className={styles.exportPanel} aria-labelledby={exportTitleId}>
+        <div className={styles.exportHeader}>
+          <div>
+            <p className={styles.eyebrow}>{gateExport.title}</p>
+            <h4 id={exportTitleId}>Visual path → portable gate</h4>
+            <p className={styles.exportLede}>
+              {exportReady
+                ? `Current decision: ${gateExport.decision}. Copy the durable JSON + optional local hook snippet — nothing runs until you wire it.`
+                : "Approve, deny, or finish an offline choice to unlock a copyable gate artifact for this path."}
+            </p>
+          </div>
+          <button
+            type="button"
+            className={styles.approveButton}
+            disabled={!exportReady}
+            onClick={() => {
+              void copyGateExport();
+            }}
+          >
+            {copyState === "copied" ? "Copied" : copyState === "failed" ? "Copy failed" : "Copy gate code"}
+          </button>
+        </div>
+        <ol className={styles.exportSteps} aria-label="Exported visual steps">
+          {gateExport.steps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+        <pre className={styles.exportCode} tabIndex={0}>
+          <code>{exportReady ? gateExport.gateJson : "{\n  \"status\": \"awaiting_demo_action\"\n}\n"}</code>
+        </pre>
+      </aside>
     </section>
   );
 }

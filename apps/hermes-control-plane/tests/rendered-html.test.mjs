@@ -78,6 +78,13 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(failoverDemo, /needs_failover/);
   assert.match(failoverDemo, /offline_blocked/);
   assert.match(failoverDemo, /Interactive demo · no real tools run/);
+  // Amphi-style visual → portable gate export (lib + UI)
+  assert.match(failoverDemo, /buildDemoGateExport/);
+  assert.match(failoverDemo, /Copy gate code/);
+  assert.match(failoverDemo, /Visual path → portable gate/);
+  const gateExport = await readFile(new URL("../lib/demo-gate-export.ts", import.meta.url), "utf8");
+  assert.match(gateExport, /export function buildDemoGateExport/);
+  assert.match(gateExport, /demo_gate_export/);
   assert.match(billingPlan, /\/api\/billing\/plan/);
   assert.match(billingPlanRoute, /STRIPE_PRICE_ID/);
   assert.match(billingPlanRoute, /unitAmount: price\.unit_amount/);

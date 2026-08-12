@@ -409,6 +409,7 @@ test("keeps every workspace telemetry value behind authentication", () => {
 
 test("explains the failover path with an interactive approve/deny demo", () => {
   const failoverDemo = readFileSync(new URL("../app/FailoverPathDemo.tsx", import.meta.url), "utf8");
+  const gateExport = readFileSync(new URL("../lib/demo-gate-export.ts", import.meta.url), "utf8");
   assert.match(landing, /<FailoverPathDemo \/>/);
   assert.match(landing, /Chat stays in Hermes\. Continuity keeps work alive\./);
   assert.match(failoverDemo, /Deny call/);
@@ -417,5 +418,8 @@ test("explains the failover path with an interactive approve/deny demo", () => {
   assert.match(failoverDemo, /Continue in cloud/);
   assert.match(failoverDemo, /aria-live="polite"/);
   assert.match(failoverDemo, /no real tools run/);
+  assert.match(failoverDemo, /Copy gate code/);
+  assert.match(failoverDemo, /buildDemoGateExport/);
+  assert.match(gateExport, /buildDemoGateExport/);
   assert.doesNotMatch(failoverDemo, /fetch\(|sendBeacon|localStorage/);
 });

@@ -398,6 +398,74 @@
   }
 }
 
+.exportPanel {
+  margin-top: 20px;
+  padding: 18px 18px 16px;
+  border: 1px solid rgba(34, 211, 238, 0.22);
+  border-radius: 20px;
+  background: rgba(8, 12, 22, 0.55);
+}
+
+.exportHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.exportHeader h4 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: -0.03em;
+}
+
+.exportLede {
+  margin: 8px 0 0;
+  max-width: 62ch;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.exportSteps {
+  margin: 0 0 12px;
+  padding-left: 1.2rem;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.exportSteps li {
+  margin: 0.2rem 0;
+}
+
+.exportCode {
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--brand-line);
+  background: rgba(0, 0, 0, 0.35);
+  color: #e2e8f0;
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.exportHeader .approveButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@media (max-width: 720px) {
+  .exportHeader {
+    flex-direction: column;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .approveButton,
   .denyButton,
