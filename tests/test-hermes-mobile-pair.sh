@@ -119,6 +119,15 @@ else
   bad "live mint prefers LAN pairServer for same-Wi-Fi redeem (Tailscale fallback)"
 fi
 
+# Stale pair-seed can keep a Tailscale gatewayUrl forever; mint must re-resolve to LAN.
+if grep -q 'function resolveLiveMintGatewayUrl' "$REPO/tools/hermes-mobile-pair.js" \
+  && grep -q 'Re-resolve every mint so a stale 100.x seed cannot pin' "$REPO/tools/hermes-mobile-pair.js" \
+  && grep -q 'resolveLiveMintGatewayUrl(seed)' "$REPO/tools/hermes-mobile-pair.js"; then
+  ok "live mint re-resolves gatewayUrl to LAN (heals stale Tailscale seed)"
+else
+  bad "live mint re-resolves gatewayUrl to LAN (heals stale Tailscale seed)"
+fi
+
 # --open must prefer live HTTP over file://
 if grep -q 'Prefer live HTTP (Tailscale/LAN) over file://' "$REPO/tools/hermes-mobile-pair.js" \
   && grep -q 'const openTarget = pageUrl || htmlPath' "$REPO/tools/hermes-mobile-pair.js"; then

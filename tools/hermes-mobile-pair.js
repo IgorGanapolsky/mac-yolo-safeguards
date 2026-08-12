@@ -605,6 +605,26 @@ function resolveLiveMintPairServerUrl(seed) {
   return fromSeed;
 }
 
+/**
+ * Prefer LAN gateway for same-Wi‑Fi phones (Tailscale VPN often off).
+ * Stale pair-seed can keep a 100.x gatewayUrl forever; mintLivePairSession used to
+ * re-serve that seed verbatim and rewrite pair.json back to Tailscale on every GET.
+ * Tailscale stays available via tailnetProbeHosts for cellular.
+ */
+function resolveLiveMintGatewayUrl(seed) {
+  const lanIp = String(seed?.localIp || detectLocalLanIp() || '').trim();
+  if (lanIp && lanIp !== '127.0.0.1' && lanIp !== 'localhost') {
+    return `http://${lanIp}:8642`;
+  }
+  const fromSeed = String(seed?.gatewayUrl || '').trim().replace(/\/$/, '');
+  if (fromSeed && !fromSeed.includes('127.0.0.1')) {
+    return fromSeed;
+  }
+  const tailnetIp = localTailscaleIpv4();
+  if (tailnetIp) return `http://${tailnetIp}:8642`;
+  return fromSeed || 'http://127.0.0.1:8642';
+}
+
 function writePairQrPng(qrPayload) {
   const qrPath = path.join(OUT_DIR, 'pair-qr.png');
   // Reuse recent QR (same page URL) — npx qrcode spawnSync blocked the pair HTTP
@@ -743,11 +763,35 @@ function mintLivePairSession({ renderPage = true } = {}) {
   if (!seed || !seed.gatewayUrl || !seed.apiKey) {
     return { ok: false, reason: 'no_seed' };
   }
-  // Camera/HTTP path: always mint against Tailscale/LAN — never stale LAN while QR is Tailscale.
-  const pairServer = resolveLiveMintPairServerUrl(seed);
+  const lanIp = seed.localIp || detectLocalLanIp() || '127.0.0.1';
+  // Re-resolve every mint so a stale 100.x seed cannot pin the phone to Tailscale
+  // when the Mac has a working LAN IP (same-Wi‑Fi, Tailscale off on phone).
+  const gatewayUrl = resolveLiveMintGatewayUrl(seed);
+  const pairServer = resolveLiveMintPairServerUrl({ ...seed, localIp: lanIp, gatewayUrl });
+  const cameraPageUrl = resolveCameraPageUrl(lanIp);
+  // Self-heal pair-seed so the next process (or a restart) does not re-poison pair.json.
+  if (
+    seed.gatewayUrl !== gatewayUrl ||
+    seed.pairServer !== pairServer ||
+    seed.pageUrl !== cameraPageUrl ||
+    seed.localIp !== lanIp
+  ) {
+    try {
+      savePairSeed({
+        ...seed,
+        gatewayUrl,
+        pairServer,
+        pageUrl: cameraPageUrl,
+        localIp: lanIp,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch {
+      // Non-fatal: response still uses resolved LAN URLs for this request.
+    }
+  }
   const minted = mintPairingCode(
     {
-      gatewayUrl: seed.gatewayUrl,
+      gatewayUrl,
       apiKey: seed.apiKey,
       macName: seed.macName || seed.hostname || 'Mac',
       relayCode: seed.relayCode || '',
@@ -758,13 +802,11 @@ function mintLivePairSession({ renderPage = true } = {}) {
     { ttlMs: PAIRING_CODE_DISPLAY_TTL_MS },
   );
   const deepLink = buildSecretlessDeepLink(minted.code, pairServer, seed.macName || seed.hostname);
-  const lanIp = seed.localIp || detectLocalLanIp() || '127.0.0.1';
-  const cameraPageUrl = seed.pageUrl || resolveCameraPageUrl(lanIp);
   let html = '';
   if (renderPage) {
     const { imgTag } = writePairQrPng(cameraPageUrl);
     html = buildLivePairHtml({
-      gatewayUrl: seed.gatewayUrl,
+      gatewayUrl,
       deepLink,
       pageUrl: cameraPageUrl,
       hostname: seed.macName || seed.hostname || 'Mac',
@@ -782,7 +824,7 @@ function mintLivePairSession({ renderPage = true } = {}) {
   // rewrite pair.json with the same mint so Connect/Find computers redeem works.
   const displayName = (seed.macName || seed.hostname || 'Mac').replace(/\.local$/i, '');
   const pairJson = {
-    gatewayUrl: seed.gatewayUrl,
+    gatewayUrl,
     deepLink,
     qrUrl: cameraPageUrl,
     hostname: displayName,
@@ -807,7 +849,7 @@ function mintLivePairSession({ renderPage = true } = {}) {
     refreshMs: PAIRING_CODE_REFRESH_MS,
     ttlMs: minted.ttlMs,
     pageUrl: cameraPageUrl,
-    gatewayUrl: seed.gatewayUrl,
+    gatewayUrl,
     hostname: displayName,
     html,
     pairJson,
