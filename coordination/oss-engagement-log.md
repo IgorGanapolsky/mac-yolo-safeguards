@@ -4,6 +4,129 @@ Dated entries from the autonomous OSS-engagement routine (Thinking Machines Lab 
 
 ---
 
+## 2026-08-12 — Push access to Igor's forks restored; both parked fixes rebased, re-verified, pushed; upstream PR creation still blocked
+
+### Repos surveyed
+
+| Org | Repos |
+|-----|-------|
+| Thinking Machines Lab | `thinking-machines-lab/tinker` (issue list, last 48h) |
+| Poolside AI | `poolsideai/pool`, `bridge-sdk`, `acp-go-sdk`, `n8n-poolside-node` (open-issues check) |
+| LanceDB | `lancedb/lancedb` (issue list, last 48h) |
+
+### What changed this run
+
+`add_repo` for `lancedb/lancedb`, `thinking-machines-lab/tinker-cookbook`, and `poolsideai/pool`
+directly still fails exactly as every prior run: `cross-tier adds are not supported ... session
+already has repos from owner(s) [igorganapolsky]`. But `add_repo` for **`igorganapolsky/lancedb`**
+and **`igorganapolsky/tinker`** (Igor's own forks, same owner as the session's initial source)
+**succeeded** and granted push access — cloned both, confirmed `git push` works. This is new
+compared to every previous entry back to 08-03, which treated the whole fork-and-push path as
+blocked. `mcp__github__create_pull_request` against the upstream repos (`lancedb/lancedb`,
+`thinking-machines-lab/tinker`) is still hard-blocked ("not configured for this session") — so
+the wall is specifically at *upstream PR creation*, not at push access to same-owner forks. Net
+effect: this run could push real, freshly-rebased, freshly-tested fixes to Igor's forks; it still
+could not open the upstream PRs itself.
+
+### Issues considered
+
+**LanceDB #3915** (`list_tables()` pagination skips one table per page boundary, parked
+08-11) — re-surveyed the last-48h issue list first (#3917, #3916, #3915, #3914, #3912, all from
+Aug 10; nothing newer) and confirmed #3915 is still the best candidate, unclaimed, no PR yet.
+The parked branch `fix/list-tables-pagination-boundary` at `igorganapolsky/lancedb` turned out to
+be **stale** — diffing it against a fresh clone of current upstream `main` showed 350 files /
+81k lines changed, because the branch's base predates several days of upstream churn. Cherry-picked
+just the fix commit onto a fresh `main` instead of reusing the stale branch; the first
+cherry-pick attempt auto-resolved into a conflict block that would have **resurrected three
+tests upstream had already deleted** since 08-11 (`test_listing_database_root_ops_do_not_create_manifest`,
+`test_open_table_reuses_connection_object_store`, `test_open_table_follows_hugging_face_symlinks`
+— confirmed absent anywhere in current `main` via `git grep`, i.e. deliberately removed, not
+moved). Re-did the resolution to keep only the new regression test. Result: a clean 59-line diff
+against current `main` (1 file, matches the original fix's size).
+
+**Tinker** — no issues opened in the last 48h (newest is #51, Jul 20). The parked branch
+`fix/sync-only-async-method-name-issue-38` (08-10, fixes a nonexistent-method-name bug in the
+`sync_only` async-context warning, secondary to #38's Kimi K2 report) was also stale against
+current `main` (32 files / ~2k lines of unrelated drift from this repo's periodic "Sync contents"
+mirror commits). Cherry-picked cleanly onto fresh `main` with zero conflicts this time. Also
+amended the commit message: it originally said "Fixes #38", which would have auto-closed #38 on
+merge even though this only fixes a secondary symptom (the warning text) — #38's actual bug (a
+`kimi_k2`/`deepseek_v3` model-type mismatch) is untouched and still open. Changed to "Refs #38"
+and said so explicitly in the commit body and the (unopenable) PR draft.
+
+**Poolside AI** — `pool`'s core remains closed-source (re-confirmed pattern, not re-cloned this
+run since nothing changed). Checked open issues on `bridge-sdk`, `acp-go-sdk`, and
+`n8n-poolside-node` (newly noticed, updated Aug 10): all zero. No action possible.
+
+### What was opened
+
+Nothing (upstream PR creation confirmed still blocked for both attempts, see above). What exists
+instead, now in materially better shape than 08-11's parked state:
+
+| Artifact | Where |
+|----------|-------|
+| LanceDB #3915 fix, rebased onto current `main`, re-verified, pushed | `igorganapolsky/lancedb@fix/list-tables-pagination-boundary-v2` — compare: https://github.com/lancedb/lancedb/compare/main...IgorGanapolsky:fix/list-tables-pagination-boundary-v2?expand=1 |
+| Tinker #38 (partial) fix, rebased onto current `main`, re-verified, pushed | `igorganapolsky/tinker@fix/sync-only-async-method-name-v2` — compare: https://github.com/thinking-machines-lab/tinker/compare/main...IgorGanapolsky:fix/sync-only-async-method-name-v2?expand=1 |
+
+Both PR bodies are fully drafted (root cause, before/after, verification) and were submitted to
+`mcp__github__create_pull_request` this run — both calls failed with the identical
+"not configured for this session" error against the upstream repo, confirming the block is still
+live. Whoever next has upstream PR scope (Mac-side `gh`, or a session whose initial source is the
+target org) can open both verbatim from the compare links with zero further investigation.
+
+#### LanceDB fix — verification detail (this run, not reused from 08-11)
+
+Installed `protobuf-compiler` (missing `protoc` blocked the first build attempt). Then, on the
+rebuilt branch:
+- `cargo test -p lancedb --lib database::listing::tests::test_list_tables_pagination_no_boundary_loss
+  -- --exact` with the fix: **1 passed**.
+- Reverted just the `>=` → `>` line (test file untouched), reran: **FAILED** — assertion diff
+  showed the exact boundary tables missing, matching the issue's reported symptom.
+- Reapplied the fix, reran: **1 passed** again. `git diff main` for the file is exactly the
+  original 59-line change — no accidental resurrection of deleted code.
+
+#### Tinker fix — verification detail (this run)
+
+`uv sync --python 3.11` (repo's `.python-version` pins 3.9, incompatible with
+`requires-python >=3.11`; used `--python 3.11` throughout to work around it without touching the
+pin file). On the rebuilt branch:
+- `uv run --python 3.11 pytest src/tinker/lib/sync_only_test.py -v` with the fix: **5 passed**.
+- Reverted just `sync_only.py` (kept the new test file), reran: **1 error** —
+  `ImportError: cannot import name '_suggest_async_method_name'` (the test file doesn't even
+  collect without the fix, i.e. it's genuinely exercising the new code path).
+- Restored the fix, confirmed `_suggest_async_method_name` present again; discarded an unrelated
+  `uv.lock` diff produced by `uv sync` before pushing, so the pushed branch is fix-only.
+
+### What was answered
+
+Nothing (same upstream-comment block that blocks PR creation also blocks `add_issue_comment`
+against issues outside session scope — not re-tested this run, per the existing 08-06/08-11
+finding that testing this specific call has already been exhausted).
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| `tinker-cookbook`, `poolsideai/pool` forks | `add_repo` cross-tier restriction still blocks adding repos from a different owner than the session's existing sources — confirmed again this run for all three target orgs directly |
+| Reusing the 08-11 parked branches as-is | Both had drifted far enough from current `main` (81k and ~2k line diffs respectively) that a PR opened from them would not read as a clean, reviewable diff; rebuilt from a single cherry-picked commit onto fresh `main` instead |
+| "Fixes #38" keyword | Would auto-close #38 on merge despite the primary bug (Kimi K2 model-type mismatch) being untouched; changed to "Refs #38" |
+| New manufactured question | No real unknown hit this run |
+
+### ThumbGate mentions
+
+**None** this run — no one asked about agent write-gating in anything surveyed.
+
+### Action needed from Igor
+
+Both fixes are now fully ready — tested, clean diffs against current upstream `main`, pushed to
+your forks, PR bodies drafted. The only remaining gap is opening the actual upstream PR, which
+this session's GitHub scope cannot do (confirmed again this run, same as every prior run since
+08-03). Either link works and needs nothing further investigated:
+- https://github.com/lancedb/lancedb/compare/main...IgorGanapolsky:fix/list-tables-pagination-boundary-v2?expand=1
+- https://github.com/thinking-machines-lab/tinker/compare/main...IgorGanapolsky:fix/sync-only-async-method-name-v2?expand=1
+
+---
+
 ## 2026-08-10 — jcode engagement (Igor-directed): #869 fix verified + forensic packet parked; 2 answer drafts
 
 Igor's live directive this run: engage https://github.com/1jehuang/jcode (16.8k★ Rust agent
