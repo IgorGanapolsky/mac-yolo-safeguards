@@ -17,19 +17,21 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL("https://thumbgate.app"),
   title: {
-    default: "ThumbGate — Hermes dashboard & continuity",
-    template: "%s | ThumbGate for Hermes",
+    default: "ThumbGate Continuity — VPS failover for Hermes agents",
+    template: "%s | ThumbGate Continuity",
   },
-  description: "Web remote control for Hermes agents. Free dashboard while your Mac is online; paid Continuity keeps work running on a VPS when it is offline.",
+  description:
+    "Continuity keeps Hermes work running on a fenced VPS when your Mac is offline—synced with the same agents on your real machines. Hermes owns chat; ThumbGate owns offline failover.",
   alternates: { canonical: "/" },
-  applicationName: "ThumbGate for Hermes",
+  applicationName: "ThumbGate Continuity",
   category: "developer tools",
   keywords: [
+    "ThumbGate Continuity",
     "Hermes agent",
-    "Hermes web dashboard",
-    "AI agent remote control",
+    "VPS failover",
     "agent failover",
     "cloud continuity",
+    "Hermes offline",
     "agent observability",
   ],
   robots: {
@@ -40,20 +42,21 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     url: "https://thumbgate.app/",
-    siteName: "ThumbGate for Hermes",
-    title: "ThumbGate — Hermes dashboard & continuity",
-    description: "Remote control Hermes from any browser. Continuity keeps eligible work on a VPS when your Mac is offline.",
+    siteName: "ThumbGate Continuity",
+    title: "ThumbGate Continuity — VPS failover for Hermes agents",
+    description:
+      "When the Mac closes, eligible Hermes work continues on a fenced VPS—synced with agents on your real machines.",
     images: [{
       url: "/og.png",
       width: 1200,
       height: 630,
-      alt: "ThumbGate Hermes web dashboard and continuity",
+      alt: "ThumbGate Continuity — VPS failover for Hermes",
     }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "ThumbGate — Hermes dashboard & continuity",
-    description: "Web remote control for Hermes. Paid Continuity when your machine is offline.",
+    title: "ThumbGate Continuity — VPS failover for Hermes agents",
+    description: "Fenced VPS Continuity when your machine is offline. Hermes owns chat with real machines.",
     images: ["/og.png"],
   },
   icons: {
