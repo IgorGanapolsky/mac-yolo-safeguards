@@ -1,52 +1,106 @@
 'use strict';
 
-// Unit suite exercises CLI plumbing only — no live inference. The dry-run
-// flag must be set before the wrapper module is loaded.
-process.env.SEED_YOLO_DRY_RUN = '1';
-
 const assert = require('assert');
-const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { SeedAgentCli } = require('../tools/seed-yolo-wrapper');
+const path = require('path');
+const {
+  DEFAULT_MODEL,
+  SeedYoloAgent,
+  assertCostPolicy,
+  buildHermesArgs,
+  findContextFile,
+  inspectHermes,
+  resolveConfig,
+} = require('../tools/seed-yolo-wrapper');
 
-console.log('=== Testing seed-yolo Standalone ByteDance Seed CLI Suite ===');
-
-const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'seed-yolo-test-'));
+console.log('=== Testing seed-yolo real agent launcher ===');
 
 async function testSuite() {
+  assert.strictEqual(DEFAULT_MODEL, 'openrouter/free');
+
+  const config = resolveConfig({});
+  assert.strictEqual(config.provider, 'openrouter');
+  assert.strictEqual(config.model, 'openrouter/free');
+  assert.deepStrictEqual(config.toolsets.split(','), [
+    'terminal', 'file', 'web', 'code_execution', 'clarify', 'skills', 'memory',
+  ]);
+  assert.doesNotThrow(() => assertCostPolicy(config));
+  assert.throws(
+    () => assertCostPolicy({ ...config, model: 'bytedance-seed/seed-2.0-code' }),
+    /refusing metered route/,
+  );
+  assert.doesNotThrow(() => assertCostPolicy({
+    ...config,
+    provider: 'ollama',
+    model: 'qwen3.5:9b-hermes-32k',
+  }));
+
+  const args = buildHermesArgs(config, 'oneshot', 'inspect this repository');
+  assert.deepStrictEqual(args.slice(0, 4), [
+    '--provider', 'openrouter', '--model', 'openrouter/free',
+  ]);
+  assert(args.includes('--yolo'));
+  assert(args.includes('--accept-hooks'));
+  assert(args.includes('--toolsets'));
+  assert(args.includes('-z'));
+  assert(!args.includes('--ignore-rules'));
+  assert.strictEqual(args.at(-1), 'inspect this repository');
+
+  const contextFile = findContextFile(path.resolve(__dirname, '..', 'tools'));
+  assert.strictEqual(contextFile, path.resolve(__dirname, '..', 'AGENTS.md'));
+
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'seed-yolo-agent-test-'));
   try {
-    const cli = new SeedAgentCli({ receiptDir: tmpDir });
+    const fakeHermes = path.join(tempDir, 'hermes');
+    fs.writeFileSync(fakeHermes, '#!/bin/sh\nexit 0\n');
+    fs.chmodSync(fakeHermes, 0o755);
+    const fakeConfig = { ...config, hermesBin: fakeHermes };
+    const doctorRunner = (_binary, doctorArgs) => {
+      if (doctorArgs[0] === 'tools') {
+        return {
+          status: 0,
+          stdout: fakeConfig.toolsets.split(',').map((name) => `enabled  ${name}`).join('\n'),
+          stderr: '',
+        };
+      }
+      return { status: 0, stdout: '136 enabled, 0 disabled', stderr: '' };
+    };
+    const report = inspectHermes(fakeConfig, doctorRunner);
+    assert.strictEqual(report.ready, true);
+    assert.strictEqual(report.enabledSkills, 136);
+    assert.strictEqual(report.contextAutoInjection, true);
+    assert.strictEqual(report.memoryAutoInjection, true);
+    assert.deepStrictEqual(report.missingToolsets, []);
 
-    // 1. Version check
-    const ver = await cli.run(['--version']);
-    assert.strictEqual(ver.exitCode, 0);
+    const calls = [];
+    const agent = new SeedYoloAgent({
+      config: fakeConfig,
+      childRunner: async (binary, childArgs) => {
+        calls.push({ binary, childArgs });
+        return { exitCode: 0 };
+      },
+      doctorRunner,
+    });
+    const oneShot = await agent.run(['read', 'package.json']);
+    assert.strictEqual(oneShot.exitCode, 0);
+    assert.strictEqual(calls.length, 1);
+    assert.strictEqual(calls[0].binary, fakeHermes);
+    assert(calls[0].childArgs.includes('-z'));
+    assert.strictEqual(calls[0].childArgs.at(-1), 'read package.json');
+    assert(!calls[0].childArgs.includes('--ignore-rules'));
 
-    // 2. Doctor check
-    const doc = await cli.run(['doctor']);
-    assert.strictEqual(doc.exitCode, 0);
-
-    // 3. Prompt execution
-    const res = await cli.run(['Refactor', 'multi-agent', 'harness', 'architecture']);
-    assert.strictEqual(res.exitCode, 0);
-    assert.strictEqual(res.receipt.model, cli.model);
-    assert.strictEqual(res.receipt.executedVia, 'dry-run');
-    assert.strictEqual(res.receipt.status, 'pass');
-    assert.strictEqual(res.receipt.thinkingAllocation.thinkingMode, 'deep_reasoning');
-
-    // 4. Verify Receipt file written
-    const latestPath = path.join(tmpDir, 'latest.json');
-    assert.strictEqual(fs.existsSync(latestPath), true);
-    const receipt = JSON.parse(fs.readFileSync(latestPath, 'utf8'));
-    assert.strictEqual(receipt.model, cli.model);
-
-    console.log('✅ seed-yolo Standalone ByteDance Seed CLI Suite Tests PASSED!');
+    const doctor = agent.runDoctor(true);
+    assert.strictEqual(doctor.exitCode, 0);
+    assert.strictEqual(doctor.report.enabledSkills, 136);
   } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(tempDir, { recursive: true, force: true });
   }
+
+  console.log('✅ seed-yolo real agent launcher tests PASSED');
 }
 
-testSuite().catch((err) => {
-  console.error('Test failure:', err);
+testSuite().catch((error) => {
+  console.error('Test failure:', error);
   process.exit(1);
 });
