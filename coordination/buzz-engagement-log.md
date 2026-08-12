@@ -672,10 +672,67 @@ Fifth consecutive run (Runs 1, 3, 4, 5, 6) with zero write access to `block/buzz
 
 ---
 
+## 2026-08-12 — Run 7 (access wall persists a sixth run; #5611 investigated — one hypothesis disproved, one strong partial lead drafted)
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+- **Canonical repo:** [`github.com/block/buzz`](https://github.com/block/buzz), unchanged identity/maintainer/architecture from Runs 1-6.
+- **Write access to `block/buzz`:** Still blocked, sixth consecutive run. `add_repo(owner:"block", repo:"buzz", access:"push")` returned the same cross-tier rejection verbatim: *"cross-tier adds are not supported in v1: requested block/buzz but session already has repos from owner(s) [igorganapolsky]."* Unlike prior runs, this run also confirmed **anonymous read access still works fine** — `git clone --depth 1 https://github.com/block/buzz.git` succeeded without issue, so full source-level investigation (not just HTML scraping) was possible this run.
+- PR [#4624](https://github.com/block/buzz/pull/4624) — reconfirmed still open, unmerged, no human review yet. Title: "fix(relay): multi-value #h filters must not narrow to first channel."
+
+### What was surveyed (last ~72h, as of 2026-08-12)
+
+Newest open issues as of this run: #5614, #5611, #5608, #5605, #5601, #5595, #5592. Read against Igor's stated domain:
+
+| Issue | Topic | Action |
+|-------|-------|--------|
+| [#5611](https://github.com/block/buzz/issues/5611) | Scheduled workflows (cron and interval) never fire on the hosted relay; manual trigger works and returns a run ID, but scheduled runs never appear in run history at all — no error visible to the reporter, hosted relay logs unavailable to them | **Investigated at source level this run** (below) — squarely in Igor's domain: it's a reliability/audit-trail gap (verified execution vs. self-report — the system silently produces zero record of ever having tried) |
+| #5614 | Feature request: HTTP transport for remote agent providers so L2 doesn't require a local executable | Skipped — architecture/API-surface request, not a reliability bug |
+| #5608 | Desktop: open a community in a separate window | Skipped — UI feature request |
+| [#5605](https://github.com/block/buzz/issues/5605) | Feature request: ordered model-fallback list for `buzz-acp` headless agents so a quota-exhausted model auto-advances to the next configured model instead of looping the provider's limit notice as if it were a real answer | Read in full — genuinely adjacent to Igor's domain (agent self-report vs. actual failure — the agent currently *looks* like it answered when it actually hit a quota wall), but it's a well-specified feature request with its own proposed design (`switch_model` reuse, adapter-level stop-reason signal) already in the issue body; no gap in the analysis for a comment to fill. Skipped as a comment target, logged as a second data point for the positioning pattern below |
+| #5601 | Renaming an agent in one community renames a different agent | Skipped — identity/scoping bug outside stated domain (no retry/idempotency/verification angle) |
+| #5595 | Message history silently truncates at 50, search hard-caps at 100, no indication to the user either way | Read — this is arguably a "silent data loss with no signal" pattern (adjacent to the #4860/#5492/#5555 family), but it's UI/API pagination behavior, not an agent-action reliability bug; skipped as outside the precise domain to avoid diluting future drafts with a weaker fit |
+| #5592 | Feature request: invite an A2A agent into a community | Skipped — feature request, not a bug |
+
+### Investigation of #5611 (source-level, this run)
+
+Cloned `block/buzz` at HEAD and read the actual scheduler implementation rather than inferring from the issue text alone.
+
+**Hypothesis 1 — tested and disproved:** initially suspected the cron loop's `check_owner_authority` pre-claim gate (`crates/buzz-workflow/src/lib.rs:600-609`, which re-verifies the workflow owner's current channel role before every scheduled fire) was silently rejecting the reporter's workflow on every tick, while manual trigger skipped the check and always succeeded. Reading `handle_workflow_trigger` in `crates/buzz-relay/src/handlers/command_executor.rs:885-889` disproves this: the manual-trigger path calls the **identical** `check_owner_authority` gate before creating a run, and returns an explicit `"forbidden: not authorized to trigger this workflow"` rejection on failure. Since the reporter says manual trigger succeeds and returns a run ID, the owner-authority check is passing for their workflow — it cannot be the cause of the scheduled-only silence. Logged as a ruled-out lead, not left as an open guess.
+
+**Hypothesis 2 — strong partial match, drafted as a comment:** `crates/buzz-workflow/src/lib.rs:855-870` (`interval_prefilter_should_fire`) and the accompanying test `interval_cold_start_seeds_anchor_then_fires_after_one_interval` (line ~1244, comment-labeled "Interval cold-start liveness (Max's blocker on the scheduled lane)") show the maintainers already found and fixed the *exact* bug class in the reporter's interval half of the repro: a brand-new interval workflow with no in-memory or durable `last_fired` anchor used to suppress forever with no anchor ever seeded, so it never fired. The current code seeds the anchor on the first cold tick specifically to prevent that. This is a strong, source-confirmed match for "interval schedule set, waited 6 minutes across 4 interval cycles, never fired" — **if** the hosted relay the reporter is running predates this fix. It does **not** explain the cron half of their repro (`cron_fire_instant`, `crates/buzz-workflow/src/lib.rs:759-779`, is stateless per-tick and has no equivalent cold-start dependency), so this is a partial, not complete, explanation.
+
+> Drafted comment for #5611: "Looked at the scheduler source (`crates/buzz-workflow/src/lib.rs`). Your manual-trigger success rules out the owner-authority re-check (`check_owner_authority`) as the cause — that gate is identical on both the cron and manual-trigger paths (`command_executor.rs:885-889`), and a failure there returns an explicit 403, not silence. For the *interval* half of your repro specifically: this looks like it could be the interval cold-start liveness gap that's already fixed on `main` (`interval_prefilter_should_fire`, `lib.rs:855-870`, with the test named for exactly this bug — a brand-new interval workflow with no `last_fired` anchor used to suppress forever). Worth checking whether the hosted relay build you're on predates that fix. That said, it doesn't explain the *cron* half of your repro — `cron_fire_instant` doesn't depend on any anchor state, so if a plain cron schedule also never fired, something else is wrong there and this fix alone won't cover it. Given 'hosted relay logs unavailable' is part of what makes this hard to diagnose from the outside, the more actionable ask might be: does the run-history table get *any* row for a scheduled fire attempt that then fails, or literally zero rows (i.e., is the fire loop not seeing the workflow at all vs. seeing it and rejecting it silently)? That distinguishes an enumeration bug (`list_all_enabled_workflows`) from a claim/authority bug, and neither this fix nor my read of the source can tell which one you hit without that detail."
+
+This is drafted as a partial, honestly-scoped lead — not a confirmed root cause, and explicitly flags what it doesn't explain — consistent with the standard set in Runs 5-6. ThumbGate is not mentioned; this is entirely about Buzz's own scheduler internals.
+
+No fix was attempted for #5611: without hosted-relay/DB access there is no way to reproduce, and per the hard rule a PR is only opened if a real fix ships with a test proven to fail-before/pass-after against the actual bug — a plausible-but-unconfirmed source read does not meet that bar, distinct from "no write access" as the reason.
+
+### What was opened / answered this run
+
+**Nothing posted.** Sixth consecutive run (Runs 1, 3, 4, 5, 6, 7) with no write path to `block/buzz`. This run's output: confirmed anonymous git clone still works (source-level investigation, not just HTML), one hypothesis tested and disproved with citations, one partial-but-honest lead drafted for #5611, and re-confirmation that Runs 3-6's four backlogged drafts (#4860, #5492, #5557, #5555) and PR #4624 all still stand untouched.
+
+### Positioning read: **neither** (unchanged, reconfirmed a sixth time)
+
+- Not a competitor, not a partner — same reasoning as Runs 2-6; no relationship exists and no change in either product's shape.
+- The recurring technical-overlap signal (local/per-unit correctness without system-level correctness under concurrency, partial failure, or silent data loss) picked up a sixth and seventh independent data point this run: #5611 (scheduled execution with no audit trail of the attempt) and, more loosely, #5605 and #5595 (agent/system self-report masking an actual failure or silent truncation). None of this was seeded by Igor or ThumbGate — it is what six straight unprompted surveys of Buzz's own issue tracker keep turning up.
+
+### What was skipped and why
+
+- **#5614, #5608, #5601, #5592** — feature requests or scoping bugs outside stated domain, per table above.
+- **#5605, #5595** — read in full, adjacent to the domain pattern but not clean comment targets this run (already-specified design, or wrong bug category); logged as pattern data points rather than drafted.
+- **Posting anything to `block/buzz`** — impossible this run; not a judgment-call skip (see Access section below).
+
+### Blocker status (report only — no action requested)
+
+Sixth consecutive run (Runs 1, 3, 4, 5, 6, 7) with zero write access to `block/buzz` from this environment tier; unchanged from Run 6's finding that this is a session/tool allowlist restriction, not a GitHub-side permissions issue on Igor's real account. Five verbatim-ready drafts now sit in this log for a write-capable session: #4860 (Run 3), #5492 (Run 4), #5557 (Run 5), #5555 (Run 6), #5611 (this run, partial). PR #4624 (Run 2) still awaits its first human review, now well past two weeks.
+
+---
+
 ## Cross-run note (kept last on purpose — read this before re-testing access)
 
-Runs 1, 3, 4a, 5, and 6 above all conclude that the access wall persists, each
-honestly from its own evidence. All five are superseded by the same fact:
+Runs 1, 3, 4a, 5, 6, and 7 above all conclude that the access wall persists,
+each honestly from its own evidence. All six are superseded by the same fact:
 **Run 4b already contributed to `block/buzz` from this same environment tier.**
 A fork (`igorganapolsky/buzz`) is same-owner, so `add_repo` accepts it; that
 unblocks clone, `upstream` fetch from `block/buzz`, build, test, and push. The
@@ -685,6 +742,11 @@ DCO-signed, 743 tests green, re-verified against current upstream.
 Run 6 is right that this is a session-config restriction rather than an account
 permission problem — and that is exactly why the fork works: the restriction is
 scoped by repo *owner*, and the fork's owner is already in scope.
+
+**Why six runs missed it:** this note has never been on `main`. It lives in PR
+#1594, which is still an unmerged draft, so no run has been able to read it.
+Runs 5, 6, and 7 each landed on `main` while it sat there. If you are reading
+this on `main`, the loop is broken — act on it rather than re-deriving it.
 
 What genuinely remains blocked is narrower than "the wall": the GitHub **API**
 for `block/buzz` (issue comments, PR creation). Everything else works.
@@ -696,7 +758,7 @@ for `block/buzz` (issue comments, PR creation). Everything else works.
 4. Branch from `upstream/main`, fix, test, push to the fork.
 5. Leave the final PR-submit click to Igor (or get the API scope granted).
 
-Five runs have now spent their budget confirming that the upstream repo says no.
+Six runs have now spent their budget confirming that the upstream repo says no.
 The refusal message names the way around itself; read it rather than re-testing
-it. The three backlogged drafts (#4860, #5492, #5557) can be *built and pushed*
+it. The backlogged drafts (#4860, #5492, #5557, #5611) can be *built and pushed*
 today by the route above — only the final submit click needs a human.
