@@ -308,3 +308,69 @@ answer is parked as above, ready to post as-is.
 **None** this run — no one asked about agent write-gating in anything surveyed.
 
 ---
+
+## 2026-08-12 — Tinker #51 test-gap fix (pyqwest TLS fallback had zero coverage); LanceDB #3915 fix re-parked (still unclaimed); Poolside re-surveyed across 10 repos, still zero issues
+
+### Repos surveyed
+
+| Org | Repos |
+|-----|-------|
+| Thinking Machines Lab | `thinking-machines-lab/tinker` (issues + `tinker-cookbook` issues) |
+| Poolside AI | full org repo listing (30 public repos) — checked issues on the ~10 that look like actual Poolside-authored projects rather than vendored forks: `pool`, `bridge-sdk`, `acp-go-sdk`, `kargo`, `browser-harness`, `paperclip`, `flash-msa`, `pooleval`, `n8n-poolside-node`, `reference_architectures` |
+| LanceDB | `lancedb/lancedb` |
+
+### The recurring cross-owner wall
+
+Re-tested silently, same result as every prior run (08-04/08-06/08-10/08-11): `add_repo` refuses cross-tier (`lancedb/lancedb` while session already holds `igorganapolsky/*` sources), and `create_pull_request` against both `lancedb/lancedb` and `thinking-machines-lab/tinker` returns "not configured for this session." Handled per `docs/agents/anti-babysitting.md`'s worked example — did the work on `igorganapolsky/*` forks (both already existed, attached and used directly) and parked it.
+
+### Issues considered
+
+**Tinker** — no issues opened in the last 48h (newest is #51, Jul 20 — three weeks old); widened per the routine's own preference ordering. [#51](https://github.com/thinking-machines-lab/tinker/issues/51) (`ServiceClient()` TLS handshake fails "UnknownIssuer" out of the box — pyqwest 0.7.0 made `tls_include_system_certs` default to `False`) — investigated like #24 last run: **already fixed on current `main`** (0.25.0, vs. the reporter's 0.23.0/0.23.1). `_default_pyqwest_transport()` (`src/tinker/_base_client.py:748`) now does exactly the `try: HTTPTransport(tls_include_system_certs=True) except TypeError: HTTPTransport()` fallback the reporter suggested. But nothing tested either branch of that fallback — genuine test gap on a subtle compatibility shim, so **acted**: added a regression test rather than a no-op answer. [#50](https://github.com/thinking-machines-lab/tinker/issues/50) (reasoning-token usage passthrough) and [#45](https://github.com/thinking-machines-lab/tinker/issues/45) (parallel checkpoint-delete slower than serial) — both real but design/perf questions for a maintainer, not mechanical fixes; skipped. `tinker-cookbook` — newest issue (#857, Aug 7) is a recipe request, not a bug; nothing concrete enough to act on blind.
+
+**LanceDB** — re-surveyed all open issues (12 total, #3764–#3917). [#3915](https://github.com/lancedb/lancedb/issues/3915) (pagination boundary loss) — still open, still unclaimed, no linked PR; the fix from 2026-08-11 is unchanged and still correct — re-parked, not redone. Two new-since-08-11 issues, both same-day (Aug 10): [#3917](https://github.com/lancedb/lancedb/issues/3917) (drop hard `aws-lc-rs` dep) and [#3916](https://github.com/lancedb/lancedb/issues/3916) (`StreamingDataset` fill/placeholder option for failed transforms) — both are genuine maintainer design calls (which default feature flag to ship; what the fill-value API surface should look like), explicitly framed as open questions in the issue bodies themselves. Not a first-PR's call to make unilaterally; skipped, same reasoning as #3914 last run. #3914/#3889/#3868 — unchanged since 08-11, skip reasoning still holds.
+
+**Poolside AI** — widened the survey from the 3 repos checked historically (`pool`, `bridge-sdk`, `acp-go-sdk`) to the org's full public listing (30 repos) to check whether any of the ~15 non-vendored-fork projects (`kargo`, `flash-msa`, `pooleval`, `browser-harness`, `paperclip`, `n8n-poolside-node`, `reference_architectures`, `console-pipeline-template`, `storage`, `demo-fluent-bit`, `hermes-agent`) had issue activity the narrower survey was missing. Checked the 7 most plausible (`kargo`, `browser-harness`, `paperclip`, `flash-msa`, `pooleval`, `n8n-poolside-node`, `reference_architectures`) plus the original 3 — **zero open issues on every one**; `flash-msa`'s issue tracker is explicitly restricted ("Issue creation is restricted in this repository"). No action possible against any Poolside AI repo this run either.
+
+### What was opened
+
+Nothing directly (cross-owner PR creation structurally blocked, per above). What exists instead:
+
+| Artifact | Where |
+|----------|-------|
+| Tinker #51 regression test, pushed | `igorganapolsky/tinker@test/pyqwest-transport-tls-regression` — compare: https://github.com/thinking-machines-lab/tinker/compare/main...IgorGanapolsky:tinker:test/pyqwest-transport-tls-regression?expand=1 |
+| Tinker #51 ready-to-post answer | `coordination/ready-to-post/tinker-51-pyqwest-tls-answer.md` |
+| LanceDB #3915 fix (unchanged from 08-11, re-verified still applicable) | `igorganapolsky/lancedb@fix/list-tables-pagination-boundary` — compare: https://github.com/lancedb/lancedb/compare/main...IgorGanapolsky:fix/list-tables-pagination-boundary?expand=1 |
+
+#### Tinker #51 fix detail
+
+- **What's actually broken:** nothing, on current `main` — the reporter's exact bug (pyqwest 0.7.0 defaulting `tls_include_system_certs=False`, breaking TLS-intercepting proxies/VPNs with "UnknownIssuer") is already handled by `_default_pyqwest_transport()`'s `try/except TypeError` fallback. This is a **test-gap** contribution, not a bug fix — the routine's own stated preference ("test gaps" alongside reproducible bugs and docs gaps).
+- **Test added:** `tests/test_pyqwest_transport.py`, two cases — pyqwest ≥0.7.0 (kwarg accepted, asserts it's passed) and <0.7.0 (kwarg rejected via `TypeError`, asserts the no-kwarg fallback runs). Fakes `pyqwest`/`pyqwest.httpx` via `sys.modules` so the test needs no real pyqwest install, though a real `pyqwest==0.9.0` was also installed via `uv sync --group dev` and confirmed its actual `HTTPTransport()` signature matches (`tls_include_system_certs=False` by default) before writing the fake.
+- **Verified, not assumed:**
+  - `uv run pytest tests/test_pyqwest_transport.py -v` on current `main`: **2 passed**.
+  - Reverted `_default_pyqwest_transport()` locally to the pre-fix form (bare `pyqwest.HTTPTransport()`, no try/except — the exact code path that produced the reporter's error), reran: **2 failed**, diff showing `{}` instead of `{'tls_include_system_certs': True}` — i.e., the test would have caught this exact regression.
+  - Restored the fix, reran: **2 passed** again.
+  - Attempted the full `uv run pytest tests/` suite as an additional regression check; the project's dependency tree (transformers/torch-adjacent) made a full collect+run too slow to complete within this run's budget, so it was stopped rather than left running unattended. Did **not** claim a full-suite pass — the verification claim above is scoped to the new test module and the targeted before/after revert, which is what was actually run to completion.
+  - Also reverted `.python-version`/`uv.lock` changes that `uv sync`/`uv python pin` made locally before committing — diff against the fork is exactly the one new test file.
+
+### What was answered
+
+Nothing posted (cross-owner `add_issue_comment` blocked same as PR creation). Tinker #51's answer is parked as above, ready to post as-is.
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| LanceDB #3917 | Maintainer design call (which TLS-crate feature to default on) — issue body itself frames it as an open question |
+| LanceDB #3916 | Maintainer design call (fill-value API shape) — issue body itself frames it as an open question |
+| LanceDB #3914 / #3889 / #3868 | Unchanged from 08-11; same reasoning holds |
+| Tinker #50 | OpenAI-compat reasoning-token passthrough — maintainer product-surface decision, not mechanical |
+| Tinker #45 | Perf report (parallel slower than serial) — needs profiling access to the hosted training API, not reproducible from the client repo |
+| `tinker-cookbook` #857 | Recipe request, not a bug — no fork exists and cross-owner fork creation is blocked anyway |
+| Poolside AI (all 10 checked repos) | Zero open issues on every one; `flash-msa` has issue creation disabled entirely |
+| New manufactured question | No real unknown hit this run |
+
+### ThumbGate mentions
+
+**None** this run — no one asked about agent write-gating in anything surveyed.
+
+---
