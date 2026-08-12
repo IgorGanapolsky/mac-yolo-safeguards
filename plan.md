@@ -806,6 +806,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 - `tools/seed-yolo-wrapper.js`, `tests/test-seed-yolo.js`, `plan.md` → **released by codex-seed-yolo-real-agent-20260811** after focused regression, 1,105-file CodeQL pattern gate, local verification suite, interactive startup (14 tools, 138 skills, 2 MCP servers), live file-tool proof, and a zero-cost usage receipt passed on commit `1e8d39b76`. (2026-08-12T01:15:00Z)
 
+- 2026-08-12T01:32:00Z `codex-seed-yolo-real-agent-20260811` review remediation: empty non-TTY stdin now exits 1 instead of launching an unbounded interactive chat, and `doctor` now fails closed when no reachable `AGENTS.md` can be injected. Focused regression, direct `/dev/null`/outside-repo probes, and the full local verification suite pass.
+
 - `poolside-yolo`, `tests/test-poolside-yolo.sh`, `plan.md` → **codex-agent-50** (T-AGENT-50-POOLSIDE-SPEED-20260808 / Linear AGENT-50: Pool v1.0.15 fast-model defaults, ACP mode correction, latency diagnostics, regression tests, and live benchmark evidence.) (2026-08-08T19:10:00Z)
 - `tests/test-harness-verifier-integrity.sh`, `plan.md` → **codex-agent-50** (T-AGENT-50-POOLSIDE-SPEED-20260808 / Linear AGENT-50: CI remediation for the Pool v1.0.15 mutation anchor after `plan` moved out of approval modes.) (2026-08-08T19:24:00Z)
 - `poolside-acp-imageguard`, `tests/test-poolside-acp-imageguard.sh`, `poolside-yolo`, `tests/test-poolside-yolo.sh`, `plan.md` → **codex-agent-50** (T-AGENT-50-POOLSIDE-SPEED-20260808 / Linear AGENT-50: Codex review remediation for session-scoped thought defaults, preserved user settings, and explicit custom-agent-server isolation.) (2026-08-08T19:27:00Z)

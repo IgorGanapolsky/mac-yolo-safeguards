@@ -99,7 +99,8 @@ function runChild(binary, args, options = {}) {
   });
 }
 
-function inspectHermes(config, runner = spawnSync) {
+function inspectHermes(config, runner = spawnSync, startDir = process.cwd()) {
+  const contextFile = findContextFile(startDir);
   const base = {
     runtime: config.hermesBin,
     runtimePresent: fs.existsSync(config.hermesBin),
@@ -111,8 +112,8 @@ function inspectHermes(config, runner = spawnSync) {
     zeroCostRoute: isZeroCostRoute(config),
     meteredAllowed: config.allowMetered,
     toolsets: config.toolsets.split(','),
-    contextFile: findContextFile(),
-    contextAutoInjection: true,
+    contextFile,
+    contextAutoInjection: Boolean(contextFile),
     memoryAutoInjection: true,
     skillsRegistryEnabled: config.toolsets.split(',').includes('skills'),
   };
@@ -126,7 +127,10 @@ function inspectHermes(config, runner = spawnSync) {
   const skillCountMatch = skillOutput.match(/(\d+) enabled/);
   return {
     ...base,
-    ready: tools.status === 0 && skills.status === 0 && missingToolsets.length === 0,
+    ready: base.contextAutoInjection
+      && tools.status === 0
+      && skills.status === 0
+      && missingToolsets.length === 0,
     missingToolsets,
     enabledSkills: skillCountMatch ? Number(skillCountMatch[1]) : null,
     toolsProbeExitCode: tools.status,
@@ -140,6 +144,7 @@ class SeedYoloAgent {
     this.config = options.config || resolveConfig(this.env);
     this.childRunner = options.childRunner || runChild;
     this.doctorRunner = options.doctorRunner || spawnSync;
+    this.stdin = options.stdin || process.stdin;
   }
 
   printVersion() {
@@ -204,13 +209,17 @@ class SeedYoloAgent {
     }
 
     let prompt = args.join(' ').trim();
-    if (!prompt && !process.stdin.isTTY) {
+    if (!prompt && !this.stdin.isTTY) {
       prompt = await new Promise((resolve) => {
         let data = '';
-        process.stdin.setEncoding('utf8');
-        process.stdin.on('data', (chunk) => { data += chunk; });
-        process.stdin.on('end', () => resolve(data.trim()));
+        this.stdin.setEncoding('utf8');
+        this.stdin.on('data', (chunk) => { data += chunk; });
+        this.stdin.on('end', () => resolve(data.trim()));
       });
+      if (!prompt) {
+        console.error('[seed-yolo] empty prompt received on stdin');
+        return { exitCode: 1 };
+      }
     }
 
     if (prompt) {

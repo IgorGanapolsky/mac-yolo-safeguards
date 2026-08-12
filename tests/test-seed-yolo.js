@@ -4,6 +4,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { Readable } = require('stream');
 const {
   DEFAULT_MODEL,
   SeedYoloAgent,
@@ -73,6 +74,11 @@ async function testSuite() {
     assert.strictEqual(report.memoryAutoInjection, true);
     assert.deepStrictEqual(report.missingToolsets, []);
 
+    const noContextReport = inspectHermes(fakeConfig, doctorRunner, tempDir);
+    assert.strictEqual(noContextReport.contextFile, null);
+    assert.strictEqual(noContextReport.contextAutoInjection, false);
+    assert.strictEqual(noContextReport.ready, false);
+
     const calls = [];
     const agent = new SeedYoloAgent({
       config: fakeConfig,
@@ -89,6 +95,18 @@ async function testSuite() {
     assert(calls[0].childArgs.includes('-z'));
     assert.strictEqual(calls[0].childArgs.at(-1), 'read package.json');
     assert(!calls[0].childArgs.includes('--ignore-rules'));
+
+    const emptyStdin = Readable.from([]);
+    emptyStdin.isTTY = false;
+    const emptyInputAgent = new SeedYoloAgent({
+      config: fakeConfig,
+      childRunner: async () => {
+        throw new Error('empty stdin must not launch Hermes');
+      },
+      stdin: emptyStdin,
+    });
+    const emptyInput = await emptyInputAgent.run([]);
+    assert.strictEqual(emptyInput.exitCode, 1);
 
     const doctor = agent.runDoctor(true);
     assert.strictEqual(doctor.exitCode, 0);
