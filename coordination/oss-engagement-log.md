@@ -133,14 +133,117 @@ consistently identical since 08-04).
 
 Same standing ask as every entry since 08-04: the upstream-PR-creation wall for
 `lancedb/lancedb` and `thinking-machines-lab/tinker` is a session-scope limitation, not a
-"nothing to do" day. This run adds a third fully-verified, ready-to-open fix on top of the
-two from this morning:
+"nothing to do" day. This run adds a new fully-verified, ready-to-open fix:
 - https://github.com/lancedb/lancedb/compare/main...IgorGanapolsky:fix/merge-insert-json-encoding?expand=1
   (new this run — #3923, JSON columns corrupted by `merge_insert`)
-- https://github.com/lancedb/lancedb/compare/main...IgorGanapolsky:fix/list-tables-pagination-boundary-v2?expand=1
-  (from this morning — #3915, pagination boundary loss)
 - https://github.com/thinking-machines-lab/tinker/compare/main...IgorGanapolsky:fix/sync-only-async-method-name-v2?expand=1
   (from this morning — #38 partial, `sync_only` async-method-name warning)
+
+**Correction to this morning's entry:** a separate concurrent run of this routine found
+that the `fix/list-tables-pagination-boundary-v2` compare link (LanceDB #3915) should
+**not** be opened — it's superseded by an already-open, more thorough upstream fix,
+[lancedb/lancedb#3777](https://github.com/lancedb/lancedb/pull/3777). See that run's
+entry immediately below for the detail.
+
+---
+
+## 2026-08-12 (PM) — LanceDB #3915 parked fix superseded by an upstream PR; no new issues; nothing opened
+
+### Repos surveyed
+
+| Org | Repos |
+|-----|-------|
+| Thinking Machines Lab | `thinking-machines-lab/tinker` (issue list), `tinker-cookbook` (issue list) |
+| Poolside AI | `poolsideai/*` (org-wide issue search) |
+| LanceDB | `lancedb/lancedb` (issue list, open issues) |
+
+### What changed this run
+
+No issues opened in any of the three orgs in the last 48h (nothing newer than 2026-08-10 anywhere).
+`add_repo` cross-owner attach re-tested for all three target repos: identical block as every run
+since 08-03 ("cross-tier adds are not supported ... session already has repos from owner(s)
+[igorganapolsky]"). `search_issues`/`search_pull_requests` still work cross-org (no owner/repo
+header); `issue_read`/`pull_request_read`/direct `api.github.com` calls are still denied outside
+session scope. Net: same wall, nothing new to report on access.
+
+**The one real finding:** re-checked comments on LanceDB
+[#3915](https://github.com/lancedb/lancedb/issues/3915) — the pagination bug this morning's run
+re-verified and pushed to `igorganapolsky/lancedb@fix/list-tables-pagination-boundary-v2` — and
+found contributor `@Boulea7` had claimed it yesterday (08-11), then self-corrected: "I found that
+#3777 already contains this exact page-boundary correction and regression coverage, so I won't
+open a duplicate PR." Confirmed directly: [PR #3777](https://github.com/lancedb/lancedb/pull/3777)
+("fix(listing): paginate table listing instead of enumerating the database") is **open**, and is a
+larger, more thorough fix than ours — it pushes pagination into the storage layer via
+`ObjectStore::read_dir_stream` instead of enumerating the whole database first (100k-table listing
+improved from 11.2s to 0.09s in the PR's own numbers), and its description explicitly names the
+same root cause we found (page token used the first name of the next page instead of the last name
+of the current page). It supersedes our fix entirely and is objectively better engineered.
+
+**Action taken:** none against upstream (still can't write there), but this is a real update for
+Igor: **the `fix/list-tables-pagination-boundary-v2` compare link from this morning's log entry
+should not be opened as a PR anymore** — it would be a duplicate of an already-open, superior
+maintainer fix. No action needed on the fork itself; just don't act on that stale recommendation.
+
+The Tinker `fix/sync-only-async-method-name-v2` branch (parked this morning) has no competing work
+— re-checked [#38](https://github.com/thinking-machines-lab/tinker/issues/38): zero comments, "No
+branches or pull requests." Still the best available candidate for that org, still blocked on the
+same upstream-PR-creation wall.
+
+### Issues considered
+
+**LanceDB** — full open-issue list re-surveyed (`#3917` down through `#3759`). Nothing new since
+this morning. `#3914` (`table_names()` truncation) — same API-design judgment call as every prior
+run, skipped. `#3889` (BITMAP/`lance.json`) — still likely `Xuanwo`'s own pending fix, skipped.
+`#3760` (`update()` fails on any table with a blob v2 column) — real, reproducible, root cause is
+concrete (blob→Struct coercion wired into the add path but not update), unclaimed, no PR — a
+genuine candidate, but this run had already spent its research budget confirming #3915's status
+change and Tinker's #38 state before finding this, and per the one-PR-per-org cap this run had
+nothing to push anyway (write access still blocked); flagged here as next run's best LanceDB lead
+if the write wall ever clears.
+
+**Thinking Machines Lab / Tinker** — no new issues in `tinker`. In `tinker-cookbook`, re-checked
+Igor's own prior-run question [#847](https://github.com/thinking-machines-lab/tinker-cookbook/issues/847)
+(fail-closed claim validators + LLM judges recipe, opened 07-31 by a past run of this routine,
+disclosed ThumbGate affiliation per the rules): still zero maintainer comments, nothing new to add.
+[#857](https://github.com/thinking-machines-lab/tinker-cookbook/issues/857) (self-improving coding
+agent example with Inkling, by `@Tibo2403`) — a real request, but answering it well would require
+building or pointing to a concrete Inkling+Tinker trajectory-training example, which isn't
+something this run could verify hands-on; not answered rather than posting something generic.
+
+**Poolside AI** — org-wide issue search unchanged from 08-11: `pool`'s only feedback-loop issues
+(#38, #33, #32, #27, #25, #22 — repeated "Error during ACP method session/prompt" reports) are
+user-support threads on a closed-source client, not fixable from outside; no new issues.
+
+### What was opened
+
+Nothing (no write access, and nothing this run would have opened even with it — #3915 is now
+someone else's better fix, #38's fix is unchanged from this morning, no other candidate cleared
+the bar).
+
+### What was answered
+
+Nothing (same access wall as every prior run blocks `add_issue_comment` outside session scope; no
+new content to add to #847 or #857 that would clear the "no generic replies" bar).
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| Opening `fix/list-tables-pagination-boundary-v2` as a PR | Superseded by upstream PR #3777, which is broader and better engineered — opening ours now would be a duplicate |
+| LanceDB #3760 (blob v2 update bug) | Real and unclaimed, but this run's budget went to confirming #3915's status change; flagged for next run |
+| Tinker-cookbook #857 | No hands-on Inkling+Tinker example this run could verify before posting; a generic answer would violate the no-generic-replies rule |
+| New manufactured question | No real unknown hit this run |
+
+### ThumbGate mentions
+
+**None** this run — no one asked about agent write-gating in anything surveyed.
+
+### Action needed from Igor
+
+Skip the LanceDB compare link from this morning's entry — `#3915` is now covered by
+[lancedb/lancedb#3777](https://github.com/lancedb/lancedb/pull/3777) (open, upstream, more
+thorough than our fix). The Tinker link is still good:
+https://github.com/thinking-machines-lab/tinker/compare/main...IgorGanapolsky:fix/sync-only-async-method-name-v2?expand=1
 
 ---
 
