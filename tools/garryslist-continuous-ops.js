@@ -131,13 +131,13 @@ function fetchText(url, timeoutMs = 25000) {
 }
 
 function decodeEntities(s) {
+  // Decode named/numeric entities. &amp; last so we never double-unescape.
   return String(s || '')
     .replace(/&#39;/g, "'")
     .replace(/&quot;/g, '"')
-    .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
-    .replace(/—/g, '—');
+    .replace(/&amp;/g, '&');
 }
 
 function extractPosts(html) {
