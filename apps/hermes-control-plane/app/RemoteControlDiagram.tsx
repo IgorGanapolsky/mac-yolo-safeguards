@@ -1,7 +1,7 @@
-/** Static illustration: phone pairs to a Mac running Hermes. No client JS required. */
+/** Static illustration: Hermes on real machines; Continuity VPS when offline. No client JS. */
 export function RemoteControlDiagram() {
   return (
-    <div className="remote-diagram" role="img" aria-label="Your phone connects securely to your Mac, which keeps running Hermes">
+    <div className="remote-diagram" role="img" aria-label="Hermes on your Mac; Continuity hands eligible work to a fenced VPS when the Mac is offline">
       <svg viewBox="0 0 460 150" fill="none" xmlns="http://www.w3.org/2000/svg">
         <rect x="22" y="18" width="58" height="112" rx="12" stroke="var(--line)" strokeWidth="2" fill="rgba(255,255,255,.03)" />
         <rect x="30" y="30" width="42" height="78" rx="4" fill="rgba(34,211,238,.08)" />
@@ -22,9 +22,9 @@ export function RemoteControlDiagram() {
         <text x="401" y="56" textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--accent)" fontFamily="ui-monospace, monospace">H</text>
       </svg>
       <div className="remote-diagram-labels">
-        <span>Your phone</span>
+        <span>Hermes chat</span>
         <span>Encrypted pairing</span>
-        <span>Your Mac · Hermes</span>
+        <span>Your Mac · Continuity VPS when offline</span>
       </div>
     </div>
   );

@@ -76,7 +76,10 @@ export function LandingAuthNav() {
   );
 }
 
-/** Dual-track hero CTA: free sign-in stays primary, but a real paid-intent path sits next to it — not buried in the pricing section. */
+/**
+ * Dual-track hero CTA: Continuity (paid) is primary; free pair/status is secondary.
+ * Hermes owns machine chat — this page sells offline Continuity, not a second chat UI.
+ */
 export function LandingAuthHero() {
   const session = useLandingAuth();
   const isSession = session.mode === "session";
@@ -84,34 +87,61 @@ export function LandingAuthHero() {
 
   return (
     <div className="hero-actions" data-landing-hero-auth={session.mode}>
-      <a
-        href={isSession ? "/dashboard" : "/api/auth/login"}
-        className="button button-primary"
-        data-funnel-event={isSession ? "dashboard_open_click" : "sign_in_click"}
-      >
-        {isSession ? "Open Hermes on the web" : "Sign in to Hermes Web"}{" "}
-        <span aria-hidden="true">→</span>
-      </a>
       {isPaid ? (
-        <a href="/api/billing/portal" className="button button-secondary" data-funnel-event="manage_billing_click">
-          You&apos;re on Pro · Manage billing
-        </a>
+        <>
+          <a
+            href="/dashboard"
+            className="button button-primary"
+            data-funnel-event="dashboard_open_click"
+          >
+            Open Continuity dashboard <span aria-hidden="true">→</span>
+          </a>
+          <a href="/api/billing/portal" className="button button-secondary" data-funnel-event="manage_billing_click">
+            You&apos;re on Pro · Manage billing
+          </a>
+        </>
       ) : isSession ? (
-        <a href="/api/billing/checkout" className="button button-secondary" data-funnel-event="upgrade_pro_click">
-          Upgrade to Pro ($10/mo)
-        </a>
+        <>
+          <a
+            href="/api/billing/checkout"
+            className="button button-primary"
+            data-funnel-event="upgrade_pro_click"
+          >
+            Start Continuity trial <span aria-hidden="true">→</span>
+          </a>
+          <a
+            href="/dashboard"
+            className="button button-secondary"
+            data-funnel-event="dashboard_open_click"
+          >
+            Open pair &amp; status
+          </a>
+        </>
       ) : (
-        <a href="#pricing" className="button button-secondary" data-funnel-event="cloud_continuity_click">
-          Try Continuity — 14 days free
-        </a>
+        <>
+          <a
+            href="#pricing"
+            className="button button-primary"
+            data-funnel-event="cloud_continuity_click"
+          >
+            Try Continuity — 14 days free <span aria-hidden="true">→</span>
+          </a>
+          <a
+            href="/api/auth/login"
+            className="button button-secondary"
+            data-funnel-event="sign_in_click"
+          >
+            Sign in to pair free
+          </a>
+        </>
       )}
     </div>
   );
 }
 
 /**
- * Private-workspace panel: no second Sign-in when anon.
- * Points to pair + Continuity (keeps public HTML free of workspace telemetry).
+ * Private-workspace panel: Continuity first, pair second.
+ * Points to Continuity + pair (keeps public HTML free of workspace telemetry).
  */
 export function LandingAuthPanel() {
   const mode = useLandingAuth();
@@ -128,19 +158,19 @@ export function LandingAuthPanel() {
         </span>
       </div>
       <div className="landing-action-list">
+        <a className="landing-action" href="#pricing">
+          <span className="action-icon" aria-hidden="true">☁</span>
+          <span>
+            <strong>Continuity (VPS)</strong>
+            <small>Hands eligible work to a fenced VPS runner when your Mac is offline—synced with Hermes on real machines.</small>
+          </span>
+          <b aria-hidden="true">→</b>
+        </a>
         <a className="landing-action" href="#pair">
           <span className="action-icon" aria-hidden="true">+</span>
           <span>
             <strong>Pair your Mac</strong>
-            <small>One installer. Approve a short code.</small>
-          </span>
-          <b aria-hidden="true">→</b>
-        </a>
-        <a className="landing-action" href="#pricing">
-          <span className="action-icon" aria-hidden="true">☁</span>
-          <span>
-            <strong>Continuity</strong>
-            <small>Hands eligible work to a fenced VPS runner when your Mac is offline.</small>
+            <small>One installer. Free status scaffolding. Hermes keeps the chat.</small>
           </span>
           <b aria-hidden="true">→</b>
         </a>
@@ -162,7 +192,7 @@ export function LandingPricingCtaFree() {
   const href = useSessionHref();
   return (
     <a href={href} className="button button-secondary" data-funnel-event="free_control_click">
-      Use web control free →
+      Pair free →
     </a>
   );
 }
@@ -171,7 +201,7 @@ export function LandingPricingCtaPaid() {
   const href = useSessionHref();
   return (
     <a href={href} className="button button-primary" data-funnel-event="cloud_continuity_click">
-      Try cloud continuity →
+      Try Continuity →
     </a>
   );
 }

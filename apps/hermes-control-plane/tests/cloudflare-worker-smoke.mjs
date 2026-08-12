@@ -127,13 +127,16 @@ try {
   assert.equal(landing.status, 200);
   assert.match(html, /Leash/);
   assert.match(html, /by ThumbGate/);
-  assert.match(html, /Hermes dashboard/i);
-  assert.match(html, /from any browser/i);
+  assert.match(html, /Keep Hermes work running/i);
+  assert.match(html, /when the Mac closes/i);
+  assert.match(html, /Continuity/i);
   assert.doesNotMatch(html, /Self-Improving Firewall|self-improving firewall/);
   // Static shell defaults to anon/loading chrome (session via /api/me after paint).
   assert.match(html, /Sign-in required|Checking session/);
-  assert.match(html, /Sign in to Hermes Web/);
+  assert.match(html, /Try Continuity — 14 days free/);
+  assert.match(html, /Sign in to pair free/);
   assert.equal((html.match(/data-funnel-event="sign_in_click"/g) ?? []).length, 1);
+  assert.equal((html.match(/data-funnel-event="cloud_continuity_click"/g) ?? []).length >= 1, true);
   assert.doesNotMatch(html, /After you sign in/);
   assert.doesNotMatch(html, /Sign in to private dashboard/);
   assert.doesNotMatch(html, />Sign out</);

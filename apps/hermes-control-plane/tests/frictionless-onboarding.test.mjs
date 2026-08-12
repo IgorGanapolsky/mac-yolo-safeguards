@@ -180,11 +180,11 @@ test("routes paid accounts to billing management without opening a duplicate che
   assert.match(dashboard, /"Keep cloud after trial"/);
 });
 
-test("uses ThumbGate for Hermes identity and production URLs", () => {
-  assert.match(layout, /ThumbGate — Hermes dashboard & continuity/);
+test("uses ThumbGate Continuity identity and production URLs", () => {
+  assert.match(layout, /ThumbGate Continuity — VPS failover for Hermes agents/);
   assert.match(layout, /metadataBase: new URL\("https:\/\/thumbgate\.app"\)/);
   assert.match(dashboardPage, /title: "Hermes Web"/);
-  assert.match(landing, /name: "ThumbGate for Hermes"/);
+  assert.match(landing, /name: "ThumbGate Continuity"/);
   assert.match(landing, /url: "https:\/\/thumbgate\.app\/"/);
   assert.doesNotMatch(layout + landing + dashboardPage, /leash\.dev|Leash by ThumbGate/);
 });
@@ -410,7 +410,7 @@ test("keeps every workspace telemetry value behind authentication", () => {
 test("explains the failover path with an interactive approve/deny demo", () => {
   const failoverDemo = readFileSync(new URL("../app/FailoverPathDemo.tsx", import.meta.url), "utf8");
   assert.match(landing, /<FailoverPathDemo \/>/);
-  assert.match(landing, /Remote control\. Keep going offline\./);
+  assert.match(landing, /Chat stays in Hermes\. Continuity keeps work alive\./);
   assert.match(failoverDemo, /Deny call/);
   assert.match(failoverDemo, /Approve call/);
   assert.match(failoverDemo, /Close Mac lid/);

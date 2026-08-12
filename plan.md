@@ -2880,3 +2880,9 @@ CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, too
 - 2026-08-06T00:00:00Z hermes-meme-content: added dev-humor "load average 307" meme block to README.md hero (cooperative detail toggle after paid-help line; separate section from cursor-sif-pitch SIF text) + rights-safe Instagram/memes draft hermes-mobile/docs/social/week-2026-07-10/07-instagram-memes.md (Meme A static + Memo B 15s Reel, own-product footage only) + one content-log row (Status=Drafted, publish-gated). No live publish; social-publish-gate untouched. IG/memes channel previously had zero assets.
 
 - `hermes-mobile/docs/social/week-2026-07-10/07-instagram-memes.md` → **hermes-meme-content** (ownership claim for PR #1561; publish-gated draft only, no live social-publish-gate touch, rights-safe own-product footage)
+
+
+<!-- grok-continuity-first-20260812 -->
+## Continuity-first landing (grok-continuity-first-20260812)
+
+| T-CONTINUITY-FIRST-LANDING-20260812 | ThumbGate.app Continuity/VPS-first product story (Hermes owns machine chat) | in_progress | grok-continuity-first-20260812 | `apps/hermes-control-plane/app/page.tsx`, `layout.tsx`, `LandingAuthChrome.tsx`, `llms.txt/route.ts`, `RemoteControlDiagram.tsx`, related tests | Continuity primary CTAs; tests green; deploy Cloudflare |
