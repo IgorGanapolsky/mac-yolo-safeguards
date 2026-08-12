@@ -12,7 +12,9 @@ node tools/codeql-pattern-gate.js --all || { echo "❌ CodeQL pattern gate faile
 node tests/test-linear-agent-skill-exporter.js
 node tests/test-github-copilot-agent-harness.js
 node tests/test-browseros-agent-harness.js
-node tests/test-github-runner-roi-auditor.js
+node tests/test-inspectable-tool-calling-agent.js
+node tests/test-databricks-multimodal-file-type-harness.js
+node tests/test-claude-for-startups-application.js
 node tests/test-hermes-yolo.js
 node tests/test-agent-memory-before-gen.js
 node tests/test-retrieval-query-rewrite.js
