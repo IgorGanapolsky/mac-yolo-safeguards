@@ -10,6 +10,7 @@ node tools/codeql-pattern-gate.js --all || { echo "❌ CodeQL pattern gate faile
 # 2. Local CI Audit
 # 3. Unit Test Suites
 node tests/test-linear-agent-skill-exporter.js
+node tests/test-brighttalk-monetization-engine.js
 node tests/test-github-copilot-agent-harness.js
 node tests/test-browseros-agent-harness.js
 node tests/test-github-runner-roi-auditor.js
