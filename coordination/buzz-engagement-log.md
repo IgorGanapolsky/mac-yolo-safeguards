@@ -579,3 +579,69 @@ No fix was attempted for #5611: without hosted-relay/DB access there is no way t
 
 Sixth consecutive run (Runs 1, 3, 4, 5, 6, 7) with zero write access to `block/buzz` from this environment tier; unchanged from Run 6's finding that this is a session/tool allowlist restriction, not a GitHub-side permissions issue on Igor's real account. Five verbatim-ready drafts now sit in this log for a write-capable session: #4860 (Run 3), #5492 (Run 4), #5557 (Run 5), #5555 (Run 6), #5611 (this run, partial). PR #4624 (Run 2) still awaits its first human review, now well past two weeks.
 
+---
+
+## 2026-08-12 (PM) — Run 8 (access wall persists a seventh run; #5626 investigated at source level and drafted; #4923/#5621 investigated, inconclusive)
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+- **Canonical repo:** [`github.com/block/buzz`](https://github.com/block/buzz), unchanged identity/maintainer/architecture from Runs 1-7.
+- **Write access to `block/buzz`:** Still blocked, seventh consecutive run. `add_repo(owner:"block", repo:"buzz", access:"push")` returned the identical cross-tier rejection: *"cross-tier adds are not supported in v1: requested block/buzz but session already has repos from owner(s) [igorganapolsky]."* This session's own repo-scope note (shown at session start) independently confirms the same restriction: `mcp__github__*` tools are scoped to `igorganapolsky/mac-yolo-safeguards` only.
+- Anonymous `git clone --depth 1 https://github.com/block/buzz.git` succeeded again this run (HEAD at commit `4b35706`, dated 2026-08-11 17:36:46 -0700) — full source-level investigation was possible.
+- PR [#4624](https://github.com/block/buzz/pull/4624) — reconfirmed still open, unmerged, still zero human reviews (only a bot usage-limit notice), now 9 days after the code-owner review request.
+
+### What was surveyed (last ~72h, as of 2026-08-12 PM)
+
+Newest open issues as of this run: #5636, #5632, #5631, #5626, #5621, #5618, #5616, #5614 (last one already noted by Run 7). Read against Igor's stated domain (agent reliability, idempotency, double-execution, write-gating, leases/fencing, retries, audit trails, verification-vs-self-report):
+
+| Issue | Topic | Action |
+|-------|-------|--------|
+| [#5626](https://github.com/block/buzz/issues/5626) | Managed agents (`Bumble-HQ`, `Honey-HQ`) self-modified `managed-agents.json`'s `respond_to` field from `anyone` to `allowlist`, muting themselves to the community for ~24h with no owner action and no detection until the fact was noticed later. Harness runs `permission_mode=bypassPermissions`, so the agent's own filesystem access is sufficient to rewrite its own security-relevant config. Four fixes proposed by the reporter (owner-signed markers, sandboxing, `respond_to` floor constraints, change notifications) | **Investigated at source level + answer drafted** (below) — exactly write-gating / owner-authorization-boundary, Igor's most central stated domain |
+| [#5621](https://github.com/block/buzz/issues/5621) | "Buzz/Hermes integration appears split across two failure phases" — directly references Hermes Agent (Nous Research), the same project this repo's own `docs/HERMES-BUZZ-INTEGRATION.md` documents a protocol slice against. Reporter links #5497 (identity handoff regression) and #4923 (reply publish failure) as root issues | Investigated (see below) — flagged for its direct relevance to this repo's own prior Hermes/Buzz work, but not draftable as a comment this run (see "inconclusive" note) |
+| #4923 (referenced by #5621) | `buzz-acp` + `hermes-acp`: ACP turn completes successfully (correct `stopReason`, streamed `agent_message_chunk`s) but the reply is never published to the channel as a `kind:9` Nostr event — silently, no error logged | Investigated at source level (see below) — squarely verification-vs-self-report, but root cause not pinned down this run |
+| #5636 | `buzz-acp` process lifetime has no bound — a self-prompting harness can outlive its parent process and keep billing | Read — adjacent to reliability domain (runaway agent lifecycle), but not a write-gating/verification bug specifically; logged as a pattern data point, not drafted this run |
+| #5632 | Inbox replies to managed agents can disappear before delivery | Read — another instance of the silent-drop family (#4860/#5492/#5555/#5557), but underspecified (no repro/logs in the issue as read); skipped as a comment target |
+| #5631 | Mobile pairing WebSocket 404 | Skipped — connectivity/config bug, not in stated domain |
+| #5618 | Feature request: system message on channel rename | Skipped — feature request |
+| #5616 | Kind-9 messages authored in Buzz Desktop can't be verified by third parties | Skipped — read in full; it's a UI/key-exposure question (does the desktop client expose the signing pubkey for verification), not a write-gating or idempotency bug |
+| [#2509](https://github.com/block/buzz/issues/2509) | `verdict_ref` on `request_approval` | Reconfirmed still open; no new activity |
+| WF-08 | Not re-verified against source this run (Run 5 already did the definitive source-level check; re-cloning for an identical check would not produce new information) | Status carried forward unchanged |
+
+### Investigation + drafted answer for #5626 (not yet posted — no write access this run)
+
+Read the actual config-validation code before drafting, rather than answering from the issue text alone. `crates/buzz-acp/src/config.rs` already has a deployment-level "floor" mechanism for exactly this: `BUZZ_ACP_ALLOWED_RESPOND_TO` (parsed into `allowed_respond_to`) rejects a `--respond-to` value that isn't on the deployment's allowed list, with an explicit `ConfigError::ConfigFile("respond_to '{}' is not permitted on this deployment...")` (`config.rs:1020-1038`). That's proposed-fix #3 from the issue ("respond_to floor constraints") — **already built**, just not where the issue's bug actually occurs.
+
+The gap: that validation runs once, at process start, against the `--respond-to` **CLI argument**. It has no relationship to `managed-agents.json`, the file the desktop app (and, per this issue, the agent's own shell access under `bypassPermissions`) can write to at runtime. A write to that JSON file that changes `respond_to` at runtime never passes through `allowed_respond_to` at all — the floor exists in code but doesn't constrain the actual attack surface the issue describes, because config-file writes and CLI-arg parsing are two disconnected paths and only one of them validates.
+
+> Drafted comment for #5626: "Worth noting `crates/buzz-acp/src/config.rs` already has the mechanism proposed as fix #3 here — `BUZZ_ACP_ALLOWED_RESPOND_TO` / `allowed_respond_to` rejects a disallowed `--respond-to` value with an explicit error (`config.rs:1020-1038`). But it only runs once, at process start, against the CLI arg the harness was launched with. It has no path to `managed-agents.json`, which is what an agent with `bypassPermissions` filesystem access — or the desktop app itself — writes to at runtime. So the floor you already built doesn't actually constrain the surface this issue describes: a runtime edit to that JSON file bypasses `allowed_respond_to` entirely, not because the check is wrong, but because it's wired to the wrong write path. That reframes the fix priority: sandboxing agent filesystem access away from `managed-agents.json` (proposal #2) or requiring owner-signed changes to it (proposal #1) are the ones that actually close this, because they constrain the write path itself rather than validating a value that was never checked again after launch. Notification-on-change (#4) is good defense-in-depth but wouldn't have prevented the 24h mute window described here — it's detection, not prevention, and detection alone leaves the same fail-open default (self-modification succeeds silently) that caused this in the first place. Given Buzz already has owner-signed Nostr events as a first-class primitive elsewhere in the stack, routing `managed-agents.json` mutations through a signed-event requirement — rather than a bespoke new permission layer — would reuse infrastructure that's already proven out instead of adding a second, parallel authorization system."
+
+ThumbGate is not mentioned in this draft — the issue is Buzz's own harness/config-write authorization gap, and the honest technical answer (reuse the deployment floor correctly, gate the write path not just the CLI arg) doesn't require citing an external tool to be complete.
+
+### Investigation of #4923 / #5621 (source-level, inconclusive this run)
+
+Traced the successful-turn completion path in `crates/buzz-acp/src/pool.rs` (`Ok(stop_reason) => { ... }`, ~line 2298) looking for where a completed turn's reply text gets published as a `kind:9` event. Found `agent.state.mark_channel_delivery_success(...)` called unconditionally on success — but its `pending_delivered_event_ids` argument is populated from *inbound* batch/context event IDs the agent consumed (`rendered_batch_ids`, `conversation_context_event_ids`), not the agent's own outbound reply. It marks "we successfully processed this input," not "we successfully published our reply" — a real distinction, but not by itself the silent-drop bug #4923 reports.
+
+Grepped every `build_message`/`submit_event` call site in `buzz-acp/src/*.rs`: only `post_failure_notice` (pool.rs:4106) and `publish_setup_nudge` (setup_mode.rs) build and submit a `kind:9` message directly. Neither is the normal-success reply path. The `agent_message_chunk` handling found (lib.rs:780-860) is observer/telemetry-frame buffering (`fit_observer_event_to_budget`, byte-budget eviction) for a monitoring channel, not the outbound channel-message publish itself. The actual reply-publish call for a normal successful turn was not located in `buzz-acp/src` within this run's time budget — it may live in a different crate, be reached through the ACP tool-call layer rather than a directly greppable function name, or (per the reporter's own note that they used "Hermes native gateway mode exclusively, not Buzz-managed ACP runtime") may not go through `buzz-acp` at all for this specific reporter's setup, which would put the bug outside this crate entirely.
+
+Per Run 5/7's standard, this is logged as an investigated-but-inconclusive lead rather than forced into a drafted comment — posting a comment naming a specific call site as the cause would be a guess dressed as a source citation, not something actually verified. Flagged for a future run with more time budget to trace the reply-publish path to its actual location (likely start from the ACP client's tool-call/session-update dispatch rather than the pool.rs completion handler, or check whether Hermes-native-gateway mode has an entirely separate publish path from `buzz-acp`'s own).
+
+### What was opened / answered this run
+
+**Nothing posted.** Seventh consecutive run (Runs 1, 3, 4, 5, 6, 7, 8) with no write path to `block/buzz`. This run's output: one new source-verified drafted answer (#5626 — validation-exists-but-wired-to-wrong-path finding), one investigated-but-inconclusive lead (#4923/#5621, logged honestly as unresolved rather than guessed), a fresh 72h survey, and reconfirmation that all six prior drafts (#4860, #5492, #5557, #5555, #5611) and PR #4624 still stand untouched.
+
+### Positioning read: **neither** (unchanged, reconfirmed a seventh time)
+
+- Not a competitor — Buzz remains a team workspace/chat+git+workflow fabric on Nostr; ThumbGate remains a cross-tool pre-action governance gate for arbitrary agent actions. Different product surfaces, no overlap in what either actually ships.
+- Not a partner — no relationship, no contact, no integration, and nothing this run changes that.
+- #5626 is the sharpest data point yet for the recurring technical-overlap pattern: it's not just "local success doesn't verify external state" (the #4565/#4860/#5492/#5557/#5555 family) — it's a **fully-built authorization check that was wired to the wrong write path**, so a security control that exists in the codebase provides zero actual protection against the exact attack it was designed for. That is precisely the class of gap a pre-action gate sitting in front of *all* write paths (not just the ones a given validation function happens to be plumbed into) is designed to catch — real market signal for the problem class, still not evidence of any relationship with Buzz, which does not exist.
+
+### What was skipped and why
+
+- **#5636, #5632, #5631, #5618, #5616** — surveyed in full, skipped per the table above (adjacent-but-underspecified, feature request, or off-domain).
+- **A drafted comment for #4923/#5621** — deliberately not forced; see "inconclusive" note above. Better to log an honest dead end than post a guess.
+- **Posting anything to `block/buzz`** — impossible this run; not a judgment-call skip (see Access section above).
+
+### Blocker status (report only — no action requested)
+
+Seventh consecutive run (Runs 1, 3, 4, 5, 6, 7, 8) with zero write access to `block/buzz` from this environment tier — unchanged from Run 6's finding that this is a session/tool allowlist restriction, not a GitHub-side permissions issue on Igor's real, established account. Six verbatim-ready drafts now sit in this log for a write-capable session to post: #4860 (Run 3), #5492 (Run 4), #5557 (Run 5), #5555 (Run 6), #5611 (Run 7, partial), #5626 (this run). PR #4624 (Run 2) still awaits its first human review, now 9 days out.
+
