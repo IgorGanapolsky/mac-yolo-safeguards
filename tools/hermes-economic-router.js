@@ -46,6 +46,23 @@ const ROUTES = [
     proofGates: ['exact-marker-smoke', 'local-provider-config-present'],
   },
   {
+    id: 'alibaba_qwen_tokenplan',
+    label: 'Alibaba Cloud Token Plan 2X Qwen 3.8 Max Route',
+    agent: 'ali-yolo',
+    provider: 'dashscope',
+    model: 'dashscope/qwen3.8-max',
+    costUsd: 0.0001,
+    latencyMs: 1500,
+    reliability: 0.98,
+    riskCeiling: 'critical',
+    strengths: ['qwen3.8-max', 'heavy-agentic-coding', 'tokenplan-2x-promo', 'concurrency-4x', '76-percent-savings'],
+    commandEnv: {
+      HERMES_YOLO_PROVIDER: 'dashscope',
+      HERMES_YOLO_MODEL: 'dashscope/qwen3.8-max',
+    },
+    proofGates: ['dashscope-key-present', 'ali-yolo-probe-pass'],
+  },
+  {
     id: 'local_coder_candidate',
     label: 'Measured local coding candidate',
     agent: 'coding-specialist',
