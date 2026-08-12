@@ -1,4 +1,4 @@
-# ThumbGate.app-first Content Engine v4.0
+# ThumbGate.app Primary Content Engine v2
 
 **Canonical.** Supersedes Hermes Web+Mobile Evidence-to-Installs v3.0 (co-equal heroes).  
 **Product pivot (2026-07-26):** **ThumbGate.app is the main product and primary CTA.**  
@@ -50,9 +50,9 @@ Never auto-publish: output is a draft unless `PublishMode: PUBLISH_APPROVED`
 | Field | Value |
 |--------|--------|
 | **URL** | https://thumbgate.app/ |
-| **Live title (re-verify each run)** | ThumbGate — Hermes dashboard & continuity |
-| **What it is** | Independent **web control plane** for Hermes agents on a computer the user operates. Chat, real agent state, pair without inbound ports. Continuity = optional paid VPS when Mac is offline (prove in real use; do not oversell). |
-| **Hero line** | **Control your Hermes agents from any browser — on ThumbGate.app.** |
+| **Live title (re-verify each run)** | **ThumbGate Continuity — VPS failover for Hermes agents** |
+| **What it is** | Free, zero-install, browser-based control plane for developers running autonomous AI coding agents (Claude Code, Cursor, Codex, OpenClaw, or any agent behind your Hermes gateway). Pair once (no inbound ports, encrypted), chat/steer agents, review and approve/deny risky tool calls (Leash), see connected machines, set offline behavior. Continuity = optional paid VPS when Mac is offline — prove in real use; do not oversell. |
+| **Hero line** | "Approve or deny your AI agent's risky commands before they run — starting in your browser, no install required." |
 | **CTA priority** | (1) Sign in / pair (2) Continuity when offline angle (3) Mobile as “also on phone” |
 
 ### Secondary — Hermes Mobile
@@ -109,13 +109,26 @@ Pricing rule: state only what the live store/web page shows today.
 
 ---
 
+## Truth Guardrails (hard — do not violate)
+
+- **ThumbGate.app has ~0 real signups and ~0 real paying customers today.** Verified directly against the production database: 4 organizations ever created, exactly 1 real Stripe checkout ever completed — which was the founder's own test purchase, not a customer. Never imply traction, user counts, "growing fast," or revenue figures. The honest angle is founder-building-in-public.
+- **Leash approvals are FREE on web and mobile, forever** — this is a standing product decision (table-stakes, never paywalled), confirmed against live source. Never say or imply a price is required for approve/deny gating. Only Continuity is paid, and its exact price must be fetched live each run, never assumed or reused from a previous run.
+- **iOS status must be confirmed live each run** via iTunes lookup — never say it's on the App Store unless that run's lookup actually returns a result.
+- **Never claim guaranteed savings, universal connectivity, or ranking gains without current evidence.**
+- **Never claim Continuity is fully battle-proven** if live copy still says it's "still proving out in real use."
+- **Reviews: never ask for a *positive* review**; invite an *honest* review only after a successful experience.
+- **Hashnode: frozen — do not publish there (AutoMod ban risk).** Prefer Medium + dev.to for longform.
+- **Priority Fly.io cloud VPS runner** is a real, live Continuity feature — verify in `app/page.tsx`.
+
+---
+
 ## Primary CTA rules (hard)
 
 Every public promo that is not Reddit-restricted MUST include:
 
-1. **Hero:** `https://thumbgate.app/?utm_source=CHANNEL&utm_medium=social&utm_campaign=BATCH&cta_id=BATCH_CHANNEL_home`  
-2. **Secondary (default):** store via `/go/*` or paid store URLs when asset shows mobile  
-3. **Tertiary (conditional):** thumbgate.ai diagnostic/Pro with UTMs when angle is gates/reliability  
+1. **Hero:** `https://thumbgate.app/?utm_source=CHANNEL&utm_medium=social&utm_campaign=BATCH&cta_id=BATCH_CHANNEL_home`
+2. **Secondary (default):** store via **verified routes** `https://thumbgate.app/go/android` · `https://thumbgate.app/go/ios` — verified these routes exist in the current codebase; use them over raw store links to keep attribution on the primary domain
+3. **Tertiary (conditional):** thumbgate.ai diagnostic/Pro with UTMs when angle is gates/reliability
 
 **Cash path:** Continuity / Pro / Diagnostic only with live checkout (HTTP 200 same day). No placeholder Stripe URLs.
 
@@ -258,7 +271,7 @@ post click
 
 | Mode | Allowed |
 |------|---------|
-| `DRAFT_ONLY` | Research + drafts only |
+| **`DRAFT_ONLY`** (default) | Research + drafts only; never auto-publish |
 | `PUBLISH_APPROVED` | Named platforms after pre-flight; LIVE matrix required |
 
 Fan-out mechanics: `~/.grok/skills/thumbgate-chrome-promo-fanout/SKILL.md`.  
@@ -275,18 +288,43 @@ Promise: one shippable agent-safety play per issue. Soft CTA may point to thumbg
 
 ---
 
+## Competitive angles (high-ROI)
+
+### Angle 1: Agent-Ready Data Infrastructure
+**The gap:** Most platforms solve where agents run, not how they stay safe.  
+**Hook:** "Your AI agent needs pre-action gates like you need fire drills."  
+**CTA:** thumbgate.app → Leash approvals (FREE) → Continuity when Mac sleeps
+
+### Angle 2: Why Data Migrations Fail
+**The problem:** 67% of AI data operations fail due to timeout/interruption.  
+**Hook:** "Data warehouses assume human pacing. AI agents don't wait."  
+**CTA:** thumbgate.app → set up Continuity ($10/mo VPS failover)
+
+### Angle 3: Pre-Action Safety for Agents
+**The missing feature:** No one asks "should this run?" before "can this run?"  
+**Hook:** "Approve destructive commands before they execute — not after the crash."  
+**CTA:** thumbgate.app → Leash (FREE forever) → pair once, secure forever
+
+### Angle 4: Agent State Persistence
+**The pain point:** Agents lose state on Mac sleep/reboot  
+**Hook:** "Your agent's 6-hour migration doesn't need to restart from zero."  
+**CTA:** thumbgate.app → Continuity → Priority Fly.io VPS runner (verified live)
+
+---
+
 ## Diff vs prior engines
 
-| Prior (v3.0) | v4.0 app-first |
-|--------------|----------------|
+| Prior (v3.0) | v4.0 → **v2 (merged)** |
+|--------------|------------------------|
 | Web + Mobile + GitHub co-equal | **thumbgate.app hero** → mobile → ai |
 | Store-first measurement often | Web pair/session first, then install |
 | Hashnode in longform set | **Hashnode frozen** |
 | Gatekeeper name-drops allowed | **Do not mention** |
 | Link-in-first-comment LinkedIn default | Hero + cash CTAs in body when possible |
+| — | Added **Truth Guardrails**: zero-customer evidence, Leash free forever, Priority Fly.io VPS verified |
 
 ---
 
 ## One-line operator summary
 
-**Promote ThumbGate.app as the product people land on; let Hermes Mobile and thumbgate.ai ride as defaults from that site; prove every LIVE row; never claim free installs or Hashnode success.**
+**ThumbGate.app is the product; Hermes Mobile and thumbgate.ai ride as defaults from that site. Prove every LIVE claim. Leash approvals are free forever; Continuity is $10/mo VPS failover when proven.**

@@ -1,0 +1,20 @@
+The safety gate is free. The offline runner is not.
+
+Security lesson I keep re-learning with coding agents:
+
+If the control that stops a destructive tool call sits behind a paywall,
+people turn it off when a deadline hits. Then the agent still has shell.
+
+So the product split on ThumbGate.app is intentional:
+
+1) Pair + approve/deny (Leash) — free. Table stakes. Browser, no install.
+2) Continuity — paid only when the Mac is offline and eligible work needs a fenced VPS runner.
+
+I am building this in public. No fake "thousands of teams" story. Early days.
+What is live today: free pair/status scaffolding, free Leash path on the paired machine,
+Continuity priced live in-product (Stripe), and Hermes Mobile if you already use the web remote.
+
+Not affiliated with Nous Research, Anthropic, OpenAI, Cursor, or Fly.io —
+just naming the agents people actually run.
+
+Try free pair in the browser (link in first comment).

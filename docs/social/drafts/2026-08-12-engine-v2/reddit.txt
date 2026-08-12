@@ -1,0 +1,15 @@
+Title: If pre-exec approve/deny for coding agents is paid, do teams just turn it off?
+
+Working assumption from security reviews of autonomous coding agents:
+
+If the human gate that stops a destructive tool call is a paid upsell,
+deadline pressure makes people disable it — and the agent still has shell.
+
+Post-hoc PR review does not help once rm / deploy / network tools already ran.
+
+Curious how others design this:
+- free always-on approval UX vs paid "governance suite"
+- local-only vs remote approve from browser/phone
+- what you refuse to put behind a subscription
+
+(I build in this space; happy to answer architecture questions. Not here to shill.)

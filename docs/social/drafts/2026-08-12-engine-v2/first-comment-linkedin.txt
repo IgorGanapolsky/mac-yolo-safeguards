@@ -1,0 +1,5 @@
+Web (primary): https://thumbgate.app/?utm_source=linkedin&utm_medium=social&utm_campaign=engine_v2_20260812&cta_id=engine_v2_li_home
+
+Also on phone (secondary, after you pair on web):
+Android → https://thumbgate.app/go/android?utm_source=linkedin&utm_medium=social&utm_campaign=engine_v2_20260812&cta_id=engine_v2_li_go_android
+iOS → https://thumbgate.app/go/ios?utm_source=linkedin&utm_medium=social&utm_campaign=engine_v2_20260812&cta_id=engine_v2_li_go_ios

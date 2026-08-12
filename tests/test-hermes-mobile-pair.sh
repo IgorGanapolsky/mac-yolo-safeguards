@@ -109,13 +109,14 @@ else
   bad "pair script splits adb loopback vs Camera/HTTP Tailscale pairServer"
 fi
 
-# Camera/HTTP remints must not redeem against LAN when Tailscale IP exists.
+# Camera/HTTP remints prefer LAN when available so same-Wi‑Fi phones without
+# Tailscale VPN can redeem (CEO 2026-08-12). Tailscale remains a fallback.
 if grep -q 'resolveLiveMintPairServerUrl' "$REPO/tools/hermes-mobile-pair.js" \
-  && grep -q 'Stale seed often stores LAN while Camera QR already uses Tailscale' "$REPO/tools/hermes-mobile-pair.js" \
-  && grep -q 'Pair exchange (Camera/HTTP)' "$REPO/tools/hermes-mobile-pair.js"; then
-  ok "live mint upgrades LAN pairServer to Tailscale for Camera QR redeem"
+  && grep -q 'Prefer LAN seed over Tailscale when both exist' "$REPO/tools/hermes-mobile-pair.js" \
+  && grep -q 'resolvePhoneReachablePairServerUrl' "$REPO/tools/hermes-mobile-pair.js"; then
+  ok "live mint prefers LAN pairServer for same-Wi-Fi redeem (Tailscale fallback)"
 else
-  bad "live mint upgrades LAN pairServer to Tailscale for Camera QR redeem"
+  bad "live mint prefers LAN pairServer for same-Wi-Fi redeem (Tailscale fallback)"
 fi
 
 # --open must prefer live HTTP over file://
