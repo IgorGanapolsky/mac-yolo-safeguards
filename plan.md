@@ -1924,6 +1924,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 - `hermes-mobile/src/utils/chatMachineHeader.ts`, `hermes-mobile/src/__tests__/chatMachineHeader.test.ts`, `hermes-mobile/src/components/ChatEmptyGreeting.tsx`, `hermes-mobile/src/__tests__/ChatEmptyGreeting.test.tsx`, `plan.md` → **codex-wifi-label-neutral-20260812** (T-WIFI-LABEL-NEUTRAL-20260812: user screenshot at 2026-08-12T12:50-04:00 proved an arbitrary office LAN was labeled `Home Wi-Fi`; change active private-LAN transport copy to location-neutral `Wi-Fi` only. Reclaimed stale header ownership after PR #994 merged, duplicate #995 closed, and no matching branch, worktree, open PR, or live process remained. PR #1455/#1472/#1481 do not touch `chatMachineHeader.ts` or `ChatEmptyGreeting.tsx`; do not edit their connection-stack files.) (2026-08-12T12:54:00-04:00)
 
+- `hermes-mobile/src/__tests__/tailscaleOnlyCopyAndPromo.test.tsx`, `hermes-mobile/src/__tests__/computerPickerStatus.test.ts`, `plan.md` → **codex-wifi-label-neutral-20260812** (T-WIFI-LABEL-NEUTRAL-20260812 downstream contract extension: full Jest proved both tests directly consume the owned transport-label functions and still require `Home Wi-Fi`. Reclaimed stale `cursor-transport-ssot` test ownership after PR #647 merged and no matching branch, worktree, open PR, or live process remained. Test-expectation updates only; do not edit `computerPickerStatus.ts` or concurrent connection-stack files.) (2026-08-12T12:57:00-04:00)
+
 ## 3. Decisions Log
 
 ### D-2026-08-10-jcode-engagement-and-scorecard-run
