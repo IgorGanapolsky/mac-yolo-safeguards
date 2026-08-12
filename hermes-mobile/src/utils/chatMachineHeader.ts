@@ -23,7 +23,7 @@ import { relayWorkerDisplayName, selectRelayWorker } from './relayRouting';
 import { isTailnetRouteLabel, isTailscaleGatewayUrl } from './tailscaleHosts';
 
 /**
- * PRODUCT LAW (2026-07-20): never claim Tailscale/USB/Home Wi‑Fi as the live path when
+ * PRODUCT LAW (2026-07-20): never claim Tailscale/USB/Wi‑Fi as the live path when
  * connectionMode is relay, the account is unpaired, and direct Mac HTTP is down.
  * Tailnet presence ≠ app paired — that misdiagnosis showed "Connecting · Tailscale"
  * above "Hermes relay is not paired yet".
@@ -74,7 +74,7 @@ export function resolveHeaderTransportLabel(input: {
     return 'USB';
   }
   if (isPrivateLanGatewayUrl(gatewayUrl)) {
-    return 'Home Wi‑Fi';
+    return 'Wi‑Fi';
   }
   return formatGatewayEndpointLine(gatewayUrl, input.health)?.trim() || undefined;
 }
@@ -519,18 +519,18 @@ export function resolveChatMachineHeaderDisplay(input: {
       ipLine &&
         ipLine !== 'USB' &&
         ipLine !== 'Tailscale' &&
-        ipLine !== 'Home Wi‑Fi' &&
+        ipLine !== 'Wi‑Fi' &&
         machineLabel.includes(ipLine.split(':')[0]),
     );
 
-  // Show transport when multi-Mac, USB (Wi‑Fi only), Tailscale/Home Wi‑Fi, or IP not in label.
+  // Show transport when multi-Mac, USB (Wi‑Fi only), Tailscale/Wi‑Fi, or IP not in label.
   // Unpaired relay without direct Mac HTTP never claims a transport chip (see shouldClaimHeaderTransport).
   if (
     ipLine &&
     (savedMacCount > 1 ||
       usbAllowed ||
       ipLine === 'Tailscale' ||
-      ipLine === 'Home Wi‑Fi' ||
+      ipLine === 'Wi‑Fi' ||
       !labelContainsIp)
   ) {
     detailParts.push(ipLine);
@@ -562,7 +562,7 @@ export function resolveChatMachineHeaderDisplay(input: {
         (isTailscaleGatewayUrl(gatewayUrl) &&
           hasNamedMachine &&
           !isTailnetRouteLabel(machineLabel)) ||
-        detailParts.includes('Home Wi‑Fi')),
+        detailParts.includes('Wi‑Fi')),
   };
 }
 
