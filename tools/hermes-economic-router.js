@@ -29,6 +29,23 @@ const RISK_LEVELS = ['low', 'medium', 'high', 'critical'];
 
 const ROUTES = [
   {
+    id: 'local_muse_glimmer',
+    label: 'Meta Muse Glimmer 30B agentic local route',
+    agent: 'coding-agentic-specialist',
+    provider: 'custom:ollama-local-64k',
+    model: 'muse-glimmer:30b',
+    costUsd: 0,
+    latencyMs: 12000,
+    reliability: 0.85,
+    riskCeiling: 'medium',
+    strengths: ['muse-glimmer', '30b', 'agentic', 'multimodal', 'apache-2.0', 'local', 'no-spend'],
+    commandEnv: {
+      HERMES_YOLO_PROVIDER: 'custom:ollama-local-64k',
+      HERMES_YOLO_MODEL: 'muse-glimmer:30b',
+    },
+    proofGates: ['exact-marker-smoke', 'local-provider-config-present'],
+  },
+  {
     id: 'local_fast',
     label: 'Local fast Hermes route',
     agent: 'local-executor',
