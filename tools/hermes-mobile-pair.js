@@ -561,39 +561,45 @@ function buildLivePairHtml({
 }
 
 function resolveCameraPageUrl(lanIp) {
+  // Same Wi‑Fi pairing must not require Tailscale on the phone. Prefer LAN; TS is
+  // still listed in tailnetProbeHosts for cellular redeem.
+  const lan = String(lanIp || '').trim();
+  if (lan && lan !== '127.0.0.1' && lan !== 'localhost') {
+    return `http://${lan}:${PAIR_PORT}/pair`;
+  }
   const tailnetIp = localTailscaleIpv4();
   if (tailnetIp) return `http://${tailnetIp}:${PAIR_PORT}/pair`;
-  return `http://${lanIp}:${PAIR_PORT}/pair`;
+  return `http://127.0.0.1:${PAIR_PORT}/pair`;
 }
 
 /**
  * Phone-reachable pair-exchange base for Camera / HTTP / Tailscale QR paths.
- * Prefer Tailscale MagicDNS IP over LAN — cellular phones cannot redeem against
- * 10.x/192.168.x even when the QR page itself was opened via Tailscale.
+ * Prefer LAN when available so same-Wi‑Fi phones (Tailscale VPN off) can redeem.
+ * Fall back to Tailscale CGNAT only when no usable LAN IP — cellular/off-site path.
  * Never use 127.0.0.1 here (that only works for adb reverse deep links).
  */
 function resolvePhoneReachablePairServerUrl(lanIp) {
-  const tailnetIp = localTailscaleIpv4();
-  if (tailnetIp) return `http://${tailnetIp}:${PAIR_PORT}`;
   const lan = String(lanIp || '').trim();
   if (lan && lan !== '127.0.0.1' && lan !== 'localhost') {
     return `http://${lan}:${PAIR_PORT}`;
   }
+  const tailnetIp = localTailscaleIpv4();
+  if (tailnetIp) return `http://${tailnetIp}:${PAIR_PORT}`;
   return `http://127.0.0.1:${PAIR_PORT}`;
 }
 
-/** Prefer Tailscale/LAN for HTTP remints; keep loopback only when seed has no better host. */
+/** Prefer LAN for HTTP remints; keep loopback only when seed has no better host. */
 function resolveLiveMintPairServerUrl(seed) {
   const lanIp = seed?.localIp || detectLocalLanIp() || '127.0.0.1';
   const phoneReachable = resolvePhoneReachablePairServerUrl(lanIp);
   const fromSeed = String(seed?.pairServer || '').replace(/\/$/, '');
   if (!fromSeed) return phoneReachable;
-  // Stale seed often stores LAN while Camera QR already uses Tailscale — upgrade.
-  if (phoneReachable.includes('100.') && !fromSeed.includes('100.')) {
+  // Prefer a non-loopback seed; upgrade loopback to LAN/Tailscale.
+  if (fromSeed.includes('127.0.0.1') && !phoneReachable.includes('127.0.0.1')) {
     return phoneReachable;
   }
-  // Never redeem Camera/HTTP codes against loopback unless that is truly all we have.
-  if (fromSeed.includes('127.0.0.1') && !phoneReachable.includes('127.0.0.1')) {
+  // Prefer LAN seed over Tailscale when both exist (same-Wi‑Fi redeem without phone VPN).
+  if (fromSeed.includes('100.') && phoneReachable && !phoneReachable.includes('100.')) {
     return phoneReachable;
   }
   return fromSeed;
@@ -854,7 +860,14 @@ function refreshPairAssetsFromLocalGateway() {
   const lanIp = resolveLanIp(health);
   const hostname = (health.hostname || os.hostname() || 'Mac').replace(/\.local$/i, '');
   const tailnetIp = localTailscaleIpv4();
-  let gatewayUrl = tailnetIp ? `http://${tailnetIp}:8642` : `http://${lanIp}:8642`;
+  // Prefer LAN over Tailscale for the primary gatewayUrl. Pairing on the same Wi‑Fi
+  // must work when the phone Tailscale VPN is off. Tailscale stays in tailnetProbeHosts
+  // for cellular / off-LAN fallback — do not force it as the only connect target.
+  let gatewayUrl = lanIp
+    ? `http://${lanIp}:8642`
+    : tailnetIp
+      ? `http://${tailnetIp}:8642`
+      : 'http://127.0.0.1:8642';
   const apiKey = readLocalApiKey();
   const thumbgateApiKey = readThumbgateApiKey();
   const relayCode =
@@ -870,7 +883,10 @@ function refreshPairAssetsFromLocalGateway() {
     ]);
   const tailnetProbeHosts = discoverTailnetProbeHosts();
   const cameraPageUrl = resolveCameraPageUrl(lanIp);
-  const phonePairServer = resolvePhoneReachablePairServerUrl(lanIp);
+  // Prefer LAN pairServer on the local subnet; Tailscale pairServer only when LAN missing.
+  const phonePairServer = lanIp
+    ? `http://${lanIp}:${PAIR_PORT}`
+    : resolvePhoneReachablePairServerUrl(lanIp);
   const pairPath = path.join(OUT_DIR, 'pair.json');
   let previous = null;
   if (fs.existsSync(pairPath)) {
@@ -890,8 +906,10 @@ function refreshPairAssetsFromLocalGateway() {
     gatewayUrl = loopback;
     console.log('  pair.json refresh: keeping USB loopback primary (adb reverse + auth verified)');
   } else if (previous && isLoopbackGatewayUrl(previous.gatewayUrl) && !usbReverseLive) {
-    // Cable gone — fall through to Tailscale/LAN rewrite below.
+    // Cable gone — fall through to LAN (preferred) / Tailscale rewrite below.
     console.log('  pair.json refresh: prior USB primary, no live reverse — promoting network gateway');
+  } else if (lanIp) {
+    console.log(`  pair.json refresh: LAN primary http://${lanIp}:8642 (Tailscale is fallback only)`);
   }
   // Preserve fleet extras (e.g. Mac mini) across --server-only refresh so HTTP remints
   // still seed Find computers after a cellular/Tailscale redeem.
