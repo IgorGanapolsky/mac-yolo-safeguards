@@ -14,6 +14,7 @@ node tests/test-github-copilot-agent-harness.js
 node tests/test-browseros-agent-harness.js
 node tests/test-github-runner-roi-auditor.js
 node tests/test-brighttalk-feed-cron-ingestor.js
+node tests/test-quoroom-quorum-engine.js
 node tests/test-hermes-yolo.js
 node tests/test-agent-memory-before-gen.js
 node tests/test-retrieval-query-rewrite.js
