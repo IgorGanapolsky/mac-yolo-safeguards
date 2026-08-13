@@ -74,6 +74,8 @@ assert.strictEqual(resolveGrokMaxTurns(['what', 'is', 'this'], {}), 6);
 assert.strictEqual(resolveGrokMaxTurns(['fix', 'the', 'bug'], {}), 12);
 assert.match(DIRECT_RESPONSE_RULES, /Lead with the result/i);
 assert.match(DIRECT_RESPONSE_RULES, /check the current tool registry/i);
+assert.match(DIRECT_RESPONSE_RULES, /No bot slop/i);
+assert.match(DIRECT_RESPONSE_RULES, /No gibberish/i);
 assert.doesNotMatch(DIRECT_RESPONSE_RULES, /all tools.*enabled|full access/i);
 
 const ttyGrokArgs = buildGrokBackendArgs([], { isTty: true, env: {} });
@@ -290,14 +292,16 @@ assert.strictEqual(chooseLocalModel(['qwen3:8b-agent-64k', 'qwen3:8b']), 'qwen3:
 assert.strictEqual(chooseLocalModel(['qwen3:8b-64k']), 'qwen3:8b-64k');
 assert.strictEqual(chooseLocalModel(['gpt-oss:20b', 'qwen3:8b-64k']), 'gpt-oss:20b');
 assert.strictEqual(chooseLocalModel(['qwen3.6:35b-a3b', 'gpt-oss:20b']), 'qwen3.6:35b-a3b');
+// Without cloud keys, still prefer quality gateway name (not silent ollama/qwen primary)
 assert.deepStrictEqual(defaultModelRoute({}, {
   availableModels: ['qwen2.5:3b-64k'],
   configuredDefault: null,
 }), {
-  provider: 'custom:ollama-local-64k',
-  model: 'qwen2.5:3b-64k',
+  provider: 'custom:litellm-gateway',
+  model: 'glm-coding',
 });
-assert.deepStrictEqual(defaultModelRoute({}, {
+// Local only when explicitly allowed
+assert.deepStrictEqual(defaultModelRoute({ HERMES_YOLO_ALLOW_LOCAL: '1' }, {
   availableModels: ['qwen3:8b-agent-64k'],
   configuredDefault: null,
 }), {
@@ -312,8 +316,19 @@ assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
   provider: 'custom:litellm-gateway',
   model: 'glm-coding',
 });
-// Explicit config default beats a still-present but quota-dead z.ai key
+// Free deepseek/flash config is upgraded to glm-coding (anti-slop quality lock 2026-08-13)
 assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
+  configuredDefault: { model: 'deepseek-v4-flash', provider: 'custom:litellm-gateway' },
+}), {
+  provider: 'custom:litellm-gateway',
+  model: 'glm-coding',
+  upgradedFrom: 'custom:litellm-gateway/deepseek-v4-flash',
+});
+// Escape hatch: free primary only when explicitly allowed
+assert.deepStrictEqual(defaultModelRoute({
+  Z_AI_API_KEY: 'zai-key',
+  HERMES_YOLO_ALLOW_FREE_PRIMARY: '1',
+}, {
   configuredDefault: { model: 'deepseek-v4-flash', provider: 'custom:litellm-gateway' },
 }), {
   provider: 'custom:litellm-gateway',
@@ -663,7 +678,8 @@ const { checkAndHealSelfHealingHarness, detectAndHealStreamStall, MAX_COMPRESSIO
 console.log('Testing Self-Healing Harness & Stream Stall Auto-Recovery...');
 assert.strictEqual(typeof checkAndHealSelfHealingHarness, 'function');
 assert.strictEqual(typeof detectAndHealStreamStall, 'function');
-assert.strictEqual(MAX_COMPRESSIONS_CEILING, 15);
+// Default ceiling is 8 so bloated sessions auto-heal earlier (anti-timeout/slop).
+assert.strictEqual(MAX_COMPRESSIONS_CEILING, 8);
 
 // Test under-threshold (no reset)
 const noReset = checkAndHealSelfHealingHarness(process.env, process.cwd(), { compressions: 5 });
