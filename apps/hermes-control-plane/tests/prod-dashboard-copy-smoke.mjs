@@ -34,14 +34,21 @@ const jsRes = await fetch(jsUrl);
 assert.equal(jsRes.status, 200, jsUrl);
 const js = await jsRes.text();
 
+// Pin the behaviour the UI must express, not strings that were since deleted.
+// "needs a paired Mac first" was removed on purpose: Continuity runs on the Cloud
+// VPS without any paired machine (DashboardClient: "Continuity never requires a
+// paired Mac"). Asserting its presence made this suite unpassable, so it is now
+// inverted into a regression guard against re-gating Continuity on pairing.
 assert.match(js, /Which machine\?/);
-assert.match(js, /needs a paired Mac first/);
+assert.match(js, /No computer paired yet/);
 assert.match(js, /Pair computer/);
+assert.match(js, /Cloud VPS/);
 assert.doesNotMatch(js, /My computer/);
 assert.doesNotMatch(js, /Which Mac\?/);
 assert.doesNotMatch(js, /My Mac only/);
 assert.doesNotMatch(js, /Pair a Mac first/);
 assert.doesNotMatch(js, /Add another Mac/);
+assert.doesNotMatch(js, /needs a paired Mac first/);
 
 console.log(
   JSON.stringify({
@@ -50,6 +57,6 @@ console.log(
     base,
     dashboardClient: file,
     bytes: js.length,
-    required: ["needs a paired Mac first", "Pair computer", "no My computer"],
+    required: ["Which machine?", "No computer paired yet", "Pair computer", "Cloud VPS", "no My computer"],
   }),
 );
