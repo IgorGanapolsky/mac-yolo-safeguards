@@ -18,6 +18,8 @@
 #   bin/agent-loop --json             # machine-readable summary
 #   bin/agent-loop --health           # just context-layer health checks
 #   bin/agent-loop --health --json    # health checks as JSON
+#   bin/agent-loop --doctor           # full diagnostic run (all six steps)
+#   bin/agent-loop --doctor --json    # full diagnostic run as JSON
 #   bin/agent-loop --watch            # repeat every N seconds (default 300)
 #
 set -euo pipefail
@@ -38,10 +40,14 @@ log() {
   echo "[$(date -u +%H:%M:%S)] $*" >&2
 }
 
-# Run a node script and capture output (exit code preserved)
+# Run a node script and capture output via a temp file so large JSON is fully flushed
 run_node() {
   local script="$1"; shift
-  node "$ROOT/tools/$script" "$@" 2>/dev/null || true
+  local tmp
+  tmp=$(mktemp)
+  node "$ROOT/tools/$script" "$@" > "$tmp" 2>/dev/null || true
+  cat "$tmp"
+  rm -f "$tmp"
 }
 
 # Run a bash script and capture output
@@ -69,7 +75,9 @@ recollect() {
     lessons=$("$HOME/.thumbgate/runtime/node_modules/.bin/thumbgate" recall "lesson" --limit 3 --json 2>/dev/null || echo '[]')
   fi
 
-  echo "{\"rag_health\": ${rag_health:-null}, \"recent_lessons\": ${lessons:-[]}}"
+  local json
+  json="{\"rag_health\": ${rag_health:-null}, \"recent_lessons\": ${lessons:-[]}}"
+  printf '%s\n' "$json"
 }
 
 # ─── Step 2: Plan ───────────────────────────────────────────────────────────
@@ -80,7 +88,7 @@ plan() {
 
   local snapshot
   snapshot=$(run_node "plan-coordination-snapshot.js" "--json" 2>/dev/null || echo '{"error":"snapshot failed"}')
-  echo "$snapshot"
+  printf '%s\n' "$snapshot"
 }
 
 # ─── Step 3: Observe ────────────────────────────────────────────────────────
@@ -156,9 +164,10 @@ print(d.get('e2e', 'unknown'))
   fi
   results+=("\"gh_token_shadowed\": $gh_token_shadow")
 
-  local joined
+  local joined json
   joined=$(IFS=,; echo "${results[*]}")
-  echo "{$joined}"
+  json="{$joined}"
+  printf '%s\n' "$json"
 }
 
 # ─── Step 4: Act ────────────────────────────────────────────────────────────
@@ -221,14 +230,14 @@ act() {
   fi
 
   # Output
-  if [ "$json_mode" = "json" ]; then
+  if [ "$json_mode" = "true" ]; then
     local actions_json
     actions_json=$(printf '%s\n' "${actions[@]}" | python3 -c "
 import json, sys
 lines = [l for l in sys.stdin.read().strip().split('\n') if l]
 print(json.dumps(lines))
 " 2>/dev/null || echo '[]')
-    echo "$actions_json"
+    printf '%s\n' "$actions_json"
   else
     echo ""
     echo "=== Priority Actions ==="
@@ -281,7 +290,9 @@ evaluate() {
     gates_passed=$((gates_passed + 1))
   fi
 
-  echo "{\"duration_ms\": $duration_ms, \"gates_passed\": $gates_passed, \"total_gates\": $total_gates, \"score\": $(python3 -c "print(round($gates_passed / $total_gates, 2))" 2>/dev/null || echo 0)}"
+  local json
+  json="{\"duration_ms\": $duration_ms, \"gates_passed\": $gates_passed, \"total_gates\": $total_gates, \"score\": $(python3 -c "print(round($gates_passed / $total_gates, 2))" 2>/dev/null || echo 0)}"
+  printf '%s\n' "$json"
 }
 
 # ─── Step 6: Learn ──────────────────────────────────────────────────────────
@@ -311,7 +322,9 @@ learn() {
   fi
 
   # Always output JSON so callers can parse
-  echo "{\"captured\": $captured, \"score\": $score, \"e2e_status\": \"$e2e_status\", \"timestamp\": \"$(now_iso)\"}"
+  local json
+  json="{\"captured\": $captured, \"score\": $score, \"e2e_status\": \"$e2e_status\", \"timestamp\": \"$(now_iso)\"}"
+  printf '%s\n' "$json"
 }
 
 # ─── Main ────────────────────────────────────────────────────────────────────
@@ -326,6 +339,7 @@ main() {
     case "$1" in
       --json) json_mode="true"; JSON_MODE="true"; shift ;;
       --health) mode="health"; shift ;;
+      --doctor) mode="doctor"; shift ;;
       --watch) WATCH_INTERVAL=300; shift ;;
       --watch-interval) WATCH_INTERVAL="$2"; shift 2 ;;
       *) shift ;;
@@ -341,7 +355,9 @@ main() {
     learn_output=$(learn "$observe_output" "$evaluate_output" "true" 2>/dev/null || echo '{"captured": false}')
 
     if [ "$json_mode" = "true" ]; then
-      echo "{\"hooks\": $observe_output, \"metrics\": $evaluate_output, \"learning\": $learn_output}"
+      local json
+      json="{\"hooks\": $observe_output, \"metrics\": $evaluate_output, \"learning\": $learn_output}"
+      printf '%s\n' "$json"
     else
       echo "=== Agent Loop Health Check ==="
       echo "  Hooks valid:        $(echo "$observe_output" | python3 -c "import json,sys; print(json.load(sys.stdin).get('hooks_valid_json', 'unknown'))" 2>/dev/null || echo "unknown")"
@@ -356,17 +372,24 @@ main() {
     exit 0
   fi
 
-  # Full loop
+  # Full loop (also used by --doctor)
   if [ "$json_mode" = "true" ]; then
-    local recollect_out plan_out observe_out act_out evaluate_out
+    local recollect_out plan_out observe_out act_out evaluate_out learn_out combined
     recollect_out=$(recollect "true")
     plan_out=$(plan "true")
     observe_out=$(observe "true")
     act_out=$(act "$observe_out" "$plan_out" "true")
     evaluate_out=$(evaluate "$(now_epoch)")
-    learn "$observe_out" "$evaluate_out" 2>/dev/null || true
+    learn_out=$(learn "$observe_out" "$evaluate_out" "true" 2>/dev/null || echo '{"captured": false}')
 
-    echo "{\"recollect\": $recollect_out, \"plan\": $plan_out, \"observe\": $observe_out, \"actions\": $act_out, \"metrics\": $evaluate_out}"
+    combined="{\"mode\": \"$mode\", \"recollect\": $recollect_out, \"plan\": $plan_out, \"observe\": $observe_out, \"actions\": $act_out, \"metrics\": $evaluate_out, \"learn\": $learn_out}"
+    # Validate the assembled JSON before emitting
+    if printf '%s\n' "$combined" | python3 -c "import json,sys; json.load(sys.stdin); sys.exit(0)" 2>/dev/null; then
+      printf '%s\n' "$combined"
+    else
+      printf '%s\n' "{\"mode\": \"$mode\", \"error\": \"assembled JSON invalid\", \"partial\": $(printf '%s' "$combined" | python3 -c "import json,sys; print(json.dumps(sys.stdin.read()))" 2>/dev/null || echo '\"\"')}" >&2
+      return 1
+    fi
   else
     local start_time
     start_time=$(now_epoch)
