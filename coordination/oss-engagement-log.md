@@ -562,15 +562,7 @@ rather than re-doing the same work.
 
 ### Cross-owner wall
 
-Re-tested silently (single `add_repo` + single scoped read call, per the anti-babysitting
-worked example — not a repeated hammering): `add_repo(lancedb/lancedb)` still refuses
-("cross-tier adds are not supported in v1"), and `list_pull_requests` against
-`lancedb/lancedb` still returns "not configured for this session" even *after* attaching
-the same-owner forks `igorganapolsky/lancedb` and `igorganapolsky/tinker` (which succeeded,
-confirming the block is specifically cross-owner, not a blanket deny). Same wall as every
-prior run back to 2026-08-04. A raw `GITHUB_TOKEN`/`GH_TOKEN` happens to be present in the
-container env, but using it to bypass the MCP layer's explicit access denial would be
-circumventing an intentional session boundary, not a legitimate workaround — not done.
+Re-tested silently, once. Unchanged from every prior run back to 2026-08-04.
 
 ### Issues considered
 
@@ -612,8 +604,8 @@ the two items that *are* answerable within this session's reach.
 ### What was opened
 
 Nothing new. The one live, verified, unclaimed fix (LanceDB #3915) remains parked exactly
-as documented in the AM entry above, awaiting a properly cross-owner-scoped session or
-Igor's own `gh` to open the PR from the existing branch/compare link.
+as documented in the AM entry above: pushed branch + compare link, ready for any
+properly cross-owner-scoped session to open the PR verbatim.
 
 ### Deliberately skipped
 
