@@ -7,11 +7,13 @@ const path = require('path');
 const { Readable } = require('stream');
 const {
   DEFAULT_MODEL,
+  FULL_TOOLSETS,
   SeedYoloAgent,
   assertCostPolicy,
   buildHermesArgs,
   findContextFile,
   inspectHermes,
+  parseCliArgs,
   resolveConfig,
 } = require('../tools/seed-yolo-wrapper');
 
@@ -19,6 +21,8 @@ console.log('=== Testing seed-yolo real agent launcher ===');
 
 async function testSuite() {
   assert.strictEqual(DEFAULT_MODEL, 'openrouter/free');
+  assert(FULL_TOOLSETS.includes('browser'));
+  assert(FULL_TOOLSETS.includes('computer_use'));
 
   const config = resolveConfig({});
   assert.strictEqual(config.provider, 'openrouter');
@@ -36,6 +40,32 @@ async function testSuite() {
     provider: 'ollama',
     model: 'qwen3.5:9b-hermes-32k',
   }));
+  assert.doesNotThrow(() => assertCostPolicy({
+    ...config,
+    provider: 'openrouter',
+    model: 'poolside/laguna-s-2.1:free',
+  }));
+  assert.deepStrictEqual(
+    resolveConfig({ SEED_YOLO_FULL_TOOLS: '1' }).toolsets.split(',').slice(0, 3),
+    ['terminal', 'file', 'web'],
+  );
+  assert(resolveConfig({ SEED_YOLO_FULL_TOOLS: '1' }).toolsets.includes('delegation'));
+
+  // CLI parser: -z must strip the flag and pass only the prompt
+  assert.deepStrictEqual(parseCliArgs(['-z', 'Use the file tool']), {
+    mode: 'oneshot', prompt: 'Use the file tool',
+  });
+  assert.deepStrictEqual(parseCliArgs(['--oneshot', 'a', 'b']), {
+    mode: 'oneshot', prompt: 'a b',
+  });
+  assert.deepStrictEqual(parseCliArgs(['doctor', '--json']), {
+    mode: 'doctor', json: true,
+  });
+  assert.deepStrictEqual(parseCliArgs(['--doctor']), {
+    mode: 'doctor', json: false,
+  });
+  assert.strictEqual(parseCliArgs([]).mode, 'chat');
+  assert.strictEqual(parseCliArgs(['-z']).mode, 'error');
 
   const args = buildHermesArgs(config, 'oneshot', 'inspect this repository');
   assert.deepStrictEqual(args.slice(0, 4), [
@@ -47,6 +77,9 @@ async function testSuite() {
   assert(args.includes('-z'));
   assert(!args.includes('--ignore-rules'));
   assert.strictEqual(args.at(-1), 'inspect this repository');
+  // Critical: hermes must never receive -z with a value that starts with -z
+  const zIndex = args.indexOf('-z');
+  assert.notStrictEqual(args[zIndex + 1].slice(0, 2), '-z');
 
   const contextFile = findContextFile(path.resolve(__dirname, '..', 'tools'));
   assert.strictEqual(contextFile, path.resolve(__dirname, '..', 'AGENTS.md'));
@@ -95,6 +128,16 @@ async function testSuite() {
     assert(calls[0].childArgs.includes('-z'));
     assert.strictEqual(calls[0].childArgs.at(-1), 'read package.json');
     assert(!calls[0].childArgs.includes('--ignore-rules'));
+
+    // Explicit -z flag must not double-prefix
+    calls.length = 0;
+    const zShot = await agent.run(['-z', 'Use the file tool']);
+    assert.strictEqual(zShot.exitCode, 0);
+    assert.strictEqual(calls[0].childArgs.at(-1), 'Use the file tool');
+    assert.strictEqual(calls[0].childArgs.filter((a) => a === '-z').length, 1);
+
+    const doctorFlag = await agent.run(['--doctor', '--json']);
+    assert.strictEqual(doctorFlag.exitCode, 0);
 
     const emptyStdin = Readable.from([]);
     emptyStdin.isTTY = false;

@@ -5,6 +5,7 @@ Dated entries from the autonomous OSS-engagement routine (Thinking Machines Lab 
 ---
 
 ## 2026-08-12 (PM) — New LanceDB bug (#3923) found, root-caused, fixed, and fully verified end-to-end; pushed to fork; upstream PR still blocked
+## 2026-08-13 — New LanceDB bug investigated (inconclusive, no fix); upstream PR-creation block re-confirmed unchanged; nothing opened
 
 ### Repos surveyed
 
@@ -116,6 +117,97 @@ verbatim from the compare link above.
 Nothing (same cross-owner block covers `add_issue_comment`; not re-tested this run per
 the anti-babysitting protocol — the read-side and write-side denials have been
 consistently identical since 08-04).
+| Thinking Machines Lab | `thinking-machines-lab/tinker` (issue list, last 48h) |
+| Poolside AI | `poolsideai/pool`, `bridge-sdk`, `acp-go-sdk`, `n8n-poolside-node`, `LMCache` (open-issues check) |
+| LanceDB | `lancedb/lancedb` (issue list, last 48h) |
+
+### Session-scope check (repeated from every prior run since 08-03)
+
+`add_repo` for `igorganapolsky/lancedb` and `igorganapolsky/tinker` with `access:"push"` succeeded
+again (same-owner as session source), and a `git push --dry-run` against `IgorGanapolsky/lancedb`
+confirmed push credentials still work. `add_repo` for `lancedb/lancedb` and
+`thinking-machines-lab/tinker` directly failed again with the identical `cross-tier adds are not
+supported` error. `mcp__github__create_pull_request` against `lancedb/lancedb` (tested against the
+already-parked, already-verified `fix/list-tables-pagination-boundary-v2` branch from 08-12) failed
+again with `Access denied: repository "lancedb/lancedb" is not configured for this session.` No
+change from every prior run back to 08-03: this session can push to Igor's own forks but cannot
+open PRs, list issues via the API, or post comments against any repo outside the
+`igorganapolsky`/`IgorGanapolsky` owner. All issue survey this run was therefore done via public
+web pages (WebFetch), not the GitHub API.
+
+### Issues considered
+
+**LanceDB #3923** (new, opened 2026-08-12) — "JSON Column Encoding Bug in merge_insert": a
+`merge_insert(...).when_matched_update_all()` on a table with a JSON (`pa.json_()`/lance
+`arrow.json` extension) column stores the column unencoded, corrupting `json_extract()` for the
+*entire* table afterward, not just the touched rows. Well-documented repro, no assignee, no PR.
+This looked like the strongest new candidate this run, so it got the bulk of the effort (via a
+background agent, ~3 rounds, ~440k agent-tokens, ~65 minutes wall time — Rust builds against the
+pinned `lance` dependency take 8-70+ min per cycle in this environment). Result: **inconclusive,
+not shippable**, reported here in full rather than papered over:
+- Confirmed by reading source (not yet by running it) that `lancedb`'s `merge_insert`
+  (`rust/lancedb/src/table/merge.rs::execute_merge_insert`) never routes `new_data` through
+  `cast_to_table_schema` / any JSON-aware preprocessing, unlike `.add()`
+  (`rust/lancedb/src/table/add_data.rs::into_plan`) — this part of the reporter's hypothesis is
+  code-confirmed.
+- But reading the pinned upstream `lance` crate (`lance-format/lance@v11.0.0-beta.6`) shows
+  lance-core's own merge_insert write paths (`rust/lance/src/dataset/write/merge_insert.rs`,
+  `write_fragments_internal`'s `SchemaAdapter`) already contain JSON-conversion logic in several
+  places — consistent with the reporter's own claim that lance-core's merge_insert works fine when
+  called directly. This means the naive "lancedb forgot to cast" fix is not obviously correct, and
+  the actual drop point (if any) could be inside lance-core's join/exec-plan construction, i.e.
+  potentially an upstream-`lance` issue rather than a `lancedb` one.
+- The regression test written to settle this
+  (`test_merge_insert_arrow_json_into_lance_json_table` in `rust/lancedb/src/table/merge.rs`) has
+  its own bug: it asserts the post-merge scan returns exactly 1 `RecordBatch`
+  (`assert_eq!(results.len(), 1)` at merge.rs:572) but the real scan returned 2 (almost certainly
+  one batch per fragment — untouched fragment + merge-rewritten fragment). The test panicked on
+  that assertion before ever reaching the JSON-decode assertions, so **no run has yet observed
+  either the InvalidJsonb symptom or its absence**. Actual output:
+  ```
+  thread '...test_merge_insert_arrow_json_into_lance_json_table' panicked at rust/lancedb/src/table/merge.rs:572:9:
+  assertion `left == right` failed
+    left: 2
+   right: 1
+  test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 503 filtered out
+  ```
+- No fix was written. Per the hard rule against fabricating verification, the agent correctly
+  stopped rather than push a fix it could not verify against a real repro.
+- State left behind: local-only, not pushed. `IgorGanapolsky/lancedb` branch
+  `fix/merge-insert-json-encoding` exists locally in the run's scratch clone (based on fresh
+  `upstream/main` @ `6fb976cf`) with the broken test uncommitted. Nothing pushed, so there's no
+  compare link to hand off this time — next run (or a differently-scoped session) should start by
+  fixing the test's batch-count assumption (e.g. `arrow::compute::concat_batches` over `results`
+  before asserting row content) to get a real pass/fail signal before attempting any fix.
+
+**LanceDB #3915** (pagination boundary bug, parked and re-verified 08-12) — still open, still
+unclaimed, not re-touched this run since nothing upstream changed; the `v2` branch and drafted PR
+body from 08-12 remain the ready artifact, still blocked on the same PR-creation wall confirmed
+above.
+
+**Tinker** — no issues opened in the last 48h (newest remains #51, Jul 20, per public issue-list
+check). Not re-touched; the 08-12 parked `fix/sync-only-async-method-name-v2` branch stands
+as-is.
+
+**Poolside AI** — `pool` now shows 12 open issues (up from the previously-reported zero-actionable
+state), but all are generic user feedback against the closed-source hosted product (repeated
+"Error during ACP method session/prompt" reports, a Windows-Terminal feature request, a
+self-healing wishlist item) — nothing with enough technical detail to investigate or answer
+confidently, and the closed-source core means no code-level path in regardless. `bridge-sdk`,
+`acp-go-sdk`, `n8n-poolside-node` remain at zero open issues. `LMCache` is new to the org's repo
+list (added 08-12) but is a vanilla fork of the unrelated upstream `LMCache/LMCache` project with
+no Poolside-specific issues of its own — contributing there wouldn't build Poolside-specific
+credibility, so it was not investigated further.
+
+### What was opened
+
+Nothing. Same upstream PR-creation block as every run since 08-03 (see Session-scope check above),
+and this run's one new candidate (#3923) didn't reach a verified-fixable state anyway.
+
+### What was answered
+
+Nothing. Comment-posting requires the same blocked GitHub API access to non-`igorganapolsky`-owned
+repos.
 
 ### Deliberately skipped
 
@@ -244,6 +336,16 @@ Skip the LanceDB compare link from this morning's entry — `#3915` is now cover
 [lancedb/lancedb#3777](https://github.com/lancedb/lancedb/pull/3777) (open, upstream, more
 thorough than our fix). The Tinker link is still good:
 https://github.com/thinking-machines-lab/tinker/compare/main...IgorGanapolsky:fix/sync-only-async-method-name-v2?expand=1
+| LanceDB #3923 fix, attempted this run | Investigation inconclusive — see above; would need a fixed regression test and an actual observed repro before any fix is defensible |
+| LanceDB #3915 | Already parked/verified 08-12, unchanged, still blocked on PR creation only — no new work needed |
+| Poolside `pool` issues (all 12) | Closed-source core; feedback reports lack technical detail for a confident, specific answer |
+| Poolside `LMCache` | Vanilla fork of an unrelated upstream project inside the org; not genuinely Poolside-specific work |
+| New manufactured question | No real unknown hit this run outside the #3923 ambiguity, which is already fully documented above |
+
+### ThumbGate mentions
+
+**None** this run — no one asked about agent write-gating in anything surveyed, and comment-posting
+is blocked regardless.
 
 ---
 
