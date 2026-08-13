@@ -99,6 +99,23 @@ const ROUTES = [
     proofGates: ['exact-marker-smoke', 'local-provider-config-present'],
   },
   {
+    id: 'deepseek_v4_pro',
+    label: 'DeepSeek V4 Pro Official Agent & Codex Route',
+    agent: 'agentic-coder-reasoner',
+    provider: 'deepseek',
+    model: 'deepseek-v4-pro',
+    costUsd: 0.002,
+    latencyMs: 2500,
+    reliability: 0.96,
+    riskCeiling: 'critical',
+    strengths: ['deepseek', 'deepseek-v4-pro', 'codex', 'responses-api', 'agentic', 'reasoning', 'low-cost', 'code-generation', 'refactoring'],
+    commandEnv: {
+      HERMES_YOLO_PROVIDER: 'deepseek',
+      HERMES_YOLO_MODEL: 'deepseek-v4-pro',
+    },
+    proofGates: ['provider-key-present', 'endpoint-smoke-pass', 'receipt-written'],
+  },
+  {
     id: 'glm52_reasoning',
     label: 'GLM 5.2 reasoning route',
     agent: 'reasoning-specialist',
