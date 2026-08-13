@@ -2,13 +2,14 @@
 'use strict';
 
 /**
- * seed-yolo — zero-cost agent profile backed by the real Hermes runtime.
+ * seed-yolo — ByteDance Seed agent profile via Hermes (tools + memory + MCP + YOLO).
  *
- * The previous implementation called chat/completions directly and described
- * tools in a system prompt without exposing any tool schemas or tool loop.  It
- * therefore behaved like a contextless chatbot.  This launcher delegates to
- * Hermes Agent, which owns project-rule injection, session memory, skills, MCP
- * servers, and executable tools.
+ * HARD model lock (2026-08-13): never silently run Ollama/qwen. The Herdr "seed"
+ * tab was observed on custom:ollama-local-64k / qwen3.5:9b-hermes-64k because
+ * Hermes global fallback_providers/fallback_model pointed there. This launcher:
+ *   1. Defaults to openrouter + bytedance-seed/seed-2-1-turbo
+ *   2. Launches with --profile seed (isolated HERMES_HOME, empty fallback chain)
+ *   3. assertSeedIdentity() refuses non-seed models/providers
  */
 
 const fs = require('fs');
@@ -19,7 +20,11 @@ const { spawn, spawnSync } = require('child_process');
 const HOME = os.homedir();
 const DEFAULT_HERMES_BIN = path.join(HOME, '.local', 'bin', 'hermes');
 const DEFAULT_PROVIDER = 'openrouter';
-const DEFAULT_MODEL = 'openrouter/free';
+/** Canonical Seed model — not free, not local qwen. */
+const DEFAULT_MODEL = 'bytedance-seed/seed-2-1-turbo';
+const DEFAULT_SEED_MODEL = DEFAULT_MODEL;
+/** Isolated Hermes profile with empty fallback_providers (no ollama/qwen). */
+const DEFAULT_PROFILE = 'seed';
 const DEFAULT_TOOLSETS = [
   'terminal',
   'file',
@@ -36,14 +41,19 @@ const DEFAULT_TOOLSETS = [
   'browseros-neo',
   'context7',
 ].join(',');
-const DEFAULT_SEED_MODEL = 'bytedance-seed/seed-2-1-turbo';
 const COST_GUARD_PATH = path.join(HOME, '.hermes', 'NO_PAID_SPEND');
 const HERMES_ENV_PATH = path.join(HOME, '.hermes', '.env');
+const SEED_PROFILE_DIR = path.join(HOME, '.hermes', 'profiles', 'seed');
 
 function loadOpenRouterKey(env = process.env) {
   if (env.OPENROUTER_API_KEY) return env.OPENROUTER_API_KEY;
-  if (fs.existsSync(HERMES_ENV_PATH)) {
-    const content = fs.readFileSync(HERMES_ENV_PATH, 'utf8');
+  // Prefer seed profile env, then default hermes env.
+  for (const envPath of [
+    path.join(SEED_PROFILE_DIR, '.env'),
+    HERMES_ENV_PATH,
+  ]) {
+    if (!fs.existsSync(envPath)) continue;
+    const content = fs.readFileSync(envPath, 'utf8');
     const match = content.match(/^OPENROUTER_API_KEY=(.+)$/m);
     if (match && match[1].trim()) {
       const key = match[1].trim();
@@ -58,7 +68,9 @@ function loadOpenRouterKey(env = process.env) {
       env.OPENROUTER_API_KEY = key;
       return key;
     }
-  } catch {}
+  } catch {
+    /* keychain unavailable */
+  }
   return null;
 }
 
@@ -69,32 +81,94 @@ function uniqueCsv(value) {
     .filter(Boolean))].join(',');
 }
 
+function isSeedModelId(model) {
+  const m = String(model || '').toLowerCase();
+  if (!m) return false;
+  // Explicit free opt-out is not Seed product route.
+  if (m === 'openrouter/free' || m.endsWith(':free')) return false;
+  return (
+    m.includes('seed')
+    || m.includes('bytedance-seed')
+    || m.includes('doubao-seed')
+  );
+}
+
+function isForbiddenLocalLane(provider, model) {
+  const p = String(provider || '').toLowerCase();
+  const m = String(model || '').toLowerCase();
+  if (p.includes('ollama') || p.includes('mlx') || p.includes('local')) return true;
+  if (m.includes('qwen') || m.includes('llama') || m.includes('gemma')) return true;
+  return false;
+}
+
+/**
+ * Fail closed when the route is not a Seed model.
+ * Escape hatch: SEED_YOLO_ALLOW_NON_SEED=1 (never the default).
+ */
+function assertSeedIdentity(config, env = process.env) {
+  if (env.SEED_YOLO_ALLOW_NON_SEED === '1') return;
+  if (isForbiddenLocalLane(config.provider, config.model)) {
+    throw new Error(
+      `seed-yolo refuses local/non-seed route ${config.provider}/${config.model}. `
+      + 'Use OpenRouter bytedance-seed/seed-2-1-turbo (default). '
+      + 'Do not point the seed tab at Ollama/qwen. '
+      + 'Override only with SEED_YOLO_ALLOW_NON_SEED=1 (not recommended).',
+    );
+  }
+  if (!isSeedModelId(config.model)) {
+    throw new Error(
+      `seed-yolo model must be a Seed id (got ${config.provider}/${config.model}). `
+      + `Expected e.g. ${DEFAULT_SEED_MODEL}. Set SEED_YOLO_MODEL or SEED_YOLO_ALLOW_NON_SEED=1.`,
+    );
+  }
+}
+
 function resolveConfig(env = process.env) {
   const openrouterKey = loadOpenRouterKey(env);
   const provider = env.SEED_YOLO_PROVIDER || DEFAULT_PROVIDER;
   const toolsets = uniqueCsv(env.SEED_YOLO_TOOLSETS || DEFAULT_TOOLSETS);
   const skills = uniqueCsv(env.SEED_YOLO_SKILLS || '');
   const hermesBin = env.SEED_YOLO_HERMES_BIN || env.HERMES_BIN || DEFAULT_HERMES_BIN;
+  const profile = env.SEED_YOLO_PROFILE === '0' || env.SEED_YOLO_PROFILE === 'none'
+    ? ''
+    : (env.SEED_YOLO_PROFILE || DEFAULT_PROFILE);
   const costGuarded = fs.existsSync(COST_GUARD_PATH);
-  // HARD opt-in: presence of OPENROUTER_API_KEY alone must not bill.
-  // SEED_YOLO_ALLOW_METERED=0 / unset keeps free default even when a key exists.
-  const allowMetered = env.SEED_YOLO_ALLOW_METERED === '1' && Boolean(openrouterKey) && !costGuarded;
-  const model = env.SEED_YOLO_MODEL
-    || (allowMetered ? DEFAULT_SEED_MODEL : DEFAULT_MODEL);
-  return { provider, model, toolsets, skills, hermesBin, costGuarded, allowMetered, openrouterKey };
+  // Seed is the product default. Metered allowed when key present unless
+  // SEED_YOLO_ALLOW_METERED=0 or cost guard file exists.
+  const allowMetered = env.SEED_YOLO_ALLOW_METERED !== '0'
+    && Boolean(openrouterKey)
+    && !costGuarded;
+  let model = env.SEED_YOLO_MODEL || DEFAULT_SEED_MODEL;
+  // Explicit free opt-in only when metered denied and free model requested.
+  if (!allowMetered && !env.SEED_YOLO_MODEL) {
+    // Still default to Seed identity; cost policy will fail closed without key/metered.
+    model = DEFAULT_SEED_MODEL;
+  }
+  return {
+    provider,
+    model,
+    profile,
+    toolsets,
+    skills,
+    hermesBin,
+    costGuarded,
+    allowMetered,
+    openrouterKey,
+  };
 }
 
 function isZeroCostRoute(config) {
   if (config.provider === 'ollama') return true;
-  if (config.provider !== 'openrouter') return false;
-  return config.model === 'openrouter/free' || config.model.endsWith(':free');
+  if (config.provider !== 'openrouter' && config.provider !== 'openrouter-seed-pro') return false;
+  return config.model === 'openrouter/free' || String(config.model).endsWith(':free');
 }
 
 function assertCostPolicy(config) {
   if (isZeroCostRoute(config) || config.allowMetered) return;
   throw new Error(
     `refusing metered route ${config.provider}/${config.model}; `
-    + 'use openrouter/free, Ollama, or set SEED_YOLO_ALLOW_METERED=1',
+    + 'set OPENROUTER_API_KEY and leave SEED_YOLO_ALLOW_METERED unset (or =1). '
+    + 'Do not fall back to Ollama — seed-yolo is Seed-only.',
   );
 }
 
@@ -110,13 +184,18 @@ function findContextFile(startDir = process.cwd()) {
 }
 
 function buildHermesArgs(config, mode, payload = '') {
-  const args = [
+  const args = [];
+  // Profile first so HERMES_HOME isolation applies before other flags.
+  if (config.profile) {
+    args.push('--profile', config.profile);
+  }
+  args.push(
     '--provider', config.provider,
     '--model', config.model,
     '--yolo',
     '--accept-hooks',
     '--toolsets', config.toolsets,
-  ];
+  );
   if (config.skills) args.push('--skills', config.skills);
   if (mode === 'oneshot') args.push('-z', payload);
   if (mode === 'chat') args.push('chat');
@@ -136,11 +215,17 @@ function runChild(binary, args, options = {}) {
 
 function inspectHermes(config, runner = spawnSync, startDir = process.cwd()) {
   const contextFile = findContextFile(startDir);
+  const profileDir = config.profile
+    ? path.join(HOME, '.hermes', 'profiles', config.profile)
+    : null;
   const base = {
     runtime: config.hermesBin,
     runtimePresent: fs.existsSync(config.hermesBin),
     provider: config.provider,
     modelRoute: config.model,
+    profile: config.profile || null,
+    profilePresent: profileDir ? fs.existsSync(profileDir) : true,
+    seedIdentity: isSeedModelId(config.model) && !isForbiddenLocalLane(config.provider, config.model),
     actualModelIdentity: config.model === 'openrouter/free'
       ? 'provider-selected free model; inspect the Hermes usage receipt for each run'
       : config.model,
@@ -153,20 +238,26 @@ function inspectHermes(config, runner = spawnSync, startDir = process.cwd()) {
     skillsRegistryEnabled: config.toolsets.split(',').includes('skills'),
   };
   if (!base.runtimePresent) return { ...base, ready: false, error: 'Hermes runtime not found' };
+  if (config.profile && !base.profilePresent) {
+    return {
+      ...base,
+      ready: false,
+      error: `Hermes profile "${config.profile}" missing at ${profileDir}; run: hermes profile create seed --clone`,
+    };
+  }
 
-  const tools = runner(config.hermesBin, ['tools', 'list'], { encoding: 'utf8', timeout: 15_000 });
-  const skills = runner(config.hermesBin, ['skills', 'list'], { encoding: 'utf8', timeout: 15_000 });
-  const mcp = runner(config.hermesBin, ['mcp', 'list'], { encoding: 'utf8', timeout: 15_000 });
+  const profilePrefix = config.profile ? ['--profile', config.profile] : [];
+  const tools = runner(config.hermesBin, [...profilePrefix, 'tools', 'list'], { encoding: 'utf8', timeout: 15_000 });
+  const skills = runner(config.hermesBin, [...profilePrefix, 'skills', 'list'], { encoding: 'utf8', timeout: 15_000 });
+  const mcp = runner(config.hermesBin, [...profilePrefix, 'mcp', 'list'], { encoding: 'utf8', timeout: 15_000 });
   const toolOutput = `${tools.stdout || ''}\n${tools.stderr || ''}`;
   const skillOutput = `${skills.stdout || ''}\n${skills.stderr || ''}`;
   const mcpOutput = `${mcp.stdout || ''}\n${mcp.stderr || ''}`;
-  // Built-in toolsets appear as "enabled  name". MCP servers must be enabled, not merely listed.
   const mcpEnabled = (name) => {
     const lines = mcpOutput.split(/\r?\n/);
     for (const line of lines) {
       if (!new RegExp(`\\b${name}\\b`, 'i').test(line)) continue;
       if (/\bdisabled\b/i.test(line)) return false;
-      // Accept "enabled name", "name ... enabled", checkmarks, or active/connected markers.
       if (/\benabled\b/i.test(line) || /\bactive\b/i.test(line) || /\bconnected\b/i.test(line) || /[✓✔]/.test(line)) {
         return true;
       }
@@ -184,6 +275,7 @@ function inspectHermes(config, runner = spawnSync, startDir = process.cwd()) {
     ...base,
     openrouterKeyPresent: Boolean(config.openrouterKey),
     ready: base.contextAutoInjection
+      && base.seedIdentity
       && tools.status === 0
       && skills.status === 0
       && mcpProbeOk
@@ -207,7 +299,7 @@ class SeedYoloAgent {
   }
 
   printVersion() {
-    console.log('seed-yolo 3.2.0 — OpenRouter Seed 2.1 Turbo via Hermes (tools + memory + MCP + YOLO)');
+    console.log('seed-yolo 3.3.0 — OpenRouter Seed 2.1 Turbo via Hermes profile seed (no ollama/qwen fallback)');
   }
 
   printBanner() {
@@ -215,15 +307,17 @@ class SeedYoloAgent {
       ? 'provider-selected zero-cost model'
       : this.config.model;
     console.error('[seed-yolo] OpenRouter Seed via Hermes (tools + memory + MCP + YOLO)');
-    console.error(`[seed-yolo] route=${this.config.provider}/${this.config.model} actual=${identity}`);
+    console.error(`[seed-yolo] profile=${this.config.profile || 'none'} route=${this.config.provider}/${this.config.model} actual=${identity}`);
     console.error(`[seed-yolo] tools=${this.config.toolsets}`);
-    console.error(`[seed-yolo] openrouter_key=${this.config.openrouterKey ? 'yes' : 'no'} yolo=on`);
+    console.error(`[seed-yolo] openrouter_key=${this.config.openrouterKey ? 'yes' : 'no'} yolo=on fallback=disabled-on-seed-profile`);
     console.error('[seed-yolo] AGENTS.md, memory, skills, MCP, and session history are loaded by Hermes');
+    console.error('[seed-yolo] If status bar shows qwen/ollama: exit and re-run seed-yolo (do not /continue a wrong-model session)');
   }
 
   runDoctor(json = false) {
     let report;
     try {
+      assertSeedIdentity(this.config, this.env);
       assertCostPolicy(this.config);
       report = inspectHermes(this.config, this.doctorRunner);
     } catch (error) {
@@ -237,7 +331,8 @@ class SeedYoloAgent {
     } else {
       console.log(`seed-yolo ready: ${report.ready ? 'YES' : 'NO'}`);
       console.log(`runtime: ${report.runtimePresent ? report.runtime : 'MISSING'}`);
-      console.log(`route: ${report.provider}/${report.modelRoute} (zero-cost=${report.zeroCostRoute})`);
+      console.log(`profile: ${report.profile || 'none'} (present=${report.profilePresent !== false})`);
+      console.log(`route: ${report.provider}/${report.modelRoute} seedIdentity=${report.seedIdentity} zero-cost=${report.zeroCostRoute}`);
       console.log(`openrouter: ${report.openrouterKeyPresent ? 'key present' : 'KEY MISSING'}`);
       console.log(`yolo: on`);
       console.log(`context: ${report.contextFile || 'no AGENTS.md found from current directory'}`);
@@ -266,16 +361,20 @@ class SeedYoloAgent {
   seed-yolo -z "prompt"      oneshot
   seed-yolo doctor [--json]  health check
 
-Defaults:
+Defaults (HARD):
+  profile   seed   (isolated HERMES_HOME; empty fallback chain — no qwen)
   provider  openrouter
-  model     openrouter/free  (zero-cost)
-  tools     full coding + browser + MCP (browseros-neo, context7)
+  model     bytedance-seed/seed-2-1-turbo
+  tools     full coding + browser + MCP
   yolo      on
 
-Paid Seed route (opt-in only):
-  SEED_YOLO_ALLOW_METERED=1  →  bytedance-seed/seed-2-1-turbo
+Env:
+  SEED_YOLO_MODEL / SEED_YOLO_PROVIDER / SEED_YOLO_TOOLSETS
+  SEED_YOLO_PROFILE=seed|none
+  SEED_YOLO_ALLOW_METERED=0 to refuse paid (requires free model override)
+  SEED_YOLO_ALLOW_NON_SEED=1 escape hatch (not recommended)
 
-Override: SEED_YOLO_MODEL / SEED_YOLO_PROVIDER / SEED_YOLO_TOOLSETS
+Never use Ollama/qwen for this launcher. Restart seed-yolo if a session shows qwen.
 `);
       return { exitCode: 0 };
     }
@@ -284,7 +383,6 @@ Override: SEED_YOLO_MODEL / SEED_YOLO_PROVIDER / SEED_YOLO_TOOLSETS
     let modelOverride = null;
     let providerOverride = null;
 
-    // Parse model/provider overrides if passed: -m/--model, --provider
     for (let i = 0; i < promptArgs.length; i++) {
       if ((promptArgs[i] === '-m' || promptArgs[i] === '--model') && promptArgs[i + 1]) {
         modelOverride = promptArgs[i + 1];
@@ -303,12 +401,16 @@ Override: SEED_YOLO_MODEL / SEED_YOLO_PROVIDER / SEED_YOLO_TOOLSETS
     if (modelOverride) this.config.model = modelOverride;
     if (providerOverride) this.config.provider = providerOverride;
 
+    if (this.config.openrouterKey) {
+      this.env = { ...this.env, OPENROUTER_API_KEY: this.config.openrouterKey };
+    }
+
+    assertSeedIdentity(this.config, this.env);
     assertCostPolicy(this.config);
     if (!fs.existsSync(this.config.hermesBin)) {
       throw new Error(`Hermes runtime not found at ${this.config.hermesBin}`);
     }
 
-    // Keep --safe-mode as Hermes passthrough (documented opposite of YOLO).
     const passthrough = new Set([
       '--tui', '--cli', '--continue', '-c', '--resume', '-r', '--worktree', '-w', '--safe-mode',
     ]);
@@ -335,7 +437,6 @@ Override: SEED_YOLO_MODEL / SEED_YOLO_PROVIDER / SEED_YOLO_TOOLSETS
       }
     }
 
-    // Ensure Hermes sees OpenRouter key even when shell env lacks it
     if (this.config.openrouterKey) {
       this.env = { ...this.env, OPENROUTER_API_KEY: this.config.openrouterKey };
     }
@@ -374,12 +475,17 @@ if (require.main === module) main();
 module.exports = {
   DEFAULT_MODEL,
   DEFAULT_PROVIDER,
+  DEFAULT_PROFILE,
+  DEFAULT_SEED_MODEL,
   DEFAULT_TOOLSETS,
   SeedYoloAgent,
   assertCostPolicy,
+  assertSeedIdentity,
   buildHermesArgs,
   findContextFile,
   inspectHermes,
+  isForbiddenLocalLane,
+  isSeedModelId,
   isZeroCostRoute,
   resolveConfig,
 };
