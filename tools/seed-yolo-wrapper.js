@@ -19,7 +19,7 @@ const { spawn, spawnSync } = require('child_process');
 const HOME = os.homedir();
 const DEFAULT_HERMES_BIN = path.join(HOME, '.local', 'bin', 'hermes');
 const DEFAULT_PROVIDER = 'openrouter';
-const DEFAULT_MODEL = 'nousresearch/hermes-3-llama-3.1-70b';
+const DEFAULT_MODEL = 'bytedance-seed/seed-2-1-turbo';
 const DEFAULT_TOOLSETS = [
   'terminal',
   'file',
