@@ -17,7 +17,67 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-function generateGurobiCode(problemText) {
+const MODELING_EXAMPLES = {
+  facility_location: `import gurobipy as gp
+from gurobipy import GRB
+
+# Facility Location Model (from github.com/Gurobi/modeling-examples)
+clients = ['Client1', 'Client2', 'Client3', 'Client4']
+facilities = ['FacilityA', 'FacilityB', 'FacilityC']
+
+shipping_cost = {
+    ('Client1', 'FacilityA'): 4, ('Client1', 'FacilityB'): 6, ('Client1', 'FacilityC'): 9,
+    ('Client2', 'FacilityA'): 5, ('Client2', 'FacilityB'): 4, ('Client2', 'FacilityC'): 7,
+    ('Client3', 'FacilityA'): 6, ('Client3', 'FacilityB'): 3, ('Client3', 'FacilityC'): 4,
+    ('Client4', 'FacilityA'): 8, ('Client4', 'FacilityB'): 5, ('Client4', 'FacilityC'): 3,
+}
+fixed_cost = {'FacilityA': 100, 'FacilityB': 120, 'FacilityC': 110}
+
+model = gp.Model("FacilityLocation")
+open_fac = model.addVars(facilities, vtype=GRB.BINARY, name="Open")
+ship = model.addVars(shipping_cost.keys(), vtype=GRB.BINARY, name="Ship")
+
+model.setObjective(
+    gp.quicksum(fixed_cost[f] * open_fac[f] for f in facilities) +
+    gp.quicksum(shipping_cost[c, f] * ship[c, f] for c, f in shipping_cost.keys()),
+    GRB.MINIMIZE
+)
+for c in clients:
+    model.addConstr(gp.quicksum(ship[c, f] for f in facilities) == 1, name=f"Demand_{c}")
+for c, f in shipping_cost.keys():
+    model.addConstr(ship[c, f] <= open_fac[f], name=f"Capacity_{c}_{f}")
+
+model.optimize()
+if model.Status == GRB.OPTIMAL:
+    print("Optimal Total Cost:", model.ObjVal)
+    for f in facilities:
+        if open_fac[f].X > 0.5: print(f"Open {f}")
+`,
+  workforce_scheduling: `import gurobipy as gp
+from gurobipy import GRB
+
+# Workforce Shift Scheduling Model (from github.com/Gurobi/modeling-examples)
+workers = ['Alice', 'Bob', 'Charlie', 'David', 'Eva']
+shifts = ['Mon_AM', 'Mon_PM', 'Tue_AM', 'Tue_PM', 'Wed_AM', 'Wed_PM']
+shift_requirements = {'Mon_AM': 2, 'Mon_PM': 2, 'Tue_AM': 2, 'Tue_PM': 2, 'Wed_AM': 2, 'Wed_PM': 2}
+
+model = gp.Model("WorkforceScheduling")
+assign = model.addVars(workers, shifts, vtype=GRB.BINARY, name="Assign")
+
+model.setObjective(gp.quicksum(assign[w, s] for w in workers for s in shifts), GRB.MINIMIZE)
+for s in shifts:
+    model.addConstr(gp.quicksum(assign[w, s] for w in workers) >= shift_requirements[s], name=f"Req_{s}")
+
+model.optimize()
+if model.Status == GRB.OPTIMAL:
+    print("Optimal Shift Assignment Cost:", model.ObjVal)
+`,
+};
+
+function generateGurobiCode(problemText, templateName = null) {
+  if (templateName && MODELING_EXAMPLES[templateName]) {
+    return MODELING_EXAMPLES[templateName];
+  }
   const code = `import gurobipy as gp
 from gurobipy import GRB
 
@@ -25,28 +85,20 @@ from gurobipy import GRB
 # Problem: ${problemText.replace(/\n/g, ' ')}
 
 model = gp.Model("gurobot_model")
-
-# Set recommended solver parameters
 model.Params.TimeLimit = 60
 model.Params.MIPGap = 0.01
 
-# Example decision variables
 x = model.addVars(5, vtype=GRB.BINARY, name="x")
 values = [10, 20, 30, 40, 50]
 weights = [5, 10, 15, 20, 25]
 capacity = 50
 
-# Objective & Constraints
 model.setObjective(gp.quicksum(values[i] * x[i] for i in range(5)), GRB.MAXIMIZE)
 model.addConstr(gp.quicksum(weights[i] * x[i] for i in range(5)) <= capacity, "capacity_constr")
 
 model.optimize()
-
 if model.Status == GRB.OPTIMAL:
     print("Optimal Value:", model.ObjVal)
-    for i in range(5):
-        if x[i].X > 0.5:
-            print(f"Select Item {i}: Value={values[i]}, Weight={weights[i]}")
 elif model.Status == GRB.INFEASIBLE:
     print("Model Infeasible. Computing IIS...")
     model.computeIIS()
