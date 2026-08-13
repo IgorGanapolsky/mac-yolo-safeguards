@@ -1,0 +1,2 @@
+# Free pip Gurobi (size-limited, non-production). AE path: full trial when limits hit.
+gurobipy>=13.0.0
