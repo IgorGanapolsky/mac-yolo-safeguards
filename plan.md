@@ -806,6 +806,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
+- `bin/agent-loop`, `plan.md` → **ali-yolo** (T-ALI-YOLO-AGENT-LOOP-DOCTOR-20260812: fix `bin/agent-loop --doctor --json` JSON escaping/validity and run verification) (2026-08-12T20:10:00Z)
 - `tools/seed-yolo-wrapper.js`, `tests/test-seed-yolo.js`, `plan.md` → **codex-seed-yolo-real-agent-20260811** (T-SEED-YOLO-REAL-AGENT-20260811: replace the direct chat facade with a real zero-cost Hermes agent launch path; add context/skills/toolset/model-truth regressions and live file-tool proof.) (2026-08-12T00:56:00Z)
 
 - `tools/seed-yolo-wrapper.js`, `tests/test-seed-yolo.js`, `plan.md` → **released by codex-seed-yolo-real-agent-20260811** after focused regression, 1,105-file CodeQL pattern gate, local verification suite, interactive startup (14 tools, 138 skills, 2 MCP servers), live file-tool proof, and a zero-cost usage receipt passed on commit `1e8d39b76`. (2026-08-12T01:15:00Z)
