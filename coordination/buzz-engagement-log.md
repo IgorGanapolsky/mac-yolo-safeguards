@@ -579,3 +579,83 @@ No fix was attempted for #5611: without hosted-relay/DB access there is no way t
 
 Sixth consecutive run (Runs 1, 3, 4, 5, 6, 7) with zero write access to `block/buzz` from this environment tier; unchanged from Run 6's finding that this is a session/tool allowlist restriction, not a GitHub-side permissions issue on Igor's real account. Five verbatim-ready drafts now sit in this log for a write-capable session: #4860 (Run 3), #5492 (Run 4), #5557 (Run 5), #5555 (Run 6), #5611 (this run, partial). PR #4624 (Run 2) still awaits its first human review, now well past two weeks.
 
+---
+
+## 2026-08-12 — Run 8 (access wall persists a seventh run; a real fix for #5665 built, tested fail-before/pass-after, and verified; RFC #5667 event-leasing feedback drafted)
+
+*(This run executed from a different environment tier and its full entry is sitting in two still-unmerged PRs — [#1682](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1682) and [#1689](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1689), which duplicate each other because two Run 8 executions fired independently without visibility into one another. Summarizing here from the fuller of the two (#1689) so Run 9 below has continuity; a human should pick one of #1682/#1689 to merge and close the other as a duplicate — not something this run has authorization to do unilaterally.)*
+
+**Verified:** canonical repo/architecture unchanged from Runs 1-7; write access still blocked (seventh consecutive run), same cross-tier `add_repo` rejection; anonymous clone/fetch and (after some initial flakiness) `WebFetch` of individual issue pages both confirmed working.
+
+**Surveyed:** #5678, #5675, #5670, #5669, #5667, #5665, #5663, #5655, #5652, #5651, #5650, #5647 (all opened 2026-08-12). #5665 (`buzz projects update` permanently fails once a project head is >15 min old — `next_timestamp` pins to `head.created_at + 1`, which drifts outside the relay's ±900s window and never self-corrects) was fixed, tested (fail-before/pass-after), and verified against the full `buzz-cli` suite (344 passed) — a complete patch, not just a draft, blocked only on the write wall. #5667 (RFC "One Identity, Many Bodies," proposing relay-level "Event Leasing" for cross-device agent dedup) got a drafted technical comment on TTL/heartbeat expiry and fencing tokens, grounded in an existing but narrower lease primitive already in the codebase (`buzz_deletion::acquire_serving_write`). #5670 (systemd sandboxing silently no-ops under AppArmor's `unprivileged_userns` restriction) was read in full and logged as a third strong verification-vs-self-report data point, but skipped as a comment target since the reporter already offered a complete fail-closed fix themselves.
+
+**Positioning:** neither, reconfirmed a seventh time — but RFC #5667 is flagged as the strongest evidence yet: Buzz's own maintainers are proposing to build event-level leasing/fencing (their words: "the relay's first delivery bookkeeping mechanism") for the same double-execution problem class ThumbGate's domain covers, independently of anything seeded by Igor or ThumbGate.
+
+**Backlog carried forward:** #4860 (Run 3), #5492 (Run 4), #5557 (Run 5), #5555 (Run 6), #5611 (Run 7, partial), #5665 (Run 8, full tested patch), #5667 (Run 8, comment draft). PR #4624 (Run 2) still open, no human review after 8+ days at that point.
+
+---
+
+## 2026-08-13 — Run 9 (access wall persists an eighth run; #5708 investigated, fixed, and fully verified; #5665 backlog item superseded by an independent third-party PR)
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+- **Canonical repo:** [`github.com/block/buzz`](https://github.com/block/buzz) — unchanged identity, maintainer (Block/Jack Dorsey), architecture, and community surface (GitHub issues/PRs only) from Runs 1-8.
+- **Write access to `block/buzz`:** Still blocked, eighth consecutive run from this environment tier. `add_repo(owner:"block", repo:"buzz", access:"push")` returned the identical cross-tier rejection verbatim: *"cross-tier adds are not supported in v1: requested block/buzz but session already has repos from owner(s) [igorganapolsky]."* `mcp__github__*` tools remain hard-scoped to `igorganapolsky/mac-yolo-safeguards`.
+- **Read access:** confirmed working this run — `git clone --depth 50 https://github.com/block/buzz.git` succeeded cleanly, and the full local Rust toolchain (cargo 1.95.0) was available in this environment, enabling a complete build-test-fmt-clippy cycle against the cloned source (not just a read-only source review, unlike most prior runs).
+- **PR [#4624](https://github.com/block/buzz/pull/4624)** (Run 2's multi-`#h` filter fix): reconfirmed still open, still zero reviews, now 10 days with no human response.
+- **This repo's own state:** found two independent, mutually-duplicate "Run 8" entries sitting unmerged in this repo ([#1682](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1682), [#1689](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1689)) — evidence that multiple scheduled executions of this task are firing concurrently without shared state. Summarized the fuller one above so this entry has continuity; flagged for human reconciliation, not resolved here (see note above).
+
+### What was surveyed (last ~72h, as of 2026-08-13)
+
+Newest open issues confirmed via `WebFetch` of the sorted issues list: #5718, #5717, #5716, #5708, #5705, #5701, #5700 (opened 2026-08-12 – 2026-08-13). Read against Igor's stated domain (agent reliability, idempotency, double-execution, write-gating, leases/fencing, retries, audit trails, verification-vs-self-report):
+
+| Issue | Topic | Action |
+|-------|-------|--------|
+| [#5708](https://github.com/block/buzz/issues/5708) | `buzz-acp`: a panicked agent's dead-lettered batch is discarded with no channel notice — `recover_panicked_agent` requeues the batch but throws away the `Option<FlushBatch>` return value with `let _ = queue.requeue(batch)`, unlike the normal error path (`handle_prompt_result`), which calls `spawn_failure_notice` and posts a visible "I couldn't process the last request..." message. Reporter already proposed the fix shape (thread `RestClient` through the panic-recovery path). | **Investigated, fixed, and fully verified this run** (below) — squarely in Igor's domain: an audit-trail/self-report gap where the system silently drops a batch with no record surfaced to the channel |
+| [#5701](https://github.com/block/buzz/issues/5701) | GLM-5.2 agent via Z.AI's OpenAI-compatible endpoint gets stuck retrying indefinitely after its first successful response, because Buzz resends structured content blocks (tool calls, reasoning) that the endpoint's `messages.content.type` restricts to plain text — error 1210 loops silently with no visible failure to the user | Read in full — adjacent to the domain (silent infinite retry with no surfaced failure), but the reporter has already fully diagnosed the root cause and there's a documented workaround; a comment would add nothing beyond a "+1." Logged as another data point for the recurring pattern, not drafted |
+| #5705 | Persona rename in Desktop leaves already-running instances publishing the old name to the relay; the rename guard's match condition becomes permanently false once names diverge, and inbound synced renames skip instance propagation entirely | Read in full — a real permanent-divergence bug adjacent to reconciliation themes from prior runs' surveys, but the reporter already lists three separate, well-specified defects and three proposed solutions; nothing under-specified for a comment to add |
+| #5716, #5717, #5718 | Frontend performance/UI bugs (localStorage re-parsing on every render, a `ResizeObserver` feedback loop, full transcript rebuild on every relay envelope past 3000 events) | Skipped — performance/UI, not reliability or verification bugs |
+| #5700 | Feature request: slash-command palette in the composer | Skipped — feature request, not a bug |
+
+### Fix for #5708 (built, tested fail-before/pass-after, and verified — this run)
+
+Cloned `block/buzz` fresh and read `crates/buzz-acp/src/lib.rs` directly rather than relying on the issue text. Confirmed the asymmetry exactly as reported: `handle_prompt_result` (the normal-error path) takes `rest_client: Option<&relay::RestClient>` and calls `spawn_failure_notice(rest_client, &dead, content)` whenever `queue.requeue(batch)` returns `Some(dead)` (retry budget exhausted). `recover_panicked_agent` (the panic path) has no `rest_client` parameter at all and discards the identical `queue.requeue()` return value with `let _ = queue.requeue(batch);` — so a batch that dies by panic vanishes with zero signal to the channel, while the same batch dying by timeout or error gets a visible notice.
+
+**Fix:** threaded `rest_client: Option<&relay::RestClient>` through `recover_panicked_agent` and its caller `drain_ready_join_results`, and updated both real call sites (`tokio_main`'s panic-event branch and its call into `drain_ready_join_results`) to pass `Some(&ctx.rest_client)` — `ctx.rest_client` was already in scope at both sites, since `handle_prompt_result` is called with it two lines above one of them. In the dead-letter branch, changed `let _ = queue.requeue(batch);` to capture `Some(dead)` and call `spawn_failure_notice(rest_client, &dead, content)` with a notice modeled on the existing hard-timeout/auth-error notice text, mirroring the established pattern exactly rather than inventing a new one.
+
+**Test — real fail-before/pass-after, not claimed:**
+- Added `panicked_agent_dead_letter_posts_channel_notice`: binds a real local `tokio::net::TcpListener` on an ephemeral port, constructs a `RestClient` pointed at it, pre-exhausts the channel's retry budget (`queue.set_retry_count_for_test(channel_id, MAX_RETRIES)` — the same helper the existing hard-timeout dead-letter test uses), simulates a panicked task with a `recoverable_batch`, calls `recover_panicked_agent`, and asserts a real HTTP connection arrives at the listener within 5s.
+- **Ran against the original (unfixed) code** (temporarily reverted only the behavioral branch back to `let _ = queue.requeue(batch)`, keeping the new signature so it still compiled): `FAILED` — timed out after 5s waiting for the failure-notice HTTP request, exactly the reported bug (no notice ever fires on the panic path).
+- **Restored the real fix, re-ran:** `test result: ok. 1 passed; 0 failed`.
+- **Full crate suite:** `cargo test -p buzz-acp --lib` → `774 passed; 0 failed` (773 pre-existing + this new test).
+- `cargo fmt -p buzz-acp -- --check`: clean. `cargo clippy -p buzz-acp --lib --tests -- -D warnings`: clean, zero warnings.
+- Diff is additive and localized: 2 new parameters threaded through 2 functions, 2 call-site updates, one `let _ = ...` replaced with a real dead-letter branch (7 lines), plus a 97-line regression test. No unrelated changes.
+
+This is a complete, verified, ready-to-submit patch — not a comment draft. It cannot be opened as a PR against `block/buzz` this run for the same reason as every prior run: no write access. The diff is saved at `coordination/patches/buzz-5708-panic-dead-letter-notice.patch` in this repo for the first write-capable session to apply directly and push as-is.
+
+### #5665 backlog item — superseded, dropped
+
+Checked on Run 8's fully-tested `#5665` patch before carrying it forward again: an **independent third-party contributor** (`Illuminfti`, unaffiliated with Igor or ThumbGate) already opened [PR #5666](https://github.com/block/buzz/pull/5666) against `block/buzz`, fixing the identical bug with a functionally equivalent approach (`max(now, head.created_at + 1)` instead of reusing `monotonic_created_at`, but solving the same drift-window failure), created 2026-08-12, currently open pending a DCO sign-off fix flagged by an automated review. This independently validates Run 8's diagnosis was correct, and means Run 8's own patch for #5665 is no longer needed — **dropped from the backlog** rather than carried forward as dead weight. Nothing here was seeded by Igor or ThumbGate; `Illuminfti` found and fixed this on their own.
+
+### What was opened / answered this run
+
+**Nothing posted to `block/buzz`.** Eighth consecutive run (Runs 1, 3-9) with no write path. This run's output: one new complete, tested, verified code fix (#5708) ready for a write-capable session to push as-is, confirmation that #5665 no longer needs Igor's patch (fixed independently by a third party), and a fresh 72h survey with one adjacent-but-already-diagnosed data point (#5701) logged, not drafted.
+
+### Positioning read: **neither** (unchanged, reconfirmed an eighth time)
+
+- Not a competitor — Buzz remains a team workspace (chat + git + workflow automation) on Nostr; ThumbGate remains a cross-tool pre-action governance gate for arbitrary agent actions. No overlap in what either actually ships.
+- Not a partner — no relationship, no contact, no integration exists, and nothing this run changes that.
+- The recurring technical-overlap signal continues, now with #5708 as an eighth independent data point: a system where one failure path (timeout, auth error) gets an audited, user-visible outcome while a structurally identical failure path (panic) silently discards the same data with zero record — the exact "verification vs. self-report" and "audit trail" gap pattern flagged unprompted in #4565, #4860, #5492, #5557, #5555, #5611, #5665, #5667, and now #5708. This is real, recurring signal about the problem class in production multi-agent systems generally — it does not make Buzz a competitor or a partner, and is not being spun as either.
+
+### What was skipped and why
+
+- **#5701** — read in full, domain-adjacent, but the reporter already diagnosed the root cause and documented a workaround; a comment would be a redundant "+1," logged as a pattern data point instead.
+- **#5705** — read in full, a genuine divergence/reconciliation bug, but the reporter already specified three defects and three proposed fixes; nothing under-specified for a comment to add.
+- **#5716, #5717, #5718, #5700** — frontend performance/UI bugs and a feature request, outside stated domain.
+- **Posting anything to `block/buzz`** — impossible this run; not a judgment-call skip (see Blocker status below).
+- **Reconciling the two duplicate Run 8 PRs in this repo** (#1682, #1689) — out of this run's authorization; flagged for a human to pick one and close the other, not resolved unilaterally.
+
+### Blocker status (report only — no action requested)
+
+Eighth consecutive run (Runs 1, 3-9) with zero write access to `block/buzz` from this environment tier — identical cross-tier `add_repo` rejection as every prior run, confirmed again this run. Read access (clone, fetch, and — new this run — a full local Rust build/test/fmt/clippy cycle) works without any attach. Backlog for a write-capable session, updated this run: #4860 (Run 3), #5492 (Run 4), #5557 (Run 5), #5555 (Run 6), #5611 (Run 7, partial), #5667 (Run 8, comment draft), **#5708 (Run 9, full tested patch — `coordination/patches/buzz-5708-panic-dead-letter-notice.patch`, highest priority to land, it just needs `git push` + PR)**. Dropped this run: #5665 (Run 8's patch, superseded by an independent third-party PR — see above). PR #4624 (Run 2) still open awaiting its first human review, now 10 days.
+

@@ -1,0 +1,191 @@
+diff --git a/crates/buzz-acp/src/lib.rs b/crates/buzz-acp/src/lib.rs
+index 27b9000..bf2065c 100644
+--- a/crates/buzz-acp/src/lib.rs
++++ b/crates/buzz-acp/src/lib.rs
+@@ -2987,6 +2987,7 @@ async fn tokio_main() -> Result<()> {
+                     &respawn_tx,
+                     &mut respawn_tasks,
+                     observer.clone(),
++                    Some(&ctx.rest_client),
+                 ) == LoopAction::Exit
+                 {
+                     break;
+@@ -3011,6 +3012,7 @@ async fn tokio_main() -> Result<()> {
+                     &respawn_tx,
+                     &mut respawn_tasks,
+                     observer.clone(),
++                    Some(&ctx.rest_client),
+                 );
+                 if pool.live_count() == 0 && !any_respawn_in_flight(&crash_history) {
+                     tracing::error!("all agents dead — exiting");
+@@ -4079,6 +4081,7 @@ fn recover_panicked_agent(
+     respawn_tx: &mpsc::Sender<RespawnResult>,
+     respawn_tasks: &mut tokio::task::JoinSet<()>,
+     observer: Option<observer::ObserverHandle>,
++    rest_client: Option<&relay::RestClient>,
+ ) {
+     let task_id = join_error.id();
+     let Some(meta) = pool.task_map_mut().remove(&task_id) else {
+@@ -4091,9 +4094,17 @@ fn recover_panicked_agent(
+     if let Some(batch) = meta.recoverable_batch {
+         if let Some(ch) = meta.channel_id {
+             if !removed_channels.contains(&ch) {
+-                // Dead-letter on exhaustion is logged inside requeue(); a
+-                // panic path has no outcome to report, so no notice here.
+-                let _ = queue.requeue(batch);
++                // Dead-letter on exhaustion is logged inside requeue(); mirror
++                // handle_prompt_result's error paths and post a channel notice
++                // when the retry budget is exhausted here too (#5708 — this
++                // path used to swallow the dead-lettered batch silently).
++                if let Some(dead) = queue.requeue(batch) {
++                    let content = "⚠️ I couldn't process the last request after multiple \
++                        retries (the agent process crashed). Please re-send if it's still \
++                        needed."
++                        .to_string();
++                    spawn_failure_notice(rest_client, &dead, content);
++                }
+                 tracing::warn!("requeued batch for panicked agent {i}");
+             } else {
+                 tracing::debug!(
+@@ -4177,6 +4188,7 @@ fn drain_ready_join_results(
+     respawn_tx: &mpsc::Sender<RespawnResult>,
+     respawn_tasks: &mut tokio::task::JoinSet<()>,
+     observer: Option<observer::ObserverHandle>,
++    rest_client: Option<&relay::RestClient>,
+ ) -> LoopAction {
+     while let Some(Some(join_result)) = pool.join_set.join_next().now_or_never() {
+         if let Err(join_error) = join_result {
+@@ -4193,6 +4205,7 @@ fn drain_ready_join_results(
+                 respawn_tx,
+                 respawn_tasks,
+                 observer.clone(),
++                rest_client,
+             );
+             if pool.live_count() == 0 && !any_respawn_in_flight(crash_history) {
+                 return LoopAction::Exit;
+@@ -7188,6 +7201,7 @@ mod error_outcome_emission_tests {
+             &respawn_tx,
+             &mut respawn_tasks,
+             Some(observer.clone()),
++            None,
+         );
+ 
+         let panic = observer
+@@ -7202,6 +7216,117 @@ mod error_outcome_emission_tests {
+         assert_eq!(panic.turn_id.as_deref(), Some("panic-turn-id"));
+     }
+ 
++    /// #5708: a panicked agent whose in-flight batch exhausts its retry
++    /// budget must post the same "I couldn't process..." channel notice that
++    /// every other dead-letter path (`handle_prompt_result`) already posts.
++    /// Regression test: binds a real local listener and asserts a POST
++    /// actually arrives — before the fix, `recover_panicked_agent` discarded
++    /// `queue.requeue()`'s dead-lettered batch with `let _ = ...` and never
++    /// called `spawn_failure_notice`, so no connection would ever land here
++    /// and this test would time out.
++    #[tokio::test]
++    async fn panicked_agent_dead_letter_posts_channel_notice() {
++        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
++            .await
++            .expect("bind local listener");
++        let addr = listener.local_addr().unwrap();
++        let (got_request_tx, got_request_rx) = tokio::sync::oneshot::channel();
++        tokio::spawn(async move {
++            if let Ok((mut socket, _)) = listener.accept().await {
++                use tokio::io::{AsyncReadExt, AsyncWriteExt};
++                let mut buf = [0u8; 512];
++                let _ = socket.read(&mut buf).await;
++                let _ = got_request_tx.send(());
++                let _ = socket
++                    .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n{}")
++                    .await;
++            }
++        });
++
++        let rest_client = relay::RestClient {
++            http: reqwest::Client::new(),
++            base_url: format!("http://{addr}"),
++            keys: Keys::generate(),
++            auth_tag_json: None,
++        };
++
++        let mut pool = AgentPool::from_slots(vec![]);
++        let channel_id = Uuid::new_v4();
++        let batch_keys = Keys::generate();
++        let event = EventBuilder::new(Kind::Custom(9), "test")
++            .sign_with_keys(&batch_keys)
++            .unwrap();
++        let batch = FlushBatch {
++            channel_id,
++            events: vec![BatchEvent {
++                event,
++                prompt_tag: "test".into(),
++                received_at: std::time::Instant::now(),
++            }],
++            cancelled_events: vec![],
++            cancel_reason: None,
++        };
++
++        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
++        let abort_handle = pool.join_set.spawn(async move {
++            let _ = started_tx.send(());
++            std::future::pending::<()>().await;
++        });
++        let task_id = abort_handle.id();
++        pool.task_map_mut().insert(
++            task_id,
++            crate::pool::TaskMeta {
++                agent_index: 0,
++                channel_id: Some(channel_id),
++                turn_id: "panic-turn-id".to_string(),
++                recoverable_batch: Some(batch),
++                control_tx: None,
++                steer_tx: None,
++                successful_steer_deliveries: HashSet::new(),
++            },
++        );
++        started_rx.await.unwrap();
++        abort_handle.abort();
++        let join_error = pool.join_set.join_next().await.unwrap().unwrap_err();
++
++        let mut queue = EventQueue::new(config::DedupMode::Queue);
++        // Retry budget already exhausted: the upcoming requeue() call in
++        // recover_panicked_agent must dead-letter immediately, same setup
++        // used by the existing hard-timeout dead-letter test above.
++        queue.set_retry_count_for_test(channel_id, crate::queue::MAX_RETRIES);
++        let config = test_config();
++        let mut heartbeat_in_flight = false;
++        let removed_channels = HashSet::new();
++        let mut typing_channels = HashMap::new();
++        let mut crash_history = vec![SlotCircuit {
++            crash_times: Vec::new(),
++            open_until: None,
++            respawn_in_flight: false,
++        }];
++        let (respawn_tx, _respawn_rx) = mpsc::channel(8);
++        let mut respawn_tasks = tokio::task::JoinSet::new();
++
++        recover_panicked_agent(
++            &mut pool,
++            &mut queue,
++            &config,
++            join_error,
++            &mut heartbeat_in_flight,
++            &removed_channels,
++            &mut typing_channels,
++            &mut crash_history,
++            &respawn_tx,
++            &mut respawn_tasks,
++            None,
++            Some(&rest_client),
++        );
++
++        tokio::time::timeout(std::time::Duration::from_secs(5), got_request_rx)
++            .await
++            .expect("timed out waiting for failure-notice HTTP request")
++            .expect("notice task dropped the signal channel");
++    }
++
+     #[tokio::test]
+     async fn idle_timeout_emits_exactly_one_feed_event() {
+         assert_eq!(
