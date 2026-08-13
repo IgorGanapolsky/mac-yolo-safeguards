@@ -72,12 +72,15 @@ function uniqueCsv(value) {
 function resolveConfig(env = process.env) {
   const openrouterKey = loadOpenRouterKey(env);
   const provider = env.SEED_YOLO_PROVIDER || DEFAULT_PROVIDER;
-  const model = env.SEED_YOLO_MODEL || (openrouterKey ? 'bytedance-seed/seed-2-1-turbo' : DEFAULT_MODEL);
   const toolsets = uniqueCsv(env.SEED_YOLO_TOOLSETS || DEFAULT_TOOLSETS);
   const skills = uniqueCsv(env.SEED_YOLO_SKILLS || '');
   const hermesBin = env.SEED_YOLO_HERMES_BIN || env.HERMES_BIN || DEFAULT_HERMES_BIN;
   const costGuarded = fs.existsSync(COST_GUARD_PATH);
-  const allowMetered = env.SEED_YOLO_ALLOW_METERED !== '0' && Boolean(openrouterKey) && !costGuarded;
+  // HARD opt-in: presence of OPENROUTER_API_KEY alone must not bill.
+  // SEED_YOLO_ALLOW_METERED=0 / unset keeps free default even when a key exists.
+  const allowMetered = env.SEED_YOLO_ALLOW_METERED === '1' && Boolean(openrouterKey) && !costGuarded;
+  const model = env.SEED_YOLO_MODEL
+    || (allowMetered ? DEFAULT_SEED_MODEL : DEFAULT_MODEL);
   return { provider, model, toolsets, skills, hermesBin, costGuarded, allowMetered, openrouterKey };
 }
 
@@ -157,25 +160,40 @@ function inspectHermes(config, runner = spawnSync, startDir = process.cwd()) {
   const toolOutput = `${tools.stdout || ''}\n${tools.stderr || ''}`;
   const skillOutput = `${skills.stdout || ''}\n${skills.stderr || ''}`;
   const mcpOutput = `${mcp.stdout || ''}\n${mcp.stderr || ''}`;
-  // Built-in toolsets appear as "enabled  name"; MCP servers appear by name in mcp list.
+  // Built-in toolsets appear as "enabled  name". MCP servers must be enabled, not merely listed.
+  const mcpEnabled = (name) => {
+    const lines = mcpOutput.split(/\r?\n/);
+    for (const line of lines) {
+      if (!new RegExp(`\\b${name}\\b`, 'i').test(line)) continue;
+      if (/\bdisabled\b/i.test(line)) return false;
+      // Accept "enabled name", "name ... enabled", checkmarks, or active/connected markers.
+      if (/\benabled\b/i.test(line) || /\bactive\b/i.test(line) || /\bconnected\b/i.test(line) || /[✓✔]/.test(line)) {
+        return true;
+      }
+    }
+    return false;
+  };
   const missingToolsets = base.toolsets.filter((name) => {
     if (new RegExp(`\\benabled\\s+${name}\\b`).test(toolOutput)) return false;
-    if (new RegExp(`\\b${name}\\b`, 'i').test(mcpOutput)) return false;
+    if (mcpEnabled(name)) return false;
     return true;
   });
   const skillCountMatch = skillOutput.match(/(\d+) enabled/);
+  const mcpProbeOk = mcp.status === 0;
   return {
     ...base,
     openrouterKeyPresent: Boolean(config.openrouterKey),
     ready: base.contextAutoInjection
       && tools.status === 0
       && skills.status === 0
+      && mcpProbeOk
       && missingToolsets.length === 0
       && Boolean(config.openrouterKey || isZeroCostRoute(config)),
     missingToolsets,
     enabledSkills: skillCountMatch ? Number(skillCountMatch[1]) : null,
     toolsProbeExitCode: tools.status,
     skillsProbeExitCode: skills.status,
+    mcpProbeExitCode: mcp.status,
   };
 }
 
@@ -248,11 +266,14 @@ class SeedYoloAgent {
   seed-yolo -z "prompt"      oneshot
   seed-yolo doctor [--json]  health check
 
-Defaults (when OPENROUTER_API_KEY is available):
+Defaults:
   provider  openrouter
-  model     bytedance-seed/seed-2-1-turbo
+  model     openrouter/free  (zero-cost)
   tools     full coding + browser + MCP (browseros-neo, context7)
   yolo      on
+
+Paid Seed route (opt-in only):
+  SEED_YOLO_ALLOW_METERED=1  →  bytedance-seed/seed-2-1-turbo
 
 Override: SEED_YOLO_MODEL / SEED_YOLO_PROVIDER / SEED_YOLO_TOOLSETS
 `);
@@ -287,7 +308,10 @@ Override: SEED_YOLO_MODEL / SEED_YOLO_PROVIDER / SEED_YOLO_TOOLSETS
       throw new Error(`Hermes runtime not found at ${this.config.hermesBin}`);
     }
 
-    const passthrough = new Set(['--tui', '--cli', '--continue', '-c', '--resume', '-r', '--worktree', '-w']);
+    // Keep --safe-mode as Hermes passthrough (documented opposite of YOLO).
+    const passthrough = new Set([
+      '--tui', '--cli', '--continue', '-c', '--resume', '-r', '--worktree', '-w', '--safe-mode',
+    ]);
     if (promptArgs.length && passthrough.has(promptArgs[0])) {
       this.printBanner();
       return this.childRunner(
