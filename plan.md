@@ -2899,3 +2899,5 @@ CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, too
 ## Continuity-first landing (grok-continuity-first-20260812)
 
 | T-CONTINUITY-FIRST-LANDING-20260812 | ThumbGate.app Continuity/VPS-first product story (Hermes owns machine chat) | in_progress | grok-continuity-first-20260812 | `apps/hermes-control-plane/app/page.tsx`, `layout.tsx`, `LandingAuthChrome.tsx`, `llms.txt/route.ts`, `RemoteControlDiagram.tsx`, related tests | Continuity primary CTAs; tests green; deploy Cloudflare |
+
+- 2026-08-13T13:06:07Z `grok-seed-yolo-full-setup-20260813`: **T-SEED-YOLO-FULL-SETUP-20260813** — deep research + fix. Diagnosis: Herdr seed tab looked tool-less because (1) Seed 2.1 is a model not a harness, (2) Hermes config `bytedance/seed-2.1-pro:free` is a dead OpenRouter id (token economics 6 spin/0 tokens), (3) seed-yolo `-z`/`--doctor` CLI mis-parse broke oneshot. Shipped seed-yolo 3.1.0 with parseCliArgs, FULL_TOOLS, research doc `docs/SEED-YOLO-FULL-SETUP-AUG-2026.md`. Doctor ready=YES (149 skills). Installed to `~/.local/lib/seed-yolo/`.
