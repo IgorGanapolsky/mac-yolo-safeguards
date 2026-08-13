@@ -1,37 +1,37 @@
 # ali-yolo
 
-`ali-yolo` is a fail-closed launcher for Alibaba's official Qwen Code CLI. It
-pins `@qwen-code/qwen-code@0.19.10`, verifies that Qwen is configured for an
-Alibaba DashScope or international Coding Plan endpoint, and invokes Qwen with
-its native `--yolo` approval mode.
+Fail-closed launcher for **Alibaba ModelStudio Token Plan** via Hermes profile `ali`.
 
-It never falls back to another provider. `ali-yolo --doctor --json` reports the
-binary, version, endpoint host, model, and whether the expected credential is
-present without printing the credential.
+## What it is
 
-Install both Macs from the repository root:
+| Field | Value |
+|-------|--------|
+| Engine | Hermes Agent |
+| Profile | `ali` (`~/.hermes/profiles/ali`) |
+| Provider | `custom:alibaba-token-plan` |
+| Endpoint | `token-plan.ap-southeast-1.maas.aliyuncs.com` |
+| Default model | `qwen3.8-max` |
+| Auth | macOS Keychain service `ALIBABA_TOKEN_PLAN_API_KEY` |
+| Fallback | **Never** (no OpenRouter / Ollama / local) |
 
-```sh
+## Install
+
+```bash
 bash scripts/install-ali-yolo.sh
+ali-yolo doctor --json   # ok must be true, auth macos-keychain|present, fallback false
 ```
 
-The command remains blocked until Qwen Code has an Alibaba ModelStudio Standard
-API Key or Coding Plan configuration. Keep the secret in `~/.qwen/.env`; do not
-commit it or place its value in `settings.json`.
+## Usage
 
-Supported official routes:
+```bash
+ali-yolo
+ali-yolo -z "Return exactly ALI_HERMES_OK. Do not use tools."
+ali-yolo --models
+ali-yolo --model qwen3.7-plus -z "Review the current diff."
+```
 
-- Singapore free-quota Standard API: `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`
-  with `DASHSCOPE_API_KEY`; use `qwen3-coder-plus`
-- US (Virginia) Standard API: `https://dashscope-us.aliyuncs.com/compatible-mode/v1` with
-  `DASHSCOPE_API_KEY`; use the US-scoped `qwen3.7-plus-us` model
-- China Standard API: `https://dashscope.aliyuncs.com/compatible-mode/v1` with
-  `DASHSCOPE_API_KEY`
-- International Coding Plan: `https://coding-intl.dashscope.aliyuncs.com/v1`
-  with `BAILIAN_CODING_PLAN_API_KEY`
-- China Coding Plan: `https://coding.dashscope.aliyuncs.com/v1` with
-  `BAILIAN_CODING_PLAN_API_KEY`
+## Fix history (2026-08-13)
 
-YOLO mode allows tool calls without individual confirmation inside the Qwen
-process. It does not grant more operating-system privileges than that process
-already has.
+Broken install used `openrouter/qwen/qwen-2.5-coder-32b-instruct` (32k — Hermes min 64k)
+and never injected the Token Plan key from Keychain into the `ali` profile, causing
+401s / "not working at all". Fixed by pinning Token Plan + Keychain inject + `--profile ali`.
