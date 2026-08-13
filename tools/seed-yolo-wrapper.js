@@ -4,11 +4,13 @@
 /**
  * seed-yolo — zero-cost agent profile backed by the real Hermes runtime.
  *
- * The previous implementation called chat/completions directly and described
- * tools in a system prompt without exposing any tool schemas or tool loop.  It
- * therefore behaved like a contextless chatbot.  This launcher delegates to
- * Hermes Agent, which owns project-rule injection, session memory, skills, MCP
- * servers, and executable tools.
+ * Seed 2.1 is a *model family*, not a full coding agent. Tools, permissions,
+ * memory, MCP connectors, AGENTS.md context, and YOLO auto-approve all come
+ * from the Hermes Agent harness this launcher wraps.
+ *
+ * The previous direct chat facade described tools in a system prompt without a
+ * tool loop and behaved like a contextless chatbot. This launcher always
+ * delegates to Hermes with executable toolsets + --yolo.
  */
 
 const fs = require('fs');
@@ -19,6 +21,9 @@ const { spawn, spawnSync } = require('child_process');
 const HOME = os.homedir();
 const DEFAULT_HERMES_BIN = path.join(HOME, '.local', 'bin', 'hermes');
 const DEFAULT_PROVIDER = 'openrouter';
+// openrouter/free auto-picks a free tool-calling model (receipt shows real id).
+// For true ByteDance Seed weights, set SEED_YOLO_PROVIDER/SEED_YOLO_MODEL and
+// SEED_YOLO_ALLOW_METERED=1 (see docs/SEED-YOLO-FULL-SETUP-AUG-2026.md).
 const DEFAULT_MODEL = 'openrouter/free';
 const DEFAULT_TOOLSETS = [
   'terminal',
@@ -28,6 +33,20 @@ const DEFAULT_TOOLSETS = [
   'clarify',
   'skills',
   'memory',
+].join(',');
+const FULL_TOOLSETS = [
+  'terminal',
+  'file',
+  'web',
+  'code_execution',
+  'clarify',
+  'skills',
+  'memory',
+  'browser',
+  'computer_use',
+  'delegation',
+  'todo',
+  'session_search',
 ].join(',');
 const COST_GUARD_PATH = path.join(HOME, '.hermes', 'NO_PAID_SPEND');
 
@@ -41,7 +60,10 @@ function uniqueCsv(value) {
 function resolveConfig(env = process.env) {
   const provider = env.SEED_YOLO_PROVIDER || DEFAULT_PROVIDER;
   const model = env.SEED_YOLO_MODEL || DEFAULT_MODEL;
-  const toolsets = uniqueCsv(env.SEED_YOLO_TOOLSETS || DEFAULT_TOOLSETS);
+  const toolsetSource = env.SEED_YOLO_FULL_TOOLS === '1'
+    ? (env.SEED_YOLO_TOOLSETS || FULL_TOOLSETS)
+    : (env.SEED_YOLO_TOOLSETS || DEFAULT_TOOLSETS);
+  const toolsets = uniqueCsv(toolsetSource);
   const skills = uniqueCsv(env.SEED_YOLO_SKILLS || '');
   const hermesBin = env.SEED_YOLO_HERMES_BIN || env.HERMES_BIN || DEFAULT_HERMES_BIN;
   const costGuarded = fs.existsSync(COST_GUARD_PATH);
@@ -51,15 +73,23 @@ function resolveConfig(env = process.env) {
 
 function isZeroCostRoute(config) {
   if (config.provider === 'ollama') return true;
-  if (config.provider !== 'openrouter') return false;
-  return config.model === 'openrouter/free' || config.model.endsWith(':free');
+  if (config.provider !== 'openrouter' && !String(config.provider).includes('openrouter')) {
+    // custom:openrouter-* free models still count as zero-cost when model ends :free
+    if (String(config.model || '').endsWith(':free') || config.model === 'openrouter/free') {
+      return true;
+    }
+  }
+  if (config.provider === 'openrouter' || String(config.provider).startsWith('custom:openrouter')) {
+    return config.model === 'openrouter/free' || String(config.model || '').endsWith(':free');
+  }
+  return false;
 }
 
 function assertCostPolicy(config) {
   if (isZeroCostRoute(config) || config.allowMetered) return;
   throw new Error(
     `refusing metered route ${config.provider}/${config.model}; `
-    + 'use openrouter/free, Ollama, or explicitly set SEED_YOLO_ALLOW_METERED=1',
+    + 'use openrouter/free, a :free OpenRouter model, Ollama, or SEED_YOLO_ALLOW_METERED=1',
   );
 }
 
@@ -85,8 +115,81 @@ function buildHermesArgs(config, mode, payload = '') {
   if (config.skills) args.push('--skills', config.skills);
   if (mode === 'oneshot') args.push('-z', payload);
   if (mode === 'chat') args.push('chat');
-  if (mode === 'passthrough') args.push(...payload);
+  if (mode === 'passthrough') {
+    const extra = Array.isArray(payload) ? payload : [payload];
+    args.push(...extra.filter(Boolean));
+  }
   return args;
+}
+
+/**
+ * Parse seed-yolo CLI args into a structured action.
+ * Handles -z/--oneshot, doctor/--doctor, --version, passthrough flags, and bare prompts.
+ */
+function parseCliArgs(argv = []) {
+  const args = Array.isArray(argv) ? [...argv] : [];
+  if (args.length === 0) return { mode: 'chat' };
+
+  if (args[0] === '--version' || args[0] === '-v') {
+    return { mode: 'version' };
+  }
+  if (args[0] === 'doctor' || args[0] === '--doctor') {
+    return { mode: 'doctor', json: args.includes('--json') };
+  }
+  if (args[0] === '--help' || args[0] === '-h' || args[0] === 'help') {
+    return { mode: 'help' };
+  }
+
+  const passthrough = new Set([
+    '--tui', '--cli', '--continue', '-c', '--resume', '-r',
+    '--worktree', '-w', '--safe-mode', '--dev',
+  ]);
+  if (passthrough.has(args[0])) {
+    return { mode: 'passthrough', passthroughArgs: args };
+  }
+
+  // Explicit oneshot: seed-yolo -z "prompt" | seed-yolo --oneshot "prompt"
+  if (args[0] === '-z' || args[0] === '--oneshot') {
+    const prompt = args.slice(1).join(' ').trim();
+    if (!prompt) return { mode: 'error', message: 'oneshot requires a prompt after -z/--oneshot' };
+    return { mode: 'oneshot', prompt };
+  }
+
+  // Bare words = oneshot prompt (seed-yolo read package.json)
+  return { mode: 'oneshot', prompt: args.join(' ').trim() };
+}
+
+function printHelp() {
+  console.log(`seed-yolo — Hermes Agent profile with real tools, memory, MCP, YOLO
+
+Usage:
+  seed-yolo                          Interactive chat (cwd AGENTS.md + tools)
+  seed-yolo -z "prompt"              Oneshot with tools
+  seed-yolo doctor [--json]          Health check
+  seed-yolo --version
+
+Environment:
+  SEED_YOLO_PROVIDER       Hermes provider (default: openrouter)
+  SEED_YOLO_MODEL          Model id (default: openrouter/free)
+  SEED_YOLO_TOOLSETS       CSV toolsets (default: terminal,file,web,code_execution,clarify,skills,memory)
+  SEED_YOLO_FULL_TOOLS=1   Enable browser, computer_use, delegation, todo, session_search
+  SEED_YOLO_SKILLS         Optional skills CSV
+  SEED_YOLO_ALLOW_METERED=1  Allow paid routes (Volcengine Seed 2.1 Pro, paid OpenRouter Seed)
+  SEED_YOLO_HERMES_BIN     Override hermes binary
+
+True ByteDance Seed 2.1 Pro (paid Volcengine):
+  export ARK_API_KEY=...   # Volcengine Ark key
+  SEED_YOLO_PROVIDER=custom:volcengine-seed-pro \\
+  SEED_YOLO_MODEL=doubao-seed-2.1-pro \\
+  SEED_YOLO_ALLOW_METERED=1 seed-yolo
+
+OpenRouter Seed Turbo (paid, real Seed weights):
+  SEED_YOLO_PROVIDER=openrouter \\
+  SEED_YOLO_MODEL=bytedance-seed/seed-2-1-turbo \\
+  SEED_YOLO_ALLOW_METERED=1 seed-yolo
+
+Docs: docs/SEED-YOLO-FULL-SETUP-AUG-2026.md
+`);
 }
 
 function runChild(binary, args, options = {}) {
@@ -116,6 +219,7 @@ function inspectHermes(config, runner = spawnSync, startDir = process.cwd()) {
     contextAutoInjection: Boolean(contextFile),
     memoryAutoInjection: true,
     skillsRegistryEnabled: config.toolsets.split(',').includes('skills'),
+    yolo: true,
   };
   if (!base.runtimePresent) return { ...base, ready: false, error: 'Hermes runtime not found' };
 
@@ -148,7 +252,7 @@ class SeedYoloAgent {
   }
 
   printVersion() {
-    console.log('seed-yolo 3.0.0 — Hermes Agent profile (context + skills + real tools)');
+    console.log('seed-yolo 3.1.0 — Hermes Agent profile (context + skills + real tools + YOLO)');
   }
 
   printBanner() {
@@ -159,6 +263,7 @@ class SeedYoloAgent {
     console.error(`[seed-yolo] route=${this.config.provider}/${this.config.model} actual=${identity}`);
     console.error(`[seed-yolo] tools=${this.config.toolsets}`);
     console.error('[seed-yolo] AGENTS.md, memory, skills, MCP, and session history are loaded by Hermes');
+    console.error('[seed-yolo] yolo=on (auto-approve tool execution)');
   }
 
   runDoctor(json = false) {
@@ -175,6 +280,7 @@ class SeedYoloAgent {
       console.log(`seed-yolo ready: ${report.ready ? 'YES' : 'NO'}`);
       console.log(`runtime: ${report.runtimePresent ? report.runtime : 'MISSING'}`);
       console.log(`route: ${report.provider}/${report.modelRoute} (zero-cost=${report.zeroCostRoute})`);
+      console.log(`yolo: on`);
       console.log(`context: ${report.contextFile || 'no AGENTS.md found from current directory'}`);
       console.log(`tools: ${report.toolsets.join(', ')}`);
       console.log(`skills: ${report.enabledSkills === null ? 'probe unavailable' : `${report.enabledSkills} enabled`}`);
@@ -187,29 +293,38 @@ class SeedYoloAgent {
   }
 
   async run(args = []) {
-    if (args[0] === '--version' || args[0] === '-v') {
+    const action = parseCliArgs(args);
+
+    if (action.mode === 'version') {
       this.printVersion();
       return { exitCode: 0 };
     }
-    if (args[0] === 'doctor') return this.runDoctor(args.includes('--json'));
+    if (action.mode === 'help') {
+      printHelp();
+      return { exitCode: 0 };
+    }
+    if (action.mode === 'doctor') return this.runDoctor(Boolean(action.json));
+    if (action.mode === 'error') {
+      console.error(`[seed-yolo] ${action.message}`);
+      return { exitCode: 1 };
+    }
 
     assertCostPolicy(this.config);
     if (!fs.existsSync(this.config.hermesBin)) {
       throw new Error(`Hermes runtime not found at ${this.config.hermesBin}`);
     }
 
-    const passthrough = new Set(['--tui', '--cli', '--continue', '-c', '--resume', '-r', '--worktree', '-w']);
-    if (args.length && passthrough.has(args[0])) {
+    if (action.mode === 'passthrough') {
       this.printBanner();
       return this.childRunner(
         this.config.hermesBin,
-        buildHermesArgs(this.config, 'passthrough', args),
+        buildHermesArgs(this.config, 'passthrough', action.passthroughArgs),
         { env: this.env },
       );
     }
 
-    let prompt = args.join(' ').trim();
-    if (!prompt && !this.stdin.isTTY) {
+    let prompt = action.mode === 'oneshot' ? action.prompt : '';
+    if (!prompt && action.mode === 'chat' && !this.stdin.isTTY) {
       prompt = await new Promise((resolve) => {
         let data = '';
         this.stdin.setEncoding('utf8');
@@ -256,11 +371,13 @@ module.exports = {
   DEFAULT_MODEL,
   DEFAULT_PROVIDER,
   DEFAULT_TOOLSETS,
+  FULL_TOOLSETS,
   SeedYoloAgent,
   assertCostPolicy,
   buildHermesArgs,
   findContextFile,
   inspectHermes,
   isZeroCostRoute,
+  parseCliArgs,
   resolveConfig,
 };
