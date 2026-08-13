@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# System-wide Gurobi fleet CLI
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+VENV="${GUROBI_VENV:-$HOME/.hermes/gurobi-venv}"
+PY="${VENV}/bin/python"
+if [[ ! -x "$PY" ]]; then
+  PY="$(command -v python3)"
+fi
+export PYTHONPATH="${ROOT}/tools${PYTHONPATH:+:$PYTHONPATH}"
+exec "$PY" "${ROOT}/tools/gurobi-fleet-optimize.py" "$@"
