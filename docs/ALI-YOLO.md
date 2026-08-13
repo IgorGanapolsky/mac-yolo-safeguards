@@ -18,8 +18,13 @@ Fail-closed launcher for **Alibaba ModelStudio Token Plan** via Hermes profile `
 
 ```bash
 bash scripts/install-ali-yolo.sh
-ali-yolo doctor --json   # ok must be true, auth macos-keychain|present, fallback false
+ali doctor --json        # Herdr "ali" tab uses this binary
+ali-yolo doctor --json   # same launcher
+# ok must be true, auth macos-keychain|present, fallback false
 ```
+
+**Herdr note:** tabs named `ali` run `~/.local/bin/ali`. The installer keeps
+`ali` and `ali-yolo` identical so a stale OpenRouter 32k binary cannot reappear.
 
 ## Usage
 
