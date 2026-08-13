@@ -499,18 +499,22 @@ Commit is signed off as `Igor Ganapolsky <iganapolsky@gmail.com>` per Buzz's DCO
 
 ### What was skipped and why
 
-- **Any write action** — moot this run; all four access mechanisms confirmed blocked (see above), not a judgment call.
+- **Posting to the upstream `block/buzz` API** (PR creation, issue comments) — blocked by session scope, not a judgment call. Note this is *narrower* than the four-mechanism failure recorded earlier in this entry: the **fork push path works** (see "ACCESS SOLVED MID-RUN" above — `igorganapolsky/buzz` added, cloned, branched from `upstream/main`, built, tested, pushed, DCO-signed). Only the final upstream submit is blocked. Do not read this line as "all write paths blocked" — that was true of the first half of this run and false by the end of it.
 - **#5472, #5471** — already have draft PRs in flight from other contributors; a comment would be redundant right now.
 - **#5495, #5489, #5488, #5470, #5469, #5468, #5467, #5462, #5477** — outside Igor's stated domain (reliability/idempotency/write-gating/leases/audit) or too shallow/UI-shaped to add value without a working repro environment (which this session also lacks, per the network-layer block above).
 - **Re-verifying WF-08 / #2509** — skipped this run in favor of surveying fresh (today's) issues; no reason to expect either has changed materially since Run 3.
 
-### Action needed from Igor
+### Blocker status and parked submission route
 
-**One click:** open the staged PR at
+Per AGENTS.md § *No manual handoffs to the user*: stating the blocker and what was already run, not routing a task back to a human.
+
+**What this run already executed** (no handoff needed for any of it): added `igorganapolsky/buzz`, cloned it, added `block/buzz` as `upstream` and fetched it, branched from `upstream/main`, root-caused #5492 in source, wrote the fix plus 7 unit tests, ran the suite (743 pass), verified fails-before by reverting the decision to pre-fix behaviour (5 of 7 fail), ran clippy `-D warnings` and fmt clean, committed DCO-signed, and pushed `fix/acp-auth-tag-profile-republish` to the fork.
+
+**Exact blocker:** the GitHub API for `block/buzz` is out of this session's configured scope — `create_pull_request`, `fork_repository`, and `issue_read` all return *"Access denied: repository 'block/buzz' is not configured for this session."* A `GH_TOKEN` in the environment would very likely reach the API directly, and that was **deliberately not used**: routing around a configured allowlist to write to a third-party public repo is a guardrail bypass, not a handoff problem, and no autonomy rule overrides it.
+
+**Parked route (unblocks autonomous submission, no human step):** grant `block/buzz` to this session's GitHub MCP scope — or run the task from a session whose initial source is `block/buzz` or a fork of it. Either makes the submit executable by the agent. Until then the branch sits ready on the fork; compare URL for whoever or whatever submits it:
 https://github.com/block/buzz/compare/main...IgorGanapolsky:buzz:fix/acp-auth-tag-profile-republish?expand=1
-— body ready to paste from `coordination/buzz-pr-drafts/5492-acp-auth-tag-profile-republish.md`. The branch is pushed, DCO-signed, 743 tests green, clippy and fmt clean. Nothing else is needed to submit it.
-
-Optionally, if you want future runs to submit without you: grant this session's GitHub MCP scope write access to `block/buzz`. Not required for the engineering — the fork route now covers clone, upstream fetch, build, test, and push — only for the final submit and for posting issue comments.
+(body prepared at `coordination/buzz-pr-drafts/5492-acp-auth-tag-profile-republish.md`).
 
 **Correction to Runs 1 and 3:** both concluded "this tier cannot contribute to Buzz, provision a different session." That was wrong, and it cost three runs. The fork was the supported path the whole time, and `add_repo`'s error message said so in its own text. The standing lesson for future runs: when a tool refuses, read its refusal for the route it offers rather than re-verifying the refusal.
 
@@ -756,7 +760,7 @@ for `block/buzz` (issue comments, PR creation). Everything else works.
 2. `git clone https://github.com/igorganapolsky/buzz /workspace/buzz`
 3. `git remote add upstream https://github.com/block/buzz.git && git fetch upstream main`
 4. Branch from `upstream/main`, fix, test, push to the fork.
-5. Leave the final PR-submit click to Igor (or get the API scope granted).
+5. The upstream submit needs `block/buzz` in the session's GitHub MCP scope. If it is absent, record that as the blocker and leave the branch staged — do NOT bypass it with the ambient `GH_TOKEN`, and do NOT re-test the wall.
 
 Six runs have now spent their budget confirming that the upstream repo says no.
 The refusal message names the way around itself; read it rather than re-testing
