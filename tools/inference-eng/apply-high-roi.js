@@ -38,8 +38,8 @@ function smoke() {
     { task: 'implement login validation', expect: 'grok-4.5' },
     { task: 'are you sure about this architecture?', expect: 'grok-4.5' },
     { task: 'smoke ping hermes-yolo-ready', expect: 'kimi-code-fast' },
-    { task: 'draft outreach email for a founder', expect: 'deepseek-v4-flash' },
-    { task: 'classify this lead spam or buyer', expectPrimaryStarts: 'deepseek' },
+    { task: 'draft outreach email for a founder', expect: 'glm-coding' },
+    { task: 'classify this lead spam or buyer', expectPrimaryStarts: 'hermes' },
   ];
   const env = {
     HERMES_PREFER_SUPERGROK: '1',
@@ -55,7 +55,7 @@ function smoke() {
     const clean = {
       HERMES_PREFER_SUPERGROK: '1',
       HERMES_YOLO_BACKEND: 'auto',
-      HERMES_DROP_DEAD_GLM: '1',
+      HERMES_DROP_DEAD_GLM: '0',
     };
     const route = selectRoute({ task: c.task, env: clean });
     const chain = selectModelChain({ taskText: c.task, mode: 'normal', env: clean });

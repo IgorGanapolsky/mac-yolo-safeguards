@@ -32,18 +32,19 @@ const PROVIDER = 'custom:litellm-gateway';
 /** Flat-rate / free-safe model aliases registered on the local LiteLLM gateway. */
 const ROUTES = Object.freeze({
   coding: {
-    // 2026-08-05: SuperGrok is coding default; glm kept as opt-in alias (dead for tool use).
+    // 2026-08-13 quality lock: glm-coding is default hermes-yolo agent primary.
+    // SuperGrok remains explicit via HERMES_YOLO_BACKEND=grok / HERMES_PREFER_SUPERGROK=1.
     id: 'coding_primary',
-    model: 'grok-4.5',
-    provider: 'grok-yolo',
-    label: 'SuperGrok / grok-4.5 — default interactive coding',
+    model: 'glm-coding',
+    provider: PROVIDER,
+    label: 'GLM Coding (z.ai via LiteLLM) — default interactive coding (anti-slop)',
     tier: 'subscription',
   },
   glm: {
     id: 'coding_glm',
     model: 'glm-coding',
     provider: PROVIDER,
-    label: 'GLM Coding Plan (z.ai) — opt-in only (HERMES_ALLOW_GLM=1)',
+    label: 'GLM Coding Plan (z.ai) — quality primary',
     tier: 'subscription',
   },
   grok: {
@@ -57,7 +58,8 @@ const ROUTES = Object.freeze({
     id: 'free_deepseek',
     model: 'deepseek-v4-flash',
     provider: PROVIDER,
-    label: 'DeepSeek V4 Flash — free/promotional agent-capable',
+    // Opt-in only (HERMES_YOLO_ALLOW_FREE_PRIMARY=1). Auto chains strip this (gibberish under YOLO).
+    label: 'DeepSeek V4 Flash — free/promotional (opt-in only; not YOLO primary)',
     tier: 'free',
   },
   fast: {
