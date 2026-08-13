@@ -73,7 +73,7 @@ assert.strictEqual(cfg.model, DEFAULT_MODEL);
 assert.strictEqual(cfg.profile, 'ali');
 assert.strictEqual(cfg.auth.source, 'env');
 
-const doctor = buildDoctor(cfg, path.resolve(__dirname, '..'));
+const doctor = buildDoctor(cfg, path.resolve(__dirname, '..'), { liveProbe: false });
 assert.strictEqual(doctor.provider, 'Alibaba ModelStudio');
 assert.strictEqual(doctor.product, 'Token Plan Standard');
 assert.strictEqual(doctor.engine, 'Hermes Agent');

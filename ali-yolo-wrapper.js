@@ -98,13 +98,15 @@ function loadTokenPlanKey(env = process.env) {
 function ensureProfileEnv(key) {
   if (!key || !fs.existsSync(PROFILE_DIR)) return false;
   try {
-    let content = '';
-    if (fs.existsSync(PROFILE_ENV)) content = fs.readFileSync(PROFILE_ENV, 'utf8');
-    if (new RegExp(`^${KEY_ENV}=.+`, 'm').test(content)) {
-      content = content.replace(new RegExp(`^${KEY_ENV}=.*$`, 'm'), `${KEY_ENV}=${key}`);
-    } else {
-      content = `${content.replace(/\s*$/, '')}\n${KEY_ENV}=${key}\n`;
-    }
+    // Always rewrite a minimal clean file so interactive `hermes --profile ali`
+    // has a valid Token Plan key even when Keychain is unavailable to the GUI.
+    const content = [
+      '# Per-profile secrets for Hermes profile ali (Token Plan).',
+      '# Autowritten by ali-yolo from macOS Keychain — do not commit.',
+      `${KEY_ENV}=${key}`,
+      `DASHSCOPE_API_KEY=${key}`,
+      '',
+    ].join('\n');
     fs.writeFileSync(PROFILE_ENV, content, { mode: 0o600 });
     try { fs.chmodSync(PROFILE_ENV, 0o600); } catch { /* best effort */ }
     return true;
@@ -203,19 +205,60 @@ function runChild(binary, args, options = {}) {
   });
 }
 
-function buildDoctor(config, startDir = process.cwd()) {
+function probeTokenPlanApi(key, model = DEFAULT_MODEL, timeoutMs = 12_000) {
+  if (!key) {
+    return { ok: false, status: null, error: 'no_key' };
+  }
+  const url = 'https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions';
+  const body = JSON.stringify({
+    model,
+    messages: [{ role: 'user', content: 'Reply with exactly ALI_API_OK' }],
+    max_tokens: 16,
+  });
+  // Use curl for reliable timeout + no dependency on undici in old node.
+  const result = spawnSync(
+    'curl',
+    [
+      '-sS', '-m', String(Math.max(3, Math.floor(timeoutMs / 1000))),
+      '-o', '-', '-w', '\n%{http_code}',
+      '-X', 'POST', url,
+      '-H', 'Content-Type: application/json',
+      '-H', `Authorization: Bearer ${key}`,
+      '-d', body,
+    ],
+    { encoding: 'utf8', maxBuffer: 2_000_000 },
+  );
+  if (result.error) {
+    return { ok: false, status: null, error: result.error.message };
+  }
+  const raw = String(result.stdout || '');
+  const nl = raw.lastIndexOf('\n');
+  const status = Number(nl >= 0 ? raw.slice(nl + 1).trim() : '');
+  const payload = nl >= 0 ? raw.slice(0, nl) : raw;
+  if (status === 200) {
+    return { ok: true, status, error: null };
+  }
+  let detail = payload.slice(0, 240);
+  try {
+    const parsed = JSON.parse(payload);
+    detail = parsed?.error?.message || parsed?.message || detail;
+  } catch {
+    /* keep raw */
+  }
+  return { ok: false, status: Number.isFinite(status) ? status : null, error: detail };
+}
+
+function buildDoctor(config, startDir = process.cwd(), options = {}) {
   const contextFile = findContextFile(startDir);
   const errors = [];
   const profilePresent = Boolean(config.profile) && fs.existsSync(PROFILE_DIR);
   const configPresent = fs.existsSync(PROFILE_CONFIG);
   const runtimePresent = fs.existsSync(config.hermesBin);
   const keyPresent = Boolean(config.auth.key);
-  const authSource = config.auth.source === 'macos-keychain'
-    || config.auth.source === 'profile-env'
-    || config.auth.source === 'env'
-    || config.auth.source === 'env-dashscope'
-    ? (config.auth.source === 'macos-keychain' ? 'macos-keychain' : 'present')
-    : null;
+
+  // Always keep profile .env in sync so Herdr/interactive hermes --profile ali has the key
+  // even when Keychain is not available to the GUI process.
+  if (config.auth.key) ensureProfileEnv(config.auth.key);
 
   if (!runtimePresent) errors.push('Hermes runtime not found');
   if (config.profile && !profilePresent) {
@@ -234,6 +277,18 @@ function buildDoctor(config, startDir = process.cwd()) {
     errors.push('No AGENTS.md found from current directory (project rules required)');
   }
 
+  let liveProbe = null;
+  if (keyPresent && options.liveProbe !== false) {
+    liveProbe = probeTokenPlanApi(config.auth.key, config.model);
+    if (!liveProbe.ok) {
+      errors.push(
+        `Token Plan live probe failed (HTTP ${liveProbe.status || '?'}): ${liveProbe.error || 'unknown'}. `
+        + 'Key may be expired/wrong product; re-mint Token Plan key in ModelStudio and store with '
+        + `security add-generic-password -U -s ${KEYCHAIN_SERVICE} -a $USER -w '<key>'`,
+      );
+    }
+  }
+
   // Prefer reporting auth as macos-keychain when key is from keychain (skill contract)
   let authLabel = 'missing';
   if (keyPresent) {
@@ -245,7 +300,8 @@ function buildDoctor(config, startDir = process.cwd()) {
     && keyPresent
     && isAliProvider(config.provider)
     && Boolean(contextFile)
-    && (config.profile ? profilePresent : true);
+    && (config.profile ? profilePresent : true)
+    && (liveProbe ? liveProbe.ok : true);
 
   return {
     schema: 'ali-yolo/doctor-v1',
@@ -256,6 +312,7 @@ function buildDoctor(config, startDir = process.cwd()) {
     auth: authLabel,
     authSource: config.auth.source,
     credentialPresent: keyPresent,
+    liveProbe,
     fallback: false,
     yolo: true,
     tools: true,
@@ -285,7 +342,7 @@ class AliYoloAgent {
   }
 
   printVersion() {
-    console.log('ali-yolo 4.0.0 — Alibaba ModelStudio Token Plan via Hermes profile ali');
+    console.log('ali-yolo 4.1.0 — Alibaba ModelStudio Token Plan via Hermes profile ali');
   }
 
   printBanner() {
@@ -297,7 +354,7 @@ class AliYoloAgent {
   }
 
   runDoctor(json = false) {
-    const report = buildDoctor(this.config);
+    const report = buildDoctor(this.config, process.cwd(), { liveProbe: true });
     if (json) {
       // Never include key material
       console.log(JSON.stringify(report, null, 2));
@@ -307,6 +364,7 @@ class AliYoloAgent {
       console.log(`provider: ${report.provider} / ${report.product}`);
       console.log(`route: ${report.route}`);
       console.log(`auth: ${report.auth}`);
+      console.log(`live_probe: ${report.liveProbe ? (report.liveProbe.ok ? 'PASS' : `FAIL http=${report.liveProbe.status}`) : 'skipped'}`);
       console.log(`profile: ${report.profile} (present=${report.profilePresent})`);
       console.log(`context: ${report.contextFile || 'MISSING AGENTS.md'}`);
       console.log(`tools: ${report.toolsets.join(', ')}`);
