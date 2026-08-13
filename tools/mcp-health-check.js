@@ -41,6 +41,12 @@ const SERVER_META = {
     locality: 'local-stdio',
     blastRadius: 'read local index only; Mac-only',
   },
+  semrush: {
+    scope: 'SEO / competitor / AI-visibility metrics (paid API)',
+    secret: 'SEMRUSH_API_KEY — only add Authorization header when key is non-empty',
+    locality: 'remote-http',
+    blastRadius: 'read Semrush project data; burns API units',
+  },
   thumbgate: {
     scope: 'Lessons recall/capture, product gates (host-dependent)',
     secret: 'host ThumbGate MCP wiring',
@@ -98,6 +104,10 @@ function classifyServer(name, config) {
     issues.push(`unusual type: ${config.type}`);
   }
   if (config.command === 'grepai' && !config.args?.length) issues.push('grepai missing args');
+  const auth = config.headers?.Authorization || config.headers?.authorization;
+  if (typeof auth === 'string' && (/^Bearer\s*$/i.test(auth) || /\$\{[A-Z0-9_]+:-\}/.test(auth))) {
+    issues.push('Authorization header may expand to empty Bearer — omit headers until secret is set');
+  }
   return {
     name,
     type: config.type || (config.command ? 'stdio' : 'unknown'),
