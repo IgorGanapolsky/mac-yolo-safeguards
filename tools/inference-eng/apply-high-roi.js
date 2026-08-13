@@ -41,7 +41,7 @@ function smoke() {
     { task: 'are you sure about this architecture?', expect: 'grok-4.5' },
     { task: 'smoke ping hermes-yolo-ready', expect: 'kimi-code-fast' },
     { task: 'draft outreach email for a founder', expect: 'glm-coding' },
-    { task: 'classify this lead spam or buyer', expect: 'hermes-local' },
+    { task: 'classify this lead spam or buyer', expect: 'glm-coding' },
   ];
   const env = {
     HERMES_PREFER_SUPERGROK: '1',
