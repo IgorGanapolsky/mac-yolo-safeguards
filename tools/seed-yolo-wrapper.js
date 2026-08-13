@@ -300,45 +300,20 @@ Override: SEED_YOLO_MODEL / SEED_YOLO_PROVIDER / SEED_YOLO_TOOLSETS
     if (modelOverride) this.config.model = modelOverride;
     if (providerOverride) this.config.provider = providerOverride;
 
-    let promptArgs = [...args];
-    let modelOverride = null;
-    let providerOverride = null;
-
-    // Parse model/provider overrides if passed: -m/--model, --provider
-    for (let i = 0; i < promptArgs.length; i++) {
-      if ((promptArgs[i] === '-m' || promptArgs[i] === '--model') && promptArgs[i + 1]) {
-        modelOverride = promptArgs[i + 1];
-        promptArgs.splice(i, 2);
-        i--;
-      } else if (promptArgs[i] === '--provider' && promptArgs[i + 1]) {
-        providerOverride = promptArgs[i + 1];
-        promptArgs.splice(i, 2);
-        i--;
-      } else if (promptArgs[i] === '-z' || promptArgs[i] === '--oneshot') {
-        promptArgs.splice(i, 1);
-        i--;
-      }
+    // Ensure Hermes sees OpenRouter key even when shell env lacks it
+    if (this.config.openrouterKey) {
+      this.env = { ...this.env, OPENROUTER_API_KEY: this.config.openrouterKey };
     }
-
-    if (modelOverride) this.config.model = modelOverride;
-    if (providerOverride) this.config.provider = providerOverride;
 
     assertCostPolicy(this.config);
     if (!fs.existsSync(this.config.hermesBin)) {
       throw new Error(`Hermes runtime not found at ${this.config.hermesBin}`);
     }
 
-<<<<<<< HEAD
-    const passthrough = new Set(['--tui', '--cli', '--continue', '-c', '--resume', '-r', '--worktree', '-w']);
-||||||| 9c8d0c9b5
-    const passthrough = new Set(['--tui', '--cli', '--continue', '-c', '--resume', '-r', '--worktree', '-w']);
-    if (args.length && passthrough.has(args[0])) {
-=======
     // Keep --safe-mode as Hermes passthrough (documented opposite of YOLO).
     const passthrough = new Set([
       '--tui', '--cli', '--continue', '-c', '--resume', '-r', '--worktree', '-w', '--safe-mode',
     ]);
->>>>>>> origin/main
     if (promptArgs.length && passthrough.has(promptArgs[0])) {
       this.printBanner();
       return this.childRunner(
