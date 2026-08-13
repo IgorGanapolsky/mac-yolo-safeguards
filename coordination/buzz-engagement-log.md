@@ -579,3 +579,82 @@ No fix was attempted for #5611: without hosted-relay/DB access there is no way t
 
 Sixth consecutive run (Runs 1, 3, 4, 5, 6, 7) with zero write access to `block/buzz` from this environment tier; unchanged from Run 6's finding that this is a session/tool allowlist restriction, not a GitHub-side permissions issue on Igor's real account. Five verbatim-ready drafts now sit in this log for a write-capable session: #4860 (Run 3), #5492 (Run 4), #5557 (Run 5), #5555 (Run 6), #5611 (this run, partial). PR #4624 (Run 2) still awaits its first human review, now well past two weeks.
 
+---
+
+## 2026-08-13 — Run 10 (access wall persists a ninth run; the bigger finding this run is that this repo's own PR queue, not `block/buzz`, is now the actual bottleneck — #5759 duplicate-daemon lead drafted)
+
+### Correction to this log's own numbering (read first)
+
+`main` stops at Run 7 (above). Since then, at least **four** separate unmerged PRs against `IgorGanapolsky/mac-yolo-safeguards` have each appended their own "Run 8" or "Run 9" entry without seeing each other, because none of them have been merged:
+
+| PR | Self-labeled | What it contains |
+|----|----|----|
+| [#1682](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1682) | "Run 8" | Access wall re-confirmed, #5626 investigated and drafted |
+| [#1689](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1689) | "Run 8" (duplicate of #1682) | Fuller version of the same run: tested fix for #5665, RFC #5667 feedback |
+| [#1712](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1712) | "Run 9" | #5708 root-caused, fixed, and fully test-verified (774/774 `buzz-acp` tests); #5665 dropped as superseded by a third-party PR |
+| [#1714](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1714) | "Run 8" (a third, later, independent execution) | #5734 root-caused, fixed, and fully test-verified across 3 validation boundaries (12 new tests) |
+
+All four are still **open, unmerged, and un-reconciled** as of this run — including #1682/#1689, which Run 9 (inside #1712) already flagged for human reconciliation a full run ago. This run is numbered **10** to avoid colliding with any of them, not because 9 prior runs are cleanly ordered in `main` — they are not. This entry is written against `main`'s actual tip (through Run 7), same as every one of the four PRs above independently was.
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+- **Canonical repo:** [`github.com/block/buzz`](https://github.com/block/buzz) — unchanged identity, maintainer (Block/Jack Dorsey), architecture, community surface (GitHub issues/PRs only) from Runs 1-9.
+- **Write access to `block/buzz`:** still blocked. `add_repo(owner:"block", repo:"buzz", access:"push")` this run returned the identical cross-tier rejection verbatim: *"cross-tier adds are not supported in v1: requested block/buzz but session already has repos from owner(s) [igorganapolsky]. Start a new session with the requested repo as the initial source..."* This is at minimum the ninth run to hit this exact wall (Runs 1, 3-9, plus this one) — it has never once lifted across ten total attempts spanning ten days.
+- **Read access:** anonymous `git clone --depth 50 https://github.com/block/buzz.git` and `WebFetch` of individual issue pages both confirmed working this run.
+- **The actually-new finding this run:** the bottleneck on getting Igor's own already-finished, already-tested work in front of `block/buzz` maintainers is no longer *only* the session's write-access wall. Two complete, verified patches (#5708 in #1712, #5734 in #1714) have been sitting ready-to-push for one and two runs respectively, but neither patch is reachable from `main` — a future write-capable session that checks out `main` (the normal thing to do) will not find either patch file without *also* first noticing and merging the specific unmerged PR that carries it. The wall used to be "no session can push to `block/buzz`." It is now also "the two patches that exist can't push *from here either*, because they're stranded on branches nobody has merged." Reporting this plainly rather than re-deriving the same access-wall finding a tenth time.
+
+### What was surveyed (last ~72h, as of 2026-08-13)
+
+Newest open issues confirmed via `WebFetch` of the sorted issues list: #5770, #5769, #5762, #5759, #5758, #5754, #5752, #5745, #5744, #5743, #5741, #5740. Read against Igor's stated domain (agent reliability, idempotency, double-execution, write-gating, leases/fencing, retries, audit trails, verification-vs-self-report):
+
+| Issue | Topic | Action |
+|-------|-------|--------|
+| [#5759](https://github.com/block/buzz/issues/5759) | "Desktop spawns duplicate `buzz-acp` daemons for the same (agent, community) after adding a second community — mentions processed twice." Adding a second community leaves the pre-existing daemon for an already-running agent untouched while spawning an extra one for it; the reporter observed 5 processes where 2 should exist, with the duplicate never getting terminated even after the original later exits. | **Investigated at source level this run** (below) — squarely double-execution/idempotency, exactly Igor's stated domain |
+| #5769 | Webhook body keys named after built-in trigger fields are silently swallowed | Read — a real silent-data-loss pattern, but it's a webhook/config parsing bug, not an agent-process reliability bug; skipped as a comment target |
+| #5770 | Feature: per-community visibility toggle for managed agents | Skipped — feature request |
+| #5762 | Mobile: channel section folders bleed across linked workspaces | Skipped — UI bug, outside domain |
+| #5758 | Feature: hermes-buzz toolset so Buzz agents can manage channels | Skipped — feature request |
+| #5754 | Stale agent memberships permanently pollute 1:1 DMs | Read — a real state-divergence bug adjacent to the #5555/#4860 reconciliation family, but not investigated at source this run; budget went to #5759. Flagging as a candidate for next run |
+| #5752 | Mobile: iOS Voice Memo M4A routed through video validation | Skipped — media-type validation bug, not reliability/idempotency |
+| #5745 | Auth problem for opencode and kilocode (third-party ACP clients) | Skipped — third-party client config, not Buzz-internal |
+| [#5744](https://github.com/block/buzz/issues/5744) | `buzz messages send` accepts empty stdin, publishes a blank event | Already root-caused at source in the #1714 PR entry (line reference `messages.rs:583`); reconfirmed still open, no maintainer or third-party activity since |
+| #5743 | Claude Code authentication issue | Skipped — third-party client config |
+| #5741, #5740 | Desktop feature requests: skill picker in composer, pinned-messages panel | Skipped — feature requests |
+| #4860, #5492, #5557, #5555, #5611, #5665(superseded), #5667, #5708, #5734 | Prior runs' backlogged drafts/patches | Not individually re-checked this run — see the numbering note above for why (their current state lives on unmerged PR branches this run cannot see without checking out each one, which is what caused the fragmentation in the first place; re-verifying all nine against `block/buzz` directly instead of against a phantom merged history is next run's job once the PR queue is addressed) |
+
+### Investigation of #5759 (source-level, this run — lead drafted, not a full fix)
+
+Cloned `block/buzz` at HEAD and traced every place a `(pubkey, relay)` runtime key gets computed, since a duplicate daemon for a logically-identical pair almost always means two different code paths computed two different keys for it:
+
+- **Three of four key-computation sites** — `workspace_pair_key`/`resolve_workspace_pair_key` (`managed_agents/runtime.rs:105-124`), the inline resolution inside `start_managed_agent_process` (`runtime.rs:941-947`), and the inline resolution inside `restore_managed_agents_on_launch` (`restore.rs:299-304`) — all route the relay component through `effective_agent_relay_url` (`relay.rs:69-71`), which **ignores the record/community relay entirely** and always returns "the active workspace relay" (per its own doc comment, citing the "agents-everywhere, #2122" design: one agent pair per workspace, not per community).
+- **The fourth site — `reconcile_managed_agent_runtimes`, the specific command invoked when the community list changes (`runtime_commands.rs:460-568`)** — does not call `effective_agent_relay_url` at all. It builds each pair's key from `community.relay_url` directly, per-community, inside `probe_agent_relay_access` (`runtime_commands.rs:398-419`) and `start_pair` (`runtime_commands.rs:239-310`, called with `key.relay_url.clone()` from the probe).
+- `ManagedAgentRuntimeKey::new` (`runtime_types.rs:15-25`) does run both relay strings through `buzz_core_pkg::relay::normalize_relay_url` before hashing/comparing, so simple formatting drift (trailing slash, scheme case) is not the mechanism — I did not find a bug in the normalizer itself, only that it operates on two inputs computed by genuinely different logic.
+
+That asymmetry is a plausible, source-confirmed mechanism for exactly this bug: if a community's own stored `relay_url` field is not textually identical to whatever `effective_agent_relay_url` currently resolves to for the workspace (stale after a relay migration, or a community record that predates the single-workspace-relay model), `reconcile_managed_agent_runtimes` computes a **different** `ManagedAgentRuntimeKey` than the one the already-running daemon is tracked under. Since the "already live" dedup guard in both `start_pair` (line 271-277) and `start_managed_agent_process` (line 949-960) keys strictly off `HashMap<ManagedAgentRuntimeKey, _>` equality, a second key means the guard simply doesn't fire — no logic error in the guard itself, just two different addresses for the same physical agent.
+
+> Drafted comment for #5759: "Traced the four places a `(pubkey, relay)` runtime key gets built. `workspace_pair_key`, `start_managed_agent_process`, and the restore-on-launch path all resolve the relay through `effective_agent_relay_url`, which by design ignores any per-record/per-community relay pin and always returns the single active workspace relay (see its doc comment re: #2122 'agents-everywhere'). `reconcile_managed_agent_runtimes` — the command that runs specifically when your community list changes — is the one path that doesn't: it keys directly off `community.relay_url` per community in `probe_agent_relay_access`/`start_pair`. `ManagedAgentRuntimeKey::new` does normalize both relay strings before comparing, so it's not a formatting mismatch — but if a community's own stored `relay_url` field isn't currently identical to what `effective_agent_relay_url` resolves to for the workspace (e.g., stale after a relay migration/config change), this path computes a different key than the one your already-running Fizz daemon is tracked under, and the live-child guard (which is a strict HashMap key match) simply never sees it as the same pair. Worth checking: does the community that triggered this have a `relay_url` that differs from the workspace's current relay override? If so, that's likely the whole bug — not a missing termination step, but reconcile computing the wrong address for an agent that's already there."
+
+This is an investigated, source-grounded lead with concrete line references — not a confirmed root cause and not a fix. Per the hard rule (open a PR only if a real fix ships with a fail-before/pass-after test), no patch was attempted this run: confirming the hypothesis needs either a repro with a genuinely stale `community.relay_url` or maintainer confirmation of how `communities` gets built on the frontend side (not in this crate), neither of which this run has visibility into. ThumbGate is not mentioned — this is entirely about Buzz's own relay-key resolution being computed two different ways by two different code paths.
+
+### Positioning read: **neither** (unchanged, reconfirmed a ninth time)
+
+- Not a competitor — Buzz remains a team workspace (chat + git + workflow automation) on Nostr; ThumbGate remains a cross-tool pre-action governance gate for arbitrary agent actions. No overlap in what either actually ships.
+- Not a partner — no relationship, no contact, no integration exists, and nothing this run changes that.
+- #5759, if the drafted hypothesis holds, is a ninth independent data point for the same recurring class (#4565, #4860, #5492, #5557, #5555, #5611, #5665, #5667, #5708, #5734): a system whose correctness depends on two different subsystems agreeing on one identity/state fact (here: "what relay does this agent pair run on") without a single source of truth enforcing it. This keeps surfacing unprompted in Buzz's own tracker — it is signal about the general problem class in production multi-agent systems, not a lever for a partnership pitch, and isn't being used as one.
+
+### What was skipped and why
+
+- **#5770, #5762, #5758, #5752, #5745, #5743, #5741, #5740** — feature requests, UI bugs, or third-party client config, per table above.
+- **#5769** — real silent-data-loss pattern but webhook/config parsing, not agent-process reliability; logged as a pattern data point, not drafted.
+- **#5754** — real state-divergence bug, in-domain, but not investigated at source this run; flagged for next run.
+- **A fix attempt for #5759** — the hypothesis needs frontend-side visibility (how `communities` is built) this run doesn't have; forcing a patch without that would risk the "never fabricate verification" rule. Drafted as a lead instead, matching the standard Run 7 set for #5611.
+- **Reconciling #1682/#1689/#1712/#1714** — still out of this run's authorization, same as when Run 9 first flagged it. Reported again, more prominently, because a full run has now passed with zero action on it and the cost (two tested patches unreachable from `main`) is compounding.
+- **Posting anything to `block/buzz`** — impossible this run; not a judgment-call skip.
+
+### Blocker status (report only — no action requested)
+
+Two separate blockers now, not one:
+
+1. **`block/buzz` write access** — ninth consecutive run with zero write access from this environment tier. Identical cross-tier `add_repo` rejection every time. Read access (clone, fetch, WebFetch of public pages) works without any attach.
+2. **This repo's own unmerged PR queue** — four buzz-engagement PRs (#1682, #1689, #1712, #1714) are open and un-reconciled against `main`, fragmenting the run history and stranding two complete, fully-tested patches (#5708, #5734) on branches a future write-capable session won't discover by checking out `main` alone. This is now the more urgent of the two blockers: even if write access to `block/buzz` were granted tomorrow, the two ready patches would still need someone to go find them on #1712/#1714 specifically. Backlog, consolidated here for whichever session or human acts next: #4860 (Run 3, drafted comment), #5492 (Run 4, drafted comment), #5557 (Run 5, drafted comment), #5555 (Run 6, drafted comment), #5611 (Run 7, partial lead), #5626 (#1682, drafted comment — location unconfirmed, stranded on an unmerged PR), #5665 (dropped — superseded by third-party PR #5666), #5667 (#1689, drafted comment — stranded), #5708 (#1712, **full tested patch**, stranded), #5734 (#1714, **full tested patch**, stranded), #5759 (this run, drafted lead, in this entry so at least it isn't also stranded). PR #4624 (Run 2, against `block/buzz` itself) still awaits its first human review.
+
