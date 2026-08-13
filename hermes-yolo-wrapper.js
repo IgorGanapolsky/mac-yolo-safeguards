@@ -63,6 +63,8 @@ const DEFAULT_TOOLSETS = normalizeToolsets(
 const DIRECT_RESPONSE_RULES = [
   'Answer Igor like a direct human collaborator. Lead with the result, then only the evidence or next detail that matters.',
   'Do not restate the request, announce a plan, use generic headings, or mention being an AI.',
+  'No bot slop: no filler (Certainly!/Great question!/As an AI), no multi-section essay for a short ask, no repeated self-narration, no fake progress theater.',
+  'No gibberish: never emit broken tokens, half-reasoned scrap, empty tool theater, or stream noise. If the model cannot answer, say so in one clear sentence.',
   'Use available tools when they add evidence. Before saying a tool is unavailable, check the current tool registry and distinguish built-in tools from optional MCP integrations.',
   'Never invent tool access, evidence, completion, provider state, or money received. Name the exact missing capability only when it is truly absent, then continue with the best supported answer.',
   'Honor AGENTS.md project restrictions and require explicit approval for irreversible destruction, external sends, payments, or publication.',
@@ -265,7 +267,7 @@ function prepareLeanContextForTask(taskText, env = process.env, options = {}) {
  * Self-Healing Harness & Context Compression Ceiling Guard (2026-08)
  * Intercepts context degradation (>= 15 compressions) and stream stalls mid tool-call.
  */
-const MAX_COMPRESSIONS_CEILING = Number(process.env.HERMES_YOLO_MAX_COMPRESSIONS || 15);
+const MAX_COMPRESSIONS_CEILING = Number(process.env.HERMES_YOLO_MAX_COMPRESSIONS || 8);
 
 function checkAndHealSelfHealingHarness(env = process.env, cwd = process.cwd(), options = {}) {
   const taskStatePath = path.join(cwd, '.ai', 'hermes-yolo-task-state.json');
@@ -336,10 +338,15 @@ const MODEL_CAPABILITY_REGISTRY = Object.freeze({
   'kimi-code-k3': { agentCapable: true, class: 'coding' },
   'opencode-go-glm': { agentCapable: true, class: 'coding' },
   'opencode-go-kimi': { agentCapable: true, class: 'coding' },
-  // DeepSeek V4-Flash-0731 post-trained for agents; open weights MIT 2026-08
-  'deepseek-v4-flash': { agentCapable: true, class: 'coding' },
-  'deepseek-v4-flash-free': { agentCapable: true, class: 'coding' },
-  'openai/deepseek-v4-flash-free': { agentCapable: true, class: 'coding' },
+  // DeepSeek free/flash via OpenCode Zen: tool-capable but high slop risk as YOLO primary.
+  // Prefer glm-coding / kimi-code for interactive hermes-yolo (2026-08-13 quality lock).
+  'deepseek-v4-flash': { agentCapable: true, class: 'coding', qualityPrimary: false },
+  'deepseek-v4-flash-free': { agentCapable: true, class: 'coding', qualityPrimary: false },
+  'openai/deepseek-v4-flash-free': { agentCapable: true, class: 'coding', qualityPrimary: false },
+  'opencode-free': { agentCapable: true, class: 'coding', qualityPrimary: false },
+  'bytedance-seed/seed-2-1-turbo': { agentCapable: true, class: 'coding' },
+  'bytedance-seed/seed-2-1': { agentCapable: true, class: 'coding' },
+  'doubao-seed-2.1-pro': { agentCapable: true, class: 'coding' },
   'hermes-local': { agentCapable: true, class: 'coding' },
   // Alias removed from LiteLLM 2026-08-05 (0-byte hang). Kept as non-agent so historical
   // traffic never re-selects it as a YOLO primary.
@@ -370,7 +377,7 @@ function modelCapability(modelId) {
   if (/qwen2\.5:3b|3b-chat|tiny|instruct-4bit|gemma-2b/.test(lower)) {
     return { agentCapable: false, class: 'chat', known: false };
   }
-  if (/glm|kimi|deepseek|qwen3|coder|coding|hermes|gpt-oss|claude|grok/.test(lower)) {
+  if (/glm|kimi|deepseek|qwen3|coder|coding|hermes|gpt-oss|claude|grok|seed|doubao/.test(lower)) {
     return { agentCapable: true, class: 'coding', known: false };
   }
   // Unknown: fail closed for agent primary unless allowlisted via env
@@ -386,10 +393,65 @@ function assertAgentCapableModel(modelId, env = process.env) {
   if (isAgentCapableModel(modelId, env)) return modelCapability(modelId);
   const err = new Error(
     `HERMES_YOLO_FAIL_CLOSED: model "${modelId}" is not agent_capable (tool-calling coding class). `
-    + `Set HERMES_YOLO_ALLOW_WEAK_MODEL=1 to override, or pick glm-coding / deepseek-v4-flash / kimi-code.`
+    + `Set HERMES_YOLO_ALLOW_WEAK_MODEL=1 to override, or pick glm-coding / kimi-code / opencode-go-glm.`
   );
   err.code = 'HERMES_YOLO_MODEL_NOT_AGENT_CAPABLE';
   throw err;
+}
+
+/** Free/flash and local chat models produce bot-slop under YOLO agent load. */
+function isLowQualityPrimary(modelId, provider) {
+  const m = String(modelId || '').toLowerCase();
+  const p = String(provider || '').toLowerCase();
+  if (p.includes('ollama') || p.includes('mlx')) return true;
+  if (/qwen2\.5:3b|qwen3\.5:9b|laguna|nemotron3-free/.test(m)) return true;
+  if (/deepseek-v4-flash|deepseek-v4-flash-free|opencode-free/.test(m)) return true;
+  if (m.endsWith(':free') && !/glm|kimi|claude|seed/.test(m)) return true;
+  const cap = modelCapability(modelId);
+  if (cap && cap.qualityPrimary === false) return true;
+  return false;
+}
+
+/**
+ * Prefer agent-class coding models that do not emit free-tier slop.
+ * Order: glm-coding → kimi-code → opencode-go-glm → hermes-coder.
+ */
+function chooseQualityPrimaryModel(env = process.env) {
+  if (env.HERMES_YOLO_QUALITY_MODEL) return env.HERMES_YOLO_QUALITY_MODEL;
+  return 'glm-coding';
+}
+
+function upgradeLowQualityRoute(route, env = process.env) {
+  if (!route || !route.model) return route;
+  if (env.HERMES_YOLO_ALLOW_FREE_PRIMARY === '1') return route;
+  // Explicit local opt-in keeps ollama when requested.
+  if (env.HERMES_YOLO_ALLOW_LOCAL === '1' && String(route.provider || '').toLowerCase().includes('ollama')) {
+    return route;
+  }
+  if (!isLowQualityPrimary(route.model, route.provider)) return route;
+  const upgraded = {
+    provider: 'custom:litellm-gateway',
+    model: chooseQualityPrimaryModel(env),
+    upgradedFrom: `${route.provider}/${route.model}`,
+  };
+  return upgraded;
+}
+
+function assertQualityPrimaryRoute(route, env = process.env) {
+  if (env.HERMES_YOLO_ALLOW_FREE_PRIMARY === '1') return route;
+  if (env.HERMES_YOLO_ALLOW_LOCAL === '1' && String(route.provider || '').includes('ollama')) {
+    return route;
+  }
+  if (isLowQualityPrimary(route.model, route.provider)) {
+    const err = new Error(
+      `HERMES_YOLO_QUALITY_LOCK: refusing low-quality primary ${route.provider}/${route.model} `
+      + `(free flash / local qwen produce gibberish+slop under YOLO). `
+      + `Using quality coding models only. Override: HERMES_YOLO_ALLOW_FREE_PRIMARY=1 or HERMES_YOLO_ALLOW_LOCAL=1.`,
+    );
+    err.code = 'HERMES_YOLO_LOW_QUALITY_PRIMARY';
+    throw err;
+  }
+  return route;
 }
 
 /** Fingerprint a shell command for identical-retry detection (tool thrash). */
@@ -577,50 +639,48 @@ function chooseLocalModel(availableModels = listOllamaModels(), env = process.en
 }
 
 function defaultModelRoute(env = process.env, options = {}) {
+  let route;
   if (env.HERMES_YOLO_PROVIDER || env.HERMES_YOLO_MODEL) {
     const model = env.HERMES_YOLO_MODEL || chooseLocalModel(options.availableModels, env);
     // Capability is enforced at spawn (assertAgentCapableModel), not here —
     // so module load never crashes when a weak model is set in the environment.
-    return {
+    route = {
       provider: env.HERMES_YOLO_PROVIDER || 'custom:litellm-gateway',
       model,
     };
+  } else {
+    // Explicit model.default in ~/.hermes/config.yaml outranks key-presence heuristics.
+    // 2026-08-13: deepseek-v4-flash free primary produces empty/slop answers under YOLO —
+    // still read config, then upgradeLowQualityRoute to glm-coding.
+    const configuredDefault = options.configuredDefault !== undefined
+      ? options.configuredDefault
+      : configuredDefaultModel(options.configPath || HERMES_CONFIG_PATH);
+    if (configuredDefault && configuredDefault.model) {
+      route = {
+        provider: configuredDefault.provider || 'custom:litellm-gateway',
+        model: configuredDefault.model,
+      };
+    } else if (hasZaiKey(env) || env.HERMES_YOLO_USE_GATEWAY === '1' || env.HERMES_LITELLM_URL || hasOpenRouterKey(env)) {
+      // Fleet default: quality coding via LiteLLM (glm-coding), never free flash / ollama.
+      route = {
+        provider: 'custom:litellm-gateway',
+        model: chooseQualityPrimaryModel(env),
+      };
+    } else if (env.HERMES_YOLO_ALLOW_LOCAL === '1') {
+      const local = chooseLocalModel(options.availableModels, env);
+      route = {
+        provider: 'custom:ollama-local-64k',
+        model: local,
+      };
+    } else {
+      // Fail closed to quality gateway name even without keys so doctor surfaces the miss.
+      route = {
+        provider: 'custom:litellm-gateway',
+        model: chooseQualityPrimaryModel(env),
+      };
+    }
   }
-
-  // Explicit model.default in ~/.hermes/config.yaml outranks key-presence heuristics.
-  // 2026-08-03: z.ai key still present but weekly quota exhausted — operator set
-  // default deepseek-v4-flash; hasZaiKey() alone must not pin every launch back to glm.
-  const configuredDefault = options.configuredDefault !== undefined
-    ? options.configuredDefault
-    : configuredDefaultModel(options.configPath || HERMES_CONFIG_PATH);
-  if (configuredDefault && configuredDefault.model) {
-    return {
-      provider: configuredDefault.provider || 'custom:litellm-gateway',
-      model: configuredDefault.model,
-    };
-  }
-
-  // Fleet default (legacy hermes path only): LiteLLM gateway with agent-class model.
-  // Prefer glm-coding over raw glm-5.2 alias when no config override.
-  if (hasZaiKey(env) || env.HERMES_YOLO_USE_GATEWAY === '1' || env.HERMES_LITELLM_URL) {
-    return {
-      provider: 'custom:litellm-gateway',
-      model: 'glm-coding',
-    };
-  }
-
-  if (hasOpenRouterKey(env)) {
-    return {
-      provider: 'custom:litellm-gateway',
-      model: 'glm-coding',
-    };
-  }
-
-  const local = chooseLocalModel(options.availableModels, env);
-  return {
-    provider: 'custom:ollama-local-64k',
-    model: local,
-  };
+  return upgradeLowQualityRoute(route, env);
 }
 
 const ROUTE_ENV = mergedHermesEnv();
@@ -847,7 +907,7 @@ function isGrokBackendReady(env = process.env, dependencies = {}) {
     const result = runner(bin, ['--doctor', '--json'], {
       encoding: 'utf8',
       env,
-      timeout: positiveInteger(env.HERMES_YOLO_GROK_DOCTOR_TIMEOUT_MS, 5_000),
+      timeout: positiveInteger(env.HERMES_YOLO_GROK_DOCTOR_TIMEOUT_MS, 12_000),
     });
     if (result.error || result.status !== 0) return false;
     const doctor = JSON.parse(result.stdout || '{}');
@@ -1012,7 +1072,7 @@ function routeStatus(env = process.env, dependencies = {}) {
   const result = runner(grokYoloBin, ['--doctor', '--json'], {
     encoding: 'utf8',
     env,
-    timeout: positiveInteger(env.HERMES_YOLO_GROK_DOCTOR_TIMEOUT_MS, 5_000),
+    timeout: positiveInteger(env.HERMES_YOLO_GROK_DOCTOR_TIMEOUT_MS, 12_000),
   });
   if (result.error) {
     return {
@@ -1457,12 +1517,16 @@ const leanMetaForRun = leanForRun.packSummary
 
 log(`START pid=${process.pid} bin=${HERMES_BIN} extraArgs=${JSON.stringify(hermesExtraArgs)} args=${JSON.stringify(effectiveChildPromptArgs)} toolsets=${effectiveToolsets} lean=${leanForRun.enabled} timeout=${TIMEOUT_MS}ms cpuWatchdog=${CPU_WATCHDOG_ENABLED ? 'enabled' : 'disabled'} cpuThreshold=${CPU_THRESHOLD}% stuckSamples=${CPU_STUCK_SAMPLES}@${CPU_SAMPLE_INTERVAL_MS}ms`);
 
-// Fail-closed capability gate before spawn (P0)
+// Fail-closed capability + quality gates before spawn (P0)
 const runId = digest(`run-${process.pid}-${Date.now()}`, 16);
 const toolBudget = createToolBudget();
 try {
   if (process.env.HERMES_YOLO_FAIL_CLOSED !== '0') {
     assertAgentCapableModel(DEFAULT_MODEL, ROUTE_ENV);
+    assertQualityPrimaryRoute(
+      { provider: DEFAULT_PROVIDER, model: DEFAULT_MODEL },
+      ROUTE_ENV,
+    );
   }
 } catch (capErr) {
   log(`FAIL_CLOSED ${capErr.message}`);
@@ -1781,6 +1845,10 @@ module.exports = {
   modelCapability,
   isAgentCapableModel,
   assertAgentCapableModel,
+  isLowQualityPrimary,
+  chooseQualityPrimaryModel,
+  upgradeLowQualityRoute,
+  assertQualityPrimaryRoute,
   fingerprintCommand,
   createToolBudget,
   loadSprawlControlModule,
