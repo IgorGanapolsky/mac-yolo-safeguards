@@ -304,3 +304,22 @@ SEED_YOLO_ALLOW_METERED=1 SEED_YOLO_MODEL=bytedance-seed/seed-2-1-turbo \
 | Fix “no filesystem” | Use Hermes harness with `file` toolset — not bare chat |
 
 **Bottom line:** Seed 2.1 is the engine. Hermes (via `seed-yolo`) is the car. The screenshot was the engine idling in park with a fake dashboard.
+
+## OpenRouter full setup (live 2026-08-13)
+
+With OpenRouter credits + `OPENROUTER_API_KEY` in `~/.hermes/.env` (or Keychain):
+
+| Setting | Value |
+|---------|--------|
+| Provider | `openrouter` |
+| Model | `bytedance-seed/seed-2-1-turbo` (only live Seed 2.1 weight on OpenRouter; tools=true, 262k) |
+| YOLO | on |
+| Toolsets | terminal,file,web,code_execution,clarify,skills,memory,browser,computer_use,delegation,todo,session_search,browseros-neo,context7 |
+| Shell | `~/.zshrc` exports `SEED_YOLO_*` |
+
+**Verified:** `seed-yolo doctor` → ready YES; oneshot `SEED_OR_PROOF:mac-yolo-safeguards` + `Model: bytedance-seed/seed-2-1-turbo`.
+
+Hermes provider block `openrouter-seed-pro` now points at `bytedance-seed/seed-2-1-turbo` (the old `bytedance/seed-2.1-pro:free` id does not exist).
+
+Pricing (OpenRouter): ~$0.50/M input, $2.50/M output. Credits: https://openrouter.ai/settings/credits
+
