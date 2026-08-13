@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Thin wrapper: agent-facing entry for Vercel Connect ROI harness.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+exec node "$ROOT/tools/vercel-connect-cli-harness.js" "$@"
