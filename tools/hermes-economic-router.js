@@ -82,6 +82,23 @@ const ROUTES = [
     candidateOnly: true,
   },
   {
+    id: 'local_muse_glimmer',
+    label: 'Meta Muse Glimmer 30B open-weight coding route',
+    agent: 'coding-specialist',
+    provider: 'custom:ollama-local-64k',
+    model: 'meta/muse-glimmer-30b',
+    costUsd: 0,
+    latencyMs: 12000,
+    reliability: 0.85,
+    riskCeiling: 'high',
+    strengths: ['muse-glimmer', 'glimmer-30b', 'meta', 'distillation', 'coding', 'agentic', 'local-open-weight'],
+    commandEnv: {
+      HERMES_YOLO_PROVIDER: 'custom:ollama-local-64k',
+      HERMES_YOLO_MODEL: 'meta/muse-glimmer-30b',
+    },
+    proofGates: ['exact-marker-smoke', 'local-provider-config-present'],
+  },
+  {
     id: 'glm52_reasoning',
     label: 'GLM 5.2 reasoning route',
     agent: 'reasoning-specialist',
