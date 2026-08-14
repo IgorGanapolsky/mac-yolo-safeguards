@@ -35,6 +35,15 @@ const worker = {
       return Response.redirect(url, 308);
     }
 
+    // /app is Next App Router root, not a product URL. /pricing is a landing
+    // section (id="pricing"); hash must live here — Next redirects() strip fragments.
+    if (url.pathname === "/app" || url.pathname === "/app/") {
+      return Response.redirect(new URL("/dashboard", url.origin), 307);
+    }
+    if (url.pathname === "/pricing" || url.pathname === "/pricing/") {
+      return Response.redirect(new URL("/#pricing", url.origin), 308);
+    }
+
     if (url.pathname === "/_vinext/image") {
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
       return handleImageOptimization(request, {

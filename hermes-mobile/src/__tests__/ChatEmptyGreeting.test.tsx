@@ -58,7 +58,8 @@ describe('ChatEmptyGreeting', () => {
     expect(resolveGreetingTransportLabel('Tailscale · worker')).toBe('Tailscale');
     // Standing rule: the app never names USB to the user, so a cable chip is dropped.
     expect(resolveGreetingTransportLabel('USB')).toBeUndefined();
-    expect(resolveGreetingTransportLabel('Home Wi‑Fi')).toBe('Home Wi‑Fi');
+    expect(resolveGreetingTransportLabel('Wi‑Fi')).toBe('Wi‑Fi');
+    expect(resolveGreetingTransportLabel('Home Wi‑Fi')).toBe('Wi‑Fi');
     expect(resolveGreetingTransportLabel('192.168.1.10:8642')).toBeUndefined();
 
     const { getByTestId } = render(

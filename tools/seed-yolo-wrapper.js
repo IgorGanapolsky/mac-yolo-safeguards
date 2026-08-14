@@ -2,626 +2,384 @@
 'use strict';
 
 /**
- * seed-yolo — Standalone ByteDance Seed 2.1 Autonomous Engine & CLI
- * (Part of mac-yolo-safeguards fleet: seed-yolo)
- * Features:
- *   - Auto-loads OPENROUTER_API_KEY / ARK_API_KEY from ~/.hermes/.env
- *   - Automatic fallback to local zero-cost Ollama (:11434) when the remote quota is exhausted
- *   - Live Real-Time Token Streaming (SSE) for instant terminal responses
- *   - Standalone Seed Agent UI & Interactive Repl
- *   - ByteDance Seed 2.1 Adaptive Thinking Engine (0-token fast vs 8k reasoning)
- *   - Zero-dependency standalone runner
+ * seed-yolo — zero-cost agent profile backed by the real Hermes runtime.
+ *
+ * The previous implementation called chat/completions directly and described
+ * tools in a system prompt without exposing any tool schemas or tool loop.  It
+ * therefore behaved like a contextless chatbot.  This launcher delegates to
+ * Hermes Agent, which owns project-rule injection, session memory, skills, MCP
+ * servers, and executable tools.
  */
 
 const fs = require('fs');
-const path = require('path');
 const os = require('os');
-const crypto = require('crypto');
-const readline = require('readline');
-const https = require('https');
-const http = require('http');
-const { Seed21AdaptiveThinkingEngine } = require('./seed21-adaptive-thinking-engine');
+const path = require('path');
+const { spawn, spawnSync } = require('child_process');
 
 const HOME = os.homedir();
-const SEED_HOME = path.join(HOME, '.seed');
-const SEED_RECEIPT_DIR = process.env.SEED_YOLO_RECEIPT_DIR || path.join(SEED_HOME, 'receipts', 'seed-yolo');
+const DEFAULT_HERMES_BIN = path.join(HOME, '.local', 'bin', 'hermes');
+const DEFAULT_PROVIDER = 'openrouter';
+const DEFAULT_MODEL = 'openrouter/free';
+const DEFAULT_TOOLSETS = [
+  'terminal',
+  'file',
+  'web',
+  'code_execution',
+  'clarify',
+  'skills',
+  'memory',
+  'browser',
+  'computer_use',
+  'delegation',
+  'todo',
+  'session_search',
+  'browseros-neo',
+  'context7',
+].join(',');
+const DEFAULT_SEED_MODEL = 'bytedance-seed/seed-2-1-turbo';
+const COST_GUARD_PATH = path.join(HOME, '.hermes', 'NO_PAID_SPEND');
 const HERMES_ENV_PATH = path.join(HOME, '.hermes', '.env');
-const cwdHash = crypto.createHash('md5').update(process.cwd()).digest('hex').substring(0, 8);
-const LOCK_PATH = process.env.SEED_YOLO_LOCK_PATH || path.join(os.tmpdir(), `seed-yolo-${cwdHash}.lock`);
 
-/** Auto-load environment variables from ~/.hermes/.env */
-function loadHermesEnv() {
+function loadOpenRouterKey(env = process.env) {
+  if (env.OPENROUTER_API_KEY) return env.OPENROUTER_API_KEY;
   if (fs.existsSync(HERMES_ENV_PATH)) {
     const content = fs.readFileSync(HERMES_ENV_PATH, 'utf8');
-    for (const line of content.split('\n')) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#')) continue;
-      const eqIdx = trimmed.indexOf('=');
-      if (eqIdx > 0) {
-        const key = trimmed.slice(0, eqIdx).trim();
-        const val = trimmed.slice(eqIdx + 1).trim();
-        if (!process.env[key]) {
-          process.env[key] = val;
-        }
-      }
+    const match = content.match(/^OPENROUTER_API_KEY=(.+)$/m);
+    if (match && match[1].trim()) {
+      const key = match[1].trim();
+      env.OPENROUTER_API_KEY = key;
+      return key;
     }
+  }
+  try {
+    const out = spawnSync('security', ['find-generic-password', '-s', 'OPENROUTER_API_KEY', '-w'], { encoding: 'utf8' });
+    if (out.status === 0 && out.stdout.trim()) {
+      const key = out.stdout.trim();
+      env.OPENROUTER_API_KEY = key;
+      return key;
+    }
+  } catch {}
+  return null;
+}
+
+function uniqueCsv(value) {
+  return [...new Set(String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean))].join(',');
+}
+
+function resolveConfig(env = process.env) {
+  const openrouterKey = loadOpenRouterKey(env);
+  const provider = env.SEED_YOLO_PROVIDER || DEFAULT_PROVIDER;
+  const toolsets = uniqueCsv(env.SEED_YOLO_TOOLSETS || DEFAULT_TOOLSETS);
+  const skills = uniqueCsv(env.SEED_YOLO_SKILLS || '');
+  const hermesBin = env.SEED_YOLO_HERMES_BIN || env.HERMES_BIN || DEFAULT_HERMES_BIN;
+  const costGuarded = fs.existsSync(COST_GUARD_PATH);
+  // HARD opt-in: presence of OPENROUTER_API_KEY alone must not bill.
+  // SEED_YOLO_ALLOW_METERED=0 / unset keeps free default even when a key exists.
+  const allowMetered = env.SEED_YOLO_ALLOW_METERED === '1' && Boolean(openrouterKey) && !costGuarded;
+  const model = env.SEED_YOLO_MODEL
+    || (allowMetered ? DEFAULT_SEED_MODEL : DEFAULT_MODEL);
+  return { provider, model, toolsets, skills, hermesBin, costGuarded, allowMetered, openrouterKey };
+}
+
+function isZeroCostRoute(config) {
+  if (config.provider === 'ollama') return true;
+  if (config.provider !== 'openrouter') return false;
+  return config.model === 'openrouter/free' || config.model.endsWith(':free');
+}
+
+function assertCostPolicy(config) {
+  if (isZeroCostRoute(config) || config.allowMetered) return;
+  throw new Error(
+    `refusing metered route ${config.provider}/${config.model}; `
+    + 'use openrouter/free, Ollama, or set SEED_YOLO_ALLOW_METERED=1',
+  );
+}
+
+function findContextFile(startDir = process.cwd()) {
+  let current = path.resolve(startDir);
+  while (true) {
+    const candidate = path.join(current, 'AGENTS.md');
+    if (fs.existsSync(candidate)) return candidate;
+    const parent = path.dirname(current);
+    if (parent === current) return null;
+    current = parent;
   }
 }
 
-loadHermesEnv();
-
-const LOCAL_MODEL = process.env.SEED_YOLO_LOCAL_MODEL || 'deepseek-r1:8b';
-// Zero-cost policy: remote inference defaults to zero-price open-weights
-// models. A metered model runs only with SEED_YOLO_ALLOW_METERED=1, and the
-// fleet-wide cost-guard marker in ~/.hermes overrides even that.
-const FREE_MODEL_CHAIN = (process.env.SEED_YOLO_FREE_MODELS
-  || 'nvidia/nemotron-3.5-lightning:free,openai/gpt-oss-20b:free,openrouter/free')
-  .split(',').map((s) => s.trim()).filter(Boolean);
-// Marker filename assembled from parts so lexical policy scanners that key on
-// the literal do not misfire on this file; runtime behavior is unchanged.
-const COST_GUARD_MARKER = ['NO', 'P' + 'AID', 'SP' + 'END'].join('_');
-const FREE_ONLY_LOCKED = fs.existsSync(path.join(HOME, '.hermes', COST_GUARD_MARKER));
-const ALLOW_METERED = process.env.SEED_YOLO_ALLOW_METERED === '1' && !FREE_ONLY_LOCKED;
-const REMOTE_TIMEOUT_MS = Number(process.env.SEED_YOLO_REMOTE_TIMEOUT_MS) || 30000;
-const LOCAL_FIRST_TOKEN_TIMEOUT_MS = Number(process.env.SEED_YOLO_LOCAL_TIMEOUT_MS) || 300000;
-const LOCAL_IDLE_TIMEOUT_MS = Number(process.env.SEED_YOLO_LOCAL_IDLE_TIMEOUT_MS) || 120000;
-const DRY_RUN = process.env.SEED_YOLO_DRY_RUN === '1';
-
-/** Line-buffered OpenAI-style SSE parser; deltas may split across TCP chunks. */
-function createSseParser(onDelta) {
-  let buf = '';
-  return (chunk) => {
-    buf += chunk.toString();
-    let idx;
-    while ((idx = buf.indexOf('\n')) !== -1) {
-      const line = buf.slice(0, idx).trim();
-      buf = buf.slice(idx + 1);
-      if (!line.startsWith('data: ') || line === 'data: [DONE]') continue;
-      try {
-        const delta = JSON.parse(line.slice(6)).choices?.[0]?.delta;
-        if (delta) onDelta(delta);
-      } catch (e) {
-        // Partial or non-JSON SSE line; skip
-      }
-    }
-  };
+function buildHermesArgs(config, mode, payload = '') {
+  const args = [
+    '--provider', config.provider,
+    '--model', config.model,
+    '--yolo',
+    '--accept-hooks',
+    '--toolsets', config.toolsets,
+  ];
+  if (config.skills) args.push('--skills', config.skills);
+  if (mode === 'oneshot') args.push('-z', payload);
+  if (mode === 'chat') args.push('chat');
+  if (mode === 'passthrough') args.push(...payload);
+  return args;
 }
 
-function readAllStdin() {
-  return new Promise((resolve) => {
-    let data = '';
-    process.stdin.setEncoding('utf8');
-    process.stdin.on('data', (d) => { data += d; });
-    process.stdin.on('end', () => resolve(data));
+function runChild(binary, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(binary, args, { stdio: 'inherit', ...options });
+    child.once('error', reject);
+    child.once('exit', (code, signal) => {
+      resolve({ exitCode: Number.isInteger(code) ? code : 1, signal: signal || null });
+    });
   });
 }
 
-class SeedAgentCli {
+function inspectHermes(config, runner = spawnSync, startDir = process.cwd()) {
+  const contextFile = findContextFile(startDir);
+  const base = {
+    runtime: config.hermesBin,
+    runtimePresent: fs.existsSync(config.hermesBin),
+    provider: config.provider,
+    modelRoute: config.model,
+    actualModelIdentity: config.model === 'openrouter/free'
+      ? 'provider-selected free model; inspect the Hermes usage receipt for each run'
+      : config.model,
+    zeroCostRoute: isZeroCostRoute(config),
+    meteredAllowed: config.allowMetered,
+    toolsets: config.toolsets.split(','),
+    contextFile,
+    contextAutoInjection: Boolean(contextFile),
+    memoryAutoInjection: true,
+    skillsRegistryEnabled: config.toolsets.split(',').includes('skills'),
+  };
+  if (!base.runtimePresent) return { ...base, ready: false, error: 'Hermes runtime not found' };
+
+  const tools = runner(config.hermesBin, ['tools', 'list'], { encoding: 'utf8', timeout: 15_000 });
+  const skills = runner(config.hermesBin, ['skills', 'list'], { encoding: 'utf8', timeout: 15_000 });
+  const mcp = runner(config.hermesBin, ['mcp', 'list'], { encoding: 'utf8', timeout: 15_000 });
+  const toolOutput = `${tools.stdout || ''}\n${tools.stderr || ''}`;
+  const skillOutput = `${skills.stdout || ''}\n${skills.stderr || ''}`;
+  const mcpOutput = `${mcp.stdout || ''}\n${mcp.stderr || ''}`;
+  // Built-in toolsets appear as "enabled  name". MCP servers must be enabled, not merely listed.
+  const mcpEnabled = (name) => {
+    const lines = mcpOutput.split(/\r?\n/);
+    for (const line of lines) {
+      if (!new RegExp(`\\b${name}\\b`, 'i').test(line)) continue;
+      if (/\bdisabled\b/i.test(line)) return false;
+      // Accept "enabled name", "name ... enabled", checkmarks, or active/connected markers.
+      if (/\benabled\b/i.test(line) || /\bactive\b/i.test(line) || /\bconnected\b/i.test(line) || /[✓✔]/.test(line)) {
+        return true;
+      }
+    }
+    return false;
+  };
+  const missingToolsets = base.toolsets.filter((name) => {
+    if (new RegExp(`\\benabled\\s+${name}\\b`).test(toolOutput)) return false;
+    if (mcpEnabled(name)) return false;
+    return true;
+  });
+  const skillCountMatch = skillOutput.match(/(\d+) enabled/);
+  const mcpProbeOk = mcp.status === 0;
+  return {
+    ...base,
+    openrouterKeyPresent: Boolean(config.openrouterKey),
+    ready: base.contextAutoInjection
+      && tools.status === 0
+      && skills.status === 0
+      && mcpProbeOk
+      && missingToolsets.length === 0
+      && Boolean(config.openrouterKey || isZeroCostRoute(config)),
+    missingToolsets,
+    enabledSkills: skillCountMatch ? Number(skillCountMatch[1]) : null,
+    toolsProbeExitCode: tools.status,
+    skillsProbeExitCode: skills.status,
+    mcpProbeExitCode: mcp.status,
+  };
+}
+
+class SeedYoloAgent {
   constructor(options = {}) {
-    this.adaptiveEngine = new Seed21AdaptiveThinkingEngine(options);
-    this.receiptDir = options.receiptDir || SEED_RECEIPT_DIR;
-    this.apiKey = process.env.ARK_API_KEY || process.env.OPENROUTER_API_KEY || '';
-    this.isArk = Boolean(process.env.ARK_API_KEY);
-    this.baseUrl = this.isArk
-      ? (process.env.ARK_BASE_URL || 'https://ark.cn-beijing.volces.com/api/v3')
-      : 'https://openrouter.ai/api/v1';
-    this.model = process.env.SEED_YOLO_MODEL || (this.isArk ? 'seed-2.1-pro' : 'openrouter/auto');
-    this.ensureDirs();
+    this.env = options.env || process.env;
+    this.config = options.config || resolveConfig(this.env);
+    this.childRunner = options.childRunner || runChild;
+    this.doctorRunner = options.doctorRunner || spawnSync;
+    this.stdin = options.stdin || process.stdin;
   }
 
-  ensureDirs() {
-    try {
-      fs.mkdirSync(this.receiptDir, { recursive: true });
-      fs.mkdirSync(SEED_HOME, { recursive: true });
-    } catch (e) {
-      // Ignore
-    }
+  printVersion() {
+    console.log('seed-yolo 3.2.0 — OpenRouter Seed 2.1 Turbo via Hermes (tools + memory + MCP + YOLO)');
   }
 
   printBanner() {
-    console.log(`\x1b[36m
-┌─────────────────────────────────────────────────────────────┐
-│                 🌱  SEED-AGENT v2.1  🌱                     │
-│           ByteDance Seed 2.1 Autonomous Engine              │
-└─────────────────────────────────────────────────────────────┘\x1b[0m`);
-    console.log(` \x1b[32mModel Target\x1b[0m: ${this.model}`);
-    console.log(` \x1b[32mProvider Endpoint\x1b[0m: ${this.baseUrl}`);
-    console.log(` \x1b[32mAPI Key\x1b[0m: ${this.apiKey ? 'Authenticated' : 'Local Egress Fallback'}`);
-    console.log(` \x1b[32mThinking Engine\x1b[0m: ByteDance Seed 2.1 Adaptive Budget Allocation`);
-    console.log(` \x1b[33mYOLO Mode\x1b[0m: Active — Autonomous execution enabled\n`);
+    const identity = this.config.model === 'openrouter/free'
+      ? 'provider-selected zero-cost model'
+      : this.config.model;
+    console.error('[seed-yolo] OpenRouter Seed via Hermes (tools + memory + MCP + YOLO)');
+    console.error(`[seed-yolo] route=${this.config.provider}/${this.config.model} actual=${identity}`);
+    console.error(`[seed-yolo] tools=${this.config.toolsets}`);
+    console.error(`[seed-yolo] openrouter_key=${this.config.openrouterKey ? 'yes' : 'no'} yolo=on`);
+    console.error('[seed-yolo] AGENTS.md, memory, skills, MCP, and session history are loaded by Hermes');
   }
 
-  async runDoctor() {
-    console.log(`\x1b[36m🩺 ByteDance Seed Agent Doctor\x1b[0m`);
-    console.log(`  ✓ Seed Engine Version: 2.1.0`);
-    console.log(`  ✓ Model Target: ${this.model}`);
-    console.log(`  ✓ Base Endpoint: ${this.baseUrl}`);
-    console.log(`  ✓ Local Fallback Model: ${LOCAL_MODEL} (http://localhost:11434/v1)`);
-    const chain = this.remoteModelChain();
-    console.log(`  ✓ Zero-Cost Policy: ${ALLOW_METERED ? 'metered remote ALLOWED (SEED_YOLO_ALLOW_METERED=1)' : `free open-weights only${FREE_ONLY_LOCKED ? ' (fleet cost-guard marker)' : ''}`}`);
-    console.log(`  ✓ Remote Chain: ${chain.length ? chain.join(' → ') : 'disabled by policy'}`);
-    console.log(`  ✓ Lock Path: ${LOCK_PATH}`);
-    console.log(`  ✓ Receipts: ${this.receiptDir}`);
-    const ollama = await this.probeOllama();
-    console.log(`  ${ollama.ok ? '✓' : '✗'} Ollama :11434: ${ollama.ok ? `reachable (${ollama.version || 'unknown version'})` : 'NOT reachable — local fallback will fail'}`);
-    console.log(`\n🎉 ByteDance Seed Agent Doctor Check Complete!`);
-  }
-
-  probeOllama() {
-    return new Promise((resolve) => {
-      const req = http.get({ hostname: 'localhost', port: 11434, path: '/api/version', timeout: 3000 }, (res) => {
-        let body = '';
-        res.on('data', (d) => { body += d; });
-        res.on('end', () => {
-          let version = '';
-          try { version = JSON.parse(body).version || ''; } catch (e) {}
-          resolve({ ok: res.statusCode === 200, version });
-        });
-      });
-      req.on('timeout', () => req.destroy(new Error('timeout')));
-      req.on('error', () => resolve({ ok: false }));
-    });
-  }
-
-  /** Prefer the model already resident in Ollama memory — a model swap on a
-   *  RAM-starved box can take minutes before the first token. */
-  pickLocalModel() {
-    if (process.env.SEED_YOLO_LOCAL_MODEL) return Promise.resolve(process.env.SEED_YOLO_LOCAL_MODEL);
-    return new Promise((resolve) => {
-      const req = http.get({ hostname: 'localhost', port: 11434, path: '/api/ps', timeout: 2000 }, (res) => {
-        let body = '';
-        res.on('data', (d) => { body += d; });
-        res.on('end', () => {
-          try {
-            const loaded = JSON.parse(body).models || [];
-            const generative = loaded.find((m) => !/embed/i.test(m.name || ''));
-            resolve(generative ? generative.name : LOCAL_MODEL);
-          } catch (e) {
-            resolve(LOCAL_MODEL);
-          }
-        });
-      });
-      req.on('timeout', () => req.destroy(new Error('timeout')));
-      req.on('error', () => resolve(LOCAL_MODEL));
-    });
-  }
-
-  /** Ordered remote models the zero-cost policy permits; empty = remote off. */
-  remoteModelChain() {
-    if (this.model.endsWith(':free')) {
-      return [this.model, ...FREE_MODEL_CHAIN.filter((m) => m !== this.model)];
-    }
-    if (ALLOW_METERED) return [this.model];
-    // ARK is a metered endpoint and the free chain ids are OpenRouter-only.
-    if (this.isArk) return [];
-    return FREE_MODEL_CHAIN;
-  }
-
-  /**
-   * Execute Prompt with Live SSE Token Streaming (Remote API with Local Ollama Fallback)
-   */
-  async executePrompt(prompt, options = {}) {
-    const startTime = Date.now();
-    const thinking = this.adaptiveEngine.allocateThinkingBudget({ prompt });
-
-    console.log(`\x1b[36m[seed-yolo]\x1b[0m model=${this.model} mode=${thinking.thinkingMode} budget=${thinking.allocatedBudgetTokens}t`);
-
-    let resultText = '';
-    let executedVia = 'failed';
-    let executedModel;
-    let skipLocal = false;
-    const failures = [];
-
-    if (DRY_RUN) {
-      executedVia = 'dry-run';
-      console.log('\x1b[33m[seed-yolo] DRY RUN — inference skipped (SEED_YOLO_DRY_RUN=1)\x1b[0m');
-    } else {
-      // 1. Try Remote Endpoint if key exists — zero-price models unless
-      //    metered usage is explicitly allowed.
-      const chain = this.remoteModelChain();
-      if (!this.apiKey) {
-        failures.push('no remote credentials configured');
-      } else if (!chain.length) {
-        failures.push(`zero-cost policy: remote model ${this.model} needs SEED_YOLO_ALLOW_METERED=1`);
-      } else {
-        if (chain[0] !== this.model) {
-          console.log(`\x1b[33m[seed-yolo] zero-cost policy: routing to free open-weights (${chain[0]})\x1b[0m`);
-        }
-        for (const remoteModel of chain.slice(0, 3)) {
-          const remote = await this.streamRemote(prompt, thinking, remoteModel);
-          if (remote.ok) {
-            resultText = remote.text;
-            executedVia = 'seed-remote-api';
-            executedModel = remoteModel;
-            break;
-          }
-          failures.push(`${remoteModel}: ${remote.reason || 'remote failed'}`);
-          if (remote.text) {
-            // Partial remote output already reached the terminal; a second
-            // answer generated underneath it would be confusing — fail honestly.
-            resultText = remote.text;
-            skipLocal = true;
-            failures.push('partial remote output was shown; further fallback skipped');
-            break;
-          }
-        }
-      }
-
-      // 2. Fallback to Local Zero-Cost Ollama Endpoint if the remote endpoint fails
-      if (executedVia === 'failed' && !skipLocal) {
-        const localModel = await this.pickLocalModel();
-        console.log(`\x1b[33m[seed-yolo] Streaming via local zero-cost inference engine (${localModel} / Ollama :11434)...\x1b[0m`);
-        const local = await this.streamLocalOllama(prompt, thinking, localModel);
-        if (local.ok) {
-          resultText = local.text;
-          executedVia = 'seed-local-ollama';
-          executedModel = localModel;
-        } else {
-          if (local.text) resultText = local.text;
-          failures.push(local.reason || 'local inference failed');
-        }
-      }
-    }
-
-    const ok = executedVia !== 'failed';
-    if (!ok) {
-      console.error(`\x1b[31m[seed-yolo] FAILED: ${failures.join(' | ')}\x1b[0m`);
-    }
-
-    const durationMs = Date.now() - startTime;
-
-    // Save Receipt
-    const receipt = {
-      timestamp: new Date().toISOString(),
-      durationMs,
-      prompt,
-      model: this.model,
-      thinkingAllocation: thinking,
-      status: ok ? 'pass' : 'fail',
-      executedVia,
-      executedModel,
-      failures: failures.length ? failures : undefined,
-    };
-
+  runDoctor(json = false) {
+    let report;
     try {
-      fs.writeFileSync(path.join(this.receiptDir, 'latest.json'), JSON.stringify(receipt, null, 2), 'utf8');
-    } catch (e) {
-      // Ignore
+      assertCostPolicy(this.config);
+      report = inspectHermes(this.config, this.doctorRunner);
+    } catch (error) {
+      report = { ...inspectHermes(this.config, this.doctorRunner), ready: false, error: error.message };
     }
-
-    return { exitCode: ok ? 0 : 1, stdout: resultText, receipt };
-  }
-
-  /** Stream from Remote API */
-  streamRemote(prompt, thinking, remoteModel = this.model) {
-    return new Promise((resolve) => {
-      const payload = {
-        model: remoteModel,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are Seed Agent 2.1, ByteDance’s next-generation autonomous AI model. Provide concise, highly actionable, strategic technical & revenue guidance.',
-          },
-          { role: 'user', content: prompt },
-        ],
-        stream: true,
-        temperature: 0.2,
-      };
-
-      const targetUrl = new URL(`${this.baseUrl}/chat/completions`);
-      const reqOptions = {
-        hostname: targetUrl.hostname,
-        port: targetUrl.port || 443,
-        path: targetUrl.pathname + targetUrl.search,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
-        },
-      };
-
-      let text = '';
-      let sawThinking = false;
-      let ended = false;
-      let settled = false;
-      const finish = (ok, reason) => {
-        if (settled) return;
-        settled = true;
-        resolve({ ok, text, reason });
-      };
-
-      const req = https.request(reqOptions, (res) => {
-        if (res.statusCode !== 200) {
-          // Consume the error body, then destroy: an unconsumed response keeps
-          // the socket ESTABLISHED and the event loop alive forever.
-          let body = '';
-          res.setEncoding('utf8');
-          res.on('data', (d) => { if (body.length < 400) body += d; });
-          res.on('end', () => {
-            ended = true;
-            req.destroy();
-            const detail = body ? `: ${body.slice(0, 200).replace(/\s+/g, ' ')}` : '';
-            finish(false, `remote HTTP ${res.statusCode}${detail}`);
-          });
-          res.on('close', () => {
-            if (!ended) finish(false, `remote HTTP ${res.statusCode}, connection died before error body arrived`);
-          });
-          return;
-        }
-
-        // setEncoding makes Node reassemble multi-byte UTF-8 sequences split
-        // across TCP chunks; without it the parser emits mojibake.
-        res.setEncoding('utf8');
-        res.on('data', createSseParser((delta) => {
-          const reasoning = delta.reasoning || delta.reasoning_content || '';
-          const content = delta.content || '';
-          if (reasoning) {
-            if (!sawThinking) {
-              sawThinking = true;
-              process.stdout.write('\x1b[2m[thinking] ');
-            }
-            process.stdout.write(`\x1b[2m${reasoning}\x1b[0m`);
-          }
-          if (content) {
-            if (sawThinking && !text) process.stdout.write('\x1b[0m\n\n');
-            process.stdout.write(content);
-            text += content;
-          }
-        }));
-
-        res.on('end', () => {
-          ended = true;
-          if (text || sawThinking) process.stdout.write('\n\n');
-          req.destroy();
-          finish(Boolean(text), text ? undefined
-            : (sawThinking ? 'remote stream contained only reasoning, no final content' : 'remote stream returned no tokens'));
-        });
-
-        res.on('close', () => {
-          if (ended) return;
-          finish(false, text
-            ? `remote stream truncated after ${text.length} chars`
-            : 'remote connection died mid-stream');
-        });
-        res.on('error', () => {
-          if (!ended) finish(false, 'remote stream errored mid-response');
-        });
-      });
-
-      req.setTimeout(REMOTE_TIMEOUT_MS, () => {
-        req.destroy();
-        finish(false, `remote sent no data for ${Math.round(REMOTE_TIMEOUT_MS / 1000)}s (idle timeout)`);
-      });
-      req.on('error', (err) => finish(false, `remote error: ${err.message}`));
-      req.on('close', () => finish(false, text
-        ? `remote stream truncated after ${text.length} chars`
-        : 'remote connection closed before completion'));
-      req.write(JSON.stringify(payload));
-      req.end();
-    });
-  }
-
-  /** Stream from Local Zero-Cost Ollama Endpoint (:11434) */
-  streamLocalOllama(prompt, thinking, localModel = LOCAL_MODEL) {
-    return new Promise((resolve) => {
-      const payload = {
-        model: localModel,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are Seed Agent 2.1 (Local Mode). Provide concise, strategic, high-impact guidance.',
-          },
-          { role: 'user', content: prompt },
-        ],
-        stream: true,
-      };
-
-      let text = '';
-      let sawThinking = false;
-      let gotFirstToken = false;
-      let settled = false;
-      let heartbeat = null;
-      let firstTokenTimer = null;
-      const startedAt = Date.now();
-
-      const finish = (ok, reason) => {
-        if (heartbeat) clearInterval(heartbeat);
-        if (firstTokenTimer) clearTimeout(firstTokenTimer);
-        if (settled) return;
-        settled = true;
-        resolve({ ok, text, reason });
-      };
-
-      const reqOptions = {
-        hostname: 'localhost',
-        port: 11434,
-        path: '/v1/chat/completions',
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      };
-
-      let ended = false;
-
-      const req = http.request(reqOptions, (res) => {
-        if (res.statusCode !== 200) {
-          let body = '';
-          res.setEncoding('utf8');
-          res.on('data', (d) => { if (body.length < 400) body += d; });
-          res.on('end', () => {
-            ended = true;
-            req.destroy();
-            finish(false, `local HTTP ${res.statusCode}: ${body.slice(0, 200).replace(/\s+/g, ' ')}`);
-          });
-          res.on('close', () => {
-            if (!ended) finish(false, `local HTTP ${res.statusCode}, connection died before error body arrived`);
-          });
-          return;
-        }
-
-        // setEncoding makes Node reassemble multi-byte UTF-8 sequences split
-        // across TCP chunks; without it the parser emits mojibake.
-        res.setEncoding('utf8');
-        res.on('data', createSseParser((delta) => {
-          // Reasoning models (e.g. deepseek-r1) emit thinking in a separate
-          // delta field; dropping it means minutes of silent "hang".
-          const reasoning = delta.reasoning || delta.reasoning_content || '';
-          const content = delta.content || '';
-          if ((reasoning || content) && !gotFirstToken) {
-            gotFirstToken = true;
-            if (heartbeat) clearInterval(heartbeat);
-            if (firstTokenTimer) clearTimeout(firstTokenTimer);
-            req.setTimeout(LOCAL_IDLE_TIMEOUT_MS, () => {
-              req.destroy();
-              // A stall with partial output is a truncation, never a pass.
-              finish(false, text
-                ? `local stream stalled after ${text.length} chars — output above is truncated`
-                : 'local stream stalled mid-generation');
-            });
-          }
-          if (reasoning) {
-            if (!sawThinking) {
-              sawThinking = true;
-              process.stdout.write('\x1b[2m[thinking] ');
-            }
-            process.stdout.write(`\x1b[2m${reasoning}\x1b[0m`);
-          }
-          if (content) {
-            if (sawThinking && !text) process.stdout.write('\x1b[0m\n\n');
-            process.stdout.write(content);
-            text += content;
-          }
-        }));
-
-        res.on('end', () => {
-          ended = true;
-          if (text || sawThinking) process.stdout.write('\n\n');
-          finish(Boolean(text), text ? undefined : `local model ${localModel} produced no content`);
-        });
-
-        // Safety net: a killed Ollama emits only 'close' (never 'error') on a
-        // mid-response death; without these the promise never settles and a
-        // one-shot run exits 0 with truncated output and no receipt.
-        res.on('close', () => {
-          if (ended) return;
-          finish(false, gotFirstToken
-            ? (text ? `connection to Ollama died mid-stream after ${text.length} chars — output above is truncated`
-                    : 'connection to Ollama died mid-stream')
-            : 'connection to Ollama died before any token (server may have been killed during model load)');
-        });
-        res.on('error', () => {
-          if (!ended) finish(false, 'local stream errored mid-response');
-        });
-      });
-
-      heartbeat = setInterval(() => {
-        const s = Math.round((Date.now() - startedAt) / 1000);
-        process.stderr.write(`\x1b[2m[seed-yolo] still waiting on ${localModel} (${s}s) — model may be loading or thinking\x1b[0m\n`);
-      }, 20000);
-
-      firstTokenTimer = setTimeout(() => {
-        req.destroy();
-        finish(false, `local model produced nothing within ${Math.round(LOCAL_FIRST_TOKEN_TIMEOUT_MS / 1000)}s — Ollama overloaded or model swapping; try a smaller/resident model via SEED_YOLO_LOCAL_MODEL`);
-      }, LOCAL_FIRST_TOKEN_TIMEOUT_MS);
-
-      req.on('error', (err) => finish(false, `Ollama not reachable at :11434 (${err.message}) — start it with: ollama serve`));
-      req.on('close', () => finish(false, gotFirstToken
-        ? (text ? `connection to Ollama died mid-stream after ${text.length} chars — output above is truncated`
-                : 'connection to Ollama died mid-stream')
-        : 'connection to Ollama closed before any token'));
-      req.write(JSON.stringify(payload));
-      req.end();
-    });
-  }
-
-  startInteractive() {
-    this.printBanner();
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-      prompt: '\x1b[36mseed-2.1-pro > \x1b[0m',
-    });
-
-    // Serialize prompt execution: readline fires 'line' per buffered line, so
-    // without a queue every pasted/piped line spawns a concurrent generation.
-    const queue = [];
-    let busy = false;
-    const drain = async () => {
-      if (busy) return;
-      busy = true;
-      while (queue.length) {
-        const input = queue.shift();
-        if (input === 'doctor') {
-          await this.runDoctor();
-        } else {
-          await this.executePrompt(input);
-        }
+    if (json) {
+      console.log(JSON.stringify({
+        ...report,
+        openrouterKey: report.openrouterKeyPresent ? 'present' : 'missing',
+      }, null, 2));
+    } else {
+      console.log(`seed-yolo ready: ${report.ready ? 'YES' : 'NO'}`);
+      console.log(`runtime: ${report.runtimePresent ? report.runtime : 'MISSING'}`);
+      console.log(`route: ${report.provider}/${report.modelRoute} (zero-cost=${report.zeroCostRoute})`);
+      console.log(`openrouter: ${report.openrouterKeyPresent ? 'key present' : 'KEY MISSING'}`);
+      console.log(`yolo: on`);
+      console.log(`context: ${report.contextFile || 'no AGENTS.md found from current directory'}`);
+      console.log(`tools: ${report.toolsets.join(', ')}`);
+      console.log(`skills: ${report.enabledSkills === null ? 'probe unavailable' : `${report.enabledSkills} enabled`}`);
+      if (report.error) console.error(`error: ${report.error}`);
+      if (report.missingToolsets && report.missingToolsets.length) {
+        console.error(`missing toolsets: ${report.missingToolsets.join(', ')}`);
       }
-      busy = false;
-      rl.prompt();
-    };
-
-    rl.prompt();
-
-    rl.on('line', (line) => {
-      const input = line.trim();
-      if (!input) {
-        if (!busy) rl.prompt();
-        return;
-      }
-      if (input === 'exit' || input === 'quit') {
-        console.log('Goodbye!');
-        process.exit(0);
-      }
-      queue.push(input);
-      drain();
-    });
+    }
+    return { exitCode: report.ready ? 0 : 1, report };
   }
 
   async run(args = []) {
-    // Match subcommands by position only — a prompt like "run the doctor
-    // script" must not be hijacked.
     if (args[0] === '--version' || args[0] === '-v') {
-      console.log('Seed Agent Engine v2.1.0 (ByteDance Volcengine Ark)');
+      this.printVersion();
+      return { exitCode: 0 };
+    }
+    if (args[0] === 'doctor' || args[0] === '--doctor') {
+      return this.runDoctor(args.includes('--json'));
+    }
+    if (args[0] === '--help' || args[0] === '-h' || args[0] === 'help') {
+      console.log(`seed-yolo — OpenRouter ByteDance Seed 2.1 Turbo via Hermes
+
+  seed-yolo                  interactive YOLO chat
+  seed-yolo -z "prompt"      oneshot
+  seed-yolo doctor [--json]  health check
+
+Defaults:
+  provider  openrouter
+  model     openrouter/free  (zero-cost)
+  tools     full coding + browser + MCP (browseros-neo, context7)
+  yolo      on
+
+Paid Seed route (opt-in only):
+  SEED_YOLO_ALLOW_METERED=1  →  bytedance-seed/seed-2-1-turbo
+
+Override: SEED_YOLO_MODEL / SEED_YOLO_PROVIDER / SEED_YOLO_TOOLSETS
+`);
       return { exitCode: 0 };
     }
 
-    if (args[0] === 'doctor') {
-      await this.runDoctor();
-      return { exitCode: 0 };
+    let promptArgs = [...args];
+    let modelOverride = null;
+    let providerOverride = null;
+
+    // Parse model/provider overrides if passed: -m/--model, --provider
+    for (let i = 0; i < promptArgs.length; i++) {
+      if ((promptArgs[i] === '-m' || promptArgs[i] === '--model') && promptArgs[i + 1]) {
+        modelOverride = promptArgs[i + 1];
+        promptArgs.splice(i, 2);
+        i--;
+      } else if (promptArgs[i] === '--provider' && promptArgs[i + 1]) {
+        providerOverride = promptArgs[i + 1];
+        promptArgs.splice(i, 2);
+        i--;
+      } else if (promptArgs[i] === '-z' || promptArgs[i] === '--oneshot') {
+        promptArgs.splice(i, 1);
+        i--;
+      }
     }
 
-    let prompt = args.join(' ').trim();
+    if (modelOverride) this.config.model = modelOverride;
+    if (providerOverride) this.config.provider = providerOverride;
 
-    if (!prompt && !process.stdin.isTTY) {
-      // Piped stdin is ONE prompt, not a REPL feed: treating it as a REPL
-      // printed one fallback banner + one concurrent generation per line.
-      prompt = (await readAllStdin()).trim();
+    assertCostPolicy(this.config);
+    if (!fs.existsSync(this.config.hermesBin)) {
+      throw new Error(`Hermes runtime not found at ${this.config.hermesBin}`);
+    }
+
+    // Keep --safe-mode as Hermes passthrough (documented opposite of YOLO).
+    const passthrough = new Set([
+      '--tui', '--cli', '--continue', '-c', '--resume', '-r', '--worktree', '-w', '--safe-mode',
+    ]);
+    if (promptArgs.length && passthrough.has(promptArgs[0])) {
+      this.printBanner();
+      return this.childRunner(
+        this.config.hermesBin,
+        buildHermesArgs(this.config, 'passthrough', promptArgs),
+        { env: this.env },
+      );
+    }
+
+    let prompt = promptArgs.join(' ').trim();
+    if (!prompt && !this.stdin.isTTY) {
+      prompt = await new Promise((resolve) => {
+        let data = '';
+        this.stdin.setEncoding('utf8');
+        this.stdin.on('data', (chunk) => { data += chunk; });
+        this.stdin.on('end', () => resolve(data.trim()));
+      });
       if (!prompt) {
-        console.error('[seed-yolo] no prompt given and stdin was empty');
+        console.error('[seed-yolo] empty prompt received on stdin');
         return { exitCode: 1 };
       }
     }
 
-    if (!prompt) {
-      this.startInteractive();
-      return { exitCode: 0 };
+    // Ensure Hermes sees OpenRouter key even when shell env lacks it
+    if (this.config.openrouterKey) {
+      this.env = { ...this.env, OPENROUTER_API_KEY: this.config.openrouterKey };
     }
 
-    return await this.executePrompt(prompt);
+    if (prompt) {
+      this.printBanner();
+      return this.childRunner(
+        this.config.hermesBin,
+        buildHermesArgs(this.config, 'oneshot', prompt),
+        { env: this.env },
+      );
+    }
+
+    this.printBanner();
+    return this.childRunner(
+      this.config.hermesBin,
+      buildHermesArgs(this.config, 'chat'),
+      { env: this.env },
+    );
   }
 }
 
-if (require.main === module) {
-  const args = process.argv.slice(2);
-  const cli = new SeedAgentCli();
-  cli.run(args).then((result) => {
-    process.exitCode = (result && result.exitCode) || 0;
-  }).catch((err) => {
-    console.error('Fatal:', err);
-    process.exit(1);
-  });
+async function main() {
+  const agent = new SeedYoloAgent();
+  try {
+    const result = await agent.run(process.argv.slice(2));
+    process.exitCode = result.exitCode;
+  } catch (error) {
+    console.error(`[seed-yolo] ${error.message}`);
+    process.exitCode = 1;
+  }
 }
 
+if (require.main === module) main();
+
 module.exports = {
-  SeedAgentCli,
+  DEFAULT_MODEL,
+  DEFAULT_PROVIDER,
+  DEFAULT_TOOLSETS,
+  SeedYoloAgent,
+  assertCostPolicy,
+  buildHermesArgs,
+  findContextFile,
+  inspectHermes,
+  isZeroCostRoute,
+  resolveConfig,
 };

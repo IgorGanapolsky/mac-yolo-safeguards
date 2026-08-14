@@ -1,0 +1,38 @@
+# Federated skill sources (AMD skills catalog pattern).
+# Pin external skills by tag or commit — never bare main in production agents.
+# Import is manual; this file is the pin ledger + discovery surface.
+
+version: 1
+catalog: mac-yolo-safeguards
+updated: 2026-08-13
+notes: >
+  High-ROI steal from https://github.com/amd/skills federation (sources.yml).
+  In-repo skills live under .agents/skills/*/ and are validated by
+  tools/skill-card-validate.js. External pins below are optional installs.
+
+in_repo:
+  - anti-babysitting
+  - browseros-agent-harness
+  - garryslist-opportunity-tracker
+  - gurobi-optimizer-integrator
+  - hybrid-route-policy
+  - linear-agent-skills
+  - local-media-lane
+  - skill-catalog-governance
+
+external:
+  # Intentionally empty by default on Apple Silicon fleet.
+  # Example pin (do not enable without AMD GPU or explicit need):
+  # - name: serving-llms-on-instinct
+  #   repo: https://github.com/amd/skills
+  #   path: skills/serving-llms-on-instinct
+  #   ref: main  # replace with tag/commit before production use
+  #   hardware: amd-instinct
+  #   install: false
+
+media_optional:
+  - name: lemonade-server
+    purpose: local image/TTS/STT endpoint for local-media-lane
+    docs: https://lemonade-server.ai
+    probe: http://127.0.0.1:13305/api/v1/models
+    install: optional

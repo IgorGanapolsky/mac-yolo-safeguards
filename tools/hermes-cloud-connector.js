@@ -100,6 +100,45 @@ function pairingMatchesControlPlane(config, controlPlaneUrl) {
   }
 }
 
+const DEAD_DEVICE_AUTH_RE = /unknown or revoked device|invalid device signature|invalid device public key/;
+
+function isDeadDeviceAuthError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  return DEAD_DEVICE_AUTH_RE.test(message);
+}
+
+/** Pick up a device id written by a parallel --pair / installer without restarting. */
+function adoptDiskPairing(config, configPath) {
+  const disk = loadConfig(configPath);
+  if (!disk || typeof disk !== 'object') return false;
+  const before = config.deviceId;
+  if (disk.deviceId) config.deviceId = disk.deviceId;
+  if (disk.privateKeyPem) config.privateKeyPem = disk.privateKeyPem;
+  if (disk.publicJwk) config.publicJwk = disk.publicJwk;
+  if (disk.deviceName) config.deviceName = disk.deviceName;
+  return Boolean(disk.deviceId && disk.deviceId !== before);
+}
+
+function forgetDeadPairing(config, configPath) {
+  const deadId = config.deviceId;
+  delete config.deviceId;
+  delete config.deviceCode;
+  saveConfig(configPath, config);
+  return deadId || null;
+}
+
+async function recoverDeadPairing(config, configPath, error) {
+  if (!isDeadDeviceAuthError(error)) return false;
+  if (adoptDiskPairing(config, configPath) && config.deviceId) {
+    console.error(`[hermes-cloud-connector] adopted pairing ${config.deviceId} from disk after ${error instanceof Error ? error.message : error}`);
+    return true;
+  }
+  const deadId = forgetDeadPairing(config, configPath);
+  console.error(`[hermes-cloud-connector] ${error instanceof Error ? error.message : error} (device ${deadId || 'none'}). Re-pairing this machine…`);
+  await startPairing(config, configPath);
+  return true;
+}
+
 function openPairingDashboard(controlPlaneUrl, userCode) {
   if (process.platform !== 'darwin' || process.env.HERMES_CONNECTOR_NO_BROWSER === '1') return false;
   try {
@@ -570,10 +609,15 @@ async function main() {
     };
     saveConfig(configPath, config);
   }
+  const previousControlPlaneUrl = config.controlPlaneUrl;
   config.controlPlaneUrl = normalizeBaseUrl(process.env.HERMES_CONTROL_PLANE_URL || config.controlPlaneUrl || DEFAULT_CONTROL_PLANE);
   config.sessionGatewayUrl = normalizeBaseUrl(process.env.HERMES_SESSION_GATEWAY_URL || config.sessionGatewayUrl || DEFAULT_SESSION_GATEWAY);
   config.gatewayEnvPath = process.env.HERMES_GATEWAY_ENV_PATH || config.gatewayEnvPath || DEFAULT_GATEWAY_ENV;
   config.hermesConfigPath = process.env.HERMES_CONFIG_PATH || config.hermesConfigPath || DEFAULT_HERMES_CONFIG;
+  if (config.deviceId && previousControlPlaneUrl && !pairingMatchesControlPlane({ ...config, controlPlaneUrl: previousControlPlaneUrl }, config.controlPlaneUrl)) {
+    console.error(`[hermes-cloud-connector] control-plane origin changed; stored device ${config.deviceId} is not valid here. Re-pairing…`);
+    delete config.deviceId;
+  }
   saveConfig(configPath, config);
   if (!config.deviceId || process.argv.includes('--pair')) await startPairing(config, configPath);
   if (process.argv.includes('--pair-only')) return;
@@ -585,16 +629,31 @@ async function main() {
   while (true) {
     let didWork = false;
     try {
+      if (adoptDiskPairing(config, configPath)) {
+        console.error(`[hermes-cloud-connector] loaded pairing ${config.deviceId} from disk`);
+      }
+      if (!config.deviceId) {
+        await startPairing(config, configPath);
+        didWork = true;
+        continue;
+      }
       const now = Date.now();
       const heartbeat = now - lastHeartbeat >= schedule.heartbeatMs;
       if (heartbeat) lastHeartbeat = now;
       const syncSessions = now - lastSessionSync >= schedule.sessionSyncMs;
       if (syncSessions) lastSessionSync = now;
       didWork = await cycle(config, { heartbeat, syncSessions, configPath });
-    } catch (error) { console.error(`[hermes-cloud-connector] ${error instanceof Error ? error.message : error}`); }
+    } catch (error) {
+      console.error(`[hermes-cloud-connector] ${error instanceof Error ? error.message : error}`);
+      try {
+        if (await recoverDeadPairing(config, configPath, error)) didWork = true;
+      } catch (pairError) {
+        console.error(`[hermes-cloud-connector] re-pair failed: ${pairError instanceof Error ? pairError.message : pairError}`);
+      }
+    }
     await new Promise((resolve) => setTimeout(resolve, nextConnectorPollDelay(didWork, schedule)));
   }
 }
 
-module.exports = { boundContextMessages, buildWebSessionSystemPrompt, canonicalRequest, claimAndExecuteThreadOperation, collectGatewaySessions, connectorPollingSchedule, contentText, createIdentity, executeLocal, executeThreadOperation, gatewayHeaders, loadConfig, nextConnectorPollDelay, pairingDashboardUrl, pairingMatchesControlPlane, parseDotEnvValue, parseTerminalCwd, resolveGatewayApiKey, resolveWorkspacePath, saveConfig, selectContextSessionIds, signedHeaders, sha256, syncGatewaySessions, timestampMillis, withLeaseRenewal };
+module.exports = { adoptDiskPairing, boundContextMessages, buildWebSessionSystemPrompt, canonicalRequest, claimAndExecuteThreadOperation, collectGatewaySessions, connectorPollingSchedule, contentText, createIdentity, executeLocal, executeThreadOperation, forgetDeadPairing, gatewayHeaders, isDeadDeviceAuthError, loadConfig, nextConnectorPollDelay, pairingDashboardUrl, pairingMatchesControlPlane, parseDotEnvValue, parseTerminalCwd, recoverDeadPairing, resolveGatewayApiKey, resolveWorkspacePath, saveConfig, selectContextSessionIds, signedHeaders, sha256, syncGatewaySessions, timestampMillis, withLeaseRenewal };
 if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });

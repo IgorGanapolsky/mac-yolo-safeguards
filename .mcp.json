@@ -21,11 +21,14 @@
       ]
     },
     "semrush": {
+      "$comment": "Semrush MCP (SEL 2026-08-12 data-tools pattern). Do NOT add Authorization: Bearer ${SEMRUSH_API_KEY:-} — empty expansion sends invalid 'Bearer ' (same class as context7 empty-header bug 2026-08-06). When SEMRUSH_API_KEY is set in the agent host env, re-add headers.Authorization = 'Bearer <key>' (prefer host secret injection, never commit the key).",
       "type": "http",
-      "url": "https://mcp.semrush.com/claude/v1/mcp",
-      "headers": {
-        "Authorization": "Bearer ${SEMRUSH_API_KEY:-}"
-      }
+      "url": "https://mcp.semrush.com/claude/v1/mcp"
+    },
+    "gurobi": {
+      "command": "/Users/igorganapolsky/.hermes/gurobi/bin/gurobi-mcp",
+      "args": [],
+      "$comment": "Real gurobipy MCP (size-limited free pip). AE Fabrizio 2026-08-12: free pip first, full trial later."
     }
   }
 }
