@@ -747,7 +747,7 @@ Sixth consecutive run (Runs 1, 3, 4, 5, 6, 7) with zero write access to `block/b
 
 ---
 
-## 2026-08-13 — Run 9 (access wall persists an eighth run; #5708 investigated, fixed, and fully verified; #5665 backlog item superseded by an independent third-party PR)
+## 2026-08-13 — Run 9 (#5708 investigated, fixed, verified, and pushed to a live fork branch via the fork route; #5665 backlog item superseded by an independent third-party PR)
 
 ### What was VERIFIED (Step 0 — reconfirmed)
 
@@ -810,6 +810,22 @@ Checked on Run 8's fully-tested `#5665` patch before carrying it forward again: 
 ### Blocker status (report only — no action requested)
 
 Eighth consecutive run (Runs 1, 3-9) with zero write access to `block/buzz` from this environment tier — identical cross-tier `add_repo` rejection as every prior run, confirmed again this run. Read access (clone, fetch, and — new this run — a full local Rust build/test/fmt/clippy cycle) works without any attach. Backlog for a write-capable session, updated this run: #4860 (Run 3), #5492 (Run 4), #5557 (Run 5), #5555 (Run 6), #5611 (Run 7, partial), #5667 (Run 8, comment draft), **#5708 (Run 9, full tested patch — `coordination/patches/buzz-5708-panic-dead-letter-notice.patch`, highest priority to land, it just needs `git push` + PR)**. Dropped this run: #5665 (Run 8's patch, superseded by an independent third-party PR — see above). PR #4624 (Run 2) still open awaiting its first human review, now 10 days.
+
+### Correction, same run: the blocker status above is stale — the fork route works, and #5708 is now pushed
+
+Everything above this note was written before this PR was merged with `main`, which brought in a **cross-run note** (added by Run 4b, merged via PR #1594) sitting at the bottom of this file. It says the access wall this entry — and Runs 1, 3, 5, 6, 7, 8, and the first half of 9 — kept re-confirming has a documented escape hatch: `add_repo(owner: "igorganapolsky", repo: "buzz", access: "push")`. A fork is same-owner-tier, so it's accepted where `block/buzz` directly is not.
+
+Acted on it immediately instead of leaving the correction for Run 10:
+
+1. `add_repo(owner: "igorganapolsky", repo: "buzz", access: "push")` → **accepted.**
+2. Cloned `igorganapolsky/buzz`, added `upstream` → `block/buzz`, fetched `upstream/main` (current tip: `068a83b`, well past the commit this run's patch was originally built against).
+3. Branched `fix/acp-panic-dead-letter-notice` from `upstream/main`. The saved patch (`coordination/patches/buzz-5708-panic-dead-letter-notice.patch`) applied **cleanly** with `git apply` — no rebasing needed.
+4. Re-ran full verification against current upstream, not just trusting the earlier run: `cargo test -p buzz-acp --lib` → `776 passed; 0 failed` (upstream gained 2 tests since the patch was built; this run's regression test is included and still passes). `cargo fmt -p buzz-acp -- --check`: clean. `cargo clippy -p buzz-acp --lib --tests -- -D warnings`: clean.
+5. Committed with DCO sign-off (`git commit -s`, per `block/buzz`'s `CONTRIBUTING.md` — "Every commit needs a Developer Certificate of Origin (DCO) sign-off... The DCO Check will block your PR without it") and **pushed to the fork**: [`igorganapolsky/buzz@fix/acp-panic-dead-letter-notice`](https://github.com/IgorGanapolsky/buzz/tree/fix/acp-panic-dead-letter-notice).
+
+**What's still blocked, precisely:** opening the PR itself. `mcp__github__pull_request_read` against `block/buzz` (tested read-only, on the existing #4624 to avoid creating noise) still returns *"Access denied: repository 'block/buzz' is not configured for this session. Allowed repositories: igorganapolsky/mac-yolo-safeguards, igorganapolsky/buzz."* Per the cross-run note's explicit instruction, this is recorded as the blocker and left here rather than bypassed with the ambient `GH_TOKEN` — the branch is staged, tested, and DCO-signed; only the final "open PR against `block/buzz`, base `main`, head `igorganapolsky:fix/acp-panic-dead-letter-notice`" step needs a session with `block/buzz` itself in scope.
+
+This changes the run's actual headline: **not** "eighth consecutive blocked run," but "the wall has a documented way through, used it this run, and got one real fix (#5708) from patch-on-disk to a pushed, DCO-signed, tested-against-current-upstream branch — one PR-creation call away from landing." The backlog drafts that are comments rather than code (#4860, #5557, #5611 partial, #5667) don't benefit from this route the same way — posting an issue comment still needs `block/buzz` API scope directly, which the fork doesn't grant. Only #5708 (a code fix, pushable to a branch) and Run 4b's own #5492 fix benefit from the fork route as things stand.
 
 ## Cross-run note (kept last on purpose — read this before re-testing access)
 
