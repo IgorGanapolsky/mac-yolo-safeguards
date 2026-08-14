@@ -104,7 +104,9 @@ describe("requireDevice", () => {
     const { privateKey } = await makeDevice();
     const request = await signedRequest(privateKey, "{}");
     state.device = null;
-    expect(((await requireDevice(request, "{}")) as Response).status).toBe(401);
+    const response = (await requireDevice(request, "{}")) as Response;
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: "unknown or revoked device" });
   });
 
   it("accepts a correctly signed request and returns the device identity", async () => {
