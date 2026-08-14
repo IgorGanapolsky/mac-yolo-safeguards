@@ -61,3 +61,10 @@ node tools/codeql-agent-hygiene.js --claim "security clean"
 ```
 
 Agents must not claim Security tab clean without live `gh` open count on **main**. Full: [codeql-orchestration.md](./codeql-orchestration.md).
+
+## PR merge hygiene (2026-08-12)
+
+- Required contexts (strict + enforce_admins): Public funnel checks, Socket Security, Hermes Mobile typecheck and tests, macOS guard kit, Maestro ship-guard, Maestro stranger cold-start, Hermes Mobile iPad simulator gate.
+- **Unresolved review threads block merge even when all 7 required checks are green** (seen on #1688).
+- `gh pr update-branch` under `strict:true` restarts the matrix — wait for re-green before claiming merge-ready.
+- Prefer `gh pr merge --auto --squash`. Close theater/superseded PRs with explicit successor PR SHA.

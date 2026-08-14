@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature");
   const body = await request.text();
   if (!secret || !signature || !(await verifyStripeSignature(body, signature, secret))) return new Response("invalid signature", { status: 401 });
-  const event = JSON.parse(body) as {
+  let event: {
     id: string;
     type: string;
     data: { object: {
@@ -30,6 +30,11 @@ export async function POST(request: Request) {
       payment_status?: string;
     } };
   };
+  try {
+    event = JSON.parse(body);
+  } catch {
+    return new Response("invalid json body", { status: 400 });
+  }
   if (!event.id || !event.type) return new Response("invalid event", { status: 400 });
   const organizationId = event.data.object.metadata?.organization_id ?? event.data.object.client_reference_id ?? null;
   const now = Date.now();

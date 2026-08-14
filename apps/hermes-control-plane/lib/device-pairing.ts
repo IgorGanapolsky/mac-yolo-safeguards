@@ -61,6 +61,16 @@ export function decideDevicePairing(options: {
   };
 }
 
+/**
+ * Reuse/revive must not inherit leftover last_seen_at.
+ * Dashboard Online is last_seen within 60s; keeping a revoked twin's timestamp
+ * shows Online while the connector still signs with the dead device id
+ * ("unknown or revoked device").
+ */
+export function lastSeenAtAfterPairingReuse(): null {
+  return null;
+}
+
 /** Online when a heartbeat arrived within the last 60s (matches /api/devices). */
 export function isDeviceOnline(lastSeenAt: number | null, now = Date.now()): boolean {
   return Boolean(lastSeenAt && now - lastSeenAt < 60_000);
