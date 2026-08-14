@@ -359,24 +359,30 @@ async function collectGatewaySessions(config) {
   const sessions = (Array.isArray(payload.data) ? payload.data : [])
     .filter((session) => !CRON_SESSION_ID_RE.test(String(session?.id || '')));
   const contextWindow = selectContextSessionIds(sessions, config.sessionContextCursorId);
-  const collected = await Promise.all(sessions.map(async (session) => {
-    let messages = [];
-    if (session.id && contextWindow.ids.has(String(session.id))) {
-      try {
-        const messagePayload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodeURIComponent(session.id)}/messages`, { gatewayEnvPath: config.gatewayEnvPath });
-        messages = boundContextMessages(Array.isArray(messagePayload.data) ? messagePayload.data : []);
-      } catch (error) {
-        console.error(`[hermes-cloud-connector] context sync skipped for ${session.id}: ${error instanceof Error ? error.message : error}`);
+  const CHUNK_SIZE = 5;
+  const collected = [];
+  for (let i = 0; i < sessions.length; i += CHUNK_SIZE) {
+    const chunk = sessions.slice(i, i + CHUNK_SIZE);
+    const chunkResults = await Promise.all(chunk.map(async (session) => {
+      let messages = [];
+      if (session.id && contextWindow.ids.has(String(session.id))) {
+        try {
+          const messagePayload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodeURIComponent(session.id)}/messages`, { gatewayEnvPath: config.gatewayEnvPath });
+          messages = boundContextMessages(Array.isArray(messagePayload.data) ? messagePayload.data : []);
+        } catch (error) {
+          console.error(`[hermes-cloud-connector] context sync skipped for ${session.id}: ${error instanceof Error ? error.message : error}`);
+        }
       }
-    }
-    const preview = String(session.preview || messages.at(-1)?.content || '').slice(0, 500);
-    return {
-      id: String(session.id), title: String(session.title || preview || 'Hermes session').slice(0, 120),
-      source: String(session.source || 'hermes-mobile').slice(0, 40), model: session.model ? String(session.model).slice(0, 120) : undefined,
-      preview, messageCount: Number(session.message_count || messages.length || 0),
-      updatedAt: timestampMillis(session.last_active_at ?? session.last_active ?? session.started_at), messages,
-    };
-  }));
+      const preview = String(session.preview || messages.at(-1)?.content || '').slice(0, 500);
+      return {
+        id: String(session.id), title: String(session.title || preview || 'Hermes session').slice(0, 120),
+        source: String(session.source || 'hermes-mobile').slice(0, 40), model: session.model ? String(session.model).slice(0, 120) : undefined,
+        preview, messageCount: Number(session.message_count || messages.length || 0),
+        updatedAt: timestampMillis(session.last_active_at ?? session.last_active ?? session.started_at), messages,
+      };
+    }));
+    collected.push(...chunkResults);
+  }
   return { sessions: collected, nextContextCursorId: contextWindow.nextCursorId };
 }
 
@@ -533,30 +539,34 @@ async function claimAndExecuteThreadOperation(config) {
 }
 
 async function cycle(config, options = {}) {
+  // Due heartbeats must run even when the queue is nonempty. main() treats
+  // options.heartbeat as sent; skipping it here makes a busy Mac look offline.
   if (options.heartbeat !== false) await signedPost(config, '/api/device/heartbeat');
-  if (options.syncSessions) {
-    try { await syncGatewaySessions(config, { configPath: options.configPath }); }
-    catch (error) { console.error(`[hermes-cloud-connector] session sync unavailable: ${error instanceof Error ? error.message : error}`); }
-  }
   if (await claimAndExecuteThreadOperation(config)) return true;
   const bodyText = '{}';
   const response = await fetch(`${config.controlPlaneUrl}/api/device/tasks/claim`, {
     method: 'POST', headers: signedHeaders(config, 'POST', '/api/device/tasks/claim', bodyText), body: bodyText,
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
-  if (response.status === 204) return false;
-  const claim = await response.json();
-  if (!response.ok) throw new Error(claim.error || `Claim failed (${response.status})`);
-  try {
-    const result = await withLeaseRenewal(
-      () => executeLocal(config, claim.task),
-      () => signedPost(config, '/api/device/tasks/renew', { taskId: claim.task.id, leaseToken: claim.task.leaseToken }),
-    );
-    await signedPost(config, '/api/device/tasks/complete', { taskId: claim.task.id, leaseToken: claim.task.leaseToken, result });
-  } catch (error) {
-    await signedPost(config, '/api/device/tasks/complete', { taskId: claim.task.id, leaseToken: claim.task.leaseToken, error: error instanceof Error ? error.message : String(error) });
+  if (response.status !== 204) {
+    const claim = await response.json();
+    if (!response.ok) throw new Error(claim.error || `Claim failed (${response.status})`);
+    try {
+      const result = await withLeaseRenewal(
+        () => executeLocal(config, claim.task),
+        () => signedPost(config, '/api/device/tasks/renew', { taskId: claim.task.id, leaseToken: claim.task.leaseToken }),
+      );
+      await signedPost(config, '/api/device/tasks/complete', { taskId: claim.task.id, leaseToken: claim.task.leaseToken, result });
+    } catch (error) {
+      await signedPost(config, '/api/device/tasks/complete', { taskId: claim.task.id, leaseToken: claim.task.leaseToken, error: error instanceof Error ? error.message : String(error) });
+    }
+    return true;
   }
-  return true;
+  if (options.syncSessions) {
+    try { await syncGatewaySessions(config, { configPath: options.configPath }); }
+    catch (error) { console.error(`[hermes-cloud-connector] session sync unavailable: ${error instanceof Error ? error.message : error}`); }
+  }
+  return false;
 }
 
 async function main() {
@@ -587,10 +597,10 @@ async function main() {
     try {
       const now = Date.now();
       const heartbeat = now - lastHeartbeat >= schedule.heartbeatMs;
-      if (heartbeat) lastHeartbeat = now;
       const syncSessions = now - lastSessionSync >= schedule.sessionSyncMs;
-      if (syncSessions) lastSessionSync = now;
       didWork = await cycle(config, { heartbeat, syncSessions, configPath });
+      if (heartbeat) lastHeartbeat = Date.now();
+      if (syncSessions) lastSessionSync = Date.now();
     } catch (error) { console.error(`[hermes-cloud-connector] ${error instanceof Error ? error.message : error}`); }
     await new Promise((resolve) => setTimeout(resolve, nextConnectorPollDelay(didWork, schedule)));
   }
