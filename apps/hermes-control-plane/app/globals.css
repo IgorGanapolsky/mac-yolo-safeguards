@@ -1,5 +1,5 @@
-.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @import "tailwindcss";
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
 :root { --ink:#F9FAFB;--text-secondary:#D1D5DB;--muted:#9CA3AF;--line:rgba(255,255,255,.08);--brand-line:rgba(79,70,229,.2);--panel:rgba(255,255,255,.04);--panel-solid:#111827;--primary:#4F46E5;--secondary:#6366F1;--accent:#22D3EE;--accent-dim:rgba(34,211,238,.12);--green:#22D3EE;--green-strong:#67E8F9;--green-dim:rgba(34,211,238,.12);--success:#10B981;--orange:#F59E0B;--danger:#EF4444;--bg:#0B0F19;--bg-end:#111827;--user-bubble:#3D3834;--user-bubble-text:#F4F1EC;--composer:#1A1D24; }
 *{box-sizing:border-box} html{scroll-behavior:smooth;background:var(--bg)} body{margin:0;color:var(--ink);background:var(--bg);font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased} button,input,textarea,select{font:inherit} a{color:inherit;text-decoration:none} button{color:inherit}
