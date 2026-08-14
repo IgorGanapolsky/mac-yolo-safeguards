@@ -2,6 +2,12 @@ import { db } from "./runtime";
 import { fromBase64Url, jsonError, sha256 } from "./security";
 
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
+/** Idle connector polls ~every 15s; do not rewrite last_seen on every signed call. */
+export const LAST_SEEN_REFRESH_MIN_MS = 15_000;
+
+export function shouldRefreshLastSeen(lastSeenAt: number | null | undefined, now = Date.now(), minIntervalMs = LAST_SEEN_REFRESH_MIN_MS): boolean {
+  return !lastSeenAt || now - lastSeenAt >= minIntervalMs;
+}
 
 export interface DeviceIdentity {
   id: string;
@@ -21,9 +27,10 @@ export async function requireDevice(request: Request, bodyText: string): Promise
     return jsonError("device request timestamp is outside the allowed window", 401);
   }
   const row = await db().prepare(
-    `SELECT id, organization_id AS organizationId, name, failover_mode AS failoverMode, public_jwk AS publicJwk
+    `SELECT id, organization_id AS organizationId, name, failover_mode AS failoverMode, public_jwk AS publicJwk,
+            last_seen_at AS lastSeenAt
        FROM devices WHERE id = ? AND revoked_at IS NULL`
-  ).bind(deviceId).first<DeviceIdentity & { publicJwk: string }>();
+  ).bind(deviceId).first<DeviceIdentity & { publicJwk: string; lastSeenAt: number | null }>();
   if (!row) return jsonError("unknown or revoked device", 401);
 
   const nonceHash = await sha256(`${deviceId}:${nonce}`);
@@ -44,10 +51,14 @@ export async function requireDevice(request: Request, bodyText: string): Promise
   }
 
   const now = Date.now();
-  await db().batch([
+  const statements = [
     db().prepare("INSERT INTO request_nonces (nonce_hash, device_id, expires_at, created_at) VALUES (?, ?, ?, ?)")
       .bind(nonceHash, deviceId, now + MAX_CLOCK_SKEW_MS, now),
     db().prepare("DELETE FROM request_nonces WHERE expires_at < ?").bind(now),
-  ]);
+  ];
+  if (shouldRefreshLastSeen(row.lastSeenAt, now)) {
+    statements.push(db().prepare("UPDATE devices SET last_seen_at = ?, updated_at = ? WHERE id = ?").bind(now, now, deviceId));
+  }
+  await db().batch(statements);
   return { id: row.id, organizationId: row.organizationId, name: row.name, failoverMode: row.failoverMode };
 }

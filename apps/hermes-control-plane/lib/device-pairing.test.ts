@@ -4,6 +4,7 @@ import {
   devicePresenceLabel,
   isDeviceOnline,
   isDeviceStale,
+  lastSeenAtAfterPairingReuse,
 } from "./device-pairing";
 
 describe("decideDevicePairing", () => {
@@ -97,3 +98,13 @@ describe("device presence", () => {
     expect(devicePresenceLabel(null, now)).toBe("offline");
   });
 });
+
+describe("pairing reuse presence", () => {
+  it("clears last_seen so Online cannot come from a revoked twin", () => {
+    const lastSeenAt = lastSeenAtAfterPairingReuse();
+    expect(lastSeenAt).toBeNull();
+    expect(isDeviceOnline(lastSeenAt, Date.now())).toBe(false);
+    expect(devicePresenceLabel(lastSeenAt, Date.now())).toBe("offline");
+  });
+});
+
