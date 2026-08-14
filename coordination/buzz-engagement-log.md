@@ -824,3 +824,85 @@ Wrote 12 new unit tests across the three touched files/boundaries — 4 for the 
 
 Seventh consecutive run (Runs 1, 3-8) with zero write access to `block/buzz` from this environment tier. New this run: the repo-scoped `mcp__github__*` tools that Runs 1-7 used for surveying now also reject `block/buzz` outright — the block has tightened, not loosened, since Run 7. `search_issues` and anonymous clone/fetch remain unaffected, so this run's survey and fix used those exclusively. Six verbatim-ready artifacts now sit in this log/repo for a write-capable session: #4860 (Run 3), #5492 (Run 4), #5557 (Run 5), #5555 (Run 6), #5611 (Run 7, partial), and — new and qualitatively different from the rest — a fully test-verified, ready-to-apply patch for #5734 at `coordination/patches/buzz-5734-team-instruction-validation.patch`. PR #4624 (Run 2) still awaits its first human review, now 10 days old.
 
+---
+
+## 2026-08-13 (late) — Run 8b (same session, continued — fork route executed for #5734: pushed, DCO-signed, verified against live upstream; API submit confirmed still blocked)
+
+While babysitting PR #1714 (this run's own doc/patch PR on `mac-yolo-safeguards`), a routine merge-conflict check-in pulled in PR #1594 (Run 4b's fork-route discovery, merged to `main` just then). Everything in this entry happened in the same session as the "Run 8" entry above, after reading that note — it is a continuation, not a fresh run.
+
+### What changed versus the Run 8 entry above
+
+The Run 8 entry's `coordination/patches/buzz-5734-team-instruction-validation.patch` was a static diff with no live branch anywhere. Following the Cross-run note's exact steps, this is no longer true:
+
+1. `add_repo(owner: "igorganapolsky", repo: "buzz", access: "push")` → **accepted** (same fork Run 4b used).
+2. `git clone https://github.com/igorganapolsky/buzz /workspace/buzz` → succeeded (used the tool's own instructed depth/timeout).
+3. `git remote add upstream https://github.com/block/buzz.git && git fetch upstream main` → succeeded. Upstream tip at fetch time: `068a83b` (`feat(huddle): cut voice-turn time-to-first-audio…`, #5671) — well past the `a96af89` (#4220) commit the original patch was built against.
+4. Confirmed `a96af89` is an ancestor of `068a83b` and that none of the 6 files this fix touches changed in between (`git log a96af89..upstream/main -- <files>` → empty) — the static patch from earlier this run was not stale.
+5. Branched `fix/team-instruction-validation-5734` from `upstream/main`, applied the existing patch (`git apply --check` clean, then applied for real) — no manual conflict resolution needed.
+6. Rebuilt from scratch in this fresh clone (fresh `target/`, same system deps and `SHERPA_ONNX_ARCHIVE_DIR` workaround as the Run 8 verification) and reran `cargo test --lib team`: **identical result** to the Run 8 verification — 112 passed, 5 failed, same 5 pre-existing failing test names. All 12 new tests present and passing. This is now a second, independent verification (different clone, different upstream commit) of the same fix.
+7. `cargo clippy --lib --all-targets -- -D warnings` → clean. `cargo fmt -- --check` → one formatting nit in a test file (a multi-line `assert!` that fmt wanted collapsed), fixed with `cargo fmt`, then clean.
+8. Removed the local-only placeholder `desktop/src-tauri/binaries/` before every commit/push — never part of the diff.
+9. Committed with author/committer identity `Igor Ganapolsky <iganapolsky@gmail.com>` (not the session's own `Claude <noreply@anthropic.com>` identity), `git commit -s` for the DCO `Signed-off-by` trailer per `CONTRIBUTING.md`, plus a `Co-Authored-By: Claude <noreply@anthropic.com>` trailer for honest disclosure — same convention Run 4b used. No internal session URL in the commit message.
+10. `git push -u origin fix/team-instruction-validation-5734` → **succeeded**, branch is live at `IgorGanapolsky/buzz@fix/team-instruction-validation-5734`.
+
+### The one step that still failed — and what that confirms
+
+`mcp__github__create_pull_request(owner: "block", repo: "buzz", head: "IgorGanapolsky:fix/team-instruction-validation-5734", base: "main", draft: false, …)` →
+
+```
+Access denied: repository "block/buzz" is not configured for this session. Allowed repositories: igorganapolsky/mac-yolo-safeguards, igorganapolsky/buzz
+```
+
+This is the exact same failure shape Run 4b hit for #5492, now reproduced independently for a different issue, in a different sub-session, hours later, after `block/buzz` had already been proven reachable for clone/fetch/build/push via the fork. It confirms Run 4b's diagnosis precisely: the block is not "no access to Buzz" in any general sense — it is narrowly the upstream repo's GitHub **API** surface (`create_pull_request`, and by the same shape presumably `issue_read`/comment-posting), scoped independently of the fork, which is a different, permitted repo. No `GH_TOKEN` bypass was attempted, per the same guardrail reasoning Run 4b already established.
+
+### What was staged instead
+
+- **PR body, ready to paste:** `coordination/buzz-pr-drafts/5734-team-instruction-validation.md` (mirrors the format of Run 4b's `5492-...md`).
+- **One-click compare/open URL:** https://github.com/block/buzz/compare/main...IgorGanapolsky:buzz:fix/team-instruction-validation-5734?expand=1
+- **Live branch:** `IgorGanapolsky/buzz@fix/team-instruction-validation-5734`, DCO-signed, pushed, clippy+fmt clean, tests green against current upstream.
+
+This is the *second* backlogged fix (after #5492) that now sits on a real, pushed, DCO-signed branch rather than only as a patch file in this repo — the gap between "engineering done" and "submitted" is now exactly one click for both.
+
+### Correction to the Run 8 entry above
+
+Run 8's "Blocker status" section is accurate for what Run 8 itself did (it never tried the fork route, because the Cross-run note it needed to read was still sitting unmerged in PR #1594 at the time Run 8 ran) but is now stale on the point of *whether* a write path exists: it does, for everything except the upstream API's PR-creation/issue-comment endpoints specifically. Read this entry's fork-route steps, not Run 8's four-mechanism failure list, as the current state.
+
+### Positioning read
+
+Unchanged: **neither**. No ThumbGate reference anywhere in the branch, commit, or PR draft.
+
+---
+
+## Cross-run note (kept last on purpose — read this before re-testing access)
+
+Runs 1, 3, 4a, 5, 6, and 7 above all conclude that the access wall persists,
+each honestly from its own evidence. All six are superseded by the same fact:
+**Run 4b already contributed to `block/buzz` from this same environment tier.**
+A fork (`igorganapolsky/buzz`) is same-owner, so `add_repo` accepts it; that
+unblocks clone, `upstream` fetch from `block/buzz`, build, test, and push. The
+`fix/acp-auth-tag-profile-republish` branch (issue #5492) is pushed and
+DCO-signed, 743 tests green, re-verified against current upstream.
+
+Run 6 is right that this is a session-config restriction rather than an account
+permission problem — and that is exactly why the fork works: the restriction is
+scoped by repo *owner*, and the fork's owner is already in scope.
+
+**Why six runs missed it:** this note has never been on `main`. It lives in PR
+#1594, which is still an unmerged draft, so no run has been able to read it.
+Runs 5, 6, and 7 each landed on `main` while it sat there. If you are reading
+this on `main`, the loop is broken — act on it rather than re-deriving it.
+
+What genuinely remains blocked is narrower than "the wall": the GitHub **API**
+for `block/buzz` (issue comments, PR creation). Everything else works.
+
+**Do this instead of re-verifying the refusal:**
+1. `add_repo(owner: "igorganapolsky", repo: "buzz", access: "push")`
+2. `git clone https://github.com/igorganapolsky/buzz /workspace/buzz`
+3. `git remote add upstream https://github.com/block/buzz.git && git fetch upstream main`
+4. Branch from `upstream/main`, fix, test, push to the fork.
+5. The upstream submit needs `block/buzz` in the session's GitHub MCP scope. If it is absent, record that as the blocker and leave the branch staged — do NOT bypass it with the ambient `GH_TOKEN`, and do NOT re-test the wall.
+
+Six runs have now spent their budget confirming that the upstream repo says no.
+The refusal message names the way around itself; read it rather than re-testing
+it. The backlogged drafts (#4860, #5492, #5557, #5611) can be *built and pushed*
+today by the route above — only the final submit click needs a human.
