@@ -766,3 +766,90 @@ Six runs have now spent their budget confirming that the upstream repo says no.
 The refusal message names the way around itself; read it rather than re-testing
 it. The backlogged drafts (#4860, #5492, #5557, #5611) can be *built and pushed*
 today by the route above — only the final submit click needs a human.
+
+---
+
+## 2026-08-14 (later) — Run 12 (fork backlog audited against ground truth — two items Run 11 called unpushed were already live; #5849 root-caused to an exact line, fix deliberately withheld — unverifiable without Windows tooling this environment doesn't have)
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+- **Canonical repo:** [`github.com/block/buzz`](https://github.com/block/buzz) — unchanged identity, maintainer (Block/Jack Dorsey), architecture, and community surface (GitHub issues/PRs only) from Runs 1-11.
+- **Write access to `block/buzz`:** still blocked. `mcp__github__pull_request_read(owner:"block", repo:"buzz", pullNumber:4624)` this run → `"Access denied: repository 'block/buzz' is not configured for this session. Allowed repositories: igorganapolsky/mac-yolo-safeguards, igorganapolsky/buzz."` Fresh evidence from this run's own session, not inherited from Run 11's log text. Per the cross-run note and Run 11's own finding (blocked at the create-call layer too), not re-testing `create_pull_request` again this run — that would be re-verifying an already-reconfirmed wall, which the standing lesson explicitly warns against.
+- **Fork access:** `add_repo(owner:"igorganapolsky", repo:"buzz", access:"push")` → accepted. Cloned, registered, added `upstream` → `block/buzz`, fetched `upstream/main` (tip `df9e773`, 2026-08-13 — one commit past Run 11's `068a83b` baseline from this morning: `#5830`, "Scope desktop presence subscriptions to active demand," a large presence-layer refactor touching desktop/mobile).
+
+### Correction to Run 11's backlog — checked the fork directly instead of trusting the log's own summary
+
+Run 11 ranked its backlog with items 2 and 3 (#5708, #5734) described as *"full tested patch, not yet pushed to the fork as a branch (still a diff file in this repo's own unmerged PR queue)."* That was stale. `git ls-remote --heads` on `igorganapolsky/buzz` this run shows **both are already live fork branches**, pushed by Run 9 (`fix/acp-panic-dead-letter-notice`, per Run 9's own correction note — Run 11 apparently didn't read that far into Run 9's entry) and by an earlier Run 8-era session (`fix/team-instruction-validation`):
+
+| Fork branch | Issue | Base drift vs current `upstream/main` |
+|---|---|---|
+| `fix/wf08-approval-gate-finalize-run-rebased` | WF-08 (#3525) | 1 commit behind — healthy, no action needed |
+| `fix/acp-panic-dead-letter-notice` | #5708 | 1 commit behind — healthy |
+| `fix/team-instruction-validation` | #5734 | 1 commit behind — healthy |
+| `fix/team-instruction-validation-5734` | #5734 | 1 commit behind — healthy, but see duplicate note below |
+| `fix/acp-auth-tag-profile-republish` | #5492 | **3 days behind** (base commit 2026-08-11, upstream now 2026-08-13) — not rebased this run, budget went to the items below; flagging so it doesn't silently rot the way WF-08 did between Run 4b and Run 11 |
+| `fix/multi-h-filter-4579-dco` | #4598/#4624 | 1 commit behind — healthy (this is the DCO-signed version of Run 2's fix; PR #4624 itself is a *direct* `block/buzz` PR, separate from this fork branch) |
+
+**New finding, not previously logged:** `fix/team-instruction-validation` and `fix/team-instruction-validation-5734` are two **independent, non-ancestor commits** (`e017a410` vs `4dd23ade`) for the same issue (#5734), produced by different sessions unaware of each other — the same "concurrent runs duplicate work" failure mode already known from this repo's own `#1682`/`#1689` duplicate-PR pair. Diffed both against `upstream/main`: they are near-identical in size (1057 vs 1058 insertions, same 4334 deletions from the unrelated upstream presence-refactor noise) and both add the same `validate_inbound_team_definition` boundary check. Not deleting either branch unilaterally — same standing rule as the in-repo PR duplicates (Run 9/10/11): flagging for a human or a future run with clearer authority to pick one and retire the other, not resolving it here.
+
+Six real, tested, DCO-signed fix branches now sit on the fork. Every one of them is blocked on exactly one remaining step: a `create_pull_request` call against `block/buzz` that this environment tier cannot make. That is the accurate state of the backlog — better than Run 11's undercount, and worth getting right since two more runs repeating "not yet pushed" would have wasted effort re-doing work already done.
+
+### #5849 — root-caused to the exact line; no fix attempted (unverifiable, not unwilling)
+
+Surveyed newest issues since Run 11's window (up to #5817 this morning): #5826, #5827, #5828, #5835, #5836, #5837, #5839, #5840, #5849 (all 2026-08-14).
+
+[#5849](https://github.com/block/buzz/issues/5849) — `buzz-acp` leaks the full ACP agent process tree after `cancel_drain_timeout`: on Windows, 20+ `hermes-acp.exe` processes accumulated with ~42 orphaned `python.exe` children (789 MB). Read the source rather than the report alone. Found the exact defect in `crates/buzz-acp/src/acp.rs`:
+
+```rust
+#[cfg(unix)]
+fn kill_process_group(pid: u32) -> bool {
+    use nix::sys::signal::{killpg, Signal};
+    killpg(Pid::from_raw(pid as i32), Signal::SIGKILL).is_ok()
+}
+
+#[cfg(not(unix))]
+fn kill_process_group(_pid: u32) -> bool {
+    false   // <- always false on Windows
+}
+```
+
+Both `AcpClient::shutdown()` and `Drop for AcpClient` call `kill_process_group(pid)` first and fall back to `self.child.start_kill()` only if it returns `false`. On Unix, `killpg` kills the whole process group (the child is spawned with `process_group(0)`, so subprocess-of-subprocess — MCP servers, tool processes — die too). On Windows, the stub is a permanent no-op, so **every** cancellation/shutdown/drop falls through to `Child::start_kill()`, which Rust's stdlib documents as `TerminateProcess` on the **direct child only** — it has no concept of descendants. That exactly matches the report: `hermes-acp.exe` is the direct child and (mostly) dies; the `python.exe` processes it spawned are grandchildren of `buzz-acp` and are never touched by anything in this path. Every single `CancelDrainTimeout` respawn (`lib.rs:3958-3988`, unconditional on both Unix and Windows) leaks exactly the subprocess subtree the Unix path was specifically built to avoid (see the doc comment on `kill_process_group` itself: *"ensures subprocesses ... are cleaned up rather than orphaned"* — true only on the platform that isn't the one in the bug report).
+
+**Why no fix was attempted despite finding the exact root cause:** a real Windows fix (Job Objects via `CREATE_NEW_PROCESS_GROUP`/`AssignProcessToJobObject`/`TerminateJobObject`, or a portable process-tree walk) can only be honestly verified by actually running it against a real Windows process tree — the failure mode is entirely OS-process-semantics, not something a Linux-side unit test can fake. This environment has no Windows target: `rustup target list --installed` shows only `x86_64-unknown-linux-gnu`, and there is no `x86_64-pc-windows-*` toolchain or linker available to even `cargo check` a `#[cfg(windows)]` branch, let alone execute it. Per the hard rule ("never fabricate verification or test results" and "open a PR only if tests pass"), shipping a Windows-only fix with zero ability to prove it kills anything would be exactly the kind of unverifiable claim these rules exist to prevent. This is the same category of honest non-attempt as Run 7's #5611 (no hosted-relay access to reproduce) — a precise diagnosis, not a fix, is this run's honest output for #5849.
+
+> Drafted comment for #5849 (not posted — no write access): "Found the exact cause: `kill_process_group` in `crates/buzz-acp/src/acp.rs` has a real implementation on Unix (`killpg` on the child's process group) and a permanent no-op stub on `cfg(not(unix))` that always returns `false`. Both `shutdown()` and `Drop` fall back to `self.child.start_kill()` when that returns false — which per the tokio/std docs only signals the direct child, not descendants. So on Windows, `hermes-acp.exe` gets killed (or at least signaled) but every `python.exe` it spawned is a grandchild of `buzz-acp` and nothing in this path ever reaches it — that's your 42 orphaned processes. The comment on `kill_process_group` itself says the point of killing the group is 'subprocesses ... are cleaned up rather than orphaned,' which is exactly the guarantee that's silently absent on the platform you're running. A correct fix needs a real Windows tree-kill (Job Objects are the idiomatic primitive: assign the child to a Job Object at spawn time with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, then `TerminateJobObject` here instead of the no-op) — I can't verify a Windows-specific fix from this side (no Windows toolchain available to me), but the diagnosis above should make the actual fix a much smaller, more confident change than tracing it from the symptom."
+
+[#5839](https://github.com/block/buzz/issues/5839) (mid-turn steering is channel-scoped, not thread-scoped — cross-thread contamination) — read in full. Squarely adjacent to Igor's domain (scoping/isolation of an in-flight write path), but the reporter has already root-caused it to four specific code points and proposed a complete, concrete design (`in_flight_thread_roots` map, `--steer-scope=channel|thread` flag, steer-gate check). Skipped as a comment target — nothing under-specified for a comment to add — logged as another pattern data point instead.
+
+[#5837](https://github.com/block/buzz/issues/5837) (all identities share one OS keychain item; deleting it destroys every managed-agent key) — read, real data-loss risk, but a credential-storage architecture question, not a write-gating/idempotency/verification bug; outside the precise stated domain.
+
+#5826, #5827, #5828, #5835, #5836, #5840 — desktop UI bugs and feature requests, outside stated domain.
+
+### What was opened / answered this run
+
+**Nothing posted to `block/buzz`.** This run's output: corrected the fork backlog against ground truth (two items wrongly marked unpushed, one previously-unnoticed duplicate-branch pair flagged, one branch's 3-day staleness flagged before it becomes a WF-08-style rescue job), and one new issue (#5849) root-caused to the exact defective line with a drafted comment — deliberately not shipped as a "fix" because this environment cannot verify Windows process semantics.
+
+### Positioning read: **neither** (unchanged, reconfirmed a twelfth time)
+
+- Not a competitor — Buzz remains a team workspace (chat + git + workflow automation) on Nostr; ThumbGate remains a cross-tool pre-action governance gate for arbitrary agent actions. No overlap in what either actually ships.
+- Not a partner — no relationship, no contact, no integration exists, and nothing this run changes that.
+- #5849 is a thirteenth independent data point for the same recurring pattern (#4565, #4860, #5492, #5557, #5555, #5611, #5665, #5667, #5708, #5734, #5759, #5800, now #5849): a system-reported outcome ("the agent process is being replaced") that doesn't match the actually-verified state (the old process tree is still running). ThumbGate is not mentioned anywhere in the drafted comment or this entry's technical content — this is entirely about Buzz's own process-lifecycle code.
+
+### What was skipped and why
+
+- **#5839** — real and in-domain, but the reporter's own root-cause and design proposal are already complete; a comment would be a redundant "+1."
+- **#5837, #5826, #5827, #5828, #5835, #5836, #5840** — outside stated domain (credential architecture, UI, feature requests) per notes above.
+- **Rebasing `fix/acp-auth-tag-profile-republish` (#5492)** — flagged as 3 days stale, not actually rebased this run; budget went to the backlog audit and the #5849 investigation. Flagging now, before it becomes another multi-day rescue like WF-08 was.
+- **Picking one of the two `#5734` fork branches to retire** — not this run's call to make unilaterally, same standing rule as the in-repo duplicate-PR pairs.
+- **Attempting a Windows fix for #5849** — not a judgment-call skip in the usual sense: the root cause is fully diagnosed, but shipping unverifiable platform-specific code would violate the hard rule against fabricated verification. Distinguishing this explicitly from "ran out of time" or "too hard" — it is specifically "cannot be honestly tested from here."
+- **Posting anything to `block/buzz`** — impossible this run; not a judgment-call skip (see Access section above).
+
+### Blocker status (report only — no action requested)
+
+Write access to `block/buzz` remains out of this session tier's scope, reconfirmed this run with a fresh denial (not inherited). Updated backlog, ranked by readiness:
+
+1. **Six fork branches, fully tested, DCO-signed, 1 commit behind current upstream** (all healthy except #5492, 3 days behind): `fix/wf08-approval-gate-finalize-run-rebased` (WF-08/#3525), `fix/acp-panic-dead-letter-notice` (#5708), `fix/team-instruction-validation` + `fix/team-instruction-validation-5734` (#5734, duplicate pair — pick one), `fix/multi-h-filter-4579-dco` (#4598/#4624 DCO fix). Every one needs exactly one `create_pull_request` call against `block/buzz`.
+2. `fix/acp-auth-tag-profile-republish` (#5492) — same as above but needs a rebase onto current `upstream/main` first (3 days behind).
+3. Comment drafts, unposted: #4860 (Run 3), #5557 (Run 5), #5555 (Run 6), #5611 (Run 7, partial), #5667 (Run 8), #5759 (Run 10, partial), **#5849 (this run, root-cause fully diagnosed)**.
+
+PR [#4624](https://github.com/block/buzz/pull/4624) (Run 2, direct to `block/buzz`) still awaits its first human review, now 11+ days.
