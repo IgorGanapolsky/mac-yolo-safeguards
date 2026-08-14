@@ -1,7 +1,7 @@
 import { requireSession } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { defaultFailoverModeForOrganization } from "@/lib/continuity-defaults";
-import { decideDevicePairing, type FailoverMode } from "@/lib/device-pairing";
+import { decideDevicePairing, lastSeenAtAfterPairingReuse, type FailoverMode } from "@/lib/device-pairing";
 import { db } from "@/lib/runtime";
 import { displayFingerprint, jsonError, sha256 } from "@/lib/security";
 
@@ -60,9 +60,9 @@ export async function POST(request: Request) {
     await db().batch([
       db().prepare(
         `UPDATE devices
-            SET name = ?, public_jwk = ?, failover_mode = ?, revoked_at = NULL, updated_at = ?
+            SET name = ?, public_jwk = ?, failover_mode = ?, revoked_at = NULL, last_seen_at = ?, updated_at = ?
           WHERE id = ? AND organization_id = ?`
-      ).bind(grant.deviceName, grant.publicJwk, failoverMode, now, deviceId, session.organizationId),
+      ).bind(grant.deviceName, grant.publicJwk, failoverMode, lastSeenAtAfterPairingReuse(), now, deviceId, session.organizationId),
       // Collapse any accidental active twins with the same key (pre-dedupe data).
       db().prepare(
         `UPDATE devices
