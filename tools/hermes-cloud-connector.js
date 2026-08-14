@@ -539,6 +539,9 @@ async function claimAndExecuteThreadOperation(config) {
 }
 
 async function cycle(config, options = {}) {
+  // Due heartbeats must run even when the queue is nonempty. main() treats
+  // options.heartbeat as sent; skipping it here makes a busy Mac look offline.
+  if (options.heartbeat !== false) await signedPost(config, '/api/device/heartbeat');
   if (await claimAndExecuteThreadOperation(config)) return true;
   const bodyText = '{}';
   const response = await fetch(`${config.controlPlaneUrl}/api/device/tasks/claim`, {
@@ -559,7 +562,6 @@ async function cycle(config, options = {}) {
     }
     return true;
   }
-  if (options.heartbeat !== false) await signedPost(config, '/api/device/heartbeat');
   if (options.syncSessions) {
     try { await syncGatewaySessions(config, { configPath: options.configPath }); }
     catch (error) { console.error(`[hermes-cloud-connector] session sync unavailable: ${error instanceof Error ? error.message : error}`); }
@@ -595,10 +597,10 @@ async function main() {
     try {
       const now = Date.now();
       const heartbeat = now - lastHeartbeat >= schedule.heartbeatMs;
-      if (heartbeat) lastHeartbeat = now;
       const syncSessions = now - lastSessionSync >= schedule.sessionSyncMs;
-      if (syncSessions) lastSessionSync = now;
       didWork = await cycle(config, { heartbeat, syncSessions, configPath });
+      if (heartbeat) lastHeartbeat = Date.now();
+      if (syncSessions) lastSessionSync = Date.now();
     } catch (error) { console.error(`[hermes-cloud-connector] ${error instanceof Error ? error.message : error}`); }
     await new Promise((resolve) => setTimeout(resolve, nextConnectorPollDelay(didWork, schedule)));
   }
