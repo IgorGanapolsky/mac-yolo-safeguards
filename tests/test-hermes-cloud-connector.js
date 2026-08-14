@@ -19,6 +19,9 @@ const {
   gatewayHeaders,
   loadConfig,
   nextConnectorPollDelay,
+  adoptDiskPairing,
+  forgetDeadPairing,
+  isDeadDeviceAuthError,
   pairingDashboardUrl,
   pairingMatchesControlPlane,
   parseDotEnvValue,
@@ -118,6 +121,27 @@ test('reuses pairing only for the control-plane origin that issued it', () => {
   assert.equal(pairingMatchesControlPlane({ deviceId: 'legacy-device' }, 'https://thumbgate.app'), false);
   assert.equal(pairingMatchesControlPlane({ ...paired, controlPlaneUrl: 'https://old-control.example' }, 'https://thumbgate.app'), false);
   assert.equal(pairingMatchesControlPlane({ ...paired, controlPlaneUrl: 'not-a-url' }, 'https://thumbgate.app'), false);
+});
+
+test('detects the control-plane unknown/revoked device 401', () => {
+  assert.equal(isDeadDeviceAuthError(new Error('unknown or revoked device')), true);
+  assert.equal(isDeadDeviceAuthError(new Error('invalid device signature')), true);
+  assert.equal(isDeadDeviceAuthError(new Error('invalid device public key')), true);
+  assert.equal(isDeadDeviceAuthError(new Error('Claim failed (401)')), false);
+  assert.equal(isDeadDeviceAuthError(new Error('replayed device request')), false);
+});
+
+test('adopts a newer pairing written to disk by a parallel --pair', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-adopt-pair-'));
+  const file = path.join(root, 'cloud-connector.json');
+  const memory = { deviceId: 'dead-twin', privateKeyPem: 'old-key', publicJwk: { kty: 'EC' } };
+  saveConfig(file, { deviceId: 'revived-id', privateKeyPem: 'new-key', publicJwk: { kty: 'EC', crv: 'P-256' }, deviceName: 'Igors-MacBook-Pro' });
+  assert.equal(adoptDiskPairing(memory, file), true);
+  assert.equal(memory.deviceId, 'revived-id');
+  assert.equal(memory.privateKeyPem, 'new-key');
+  assert.equal(forgetDeadPairing(memory, file), 'revived-id');
+  assert.equal(memory.deviceId, undefined);
+  assert.equal(loadConfig(file).deviceId, undefined);
 });
 
 test('context upload is bounded before it leaves the Mac', () => {
