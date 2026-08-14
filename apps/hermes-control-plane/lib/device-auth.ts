@@ -48,6 +48,7 @@ export async function requireDevice(request: Request, bodyText: string): Promise
     db().prepare("INSERT INTO request_nonces (nonce_hash, device_id, expires_at, created_at) VALUES (?, ?, ?, ?)")
       .bind(nonceHash, deviceId, now + MAX_CLOCK_SKEW_MS, now),
     db().prepare("DELETE FROM request_nonces WHERE expires_at < ?").bind(now),
+    db().prepare("UPDATE devices SET last_seen_at = ?, updated_at = ? WHERE id = ?").bind(now, now, deviceId),
   ]);
   return { id: row.id, organizationId: row.organizationId, name: row.name, failoverMode: row.failoverMode };
 }
