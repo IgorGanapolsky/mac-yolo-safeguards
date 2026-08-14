@@ -37,7 +37,7 @@ vi.mock("./runtime", () => ({
   }),
 }));
 
-import { requireDevice } from "./device-auth";
+import { requireDevice, shouldRefreshLastSeen } from "./device-auth";
 
 async function makeDevice() {
   const { publicKey, privateKey } = await crypto.subtle.generateKey(
@@ -129,3 +129,13 @@ describe("requireDevice", () => {
     expect((response as Response).status).toBe(401);
   });
 });
+
+describe("shouldRefreshLastSeen", () => {
+  const now = 1_000_000;
+  it("refreshes a never-seen or stale row and throttles hot polls", () => {
+    expect(shouldRefreshLastSeen(null, now)).toBe(true);
+    expect(shouldRefreshLastSeen(now - 15_000, now)).toBe(true);
+    expect(shouldRefreshLastSeen(now - 1_000, now)).toBe(false);
+  });
+});
+
