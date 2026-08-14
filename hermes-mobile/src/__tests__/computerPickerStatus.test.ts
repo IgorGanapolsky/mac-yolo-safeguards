@@ -230,7 +230,7 @@ describe('computerPickerStatus', () => {
     expect(shouldCollapsePickerStatusBand(status, 0, false)).toBe(false);
   });
 
-  it('never claims Using USB when active path is Home Wi-Fi', () => {
+  it('never claims Using USB when active path is Wi-Fi', () => {
     const status = resolveComputerPickerStatus({
       scanning: false,
       scanProgress: null,
@@ -250,7 +250,7 @@ describe('computerPickerStatus', () => {
       activeReachable: true,
     });
     expect(status.kind).toBe('active');
-    expect(status.title).toBe('Connected · Home Wi‑Fi');
+    expect(status.title).toBe('Connected · Wi‑Fi');
     expect(status.title).not.toMatch(/USB/i);
     expect(status.detail).not.toMatch(/Using USB/i);
   });
