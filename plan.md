@@ -2902,3 +2902,31 @@ CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, too
 
 - 2026-08-13T13:06:07Z `grok-seed-yolo-full-setup-20260813`: **T-SEED-YOLO-FULL-SETUP-20260813** — deep research + fix. Diagnosis: Herdr seed tab looked tool-less because (1) Seed 2.1 is a model not a harness, (2) Hermes config `bytedance/seed-2.1-pro:free` is a dead OpenRouter id (token economics 6 spin/0 tokens), (3) seed-yolo `-z`/`--doctor` CLI mis-parse broke oneshot. Shipped seed-yolo 3.1.0 with parseCliArgs, FULL_TOOLS, research doc `docs/SEED-YOLO-FULL-SETUP-AUG-2026.md`. Doctor ready=YES (149 skills). Installed to `~/.local/lib/seed-yolo/`.
 - 2026-08-13T16:17:59Z `grok-seed-yolo-openrouter-20260813`: **T-SEED-YOLO-OPENROUTER-20260813** — pin seed-yolo to OpenRouter `bytedance-seed/seed-2-1-turbo` with full tools/MCP/YOLO; fix dead free model id in Hermes config; live proof SEED_OR_PROOF + model id; doctor ready YES.
+
+
+## AMD skills high-ROI (append 2026-08-13T19:21:08Z) — agent `grok-amd-skills-roi-20260813`
+
+### Task
+| T-AMD-SKILLS-ROI-20260813 | Implement AMD skills high-ROI: skill cards, sources.yml, hybrid route policy (real ROUTES), local media lane; tests green | in_progress | grok-amd-skills-roi-20260813 | `.agents/skills/skill-catalog-governance/`, `.agents/skills/hybrid-route-policy/`, `.agents/skills/local-media-lane/`, `.agents/skills/sources.yml`, `plugin-metadata.json`, `tools/skill-card-validate.js`, `tools/hybrid-route-policy.js`, `tools/local-media-route.js`, `tests/test-skill-card-validate.js`, `tests/test-hybrid-route-policy.js`, `tests/test-local-media-route.js`, `docs/AMD-SKILLS-ROI-20260813.md`, skill-card.md for in-repo skills, `SKILLS.md` | local tests PASS; PR pending |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/skill-card-validate.js | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| tools/hybrid-route-policy.js | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| tools/local-media-route.js | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| tests/test-skill-card-validate.js | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| tests/test-hybrid-route-policy.js | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| tests/test-local-media-route.js | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| .agents/skills/skill-catalog-governance/** | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| .agents/skills/hybrid-route-policy/** | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| .agents/skills/local-media-lane/** | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| .agents/skills/sources.yml | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| .agents/skills/*/skill-card.md (in-repo cards) | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| plugin-metadata.json | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| docs/AMD-SKILLS-ROI-20260813.md | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| SKILLS.md (append rows only) | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+
+### Decision
+- Hybrid default paid route = `glm52_reasoning` (not fictional cloud_general); candidates must match hermes-economic-router ROUTES.
+- Skip ROCm/Instinct bulk install on Apple Silicon.
