@@ -15,8 +15,33 @@ const STANDARD_SOL_OUTPUT_USD_PER_M = 30;
 const RESERVATION_TTL_MS = 10 * 60 * 1000;
 
 const PRIVATE_RE = /\b(secret|credential|password|passcode|api[ -]?key|private key|pii|medical|payroll|confidential|local only)\b/i;
+const SECRET_VALUE_RE = /(?:\bsk-(?:proj-|svcacct-)?[A-Za-z0-9_-]{16,}\b|\bgh[pousr]_[A-Za-z0-9]{20,}\b|\bAKIA[0-9A-Z]{16}\b|\bxox[baprs]-[A-Za-z0-9-]{16,}\b|\bBearer\s+[A-Za-z0-9._~+\/-]{16,}\b|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{8,}\b|-----BEGIN [A-Z ]*PRIVATE KEY-----|\b\d{3}-\d{2}-\d{4}\b)/i;
 const URGENCY_RE = /\b(now|urgent|real[- ]?time|live|outage|incident|p0|sev[ -]?[01]|while (?:the )?(?:call|customer|system)|latency[- ]critical)\b/i;
 const HIGH_VALUE_RE = /\b(logs?|traces?|root cause|rollback|transactions?|fraud|suspicious|voice|customer support|checkout|inventory|experiment|research|security event|production)\b/i;
+
+function passesLuhn(value) {
+  const digits = String(value).replace(/\D/g, '');
+  if (digits.length < 13 || digits.length > 19 || /^(\d)\1+$/.test(digits)) return false;
+  let sum = 0;
+  let doubleDigit = false;
+  for (let index = digits.length - 1; index >= 0; index -= 1) {
+    let digit = Number(digits[index]);
+    if (doubleDigit) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    sum += digit;
+    doubleDigit = !doubleDigit;
+  }
+  return sum % 10 === 0;
+}
+
+function containsSensitiveValue(text = '') {
+  const value = String(text);
+  if (SECRET_VALUE_RE.test(value)) return true;
+  const numberCandidates = value.match(/(?:\d[ -]?){13,19}/g) || [];
+  return numberCandidates.some(passesLuhn);
+}
 
 function monthKey(now = new Date()) {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -33,6 +58,7 @@ function defaultPaths(home = os.homedir()) {
     stateDir,
     ledger: path.join(stateDir, 'openai-ultrafast.json'),
     lock: path.join(stateDir, 'openai-ultrafast.lock'),
+    pendingCharges: path.join(stateDir, 'openai-ultrafast-pending'),
     receipts: path.join(stateDir, 'receipts', 'openai-ultrafast'),
   };
 }
@@ -112,7 +138,9 @@ function inspectCodex(paths = defaultPaths()) {
 
 function classifyTask(prompt = '') {
   const text = String(prompt).trim();
-  if (PRIVATE_RE.test(text)) return { eligible: false, route: 'local', reason: 'sensitive-local' };
+  if (PRIVATE_RE.test(text) || containsSensitiveValue(text)) {
+    return { eligible: false, route: 'local', reason: 'sensitive-local' };
+  }
   if (URGENCY_RE.test(text) && HIGH_VALUE_RE.test(text)) {
     return { eligible: true, route: 'ultrafast', reason: 'latency-critical-high-value' };
   }
@@ -157,16 +185,35 @@ function externalSpend(paths = defaultPaths(), now = new Date()) {
   return { openrouterUsd, glmUsd, totalUsd: openrouterUsd + glmUsd };
 }
 
+function pendingCharges(paths = defaultPaths(), now = new Date()) {
+  let entries = [];
+  try {
+    entries = fs.readdirSync(paths.pendingCharges)
+      .filter((name) => name.endsWith('.json'))
+      .map((name) => readJson(path.join(paths.pendingCharges, name), null))
+      .filter((entry) => entry && entry.month === monthKey(now) && Number(entry.amountUsd) > 0);
+  } catch {}
+  return {
+    entries,
+    totalUsd: entries.reduce((sum, entry) => sum + Number(entry.amountUsd), 0),
+  };
+}
+
 function budgetStatus(paths = defaultPaths(), now = new Date()) {
   const ledger = loadLedger(paths, now);
   const external = externalSpend(paths, now);
-  const reservedUsd = ledger.reservations.reduce((sum, item) => sum + Number(item.amountUsd || 0), 0);
-  const committedUsd = external.totalUsd + Number(ledger.spentUsd || 0);
+  const pending = pendingCharges(paths, now);
+  const pendingIds = new Set(pending.entries.map((entry) => entry.reservationId));
+  const reservedUsd = ledger.reservations
+    .filter((item) => !pendingIds.has(item.id))
+    .reduce((sum, item) => sum + Number(item.amountUsd || 0), 0);
+  const committedUsd = external.totalUsd + Number(ledger.spentUsd || 0) + pending.totalUsd;
   return {
     month: monthKey(now),
     monthlyCapUsd: MONTHLY_API_CAP_USD,
     external,
     ultrafastSpentUsd: Number(ledger.spentUsd || 0),
+    pendingChargeUsd: pending.totalUsd,
     reservedUsd,
     committedUsd,
     availableUsd: Math.max(0, MONTHLY_API_CAP_USD - committedUsd - reservedUsd),
@@ -190,6 +237,28 @@ function withLedgerLock(paths, operation) {
     try { fs.closeSync(descriptor); } catch {}
     try { fs.unlinkSync(paths.lock); } catch {}
   }
+}
+
+function sleepSync(milliseconds) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
+}
+
+function withLedgerLockRetry(paths, operation, options = {}) {
+  const attempts = Math.max(1, Number(options.attempts) || 40);
+  const delayMs = Math.max(1, Number(options.delayMs) || 100);
+  const wait = options.wait || sleepSync;
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return withLedgerLock(paths, operation);
+    } catch (error) {
+      lastError = error;
+      if (error.code !== 'BUDGET_LEDGER_BUSY' || attempt === attempts) throw error;
+      if (typeof options.onRetry === 'function') options.onRetry(attempt, error);
+      wait(delayMs);
+    }
+  }
+  throw lastError;
 }
 
 function estimateMaxCost(prompt, maxOutputTokens, pricing) {
@@ -232,8 +301,8 @@ function usageCost(usage, pricing) {
   };
 }
 
-function finalizeReservation(paths, reservation, result, now = new Date()) {
-  return withLedgerLock(paths, () => {
+function finalizeReservation(paths, reservation, result, now = new Date(), retryOptions = {}) {
+  return withLedgerLockRetry(paths, () => {
     const ledger = loadLedger(paths, now);
     ledger.reservations = ledger.reservations.filter((item) => item.id !== reservation.id);
     if (result.costUsd > 0) ledger.spentUsd += result.costUsd;
@@ -249,13 +318,34 @@ function finalizeReservation(paths, reservation, result, now = new Date()) {
     });
     atomicWriteJson(paths.ledger, ledger);
     return ledger;
-  });
+  }, retryOptions);
 }
 
-function releaseReservation(paths, reservation, status, now = new Date()) {
+function releaseReservation(paths, reservation, status, now = new Date(), retryOptions = {}) {
   return finalizeReservation(paths, reservation, {
     serviceTier: null, inputTokens: 0, outputTokens: 0, costUsd: 0, status,
-  }, now);
+  }, now, retryOptions);
+}
+
+function writePendingCharge(paths, reservation, result, now = new Date()) {
+  fs.mkdirSync(paths.pendingCharges, { recursive: true, mode: 0o700 });
+  const filePath = path.join(paths.pendingCharges, `${reservation.id}.json`);
+  atomicWriteJson(filePath, {
+    schema: 'openai-ultrafast-pending-charge/v1',
+    month: monthKey(now),
+    reservationId: reservation.id,
+    amountUsd: Number(result.costUsd || reservation.amountUsd),
+    status: result.status,
+    createdAt: now.toISOString(),
+  });
+  return filePath;
+}
+
+function finalizeWithRecovery(paths, reservation, result, now = new Date(), retryOptions = {}) {
+  const journalPath = writePendingCharge(paths, reservation, result, now);
+  const ledger = finalizeReservation(paths, reservation, result, now, retryOptions);
+  try { fs.unlinkSync(journalPath); } catch {}
+  return ledger;
 }
 
 function writeReceipt(paths, prompt, receipt) {
@@ -288,6 +378,7 @@ class OpenAIUltrafastPolicy {
     this.fetchImpl = options.fetchImpl || globalThis.fetch;
     this.now = options.now || (() => new Date());
     this.keychainRunner = options.keychainRunner;
+    this.retryOptions = options.retryOptions || {};
   }
 
   doctor() {
@@ -359,11 +450,14 @@ class OpenAIUltrafastPolicy {
     const maxOutputTokens = Math.max(1, Math.min(Number(options.maxOutputTokens) || 256, 2048));
     const reservation = reserveBudget(this.paths, prompt, maxOutputTokens, pricing, now);
     let body;
+    let dispatched = false;
+    let responseReceived = false;
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), Number(options.timeoutMs) || 45000);
       let response;
       try {
+        dispatched = true;
         response = await this.fetchImpl('https://api.openai.com/v1/responses', {
           method: 'POST',
           headers: {
@@ -379,6 +473,7 @@ class OpenAIUltrafastPolicy {
           }),
           signal: controller.signal,
         });
+        responseReceived = true;
       } finally {
         clearTimeout(timeout);
       }
@@ -390,10 +485,31 @@ class OpenAIUltrafastPolicy {
         throw error;
       }
     } catch (error) {
-      releaseReservation(this.paths, reservation, error.code || 'request-failed', this.now());
+      const ambiguousProviderOutcome = dispatched
+        && (!responseReceived || error.code !== 'OPENAI_REQUEST_FAILED');
+      const conservativeCostUsd = ambiguousProviderOutcome ? reservation.amountUsd : 0;
+      if (ambiguousProviderOutcome) {
+        finalizeWithRecovery(this.paths, reservation, {
+          serviceTier: null,
+          inputTokens: 0,
+          outputTokens: 0,
+          costUsd: conservativeCostUsd,
+          status: 'ambiguous-provider-outcome',
+        }, this.now(), this.retryOptions);
+      } else {
+        releaseReservation(
+          this.paths, reservation, error.code || 'request-rejected', this.now(), this.retryOptions,
+        );
+      }
       writeReceipt(this.paths, prompt, {
-        timestamp: this.now().toISOString(), status: 'failed', serviceTier: null,
-        inputTokens: 0, outputTokens: 0, costUsd: 0, errorCode: error.code || 'REQUEST_FAILED',
+        timestamp: this.now().toISOString(),
+        status: ambiguousProviderOutcome ? 'ambiguous-provider-outcome' : 'failed',
+        serviceTier: null,
+        inputTokens: 0,
+        outputTokens: 0,
+        costUsd: conservativeCostUsd,
+        exactServerTierConfirmed: false,
+        errorCode: error.code || 'REQUEST_FAILED',
       });
       throw error;
     }
@@ -407,9 +523,6 @@ class OpenAIUltrafastPolicy {
       };
     const usage = usageCost(body.usage, billingRates);
     const resultStatus = returnedTier === SERVICE_TIER ? 'confirmed' : 'tier-mismatch';
-    finalizeReservation(this.paths, reservation, {
-      ...usage, serviceTier: returnedTier, status: resultStatus,
-    }, this.now());
     const { safe, eventPath } = writeReceipt(this.paths, prompt, {
       timestamp: this.now().toISOString(),
       status: resultStatus,
@@ -421,6 +534,9 @@ class OpenAIUltrafastPolicy {
       costUsd: usage.costUsd,
       exactServerTierConfirmed: returnedTier === SERVICE_TIER,
     });
+    finalizeWithRecovery(this.paths, reservation, {
+      ...usage, serviceTier: returnedTier, status: resultStatus,
+    }, this.now(), this.retryOptions);
     if (returnedTier !== SERVICE_TIER) {
       const error = new Error(`server returned service_tier=${returnedTier || 'missing'}; Ultrafast is not proven`);
       error.code = 'ULTRAFAST_NOT_CONFIRMED';

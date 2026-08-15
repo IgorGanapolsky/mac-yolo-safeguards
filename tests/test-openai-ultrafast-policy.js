@@ -48,6 +48,8 @@ async function run() {
       });
       assert.strictEqual(classifyTask('urgent typo in readme').eligible, false);
       assert.strictEqual(classifyTask('urgent production logs contain a private API key').route, 'local');
+      assert.strictEqual(classifyTask('Urgent production logs include sk-proj-abcdefghijklmnop1234').route, 'local');
+      assert.strictEqual(classifyTask('Urgent checkout incident for card 4242 4242 4242 4242').route, 'local');
     });
 
     await check('never treats ChatGPT OAuth tokens as an API key', () => {
@@ -145,6 +147,84 @@ async function run() {
       assert(!serialized.includes(prompt));
       assert(!serialized.includes('test-key'));
       assert.strictEqual(policy.doctor().status, 'READY_CONFIRMED');
+    });
+
+    await check('charges the conservative reservation after an ambiguous network failure', async () => {
+      const ambiguousHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ultrafast-ambiguous-test-'));
+      const ambiguousPaths = defaultPaths(ambiguousHome);
+      try {
+        const policy = new OpenAIUltrafastPolicy({
+          env: {
+            OPENAI_API_KEY: 'test-key',
+            OPENAI_ULTRAFAST_INPUT_USD_PER_M: '10',
+            OPENAI_ULTRAFAST_OUTPUT_USD_PER_M: '60',
+          },
+          paths: ambiguousPaths,
+          now: () => NOW,
+          keychainRunner: null,
+          fetchImpl: async () => {
+            const error = new Error('connection reset after dispatch');
+            error.code = 'ECONNRESET';
+            throw error;
+          },
+        });
+        await assert.rejects(
+          () => policy.execute('Urgent production incident: analyze logs now', { maxOutputTokens: 8 }),
+          (error) => error.code === 'ECONNRESET',
+        );
+        const status = budgetStatus(ambiguousPaths, NOW);
+        assert(status.ultrafastSpentUsd >= 0.01);
+        assert.strictEqual(status.reservedUsd, 0);
+        assert.strictEqual(status.pendingChargeUsd, 0);
+        const receipt = JSON.parse(fs.readFileSync(path.join(ambiguousPaths.receipts, 'latest.json'), 'utf8'));
+        assert.strictEqual(receipt.status, 'ambiguous-provider-outcome');
+        assert(receipt.costUsd >= 0.01);
+      } finally {
+        fs.rmSync(ambiguousHome, { recursive: true, force: true });
+      }
+    });
+
+    await check('retries ledger contention after a billed response without losing spend', async () => {
+      const retryHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ultrafast-retry-test-'));
+      const retryPaths = defaultPaths(retryHome);
+      let retries = 0;
+      try {
+        const policy = new OpenAIUltrafastPolicy({
+          env: {
+            OPENAI_API_KEY: 'test-key',
+            OPENAI_ULTRAFAST_INPUT_USD_PER_M: '10',
+            OPENAI_ULTRAFAST_OUTPUT_USD_PER_M: '60',
+          },
+          paths: retryPaths,
+          now: () => NOW,
+          keychainRunner: null,
+          retryOptions: {
+            attempts: 3,
+            wait: () => {},
+            onRetry: () => {
+              retries += 1;
+              fs.unlinkSync(retryPaths.lock);
+            },
+          },
+          fetchImpl: async () => {
+            fs.writeFileSync(retryPaths.lock, 'competing-writer');
+            return fakeResponse({
+              id: 'resp_retry', model: 'gpt-5.6-sol', service_tier: 'ultrafast',
+              output_text: 'confirmed', usage: { input_tokens: 20, output_tokens: 2 },
+            });
+          },
+        });
+        const result = await policy.execute(
+          'Urgent production incident: analyze logs now', { maxOutputTokens: 8 },
+        );
+        assert.strictEqual(result.receipt.exactServerTierConfirmed, true);
+        assert.strictEqual(retries, 1);
+        const status = budgetStatus(retryPaths, NOW);
+        assert(status.ultrafastSpentUsd > 0);
+        assert.strictEqual(status.pendingChargeUsd, 0);
+      } finally {
+        fs.rmSync(retryHome, { recursive: true, force: true });
+      }
     });
 
     await check('rejects a successful response that was downgraded to Standard', async () => {
