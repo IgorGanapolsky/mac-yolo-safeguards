@@ -1,0 +1,7 @@
+#!/usr/bin/env node
+'use strict';
+
+const { printSeedanceResult, runSeedanceCommand } = require('../tools/seedance-video-engine');
+
+const result = runSeedanceCommand(process.argv.slice(2));
+process.exit(printSeedanceResult(result));
