@@ -2936,3 +2936,32 @@ CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, too
 ### Decision
 - Hybrid default paid route = `glm52_reasoning` (not fictional cloud_general); candidates must match hermes-economic-router ROUTES.
 - Skip ROCm/Instinct bulk install on Apple Silicon.
+
+## OTA freeze clock (append 2026-08-15T17:20:00Z) — agent `grok-ota-freeze-clock-20260815`
+
+### Task
+| T-OTA-FREEZE-CLOCK-20260815 | Pin Expo billing-freeze Jest to an injected clock so required mobile CI does not expire with `OTA_BILLING_FREEZE_UNTIL_MS` | in_progress | grok-ota-freeze-clock-20260815 | `hermes-mobile/src/__tests__/useOtaUpdateBanner.test.ts` (freeze-clock only), `hermes-mobile/src/__tests__/appOtaUpdate.test.ts` (freeze-clock only), `docs/agents/shipping-and-hygiene.md`, `plan.md` | Fail-then-pass the 3 calendar-expired freeze tests; do not bump the floor date; no Expo OTA |
+
+### Stale-lock reclaim (evidence, then claim)
+- `cursor-ota-banner-safe-area` claimed these freeze tests on 2026-07-23T19:50:57Z. Age ~23d. No `origin` branch matching `ota-banner`/`billing-freeze`. No open PR. No OTA worktree. Vault `cursor.md` last_verified 2026-07-23. Issue #1751 is the live outage.
+- Reclaim **only** the two failing test files + this hygiene note. Do **not** take banner UI, `otaClientPromptPolicy.ts`, `app.config.js`, `mobile-ota.yml`, or the shared-tree uncommitted date-kick to 2026-09-01.
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| hermes-mobile/src/__tests__/useOtaUpdateBanner.test.ts (freeze Date.now pin only) | grok-ota-freeze-clock-20260815 | 2026-08-15T17:20:00Z |
+| hermes-mobile/src/__tests__/appOtaUpdate.test.ts (freeze Date.now pin only) | grok-ota-freeze-clock-20260815 | 2026-08-15T17:20:00Z |
+| docs/agents/shipping-and-hygiene.md | grok-ota-freeze-clock-20260815 | 2026-08-15T17:20:00Z |
+| plan.md | grok-ota-freeze-clock-20260815 | 2026-08-15T17:20:00Z |
+
+### Decision
+- D-2026-08-15-ota-freeze-clock: required CI must not depend on wall-clock vs `OTA_BILLING_FREEZE_UNTIL_MS`. Freeze-path tests pin `Date.now` to `OTA_BILLING_FREEZE_UNTIL_MS - 1`. Production floor date stays `2026-08-15T00:00Z` (documented thaw). Publishing remains gated by `require-expo-billing-thaw.sh`.
+
+- `hermes-mobile/src/__tests__/appOtaUpdate.test.ts` → **released by cursor-ota-banner-safe-area** (stale 23d; no origin branch/PR/worktree; vault cursor.md 2026-07-23; issue #1751) (2026-08-15T17:20:00Z)
+- `hermes-mobile/src/__tests__/appOtaUpdate.test.ts` → **released by cursor-ota-isenabled** (task done via #519; leftover lock) (2026-08-15T17:20:00Z)
+- `hermes-mobile/src/__tests__/appOtaUpdate.test.ts` → **released by cursor** (stale leftover) (2026-08-15T17:20:00Z)
+- `hermes-mobile/src/__tests__/appOtaUpdate.test.ts` → **released by codex** (stale leftover) (2026-08-15T17:20:00Z)
+- `hermes-mobile/src/__tests__/useOtaUpdateBanner.test.ts` → **released by cursor-ota-banner-safe-area** (stale 23d; no origin branch/PR/worktree; issue #1751) (2026-08-15T17:20:00Z)
+- `hermes-mobile/src/__tests__/useOtaUpdateBanner.test.ts` → **released by codex** (stale leftover) (2026-08-15T17:20:00Z)
+- `hermes-mobile/src/__tests__/appOtaUpdate.test.ts` → **grok-ota-freeze-clock-20260815** (T-OTA-FREEZE-CLOCK-20260815: pin Date.now in freeze-path tests only) (2026-08-15T17:20:00Z)
+- `hermes-mobile/src/__tests__/useOtaUpdateBanner.test.ts` → **grok-ota-freeze-clock-20260815** (T-OTA-FREEZE-CLOCK-20260815: pin Date.now in freeze-path tests only) (2026-08-15T17:20:00Z)
