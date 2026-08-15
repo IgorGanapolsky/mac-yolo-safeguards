@@ -1,0 +1,55 @@
+#!/usr/bin/env node
+'use strict';
+
+/**
+ * bin/sac-fleet — Fleet Search-as-Code CLI
+ *
+ *   sac-fleet doctor
+ *   sac-fleet search "query" --fanout --rerank --compact
+ *   sac-fleet run ./workflow.js
+ *   sac-fleet install
+ *   sac-fleet benchmark
+ *   sac-fleet cost
+ *   sac-fleet recollect --query "focus"
+ */
+
+const path = require('path');
+const { spawnSync } = require('child_process');
+
+const ROOT = path.resolve(__dirname, '..');
+const FLEET = path.join(ROOT, 'tools', 'sac-fleet.js');
+const WANDR = path.join(ROOT, 'tools', 'sac-fleet-wandr.js');
+
+function help() {
+  process.stdout.write(`
+Search-as-Code fleet — programmable retrieval (Perplexity SaC + 10% cost cut)
+
+Usage:
+  sac-fleet doctor [--json]
+  sac-fleet search "<query>" [--fanout] [--rerank] [--compact] [--offline] [--json]
+  sac-fleet run <script.js> [--json]
+  sac-fleet install [--json]
+  sac-fleet benchmark [--json]
+  sac-fleet cost ["<query>"] [--json]
+  sac-fleet recollect --query "<focus>" [--json]
+  sac-fleet brief [--json]
+`);
+}
+
+function main() {
+  const argv = process.argv.slice(2);
+  if (!argv.length || argv.includes('-h') || argv.includes('--help')) {
+    help();
+    return;
+  }
+  const cmd = argv[0];
+  const rest = argv.slice(1);
+  if (cmd === 'benchmark') {
+    const res = spawnSync(process.execPath, [WANDR, '--benchmark', ...rest], { stdio: 'inherit' });
+    process.exit(res.status === null ? 1 : res.status);
+  }
+  const res = spawnSync(process.execPath, [FLEET, cmd, ...rest], { stdio: 'inherit' });
+  process.exit(res.status === null ? 1 : res.status);
+}
+
+main();

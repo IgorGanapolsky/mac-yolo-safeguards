@@ -466,6 +466,19 @@ if (!json) {
   }
 }
 
+{
+  try {
+    const { printSacFleetBrief } = require('./sac-fleet');
+    if (!json) {
+      process.stdout.write(`\n${printSacFleetBrief({ repoRoot: REPO })}\n`);
+    }
+  } catch {
+    if (!json) {
+      process.stdout.write('\n=== Search-as-Code fleet ===\nWARN tools/sac-fleet.js unavailable\n');
+    }
+  }
+}
+
 const briefArgs = ['tools/ceo-operating-brief.js'];
 if (json) briefArgs.push('--json');
 if (full) briefArgs.push('--full');
