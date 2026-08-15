@@ -2,31 +2,42 @@
 'use strict';
 
 /**
- * system-wide-harness.js — Master Harness & System-Wide Integration Suite
- * -----------------------------------------------------------------------
- * Unifies all 7 high-ROI engines into one production harness with $10/mo budget:
+ * system-wide-harness.js — Ona-Enterprise Cloud Agent Integration Suite
+ * ----------------------------------------------------------------------
+ * Inspired by Ona's OpenAI acquisition mandate: 80% of workloads to Cloud Agents.
+ * 
+ * Enterprise Cloud Agent Infrastructure:
  *   1. Real-Time Web Intelligence Gateway (web-intelligence-gateway)
  *   2. GitHub Copilot SDK Bridge (copilot-sdk-bridge)
  *   3. Zero-Cost Real-Time Voice Engine (hermes-voice-engine)
  *   4. Local Work Memory Engine (work-memory-engine)
- *   5. Perplexity Search-as-Code SDK (sac-engine) - Programmable agentic search with token compaction
- *   6. OpenAI Ultrafast Tier (openai-ultrafast-harness) - GPT-5.6 Sol at 750 tokens/sec
- *   7. Seed-Yolo Intelligent Router (seed-yolo-intelligent-router) - Auto-routing to GLM-5.3 for security
+ *   5. Perplexity Search-as-Code SDK (sac-engine) - Programmable agentic search
+ *   6. OpenAI Ultrafast Tier (openai-ultrafast-harness) - GPT-5.6 Sol @ 750 tok/sec
+ *   7. Seed-Yolo Intelligent Router - Auto-routing to optimal model
+ *   8. GLM-5.3 Cyber Defence Engine - Security-focused agent workflows
  *
- * Budget Enforcement:
- *   - $10.00/month cap across all paid routes
+ * Ona Mandate Alignment:
+ *   - Proactively running workloads with $10/mo budget guard
+ *   - Secure, customer-controlled agent environments
+ *   - Staying connected to day-to-day enterprise operations
+ *   - Accelerating feedback cycles between reality and product
+ *
+ * Budget Enforcement ($10/mo cap):
  *   - Auto-fallback to zero-cost models (GLM-5.3, Grok 4.5, Ollama) when exhausted
+ *   - Daily burn rate tracking ($0.33/day target)
+ *   - Persistent spend tracking in ~/.hermes/openai-ultrafast-spend.json
  *
  * Usage:
- *   node tools/system-wide-harness.js --doctor
- *   node tools/system-wide-harness.js --budget-status
- *   node tools/system-wide-harness.js --json
- *   node tools/system-wide-harness.js --sac-search "query"
+ *   node tools/system-wide-harness.js --doctor              # Full system health
+ *   node tools/system-wide-harness.js --budget-status       # $10/mo budget pacing
+ *   node tools/system-wide-harness.js --cloud-agent "task"  # Enterprise agent workflow
+ *   node tools/system-wide-harness.js --security-triage "issue"  # Vulnerability response
  */
 
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const crypto = require('crypto');
 
 const REPO = path.resolve(__dirname, '..');
 
@@ -36,8 +47,10 @@ const voiceEngine = require('./hermes-voice-engine');
 const workMemory = require('./work-memory-engine');
 const { AgenticSearchSDK, SaCSandboxRunner, ContextCompactor, runDoctor: sacDoctor } = require('./sac-engine');
 const { OpenAIUltrafastHarness } = require('./openai-ultrafast-harness');
+const { GLM53CyberDefenceEngine } = require('./glm53-cyber-defence-engine');
 const { classifyPrompt: seedClassifyPrompt, selectOptimalModel: seedSelectRoute } = require('./seed-yolo-intelligent-router');
 const { runTriage, runDoctor: triageDoctor } = require('./security-ai-triage-harness');
+const { OnaCloudAgentEngine } = require('./ona-cloud-agent-engine');
 
 const MONTHLY_BUDGET_USD = 10.00;
 
@@ -47,8 +60,12 @@ function runSystemWideDiagnostic() {
   const voiceDoc = voiceEngine.runDoctor();
   const memoryDoc = workMemory.runDoctor();
   const sacDoc = sacDoctor();
+  const glm53Engine = new GLM53CyberDefenceEngine();
+  const glm53Doc = glm53Engine.getDoctor();
   const ultrafastHarness = new OpenAIUltrafastHarness({ monthlyBudgetCapUsd: MONTHLY_BUDGET_USD });
   const ultrafastDoctor = ultrafastHarness.getDoctor();
+  const onaEngine = new OnaCloudAgentEngine({ monthlyBudgetCapUsd: MONTHLY_BUDGET_USD });
+  const onaDoc = onaEngine.getDoctor();
   const seedDoctor = {
     service: 'seed-yolo-intelligent-router',
     status: 'READY',
@@ -62,7 +79,8 @@ function runSystemWideDiagnostic() {
     copilotDoc.status === 'READY' &&
     voiceDoc.status === 'READY' &&
     memoryDoc.status === 'READY' &&
-    sacDoc.status === 'READY';
+    sacDoc.status === 'READY' &&
+    onaDoc.status === 'READY';
 
   return {
     harness: 'system-wide-harness',
@@ -79,7 +97,9 @@ function runSystemWideDiagnostic() {
       hermesVoiceEngine: voiceDoc,
       workMemoryEngine: memoryDoc,
       searchAsCode: sacDoc,
+      glm53CyberDefence: glm53Doc,
       openaiUltrafast: ultrafastDoctor,
+      onaCloudAgents: onaDoc,
       seedYoloIntelligentRouter: seedDoctor,
     },
   };
@@ -95,19 +115,23 @@ function parseArgs(argv) {
     budgetStatus: false,
     seedRoute: null,
     securityTriage: null,
+    cloudAgent: null,
+    incidentResponse: null,
   };
   for (const arg of argv) {
     if (arg === '--doctor') args.doctor = true;
     if (arg === '--catch-up') args.catchUp = true;
     if (arg === '--json') args.json = true;
   }
-  // Parse SaC arguments
+  // Parse arguments
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--sac-search' && argv[i + 1]) args.sacSearch = argv[++i];
     if (argv[i] === '--sac-script' && argv[i + 1]) args.sacScript = argv[++i];
     if (argv[i] === '--budget-status') args.budgetStatus = true;
     if (argv[i] === '--seed-route' && argv[i + 1]) args.seedRoute = argv[++i];
     if (argv[i] === '--security-triage' && argv[i + 1]) args.securityTriage = argv[++i];
+    if (argv[i] === '--cloud-agent') args.cloudAgent = argv.slice(i + 1).join(' ');
+    if (argv[i] === '--incident-response' && argv[i + 1]) args.incidentResponse = argv[++i];
   }
   return args;
 }
@@ -152,6 +176,55 @@ function main() {
     const result = runTriage({ option: 'triage', issue: args.securityTriage });
     console.log(JSON.stringify(result, null, 2));
     process.exit(0);
+    return;
+  }
+
+  // Cloud Agent Enterprise Workflow Mode (Ona/OpenAI mandate)
+  if (args.cloudAgent) {
+    const { OpenAIUltrafastHarness } = require('./openai-ultrafast-harness');
+    const ultrafastHarness = new OpenAIUltrafastHarness({ monthlyBudgetCapUsd: MONTHLY_BUDGET_USD });
+    const doctor = ultrafastHarness.getDoctor();
+    const budget = doctor.budgetGuard;
+    
+    if (!budget.allowPaid) {
+      console.error(JSON.stringify({
+        error: 'BUDGET_EXHAUSTED',
+        message: 'Cloud Agent mode requires $10/mo budget. Fall back to --local-agent or rest tomorrow.',
+        fallback: 'glm-5.3-cyber-defence'
+      }, null, 2));
+      process.exit(89);
+    }
+    
+    const payload = ultrafastHarness.buildUltrafastPayload(args.cloudAgent);
+    console.log(JSON.stringify({
+      cloudAgent: true,
+      plan: payload,
+      budget: budget,
+      runId: crypto.randomUUID(),
+      timestamp: new Date().toISOString(),
+    }, null, 2));
+    process.exit(0);
+    return;
+  }
+
+  // Incident Response Mode (Rubrik Mythos-inspired security triage)
+  if (args.incidentResponse) {
+    const result = runTriage({
+      option: 'triage',
+      issue: args.incidentResponse,
+    });
+    console.log(JSON.stringify({
+      incidentResponse: true,
+      triage: result,
+      nextActions: result.findings.map(f => ({
+        id: f.id,
+        severity: f.severity,
+        cvss: f.cvss,
+        recommendation: f.recommendation,
+        requiresHumanReview: f.severity === 'CRITICAL',
+      })),
+    }, null, 2));
+    process.exit(result.status === 'TRIAGE_COMPLETE' ? 0 : 1);
     return;
   }
 
@@ -204,8 +277,16 @@ function main() {
   }
 
   const diag = runSystemWideDiagnostic();
-  console.log(`[system-wide-harness] System-Wide Harness Ready. Status: ${diag.overallStatus}`);
-  console.log('Use --doctor, --catch-up, --json, --sac-search "query", or --sac-script path for full diagnostics.');
+  console.log(`[system-wide-harness] Ona-Enterprise Cloud Agent Infrastructure Ready.`);
+  console.log(`  Status: ${diag.overallStatus}`);
+  console.log(`  Budget: $${diag.budget.monthlyCapUsd}/mo cap | $${diag.budget.ultrafastBudgetUsd} spent | ${diag.budget.ultrafastStatus}`);
+  console.log('\nEnterprise Cloud Agent Options:');
+  console.log('  --cloud-agent "task description"    Run as Cloud Agent (Ultrafast, $10/mo budget)');
+  console.log('  --incident-response "vulnerability"   Security triage & incident response');
+  console.log('  --security-triage "issue"             Vulnerability classification');
+  console.log('  --seed-route "prompt"                 Intelligent model routing recommendation');
+  console.log('  --budget-status                       Show $10/mo burn rate');
+  console.log('Use --doctor --json for full diagnostics.');
 }
 
 if (require.main === module) main();
