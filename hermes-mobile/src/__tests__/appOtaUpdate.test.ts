@@ -18,6 +18,7 @@ import {
   getOtaDiagnostics,
   isOtaUpdatesEnabled,
 } from '../services/appOtaUpdate';
+import { OTA_BILLING_FREEZE_UNTIL_MS } from '../utils/otaClientPromptPolicy';
 
 describe('appOtaUpdate', () => {
   const prevThaw = process.env.EXPO_PUBLIC_OTA_BILLING_THAW;
@@ -37,6 +38,9 @@ describe('appOtaUpdate', () => {
   afterEach(() => {
     if (prevThaw === undefined) delete process.env.EXPO_PUBLIC_OTA_BILLING_THAW;
     else process.env.EXPO_PUBLIC_OTA_BILLING_THAW = prevThaw;
+    if (jest.isMockFunction(Date.now)) {
+      (Date.now as jest.Mock).mockRestore();
+    }
   });
 
   it('treats channel+runtime as enabled when Updates.isEnabled is falsely false', () => {
@@ -144,6 +148,7 @@ describe('appOtaUpdate', () => {
     delete process.env.EXPO_PUBLIC_OTA_BILLING_THAW;
     delete process.env.HERMES_OTA_BILLING_THAW;
     delete process.env.EXPO_PUBLIC_OTA_CLIENT_PROMPTS;
+    jest.spyOn(Date, 'now').mockReturnValue(OTA_BILLING_FREEZE_UNTIL_MS - 1);
 
     await expect(checkForAppUpdate()).resolves.toEqual({
       status: 'disabled',

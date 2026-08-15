@@ -68,3 +68,5 @@ Agents must not claim Security tab clean without live `gh` open count on **main*
 - **Unresolved review threads block merge even when all 7 required checks are green** (seen on #1688).
 - `gh pr update-branch` under `strict:true` restarts the matrix — wait for re-green before claiming merge-ready.
 - Prefer `gh pr merge --auto --squash`. Close theater/superseded PRs with explicit successor PR SHA.
+- **Never say "Done merging PRs"** unless `gh pr view --json state,mergeCommit` shows `MERGED` plus a merge SHA. Auto-merge armed is not merged. A wall of `BLOCKED` PRs with GitHub Actions operational is usually a required check red on `origin/main`, not a missing-context outage.
+- **Calendar-dated required Jest is a merge-queue outage.** Freeze-path tests must pin `Date.now` (or pass `nowMs`) inside `OTA_BILLING_FREEZE_UNTIL_MS`. Do not kick the floor date as the only fix. Issue #1751 (2026-08-15): three Expo billing-freeze tests failed on `main` after `2026-08-15T00:00Z` and blocked every PR.
