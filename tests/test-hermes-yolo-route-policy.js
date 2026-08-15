@@ -85,6 +85,23 @@ function testLongContextUsesK3Membership() {
   assert.strictEqual(r.model, 'kimi-code-k3');
 }
 
+function testCyberUsesGlmWhenPreferred() {
+  const r = selectRoute({
+    task: 'security audit for CyberGym vulnerabilities',
+    env: { ...CLEAN, HERMES_PREFER_GLM53_CYBER: '1' },
+  });
+  assert.strictEqual(r.model, 'glm-coding', r.reason);
+  assert.ok(r.signals.cyber);
+}
+
+function testCyberDoesNotStealDefaultCoding() {
+  const r = selectRoute({
+    task: 'implement the login form validation',
+    env: { ...CLEAN, HERMES_PREFER_GLM53_CYBER: '1' },
+  });
+  assert.strictEqual(r.model, 'grok-4.5', r.reason);
+}
+
 function testCommandEnv() {
   const env = commandEnv(ROUTES.coding);
   assert.strictEqual(env.HERMES_YOLO_MODEL, 'grok-4.5');
@@ -112,6 +129,8 @@ function main() {
   testStaleGlmPinIgnored();
   testForceGlmPin();
   testLongContextUsesK3Membership();
+  testCyberUsesGlmWhenPreferred();
+  testCyberDoesNotStealDefaultCoding();
   testCommandEnv();
   testPolicyVersionConsistent();
   console.log('test-hermes-yolo-route-policy: ok');
