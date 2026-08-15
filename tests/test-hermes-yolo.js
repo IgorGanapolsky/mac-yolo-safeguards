@@ -121,17 +121,22 @@ assert.deepStrictEqual(buildGrokBackendEnv({
   GROK_CLAUDE_MCPS_ENABLED: 'true',
 });
 assert.deepStrictEqual(classifyBackend(['fix', 'the', 'bug'], {}, noGrok), {
-  requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'auto-hermes-fallback',
+  requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'auto-hermes-quality',
 });
-// SuperGrok Heavy / grok.com OAuth ready → auto uses grok-4.5 (underuse fix 2026-08-04)
+// auto prefers Hermes quality route (anti-gibberish 2026-08-13); SuperGrok is opt-in
 assert.deepStrictEqual(classifyBackend(['fix', 'the', 'bug'], {}, { grokReady: true }), {
-  requestedBackend: 'auto', selectedBackend: 'grok-4.5', reason: 'auto-supergrok-ready',
+  requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'auto-hermes-quality',
 });
-assert.strictEqual(shouldUseGrokBackend(['fix'], {}, { grokReady: true }), true);
-// Force hermes even when grok would be ready
+assert.strictEqual(shouldUseGrokBackend(['fix'], {}, { grokReady: true }), false);
+// Explicit force SuperGrok when doctor is green
+assert.deepStrictEqual(
+  classifyBackend(['fix'], { HERMES_YOLO_FORCE_GROK: '1' }, { grokReady: true }),
+  { requestedBackend: 'auto', selectedBackend: 'grok-4.5', reason: 'force-supergrok' },
+);
+// Force hermes still works
 assert.deepStrictEqual(
   classifyBackend(['fix'], { HERMES_YOLO_FORCE_HERMES: '1' }, { grokReady: true }),
-  { requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'auto-hermes-fallback' },
+  { requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'auto-hermes-quality' },
 );
 assert.deepStrictEqual(classifyBackend(['doctor'], {}, noGrok), {
   requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'hermes-admin-command',
@@ -634,7 +639,7 @@ try {
   const storedRoute = JSON.parse(fs.readFileSync(path.join(fallbackReceiptRoot, 'latest.json'), 'utf8'));
   assert.strictEqual(storedRoute.route.requestedBackend, 'auto');
   assert.strictEqual(storedRoute.route.selectedBackend, 'hermes-legacy');
-  assert.strictEqual(storedRoute.route.reason, 'auto-hermes-fallback');
+  assert.strictEqual(storedRoute.route.reason, 'auto-hermes-quality');
   assert.strictEqual(storedRoute.execution.status, 'pass');
 } finally {
   for (const filePath of [exhaustedGrokPath, fakeHermesPath, grokInvocationSentinel, fallbackLockPath]) {
