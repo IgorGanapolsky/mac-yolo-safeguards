@@ -2930,3 +2930,21 @@ CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, too
 ### Decision
 - Hybrid default paid route = `glm52_reasoning` (not fictional cloud_general); candidates must match hermes-economic-router ROUTES.
 - Skip ROCm/Instinct bulk install on Apple Silicon.
+
+
+## OpenAI Ultrafast fleet persist (append 2026-08-15T14:32:00Z) — agent `grok-openai-ultrafast-fleet-20260815`
+
+Complementary to Codex `T-OPENAI-ULTRAFAST-POLICY-20260815` / PR #1743 (`ultrafast-yolo`). This lane owns persist + opt-in routing only. Does **not** edit `tools/openai-ultrafast-policy.js`, `bin/ultrafast-yolo`, or `.agents/skills/openai-ultrafast-policy/**`.
+
+### Task
+| T-OPENAI-ULTRAFAST-FLEET-20260815 | Persist OpenAI Ultrafast (GPT-5.6 Sol + service_tier=ultrafast) system-wide as OPT-IN at $10/mo; never default jcode/hermes-yolo to Sol | in_progress | grok-openai-ultrafast-fleet-20260815 | `tools/openai-ultrafast-fleet.js`, `tests/test-openai-ultrafast-fleet.js`, `bin/ultrafast-fleet`, `.agents/skills/openai-ultrafast-fleet/**`, `plan.md`, `SKILLS.md` (append row only) | persist zsh/launchd/hermes env; doctor OPT_IN_ONLY; route default=GLM; $10 fail-closed; no live spend |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/openai-ultrafast-fleet.js | grok-openai-ultrafast-fleet-20260815 | 2026-08-15T14:32:00Z |
+| tests/test-openai-ultrafast-fleet.js | grok-openai-ultrafast-fleet-20260815 | 2026-08-15T14:32:00Z |
+| bin/ultrafast-fleet | grok-openai-ultrafast-fleet-20260815 | 2026-08-15T14:32:00Z |
+| .agents/skills/openai-ultrafast-fleet/** | grok-openai-ultrafast-fleet-20260815 | 2026-08-15T14:32:00Z |
+| SKILLS.md (append row only) | grok-openai-ultrafast-fleet-20260815 | 2026-08-15T14:32:00Z |
+| plan.md (this append) | grok-openai-ultrafast-fleet-20260815 | 2026-08-15T14:32:00Z |
