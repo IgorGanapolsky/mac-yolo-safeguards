@@ -23,10 +23,23 @@ Fail closed at **$10.00/month**. Coding Plan spend is **not** written there.
 ```bash
 bin/zai-glm53 doctor --json
 bin/zai-glm53 install
+bin/zai-glm53 system --json         # launchd + zshrc + OpenCode provider
+bin/zai-glm53 cyber "security audit" --json
 bin/zai-glm53 probe --json          # live Coding Plan; never prints the key
 bin/zai-glm53 probe-gateway --json  # :4010 glm-coding
 bin/zai-glm53 budget --json
 ```
+
+## System-wide (this Mac, user domain)
+
+| Surface | What is set |
+|---------|-------------|
+| `com.igor.zai-glm53-env` | `HERMES_TOKEN_BUDGET_USD=10`, `HERMES_GLM_MODEL=glm-5.3`, `HERMES_PREFER_GLM53_CYBER=1` |
+| `~/.zshrc` / `~/.zprofile` | same exports (marked block, idempotent) |
+| OpenCode | adds `provider.hermes` → `:4010` `glm-5.3` / `glm-coding`; does **not** change the default model |
+| hermes-yolo policy | cyber/audit tasks → `glm-coding` only when `HERMES_PREFER_GLM53_CYBER=1` |
+
+SuperGrok stays the default interactive coder. GLM-5.3 is the CyberGym / audit rail (SCMP 2026-08-14) on the already-paid Coding Plan.
 
 ## Proof
 

@@ -9,7 +9,9 @@ const budget = require('../zai-api-budget-guard');
 const { ROUTES, classifyRoute } = require('../zai-glm53-fleet');
 
 function shouldPreferCodingPlan(task = '') {
-  return /\bglm\b|z\.?ai|coding plan|glm-5\.3|glm-coding/i.test(String(task));
+  return /\bglm\b|z\.?ai|coding plan|glm-5\.3|glm-coding|cyber|cybergym|vulnerability|security audit/i.test(
+    String(task),
+  );
 }
 
 function wrapPayload(payload = {}, task = '') {

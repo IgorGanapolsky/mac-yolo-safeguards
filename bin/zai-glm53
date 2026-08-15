@@ -6,6 +6,7 @@ const { spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const FLEET = path.join(ROOT, 'tools', 'zai-glm53-fleet.js');
+const SYSTEM = path.join(ROOT, 'tools', 'zai-glm53-systemwide.js');
 
 function help() {
   process.stdout.write(`
@@ -14,6 +15,8 @@ GLM-5.3 fleet — Coding Plan first, $10/mo metered API cap
 Usage:
   zai-glm53 doctor [--json]
   zai-glm53 install [--json]
+  zai-glm53 system [--json]          persist launchd + shell + OpenCode
+  zai-glm53 cyber "<task>" [--json]  CyberGym/audit → Coding Plan, never metered
   zai-glm53 probe [--json]
   zai-glm53 probe-gateway [--json]
   zai-glm53 route "<task>" [--json]
@@ -27,7 +30,10 @@ function main() {
     help();
     return;
   }
-  const res = spawnSync(process.execPath, [FLEET, ...argv], { stdio: 'inherit' });
+  const cmd = argv[0];
+  const target = cmd === 'system' || cmd === 'cyber' ? SYSTEM : FLEET;
+  const rest = cmd === 'system' ? ['install', ...argv.slice(1)] : argv;
+  const res = spawnSync(process.execPath, [target, ...rest], { stdio: 'inherit' });
   process.exit(res.status === null ? 1 : res.status);
 }
 

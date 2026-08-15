@@ -16,6 +16,8 @@ to 5.3.
 ```bash
 bin/zai-glm53 doctor --json
 bin/zai-glm53 install
+bin/zai-glm53 system --json
+bin/zai-glm53 cyber "security audit" --json
 bin/zai-glm53 probe --json
 bin/zai-glm53 budget --json
 ```
@@ -42,5 +44,7 @@ bin/zai-glm53 budget --json
 - `hermes-yolo` → `HERMES_YOLO_MODEL=glm-coding` via LiteLLM `:4010` (5.2 id auto-routes)
 - Metered alias `zai-glm53-metered` is budget-gated, never default
 - Claude / Cline / OpenCode: source `~/.hermes/glm53-claude.env` (`glm-5.3[1m]`)
+- System-wide persist: LaunchAgent `com.igor.zai-glm53-env`, `~/.zshrc` marked block, OpenCode `provider.hermes` (does not steal muse-spark default)
+- Cyber/audit (`HERMES_PREFER_GLM53_CYBER=1`) → `glm-coding` Coding Plan, never metered
 
 Docs: `docs/ZAI-GLM53-FLEET.md`
