@@ -22,7 +22,6 @@ INJECTION_PATTERNS = [
     re.compile(r"ignore\s+previous\s+instructions", re.I),
     re.compile(r"system\s+prompt:", re.I),
     re.compile(r"you\s+are\s+now\s+a", re.I),
-    re.compile(r"<script[\s\S]*?>[\s\S]*?</script>", re.I),
     re.compile(r"javascript:", re.I),
     re.compile(r"eval\(", re.I),
     re.compile(r"document\.cookie", re.I),

@@ -28,6 +28,7 @@ const os = require('os');
 const vm = require('vm');
 const crypto = require('crypto');
 const { spawnSync } = require('child_process');
+const { stripHtml } = require('./lib/safe-html-strip');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const DEFAULT_STATE_DIR = path.join(os.homedir(), '.hermes', 'sac-state');
@@ -37,7 +38,6 @@ const INJECTION_PATTERNS = [
   /ignore\s+previous\s+instructions/i,
   /system\s+prompt:/i,
   /you\s+are\s+now\s+a/i,
-  /<script[\s\S]*?>[\s\S]*?<\/script>/gi,
   /javascript:/i,
   /eval\(/i,
   /document\.cookie/i,
@@ -76,8 +76,9 @@ function tokenize(text) {
 }
 
 function sanitizeContent(rawText, sourceUrl = '') {
-  let cleaned = String(rawText || '');
-  let sanitizations = 0;
+  const stripped = stripHtml(rawText);
+  let cleaned = stripped;
+  let sanitizations = stripped !== String(rawText || '').replace(/\s+/g, ' ').trim() ? 1 : 0;
   for (const pattern of INJECTION_PATTERNS) {
     if (pattern.test(cleaned)) {
       cleaned = cleaned.replace(pattern, '[REDACTED_SECURITY_INTERDICTION]');
@@ -541,12 +542,8 @@ class AgenticSearchSDK {
             timeout: 7000,
           });
           if (res.status === 0 && res.stdout) {
-            const body = res.stdout
-              .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-              .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-              .replace(/<[^>]+>/g, ' ')
-              .replace(/\s+/g, ' ');
-            const sanitized = sanitizeContent(body.slice(0, 15000), url);
+            const body = stripHtml(res.stdout).slice(0, 15000);
+            const sanitized = sanitizeContent(body, url);
             out.push({
               url,
               status: 'ok',
@@ -607,6 +604,7 @@ class AgenticSearchSDK {
     const rows = records.map((rec) => {
       const vals = fields.map((f) =>
         String(rec[f] !== undefined ? rec[f] : '-')
+          .replace(/\\/g, '\\\\')
           .replace(/\|/g, '\\|')
           .replace(/\n+/g, ' ')
           .slice(0, 160),
