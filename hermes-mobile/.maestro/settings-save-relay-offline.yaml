@@ -1,0 +1,208 @@
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp:
+    stopApp: true
+- openLink: "hermes://settings"
+- runFlow:
+    when:
+      visible: "Open with"
+    commands:
+      - tapOn: "Hermes Mobile"
+      - runFlow:
+          when:
+            visible: "(?i)Always"
+          commands:
+            - tapOn: "(?i)Always"
+- runFlow:
+    when:
+      notVisible:
+        id: "SETTINGS"
+    commands:
+      - tapOn:
+          id: "tab-settings"
+- extendedWaitUntil:
+    visible:
+      id: "SETTINGS"
+    timeout: 20000
+
+# Developer Tools are absent in the installed production build, so demo mode
+# cannot short-circuit this path. Switch to Relay and assert native state.
+- scrollUntilVisible:
+    element:
+      id: "approval-relay-mode-switch"
+    direction: DOWN
+    timeout: 90000
+    speed: 90
+    visibilityPercentage: 50
+    centerElement: true
+- runFlow:
+    when:
+      visible:
+        id: "approval-relay-mode-switch"
+        checked: false
+    commands:
+      - tapOn:
+          id: "approval-relay-mode-switch"
+- assertVisible:
+    id: "approval-relay-mode-switch"
+    checked: true
+
+# Keep the phone online but route Relay health to a non-listening private address.
+# This exercises a stalled TCP path rather than airplane-mode's immediate rejection.
+- scrollUntilVisible:
+    element: "Cloud relay URL"
+    direction: DOWN
+    timeout: 30000
+    speed: 90
+    visibilityPercentage: 50
+    centerElement: true
+- tapOn:
+    text: "https://hermesmobile-cloud.fly.dev"
+    point: "95%,50%"
+- eraseText: 100
+- inputText: "http://10.255.255.1:81"
+- back
+- assertVisible: "http://10.255.255.1:81"
+
+# Make a semantically verifiable persisted change. Native Switch.checked survives
+# relaunch and is stronger evidence than a chip color.
+- scrollUntilVisible:
+    element:
+      id: "voice-start-with-voice-switch"
+    direction: DOWN
+    timeout: 90000
+    speed: 90
+    visibilityPercentage: 50
+    centerElement: true
+- runFlow:
+    when:
+      visible:
+        id: "voice-start-with-voice-switch"
+        checked: false
+    commands:
+      - tapOn:
+          id: "voice-start-with-voice-switch"
+- assertVisible:
+    id: "voice-start-with-voice-switch"
+    checked: true
+
+- scrollUntilVisible:
+    element:
+      id: "save-settings-button"
+    direction: DOWN
+    timeout: 90000
+    speed: 90
+    visibilityPercentage: 50
+    centerElement: true
+- tapOn:
+    id: "save-settings-button"
+- extendedWaitUntil:
+    notVisible: "SAVING CONFIG..."
+    timeout: 15000
+- assertVisible: "Success"
+- tapOn: "OK"
+
+- assertVisible: ".*Relay: disconnected.*"
+- takeScreenshot: "codex-pr28-save-complete"
+
+# Cold-process persistence proof.
+- killApp
+- launchApp
+- openLink: "hermes://settings"
+- runFlow:
+    when:
+      notVisible:
+        id: "SETTINGS"
+    commands:
+      - tapOn:
+          id: "tab-settings"
+- extendedWaitUntil:
+    visible:
+      id: "SETTINGS"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "voice-start-with-voice-switch"
+    direction: DOWN
+    timeout: 90000
+    speed: 90
+    visibilityPercentage: 50
+    centerElement: true
+- assertVisible:
+    id: "voice-start-with-voice-switch"
+    checked: true
+- takeScreenshot: "codex-pr28-persisted"
+
+# Restore the user's original screenshot state (Start with Voice off), while keeping
+# Relay mode unchanged because that is the reported production configuration.
+- tapOn:
+    id: "voice-start-with-voice-switch"
+- assertVisible:
+    id: "voice-start-with-voice-switch"
+    checked: false
+- scrollUntilVisible:
+    element: "Cloud relay URL"
+    direction: UP
+    timeout: 90000
+    speed: 90
+    visibilityPercentage: 50
+    centerElement: true
+- tapOn:
+    text: "http://10.255.255.1:81"
+    point: "95%,50%"
+- eraseText: 100
+- inputText: "https://hermesmobile-cloud.fly.dev"
+- back
+- assertVisible: "https://hermesmobile-cloud.fly.dev"
+- scrollUntilVisible:
+    element:
+      id: "save-settings-button"
+    direction: DOWN
+    timeout: 90000
+    speed: 90
+    visibilityPercentage: 50
+    centerElement: true
+- tapOn:
+    id: "save-settings-button"
+- extendedWaitUntil:
+    notVisible: "SAVING CONFIG..."
+    timeout: 15000
+- assertVisible: "Success"
+- tapOn: "OK"
+
+# Prove restoration was persisted too, so the regression test leaves no user
+# setting behind after a successful or reviewed run.
+- killApp
+- launchApp
+- openLink: "hermes://settings"
+- runFlow:
+    when:
+      notVisible:
+        id: "SETTINGS"
+    commands:
+      - tapOn:
+          id: "tab-settings"
+- extendedWaitUntil:
+    visible:
+      id: "SETTINGS"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "voice-start-with-voice-switch"
+    direction: DOWN
+    timeout: 90000
+    speed: 90
+    visibilityPercentage: 50
+    centerElement: true
+- assertVisible:
+    id: "voice-start-with-voice-switch"
+    checked: false
+- scrollUntilVisible:
+    element: "Cloud relay URL"
+    direction: UP
+    timeout: 90000
+    speed: 90
+    visibilityPercentage: 50
+    centerElement: true
+- assertVisible: "https://hermesmobile-cloud.fly.dev"
+- takeScreenshot: "codex-pr28-restored"
