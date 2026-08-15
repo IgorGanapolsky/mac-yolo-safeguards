@@ -34,6 +34,10 @@ const HERMES_YOLO_HISTORY_RECEIPT_PATH = process.env.HERMES_YOLO_HISTORY_RECEIPT
 const HERMES_BIN = process.env.HERMES_BIN || path.join(HOME, '.local/bin/hermes');
 const REQUIRED_TOOLSETS = Object.freeze(['skills', 'context7']);
 
+function detectProviderFailure(output) {
+  return /HTTP\s+(?:400|401|402|403|404|409|422|429|5\d\d)|token expired|token incorrect|authentication failed|invalid api[- ]?key/i.test(String(output || ''));
+}
+
 function normalizeToolsets(value) {
   const configured = String(value || '')
     .split(',')
@@ -1542,7 +1546,20 @@ const env = Object.assign({}, ROUTE_ENV, {
     ROUTE_ENV.HERMES_EPHEMERAL_SYSTEM_PROMPT || DIRECT_RESPONSE_RULES,
 });
 
-const childStdio = 'inherit';  // interactive chat needs stdin (keyboard), not just stdout/stderr
+const isZaiOneShot = legacyOneShot && /zai/i.test(DEFAULT_PROVIDER);
+const zaiEstimatedCostUsd = Number(process.env.HERMES_YOLO_ESTIMATED_COST_USD || '0.05');
+let glmBudgetHarness = null;
+if (isZaiOneShot) {
+  glmBudgetHarness = require('./tools/glm53-coding-plan-harness');
+  const authorization = glmBudgetHarness.authorizeEstimatedCost(zaiEstimatedCostUsd);
+  if (!authorization.allowed) {
+    console.error(`[hermes-yolo] ${authorization.reason}`);
+    releaseLock();
+    process.exit(75);
+  }
+}
+
+const childStdio = legacyOneShot ? ['ignore', 'pipe', 'pipe'] : 'inherit';
 // Detach one-shots so timeout kill can reclaim cargo/rustc grandchildren via pgid.
 // Interactive chat must stay attached for stdin.
 const detachOneshot = process.platform !== 'win32'
@@ -1556,6 +1573,21 @@ const child = spawn(
   detached: detachOneshot,
   },
 );
+let oneShotOutput = '';
+const MAX_CAPTURED_OUTPUT = 1024 * 1024;
+function mirrorAndCapture(stream, destination) {
+  if (!stream) return;
+  stream.on('data', chunk => {
+    destination.write(chunk);
+    if (oneShotOutput.length < MAX_CAPTURED_OUTPUT) {
+      oneShotOutput += chunk.toString('utf8').slice(0, MAX_CAPTURED_OUTPUT - oneShotOutput.length);
+    }
+  });
+}
+if (legacyOneShot) {
+  mirrorAndCapture(child.stdout, process.stdout);
+  mirrorAndCapture(child.stderr, process.stderr);
+}
 log(`SPAWNED childPid=${child.pid} runId=${runId}`);
 
 child.on('error', (err) => {
@@ -1675,11 +1707,20 @@ child.on('close', (code, signal) => {
   if (watchdog) clearInterval(watchdog);
   releaseLock();
   const durationMs = Date.now() - legacyStartedAt;
+  const providerFailure = legacyOneShot && detectProviderFailure(oneShotOutput);
+  const effectiveExitCode = killed ? 124 : providerFailure ? 65 : (code ?? 0);
+  const effectiveError = killed ? killReason : providerFailure ? 'provider request failed despite a zero child exit code' : null;
+  if (isZaiOneShot && effectiveExitCode === 0 && glmBudgetHarness) {
+    glmBudgetHarness.recordConfirmedCost(zaiEstimatedCostUsd, `hermes-yolo:${DEFAULT_MODEL}`, {
+      providerConfirmed: true,
+      accountingMode: 'conservative_request_estimate',
+    });
+  }
   log(`EXIT code=${code} signal=${signal} killed=${killed} reason=${killReason || ''} runId=${runId}`);
   if (progressEnabled && !wrapperPromptMode) {
     console.error(
       `\x1b[36m[hermes-yolo]\x1b[0m done in ${Math.round(durationMs / 1000)}s `
-      + `exit=${killed ? 124 : code} run=${runId}`
+      + `exit=${effectiveExitCode} run=${runId}`
     );
   }
   writeRouteReceipt(buildRouteReceipt({
@@ -1694,11 +1735,11 @@ child.on('close', (code, signal) => {
     toolsets: effectiveToolsets,
     leanContext: leanMetaForRun,
     toolBudget: toolBudget.snapshot(),
-    status: killed ? 'timeout' : code === 0 ? 'pass' : 'fail',
-    exitCode: killed ? 124 : (code ?? 0),
+    status: killed ? 'timeout' : effectiveExitCode === 0 ? 'pass' : 'fail',
+    exitCode: effectiveExitCode,
     signal: signal || null,
     durationMs,
-    error: killed ? killReason : null,
+    error: effectiveError,
     sprawl: sprawlPlan
       ? {
           role: sprawlPlan.roles.primary,
@@ -1721,7 +1762,7 @@ child.on('close', (code, signal) => {
     if (watcher) {
       watcher.tasks.forEach(t => {
         if (t.name.startsWith('Hermes YOLO Run:') && t.status === 'RUNNING') {
-          t.status = killed ? 'KILLED' : 'COMPLETED';
+          t.status = killed ? 'KILLED' : effectiveExitCode === 0 ? 'COMPLETED' : 'FAILED';
         }
       });
     }
@@ -1729,13 +1770,15 @@ child.on('close', (code, signal) => {
       sender: 'spark',
       text: killed
         ? `hermes-yolo killed by wrapper: ${killReason}. Exit code ${code}.`
-        : `Successfully completed Hermes YOLO task: "${effectivePromptText}". Resolved with status code ${code}. Saved 50,000 tokens via active caching.`
+        : effectiveExitCode === 0
+          ? `Successfully completed Hermes YOLO task: "${effectivePromptText}". Resolved with status code ${effectiveExitCode}.`
+          : `Hermes YOLO task failed: "${effectivePromptText}". Resolved with status code ${effectiveExitCode}.`
     });
-    data.termHistory.push(`[Hermes YOLO Wrapper] Process completed with code ${code}${killed ? ` (killed: ${killReason})` : ''}.`);
+    data.termHistory.push(`[Hermes YOLO Wrapper] Process completed with code ${effectiveExitCode}${killed ? ` (killed: ${killReason})` : ''}.`);
     data.termHistory.push('');
   });
 
-  process.exit(killed ? 124 : (code ?? 0));
+  process.exit(effectiveExitCode);
 });
 
 // Forward wrapper-level signals
@@ -1792,6 +1835,7 @@ module.exports = {
   buildHermesExtraArgs,
   normalizeToolsets,
   ensureRequiredToolsetsInArgs,
+  detectProviderFailure,
   isGrokOneShot,
   isLegacyOneShot,
   resolveTimeoutMs,

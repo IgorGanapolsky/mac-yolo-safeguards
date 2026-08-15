@@ -2930,3 +2930,7 @@ CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, too
 ### Decision
 - Hybrid default paid route = `glm52_reasoning` (not fictional cloud_general); candidates must match hermes-economic-router ROUTES.
 - Skip ROCm/Instinct bulk install on Apple Silicon.
+
+## Scheduled repair claim — 2026-08-15
+- T-GLM53-ACCEPTANCE-FIX-20260815 [done] released (jcode-glm53-acceptance): repaired live 401 false-success, explicit GLM-5.3 selection, isolated tests, and conservative $10/month accounting after released T-GLM53-CODING-PLAN-SMART-BUDGET-20260815. PASS: 6/6 focused tests; fake zero-exit HTTP 401 becomes exit 65; live marker `GLM53_FOCUSED_PATCH_OK_20260815` returned with exit 0; production ledger advanced exactly $0.05; OpenCode doctor healthy; router selected `glm53_coding`.
+- `tools/glm53-coding-plan-harness.js`, `tests/test-glm53-coding-plan.js`, `tools/hermes-economic-router.js`, `opencode-yolo`, `hermes-yolo-wrapper.js`, `plan.md` → **released by jcode-glm53-acceptance** (2026-08-15T13:31:00Z)
