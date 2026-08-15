@@ -2930,3 +2930,22 @@ CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, too
 ### Decision
 - Hybrid default paid route = `glm52_reasoning` (not fictional cloud_general); candidates must match hermes-economic-router ROUTES.
 - Skip ROCm/Instinct bulk install on Apple Silicon.
+
+
+## Ona last-mile placement (append 2026-08-15T15:55:00Z) — agent `grok-ona-last-mile-20260815`
+
+Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices, customer-controlled env, reviewable work. Implement as **local-first last-mile placement** for our Mac+phone fleet. Do **not** edit untracked Antigravity `tools/ona-cloud-agent-*.js` theater. Do **not** add net-new ThumbGate governance product.
+
+### Task
+| T-ONA-LAST-MILE-20260815 | Place workloads local-vs-cloud for the Mac+phone fleet using Ona's persist/control/review primitives; default local under $10/mo | in_progress | grok-ona-last-mile-20260815 | `tools/ona-last-mile-placement.js`, `tests/test-ona-last-mile-placement.js`, `bin/ona-last-mile`, `.agents/skills/ona-last-mile/**`, `coordination/ona-design-partner-draft.md`, `plan.md`, `SKILLS.md` (append row) | tests green; secrets stay local; cloud only explicit+budget; design-partner draft staged |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/ona-last-mile-placement.js | grok-ona-last-mile-20260815 | 2026-08-15T15:55:00Z |
+| tests/test-ona-last-mile-placement.js | grok-ona-last-mile-20260815 | 2026-08-15T15:55:00Z |
+| bin/ona-last-mile | grok-ona-last-mile-20260815 | 2026-08-15T15:55:00Z |
+| .agents/skills/ona-last-mile/** | grok-ona-last-mile-20260815 | 2026-08-15T15:55:00Z |
+| coordination/ona-design-partner-draft.md | grok-ona-last-mile-20260815 | 2026-08-15T15:55:00Z |
+| SKILLS.md (append row only) | grok-ona-last-mile-20260815 | 2026-08-15T15:55:00Z |
+| plan.md (this append) | grok-ona-last-mile-20260815 | 2026-08-15T15:55:00Z |
