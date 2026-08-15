@@ -2373,6 +2373,20 @@ function buildHarnessReport({ planPath = DEFAULT_PLAN, role = null, trace = fals
   const contextDiet = contextDietReport({ repo: stateRepo, role: resolvedRole });
   const evalAbilities = evalAbilityPolicy();
   const sreAutonomy = sreAutonomyPolicy();
+  let sacFleet = { status: 'unavailable' };
+  try {
+    const sac = require('./sac-fleet');
+    const doc = sac.runDoctor({ repoRoot: stateRepo });
+    sacFleet = {
+      status: doc.status,
+      peerEngine: doc.peerEngine,
+      fleetHomesLinked: doc.fleetHomesLinked,
+      costTarget: doc.costTarget,
+      cli: 'bin/sac-fleet',
+    };
+  } catch {
+    sacFleet = { status: 'unavailable' };
+  }
   const report = {
     ok: true,
     planPath,
@@ -2391,6 +2405,7 @@ function buildHarnessReport({ planPath = DEFAULT_PLAN, role = null, trace = fals
     contextDiet,
     evalAbilities,
     sreAutonomy,
+    sacFleet,
     activeTasks,
     activeTaskCount: activeTasks.length,
     concurrency: {
