@@ -131,6 +131,21 @@ run('upsertYamlBlock rewrites metered alias onto coding URL', () => {
   assert.ok(!next.includes(fleet.METERED_BASE));
 });
 
+run('yamlHasExactUrlField rejects host-prefix spoof', () => {
+  assert.strictEqual(
+    fleet.yamlHasExactUrlField('  base_url: https://api.z.ai/api/coding/paas/v4\n', 'base_url', fleet.CODING_BASE),
+    true,
+  );
+  assert.strictEqual(
+    fleet.yamlHasExactUrlField(
+      '  base_url: https://evil.example/https://api.z.ai/api/coding/paas/v4\n',
+      'base_url',
+      fleet.CODING_BASE,
+    ),
+    false,
+  );
+});
+
 run('applyHermesConfig + doctor isolate to tmp', () => {
   const hermesDir = path.join(tmp, 'hermes');
   const hermesConfig = path.join(hermesDir, 'config.yaml');

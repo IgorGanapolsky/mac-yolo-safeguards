@@ -426,10 +426,27 @@ function classifyRoute(taskText) {
   };
 }
 
+function yamlHasExactUrlField(raw, key, expected) {
+  const re = new RegExp(`(?:^|\\n)[ \\t]*${key}:[ \\t]*([^\\n#]+)`, 'g');
+  let m;
+  while ((m = re.exec(String(raw || '')))) {
+    try {
+      const got = new URL(m[1].trim());
+      const want = new URL(expected);
+      if (got.host === want.host && got.pathname.replace(/\/$/, '') === want.pathname.replace(/\/$/, '')) {
+        return true;
+      }
+    } catch {
+      /* ignore malformed */
+    }
+  }
+  return false;
+}
+
 function runDoctor(options = {}) {
   const p = pathsFrom(options);
   const cfg = fs.existsSync(p.hermesConfig) ? fs.readFileSync(p.hermesConfig, 'utf8') : '';
-  const codingOk = cfg.includes(CODING_BASE) && cfg.includes('glm-5.3');
+  const codingOk = yamlHasExactUrlField(cfg, 'base_url', CODING_BASE) && /\bglm-5\.3\b/.test(cfg);
   const meteredAsCoding = /zai-coding-glm53:[\s\S]{0,200}api\.z\.ai\/api\/paas\/v4/.test(cfg);
   const proxy = spawnSync('curl', ['-sS', '-m', '3', 'http://127.0.0.1:4010/health/liveliness'], { encoding: 'utf8' });
   return {
@@ -529,6 +546,7 @@ module.exports = {
   runDoctor,
   install,
   upsertYamlBlock,
+  yamlHasExactUrlField,
   pathsFrom,
 };
 
