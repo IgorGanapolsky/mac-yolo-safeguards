@@ -19,7 +19,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 ## 1. Task Board
 
-| T-ZAI-GLM53-SYSTEMWIDE-20260815 | Persist GLM-5.3 + $10/mo cap system-wide (launchd, zsh, OpenCode, cyber rail) | in_progress | grok-glm53-fleet |
+| T-ZAI-GLM53-SYSTEMWIDE-20260815 | Persist GLM-5.3 + $10/mo cap system-wide (launchd, zsh, OpenCode, cyber rail) | done | grok-glm53-fleet |
 | T-ZAI-GLM53-FLEET-20260815 | Wire GLM-5.3 across all harnesses on the Coding Plan ($0 marginal) with a hard $10/mo metered API token budget | done | grok-glm53-fleet | `tools/zai-api-budget-guard.js`, `tools/zai-glm53-fleet.js`, `bin/zai-glm53`, `tests/test-zai-glm53-fleet.js`, `.agents/skills/zai-glm53-fleet/SKILL.md`, `docs/ZAI-GLM53-FLEET.md`, `plan.md` | PASS: 15/15 tests; live probe model=glm-5.3 preview=GLM53_OK; gateway glm-coding GLM53_OK; $10 metered fail-closed; zai-coding-glm53 moved off /api/paas/v4 |
 
 | T-SEED-YOLO-REAL-AGENT-20260811 | Replace contextless direct Seed chat facade with the zero-cost Hermes agent runtime, real repository context/skills/toolsets, honest model identity, and regression/live tool proof | done | released (codex-seed-yolo-real-agent-20260811) | released | PASS: focused regression, 1,105-file CodeQL pattern gate, local verification suite, interactive startup (14 tools, 138 skills, 2 MCP servers), live file-tool proof `SEED_AGENT_WRAPPER_PROOF:mac-yolo-safeguards` in 7.16s, and Hermes usage receipt `estimated_cost_usd=0.0`; commit `1e8d39b76` |
