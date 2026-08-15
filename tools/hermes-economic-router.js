@@ -472,6 +472,7 @@ function taskSignals(task) {
   return {
     asksForGlm: /\bglm\b|glm[- ]?5\.?[23]|z\.?ai|zai|glm-coding/.test(text),
     asksForGlm53: /glm[- ]?5\.?3/.test(text),
+    asksForGlm52: /glm[- ]?5\.?2/.test(text),
     asksForFugu: /\bfugu\b|sakana/.test(text),
     asksForNemotron: /\bnemotron\b|\bnvidia\b|\bnim\b/.test(text),
     asksForGrok: /\bgrok\b|grok[- ]?4\.5|\bxai\b|\bx\.ai\b/.test(text),
@@ -530,9 +531,19 @@ function scoreRoute(route, args, signals) {
     if (signals.userDoubt || signals.architecture || signals.longContextOrAgentic) score += 25;
     if (riskValue(args.risk) >= riskValue('high')) score += 20;
   }
+  if (route.id === 'glm53_coding' && !signals.asksForGlm53 && !signals.longContextOrAgentic) {
+    score -= 40;
+  }
   if (signals.asksForGlm53) {
     if (route.id === 'glm53_coding') score += 80;
     if (route.id === 'glm52_reasoning') score -= 80;
+  }
+  if (signals.asksForGlm52) {
+    if (route.id === 'glm52_reasoning') score += 80;
+    if (route.id === 'glm53_coding') score -= 80;
+  }
+  if ((signals.exactContract || signals.highVarianceReasoning) && !signals.asksForGlm53) {
+    if (route.id === 'glm52_reasoning') score += 35;
   }
   if (route.id === 'fugu_escalation') {
     if (signals.asksForFugu) score += 90;

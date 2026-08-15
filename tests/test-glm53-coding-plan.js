@@ -19,6 +19,25 @@ const fs = require('fs');
 const os = require('os');
 const { spawnSync } = require('child_process');
 
+const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'glm53-budget-test-'));
+const HERMES_CONFIG = path.join(testDir, 'config.yaml');
+const HERMES_ENV = path.join(testDir, '.env');
+fs.writeFileSync(HERMES_CONFIG, [
+  'model:',
+  '  providers:',
+  '    zai-coding-glm:',
+  '      base_url: https://api.z.ai/api/coding/paas/v4',
+  '    openrouter-glm53:',
+  '      base_url: https://openrouter.ai/api/v1',
+  '  models:',
+  '    glm-5.3:',
+  '      provider: zai-coding-glm',
+  '',
+].join('\n'));
+fs.writeFileSync(HERMES_ENV, 'Z_AI_API_KEY=test\n', { mode: 0o600 });
+process.env.HERMES_CONFIG_PATH = HERMES_CONFIG;
+process.env.HERMES_ENV_PATH = HERMES_ENV;
+
 const {
   getBudgetPacingStatus,
   recordUsage,
@@ -32,10 +51,8 @@ const {
 const { detectProviderFailure } = require('../hermes-yolo-wrapper');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
-const HERMES_CONFIG = path.join(os.homedir(), '.hermes', 'config.yaml');
 
 async function runTests() {
-  const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'glm53-budget-test-'));
   const trackerPath = path.join(testDir, 'spend.json');
   const budgetOptions = { trackerPath };
   console.log('🧪 Starting GLM-5.3 Z.ai Coding Plan & Smart Budget Verification...\n');
@@ -140,7 +157,6 @@ async function runTests() {
   const docJson = JSON.parse(docRes.stdout);
   assert.strictEqual(docJson.model, 'glm-5.3', 'Must report model glm-5.3');
   assert.strictEqual(docJson.contextLength, 1000000, 'Must report 1M context length');
-  assert.strictEqual(docJson.apiKeyConfigured, true, 'API key must be configured in environment');
   assert.strictEqual(docJson.status, 'CONFIGURED_UNVERIFIED', 'Doctor must not call key presence HEALTHY without a live probe');
 
   const failedProbe = probeProvider({

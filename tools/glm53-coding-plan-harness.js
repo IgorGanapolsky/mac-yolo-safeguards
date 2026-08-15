@@ -24,8 +24,8 @@ const os = require('os');
 const { spawnSync } = require('child_process');
 
 const HERMES_DIR = path.join(os.homedir(), '.hermes');
-const HERMES_ENV = path.join(HERMES_DIR, '.env');
-const HERMES_CONFIG = path.join(HERMES_DIR, 'config.yaml');
+const HERMES_ENV = process.env.HERMES_ENV_PATH || path.join(HERMES_DIR, '.env');
+const HERMES_CONFIG = process.env.HERMES_CONFIG_PATH || path.join(HERMES_DIR, 'config.yaml');
 const SPEND_TRACKER_FILE = path.join(HERMES_DIR, 'glm-monthly-spend.json');
 
 const MONTHLY_BUDGET_USD = 10.00;
@@ -182,7 +182,7 @@ function checkApiKeyPresent() {
   if (fs.existsSync(HERMES_ENV)) {
     try {
       const envContent = fs.readFileSync(HERMES_ENV, 'utf8');
-      return envContent.includes('Z_AI_API_KEY');
+      return /^Z_AI_API_KEY=\S+/m.test(envContent);
     } catch (_) {}
   }
   return false;
@@ -236,7 +236,6 @@ function runDoctor(options = {}) {
     endpoint: 'https://api.z.ai/api/coding/paas/v4',
     contextLength: 1000000,
     maxOutputTokens: 128000,
-    apiKeyConfigured: keyPresent,
     hermesProviderConfigured: providerConfigured,
     monthlyBudgetCapUsd: MONTHLY_BUDGET_USD,
     budgetPacing: budget,
@@ -264,7 +263,6 @@ async function main() {
       console.log(`\n🤖 GLM-5.3 Z.ai Coding Plan Status: ${doc.status}`);
       console.log(`   Model: ${doc.model} (1M context length)`);
       console.log(`   Endpoint: ${doc.endpoint}`);
-      console.log(`   API Key Configured: ${doc.apiKeyConfigured}`);
       console.log(`   Budget: $${doc.budgetPacing.currentSpentUsd} / $${doc.budgetPacing.monthlyBudgetCapUsd} (${doc.budgetPacing.pacingStatus})`);
       console.log(`   Pacing: ${doc.budgetPacing.reason}\n`);
     }
