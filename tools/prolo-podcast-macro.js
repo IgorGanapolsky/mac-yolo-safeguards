@@ -286,22 +286,73 @@ function installHammerspoonSnippet() {
 }
 
 
+const ANDROID_PROJECT = path.join(REPO, 'android', 'ProloYouTubePodcasts');
+const ANDROID_APK = path.join(
+  ANDROID_PROJECT, 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk'
+);
+
+/** Install the phone-native F13 handler (android/ProloYouTubePodcasts) if a device is present. */
+function installPhoneHandler() {
+  const devices = run('adb', ['devices'], { timeout: 8000 });
+  const hasDevice = /\tdevice\b/.test(devices.stdout || '');
+  if (!hasDevice) {
+    return { installed: false, reason: 'no_adb_device', apk: ANDROID_APK };
+  }
+  let apkPath = ANDROID_APK;
+  if (!fs.existsSync(apkPath)) {
+    const built = run('gradle', ['-p', ANDROID_PROJECT, 'assembleDebug'], { timeout: 300000 });
+    if (built.status !== 0 || !fs.existsSync(apkPath)) {
+      return { installed: false, reason: 'gradle_build_failed', stderr: (built.stderr || '').slice(0, 300) };
+    }
+  }
+  const inst = run('adb', ['install', '-r', apkPath], { timeout: 60000 });
+  return {
+    installed: inst.status === 0,
+    reason: inst.status === 0 ? null : 'adb_install_failed',
+    stderr: inst.status === 0 ? undefined : (inst.stderr || '').slice(0, 300),
+    apk: apkPath,
+    postInstall: 'Enable the "Prolo YouTube Podcasts" accessibility service on the phone (Settings → Accessibility → Installed apps).',
+  };
+}
+
 function setup() {
   ensureExecutable();
+  // P2 fix: aggregate step results and fail loudly when required steps fail.
+  const steps = {};
+  let failed = 0;
   const app = ensureAppWrapper();
-  installHammerspoonSnippet();
-  stageProfileBinding();
+  steps.appWrapper = !!app;
+  if (!app) failed++;
+
+  const hsOk = installHammerspoonSnippet();
+  steps.hammerspoon = !!hsOk;
+  if (!hsOk) failed++;
+
+  const staged = stageProfileBinding();
+  steps.profileStaged = !!staged;
+  if (!staged) failed++;
+
+  const phone = installPhoneHandler();
+  steps.phoneHandler = phone;
+  if (phone.installed === false && phone.reason === 'gradle_build_failed') failed++;
+
   console.log(JSON.stringify({
-    setup: true,
+    setup: failed === 0,
+    failedSteps: failed,
     app,
+    phoneHandlerNote: phone.reason === 'no_adb_device'
+      ? 'Phone not on adb — install android/ProloYouTubePodcasts when connected (bin/prolo-android-podcasts setup re-runs it).'
+      : undefined,
     howToUse: [
-      '1. Hammerspoon hotkey Ctrl+Alt+Cmd+P already runs the macro (test now).',
-      '2. Open Prolo Studio in App Status with ring connected.',
-      `3. Assign gesture "${GESTURE_KEY}" (AirTouch Trackpad Hold + Double Tap) to Keyboard ${HOTKEY} OR App Launch: ${APP}`,
-      '4. Flash to Ring, then 3× Tap+Hold → Device Status.',
-      '5. Enter Air Mode (swipe left + hold Modstrip), hold trackpad + double-tap.',
+      '1. Hammerspoon hotkey Ctrl+Alt+Cmd+P (and F13) runs the Android-only macro.',
+      '2. Phone-native: install the Prolo YouTube Podcasts accessibility service (auto when phone on adb), bind ring gesture to Keyboard F13.',
+      '3. Open Prolo Studio in App Status with ring connected.',
+      `4. Assign gesture "${GESTURE_KEY}" (AirTouch Trackpad Hold + Double Tap) to Keyboard ${HOTKEY}.`,
+      '5. Flash to Ring, then 3× Tap+Hold → Device Status.',
+      '6. Enter Air Mode (swipe left + hold Modstrip), hold trackpad + double-tap.',
     ],
   }, null, 2));
+  if (failed > 0) process.exit(1);
 }
 
 if (require.main === module) {

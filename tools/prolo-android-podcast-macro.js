@@ -36,16 +36,22 @@ const LOG = path.join(os.homedir(), 'Library/Logs/prolo-android-podcasts.log');
 /** Ordered deep links / activities tried until one succeeds. */
 const LAUNCH_ATTEMPTS = [
   {
-    name: 'ytm-podcasts-deeplink',
-    args: ['shell', 'am', 'start', '-a', 'android.intent.action.VIEW', '-d', 'https://music.youtube.com/podcasts', YTM],
+    // P1 fix: newest-episodes surface FIRST so "latest" is guaranteed, not the
+    // generic /podcasts browse page which resumes whatever was last focused.
+    name: 'ytm-new-episodes',
+    args: ['shell', 'am', 'start', '-a', 'android.intent.action.VIEW', '-d', 'https://music.youtube.com/new_episodes', YTM],
+  },
+  {
+    name: 'ytm-podcasts-new-episodes',
+    args: ['shell', 'am', 'start', '-a', 'android.intent.action.VIEW', '-d', 'https://music.youtube.com/podcasts/new_episodes', YTM],
   },
   {
     name: 'ytm-library-podcasts',
     args: ['shell', 'am', 'start', '-a', 'android.intent.action.VIEW', '-d', 'https://music.youtube.com/library/podcasts', YTM],
   },
   {
-    name: 'ytm-new-episodes',
-    args: ['shell', 'am', 'start', '-a', 'android.intent.action.VIEW', '-d', 'https://music.youtube.com/new_episodes', YTM],
+    name: 'ytm-podcasts-deeplink',
+    args: ['shell', 'am', 'start', '-a', 'android.intent.action.VIEW', '-d', 'https://music.youtube.com/podcasts', YTM],
   },
   {
     name: 'ytm-main-activity',
@@ -65,12 +71,12 @@ const LAUNCH_ATTEMPTS = [
 const DEVICE_HELPER = `#!/system/bin/sh
 # prolo-latest-podcasts.sh — run on device (agent-installed)
 PKG=${YTM}
-am start -a android.intent.action.VIEW -d "https://music.youtube.com/podcasts" "$PKG" >/dev/null 2>&1 \\
+am start -a android.intent.action.VIEW -d "https://music.youtube.com/new_episodes" "$PKG" >/dev/null 2>&1 \\
+  || am start -a android.intent.action.VIEW -d "https://music.youtube.com/podcasts/new_episodes" "$PKG" >/dev/null 2>&1 \\
   || am start -a android.intent.action.VIEW -d "https://music.youtube.com/library/podcasts" "$PKG" >/dev/null 2>&1 \\
   || monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
 sleep 2
 input keyevent 126
-input keyevent 85
 `;
 
 function log(msg) {
@@ -156,19 +162,13 @@ function launchPodcasts() {
 }
 
 function playLatest() {
-  // 126 MEDIA_PLAY, 85 PLAY_PAUSE — fire both for stubborn players
-  const steps = [
-    ['shell', 'input', 'keyevent', '126'],
-    ['shell', 'input', 'keyevent', '85'],
-  ];
-  // small delays between via adb shell sleep
+  // P1 fix: non-toggling play only. 126 = MEDIA_PLAY; the old follow-up 85
+  // (MEDIA_PLAY_PAUSE) could toggle playback back OFF right after starting it.
   adb(['shell', 'sleep', '1.5']);
-  for (const args of steps) {
-    adb(args);
-  }
+  adb(['shell', 'input', 'keyevent', '126']);
   // Try UI: focus content + enter (best-effort, no-op if not focusable)
   adb(['shell', 'input', 'keyevent', 'KEYCODE_DPAD_CENTER']);
-  log('play keyevents dispatched');
+  log('play keyevents dispatched (MEDIA_PLAY only, no toggle)');
   return true;
 }
 

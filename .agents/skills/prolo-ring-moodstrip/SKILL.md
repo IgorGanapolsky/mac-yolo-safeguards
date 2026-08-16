@@ -77,7 +77,7 @@ Configures the following gesture mappings:
 | CLI | `bin/prolo-android-podcasts setup` |
 
 **Delivery paths (in order):**
-1. **Phone-native (preferred):** install `ProloYouTubePodcasts` APK (`~/Library/Application Support/ProloYouTubePodcasts`) on the phone, enable its accessibility service; bind ring gesture → Keyboard **F13**; Flash to Ring in ProloStudio GUI; pair ring to phone. The service intercepts F13 and drives Library → Podcasts → New Episodes → Play. Works with no Mac in the loop.
+1. **Phone-native (preferred):** install the `ProloYouTubePodcasts` accessibility app (vendored at `android/ProloYouTubePodcasts/` in this repo; `bin/prolo-android-podcasts setup` auto-builds+installs it when the phone is on adb), enable its accessibility service; bind ring gesture → Keyboard **F13**; Flash to Ring in ProloStudio GUI; pair ring to phone. The service intercepts F13 and drives Library → Podcasts → New Episodes → Play. Works with no Mac in the loop.
 2. **Mac adb bridge (fallback):** ring paired to Mac sends F13 (or Ctrl+Alt+Cmd+P) → Hammerspoon runs `tools/prolo-android-podcast-macro.js exec` over adb. Requires phone on USB/wireless debugging.
 
 Note: the exact "trackpad Tap + Hold" is firmware-reserved (Temporary Cursor / Joystick Assist); nearest bindable is AirTaps `actionLongHoldAir2xTap` (Trackpad Hold + Double Tap). Flash must be done in the ProloStudio GUI; only the wearer can confirm the gesture actually fires.

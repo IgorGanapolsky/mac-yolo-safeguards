@@ -63,6 +63,23 @@ if (blockMatch) {
 const android = fs.readFileSync(path.join(REPO, 'tools/prolo-android-podcast-macro.js'), 'utf8');
 check('android macro drives YTM podcasts deep links', /music\.youtube\.com\/(podcasts|library\/podcasts|new_episodes)/.test(android));
 check('android macro never opens Mac apps', !/\bopen\s+-a\b/.test(android) && !/launchOrFocus/.test(android));
+check('android macro prefers new_episodes surface (latest first)', android.indexOf('new_episodes') < android.indexOf('https://music.youtube.com/podcasts\''));
+check('android macro sends MEDIA_PLAY without toggling follow-up', /keyevent', '126'/.test(android) && !/keyevent', '85'/.test(android));
+
+// ---- 3b. Phone-native F13 handler is vendored in-repo -----------------
+const svcPath = path.join(REPO, 'android/ProloYouTubePodcasts/app/src/main/java/com/igor/prolo/podcasts/PodcastShortcutService.java');
+if (fs.existsSync(svcPath)) {
+  const svc = fs.readFileSync(svcPath, 'utf8');
+  check('F13 handler service vendored in repo', svc.includes('KEYCODE_F13'));
+  check('handler drives Library→Podcasts→New Episodes→Play', /OPEN_LIBRARY/.test(svc) && /OPEN_PODCASTS/.test(svc) && /OPEN_NEW_EPISODES/.test(svc) && /PLAY_TOP/.test(svc));
+  check('handler targets YouTube Music only', svc.includes('com.google.android.apps.youtube.music'));
+} else {
+  check('F13 handler service vendored in repo', false, svcPath + ' missing');
+}
+
+// ---- 3c. Setup propagates failures ------------------------------------
+check('setup() aggregates failures and exits nonzero (P2)', /failedSteps/.test(orchestrator) && /if \(failed > 0\) process\.exit\(1\)/.test(orchestrator));
+check('setup() installs phone F13 handler when device present (P1)', /installPhoneHandler/.test(orchestrator) && /ProloYouTubePodcasts/.test(orchestrator));
 
 // ---- 4. Live Hammerspoon config (if present) --------------------------
 const hsInit = path.join(os.homedir(), '.hammerspoon', 'init.lua');
