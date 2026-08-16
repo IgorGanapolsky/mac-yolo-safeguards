@@ -1,6 +1,6 @@
 import React from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import SettingsScreen from '../screens/SettingsScreen';
 import { mockGatewaySettings, mockUseGateway } from '../testUtils/gatewayFixtures';
@@ -66,6 +66,7 @@ jest.mock('../utils/demoModePolicy', () => ({
 }));
 
 const { isDemoModeAllowed } = jest.requireMock('../utils/demoModePolicy');
+const { isGlassesConnected } = jest.requireMock('../native/hermesGlasses');
 
 function expandSettingsSection(
   utils: { getByTestId: (id: string) => Parameters<typeof fireEvent.press>[0] },
@@ -387,5 +388,20 @@ describe('SettingsScreen', () => {
         notificationsEnabled: false,
       }),
     );
+  });
+
+  it('hides AI glasses section for standard users when hardware is not detected', async () => {
+    isGlassesConnected.mockResolvedValue(false);
+    isDemoModeAllowed.mockReturnValue(false);
+    const { queryByTestId } = render(<SettingsScreen />);
+    expect(queryByTestId('settings-section-ai-glasses')).toBeNull();
+  });
+
+  it('reveals AI glasses section when on Android and glasses hardware is connected', async () => {
+    Platform.OS = 'android';
+    isGlassesConnected.mockResolvedValue(true);
+    isDemoModeAllowed.mockReturnValue(false);
+    const { findByTestId } = render(<SettingsScreen />);
+    expect(await findByTestId('settings-section-ai-glasses')).toBeTruthy();
   });
 });

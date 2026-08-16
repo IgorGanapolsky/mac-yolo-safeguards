@@ -5,8 +5,19 @@ const { loadEnv, ascGet, ascPatch } = require('./asc-api');
 const { ASC_SAFE_REVIEW_NOTES } = require('./asc-review-notes-safe');
 const { assertReviewNotesSafe, findReviewNotesViolations } = require('./asc-review-notes-guard');
 
+const fs = require('fs');
 const ROOT = path.join(__dirname, '..');
-const VERSION = process.env.ASC_APP_VERSION || '1.0';
+
+function resolveDefaultVersion() {
+  if (process.env.ASC_APP_VERSION?.trim()) return process.env.ASC_APP_VERSION.trim();
+  try {
+    const appJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'app.json'), 'utf8'));
+    if (appJson?.expo?.version) return appJson.expo.version;
+  } catch {}
+  return '1.4';
+}
+
+const VERSION = resolveDefaultVersion();
 
 async function main() {
   loadEnv(ROOT);

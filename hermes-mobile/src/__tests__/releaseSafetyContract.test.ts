@@ -671,5 +671,24 @@ describe('Android security audit (Jul 2026)', () => {
     expect(verifyContinuousScript).toContain('deviceVerified=${device_verified} (true only when e2e=pass)');
     expect(verifyContinuousScript).toContain('STRICT: device not verified');
   });
+
+  it('enforces ASC review notes consistency with zero-demo-forever policy and dynamic app version', () => {
+    const template = read('hermes-mobile/scripts/asc-review-notes-template.txt');
+    expect(template).not.toContain('demo=1');
+    expect(template).not.toContain('Demo mode');
+    expect(template).toContain('Hermes Mobile connects to the reviewer\'s OWN computer');
+
+    const patchScript = read('hermes-mobile/scripts/patch-asc-review-notes.js');
+    expect(patchScript).toContain('resolveDefaultVersion');
+    expect(patchScript).toContain('app.json');
+
+    const verifyScript = read('hermes-mobile/scripts/verify-asc-listing.js');
+    expect(verifyScript).toContain('resolveDefaultVersion');
+    expect(verifyScript).toContain('app.json');
+
+    const submitScript = read('hermes-mobile/scripts/submit-asc-for-review.js');
+    expect(submitScript).toContain('resolveDefaultVersion');
+    expect(submitScript).toContain('app.json');
+  });
 });
 

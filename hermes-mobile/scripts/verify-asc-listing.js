@@ -7,13 +7,24 @@ const { findReviewNotesViolations } = require('./asc-review-notes-guard');
 const ROOT = path.join(__dirname, '..');
 const LEASH_PRODUCT_ID = 'thumbgate_leash_monthly';
 
+const fs = require('fs');
+
+function resolveDefaultVersion() {
+  if (process.env.ASC_APP_VERSION?.trim()) return process.env.ASC_APP_VERSION.trim();
+  try {
+    const appJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'app.json'), 'utf8'));
+    if (appJson?.expo?.version) return appJson.expo.version;
+  } catch {}
+  return '1.4';
+}
+
 async function main() {
   loadEnv(ROOT);
   const appId = process.env.EXPO_ASC_APP_ID;
 
   const app = await ascGet(`/v1/apps/${appId}`);
   const versions = await ascGet(`/v1/apps/${appId}/appStoreVersions?filter[platform]=IOS&limit=5`);
-  const versionString = process.env.ASC_APP_VERSION || '1.3';
+  const versionString = resolveDefaultVersion();
   const vLive = (versions.data || []).find((v) => v.attributes?.versionString === versionString);
 
   let screenshots = [];

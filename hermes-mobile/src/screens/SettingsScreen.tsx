@@ -987,7 +987,7 @@ export default function SettingsScreen() {
 
         </CollapsibleSection>
 
-        {Platform.OS === 'android' ? (
+        {Platform.OS === 'android' && (glassesConnected || isDemoModeAllowed()) ? (
           <CollapsibleSection
             title="🕶️ AI glasses"
             expanded={isExpanded('ai-glasses')}
@@ -997,10 +997,13 @@ export default function SettingsScreen() {
           >
             <GlassCard>
               <Text style={styles.description}>
-                Launch the native projected ThumbGate Leash activity on paired AI glasses. Currently supports
-                Jetpack XR on Android (emulator or hardware). Other platforms coming. Requires
-                prebuild with the XR config plugin.
+                Project ThumbGate Leash approvals directly onto paired Android XR smart glasses for hands-free oversight.
               </Text>
+              {!glassesConnected ? (
+                <Text style={[styles.description, { color: '#9CA3AF', marginTop: 4 }]}>
+                  Requirements: Pair Android XR compatible smart glasses via Bluetooth or USB to enable projection.
+                </Text>
+              ) : null}
               <TouchableOpacity
                 style={[
                   styles.pairButton,
