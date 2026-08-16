@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Prolo Ring Android podcast macro — YouTube Music Podcasts → latest → play
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+exec node "$ROOT/tools/prolo-android-podcast-macro.js" "$@"
