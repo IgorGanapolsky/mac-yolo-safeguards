@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="service_description">When F13 is pressed by the Prolo Ring, open YouTube Music and play the first item in Library, Podcasts, New Episodes.</string>
+    <string name="activity_summary">Prolo Triple Tap -> F13 -> YouTube Music -> Library -> Podcasts -> New Episodes -> Play</string>
+    <string name="open_accessibility_settings">Open Accessibility Settings</string>
+    <string name="youtube_music_not_installed">YouTube Music is not installed</string>
+    <string name="opening_newest_podcast">Opening newest YouTube Music podcast</string>
+    <string name="playing_new_episodes">Playing New Episodes</string>
+    <string name="navigation_failed">Could not reach YouTube Music New Episodes</string>
+</resources>

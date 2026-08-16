@@ -35,6 +35,8 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-HERMES-YOLO-SLOP-FIX-20260813 | Fix `hermes-yolo` bot slop, 63K context prefill timeouts, and model capability fail-closed errors by replacing local Ollama compression/fallback with fast cloud models and registering ByteDance Seed in `MODEL_CAPABILITY_REGISTRY` | done | antigravity | `hermes-yolo-wrapper.js`, `~/.hermes/config.yaml`, `plan.md` | PASS: 31/31 routing integrity checks green; `auxiliary.compression` set to `provider: auto`; fallback updated to `openrouter-seed-pro`; `hermes-yolo status` executes cleanly in 2s |
 | T-SEED-YOLO-MODEL-FIX-20260813 | Fix `seed-yolo` model routing to target ByteDance Seed 2.1 Turbo (`bytedance-seed/seed-2-1-turbo`) instead of falling back to Ollama `qwen3.5:9b-hermes-64k` | done | antigravity | `tools/seed-yolo-wrapper.js`, `tests/test-seed-yolo.js`, `plan.md` | PASS: `seed-yolo doctor --json` verified; `bytedance-seed/seed-2-1-turbo` route confirmed; binary updated at `~/.local/bin/seed-yolo`; 100% tests green |
 | T-AMD-SKILLS-HIGH-ROI-20260813 | Implement and test high-ROI items from AMD Skills (amd/skills): Hub & Governance Card Inspector, Dynamic Local AI & Capability Router, Endpoint Readiness Diagnostics, and automated verification suite | done | antigravity | `tools/amd-skills-hub.js`, `tools/amd-local-ai-router.js`, `tests/test-amd-skills-roi.js`, `plan.md` | PASS: 100% green verification suite; 61 skills audited (98.4% compliance); dynamic local router reduces token cost by 100% ($0 local vs $0.03 cloud) with pre-flight health probes |
+| T-ZAI-GLM53-SYSTEMWIDE-20260815 | Persist GLM-5.3 + $10/mo cap system-wide (launchd, zsh, OpenCode, cyber rail) | done | grok-glm53-fleet |
+| T-ZAI-GLM53-FLEET-20260815 | Wire GLM-5.3 across all harnesses on the Coding Plan ($0 marginal) with a hard $10/mo metered API token budget | done | grok-glm53-fleet | `tools/zai-api-budget-guard.js`, `tools/zai-glm53-fleet.js`, `bin/zai-glm53`, `tests/test-zai-glm53-fleet.js`, `.agents/skills/zai-glm53-fleet/SKILL.md`, `docs/ZAI-GLM53-FLEET.md`, `plan.md` | PASS: 15/15 tests; live probe model=glm-5.3 preview=GLM53_OK; gateway glm-coding GLM53_OK; $10 metered fail-closed; zai-coding-glm53 moved off /api/paas/v4 |
 
 | T-SEED-YOLO-REAL-AGENT-20260811 | Replace contextless direct Seed chat facade with the zero-cost Hermes agent runtime, real repository context/skills/toolsets, honest model identity, and regression/live tool proof | done | released (codex-seed-yolo-real-agent-20260811) | released | PASS: focused regression, 1,105-file CodeQL pattern gate, local verification suite, interactive startup (14 tools, 138 skills, 2 MCP servers), live file-tool proof `SEED_AGENT_WRAPPER_PROOF:mac-yolo-safeguards` in 7.16s, and Hermes usage receipt `estimated_cost_usd=0.0`; commit `1e8d39b76` |
 
@@ -827,7 +829,11 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 | T-HERMES-RELIABILITY-JULY-2026 | Deep-research the July 2026 Hermes Mobile incident set, map every observed gap to deterministic prevention/proof, and implement only unclaimed reliability controls | done | released (codex-hermes-reliability-research) | `docs/RESEARCH-HERMES-MOBILE-RELIABILITY-JULY-2026.md`, `parallel-research/hermes-mobile-reliability-july-2026.md`, `parallel-research/hermes-mobile-reliability-july-2026.json`, `docs/HERMES-RELIABILITY-TRACEABILITY.md`, `evals/incidents/hermes-mobile-july-2026.json`, `tools/hermes-reliability-traceability.js`, `tests/test-hermes-reliability-traceability.js`, `plan.md` | PASS on draft PR #1193 head `ea0fd66e5a6a37d19853a36095784a99c684b4fa`: Parallel run `trun_468ec6a2702a4592865d87f871c6a704` ingested and corrected against current main/live PRs; all nine incidents mandatory; audit mode passes; release mode honestly blocks 7 runtime gaps and claim mode blocks all 9; 8 false-green/privacy/path mutations caught; existing incident eval 11/11 with 9 mutations; exact local root Node sweep 115/115; hosted mobile/typecheck, macOS guard, funnel, ownership, security, and routing checks green; mobile/iPad E2E correctly skipped because no mobile files changed; no runtime/store/OTA/device claim |
 
 | T-PROLO-ANDROID-PODCASTS-ONLY-20260815 | Fix ring double-tap+hold macro: open YouTube Music podcasts on the ANDROID phone (never Mac Apple Music), rewire legacy Mac launcher, stage F13 phone-native binding, add Android-only regression test | done (PR #1753 merged 832a5e5) | jcode-prolo-android-podcasts-20260815 | `tools/prolo-play-latest-podcasts.sh`, `tools/prolo-podcast-macro.js`, `tests/test-prolo-android-podcasts-only.js`, `scripts/verify.sh`, `.agents/skills/prolo-ring-moodstrip/SKILL.md`, `~/.hammerspoon/init.lua` (live), `plan.md` | 16/16 Android-only regression green; pattern gate clean on touched files; F13 staged in profile draft; remaining: wearer Flash-to-Ring + APK install when phone on adb |
+| T-PROLO-ANDROID-PODCASTS-ONLY-20260815 | Fix ring double-tap+hold macro: open YouTube Music podcasts on the ANDROID phone (never Mac Apple Music), rewire legacy Mac launcher, stage F13 phone-native binding, add Android-only regression test | in_progress | jcode-prolo-android-podcasts-20260815 | `tools/prolo-play-latest-podcasts.sh`, `tools/prolo-podcast-macro.js`, `tests/test-prolo-android-podcasts-only.js`, `scripts/verify.sh`, `.agents/skills/prolo-ring-moodstrip/SKILL.md`, `plan.md` | 16/16 Android-only regression green; pattern gate clean on touched files; F13 staged in profile draft; remaining: wearer Flash-to-Ring + APK install when phone on adb |
 ## 2. File Ownership Map (append-only lock table — claim before touching)
+
+- `tools/zai-glm53-systemwide.js`, `tests/test-zai-glm53-systemwide.js`, `tools/hermes-yolo-route-policy.js` (cyber signal + HERMES_PREFER_GLM53_CYBER branch only), `tests/test-hermes-yolo-route-policy.js` (two cyber cases), `bin/zai-glm53`, `plan.md` → **grok-glm53-fleet** (T-ZAI-GLM53-SYSTEMWIDE-20260815: persist $10 cap + cyber Coding Plan across launchd/zsh/OpenCode; does not steal SuperGrok default or rubrik-mythos-triage) (2026-08-15T16:10:00Z)
+- `tools/zai-api-budget-guard.js`, `tools/zai-glm53-fleet.js`, `bin/zai-glm53`, `tests/test-zai-glm53-fleet.js`, `.agents/skills/zai-glm53-fleet/SKILL.md`, `docs/ZAI-GLM53-FLEET.md`, `tools/lib/glm53-yolo-hook.js`, `tools/agent-session-start.js` (GLM-5.3 doctor line only), `hermes-yolo-wrapper.js` (MODEL_CAPABILITY_REGISTRY glm-5.3 aliases only), `SKILLS.md` (one registry row), `plan.md` → **grok-glm53-fleet** (T-ZAI-GLM53-FLEET-20260815: GLM-5.3 fleet + $10/mo API cap; does not edit dirty hermes-eval litellm/config.yaml or uncommitted glm53-hermes-config.js) (2026-08-15T15:20:00Z)
 
 - `bin/agent-loop`, `plan.md` → **ali-yolo** (T-ALI-YOLO-AGENT-LOOP-DOCTOR-20260812: fix `bin/agent-loop --doctor --json` JSON escaping/validity and run verification) (2026-08-12T20:10:00Z)
 - `tools/seed-yolo-wrapper.js`, `tests/test-seed-yolo.js`, `plan.md` → **codex-seed-yolo-real-agent-20260811** (T-SEED-YOLO-REAL-AGENT-20260811: replace the direct chat facade with a real zero-cost Hermes agent launch path; add context/skills/toolset/model-truth regressions and live file-tool proof.) (2026-08-12T00:56:00Z)
@@ -1980,6 +1986,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `hermes-mobile/src/screens/SettingsScreen.tsx` → **released by codex-mobile-fix-everything** after merged
 - `hermes-mobile/scripts/patch-asc-review-notes.js`, `hermes-mobile/scripts/submit-asc-for-review.js`, `hermes-mobile/scripts/verify-asc-listing.js`, `hermes-mobile/src/__tests__/SettingsScreen.test.tsx`, `hermes-mobile/src/__tests__/releaseSafetyContract.test.ts`, `hermes-mobile/src/screens/SettingsScreen.tsx`, `plan.md` → **antigravity** (T-ASC-IOS-REVIEW-ALIGN-RESUBMIT-20260816: align review notes with zero-demo policy, dynamically resolve app version, declutter settings XR glasses, and wire safety contract) (2026-08-16T12:12:00Z)
 
+- `tools/prolo-play-latest-podcasts.sh`, `tools/prolo-android-podcast-macro.js`, `tools/prolo-podcast-macro.js`, `bin/prolo-android-podcasts`, `tests/test-prolo-android-podcasts-only.js`, `.agents/skills/prolo-ring-moodstrip/SKILL.md`, `plan.md` → **jcode-prolo-android-podcasts-20260815** (T-PROLO-ANDROID-PODCASTS-ONLY-20260815: Igor correction ×4 — double-tap+hold must open YouTube Music podcasts on the ANDROID phone, never Apple Music on the Mac.) (2026-08-15T13:05:00-04:00)
 ## 3. Decisions Log
 
 ### D-2026-08-15-prolo-android-podcasts-only
@@ -2987,3 +2994,32 @@ CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, too
 ### Decision
 - Hybrid default paid route = `glm52_reasoning` (not fictional cloud_general); candidates must match hermes-economic-router ROUTES.
 - Skip ROCm/Instinct bulk install on Apple Silicon.
+
+## OTA freeze clock (append 2026-08-15T17:20:00Z) — agent `grok-ota-freeze-clock-20260815`
+
+### Task
+| T-OTA-FREEZE-CLOCK-20260815 | Pin Expo billing-freeze Jest to an injected clock so required mobile CI does not expire with `OTA_BILLING_FREEZE_UNTIL_MS` | in_progress | grok-ota-freeze-clock-20260815 | `hermes-mobile/src/__tests__/useOtaUpdateBanner.test.ts` (freeze-clock only), `hermes-mobile/src/__tests__/appOtaUpdate.test.ts` (freeze-clock only), `docs/agents/shipping-and-hygiene.md`, `plan.md` | Fail-then-pass the 3 calendar-expired freeze tests; do not bump the floor date; no Expo OTA |
+
+### Stale-lock reclaim (evidence, then claim)
+- `cursor-ota-banner-safe-area` claimed these freeze tests on 2026-07-23T19:50:57Z. Age ~23d. No `origin` branch matching `ota-banner`/`billing-freeze`. No open PR. No OTA worktree. Vault `cursor.md` last_verified 2026-07-23. Issue #1751 is the live outage.
+- Reclaim **only** the two failing test files + this hygiene note. Do **not** take banner UI, `otaClientPromptPolicy.ts`, `app.config.js`, `mobile-ota.yml`, or the shared-tree uncommitted date-kick to 2026-09-01.
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| hermes-mobile/src/__tests__/useOtaUpdateBanner.test.ts (freeze Date.now pin only) | grok-ota-freeze-clock-20260815 | 2026-08-15T17:20:00Z |
+| hermes-mobile/src/__tests__/appOtaUpdate.test.ts (freeze Date.now pin only) | grok-ota-freeze-clock-20260815 | 2026-08-15T17:20:00Z |
+| docs/agents/shipping-and-hygiene.md | grok-ota-freeze-clock-20260815 | 2026-08-15T17:20:00Z |
+| plan.md | grok-ota-freeze-clock-20260815 | 2026-08-15T17:20:00Z |
+
+### Decision
+- D-2026-08-15-ota-freeze-clock: required CI must not depend on wall-clock vs `OTA_BILLING_FREEZE_UNTIL_MS`. Freeze-path tests pin `Date.now` to `OTA_BILLING_FREEZE_UNTIL_MS - 1`. Production floor date stays `2026-08-15T00:00Z` (documented thaw). Publishing remains gated by `require-expo-billing-thaw.sh`.
+
+- `hermes-mobile/src/__tests__/appOtaUpdate.test.ts` → **released by cursor-ota-banner-safe-area** (stale 23d; no origin branch/PR/worktree; vault cursor.md 2026-07-23; issue #1751) (2026-08-15T17:20:00Z)
+- `hermes-mobile/src/__tests__/appOtaUpdate.test.ts` → **released by cursor-ota-isenabled** (task done via #519; leftover lock) (2026-08-15T17:20:00Z)
+- `hermes-mobile/src/__tests__/appOtaUpdate.test.ts` → **released by cursor** (stale leftover) (2026-08-15T17:20:00Z)
+- `hermes-mobile/src/__tests__/appOtaUpdate.test.ts` → **released by codex** (stale leftover) (2026-08-15T17:20:00Z)
+- `hermes-mobile/src/__tests__/useOtaUpdateBanner.test.ts` → **released by cursor-ota-banner-safe-area** (stale 23d; no origin branch/PR/worktree; issue #1751) (2026-08-15T17:20:00Z)
+- `hermes-mobile/src/__tests__/useOtaUpdateBanner.test.ts` → **released by codex** (stale leftover) (2026-08-15T17:20:00Z)
+- `hermes-mobile/src/__tests__/appOtaUpdate.test.ts` → **grok-ota-freeze-clock-20260815** (T-OTA-FREEZE-CLOCK-20260815: pin Date.now in freeze-path tests only) (2026-08-15T17:20:00Z)
+- `hermes-mobile/src/__tests__/useOtaUpdateBanner.test.ts` → **grok-ota-freeze-clock-20260815** (T-OTA-FREEZE-CLOCK-20260815: pin Date.now in freeze-path tests only) (2026-08-15T17:20:00Z)
