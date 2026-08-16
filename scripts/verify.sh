@@ -18,5 +18,6 @@ node tests/test-quoroom-quorum-engine.js
 node tests/test-hermes-yolo.js
 node tests/test-agent-memory-before-gen.js
 node tests/test-retrieval-query-rewrite.js
+node tests/test-prolo-android-podcasts-only.js
 
 echo "✅ All Local CI Verification Checks Passed!"
