@@ -40,7 +40,7 @@ test("keeps the public landing static (no server session/D1) and defers auth chr
   assert.match(chrome, /if \(!landingAuthRequest\)/);
   assert.equal((chrome.match(/"sign_in_click"/g) ?? []).length, 1);
   assert.match(chrome, /Open Continuity dashboard|Start Continuity trial/);
-  assert.match(chrome, /Sign in to pair free/);
+  assert.match(chrome, /Sign in to Continuity/);
   assert.match(chrome, /Try Continuity — 14 days free/);
   // Signed-in trial CTA must POST to checkout (GET returns 405).
   assert.match(chrome, /action="\/api\/billing\/checkout" method="POST"/);
