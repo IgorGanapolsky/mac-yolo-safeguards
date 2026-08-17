@@ -1,13 +1,15 @@
 .demo {
-  margin-top: 8px;
-  padding: 22px;
-  border: 1px solid var(--brand-line);
+  margin-top: 16px;
+  padding: 28px;
+  border: 1px solid rgba(34, 211, 238, 0.2);
   border-radius: 28px;
   background:
-    radial-gradient(circle at 12% 0%, rgba(79, 70, 229, 0.16), transparent 42%),
-    radial-gradient(circle at 88% 18%, rgba(34, 211, 238, 0.1), transparent 40%),
-    rgba(255, 255, 255, 0.025);
-  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.28);
+    radial-gradient(circle at 12% 0%, rgba(79, 70, 229, 0.22), transparent 45%),
+    radial-gradient(circle at 88% 18%, rgba(34, 211, 238, 0.15), transparent 42%),
+    rgba(11, 15, 25, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.45);
 }
 
 .header {
@@ -15,7 +17,7 @@
   justify-content: space-between;
   gap: 18px;
   align-items: flex-start;
-  margin-bottom: 22px;
+  margin-bottom: 20px;
 }
 
 .header h3 {
@@ -28,7 +30,7 @@
 .eyebrow {
   margin: 0 0 10px;
   color: var(--accent);
-  font: 650 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 650 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
@@ -48,55 +50,139 @@
   justify-content: flex-end;
 }
 
+/* Scenario Selector Tabs */
+.scenarioBar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow-x: auto;
+}
+
+.scenarioTab {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font: 650 12px/1 ui-monospace, monospace;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.scenarioTab:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.scenarioTabActive {
+  background: rgba(34, 211, 238, 0.12);
+  border-color: rgba(34, 211, 238, 0.4);
+  color: #a5f3fc;
+  box-shadow: 0 2px 8px rgba(34, 211, 238, 0.15);
+}
+
 .stage {
   display: grid;
-  grid-template-columns: minmax(280px, 420px) minmax(0, 1fr);
-  gap: 22px;
+  grid-template-columns: minmax(320px, 1.15fr) minmax(0, 0.85fr);
+  gap: 24px;
   align-items: start;
 }
 
-.phone {
-  border: 1px solid rgba(99, 102, 241, 0.34);
-  border-radius: 28px;
+/* Terminal Sandbox Window */
+.terminal {
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  border-radius: 20px;
   overflow: hidden;
-  background: linear-gradient(160deg, rgba(17, 24, 39, 0.96), rgba(9, 11, 20, 0.98));
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.05), 0 20px 50px rgba(0, 0, 0, 0.35);
+  background: linear-gradient(165deg, rgba(15, 23, 42, 0.95), rgba(7, 10, 19, 0.98));
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.08), 0 24px 60px rgba(0, 0, 0, 0.5);
 }
 
-.phoneChrome {
-  display: grid;
-  grid-template-columns: 48px 1fr 48px;
+.terminalHeader {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  min-height: 44px;
+  min-height: 42px;
   padding: 0 14px;
-  border-bottom: 1px solid var(--line);
-  color: var(--muted);
-  font: 650 10px ui-monospace, monospace;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  background: rgba(0, 0, 0, 0.35);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.phoneChrome span:nth-child(2) {
-  text-align: center;
+.windowControls {
+  display: flex;
+  gap: 6px;
+}
+
+.controlClose,
+.controlMin,
+.controlMax {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.controlClose { background: #ef4444; }
+.controlMin { background: #f59e0b; }
+.controlMax { background: #10b981; }
+
+.terminalTitle {
+  color: var(--muted);
+  font: 600 11px ui-monospace, monospace;
+}
+
+.terminalBadge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 600 10px ui-monospace, monospace;
   color: #c7d2fe;
 }
 
-.phoneBody {
-  padding: 16px;
+.terminalBody {
+  padding: 18px;
   display: grid;
   gap: 14px;
 }
 
-.statusRow {
+/* LLM-as-a-Judge Banner */
+.judgeBanner {
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(79, 70, 229, 0.35);
+  background: rgba(79, 70, 229, 0.1);
+  display: grid;
+  gap: 4px;
+}
+
+.judgeHeader {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 28px;
+  font-size: 11px;
 }
 
-.statusRow strong {
-  font: 650 12px/1.3 ui-monospace, monospace;
-  letter-spacing: 0.02em;
+.judgeHeader strong {
+  color: #c7d2fe;
+}
+
+.judgeLatency {
+  margin-left: auto;
+  font: 650 10px ui-monospace, monospace;
+  color: #a5f3fc;
+  background: rgba(34, 211, 238, 0.15);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.judgeRuleText {
+  margin: 0;
+  font: 11px/1.4 ui-monospace, monospace;
+  color: #e0e7ff;
 }
 
 .dot {
@@ -108,12 +194,12 @@
 
 .dotLive {
   background: var(--success);
-  box-shadow: 0 0 0 5px rgba(16, 185, 129, 0.14);
+  box-shadow: 0 0 0 5px rgba(16, 185, 129, 0.18);
 }
 
 .dotWarn {
   background: var(--orange);
-  box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.14);
+  box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.18);
 }
 
 .callCard {
@@ -121,7 +207,7 @@
   gap: 12px;
   padding: 14px;
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.03);
 }
 
@@ -136,7 +222,7 @@
 .leasePill {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
+  min-height: 26px;
   padding: 0 9px;
   border-radius: 999px;
   font: 650 10px ui-monospace, monospace;
@@ -146,25 +232,30 @@
 
 .toolPill {
   color: #c7d2fe;
-  background: rgba(99, 102, 241, 0.18);
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.35);
 }
 
 .leasePill {
   color: #a5f3fc;
-  background: rgba(34, 211, 238, 0.1);
-  border: 1px solid rgba(34, 211, 238, 0.22);
+  background: rgba(34, 211, 238, 0.12);
+  border: 1px solid rgba(34, 211, 238, 0.28);
 }
 
 .callCard code {
   display: block;
-  padding: 12px;
+  padding: 12px 14px;
   border-radius: 12px;
   border-left: 3px solid var(--accent);
-  background: #090d18;
+  background: #060913;
   color: #e5e7eb;
   font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
   overflow-wrap: anywhere;
+}
+
+.promptPrefix {
+  color: #34d399;
+  font-weight: 700;
 }
 
 .callCard > p {
@@ -184,7 +275,7 @@
 .denyButton,
 .ghostButton,
 .policyButton {
-  min-height: 44px;
+  min-height: 42px;
   border-radius: 12px;
   cursor: pointer;
   transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
@@ -201,15 +292,15 @@
   flex: 1;
   border: 0;
   background: linear-gradient(135deg, var(--primary), var(--secondary));
-  color: var(--ink);
+  color: #060913;
   font-weight: 700;
   padding: 0 14px;
 }
 
 .denyButton {
   flex: 1;
-  border: 1px solid rgba(239, 68, 68, 0.4);
-  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.14);
   color: #fecaca;
   font-weight: 700;
   padding: 0 14px;
@@ -250,14 +341,14 @@
 }
 
 .denied {
-  border-color: rgba(239, 68, 68, 0.35);
-  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.1);
 }
 
 .approved,
 .cloud {
-  border-color: rgba(16, 185, 129, 0.35);
-  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.1);
 }
 
 .ask {

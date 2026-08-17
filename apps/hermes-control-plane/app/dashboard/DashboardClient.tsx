@@ -1431,7 +1431,48 @@ export default function DashboardClient() {
               ) : loadState === "error" && !threadDetails ? (
                 <div className="conversation-empty" data-state="error">Could not load workspace data. Retrying automatically.</div>
               ) : (
-                <div className="conversation-empty">No messages in this thread yet. Send a Continuity task below to start the conversation on the fenced VPS runner.</div>
+                <div className="conversation-empty">
+                  <div className="empty-state-card" style={{ textAlign: "center", padding: "1.75rem 1rem" }}>
+                    <strong style={{ fontSize: "1.05rem", display: "block", color: "#f8fafc", marginBottom: "0.4rem" }}>⚡ 24/7 Fenced Cloud VPS Ready</strong>
+                    <p style={{ color: "#94a3b8", fontSize: "0.85rem", maxWidth: "440px", margin: "0 auto 1.25rem", lineHeight: 1.5 }}>
+                      No messages in this thread yet. Send a Continuity task below to start the conversation on the fenced VPS runner.
+                    </p>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.6rem", maxWidth: "560px", margin: "0 auto", textAlign: "left" }}>
+                      <button
+                        type="button"
+                        onClick={() => setPrompt("Deploy Next.js Worker to Cloudflare with D1 database and test live health endpoints")}
+                        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", padding: "0.65rem 0.75rem", color: "#e2e8f0", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.15s ease" }}
+                      >
+                        🚀 <strong>Deploy Cloudflare Worker</strong>
+                        <div style={{ color: "#64748b", fontSize: "0.7rem", marginTop: "0.2rem" }}>Build, test, and deploy to edge</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPrompt("Run an LLM-as-a-Judge security audit across all public API routes and verify auth gates")}
+                        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", padding: "0.65rem 0.75rem", color: "#e2e8f0", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.15s ease" }}
+                      >
+                        🛡️ <strong>Security Audit Gate</strong>
+                        <div style={{ color: "#64748b", fontSize: "0.7rem", marginTop: "0.2rem" }}>Pre-action rule & route verification</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPrompt("Refactor Playwright test suite to verify mobile drawer layout on 390px viewport")}
+                        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", padding: "0.65rem 0.75rem", color: "#e2e8f0", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.15s ease" }}
+                      >
+                        📱 <strong>Mobile E2E Testing</strong>
+                        <div style={{ color: "#64748b", fontSize: "0.7rem", marginTop: "0.2rem" }}>Verify responsive layout constraints</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPrompt("Verify live Stripe billing webhook status and calculate 30-day run metrics")}
+                        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", padding: "0.65rem 0.75rem", color: "#e2e8f0", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.15s ease" }}
+                      >
+                        📊 <strong>Billing & Telemetry</strong>
+                        <div style={{ color: "#64748b", fontSize: "0.7rem", marginTop: "0.2rem" }}>Query D1 task audit telemetry</div>
+                      </button>
+                    </div>
+                  </div>
+                </div>
               )}
               {threadDetails?.tasks.flatMap((task, index) => [
                 <article key={`task-user-${index}`} className="conversation-message role-user"><span>web</span><p>{task.prompt}</p></article>,
