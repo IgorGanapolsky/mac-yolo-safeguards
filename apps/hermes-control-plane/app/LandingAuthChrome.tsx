@@ -63,7 +63,7 @@ export function LandingAuthNav() {
   const isSession = session.mode === "session";
   return (
     <div className="nav-actions" data-landing-auth={session.mode}>
-      <a href="#pair" className="nav-link">Pair</a>
+      <a href="#setup" className="nav-link">Setup</a>
       <a href="#mobile" className="nav-link">Apps</a>
       <a href="#how-it-works" className="nav-link">How it works</a>
       <a href="#pricing" className="nav-link">Pricing</a>
@@ -77,8 +77,8 @@ export function LandingAuthNav() {
 }
 
 /**
- * Dual-track hero CTA: Continuity (paid) is primary; free pair/status is secondary.
- * Hermes owns machine chat — this page sells offline Continuity, not a second chat UI.
+ * Continuity-first hero CTAs. Product is fenced VPS Continuity — not Mac pairing.
+ * Hermes Mobile is marketed separately on the page as a phone companion.
  */
 export function LandingAuthHero() {
   const session = useLandingAuth();
@@ -117,7 +117,7 @@ export function LandingAuthHero() {
             className="button button-secondary"
             data-funnel-event="dashboard_open_click"
           >
-            Open pair &amp; status
+            Open Continuity dashboard
           </a>
         </>
       ) : (
@@ -134,7 +134,7 @@ export function LandingAuthHero() {
             className="button button-secondary"
             data-funnel-event="sign_in_click"
           >
-            Sign in to pair free
+            Sign in to Continuity
           </a>
         </>
       )}
@@ -143,8 +143,7 @@ export function LandingAuthHero() {
 }
 
 /**
- * Private-workspace panel: Continuity first, pair second.
- * Points to Continuity + pair (keeps public HTML free of workspace telemetry).
+ * Private-workspace panel: Continuity VPS first (keeps public HTML free of telemetry).
  */
 export function LandingAuthPanel() {
   const mode = useLandingAuth();
@@ -165,15 +164,15 @@ export function LandingAuthPanel() {
           <span className="action-icon" aria-hidden="true">☁</span>
           <span>
             <strong>Continuity (VPS)</strong>
-            <small>Hands eligible work to a fenced VPS runner when your Mac is offline—synced with Hermes on real machines.</small>
+            <small>Fenced cloud runner with 90s leases. Continuity is the product — no Mac pair step.</small>
           </span>
           <b aria-hidden="true">→</b>
         </a>
-        <a className="landing-action" href="#pair">
-          <span className="action-icon" aria-hidden="true">+</span>
+        <a className="landing-action" href="#mobile">
+          <span className="action-icon" aria-hidden="true">📱</span>
           <span>
-            <strong>Pair your Mac</strong>
-            <small>One installer. Free status scaffolding. Hermes keeps the chat.</small>
+            <strong>Hermes Mobile (optional)</strong>
+            <small>Phone Leash approvals and alerts. Separate app — not ThumbGate Continuity.</small>
           </span>
           <b aria-hidden="true">→</b>
         </a>
@@ -195,7 +194,7 @@ export function LandingPricingCtaFree() {
   const href = useSessionHref();
   return (
     <a href={href} className="button button-secondary" data-funnel-event="free_control_click">
-      Pair free →
+      Sign in →
     </a>
   );
 }

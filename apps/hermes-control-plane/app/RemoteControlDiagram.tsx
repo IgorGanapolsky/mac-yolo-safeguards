@@ -1,7 +1,11 @@
-/** Static illustration: Hermes on real machines; Continuity VPS when offline. No client JS. */
+/** Static illustration: Continuity VPS execution with optional Hermes Mobile oversight. */
 export function RemoteControlDiagram() {
   return (
-    <div className="remote-diagram" role="img" aria-label="Hermes on your Mac; Continuity hands eligible work to a fenced VPS when the Mac is offline">
+    <div
+      className="remote-diagram"
+      role="img"
+      aria-label="Hermes Mobile for approvals; LLM-as-a-Judge gates; fenced Continuity VPS runner"
+    >
       <svg viewBox="0 0 460 150" fill="none" xmlns="http://www.w3.org/2000/svg">
         <rect x="22" y="18" width="58" height="112" rx="12" stroke="var(--line)" strokeWidth="2" fill="rgba(255,255,255,.03)" />
         <rect x="30" y="30" width="42" height="78" rx="4" fill="rgba(34,211,238,.08)" />
@@ -19,12 +23,12 @@ export function RemoteControlDiagram() {
         <rect x="366" y="32" width="70" height="40" rx="3" fill="rgba(34,211,238,.06)" />
         <path d="M346 88 L456 88 L446 100 L356 100 Z" stroke="var(--line)" strokeWidth="2" fill="rgba(255,255,255,.02)" />
         <circle cx="401" cy="52" r="11" fill="rgba(34,211,238,.18)" stroke="var(--accent)" strokeWidth="1.4" />
-        <text x="401" y="56" textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--accent)" fontFamily="ui-monospace, monospace">H</text>
+        <text x="401" y="56" textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--accent)" fontFamily="ui-monospace, monospace">VPS</text>
       </svg>
       <div className="remote-diagram-labels">
-        <span>Hermes chat</span>
-        <span>Encrypted pairing</span>
-        <span>Your Mac · Continuity VPS when offline</span>
+        <span>Hermes Mobile</span>
+        <span>LLM-as-a-Judge</span>
+        <span>Continuity VPS</span>
       </div>
     </div>
   );
