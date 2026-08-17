@@ -72,19 +72,19 @@
     "@react-navigation/native": "^6.1.18",
     "@sentry/react-native": "~7.11.0",
     "@shopify/flash-list": "2.0.2",
-    "expo": "~55.0.28",
-    "expo-build-properties": "~55.0.16",
-    "expo-camera": "~55.0.21",
+    "expo": "~55.0.29",
+    "expo-build-properties": "~55.0.17",
+    "expo-camera": "~55.0.22",
     "expo-constants": "~55.0.17",
-    "expo-document-picker": "~55.0.15",
-    "expo-file-system": "~55.0.24",
-    "expo-haptics": "~55.0.16",
-    "expo-image-picker": "~55.0.22",
-    "expo-notifications": "~55.0.25",
-    "expo-secure-store": "~55.0.16",
-    "expo-splash-screen": "~55.0.23",
-    "expo-store-review": "~55.0.16",
-    "expo-updates": "~55.0.26",
+    "expo-document-picker": "~55.0.16",
+    "expo-file-system": "~55.0.25",
+    "expo-haptics": "~55.0.17",
+    "expo-image-picker": "~55.0.23",
+    "expo-notifications": "~55.0.26",
+    "expo-secure-store": "~55.0.17",
+    "expo-splash-screen": "~55.0.24",
+    "expo-store-review": "~55.0.17",
+    "expo-updates": "~55.0.27",
     "qrcode": "1.5.4",
     "react": "19.2.0",
     "react-dom": "19.2.0",
@@ -105,7 +105,7 @@
     "babel-preset-expo": "~55.0.0",
     "expo-doctor": "^1.20.1",
     "jest": "^29.7.0",
-    "jest-expo": "~55.0.20",
+    "jest-expo": "~55.0.21",
     "react-test-renderer": "19.2.0",
     "reassure": "^1.5.1",
     "rozenite": "^1.13.0",
@@ -120,6 +120,25 @@
     "@opentelemetry/core": "^2.10.0",
     "minimatch@3.1.5": {
       "brace-expansion": "^1.1.17"
+    }
+  },
+  "expo": {
+    "install": {
+      "exclude": [
+        "expo",
+        "expo-build-properties",
+        "expo-camera",
+        "expo-document-picker",
+        "expo-file-system",
+        "expo-haptics",
+        "expo-image-picker",
+        "expo-notifications",
+        "expo-secure-store",
+        "expo-splash-screen",
+        "expo-store-review",
+        "expo-updates",
+        "jest-expo"
+      ]
     }
   }
 }
