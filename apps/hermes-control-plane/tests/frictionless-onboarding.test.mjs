@@ -157,13 +157,20 @@ test("keeps the deployed web host DOM-native instead of adding a React Native We
   // Phone must not re-show the route explain card after base CSS (CEO overlap 2026-07-25).
   assert.match(globals, /\.composer-route-explain\{[\s\S]*display:none !important/);
   assert.match(globals, /\.dashboard-header\{[\s\S]*grid-template-columns:1fr/);
-  // In-flow composer + bounded .hermes-scroll-pane (CEO 2026-08: vertical scroll + Run CTA clip).
-  // Absolute dock was removed — thread scrolls; composer stays fully visible above tabs.
-  assert.match(globals, /hermes-scroll-pane\{[\s\S]*overflow-y:scroll !important/);
-  assert.match(globals, /position:relative !important/);
-  assert.match(globals, /data-mobile-tab="hermes"\] \.task-panel\{[\s\S]*overflow:hidden !important/);
+  // Document-scroll mobile shell (CEO 2026-08-17: locked 100dvh + overflow:hidden made
+  // Hermes tab completely unscrollable after clear-chats; "Continue the work" was a dead heading).
+  assert.match(globals, /html:has\(\.dashboard-shell\)/);
+  assert.match(globals, /overflow-y:\s*auto/);
+  assert.match(globals, /data-mobile-tab="hermes"\] \.task-panel\{[\s\S]*overflow:visible !important/);
+  assert.match(globals, /hermes-scroll-pane\{[\s\S]*overflow:visible !important/);
+  assert.match(globals, /\.mobile-web-tabs\{[\s\S]*position:sticky !important/);
+  assert.match(globals, /task-panel \.composer[\s\S]*position:sticky !important/);
   assert.match(dashboard, /hermes-scroll-pane/);
   assert.match(dashboard, /className="composer"/);
+  assert.match(dashboard, /data-testid="empty-start-work"/);
+  assert.match(dashboard, /data-testid="start-work-heading"/);
+  assert.match(dashboard, /focusComposer/);
+  assert.match(dashboard, /Start the work/);
 });
 
 test("renders the configured Stripe price instead of duplicating marketing price copy", () => {
@@ -197,12 +204,16 @@ test("preserves web accessibility contracts while adopting the mobile feel", () 
   assert.match(dashboard, /aria-label="Hermes workspace"/);
 });
 
-test("mobile Settings/Leash scroll on .right-rail and machine pick from both tabs", () => {
+test("mobile Settings/Leash use document scroll on .right-rail and machine pick from both tabs", () => {
   // Scrollport must be the real DOM node — never a missing wrapper class.
   assert.equal(/\.dashboard-sub-panels\s*\{/.test(globals), false);
   assert.match(globals, /data-mobile-tab="settings"\] \.right-rail/);
-  assert.match(globals, /overflow-y:\s*scroll\s*!important/);
-  assert.match(globals, /flex:\s*1 1 0\s*!important/);
+  // Same document-scroll model as Hermes tab (2026-08-17) — no nested frozen pane.
+  // Shared rule: [leash] .right-rail, [settings] .right-rail { overflow:visible }
+  assert.match(
+    globals,
+    /data-mobile-tab="leash"\] \.right-rail,[\s\S]*data-mobile-tab="settings"\] \.right-rail\{[\s\S]*overflow:visible !important/,
+  );
   // Machine pin: Leash select + Settings "Use for tasks"
   assert.match(dashboard, /data-testid="leash-device-select"/);
   assert.match(dashboard, /device-use-for-tasks/);
@@ -400,8 +411,10 @@ test("keeps every workspace telemetry value behind authentication", () => {
   assert.equal((chrome.match(/fetch\("\/api\/me"/g) ?? []).length, 1);
   assert.match(chrome, /landingAuthRequest/);
   assert.doesNotMatch(chrome, /After you sign in|Sign in to private dashboard|Open private dashboard|Sign in to Hermes Web|Open Hermes on the web/);
-  assert.match(chrome, /className="landing-action" href="#pair"/);
+  // Continuity is fenced VPS only — no #pair Mac product path on the public landing.
+  assert.doesNotMatch(chrome, /href="#pair"/);
   assert.match(chrome, /className="landing-action" href="#pricing"/);
+  assert.match(chrome, /className="landing-action" href="#mobile"/);
   assert.match(chrome, /No workspace telemetry is fetched or rendered on this public page/);
   assert.doesNotMatch(chrome, /getPublicTelemetry|Live production telemetry|Machines online now/);
   assert.doesNotMatch(landing, /getPublicTelemetry|Live production telemetry|Machines online now|P95 task completion|LAST CLOUD CONTINUATION|cloudRunsCompleted|machinesOnlineNow/);
@@ -410,7 +423,8 @@ test("keeps every workspace telemetry value behind authentication", () => {
 test("explains the failover path with an interactive approve/deny demo", () => {
   const failoverDemo = readFileSync(new URL("../app/FailoverPathDemo.tsx", import.meta.url), "utf8");
   assert.match(landing, /<FailoverPathDemo \/>/);
-  assert.match(landing, /Chat stays in Hermes\. Continuity keeps work alive\./);
+  // Landing markets Continuity as fenced VPS (not Mac-pair chat continuity).
+  assert.match(landing, /Fenced VPS execution with renewable leases/);
   assert.match(failoverDemo, /Deny call/);
   assert.match(failoverDemo, /Approve call/);
   assert.match(failoverDemo, /Close Mac lid/);
