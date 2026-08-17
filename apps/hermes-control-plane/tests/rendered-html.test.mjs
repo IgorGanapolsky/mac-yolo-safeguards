@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("builds the public Leash subscription landing page", async () => {
+test("builds the public Continuity VPS landing page", async () => {
   const [page, billingPlan, billingPlanRoute, checkoutRoute, portalRoute, dashboard, layout, robots, sitemap, llms] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/BillingPlan.tsx", import.meta.url), "utf8"),
@@ -36,9 +36,11 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /Fenced Cloud VPS|Continuity VPS|fenced Continuity VPS/i);
   assert.doesNotMatch(page, /still proving/);
   assert.match(page, /by ThumbGate/);
-  assert.match(page, /id="mobile"/);
-  assert.match(page, /ThumbGate\.app vs Hermes Mobile|Why the store badges/);
-  assert.match(page, /StoreBadgeRow/);
+  assert.doesNotMatch(page, /id="mobile"/);
+  assert.doesNotMatch(page, /Pocket Leash|Why the store badges|ThumbGate\.app vs Hermes Mobile/);
+  assert.doesNotMatch(page, /StoreBadgeRow/);
+  assert.match(page, /Approvals in thumbgate\.app|Where do approvals happen/);
+  assert.doesNotMatch(page, /Hermes Mobile/);
   assert.doesNotMatch(page, /store-link-badge/);
   // FAQ must not hardcode a false \$20 Continuity price (live plan is \$10).
   assert.doesNotMatch(page, /\$20\/month/);
@@ -126,7 +128,8 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /FAQPage/);
   assert.match(page, /id="faq"/);
   assert.match(page, /What is ThumbGate\?/);
-  assert.match(page, /id="mobile"/);
+  assert.match(page, /Where do approvals happen\?/);
+  assert.doesNotMatch(page, /id="mobile"/);
   assert.match(page, /id="pricing"/);
   // CoreWeave-style transparent capacity: public matrix + governance-aligned run caps.
   assert.match(page, /data-testid="continuity-capacity-matrix"/);
