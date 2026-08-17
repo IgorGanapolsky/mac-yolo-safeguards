@@ -57,9 +57,10 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 | `open-mono-agent-engine` | OpenMonoAgent.ai Zero-Meter Local Architecture: hardware-aware quantization selector, sensitive file shield, dual-box mobile companion relay, and Roslyn-inspired local AST code intelligence. | `.agents/skills/open-mono-agent-engine/SKILL.md` | local |
 | `autonomous-outcome-engine` | Autonomous Outcome Execution & Zero-Babysitting Engine: 5-stage task lifecycle without mid-execution stops. | `.agents/skills/autonomous-outcome-engine/SKILL.md` | local |
 | `thumbgate-vps-continuity` | ThumbGate 24/7 Fenced Cloud VPS Continuity: 90s renewable leases, LLM-as-a-Judge pre-action validation, zero Mac pairing. | `.agents/skills/thumbgate-vps-continuity/SKILL.md` | local |
+| `thumbgate-visual-e2e-auditor` | Automated visual design, marketing copy sanity, mobile layout geometry, and Playwright browser E2E validation for ThumbGate.app. | `.agents/skills/thumbgate-visual-e2e-auditor/SKILL.md` | local |
 | `tinker-brain` | Skill instructions and usage guide. | `~/.gemini/config/skills/tinker-brain/SKILL.md` | global |
 
 ---
 
-*Last synchronized: 2026-08-17T20:37:00.000Z*
+*Last synchronized: 2026-08-17T21:50:00.000Z*
 

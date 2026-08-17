@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+exec node "$(dirname "$0")/../tools/thumbgate-visual-e2e-auditor.js" "$@"
