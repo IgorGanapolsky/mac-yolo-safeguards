@@ -420,6 +420,11 @@ test("keeps every workspace telemetry value behind authentication", () => {
   assert.match(chrome, /No workspace telemetry is fetched or rendered on this public page/);
   assert.doesNotMatch(chrome, /getPublicTelemetry|Live production telemetry|Machines online now/);
   assert.doesNotMatch(landing, /getPublicTelemetry|Live production telemetry|Machines online now|P95 task completion|LAST CLOUD CONTINUATION|cloudRunsCompleted|machinesOnlineNow/);
+  // Public pricing shows CoreWeave-style capacity matrix; live usage stays behind auth.
+  assert.match(landing, /data-testid="continuity-capacity-matrix"/);
+  assert.match(landing, /Transparent Continuity capacity/);
+  assert.match(dashboard, /data-testid="continuity-usage-meter"/);
+  assert.match(dashboard, /continuityUsage/);
 });
 
 test("explains the failover path with an interactive approve/deny demo", () => {
