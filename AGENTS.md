@@ -73,6 +73,7 @@ Tables and full protocol: [docs/agents/decision-stack.md](./docs/agents/decision
 - **Expo SDK pins are law** — `react-native`/`react`/`expo*` move only via `npx expo install --fix` in a deliberate SDK upgrade.
 - **Don't close/rebase/fix another agent's PR** (dependabot PRs are ownerless — fair game with a reason).
 - **Merge only when required checks are green** (`strict: true` on main); prefer `gh pr merge --auto --squash`. A "ready" PR must be up-to-date with `main`; BEHIND/CONFLICTING PRs need rebase + green rerun, not a force-merge.
+- **PR hygiene session pattern (2026-08-17):** classify open PRs as MERGEABLE / CONFLICTING / DRAFT first; arm squash auto-merge only when the 7 required contexts are green and the head contains `origin/main`; after every main merge re-update BEHIND heads (strict thrash is expected); close only superseded draft/content-log PRs — never bulk-close CONFLICTING feature work; prune worktrees only when HEAD is already ancestor of main or the PR is MERGED; prove each merge with SHA + `mergedAt` + main CI run URL. Never utter "Done merging PRs" while open/blocked PRs remain unaccounted for.
 - **Don't bulk-delete multi-agent worktrees**; prune only merged-PR branches and your own disposable trees.
 - Greptile review comments are required context on connect/onboarding/auth/OTA PRs.
 - **A wall of `BLOCKED` PRs is an outage until proven otherwise.** If required contexts are *absent* from the PR rollup (not failing — missing), check <https://www.githubstatus.com/api/v2/summary.json> **before** blaming code, runners, or a wedged queue. All 7 required checks run on `ubuntu-latest`, so a GitHub-hosted outage stalls every PR while self-hosted runners sit idle and green. `main` has `enforce_admins=true` — there is no override; the queue drains itself once Actions recovers. Never `gh run rerun` a queued run (no-op).
@@ -157,7 +158,7 @@ Session start prints open count. Detail: [docs/agents/codeql-orchestration.md](.
 ## Detail index
 
 - [docs/agents/coordination.md](./docs/agents/coordination.md) — full multi-agent protocol, swarm roles, megafiles, verification lenses
-- [docs/agents/shipping-and-hygiene.md](./docs/agents/shipping-and-hygiene.md) — ship protocol, Dependabot/security/CI policy, Issues board
+- [docs/agents/shipping-and-hygiene.md](./docs/agents/shipping-and-hygiene.md) — ship protocol, Dependabot/security/CI policy, Issues board, **PR hygiene session pattern**
 - [docs/agents/decision-stack.md](./docs/agents/decision-stack.md) — RAG loop, research routing, decision-stack tables
 - [docs/agents/social-gates.md](./docs/agents/social-gates.md) — publish gates, campaign analytics
 - [docs/agents/hermes-mobile.md](./docs/agents/hermes-mobile.md) — mobile verification contract
