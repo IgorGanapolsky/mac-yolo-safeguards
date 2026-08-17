@@ -148,6 +148,10 @@ test("builds the public Continuity VPS landing page", async () => {
   assert.match(page, /data-mode=\{mode\.id\}/);
   assert.match(robots, /disallow: \["\/dashboard", "\/admin", "\/api\/"\]/);
   assert.match(robots, /https:\/\/thumbgate\.app\/sitemap\.xml/);
+  assert.match(page, /href="\/privacy"/);
+  assert.match(page, /href="\/terms"/);
+  assert.match(sitemap, /https:\/\/thumbgate\.app\/privacy/);
+  assert.match(sitemap, /https:\/\/thumbgate\.app\/terms/);
   assert.match(sitemap, /https:\/\/thumbgate\.app\//);
   assert.match(sitemap, /2026-07-22/);
   assert.match(llms, /# ThumbGate Continuity/);
