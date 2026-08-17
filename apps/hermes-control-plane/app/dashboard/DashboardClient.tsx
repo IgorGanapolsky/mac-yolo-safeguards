@@ -24,6 +24,20 @@ import {
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
+/** CoreWeave-style capacity snapshot from /api/me (enforced governance caps). */
+type ContinuityUsage = {
+  cloudTasks30d: number;
+  cloudTaskLimit: number;
+  cloudTasksRemaining: number;
+  activeTasks: number;
+  maxActiveTasks: number;
+  plan: string;
+  purchaseMode?: string;
+  windowDays: number;
+  percentUsed?: number;
+  exhausted?: boolean;
+  upgradeHint?: string | null;
+};
 type Device = {
   id: string;
   name: string;
@@ -233,6 +247,8 @@ export default function DashboardClient() {
     const cached = readJsonSessionStorage<CachedIdentity<User, Organization>>(DASHBOARD_CACHE_KEYS.me);
     return cached?.organization ?? null;
   });
+  /** CoreWeave-style remaining capacity from /api/me (governance-enforced caps). */
+  const [continuityUsage, setContinuityUsage] = useState<ContinuityUsage | null>(null);
   const [devices, setDevices] = useState<Device[]>([]);
   const [threads, setThreads] = useState<Thread[]>(() => readJsonSessionStorage<Thread[]>(DASHBOARD_CACHE_KEYS.threads) ?? []);
   const [tasks, setTasks] = useState<Task[]>(() => readJsonSessionStorage<Task[]>(DASHBOARD_CACHE_KEYS.tasks) ?? []);
@@ -659,9 +675,14 @@ export default function DashboardClient() {
       window.location.replace(`/api/auth/login?return_to=${encodeURIComponent(returnTo)}`);
       return;
     }
-    const identity = await me.json() as { user: User; organization: Organization };
+    const identity = await me.json() as {
+      user: User;
+      organization: Organization;
+      continuityUsage?: ContinuityUsage;
+    };
     setUser(identity.user);
     setOrganization(identity.organization);
+    if (identity.continuityUsage) setContinuityUsage(identity.continuityUsage);
     writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.me, {
       user: identity.user,
       organization: identity.organization,
@@ -845,6 +866,14 @@ export default function DashboardClient() {
       setNotice("Continuity needs a trial or Pro plan. Open Manage plan to start Continuity.");
       return;
     }
+    // Client-side capacity preflight (server still enforces) — CoreWeave-style remaining truth.
+    if (effectiveRoute === "cloud" && continuityUsage?.exhausted) {
+      setNotice(
+        continuityUsage.upgradeHint
+          ?? "Continuity capacity exhausted for this 30-day window. Use a local machine or upgrade.",
+      );
+      return;
+    }
     // Auto with Continuity never forces pair — only pure local-without-machine does.
     if (!devices.length && effectiveRoute !== "cloud") {
       openPairingSettings("pair");
@@ -869,7 +898,15 @@ export default function DashboardClient() {
           routePreference: effectiveRoute,
         }),
       });
-      let body: { task?: { route: string; threadId: string; preference?: string; deviceId?: string; traceId?: string }; error?: string; traceId?: string } = {};
+      let body: {
+        task?: { route: string; threadId: string; preference?: string; deviceId?: string; traceId?: string };
+        error?: string;
+        code?: string;
+        limit?: number | null;
+        observed?: number | null;
+        remaining?: number | null;
+        traceId?: string;
+      } = {};
       try {
         body = await response.json() as typeof body;
       } catch {
@@ -882,11 +919,11 @@ export default function DashboardClient() {
           ?? selectedDeviceLabel;
         setNotice(
           body.task.route === "local"
-            ? `Sent — running on ${macName}.`
+            ? `Sent — running on ${macName} (local/spot · $0 Continuity quota).`
             : body.task.route === "cloud"
               ? (devices.length
-                  ? `Sent — Continuity (Cloud VPS) · workspace: ${macName}.`
-                  : "Sent — Continuity (Cloud VPS) on ThumbGate.app.")
+                  ? `Sent — Continuity on-demand VPS · workspace: ${macName}.`
+                  : "Sent — Continuity on-demand VPS on ThumbGate.app.")
               : `Sent — awaiting route on ${macName}.`
         );
         setPrompt("");
@@ -896,7 +933,27 @@ export default function DashboardClient() {
           document.getElementById("task-activity")?.scrollIntoView({ behavior: "smooth", block: "start" });
         });
       } else {
-        setNotice(body.error ?? "Task routing failed");
+        if (body.code === "cloud_task_limit" || body.code === "cloud_entitlement_required") {
+          const rem = typeof body.remaining === "number" ? body.remaining : null;
+          const lim = typeof body.limit === "number" ? body.limit : null;
+          const capacityNote =
+            lim != null
+              ? ` Capacity ${Math.max(0, (lim ?? 0) - (rem ?? 0))}/${lim} used.`
+              : "";
+          setNotice(`${body.error ?? "Continuity capacity denied."}${capacityNote}`);
+          // Refresh meter so remaining capacity matches the enforcer.
+          try {
+            const me = await fetch("/api/me", { credentials: "include", cache: "no-store" });
+            if (me.ok) {
+              const identity = await me.json() as { continuityUsage?: ContinuityUsage };
+              if (identity.continuityUsage) setContinuityUsage(identity.continuityUsage);
+            }
+          } catch {
+            /* ignore meter refresh failure */
+          }
+        } else {
+          setNotice(body.error ?? "Task routing failed");
+        }
       }
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Network error — task not sent.");
@@ -1186,15 +1243,31 @@ export default function DashboardClient() {
         <header className="dashboard-header">
           <div className="dashboard-header-title">
             <div className="mobile-header-row">
-              <button
-                type="button"
-                className="mobile-chats-toggle button button-small button-secondary"
-                onClick={toggleChatRail}
-                aria-label="Toggle chat threads menu"
-                data-testid="mobile-chats-toggle"
-              >
-                💬 {chatRailExpanded ? "Hide Chats" : "Chats"}
-              </button>
+              <div className="mobile-header-actions">
+                <button
+                  type="button"
+                  className="mobile-chats-toggle button button-small button-secondary"
+                  onClick={toggleChatRail}
+                  aria-label="Toggle chat threads menu"
+                  data-testid="mobile-chats-toggle"
+                >
+                  💬 {chatRailExpanded ? "Hide Chats" : "Chats"}
+                </button>
+                {threads.length > 0 ? (
+                  <button
+                    type="button"
+                    className="button button-small button-secondary mobile-clear-all"
+                    data-testid="mobile-clear-all"
+                    onClick={() => {
+                      setThreadMenu(null);
+                      setChatDialog({ kind: "clear" });
+                    }}
+                    aria-label="Clear all chats"
+                  >
+                    Clear all
+                  </button>
+                ) : null}
+              </div>
               <p className="eyebrow">HERMES WEB</p>
             </div>
             <div className="thread-title-heading-row" style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
@@ -1233,6 +1306,60 @@ export default function DashboardClient() {
           </div>
         )}
 
+        {continuityUsage && (
+          <section
+            className={`continuity-usage-meter${continuityUsage.exhausted ? " is-exhausted" : ""}`}
+            data-testid="continuity-usage-meter"
+            data-exhausted={continuityUsage.exhausted ? "true" : "false"}
+            aria-label="Continuity capacity remaining"
+          >
+            <div className="continuity-usage-meter-copy">
+              <p className="eyebrow">Continuity capacity · {continuityUsage.purchaseMode ?? continuityUsage.plan}</p>
+              <strong>
+                {continuityUsage.cloudTasks30d}/{continuityUsage.cloudTaskLimit} VPS runs used
+                {continuityUsage.exhausted ? " · exhausted" : ""}
+              </strong>
+              <small>
+                {continuityUsage.cloudTasksRemaining} remaining · plan {continuityUsage.plan} ·{" "}
+                {continuityUsage.windowDays}d window · {continuityUsage.activeTasks}/
+                {continuityUsage.maxActiveTasks} active
+                {typeof continuityUsage.percentUsed === "number" ? ` · ${continuityUsage.percentUsed}%` : ""}
+              </small>
+              {continuityUsage.upgradeHint ? (
+                <p className="continuity-usage-hint" data-testid="continuity-upgrade-hint">
+                  {continuityUsage.upgradeHint}{" "}
+                  <button
+                    type="button"
+                    className="button button-small button-secondary"
+                    onClick={() => void (["pro", "team"].includes(organization?.plan ?? "") ? manageBilling() : subscribe())}
+                    disabled={busy}
+                  >
+                    {["pro", "team"].includes(organization?.plan ?? "") ? "Manage plan" : "Upgrade Continuity"}
+                  </button>
+                </p>
+              ) : null}
+            </div>
+            <div
+              className="continuity-usage-bar"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={Math.max(1, continuityUsage.cloudTaskLimit)}
+              aria-valuenow={Math.min(continuityUsage.cloudTasks30d, Math.max(1, continuityUsage.cloudTaskLimit))}
+              aria-label={`${continuityUsage.cloudTasks30d} of ${continuityUsage.cloudTaskLimit} Continuity runs used`}
+            >
+              <i
+                style={{
+                  width: `${typeof continuityUsage.percentUsed === "number"
+                    ? continuityUsage.percentUsed
+                    : continuityUsage.cloudTaskLimit > 0
+                      ? Math.min(100, Math.round((continuityUsage.cloudTasks30d / continuityUsage.cloudTaskLimit) * 100))
+                      : 0}%`,
+                }}
+              />
+            </div>
+          </section>
+        )}
+
         <nav className="metric-grid metric-grid-four" aria-label="Workspace status shortcuts">
           <a className="metric-card" href="#web-settings" aria-label={`View ${devices.length} paired machines in settings`}><span>Paired machines</span><strong>{devices.length}</strong><small>{onlineDevices.length} online now</small><b>View machines →</b></a>
           <a className="metric-card" href="#task-activity" aria-label={`View ${activeTasks.length} active tasks`}><span>Active tasks</span><strong>{activeTasks.length}</strong><small>{tasks.filter((task) => task.route === "cloud" && !terminal.has(task.status)).length} routed to cloud</small><b>View activity →</b></a>
@@ -1260,6 +1387,26 @@ export default function DashboardClient() {
                 )}
               </div>
               <span>{selectedThread ? `${threadDetails?.snapshot.length ?? 0} synced messages` : `${visibleTasks.length} tasks`}</span>
+            </div>
+            {/* DimAgent-style observability: always know what the agent is doing */}
+            <div
+              className="agent-activity"
+              data-testid="agent-activity"
+              data-state={activeTasks.length > 0 ? "running" : "idle"}
+              role="status"
+              aria-live="polite"
+            >
+              <i className="agent-activity-dot" aria-hidden="true" />
+              <strong>
+                {activeTasks.length === 1
+                  ? "1 Continuity run active"
+                  : `${activeTasks.length} Continuity runs active`}
+              </strong>
+              <span>
+                {activeTasks.some((task) => task.route === "cloud")
+                  ? "Fenced VPS · no babysitting required"
+                  : "Waiting on your paired machine"}
+              </span>
             </div>
             <div className="hermes-scroll-pane">
             {selectedThread && <div className="conversation-history">

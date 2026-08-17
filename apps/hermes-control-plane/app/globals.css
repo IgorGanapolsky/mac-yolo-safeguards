@@ -350,12 +350,45 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   }
   /* Tab panes: only one section visible */
   .task-panel,.right-rail{display:none;min-height:0}
+  /*
+   * Chat-first workbench (DimAgent visual-workbench pattern, 2026-08-18):
+   * messages fill remaining height; composer is a thin dock — not half the phone.
+   */
+  .dashboard-shell[data-mobile-tab="hermes"]{
+    height:100dvh;
+    max-height:100dvh;
+    min-height:100dvh;
+    overflow:hidden;
+  }
+  .dashboard-shell[data-mobile-tab="hermes"] .dashboard-main{
+    flex:1 1 0;
+    min-height:0;
+    overflow:hidden;
+    padding:8px 10px 0;
+  }
+  .dashboard-shell[data-mobile-tab="hermes"] .dashboard-header{
+    padding-bottom:6px;
+    gap:6px;
+  }
+  .dashboard-shell[data-mobile-tab="hermes"] .dashboard-header h1{
+    font-size:14px;
+    -webkit-line-clamp:1;
+  }
+  .dashboard-shell[data-mobile-tab="hermes"] .header-actions{
+    display:none !important; /* Manage plan / Sign out live under Settings on phone */
+  }
+  .dashboard-shell[data-mobile-tab="hermes"] .dashboard-grid{
+    flex:1 1 0;
+    min-height:0;
+    overflow:hidden;
+  }
   .dashboard-shell[data-mobile-tab="hermes"] .task-panel{
     display:flex;
     flex-direction:column;
-    flex:0 0 auto !important;
-    min-height:min(70dvh, 640px) !important;
-    overflow:visible !important;
+    flex:1 1 0 !important;
+    min-height:0 !important;
+    max-height:none !important;
+    overflow:hidden !important;
     border:1px solid var(--line);
     background:#0B0F19;
   }
@@ -414,51 +447,82 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     font-size:14px;
     font-weight:600;
   }
-  .task-panel .panel-heading{flex:0 0 auto;padding:12px 14px;border-bottom:1px solid var(--line)}
+  .task-panel .panel-heading{flex:0 0 auto;padding:8px 12px;border-bottom:1px solid var(--line)}
+  .dashboard-shell[data-mobile-tab="hermes"] .task-panel .panel-heading .eyebrow{display:none}
+  .dashboard-shell[data-mobile-tab="hermes"] .task-panel .panel-heading h2{font-size:14px;margin:0}
+  /* Agent activity strip — DimAgent "know what your agent is doing" */
+  .agent-activity{
+    flex:0 0 auto;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin:0;
+    padding:8px 12px;
+    border-bottom:1px solid var(--line);
+    background:rgba(34,211,238,.06);
+    color:#A5F3FC;
+    font:600 12px/1.35 Inter,ui-sans-serif,system-ui,sans-serif;
+  }
+  .agent-activity[data-state="idle"]{display:none}
+  .agent-activity[data-state="running"]{display:flex}
+  .agent-activity-dot{
+    width:7px;height:7px;border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 0 4px rgba(34,211,238,.18);
+    flex:0 0 auto;
+    animation:agent-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes agent-pulse{50%{opacity:.45}}
+  .agent-activity strong{font-weight:700;color:#E0F2FE}
+  .agent-activity span{color:#94A3B8;font-weight:500}
   /*
-   * Thread list is the ONLY scrollport on Hermes tab (CEO 2026-08: screen not
-   * scrollable vertically; Run button clipped). Use overflow-y:scroll + min-height:0
-   * so iOS gets a real bounded scroll container. Composer stays in-flow below it.
+   * Chat scrollport fills remaining height; composer is a thin fixed dock below
+   * (DimAgent workbench — chat primary, not composer half-screen).
    */
   .hermes-scroll-pane{
-    flex:1 1 auto !important;
-    min-height:120px !important;
+    flex:1 1 0 !important;
+    min-height:0 !important;
     max-height:none;
-    overflow:visible !important;
+    overflow-x:hidden;
+    overflow-y:scroll !important;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+    touch-action:pan-y;
   }
   .dashboard-shell[data-mobile-tab="hermes"] .hermes-scroll-pane{
-    padding-bottom:12px;
+    padding-bottom:8px;
   }
   .conversation-history{
     max-height:none;
     border-bottom:1px solid var(--line);
+    min-height:min(42dvh, 360px);
   }
   .conversation-message{max-width:94%}
   .task-list{max-height:none}
-  /* Composer stays reachable via document scroll + sticky pin above tab bar */
+  /* Thin composer dock — in-flow under chat pane, not a tall sticky slab */
   .dashboard-shell[data-mobile-tab="hermes"] .task-panel{
     position:relative;
   }
   .dashboard-shell[data-mobile-tab="hermes"] .task-panel .composer,
   .task-panel .composer{
-    position:sticky !important;
+    position:relative !important;
     z-index:25;
     left:auto !important;
     right:auto !important;
-    bottom:calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+    bottom:auto !important;
     flex:0 0 auto;
     width:100%;
     margin:0;
-    padding:14px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+    padding:8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
     background:#0B0F19;
     border-top:1px solid var(--line);
-    box-shadow:0 -8px 24px rgba(0,0,0,.35);
+    box-shadow:none;
   }
   .composer textarea{
-    min-height:64px;
-    max-height:120px;
-    border-radius:16px;
-    padding:12px 14px;
+    min-height:40px;
+    max-height:72px;
+    border-radius:12px;
+    padding:8px 12px;
     font-size:16px; /* iOS: avoid focus zoom */
   }
   .composer-where{margin:8px 0 0;gap:8px}
@@ -516,46 +580,62 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   .composer-actions{
     display:grid;
     grid-template-columns:1fr;
-    gap:8px;
-    margin-top:12px;
-    padding-bottom:12px;
+    gap:6px;
+    margin-top:6px;
+    padding-bottom:0;
   }
   .composer-run{
     width:100%;
-    min-height:52px;
+    min-height:44px;
     max-height:none;
-    border-radius:14px;
-    font-size:16px;
+    border-radius:12px;
+    font-size:14px;
     font-weight:700;
-    padding-top:12px;
-    padding-bottom:12px;
+    padding-top:8px;
+    padding-bottom:8px;
   }
   .composer-unified-target{
     display:flex;
-    flex-direction:column;
-    align-items:stretch;
-    gap:6px;
-    margin-top:12px;
+    flex-direction:row;
+    align-items:center;
+    gap:8px;
+    margin-top:6px;
     width:100%;
+    padding:4px 8px;
   }
   .composer-unified-target .composer-where-label{
-    font-size:11px;
+    font-size:10px;
     font-weight:700;
     letter-spacing:.06em;
     color:#38BDF8;
     text-transform:uppercase;
+    flex:0 0 auto;
   }
   .composer-unified-target select{
     width:100%;
     max-width:100%;
-    min-height:48px;
-    padding:10px 14px;
-    font-size:14px;
+    min-height:36px;
+    padding:6px 10px;
+    font-size:13px;
     font-weight:500;
-    border-radius:12px;
+    border-radius:10px;
     border:1px solid rgba(56,189,248,.3);
     background:#0F172A;
     color:#F9FAFB;
+  }
+  .mobile-header-actions{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    flex-wrap:wrap;
+  }
+  .mobile-clear-all{
+    display:inline-flex;
+    min-height:32px;
+    padding:4px 10px;
+    font-size:11px;
+    border-color:rgba(248,113,113,.35);
+    color:#fca5a5;
   }
   /* Sticky bottom chrome while the document scrolls (2026-08-17 unscrollable fix) */
   .mobile-web-tabs{
@@ -800,6 +880,43 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   font:600 13px/1.3 Inter,ui-sans-serif,system-ui,sans-serif;
 }
 @media(max-width:700px){
-  .task-panel .composer{max-height:none!important;overflow:visible!important;padding-bottom:max(16px, env(safe-area-inset-bottom))!important}
-  .composer textarea{min-height:40px!important;max-height:84px!important;}
+  .task-panel .composer{max-height:none!important;overflow:visible!important;padding-bottom:max(8px, env(safe-area-inset-bottom))!important}
+  .composer textarea{min-height:40px!important;max-height:72px!important;}
+}
+
+/* CoreWeave-style transparent Continuity capacity (landing matrix + dashboard meter) */
+.price-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.price-mode{margin:10px 0 0;color:var(--accent);font:650 11px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em}
+.capacity-matrix{margin-top:36px;padding:22px 20px 18px;border:1px solid var(--line);border-radius:18px;background:rgba(15,23,42,.55)}
+.capacity-matrix h3{margin:0 0 14px;font-size:16px;letter-spacing:-.02em}
+.capacity-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.capacity-table{width:100%;border-collapse:collapse;min-width:520px;font-size:12px}
+.capacity-table th,.capacity-table td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.capacity-table thead th{color:var(--muted);font:650 10px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.08em}
+.capacity-table tbody th{color:var(--ink);font-weight:600;white-space:nowrap}
+.capacity-table td{color:#b8c0bc}
+.capacity-footnote{margin:14px 0 0;color:var(--muted);font-size:11px;line-height:1.55}
+.capacity-footnote code{font-size:10px;color:var(--accent)}
+.execution-modes{margin-top:28px;padding:22px 20px 18px;border:1px solid var(--line);border-radius:18px;background:rgba(79,70,229,.06)}
+.execution-modes h3{margin:0 0 8px;font-size:16px;letter-spacing:-.02em}
+.execution-mode-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:8px}
+.execution-mode-card{padding:14px;border:1px solid var(--line);border-radius:14px;background:rgba(15,23,42,.5);display:grid;gap:6px}
+.execution-mode-card .price-mode{margin:0}
+.execution-mode-card strong{font-size:14px;letter-spacing:-.02em}
+.execution-mode-card small{color:var(--accent);font:650 11px/1.4 ui-monospace,monospace}
+.execution-mode-card p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+.continuity-usage-meter{margin:18px 0 0;padding:14px 16px;border:1px solid rgba(34,211,238,.22);border-radius:14px;background:rgba(34,211,238,.06);display:grid;gap:10px}
+.continuity-usage-meter.is-exhausted{border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.08)}
+.continuity-usage-meter-copy{display:grid;gap:4px}
+.continuity-usage-meter-copy .eyebrow{margin:0}
+.continuity-usage-meter-copy strong{font:650 15px/1.3 Inter,ui-sans-serif,system-ui,sans-serif;letter-spacing:-.02em}
+.continuity-usage-meter-copy small{color:var(--muted);font-size:11px;line-height:1.45}
+.continuity-usage-hint{margin:6px 0 0;color:#FDE68A;font-size:12px;line-height:1.45;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.continuity-usage-bar{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
+.continuity-usage-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--secondary));border-radius:inherit;min-width:0;transition:width .2s ease}
+.continuity-usage-meter.is-exhausted .continuity-usage-bar i{background:linear-gradient(90deg,var(--orange),var(--danger))}
+@media(max-width:980px){.price-grid{grid-template-columns:1fr}.execution-mode-grid{grid-template-columns:1fr}}
+@media(max-width:700px){
+  .capacity-matrix,.execution-modes{padding:16px 12px}
+  .continuity-usage-meter{margin-top:14px;padding:12px}
 }

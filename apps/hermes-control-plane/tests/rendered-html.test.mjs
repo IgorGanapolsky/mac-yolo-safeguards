@@ -128,6 +128,18 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /What is ThumbGate\?/);
   assert.match(page, /id="mobile"/);
   assert.match(page, /id="pricing"/);
+  // CoreWeave-style transparent capacity: public matrix + governance-aligned run caps.
+  assert.match(page, /data-testid="continuity-capacity-matrix"/);
+  assert.match(page, /Transparent Continuity capacity/);
+  assert.match(page, /Fenced VPS runs \/ 30d/);
+  assert.match(page, /Surprise egress \/ idle fees/);
+  assert.match(page, /from \"@\/lib\/continuity-pricing\"/);
+  assert.match(page, /CONTINUITY_PRICE_TIERS/);
+  assert.match(page, /CONTINUITY_EXECUTION_MODES/);
+  assert.match(page, /CONTINUITY_ZERO_EGRESS/);
+  assert.match(page, /data-testid="continuity-execution-modes"/);
+  assert.match(page, /data-testid="continuity-zero-egress"/);
+  assert.match(page, /data-mode=\{mode\.id\}/);
   assert.match(robots, /disallow: \["\/dashboard", "\/admin", "\/api\/"\]/);
   assert.match(robots, /https:\/\/thumbgate\.app\/sitemap\.xml/);
   assert.match(sitemap, /https:\/\/thumbgate\.app\//);
