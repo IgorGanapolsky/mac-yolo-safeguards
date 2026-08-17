@@ -157,13 +157,22 @@ test("keeps the deployed web host DOM-native instead of adding a React Native We
   // Phone must not re-show the route explain card after base CSS (CEO overlap 2026-07-25).
   assert.match(globals, /\.composer-route-explain\{[\s\S]*display:none !important/);
   assert.match(globals, /\.dashboard-header\{[\s\S]*grid-template-columns:1fr/);
-  // In-flow composer + bounded .hermes-scroll-pane (CEO 2026-08: vertical scroll + Run CTA clip).
-  // Absolute dock was removed — thread scrolls; composer stays fully visible above tabs.
-  assert.match(globals, /hermes-scroll-pane\{[\s\S]*overflow-y:scroll !important/);
-  assert.match(globals, /position:relative !important/);
+  // Chat-first workbench (DimAgent visual workbench steal, 2026-08-18):
+  // messages fill remaining height; thin composer dock; not half-screen input.
+  assert.match(globals, /data-mobile-tab="hermes"\]\{[\s\S]*height:100dvh/);
   assert.match(globals, /data-mobile-tab="hermes"\] \.task-panel\{[\s\S]*overflow:hidden !important/);
+  assert.match(globals, /hermes-scroll-pane\{[\s\S]*overflow-y:scroll !important/);
+  assert.match(globals, /task-panel \.composer[\s\S]*position:relative !important/);
+  assert.match(globals, /composer textarea\{[\s\S]*min-height:40px/);
+  assert.match(globals, /\.agent-activity/);
   assert.match(dashboard, /hermes-scroll-pane/);
   assert.match(dashboard, /className="composer"/);
+  assert.match(dashboard, /data-testid="empty-start-work"/);
+  assert.match(dashboard, /data-testid="start-work-heading"/);
+  assert.match(dashboard, /data-testid="agent-activity"/);
+  assert.match(dashboard, /data-testid="mobile-clear-all"/);
+  assert.match(dashboard, /focusComposer/);
+  assert.match(dashboard, /Start the work/);
 });
 
 test("renders the configured Stripe price instead of duplicating marketing price copy", () => {
@@ -180,11 +189,11 @@ test("routes paid accounts to billing management without opening a duplicate che
   assert.match(dashboard, /"Keep cloud after trial"/);
 });
 
-test("uses ThumbGate for Hermes identity and production URLs", () => {
-  assert.match(layout, /ThumbGate — Hermes dashboard & continuity/);
+test("uses ThumbGate Continuity identity and production URLs", () => {
+  assert.match(layout, /ThumbGate Continuity — VPS failover for Hermes agents/);
   assert.match(layout, /metadataBase: new URL\("https:\/\/thumbgate\.app"\)/);
   assert.match(dashboardPage, /title: "Hermes Web"/);
-  assert.match(landing, /name: "ThumbGate for Hermes"/);
+  assert.match(landing, /name: "ThumbGate Continuity"/);
   assert.match(landing, /url: "https:\/\/thumbgate\.app\/"/);
   assert.doesNotMatch(layout + landing + dashboardPage, /leash\.dev|Leash by ThumbGate/);
 });
@@ -197,12 +206,16 @@ test("preserves web accessibility contracts while adopting the mobile feel", () 
   assert.match(dashboard, /aria-label="Hermes workspace"/);
 });
 
-test("mobile Settings/Leash scroll on .right-rail and machine pick from both tabs", () => {
+test("mobile Settings/Leash use document scroll on .right-rail and machine pick from both tabs", () => {
   // Scrollport must be the real DOM node — never a missing wrapper class.
   assert.equal(/\.dashboard-sub-panels\s*\{/.test(globals), false);
   assert.match(globals, /data-mobile-tab="settings"\] \.right-rail/);
-  assert.match(globals, /overflow-y:\s*scroll\s*!important/);
-  assert.match(globals, /flex:\s*1 1 0\s*!important/);
+  // Same document-scroll model as Hermes tab (2026-08-17) — no nested frozen pane.
+  // Shared rule: [leash] .right-rail, [settings] .right-rail { overflow:visible }
+  assert.match(
+    globals,
+    /data-mobile-tab="leash"\] \.right-rail,[\s\S]*data-mobile-tab="settings"\] \.right-rail\{[\s\S]*overflow:visible !important/,
+  );
   // Machine pin: Leash select + Settings "Use for tasks"
   assert.match(dashboard, /data-testid="leash-device-select"/);
   assert.match(dashboard, /device-use-for-tasks/);
@@ -399,18 +412,29 @@ test("keeps every workspace telemetry value behind authentication", () => {
   assert.equal((chrome.match(/"sign_in_click"/g) ?? []).length, 1);
   assert.equal((chrome.match(/fetch\("\/api\/me"/g) ?? []).length, 1);
   assert.match(chrome, /landingAuthRequest/);
-  assert.doesNotMatch(chrome, /After you sign in|Sign in to private dashboard|Open private dashboard|Open dashboard/);
-  assert.match(chrome, /className="landing-action" href="#pair"/);
+  assert.doesNotMatch(chrome, /After you sign in|Sign in to private dashboard|Open private dashboard|Sign in to Hermes Web|Open Hermes on the web/);
+  // Continuity is fenced VPS only — no #pair Mac product path on the public landing.
+  assert.doesNotMatch(chrome, /href="#pair"/);
   assert.match(chrome, /className="landing-action" href="#pricing"/);
+  assert.match(chrome, /className="landing-action" href="#mobile"/);
   assert.match(chrome, /No workspace telemetry is fetched or rendered on this public page/);
   assert.doesNotMatch(chrome, /getPublicTelemetry|Live production telemetry|Machines online now/);
   assert.doesNotMatch(landing, /getPublicTelemetry|Live production telemetry|Machines online now|P95 task completion|LAST CLOUD CONTINUATION|cloudRunsCompleted|machinesOnlineNow/);
+  // Public pricing shows CoreWeave-style capacity matrix; live usage stays behind auth.
+  assert.match(landing, /data-testid="continuity-capacity-matrix"/);
+  assert.match(landing, /Transparent Continuity capacity/);
+  assert.match(landing, /data-testid="continuity-execution-modes"/);
+  assert.match(landing, /data-testid="continuity-zero-egress"/);
+  assert.match(dashboard, /data-testid="continuity-usage-meter"/);
+  assert.match(dashboard, /continuityUsage/);
+  assert.match(dashboard, /data-testid="continuity-upgrade-hint"/);
 });
 
 test("explains the failover path with an interactive approve/deny demo", () => {
   const failoverDemo = readFileSync(new URL("../app/FailoverPathDemo.tsx", import.meta.url), "utf8");
   assert.match(landing, /<FailoverPathDemo \/>/);
-  assert.match(landing, /Remote control\. Keep going offline\./);
+  // Landing markets Continuity as fenced VPS (not Mac-pair chat continuity).
+  assert.match(landing, /Fenced VPS execution with renewable leases/);
   assert.match(failoverDemo, /Deny call/);
   assert.match(failoverDemo, /Approve call/);
   assert.match(failoverDemo, /Close Mac lid/);

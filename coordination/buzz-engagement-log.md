@@ -290,7 +290,7 @@ Same as Run 1: this specific session/environment tier has no write path to `bloc
 
 ---
 
-## 2026-08-10 — Run 4 (access blocked again; verified prior contributions still stand; new drafted answer)
+## 2026-08-10 — Run 4a (access blocked again; verified prior contributions still stand; new drafted answer)
 
 ### What was VERIFIED (Step 0 — reconfirmed)
 
@@ -366,6 +366,157 @@ Unchanged, now three runs deep: this environment tier has never had write access
 
 - **`coordination/buzz-engagement-log.md` had no `merge=union` git attribute**, unlike `plan.md`/`SKILLS.md`. Discovered because four separate branches (`chore/buzz-engagement-log-run4`, `buzz-engagement-run4-20260810`, `chore/buzz-engagement-log-2026-08-05-run4`, `feat/buzz-engagement-run4-20260810`) were all pushed within roughly the same hour, each appending a "Run 4" entry to this exact file from independent scheduled-task firings — a guaranteed merge conflict for every one after the first, on a file where every side's content is wanted. Fixed in this PR: added `coordination/*-engagement-log.md merge=union` to `.gitattributes` (same fix already applied to `plan.md`/`SKILLS.md` for the identical reason).
 - An earlier version of this PR also modified `.github/workflows/auto-assign-reviewers.yml` to fix a real `assign_reviewers` CI failure (422 requesting review from the PR author) hit while driving this PR to green. That fix was reverted here on review feedback: PR [#1598](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1598) already exists as a dedicated, properly-scoped fix for the same bug (and handles an additional edge case — 422 on a mapped, non-collaborator reviewer — that this PR's version didn't). No need for two competing fixes to the same production workflow file.
+
+---
+
+## 2026-08-10 — Run 4b (concurrent session — access SOLVED via the fork; #5492 fixed, tested, staged)
+
+A second scheduled firing of this same task ran concurrently with Run 4a above, from a different session, and reached the opposite conclusion about access — correctly. Run 4a's "no write path exists" is accurate only for the *upstream* repo: `add_repo`'s own rejection names the way through (*"add a repo from the same owner as the existing sources"*), and Buzz requires contributing from a **fork**, which is owned by `igorganapolsky` and therefore same-tier. Adding `igorganapolsky/buzz` unblocked clone, upstream fetch, build, test, and push. Runs 1, 3, and 4a each re-verified the refusal instead of reading it for the route it offered. Both entries are kept here: 4a's survey, re-verification of #4624/#4860, and `buzz-wf08-pr-plan.md` path-history correction all still stand.
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+| Fact | Evidence |
+|------|----------|
+| **Canonical repo** | [`github.com/block/buzz`](https://github.com/block/buzz) — still the only public surface, description/architecture unchanged from Run 1–3 (Nostr-based shared workspace for humans + agents) |
+| **Scale** | ~26,000 stars, ~3,100 forks, ~1,000 open issues, ~1,400 open PRs (via public `WebFetch` on the repo's web page — see access notes below for why the API wasn't used) |
+| **PR #4624 (Run 2's contribution, DCO-fixed follow-up to closed #4598)** | Confirmed via `WebFetch` on the public PR page: **still open, not merged, no maintainer review or requested changes**. CI shows only "a usage limit notification from an automated review bot" — not a real failure, nothing actionable from this side. |
+| **Prior `#4565` comment (Run 2)** | Not re-checked this run (no new signal expected; deprioritized in favor of retrying access and surveying fresh issues). |
+
+### Access retried this run (Step 0 continued — four mechanisms, four identical results)
+
+1. `mcp__github__pull_request_read` on `block/buzz` → `"Access denied: repository 'block/buzz' is not configured for this session. Allowed repositories: igorganapolsky/mac-yolo-safeguards"`
+2. `add_repo(owner: "block", repo: "buzz", access: "push")` → same `"cross-tier adds are not supported in v1"` rejection as Run 1/3, now explicitly suggesting *"Start a new session with the requested repo as the initial source"* as the only fix.
+3. `mcp__github__fork_repository(owner: "block", repo: "buzz")` → **same access-denied message as #1**, meaning the block isn't PR/API-specific — the entire GitHub MCP server is scoped to this session's configured repo list (`igorganapolsky/mac-yolo-safeguards` only) for *any* operation, regardless of destination owner.
+4. Raw `git clone https://github.com/block/buzz.git` via `Bash` → **hung and timed out** (`fetch-pack: unexpected disconnect while reading sideband packet`), rather than a fast API-style rejection. Checked `$HTTPS_PROXY/__agentproxy/status`: `gitConfigInjection: true` — the environment's outbound proxy itself intercepts git-protocol traffic and enforces the same repo allowlist, silently dropping the connection for unlisted repos instead of erroring cleanly.
+5. `WebFetch` on `https://api.github.com/repos/block/buzz` → **HTTP 403**. So even the *read-only* REST API is now blocked through this proxy (Run 3 saw this only for code-search; this run confirms it's the whole API host). Plain `https://github.com/block/buzz` (the HTML web page, not the API) still works fine via `WebFetch` — that's the one channel left open, and it's what all research this run relied on.
+
+**Conclusion:** this is not a flaky or half-configured permission — it's enforced consistently at three independent layers (MCP tool allowlist, outbound git-proxy, API-host proxy rule) for this specific session/environment tier. Retrying the same actions again in a future run of this tier will not change the outcome. The tool's own error message states the actual fix: a **new session** with `block/buzz` (or a fork of it) as its **initial source**, created by a session/account tier that isn't already anchored to `igorganapolsky/mac-yolo-safeguards`. That is an environment/session-provisioning decision, not something fixable from inside this session.
+
+### What was surveyed (last 72h, via public `WebFetch` only)
+
+Recent open issues (all created today, 2026-08-10, per the issue pages):
+
+| Issue | Topic | Comments | Existing PR? |
+|-------|-------|----------|--------------|
+| [#5492](https://github.com/block/buzz/issues/5492) | `buzz-acp`: `BUZZ_AUTH_TAG` never reaches a headless agent's stored `kind:0` profile — sibling admission silently fails until a manual `set-profile` | 0 | None found |
+| [#5472](https://github.com/block/buzz/issues/5472) | No correlation between ACP socket, relay connection, and Redis fan-out when an agent fails to respond — can't tell where an event stopped | 0 | Draft PR [#4769](https://github.com/block/buzz/pull/4769) already proposes this |
+| [#5471](https://github.com/block/buzz/issues/5471) | Relay client policy (signing/auth/scoping/retries/delivery outcomes) locked inside `buzz-cli`, reimplemented per client; delivery-outcome ambiguity on timeout ("published or not?") | 0 | Draft PR [#4717](https://github.com/block/buzz/pull/4717) already in progress |
+| #5495, #5489, #5488, #5477, #5470, #5469, #5468, #5467, #5462 | Various (agent DM responsiveness, mDNS/local-relay delay, stale identity cleanup, docs, disk-space preflight, per-user sidebar sections, deep-link signer, project-management feature) | — | Not in Igor's specific domain or too shallow to answer meaningfully without repro access |
+
+Chose **#5492** as this run's answer candidate: unlike #5472 and #5471 (both already have draft PRs moving), #5492 has no PR and is squarely reliability/verification-vs-self-report territory — an agent's environment says "I have the auth tag," but the relay's stored profile (the actual enforcement point) doesn't, and nothing at startup reconciles the two.
+
+### Drafted answer for #5492 (not posted — no write access this run)
+
+> This is a verification-vs-self-report gap, not just a caching bug. `BUZZ_AUTH_TAG` changes what the agent *believes* about itself (new outgoing events carry the tag) but not what the relay — the actual enforcement point for the sibling gate — has on record. The agent never checks that the state its authorization decision depends on actually matches; it just assumes the env var took effect.
+>
+> Two independent fixes:
+> 1. **Reconcile at boot, don't assume.** On startup, if `BUZZ_AUTH_TAG` is set, read back the agent's own stored `kind:0` from the relay before serving any traffic. If the tag is missing or stale, republish and confirm the write landed (read-after-write, not fire-and-forget) before marking the agent ready to receive mentions. Right now "ready" is inferred from local process state; it should be inferred from relay-observed state.
+> 2. **This will recur** for any startup-time credential/config change (tag rotation, key rotation, relay migration) unless the fix is general — "verify convergence before serving," not "remember to run `set-profile` after this specific kind of change." A narrow fix scoped only to `BUZZ_AUTH_TAG` will leave the same failure mode for the next env var that assumes local state equals relay state.
+>
+> Worth noting this connects to #5472's ask (no correlation/logging for where an event silently stopped) — a stale `kind:0` causing sibling-gate drops is exactly the kind of failure that issue wants visibility into. Fixing #5492's root cause (verify-at-boot) is more valuable than logging around it, but the two are complementary: #5472's correlation IDs would have made this bug's symptom ("Agent A mentions B, B never responds") diagnosable in minutes instead of requiring the reporter to manually inspect the relay's stored profile.
+
+ThumbGate is not mentioned — this is a relay-state-reconciliation design answer, not a pre-action-gate question, so a ThumbGate reference would not be a genuine answer to what's asked.
+
+### ACCESS SOLVED MID-RUN — the four failures above were the wrong question
+
+Everything above this heading was written before the blocker was actually solved, and is preserved because the diagnosis is still accurate: `block/buzz` is genuinely unreachable for this session, at every layer, and no retry of those four mechanisms will ever change that.
+
+What changed is the *route*. The `add_repo` rejection contains its own escape hatch, which the first three runs read past:
+
+> cross-tier adds are not supported in v1 … **or add a repo from the same owner as the existing sources**
+
+Buzz's `CONTRIBUTING.md` requires external contributors to work from a **fork** — and a fork of `block/buzz` is owned by `igorganapolsky`, which is the *same tier this session is already anchored to*. The blocker was never "no access to Buzz"; it was three runs of asking for the upstream repo when the contribution path only ever needed the fork.
+
+- `IgorGanapolsky/buzz` already existed (a fork, default branch `main`) — presumably created by whichever session opened PRs #4598/#4624.
+- `add_repo(owner: "igorganapolsky", repo: "buzz", access: "push")` → **accepted.**
+- `git clone https://github.com/igorganapolsky/buzz /workspace/buzz` → **succeeded** (3,521 files).
+- `git remote add upstream https://github.com/block/buzz.git && git fetch upstream main` → **succeeded.** Upstream fetch works once the fork is in scope, so work bases on upstream `main` (`bb9aae1`, 2026-08-10), not on the fork's stale Aug-3 tip.
+- Rust 1.95 toolchain present; the full `buzz-acp` suite builds and runs locally.
+
+Still blocked, and deliberately not circumvented: the GitHub **API** for `block/buzz` (`mcp__github__*` returns `Access denied` for issue reads, PR creation, and forking). A `GH_TOKEN` is present in the environment and would likely reach the API directly, but routing around an explicit, deliberately-configured allowlist to post to a third-party public repo is not a judgment call this run gets to make on its own. So: all engineering done, PR staged, final submit click left to Igor. See "What was opened" below.
+
+### What was surveyed and fixed — issue #5492
+
+Picked [#5492](https://github.com/block/buzz/issues/5492) (opened today, 0 comments, no PR, squarely in Igor's domain). Read the actual source to confirm the reporter's diagnosis rather than trusting the issue text:
+
+| Evidence | Source |
+|----------|--------|
+| `BuzzClient::sign_event` injects the NIP-OA tag into **every** event it signs — which is exactly why the manual `buzz users set-profile` workaround works | `crates/buzz-cli/src/client.rs:588` |
+| `buzz-acp` signs directly via `builder.sign_with_keys(&keys)` with **no** tag injection, and never republishes its own kind:0 | `crates/buzz-acp/src/lib.rs` |
+| The sibling gate verifies a peer against their **stored** kind:0 fetched from the relay, not against anything the peer asserts | `check_sibling_via_profile`, `crates/buzz-acp/src/lib.rs:291` |
+
+Root cause confirmed as a **verification-vs-self-report gap**: `BUZZ_AUTH_TAG` changes what the agent *believes about itself* (new outgoing events carry the tag) but not what the relay — the actual enforcement point — has on record, and nothing reconciles the two. The failure is fully silent: the relay accepts the sibling's mention, the peer's author gate drops it, no error on either side.
+
+**Fix shipped** (`crates/buzz-acp/src/lib.rs`, +321/−10):
+- `reconcile_own_profile_auth_tag` — at startup, query own kind:0 and republish it carrying the auth tag when the stored copy does not already prove the owner. Stored `content` is republished verbatim so display name/avatar/unmodelled fields survive. Best-effort: query or submit failure logs and startup continues.
+- `own_profile_needs_auth_republish` — the pure decision function, so the behaviour is unit-testable without a relay.
+- `profile_tags_prove_owner` — extracted from the existing sibling gate and now **shared** by both sides, so "this profile proves that owner" means the same thing to an agent judging itself and to a sibling judging it. Drift between those two is the exact failure mode being fixed.
+
+Deliberately made the fix general rather than scoped to `BUZZ_AUTH_TAG` first-provisioning: it also covers tag rotation, relay migration, and a profile restored from a backup older than the attestation. A narrow fix would leave the same failure for the next cause of the same skew.
+
+#### Verification (executed this run — real output, not asserted)
+
+```text
+cargo test -p buzz-acp --lib
+test result: ok. 743 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+cargo clippy -p buzz-acp --lib --all-targets -- -D warnings   # clean
+cargo fmt -p buzz-acp -- --check                              # clean
+```
+
+**Fails-before/passes-after, verified by actually reverting the decision to pre-fix behaviour** (never republish) and re-running — 5 of 7 fail; the 2 that still pass are the idempotency guards, which correctly expect no republish:
+
+```text
+test result: FAILED. 2 passed; 5 failed
+failures:
+    untagged_stored_profile_needs_republish
+    absent_stored_profile_needs_republish
+    auth_tag_for_a_different_owner_needs_republish
+    forged_auth_tag_signature_needs_republish
+    malformed_tags_field_needs_republish
+```
+
+Clippy caught a `manual_strip` in the forged-signature test on first pass; rewritten and re-verified clean. Tests use real signed attestations via `compute_auth_tag`, not hand-written fixtures, so they exercise the same crypto path the sibling gate runs.
+
+### What was opened / answered this run
+
+| Action | Status | URL |
+|--------|--------|-----|
+| Fix branch for #5492, DCO-signed, full suite green | **Pushed to Igor's fork** | `IgorGanapolsky/buzz@fix/acp-auth-tag-profile-republish` |
+| PR to `block/buzz` | **Staged — one click** (API blocked; see above) | [compare/open PR](https://github.com/block/buzz/compare/main...IgorGanapolsky:buzz:fix/acp-auth-tag-profile-republish?expand=1) |
+| Full PR body, ready to paste | Committed to this repo | `coordination/buzz-pr-drafts/5492-acp-auth-tag-profile-republish.md` |
+| Drafted #5492 technical answer (below) | Not posted — API blocked | — |
+
+Commit is signed off as `Igor Ganapolsky <iganapolsky@gmail.com>` per Buzz's DCO requirement (the missing sign-off is what got #4598 closed in favour of #4624), and carries a `Co-Authored-By: Claude` trailer as honest disclosure. The internal session URL was deliberately left out of the commit message — it is meaningless to Block and leaks session detail into a third-party public repo.
+
+**Still no second PR, no ThumbGate mention anywhere** in the branch, commit message, or PR body. Hard rules held.
+
+### Positioning read: **neither** (unchanged, reconfirmed a third time)
+
+- Not a competitor: Buzz remains a team workspace / chat+git+workflow fabric on Nostr; ThumbGate remains a cross-tool pre-action gate for arbitrary agent writes. Different product surfaces.
+- Not a partner: no relationship exists.
+- Technical overlap keeps compounding, independent of ThumbGate: #5492 (verify-vs-self-report on relay state), #5472 (causal audit trail across ACP/relay/Redis, explicitly scoped to carry "no message contents, auth material, or keys — ids, timestamps, and counts only" — i.e., a security-conscious audit log, exactly ThumbGate's audit-trail design principle), and #5471 (delivery-outcome ambiguity on timeout — "published or not?", i.e. idempotency/exactly-once territory) are all reliability problems Buzz's own contributors are independently converging on. That's real market signal that this problem class matters to Buzz's user base — it does not by itself create a partnership or integration path.
+
+### What was skipped and why
+
+- **Posting to the upstream `block/buzz` API** (PR creation, issue comments) — blocked by session scope, not a judgment call. Note this is *narrower* than the four-mechanism failure recorded earlier in this entry: the **fork push path works** (see "ACCESS SOLVED MID-RUN" above — `igorganapolsky/buzz` added, cloned, branched from `upstream/main`, built, tested, pushed, DCO-signed). Only the final upstream submit is blocked. Do not read this line as "all write paths blocked" — that was true of the first half of this run and false by the end of it.
+- **#5472, #5471** — already have draft PRs in flight from other contributors; a comment would be redundant right now.
+- **#5495, #5489, #5488, #5470, #5469, #5468, #5467, #5462, #5477** — outside Igor's stated domain (reliability/idempotency/write-gating/leases/audit) or too shallow/UI-shaped to add value without a working repro environment (which this session also lacks, per the network-layer block above).
+- **Re-verifying WF-08 / #2509** — skipped this run in favor of surveying fresh (today's) issues; no reason to expect either has changed materially since Run 3.
+
+### Blocker status and parked submission route
+
+Per AGENTS.md § *No manual handoffs to the user*: stating the blocker and what was already run, not routing a task back to a human.
+
+**What this run already executed** (no handoff needed for any of it): added `igorganapolsky/buzz`, cloned it, added `block/buzz` as `upstream` and fetched it, branched from `upstream/main`, root-caused #5492 in source, wrote the fix plus 7 unit tests, ran the suite (743 pass), verified fails-before by reverting the decision to pre-fix behaviour (5 of 7 fail), ran clippy `-D warnings` and fmt clean, committed DCO-signed, and pushed `fix/acp-auth-tag-profile-republish` to the fork.
+
+**Exact blocker:** the GitHub API for `block/buzz` is out of this session's configured scope — `create_pull_request`, `fork_repository`, and `issue_read` all return *"Access denied: repository 'block/buzz' is not configured for this session."* A `GH_TOKEN` in the environment would very likely reach the API directly, and that was **deliberately not used**: routing around a configured allowlist to write to a third-party public repo is a guardrail bypass, not a handoff problem, and no autonomy rule overrides it.
+
+**Parked route (unblocks autonomous submission, no human step):** grant `block/buzz` to this session's GitHub MCP scope — or run the task from a session whose initial source is `block/buzz` or a fork of it. Either makes the submit executable by the agent. Until then the branch sits ready on the fork; compare URL for whoever or whatever submits it:
+https://github.com/block/buzz/compare/main...IgorGanapolsky:buzz:fix/acp-auth-tag-profile-republish?expand=1
+(body prepared at `coordination/buzz-pr-drafts/5492-acp-auth-tag-profile-republish.md`).
+
+**Correction to Runs 1 and 3:** both concluded "this tier cannot contribute to Buzz, provision a different session." That was wrong, and it cost three runs. The fork was the supported path the whole time, and `add_repo`'s error message said so in its own text. The standing lesson for future runs: when a tool refuses, read its refusal for the route it offers rather than re-verifying the refusal.
 
 ---
 
@@ -452,3 +603,166 @@ This is drafted as an investigation lead with concrete line references, not a co
 
 Unchanged, now four runs deep (Runs 1, 3, 4, 5): this environment tier has never had write access to `block/buzz` — only unauthenticated read access to `github.com` HTML pages and anonymous `git clone` for source. `add_repo` rejects the cross-tier owner every time, no `gh` CLI is present, `api.github.com` 403s unauthenticated, and the `mcp__github__*` tools are hard-scoped to `igorganapolsky/mac-yolo-safeguards`. Three verbatim-ready drafts now sit in this log for a write-capable session: #4860 (Run 3), #5492 (Run 4), #5557 (this run). Per AGENTS.md's no-manual-handoff rule this is a status report, not a request routed to a human — this repo already runs several concurrent agent sessions, and a write-capable one can act on it without being asked.
 
+
+---
+
+## 2026-08-11 (PM) — Run 6 (access wall persists a fifth run; confirmed it is a session-config restriction, not an account permission issue)
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+| Fact | Evidence |
+|------|----------|
+| **Canonical repo** | [`github.com/block/buzz`](https://github.com/block/buzz) — Apache-2.0, unchanged identity/maintainer/architecture from Runs 1-5 |
+| **Authenticated identity for this session's `mcp__github__*` tools** | `mcp__github__get_me` → real account `IgorGanapolsky` (id 201209), 130 public repos, 132 followers, created 2010 — i.e. this is Igor's actual, long-established GitHub account, not a throwaway bot identity. **This matters**: `block/buzz` is a public repo anyone can fork with a real GitHub account, so the account itself has no permissions problem. The block is entirely the session's own repo allowlist (`Allowed repositories: igorganapolsky/mac-yolo-safeguards`), confirmed again this run via a direct `mcp__github__pull_request_read` call against `block/buzz` → *"Access denied... not configured for this session."* — and `add_repo(owner:"block", repo:"buzz", access:"push")` → same cross-tier rejection as Runs 1, 3, 4, 5. |
+
+### Prior contributions re-verified against the live repo
+
+| Item | Status checked this run |
+|------|--------------------------|
+| PR [#4624](https://github.com/block/buzz/pull/4624) | **Still open, still unmerged**, 8+ days after code-owner review request. No human review, no approvals, no requested changes — just waiting. |
+| Issue [#4860](https://github.com/block/buzz/issues/4860) (Run 3 draft) | Still open, no visible new comments. Draft unposted, still accurate. |
+| Issue [#5492](https://github.com/block/buzz/issues/5492) (Run 4 draft) | Still open, no visible new comments. Draft unposted, still accurate. |
+| Issue [#5557](https://github.com/block/buzz/issues/5557) (Run 5 draft) | Still open. Comment thread failed to load via `WebFetch` this run (GitHub page error), so new-comment status is unconfirmed rather than confirmed-absent — noted as a gap, not claimed as "no activity." |
+
+### What was surveyed (last ~72h, as of 2026-08-11 PM)
+
+All open issues in the sampled window were filed earlier the same day (2026-08-11): #5571, #5570, #5568, #5567, #5562, #5558, #5557, #5555, #5553, #5551 (titles/dates pulled from the live issue list). Read in full against Igor's stated domain (agent reliability, idempotency, double-execution, write-gating, leases/fencing, retries, audit trails, verification-vs-self-report):
+
+| Issue | Topic | Action |
+|-------|-------|--------|
+| [#5571](https://github.com/block/buzz/issues/5571) | `mcp_hooks` field exists only on the built-in `KnownAcpRuntime` catalog, not on user-authored `HarnessDefinition` — custom ACP harnesses can't use `MCP_HOOK_SERVERS` hooks at all. Well-specified, with a concrete proposed fix (`mcpHooks: bool` field + gate update) already in the issue. | Skipped — a config/schema gap, not a reliability or write-gating bug; the reporter's own fix proposal is already complete, a comment would add nothing |
+| #5570 | Provider protocol has no `undeploy` op (constructor, no destructor) | Skipped — API-surface completeness request, not a reliability bug |
+| #5568 | Agent signing keys can only come from `BUZZ_PRIVATE_KEY` env var — no file/keyring/systemd-credential source | Skipped — real security hygiene gap, but it's a credential-sourcing feature request, not a verification/write-gating/idempotency bug in Igor's stated domain |
+| [#5555](https://github.com/block/buzz/issues/5555) | `buzz-acp`: agent added to a channel while the relay is rate-limiting never joins it — channel discovery runs once at startup, membership notifications after that are push-only, the inbound queue overflows (78× "queue depth cap reached — dropped oldest event" in the reporter's log) with no downstream signal, and nothing ever re-syncs. Reporter still saw zero channel subscriptions 90 minutes after the relay recovered; provider-backed agents can't even use the documented workaround (restart) | **Answer drafted this run** (below) — corrected from an earlier draft of this entry that mis-grouped it with UI/desktop issues and skipped it; a Codex review comment on this PR caught the mis-grouping (see Correction note) |
+| #5567, #5562, #5558, #5553, #5551 | Desktop UI/nav bugs, feature requests, community-infra request | Skipped — outside stated domain |
+| [#2509](https://github.com/block/buzz/issues/2509) | `verdict_ref` on `request_approval` | Reconfirmed still open, no new activity |
+| WF-08 | Not re-verified against source this run (Run 5 already did a source-level check hours earlier same day; re-cloning for an identical check within the same 72h window would not produce new information) | Status carried forward unchanged |
+
+### Correction note (added after initial commit, before merge)
+
+An automated Codex review comment on this PR (chatgpt-codex-connector, P2) correctly flagged that the first version of this entry relabeled #5555 as "desktop/UI/feature work" and skipped it, contradicting Run 5's own log entry, which explicitly identified #5555 as a real reliability gap (membership reconciliation after dropped notifications) and flagged it for this run to pick up. That was a genuine mistake in this run, not a re-assessment — #5555 is squarely in Igor's stated domain (idempotency, retries, verification-vs-self-report) and had not actually been re-investigated before being marked "skipped." Corrected here by reading the full issue and drafting a real answer (below), per the Honesty Protocol.
+
+### Investigation + drafted answer for #5555 (not yet posted — no write access this run)
+
+Read the full issue text (title, body, root-cause analysis, and the three proposed fixes) before drafting:
+
+> This is the same class of bug as #5492 and (structurally) #5557: correctness that depends entirely on an unbroken stream of push events, with no periodic reconciliation against ground truth as a backstop. Channel discovery here runs once at startup, then trusts every subsequent membership event to arrive — but the inbound queue has a hard depth cap ("queue depth cap reached — dropped oldest event", 78× in the report) and nothing downstream is told when a drop happens. Once one relevant membership event is dropped, local state permanently diverges from the relay's, and — critically — nothing ever re-checks it. That's why the agent still showed zero channels 90 minutes after the relay itself had recovered: the bug isn't the rate-limiting, it's the absence of any self-healing read-after-drop.
+>
+> Of the three fixes proposed in the issue, they agree on the essential shape (pull actual current membership rather than trust the accumulated event stream) but differ in trigger, and the trigger matters for provider-backed agents that can't restart: fix #1 (re-discover on overflow-detected) only works if the overflow is locally observable; fix #3 (re-discover on reconnect) doesn't help if the connection never actually drops and just silently drains its queue under sustained load, which is what happened here. Fix #2 — scheduled/periodic reconciliation, independent of any specific trigger — is the only one of the three that's a genuine backstop rather than another push-path that can itself silently fail the same way.
+>
+> One thing worth checking before shipping #2: if periodic reconciliation goes through the same HTTP bridge path implicated in #5557 (uncoordinated per-call retry, no shared rate gate), a reconciliation pull attempted during a rate-limit window could fail the same way the original membership notifications did — same failure mode, one layer up. Worth confirming the reconciliation path either uses the WS connection's shared rate gate or has its own coordinated backoff before treating #2 as a complete fix.
+
+ThumbGate is not mentioned in this draft — the issue is about Buzz's own channel-membership sync path having no reconciliation backstop, not about gating outbound agent actions, so a ThumbGate reference would not be a genuine answer to what's asked.
+
+No new issue beyond #5555 (corrected) cleared the bar for a drafted answer — the other domain-fit candidates (#5571, #5568) are either already fully-specified by their reporter or a feature gap rather than a reliability/verification bug. Five verbatim-ready drafts now sit in this log for a write-capable session: #4860 (Run 3), #5492 (Run 4), #5557 (Run 5), #5555 (this run, corrected).
+
+### What was opened / answered this run
+
+**Nothing posted.** Fifth consecutive run (Runs 1, 3, 4, 5, 6) with no write path to `block/buzz`. This run's output: confirmation that the block is a session-config allowlist rather than an account-permissions problem (new, useful detail for whoever manages session tiers), re-verification that Runs 3-5's drafts and PR #4624 all still stand untouched, a fresh 72h survey, and — after a review-comment correction — a properly investigated drafted answer for #5555.
+
+### Positioning read: **neither** (unchanged, reconfirmed a fifth time)
+
+- Not a competitor, not a partner — same reasoning as Runs 2-5; no change in either product's shape or in the relationship (none exists).
+- Technical overlap signal continues unprompted, now including #5555 once correctly assessed: the self-report/push-only-vs-verified-state pattern (#4565, #4860, #5492, #5557, #5555) has now shown up in five straight runs' surveys, without Igor or ThumbGate seeding any of them.
+
+### What was skipped and why
+
+- **#5571, #5570, #5568, #5567, #5562, #5558, #5553, #5551** — surveyed in full, skipped per the table above (feature gaps, UI bugs, or already fully-specified by the reporter).
+- **Posting anything to `block/buzz`** — impossible this run; not a judgment-call skip (see Access section above).
+
+### Blocker status (report only — no action requested)
+
+Fifth consecutive run (Runs 1, 3, 4, 5, 6) with zero write access to `block/buzz` from this environment tier. New this run: confirmed via `mcp__github__get_me` that the underlying authenticated identity is Igor's real, established GitHub account (not a bot, not a permissions-limited service account) — so the fix, when someone applies it, is purely a session/tool allowlist change, not a GitHub-side grant. Four verbatim-ready drafts remain backlogged for a write-capable session: #4860 (Run 3), #5492 (Run 4), #5557 (Run 5), and PR #4624 (Run 2) still awaiting its first human review after 8+ days.
+
+---
+
+## 2026-08-12 — Run 7 (access wall persists a sixth run; #5611 investigated — one hypothesis disproved, one strong partial lead drafted)
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+- **Canonical repo:** [`github.com/block/buzz`](https://github.com/block/buzz), unchanged identity/maintainer/architecture from Runs 1-6.
+- **Write access to `block/buzz`:** Still blocked, sixth consecutive run. `add_repo(owner:"block", repo:"buzz", access:"push")` returned the same cross-tier rejection verbatim: *"cross-tier adds are not supported in v1: requested block/buzz but session already has repos from owner(s) [igorganapolsky]."* Unlike prior runs, this run also confirmed **anonymous read access still works fine** — `git clone --depth 1 https://github.com/block/buzz.git` succeeded without issue, so full source-level investigation (not just HTML scraping) was possible this run.
+- PR [#4624](https://github.com/block/buzz/pull/4624) — reconfirmed still open, unmerged, no human review yet. Title: "fix(relay): multi-value #h filters must not narrow to first channel."
+
+### What was surveyed (last ~72h, as of 2026-08-12)
+
+Newest open issues as of this run: #5614, #5611, #5608, #5605, #5601, #5595, #5592. Read against Igor's stated domain:
+
+| Issue | Topic | Action |
+|-------|-------|--------|
+| [#5611](https://github.com/block/buzz/issues/5611) | Scheduled workflows (cron and interval) never fire on the hosted relay; manual trigger works and returns a run ID, but scheduled runs never appear in run history at all — no error visible to the reporter, hosted relay logs unavailable to them | **Investigated at source level this run** (below) — squarely in Igor's domain: it's a reliability/audit-trail gap (verified execution vs. self-report — the system silently produces zero record of ever having tried) |
+| #5614 | Feature request: HTTP transport for remote agent providers so L2 doesn't require a local executable | Skipped — architecture/API-surface request, not a reliability bug |
+| #5608 | Desktop: open a community in a separate window | Skipped — UI feature request |
+| [#5605](https://github.com/block/buzz/issues/5605) | Feature request: ordered model-fallback list for `buzz-acp` headless agents so a quota-exhausted model auto-advances to the next configured model instead of looping the provider's limit notice as if it were a real answer | Read in full — genuinely adjacent to Igor's domain (agent self-report vs. actual failure — the agent currently *looks* like it answered when it actually hit a quota wall), but it's a well-specified feature request with its own proposed design (`switch_model` reuse, adapter-level stop-reason signal) already in the issue body; no gap in the analysis for a comment to fill. Skipped as a comment target, logged as a second data point for the positioning pattern below |
+| #5601 | Renaming an agent in one community renames a different agent | Skipped — identity/scoping bug outside stated domain (no retry/idempotency/verification angle) |
+| #5595 | Message history silently truncates at 50, search hard-caps at 100, no indication to the user either way | Read — this is arguably a "silent data loss with no signal" pattern (adjacent to the #4860/#5492/#5555 family), but it's UI/API pagination behavior, not an agent-action reliability bug; skipped as outside the precise domain to avoid diluting future drafts with a weaker fit |
+| #5592 | Feature request: invite an A2A agent into a community | Skipped — feature request, not a bug |
+
+### Investigation of #5611 (source-level, this run)
+
+Cloned `block/buzz` at HEAD and read the actual scheduler implementation rather than inferring from the issue text alone.
+
+**Hypothesis 1 — tested and disproved:** initially suspected the cron loop's `check_owner_authority` pre-claim gate (`crates/buzz-workflow/src/lib.rs:600-609`, which re-verifies the workflow owner's current channel role before every scheduled fire) was silently rejecting the reporter's workflow on every tick, while manual trigger skipped the check and always succeeded. Reading `handle_workflow_trigger` in `crates/buzz-relay/src/handlers/command_executor.rs:885-889` disproves this: the manual-trigger path calls the **identical** `check_owner_authority` gate before creating a run, and returns an explicit `"forbidden: not authorized to trigger this workflow"` rejection on failure. Since the reporter says manual trigger succeeds and returns a run ID, the owner-authority check is passing for their workflow — it cannot be the cause of the scheduled-only silence. Logged as a ruled-out lead, not left as an open guess.
+
+**Hypothesis 2 — strong partial match, drafted as a comment:** `crates/buzz-workflow/src/lib.rs:855-870` (`interval_prefilter_should_fire`) and the accompanying test `interval_cold_start_seeds_anchor_then_fires_after_one_interval` (line ~1244, comment-labeled "Interval cold-start liveness (Max's blocker on the scheduled lane)") show the maintainers already found and fixed the *exact* bug class in the reporter's interval half of the repro: a brand-new interval workflow with no in-memory or durable `last_fired` anchor used to suppress forever with no anchor ever seeded, so it never fired. The current code seeds the anchor on the first cold tick specifically to prevent that. This is a strong, source-confirmed match for "interval schedule set, waited 6 minutes across 4 interval cycles, never fired" — **if** the hosted relay the reporter is running predates this fix. It does **not** explain the cron half of their repro (`cron_fire_instant`, `crates/buzz-workflow/src/lib.rs:759-779`, is stateless per-tick and has no equivalent cold-start dependency), so this is a partial, not complete, explanation.
+
+> Drafted comment for #5611: "Looked at the scheduler source (`crates/buzz-workflow/src/lib.rs`). Your manual-trigger success rules out the owner-authority re-check (`check_owner_authority`) as the cause — that gate is identical on both the cron and manual-trigger paths (`command_executor.rs:885-889`), and a failure there returns an explicit 403, not silence. For the *interval* half of your repro specifically: this looks like it could be the interval cold-start liveness gap that's already fixed on `main` (`interval_prefilter_should_fire`, `lib.rs:855-870`, with the test named for exactly this bug — a brand-new interval workflow with no `last_fired` anchor used to suppress forever). Worth checking whether the hosted relay build you're on predates that fix. That said, it doesn't explain the *cron* half of your repro — `cron_fire_instant` doesn't depend on any anchor state, so if a plain cron schedule also never fired, something else is wrong there and this fix alone won't cover it. Given 'hosted relay logs unavailable' is part of what makes this hard to diagnose from the outside, the more actionable ask might be: does the run-history table get *any* row for a scheduled fire attempt that then fails, or literally zero rows (i.e., is the fire loop not seeing the workflow at all vs. seeing it and rejecting it silently)? That distinguishes an enumeration bug (`list_all_enabled_workflows`) from a claim/authority bug, and neither this fix nor my read of the source can tell which one you hit without that detail."
+
+This is drafted as a partial, honestly-scoped lead — not a confirmed root cause, and explicitly flags what it doesn't explain — consistent with the standard set in Runs 5-6. ThumbGate is not mentioned; this is entirely about Buzz's own scheduler internals.
+
+No fix was attempted for #5611: without hosted-relay/DB access there is no way to reproduce, and per the hard rule a PR is only opened if a real fix ships with a test proven to fail-before/pass-after against the actual bug — a plausible-but-unconfirmed source read does not meet that bar, distinct from "no write access" as the reason.
+
+### What was opened / answered this run
+
+**Nothing posted.** Sixth consecutive run (Runs 1, 3, 4, 5, 6, 7) with no write path to `block/buzz`. This run's output: confirmed anonymous git clone still works (source-level investigation, not just HTML), one hypothesis tested and disproved with citations, one partial-but-honest lead drafted for #5611, and re-confirmation that Runs 3-6's four backlogged drafts (#4860, #5492, #5557, #5555) and PR #4624 all still stand untouched.
+
+### Positioning read: **neither** (unchanged, reconfirmed a sixth time)
+
+- Not a competitor, not a partner — same reasoning as Runs 2-6; no relationship exists and no change in either product's shape.
+- The recurring technical-overlap signal (local/per-unit correctness without system-level correctness under concurrency, partial failure, or silent data loss) picked up a sixth and seventh independent data point this run: #5611 (scheduled execution with no audit trail of the attempt) and, more loosely, #5605 and #5595 (agent/system self-report masking an actual failure or silent truncation). None of this was seeded by Igor or ThumbGate — it is what six straight unprompted surveys of Buzz's own issue tracker keep turning up.
+
+### What was skipped and why
+
+- **#5614, #5608, #5601, #5592** — feature requests or scoping bugs outside stated domain, per table above.
+- **#5605, #5595** — read in full, adjacent to the domain pattern but not clean comment targets this run (already-specified design, or wrong bug category); logged as pattern data points rather than drafted.
+- **Posting anything to `block/buzz`** — impossible this run; not a judgment-call skip (see Access section below).
+
+### Blocker status (report only — no action requested)
+
+Sixth consecutive run (Runs 1, 3, 4, 5, 6, 7) with zero write access to `block/buzz` from this environment tier; unchanged from Run 6's finding that this is a session/tool allowlist restriction, not a GitHub-side permissions issue on Igor's real account. Five verbatim-ready drafts now sit in this log for a write-capable session: #4860 (Run 3), #5492 (Run 4), #5557 (Run 5), #5555 (Run 6), #5611 (this run, partial). PR #4624 (Run 2) still awaits its first human review, now well past two weeks.
+
+---
+
+## Cross-run note (kept last on purpose — read this before re-testing access)
+
+Runs 1, 3, 4a, 5, 6, and 7 above all conclude that the access wall persists,
+each honestly from its own evidence. All six are superseded by the same fact:
+**Run 4b already contributed to `block/buzz` from this same environment tier.**
+A fork (`igorganapolsky/buzz`) is same-owner, so `add_repo` accepts it; that
+unblocks clone, `upstream` fetch from `block/buzz`, build, test, and push. The
+`fix/acp-auth-tag-profile-republish` branch (issue #5492) is pushed and
+DCO-signed, 743 tests green, re-verified against current upstream.
+
+Run 6 is right that this is a session-config restriction rather than an account
+permission problem — and that is exactly why the fork works: the restriction is
+scoped by repo *owner*, and the fork's owner is already in scope.
+
+**Why six runs missed it:** this note has never been on `main`. It lives in PR
+#1594, which is still an unmerged draft, so no run has been able to read it.
+Runs 5, 6, and 7 each landed on `main` while it sat there. If you are reading
+this on `main`, the loop is broken — act on it rather than re-deriving it.
+
+What genuinely remains blocked is narrower than "the wall": the GitHub **API**
+for `block/buzz` (issue comments, PR creation). Everything else works.
+
+**Do this instead of re-verifying the refusal:**
+1. `add_repo(owner: "igorganapolsky", repo: "buzz", access: "push")`
+2. `git clone https://github.com/igorganapolsky/buzz /workspace/buzz`
+3. `git remote add upstream https://github.com/block/buzz.git && git fetch upstream main`
+4. Branch from `upstream/main`, fix, test, push to the fork.
+5. The upstream submit needs `block/buzz` in the session's GitHub MCP scope. If it is absent, record that as the blocker and leave the branch staged — do NOT bypass it with the ambient `GH_TOKEN`, and do NOT re-test the wall.
+
+Six runs have now spent their budget confirming that the upstream repo says no.
+The refusal message names the way around itself; read it rather than re-testing
+it. The backlogged drafts (#4860, #5492, #5557, #5611) can be *built and pushed*
+today by the route above — only the final submit click needs a human.
