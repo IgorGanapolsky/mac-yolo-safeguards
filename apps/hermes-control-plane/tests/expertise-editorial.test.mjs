@@ -32,8 +32,9 @@ test("expertise track is surfaced and cites live D1 data", async () => {
   // llms.txt points crawlers at the expertise hub and the public stats endpoint.
   assert.match(llms, /https:\/\/thumbgate\.app\/expertise/);
   assert.match(llms, /https:\/\/thumbgate\.app\/api\/expertise\/stats/);
-  assert.match(llms, /live production telemetry/);
-  assert.match(llms, /synthetic canary runs are excluded/);
+  assert.match(llms, /Live public stats endpoint/);
+  // Continuity is fenced VPS product truth (not Mac-pair marketing).
+  assert.match(llms, /fenced cloud VPS runner|Fenced VPS/);
   assert.doesNotMatch(llms, /Igor|Ganapolsky/i);
 
   // Sitemap includes the new page.

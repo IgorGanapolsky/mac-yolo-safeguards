@@ -59,7 +59,7 @@
     "playwright": "^1.55.1",
     "react-server-dom-webpack": "19.2.8",
     "tailwindcss": "4.2.1",
-    "typescript": "7.0.2",
+    "typescript": "^5.9.3",
     "undici": "^8.9.0",
     "vinext": "0.0.50",
     "vite": "8.1.5",

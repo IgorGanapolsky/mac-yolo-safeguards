@@ -230,12 +230,20 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .lesson-card-top{display:flex;align-items:center;justify-content:space-between;gap:16px}.lesson-card-top time{color:var(--muted);font:10px ui-monospace,SFMono-Regular,Menlo,monospace}.lesson-signal{padding:7px 9px;border-radius:9px;font-size:11px;font-weight:700}.lesson-signal.signal-up{color:#6ee7b7;background:rgba(16,185,129,.12)}.lesson-signal.signal-down{color:#fca5a5;background:rgba(239,68,68,.12)}.lesson-card>.eyebrow{margin:20px 0 8px}.lesson-card h2{margin:0 0 15px;font-size:17px;line-height:1.45}.lesson-card pre{max-height:360px;overflow:auto;white-space:pre-wrap;margin:0;padding:16px;border-left:2px solid var(--accent);background:#090c14;color:var(--text-secondary);font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}.lesson-note{margin-top:14px;padding:14px;border:1px solid rgba(248,113,113,.22);border-radius:12px;background:rgba(239,68,68,.06)}.lesson-note strong{font-size:10px;color:#fca5a5;text-transform:uppercase;letter-spacing:.08em}.lesson-note p{margin:7px 0 0;color:var(--text-secondary);font-size:13px;line-height:1.55}.lesson-empty{min-height:300px;display:grid;place-content:center;justify-items:center;text-align:center;border:1px dashed var(--line);border-radius:22px;color:var(--muted)}.lesson-empty h2{color:var(--text);margin:0 0 8px}.lesson-empty p{margin:0 0 18px}.lessons-footer{padding:28px 0;color:var(--muted);font-size:11px;text-align:center}
 
 @media(max-width:700px){
-  /* === Mobile app shell: lock overflow ONLY when dashboard app shell is mounted === */
+  /*
+   * Mobile dashboard: DOCUMENT scroll (not locked 100dvh shell).
+   * 2026-08-17: overflow:hidden on html/body + flex min-height:0 panes made the
+   * Hermes tab completely unscrollable when chats rail was expanded / empty —
+   * "Continue the work" and composer sat under a frozen viewport (CEO phone).
+   */
   html:has(.dashboard-shell),
   body:has(.dashboard-shell){
-    height:100%;
-    overflow:hidden;
-    overscroll-behavior:none;
+    height:auto;
+    min-height:100%;
+    overflow-x:hidden;
+    overflow-y:auto;
+    overscroll-behavior-y:auto;
+    -webkit-overflow-scrolling:touch;
   }
   html,body{
     min-height:100%;
@@ -245,11 +253,12 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   }
   body{padding-bottom:0}
   .dashboard-shell{
-    height:100dvh;
-    max-height:100dvh;
+    height:auto;
+    max-height:none;
+    min-height:100dvh;
     display:flex;
     flex-direction:column;
-    overflow:hidden;
+    overflow:visible;
   }
   .sidebar-resize-handle{display:none}
   .sidebar{
@@ -276,14 +285,14 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   .chat-dialog-backdrop{padding:14px}
   .chat-dialog{padding:22px}
   .panel{border-radius:16px}
-  /* Main stage fills remaining viewport; never document-scrolls under chrome */
+  /* Main stage scrolls with the document on phone */
   .dashboard-main{
     flex:1 1 auto;
     min-height:0;
-    overflow:hidden;
+    overflow:visible;
     display:flex;
     flex-direction:column;
-    padding:10px 12px 0;
+    padding:10px 12px calc(72px + env(safe-area-inset-bottom, 0px));
   }
   /* Phone: never put long thread title beside Manage plan / Sign out (CEO 2026-07-25 overlap) */
   .dashboard-header{
@@ -335,7 +344,7 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     min-height:0;
     display:flex;
     flex-direction:column;
-    overflow:hidden;
+    overflow:visible;
     grid-template-columns:1fr;
     gap:0;
   }
@@ -344,11 +353,9 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   .dashboard-shell[data-mobile-tab="hermes"] .task-panel{
     display:flex;
     flex-direction:column;
-    flex:1 1 0 !important;
-    min-height:0 !important;
-    /* Panel itself must NOT scroll — only .hermes-scroll-pane does.
-     * Panel overflow-y:auto put the Run CTA under the fold (2026-08 CEO). */
-    overflow:hidden !important;
+    flex:0 0 auto !important;
+    min-height:min(70dvh, 640px) !important;
+    overflow:visible !important;
     border:1px solid var(--line);
     background:#0B0F19;
   }
@@ -362,14 +369,10 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   .dashboard-shell[data-mobile-tab="settings"] .right-rail{
     display:flex !important;
     flex-direction:column;
-    flex:1 1 0 !important;
-    min-height:0 !important;
-    max-height:100%;
-    overflow-x:hidden;
-    overflow-y:scroll !important;
-    -webkit-overflow-scrolling:touch;
-    overscroll-behavior:contain;
-    touch-action:pan-y;
+    flex:0 0 auto !important;
+    min-height:min(70dvh, 640px) !important;
+    max-height:none;
+    overflow:visible !important;
     gap:16px;
     padding-bottom:max(20px, env(safe-area-inset-bottom, 0px));
   }
@@ -418,17 +421,12 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
    * so iOS gets a real bounded scroll container. Composer stays in-flow below it.
    */
   .hermes-scroll-pane{
-    flex:1 1 0 !important;
-    min-height:0 !important;
-    max-height:100%;
-    overflow-x:hidden;
-    overflow-y:scroll !important;
-    -webkit-overflow-scrolling:touch;
-    overscroll-behavior:contain;
-    touch-action:pan-y;
+    flex:1 1 auto !important;
+    min-height:120px !important;
+    max-height:none;
+    overflow:visible !important;
   }
   .dashboard-shell[data-mobile-tab="hermes"] .hermes-scroll-pane{
-    /* Composer is in-flow now — only a small spacer, not measured dock height */
     padding-bottom:12px;
   }
   .conversation-history{
@@ -437,21 +435,21 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   }
   .conversation-message{max-width:94%}
   .task-list{max-height:none}
-  /* In-flow composer dock (sibling of .hermes-scroll-pane) — always fully visible above tab bar */
+  /* Composer stays reachable via document scroll + sticky pin above tab bar */
   .dashboard-shell[data-mobile-tab="hermes"] .task-panel{
     position:relative;
   }
   .dashboard-shell[data-mobile-tab="hermes"] .task-panel .composer,
   .task-panel .composer{
-    position:relative !important;
+    position:sticky !important;
     z-index:25;
     left:auto !important;
     right:auto !important;
-    bottom:auto !important;
+    bottom:calc(56px + env(safe-area-inset-bottom, 0px)) !important;
     flex:0 0 auto;
     width:100%;
-    margin:0 0 40px;
-    padding:14px 16px calc(36px + env(safe-area-inset-bottom, 20px));
+    margin:0;
+    padding:14px 16px calc(16px + env(safe-area-inset-bottom, 0px));
     background:#0B0F19;
     border-top:1px solid var(--line);
     box-shadow:0 -8px 24px rgba(0,0,0,.35);
@@ -559,11 +557,12 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     background:#0F172A;
     color:#F9FAFB;
   }
-  /* Tab bar is shell chrome (flex child), not a floating layer over content */
+  /* Sticky bottom chrome while the document scrolls (2026-08-17 unscrollable fix) */
   .mobile-web-tabs{
-    position:relative !important;
+    position:sticky !important;
     z-index:40;
-    left:auto;right:auto;bottom:auto;
+    left:auto;right:auto;
+    bottom:0 !important;
     flex:0 0 auto;
     height:auto;
     min-height:56px;
@@ -572,7 +571,7 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     grid-template-columns:repeat(4,1fr);
     background:#0B0F19;
     border-top:1px solid var(--brand-line);
-    box-shadow:none;
+    box-shadow:0 -8px 24px rgba(0,0,0,.35);
   }
   .mobile-web-tabs a{
     min-width:44px;
@@ -765,6 +764,21 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 }
 .empty-state-compact h3{margin:0 0 4px;font-size:13px}
 .empty-state-compact p{margin:0;max-width:none;color:var(--muted);font-size:12px;line-height:1.45}
+.empty-state-cta{margin-top:14px;min-height:44px}
+.empty-state-compact .empty-state-cta{margin-top:10px;width:100%}
+.panel-heading-action{
+  appearance:none;
+  border:0;
+  background:transparent;
+  color:inherit;
+  font:inherit;
+  padding:0;
+  margin:0;
+  text-align:left;
+  cursor:pointer;
+}
+.panel-heading-action:focus-visible{outline:3px solid var(--accent);outline-offset:3px;border-radius:6px}
+.panel-heading-action h2{margin:0}
 
 
 /* Unified Run-on control (replaces dual Where/Which on mobile) */
