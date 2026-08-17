@@ -416,7 +416,8 @@ test("keeps every workspace telemetry value behind authentication", () => {
   // Continuity is fenced VPS only — no #pair Mac product path on the public landing.
   assert.doesNotMatch(chrome, /href="#pair"/);
   assert.match(chrome, /className="landing-action" href="#pricing"/);
-  assert.match(chrome, /className="landing-action" href="#mobile"/);
+  assert.match(chrome, /className="landing-action" href="#closed-system"/);
+  assert.doesNotMatch(chrome, /href="#mobile"|Phone Leash/);
   assert.match(chrome, /No workspace telemetry is fetched or rendered on this public page/);
   assert.doesNotMatch(chrome, /getPublicTelemetry|Live production telemetry|Machines online now/);
   assert.doesNotMatch(landing, /getPublicTelemetry|Live production telemetry|Machines online now|P95 task completion|LAST CLOUD CONTINUATION|cloudRunsCompleted|machinesOnlineNow/);
