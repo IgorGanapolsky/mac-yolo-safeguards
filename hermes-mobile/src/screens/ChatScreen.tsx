@@ -302,6 +302,30 @@ import ChatApprovalBar from '../components/ChatApprovalBar';
 import RunProgressBanner from '../components/RunProgressBanner';
 import EmptyStreamRefreshBanner from '../components/EmptyStreamRefreshBanner';
 import WorkingActivityBar from '../components/WorkingActivityBar';
+import BotRosterSheet from '../components/BotRosterSheet';
+import BrainPickerModal from '../components/BrainPickerModal';
+import ComputerScreenPane from '../components/ComputerScreenPane';
+import RoutinesManagerModal from '../components/RoutinesManagerModal';
+import GrokBotActionBar from '../components/GrokBotActionBar';
+import {
+  DEFAULT_BOT_PERSONAS,
+  BRAIN_MODELS,
+  DEFAULT_ROUTINES,
+  getDefaultComputerState,
+  getDefaultTokenTelemetry,
+  getSelectedBotPersona,
+  setSelectedBotPersonaId,
+  getSelectedBrainModel,
+  setSelectedBrainModelId,
+  getAutomatedRoutines,
+} from '../services/grokBotService';
+import type {
+  BotPersona,
+  BrainModel,
+  AutomationRoutine,
+  ComputerSessionState,
+  TokenTelemetry,
+} from '../types/grokBot';
 import { isChatWorkingActivity } from '../utils/chatWorkingActivity';
 import ComposerErrorBanner from '../components/ComposerErrorBanner';
 import type { RunProgressState } from '../types/chatDisplay';
@@ -801,6 +825,67 @@ export default function ChatScreen() {
   const [feedbackNotes, setFeedbackNotes] = useState<
     Record<string, { text: string; error: boolean }>
   >({});
+
+  // Grok Bot: Bot Personas, Mixture of Experts, Live Computer Screen, and Routines
+  const [activeBotPersona, setActiveBotPersona] = useState<BotPersona>(DEFAULT_BOT_PERSONAS[0]);
+  const [activeBrain, setActiveBrain] = useState<BrainModel>(BRAIN_MODELS[0]);
+  const [rosterVisible, setRosterVisible] = useState(false);
+  const [brainPickerVisible, setBrainPickerVisible] = useState(false);
+  const [computerPaneVisible, setComputerPaneVisible] = useState(false);
+  const [routinesModalVisible, setRoutinesModalVisible] = useState(false);
+  const [computerState, setComputerState] = useState<ComputerSessionState>(getDefaultComputerState());
+  const [tokenTelemetry, setTokenTelemetry] = useState<TokenTelemetry>(getDefaultTokenTelemetry());
+  const [automatedRoutines, setAutomatedRoutines] = useState<AutomationRoutine[]>(DEFAULT_ROUTINES);
+
+  useEffect(() => {
+    void getSelectedBotPersona().then((p) => {
+      if (p) setActiveBotPersona(p);
+    });
+    void getSelectedBrainModel().then((m) => {
+      if (m) setActiveBrain(m);
+    });
+    void getAutomatedRoutines().then((r) => {
+      if (r && r.length > 0) setAutomatedRoutines(r);
+    });
+  }, []);
+
+  const handleSelectPersona = useCallback((persona: BotPersona) => {
+    setActiveBotPersona(persona);
+    void setSelectedBotPersonaId(persona.id);
+    // Automatically match default model for persona if specified
+    const matchedModel = BRAIN_MODELS.find((m) => m.id === persona.defaultModelId);
+    if (matchedModel) {
+      setActiveBrain(matchedModel);
+      void setSelectedBrainModelId(matchedModel.id);
+    }
+  }, []);
+
+  const handleSelectBrain = useCallback((model: BrainModel) => {
+    setActiveBrain(model);
+    void setSelectedBrainModelId(model.id);
+  }, []);
+
+  const handleToggleComputerControl = useCallback(() => {
+    setComputerState((prev) => ({
+      ...prev,
+      isUserInControl: !prev.isUserInControl,
+    }));
+  }, []);
+
+  const handleTriggerRoutine = useCallback((routineId: string) => {
+    setAutomatedRoutines((prev) =>
+      prev.map((r) =>
+        r.id === routineId
+          ? {
+              ...r,
+              lastRunAt: 'Just now',
+              lastRunSummary: 'Executed routine successfully. 0 safety violations.',
+              status: 'active',
+            }
+          : r
+      )
+    );
+  }, []);
 
   const applyChatApiError = useCallback(
     (error: unknown, fallback: string, options?: { background?: boolean }) => {
@@ -8064,6 +8149,15 @@ export default function ChatScreen() {
           onMacRetry={() => void handleMacRetry()}
         />
         <WorkingActivityBar visible={chatWorking && !effectiveAuthMismatch} />
+        <GrokBotActionBar
+          activePersona={activeBotPersona}
+          activeBrain={activeBrain}
+          telemetry={tokenTelemetry}
+          onOpenRoster={() => setRosterVisible(true)}
+          onOpenBrainPicker={() => setBrainPickerVisible(true)}
+          onOpenComputerPane={() => setComputerPaneVisible(true)}
+          onOpenRoutines={() => setRoutinesModalVisible(true)}
+        />
       </View>
 
       <View style={styles.keyboardContainer}>
@@ -8923,6 +9017,35 @@ export default function ChatScreen() {
         signal={feedbackPrompt?.signal ?? 'up'}
         onClose={() => resolveFeedbackPrompt()}
         onSubmit={resolveFeedbackPrompt}
+      />
+
+      {/* Grok Bot smart modals: Roster, MoE Brain, Live Computer, Routines */}
+      <BotRosterSheet
+        visible={rosterVisible}
+        activePersonaId={activeBotPersona.id}
+        onSelectPersona={handleSelectPersona}
+        onClose={() => setRosterVisible(false)}
+      />
+
+      <BrainPickerModal
+        visible={brainPickerVisible}
+        activeModelId={activeBrain.id}
+        onSelectModel={handleSelectBrain}
+        onClose={() => setBrainPickerVisible(false)}
+      />
+
+      <ComputerScreenPane
+        visible={computerPaneVisible}
+        state={computerState}
+        onToggleControl={handleToggleComputerControl}
+        onClose={() => setComputerPaneVisible(false)}
+      />
+
+      <RoutinesManagerModal
+        visible={routinesModalVisible}
+        routines={automatedRoutines}
+        onTriggerRoutine={handleTriggerRoutine}
+        onClose={() => setRoutinesModalVisible(false)}
       />
     </SafeAreaView>
   );

@@ -18,6 +18,7 @@ import GateApprovalCard from '../components/GateApprovalCard';
 import GlassCard from '../components/GlassCard';
 import HealthPill from '../components/HealthPill';
 import ThumbGatePromoCard from '../components/ThumbGatePromoCard';
+import CloudContinuitySheet from '../components/CloudContinuitySheet';
 import { colors } from '../theme/colors';
 import { useGateway } from '../context/GatewayContext';
 import {
@@ -95,6 +96,7 @@ export default function ApprovalsScreen() {
 
   const [refreshing, setRefreshing] = React.useState(false);
   const [decisionHistory, setDecisionHistory] = React.useState<LeashDecisionRecord[]>([]);
+  const [continuityVisible, setContinuityVisible] = React.useState(false);
   const refreshingRef = React.useRef(false);
   const refreshPromiseRef = React.useRef<Promise<void> | null>(null);
   const connectionStateRef = React.useRef(connectionState);
@@ -269,21 +271,14 @@ export default function ApprovalsScreen() {
           it here — or from lock-screen alerts. Not chat messages; only blocked tools.
         </Text>
         <TouchableOpacity
-          onPress={() => {
-            void Linking.openURL(THUMBGATE_WEB_URL).catch(() => {
-              Alert.alert(
-                'Could not open ThumbGate.app',
-                'Open https://thumbgate.app/dashboard in your browser to continue.',
-              );
-            });
-          }}
+          onPress={() => setContinuityVisible(true)}
           testID="leash-open-thumbgate-app"
-          accessibilityRole="link"
+          accessibilityRole="button"
           accessibilityLabel={THUMBGATE_PROMO_BUTTON_LABEL}
           hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
           style={styles.thumbgateAppLink}
         >
-          <Text style={styles.thumbgateAppLinkText}>Open ThumbGate.app →</Text>
+          <Text style={styles.thumbgateAppLinkText}>Manage Cloud Continuity & VPS →</Text>
         </TouchableOpacity>
         {leashUnlocked ? (
           <>
@@ -554,6 +549,11 @@ export default function ApprovalsScreen() {
         ) : null}
 
       </ScrollView>
+
+      <CloudContinuitySheet
+        visible={continuityVisible}
+        onClose={() => setContinuityVisible(false)}
+      />
     </SafeAreaView>
   );
 }

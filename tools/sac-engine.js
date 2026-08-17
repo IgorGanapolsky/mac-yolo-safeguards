@@ -573,13 +573,15 @@ class SaCSandboxRunner {
       RegExp,
       Map,
       Set,
+      module: { exports: {} },
+      exports: {},
       ...initialContext,
     };
 
     const vmContext = vm.createContext(sandbox);
 
     try {
-      // Wrap code in an async IIFE to allow top-level await
+      // Wrap code in an async IIFE to allow top-level await and module exports
       const wrappedCode = `
         (async () => {
           ${codeString}
@@ -596,7 +598,14 @@ class SaCSandboxRunner {
         breakOnSigint: true,
       });
 
-      const result = await promise;
+      let result = await promise;
+      if (typeof result === 'function') {
+        result = await result(this.sdk);
+      } else if (result === undefined && typeof sandbox.module.exports === 'function') {
+        result = await sandbox.module.exports(this.sdk);
+      } else if (result === undefined && Object.keys(sandbox.module.exports).length > 0) {
+        result = sandbox.module.exports;
+      }
       const durationMs = Date.now() - startTime;
 
       return {

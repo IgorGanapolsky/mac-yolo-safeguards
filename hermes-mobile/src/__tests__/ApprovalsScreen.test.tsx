@@ -37,7 +37,7 @@ describe('ApprovalsScreen', () => {
     const hero = [].concat(getByTestId('leash-hero-subtitle').props.children as never).join('');
     expect(hero).toMatch(/blocks a risky tool/i);
     expect(getByTestId('leash-open-thumbgate-app')).toBeTruthy();
-    expect(getByText('Open ThumbGate.app →')).toBeTruthy();
+    expect(getByText('Manage Cloud Continuity & VPS →')).toBeTruthy();
   });
 
   it('keeps header refresh vertically centered beside health pill', () => {

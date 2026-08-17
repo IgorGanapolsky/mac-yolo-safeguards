@@ -1,12 +1,12 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  Alert,
-  Linking,
   StyleSheet,
   Text,
   TouchableOpacity,
+  View,
 } from 'react-native';
 import GlassCard from './GlassCard';
+import CloudContinuitySheet from './CloudContinuitySheet';
 import { trackProductEvent } from '../services/productAnalytics';
 import { colors } from '../theme/colors';
 import {
@@ -19,47 +19,49 @@ type ThumbGatePromoCardProps = {
   style?: object;
 };
 
-const OPEN_FAIL_TITLE = 'Could not open ThumbGate.app';
+const OPEN_FAIL_TITLE = 'Cloud Continuity';
 const OPEN_FAIL_MESSAGE =
-  'Open https://thumbgate.app/dashboard in your browser to continue.';
+  'Configure your cloud VPS sandbox in app settings.';
 
 /**
- * Consumer Leash / connection promo — short, one CTA.
- * No multi-step manuals, no coding-agent skill install, no curl dump.
- * Mac connector setup lives on the web dashboard after sign-in.
+ * Consumer Leash / VPS Continuity card — seamless in-app sheet.
+ * Zero external redirects or promotional web links.
  */
 export default function ThumbGatePromoCard({ surface, style }: ThumbGatePromoCardProps) {
   const copy = thumbGatePromoCopy(surface);
+  const [sheetVisible, setSheetVisible] = useState(false);
 
   useEffect(() => {
     void trackProductEvent('thumbgate_promo_view', { surface });
   }, [surface]);
 
-  const openThumbGate = async () => {
-    // Never await analytics before opening — a hung PostHog fetch made the CTA a no-op.
-    void trackProductEvent('thumbgate_promo_tap', { surface, url: copy.url, action: 'open_web' });
-    try {
-      await Linking.openURL(copy.url);
-    } catch {
-      Alert.alert(OPEN_FAIL_TITLE, OPEN_FAIL_MESSAGE);
-    }
+  const handleOpenInAppContinuity = () => {
+    void trackProductEvent('thumbgate_promo_tap', { surface, action: 'open_in_app_sheet' });
+    setSheetVisible(true);
   };
 
   return (
-    <GlassCard style={[styles.card, style]} testID={`thumbgate-promo-${surface}`}>
-      <Text style={styles.headline}>{copy.headline}</Text>
-      <Text style={styles.body}>{copy.body}</Text>
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => void openThumbGate()}
-        testID="thumbgate-promo-open"
-        accessibilityRole="button"
-        accessibilityLabel={copy.buttonLabel}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        <Text style={styles.buttonText}>{copy.buttonLabel}</Text>
-      </TouchableOpacity>
-    </GlassCard>
+    <>
+      <GlassCard style={[styles.card, style]} testID={`thumbgate-promo-${surface}`}>
+        <Text style={styles.headline}>{copy.headline}</Text>
+        <Text style={styles.body}>{copy.body}</Text>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={handleOpenInAppContinuity}
+          testID="thumbgate-promo-open"
+          accessibilityRole="button"
+          accessibilityLabel={copy.buttonLabel}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={styles.buttonText}>{copy.buttonLabel}</Text>
+        </TouchableOpacity>
+      </GlassCard>
+
+      <CloudContinuitySheet
+        visible={sheetVisible}
+        onClose={() => setSheetVisible(false)}
+      />
+    </>
   );
 }
 
