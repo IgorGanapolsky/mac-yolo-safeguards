@@ -4,6 +4,37 @@ Dated entries from the autonomous OSS-engagement routine (Thinking Machines Lab 
 
 ---
 
+## 2026-08-17 — Addendum: recovering unique content from a closed 2026-08-05 PR
+
+Not a routine run — a PR check-in surfaced that #1490 (this log's original 2026-08-05 entry) had
+been closed by Igor as part of a hygiene sweep ("superseded by main... re-open only if unique
+unmerged content remains"). Checked: the entry's Tinker/Poolside survey and the LanceDB #3781
+finding are genuinely superseded — #3781 now has a community PR (#3786), and later runs
+(08-10–08-13) re-covered the same orgs with fresher information. But one item never made it into
+main and is still live:
+
+**LanceDB #3759** ("`add()` rejects an all-null batch for Lance extension columns [json, blob v2]")
+— confirmed still **open upstream, no linked PR, unclaimed**. The 2026-08-05 run's fix (add a
+`DataType::Null` match arm in `rust/lancedb/src/table/datafusion/blob_coerce.rs`, verified at the
+time with `cargo test -p lancedb` — 13/13 passing with the fix, failing without it) is still
+sitting on `IgorGanapolsky/lancedb`, branch `fix/blob-null-batch-coerce` (commit `c89915d`,
+confirmed present via `git ls-remote` today).
+
+**Not claiming it's ready to file as-is.** Per the pattern later runs established (08-12 found
+similarly-parked branches 2000-80000 lines stale after only a few days of upstream drift), a
+12-day-old branch needs a fresh rebase onto current `upstream/main` and a full re-run of
+`cargo test -p lancedb` before it can be trusted — this addendum does not include that work.
+Flagging it here so it isn't silently lost, and so a future run (or Igor directly) can pick it up
+starting from a known-good branch name instead of rediscovering #3759 from scratch.
+
+### Action needed from Igor
+
+Either: (a) let a future routine run rebase/re-verify/push `fix/blob-null-batch-coerce` before
+filing, same treatment as the 08-12 parked branches, or (b) if upstream PR-creation scope is ever
+restored, someone with that access can do the rebase+file directly.
+
+---
+
 ## 2026-08-13 — New LanceDB bug investigated (inconclusive, no fix); upstream PR-creation block re-confirmed unchanged; nothing opened
 
 ### Repos surveyed
