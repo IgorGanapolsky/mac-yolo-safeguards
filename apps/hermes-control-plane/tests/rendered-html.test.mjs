@@ -37,6 +37,9 @@ test("builds the public Continuity VPS landing page", async () => {
   assert.doesNotMatch(page, /still proving/);
   assert.match(page, /by ThumbGate/);
   assert.doesNotMatch(page, /id="mobile"/);
+  assert.match(page, /Closed-system/);
+  assert.match(page, /Flat \$10/);
+  assert.doesNotMatch(page, /Phone Leash/);
   assert.doesNotMatch(page, /Pocket Leash|Why the store badges|ThumbGate\.app vs Hermes Mobile/);
   assert.doesNotMatch(page, /StoreBadgeRow/);
   assert.match(page, /Approvals in thumbgate\.app|Where do approvals happen/);
