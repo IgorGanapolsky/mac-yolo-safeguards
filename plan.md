@@ -3034,3 +3034,33 @@ CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, too
 - `hermes-mobile/src/__tests__/useOtaUpdateBanner.test.ts` → **released by codex** (stale leftover) (2026-08-15T17:20:00Z)
 - `hermes-mobile/src/__tests__/appOtaUpdate.test.ts` → **grok-ota-freeze-clock-20260815** (T-OTA-FREEZE-CLOCK-20260815: pin Date.now in freeze-path tests only) (2026-08-15T17:20:00Z)
 - `hermes-mobile/src/__tests__/useOtaUpdateBanner.test.ts` → **grok-ota-freeze-clock-20260815** (T-OTA-FREEZE-CLOCK-20260815: pin Date.now in freeze-path tests only) (2026-08-15T17:20:00Z)
+
+### T-THUMBGATE-APP-ROAST-20260817
+**Brand Confusion Analysis: Why thumbgate.app never sold**
+
+*Root cause:* Three products masquerading as one.
+
+| Product | Domain | Real Value | Price Point | Why Nobody Bought |
+|---------|--------|------------|-------------|-------------------|
+| **ThumbGate.ai** | thumbgate.ai | Agent safety firewall | $0 Free / $19 Pro | Clear value prop - prevents disasters |
+| **ThumbGate.app** | thumbgate.app | Chat continuation, VPS failover | $0 Web / $10/mo Continuity | Wrong product - solving UX problem, not safety |
+| **Mac-Yolo-Safeguards** | github.com | OS-level runaway kill | Free | Solves different problem entirely |
+
+**Critical insight from research:**
+- Initial positioning report said "ThumbGate.app does not exist" because thumbgate.ai dominated search
+- Corrected report said "it exists" but positioning was confused
+- Market research shows customers want AGENT SAFETY, not chat viewing
+
+**What needs to change:**
+1. **Re-position thumbgate.app** as "Guardian Mobile" - mobile approval surface for thumbgate.ai
+2. **Fold Continuity into Pro** - don't sell as add-on, include in $19/mo tier
+3. **Kill the brand split** - one ThumbGate = agent safety, not chat continuation
+4. **Make mobile essential** - you need someone to APPROVE dangerous actions, not just view chats
+
+**Evidence:** docs/THUMBGATE-APP-ROAST-JULY-2026.md
+
+### Decision
+- thumbgate.app is NOT the product - it's a misaligned feature of thumbgate.ai
+- Fix: Re-position as Guardian Mobile, merge Continuity into Pro tier
+- The $19/mo Pro firewall gets mobile approval, web dashboard, and built-in continuity
+- No separate Continuity tier to confuse customers
