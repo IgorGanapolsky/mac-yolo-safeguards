@@ -390,18 +390,31 @@ export default function DashboardClient() {
   /** One-shot: /dashboard#chats expands the rail and shows the thread list. */
   const openedChatsListFromUrl = useRef(false);
   const composerObserverRef = useRef<ResizeObserver | null>(null);
+  const composerFormRef = useRef<HTMLFormElement | null>(null);
   /**
-   * Mobile composer is in-flow flex under `.hermes-scroll-pane` (globals.css 2026-08).
-   * Keep ResizeObserver as a no-op cleanup of legacy --composer-dock-space so old
-   * cached CSS vars do not leave a huge empty pad under the thread.
+   * Composer is in-flow (desktop) / sticky above mobile tab bar (document scroll).
+   * Keep a real form ref so empty-state CTAs can focus the textarea.
+   * Also clear legacy --composer-dock-space so old cached CSS does not pad the thread.
    */
   const setComposerNode = useCallback((node: HTMLFormElement | null) => {
     composerObserverRef.current?.disconnect();
     composerObserverRef.current = null;
+    composerFormRef.current = node;
     if (typeof document !== "undefined") {
       document.documentElement.style.removeProperty("--composer-dock-space");
     }
-    void node;
+  }, []);
+
+  const focusComposer = useCallback(() => {
+    const form = composerFormRef.current;
+    if (!form) return;
+    form.scrollIntoView({ behavior: "smooth", block: "end" });
+    const textarea = form.querySelector("textarea");
+    if (textarea instanceof HTMLTextAreaElement) {
+      window.setTimeout(() => {
+        textarea.focus({ preventScroll: true });
+      }, 120);
+    }
   }, []);
 
 
@@ -1070,7 +1083,14 @@ export default function DashboardClient() {
         writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.threads, []);
         setSelectedThread(null);
         setThreadDetails(null);
-        setNotice(`${body.cleared ?? threads.length} chats cleared. Paired Hermes machines will apply the deletion safely.`);
+        // After clear, land on the composer — not an expanded empty chats rail.
+        if (window.matchMedia("(max-width: 700px)").matches) {
+          setChatRailExpanded(false);
+          window.localStorage.setItem(chatRailPreferenceKey, "false");
+          setMobileTab("hermes");
+        }
+        setNotice(`${body.cleared ?? threads.length} chats cleared. Type a Continuity task below to start again.`);
+        window.requestAnimationFrame(() => focusComposer());
       }
       setChatDialog(null);
       await loadWorkspace();
@@ -1100,15 +1120,16 @@ export default function DashboardClient() {
       writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, null);
     }
     if (window.matchMedia("(max-width: 700px)").matches) {
-      // Keep the rail open only when browsing the full chat list (#chats).
-      if (threadId) {
-        setChatRailExpanded(false);
-        window.localStorage.setItem(chatRailPreferenceKey, "false");
-      } else {
-        setChatRailExpanded(true);
-        window.localStorage.setItem(chatRailPreferenceKey, "true");
-      }
+      // Always collapse the chats rail when entering a thread OR workspace home.
+      // Expanding was freezing the viewport under the old 100dvh lock and buried
+      // the composer ("Continue the work does nothing" / unscollable phone 2026-08-17).
+      // Users open chats via the Chats toggle or #chats deep link only.
+      setChatRailExpanded(false);
+      window.localStorage.setItem(chatRailPreferenceKey, "false");
       setMobileTab("hermes");
+      if (!threadId) {
+        window.requestAnimationFrame(() => focusComposer());
+      }
     }
   }
 
@@ -1221,7 +1242,25 @@ export default function DashboardClient() {
 
         <div className="dashboard-grid">
           <section className="panel task-panel" id="hermes-console">
-            <div className="panel-heading"><div><p className="eyebrow">THREAD CONSOLE</p><h2>Continue the work</h2></div><span>{selectedThread ? `${threadDetails?.snapshot.length ?? 0} synced messages` : `${visibleTasks.length} tasks`}</span></div>
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">THREAD CONSOLE</p>
+                {visibleTasks.length === 0 && !selectedThread ? (
+                  <button
+                    type="button"
+                    className="panel-heading-action"
+                    data-testid="start-work-heading"
+                    onClick={focusComposer}
+                    aria-label="Start work — focus the task composer"
+                  >
+                    <h2>Start the work</h2>
+                  </button>
+                ) : (
+                  <h2>Continue the work</h2>
+                )}
+              </div>
+              <span>{selectedThread ? `${threadDetails?.snapshot.length ?? 0} synced messages` : `${visibleTasks.length} tasks`}</span>
+            </div>
             <div className="hermes-scroll-pane">
             {selectedThread && <div className="conversation-history">
               {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><FormattedMessage text={message.content} /></article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. Retrying automatically.</div> : <div className="conversation-empty">No messages in this thread yet. Send a Continuity task below to start the conversation on the fenced VPS runner.</div>}
@@ -1286,6 +1325,16 @@ export default function DashboardClient() {
                       {empty.compact ? null : <Mark />}
                       <h3>{empty.title}</h3>
                       <p>{empty.body}</p>
+                      {taskFilter === "all" ? (
+                        <button
+                          type="button"
+                          className="button button-primary button-small empty-state-cta"
+                          data-testid="empty-start-work"
+                          onClick={focusComposer}
+                        >
+                          Write a Continuity task →
+                        </button>
+                      ) : null}
                     </div>
                   );
                 })()
