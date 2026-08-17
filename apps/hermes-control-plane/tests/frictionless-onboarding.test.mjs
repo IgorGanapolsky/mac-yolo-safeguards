@@ -157,18 +157,20 @@ test("keeps the deployed web host DOM-native instead of adding a React Native We
   // Phone must not re-show the route explain card after base CSS (CEO overlap 2026-07-25).
   assert.match(globals, /\.composer-route-explain\{[\s\S]*display:none !important/);
   assert.match(globals, /\.dashboard-header\{[\s\S]*grid-template-columns:1fr/);
-  // Document-scroll mobile shell (CEO 2026-08-17: locked 100dvh + overflow:hidden made
-  // Hermes tab completely unscrollable after clear-chats; "Continue the work" was a dead heading).
-  assert.match(globals, /html:has\(\.dashboard-shell\)/);
-  assert.match(globals, /overflow-y:\s*auto/);
-  assert.match(globals, /data-mobile-tab="hermes"\] \.task-panel\{[\s\S]*overflow:visible !important/);
-  assert.match(globals, /hermes-scroll-pane\{[\s\S]*overflow:visible !important/);
-  assert.match(globals, /\.mobile-web-tabs\{[\s\S]*position:sticky !important/);
-  assert.match(globals, /task-panel \.composer[\s\S]*position:sticky !important/);
+  // Chat-first workbench (DimAgent visual workbench steal, 2026-08-18):
+  // messages fill remaining height; thin composer dock; not half-screen input.
+  assert.match(globals, /data-mobile-tab="hermes"\]\{[\s\S]*height:100dvh/);
+  assert.match(globals, /data-mobile-tab="hermes"\] \.task-panel\{[\s\S]*overflow:hidden !important/);
+  assert.match(globals, /hermes-scroll-pane\{[\s\S]*overflow-y:scroll !important/);
+  assert.match(globals, /task-panel \.composer[\s\S]*position:relative !important/);
+  assert.match(globals, /composer textarea\{[\s\S]*min-height:40px/);
+  assert.match(globals, /\.agent-activity/);
   assert.match(dashboard, /hermes-scroll-pane/);
   assert.match(dashboard, /className="composer"/);
   assert.match(dashboard, /data-testid="empty-start-work"/);
   assert.match(dashboard, /data-testid="start-work-heading"/);
+  assert.match(dashboard, /data-testid="agent-activity"/);
+  assert.match(dashboard, /data-testid="mobile-clear-all"/);
   assert.match(dashboard, /focusComposer/);
   assert.match(dashboard, /Start the work/);
 });
@@ -418,6 +420,11 @@ test("keeps every workspace telemetry value behind authentication", () => {
   assert.match(chrome, /No workspace telemetry is fetched or rendered on this public page/);
   assert.doesNotMatch(chrome, /getPublicTelemetry|Live production telemetry|Machines online now/);
   assert.doesNotMatch(landing, /getPublicTelemetry|Live production telemetry|Machines online now|P95 task completion|LAST CLOUD CONTINUATION|cloudRunsCompleted|machinesOnlineNow/);
+  // Public pricing shows CoreWeave-style capacity matrix; live usage stays behind auth.
+  assert.match(landing, /data-testid="continuity-capacity-matrix"/);
+  assert.match(landing, /Transparent Continuity capacity/);
+  assert.match(dashboard, /data-testid="continuity-usage-meter"/);
+  assert.match(dashboard, /continuityUsage/);
 });
 
 test("explains the failover path with an interactive approve/deny demo", () => {

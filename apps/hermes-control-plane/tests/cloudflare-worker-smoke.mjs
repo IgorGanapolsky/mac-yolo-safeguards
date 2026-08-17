@@ -330,6 +330,16 @@ try {
       trialEndsAt: null,
       cloudAccess: true,
     },
+    // CoreWeave-style capacity truth from governance-aligned caps.
+    continuityUsage: {
+      cloudTasks30d: 0,
+      cloudTaskLimit: 100,
+      cloudTasksRemaining: 100,
+      activeTasks: 0,
+      maxActiveTasks: 10,
+      plan: "pro",
+      windowDays: 30,
+    },
   });
 
   const logout = await fetch(`http://127.0.0.1:${port}/api/auth/logout`, {
