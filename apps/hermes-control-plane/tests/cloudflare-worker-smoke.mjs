@@ -125,16 +125,16 @@ try {
   const landing = await fetch(`http://127.0.0.1:${port}/`);
   const html = await landing.text();
   assert.equal(landing.status, 200);
-  assert.match(html, /Leash/);
+  assert.match(html, /ThumbGate/);
   assert.match(html, /by ThumbGate/);
-  assert.match(html, /Keep Hermes work running/i);
-  assert.match(html, /when the Mac closes/i);
+  assert.match(html, /Autonomous Cloud AI Agents/i);
+  assert.match(html, /Guarded by LLM-as-a-Judge/i);
   assert.match(html, /Continuity/i);
   assert.doesNotMatch(html, /Self-Improving Firewall|self-improving firewall/);
   // Static shell defaults to anon/loading chrome (session via /api/me after paint).
   assert.match(html, /Sign-in required|Checking session/);
   assert.match(html, /Try Continuity — 14 days free/);
-  assert.match(html, /Sign in to pair free/);
+  assert.match(html, /Sign in to Continuity/);
   assert.equal((html.match(/data-funnel-event="sign_in_click"/g) ?? []).length, 1);
   assert.equal((html.match(/data-funnel-event="cloud_continuity_click"/g) ?? []).length >= 1, true);
   assert.doesNotMatch(html, /After you sign in/);
@@ -302,7 +302,7 @@ try {
   const authenticatedHtml = await authenticatedLanding.text();
   assert.equal(authenticatedLanding.status, 200);
   // Marketing HTML is static (no D1 session read). Session chrome comes from /api/me.
-  assert.match(authenticatedHtml, /Try Continuity — 14 days free|Sign in to pair free|Open Continuity dashboard/);
+  assert.match(authenticatedHtml, /Try Continuity — 14 days free|Sign in to Continuity|Open Continuity dashboard/);
   assert.doesNotMatch(authenticatedHtml, /e2e@example\.com/);
   // With a session cookie, HTML must not be edge-cached for other users.
   const landingCache = authenticatedLanding.headers.get("cache-control") || "";
@@ -348,7 +348,7 @@ try {
   const postLogoutHtml = await postLogoutLanding.text();
   assert.equal(postLogoutLanding.status, 200);
   assert.match(postLogoutHtml, /Sign-in required|Checking session/);
-  assert.match(postLogoutHtml, /Sign in to pair free/);
+  assert.match(postLogoutHtml, /Sign in to Continuity/);
   assert.match(postLogoutHtml, /Try Continuity — 14 days free/);
   assert.equal((postLogoutHtml.match(/data-funnel-event="sign_in_click"/g) ?? []).length, 1);
   assert.doesNotMatch(postLogoutHtml, />Sign out</);
