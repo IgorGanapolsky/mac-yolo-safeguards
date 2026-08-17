@@ -1186,15 +1186,31 @@ export default function DashboardClient() {
         <header className="dashboard-header">
           <div className="dashboard-header-title">
             <div className="mobile-header-row">
-              <button
-                type="button"
-                className="mobile-chats-toggle button button-small button-secondary"
-                onClick={toggleChatRail}
-                aria-label="Toggle chat threads menu"
-                data-testid="mobile-chats-toggle"
-              >
-                💬 {chatRailExpanded ? "Hide Chats" : "Chats"}
-              </button>
+              <div className="mobile-header-actions">
+                <button
+                  type="button"
+                  className="mobile-chats-toggle button button-small button-secondary"
+                  onClick={toggleChatRail}
+                  aria-label="Toggle chat threads menu"
+                  data-testid="mobile-chats-toggle"
+                >
+                  💬 {chatRailExpanded ? "Hide Chats" : "Chats"}
+                </button>
+                {threads.length > 0 ? (
+                  <button
+                    type="button"
+                    className="button button-small button-secondary mobile-clear-all"
+                    data-testid="mobile-clear-all"
+                    onClick={() => {
+                      setThreadMenu(null);
+                      setChatDialog({ kind: "clear" });
+                    }}
+                    aria-label="Clear all chats"
+                  >
+                    Clear all
+                  </button>
+                ) : null}
+              </div>
               <p className="eyebrow">HERMES WEB</p>
             </div>
             <div className="thread-title-heading-row" style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
@@ -1260,6 +1276,26 @@ export default function DashboardClient() {
                 )}
               </div>
               <span>{selectedThread ? `${threadDetails?.snapshot.length ?? 0} synced messages` : `${visibleTasks.length} tasks`}</span>
+            </div>
+            {/* DimAgent-style observability: always know what the agent is doing */}
+            <div
+              className="agent-activity"
+              data-testid="agent-activity"
+              data-state={activeTasks.length > 0 ? "running" : "idle"}
+              role="status"
+              aria-live="polite"
+            >
+              <i className="agent-activity-dot" aria-hidden="true" />
+              <strong>
+                {activeTasks.length === 1
+                  ? "1 Continuity run active"
+                  : `${activeTasks.length} Continuity runs active`}
+              </strong>
+              <span>
+                {activeTasks.some((task) => task.route === "cloud")
+                  ? "Fenced VPS · no babysitting required"
+                  : "Waiting on your paired machine"}
+              </span>
             </div>
             <div className="hermes-scroll-pane">
             {selectedThread && <div className="conversation-history">
