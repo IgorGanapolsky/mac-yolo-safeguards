@@ -31,13 +31,12 @@ describe('ApprovalsScreen', () => {
   });
 
   it('renders thumbgate leash header and connection block', () => {
-    const { getByTestId, getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    const { getByTestId } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(getByTestId('THUMBGATE_LEASH')).toBeTruthy();
     expect(getByTestId('leash-hero-subtitle')).toBeTruthy();
     const hero = [].concat(getByTestId('leash-hero-subtitle').props.children as never).join('');
     expect(hero).toMatch(/blocks a risky tool/i);
-    expect(getByTestId('leash-open-thumbgate-app')).toBeTruthy();
-    expect(getByText('Manage Cloud Continuity & VPS →')).toBeTruthy();
+    expect(hero).toMatch(/Not chat messages/i);
   });
 
   it('keeps header refresh vertically centered beside health pill', () => {

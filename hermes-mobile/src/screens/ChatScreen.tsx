@@ -307,6 +307,15 @@ import BrainPickerModal from '../components/BrainPickerModal';
 import ComputerScreenPane from '../components/ComputerScreenPane';
 import RoutinesManagerModal from '../components/RoutinesManagerModal';
 import GrokBotActionBar from '../components/GrokBotActionBar';
+import ContinuityEnvironmentModal from '../components/ContinuityEnvironmentModal';
+import {
+  loadContinuitySyncState,
+  setChatEnvironmentMode,
+  subscribeContinuitySync,
+  triggerContinuitySync,
+  type ContinuitySyncState,
+  type ChatEnvironmentMode,
+} from '../services/continuitySyncService';
 import {
   DEFAULT_BOT_PERSONAS,
   BRAIN_MODELS,
@@ -833,6 +842,15 @@ export default function ChatScreen() {
   const [brainPickerVisible, setBrainPickerVisible] = useState(false);
   const [computerPaneVisible, setComputerPaneVisible] = useState(false);
   const [routinesModalVisible, setRoutinesModalVisible] = useState(false);
+  const [continuityModalVisible, setContinuityModalVisible] = useState(false);
+  const [continuitySyncState, setContinuitySyncState] = useState<ContinuitySyncState>({
+    activeEnvironment: 'local_mac',
+    lastSyncedAt: null,
+    cloudSessionId: 'cloud_sess_default',
+    isSyncing: false,
+    pendingUnsyncedMessagesCount: 0,
+    syncStatus: 'in_sync',
+  });
   const [computerState, setComputerState] = useState<ComputerSessionState>(getDefaultComputerState());
   const [tokenTelemetry, setTokenTelemetry] = useState<TokenTelemetry>(getDefaultTokenTelemetry());
   const [automatedRoutines, setAutomatedRoutines] = useState<AutomationRoutine[]>(DEFAULT_ROUTINES);
@@ -847,7 +865,25 @@ export default function ChatScreen() {
     void getAutomatedRoutines().then((r) => {
       if (r && r.length > 0) setAutomatedRoutines(r);
     });
+    void loadContinuitySyncState().then((s) => {
+      if (s) setContinuitySyncState(s);
+    });
+    const unsubContinuity = subscribeContinuitySync((s) => {
+      setContinuitySyncState(s);
+    });
+    return () => {
+      unsubContinuity();
+    };
   }, []);
+
+  const handleSelectChatEnvironment = useCallback((mode: ChatEnvironmentMode) => {
+    void setChatEnvironmentMode(mode);
+    setContinuityModalVisible(false);
+  }, []);
+
+  const handleTriggerManualContinuitySync = useCallback(() => {
+    void triggerContinuitySync(messages);
+  }, [messages]);
 
   const handleSelectPersona = useCallback((persona: BotPersona) => {
     setActiveBotPersona(persona);
@@ -8153,8 +8189,10 @@ export default function ChatScreen() {
           activePersona={activeBotPersona}
           activeBrain={activeBrain}
           telemetry={tokenTelemetry}
+          continuityMode={continuitySyncState.activeEnvironment}
           onOpenRoster={() => setRosterVisible(true)}
           onOpenBrainPicker={() => setBrainPickerVisible(true)}
+          onOpenContinuity={() => setContinuityModalVisible(true)}
           onOpenComputerPane={() => setComputerPaneVisible(true)}
           onOpenRoutines={() => setRoutinesModalVisible(true)}
         />
@@ -9046,6 +9084,14 @@ export default function ChatScreen() {
         routines={automatedRoutines}
         onTriggerRoutine={handleTriggerRoutine}
         onClose={() => setRoutinesModalVisible(false)}
+      />
+
+      <ContinuityEnvironmentModal
+        visible={continuityModalVisible}
+        syncState={continuitySyncState}
+        onSelectEnvironment={handleSelectChatEnvironment}
+        onTriggerSync={handleTriggerManualContinuitySync}
+        onClose={() => setContinuityModalVisible(false)}
       />
     </SafeAreaView>
   );

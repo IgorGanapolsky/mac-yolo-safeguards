@@ -18,7 +18,6 @@ import GateApprovalCard from '../components/GateApprovalCard';
 import GlassCard from '../components/GlassCard';
 import HealthPill from '../components/HealthPill';
 import ThumbGatePromoCard from '../components/ThumbGatePromoCard';
-import CloudContinuitySheet from '../components/CloudContinuitySheet';
 import { colors } from '../theme/colors';
 import { useGateway } from '../context/GatewayContext';
 import {
@@ -96,7 +95,6 @@ export default function ApprovalsScreen() {
 
   const [refreshing, setRefreshing] = React.useState(false);
   const [decisionHistory, setDecisionHistory] = React.useState<LeashDecisionRecord[]>([]);
-  const [continuityVisible, setContinuityVisible] = React.useState(false);
   const refreshingRef = React.useRef(false);
   const refreshPromiseRef = React.useRef<Promise<void> | null>(null);
   const connectionStateRef = React.useRef(connectionState);
@@ -264,22 +262,12 @@ export default function ApprovalsScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <View testID="THUMBGATE_LEASH" accessible={true} collapsable={false}>
-          <Text style={styles.title}>HERMES LEASH</Text>
+          <Text style={styles.title}>THUMBGATE LEASH</Text>
         </View>
         <Text style={styles.subtitle} testID="leash-hero-subtitle">
           When Hermes on your Mac blocks a risky tool (shell, files, browser, etc.), approve or deny
           it here — or from lock-screen alerts. Not chat messages; only blocked tools.
         </Text>
-        <TouchableOpacity
-          onPress={() => setContinuityVisible(true)}
-          testID="leash-open-thumbgate-app"
-          accessibilityRole="button"
-          accessibilityLabel={THUMBGATE_PROMO_BUTTON_LABEL}
-          hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-          style={styles.thumbgateAppLink}
-        >
-          <Text style={styles.thumbgateAppLinkText}>Manage Cloud Continuity & VPS →</Text>
-        </TouchableOpacity>
         {leashUnlocked ? (
           <>
             <View style={styles.pillRow} testID="leash-header-pill-row">
@@ -549,11 +537,6 @@ export default function ApprovalsScreen() {
         ) : null}
 
       </ScrollView>
-
-      <CloudContinuitySheet
-        visible={continuityVisible}
-        onClose={() => setContinuityVisible(false)}
-      />
     </SafeAreaView>
   );
 }

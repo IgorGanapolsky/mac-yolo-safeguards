@@ -2,26 +2,31 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
 import type { BotPersona, BrainModel, TokenTelemetry } from '../types/grokBot';
+import type { ChatEnvironmentMode } from '../services/continuitySyncService';
 import TokenEfficiencyMeter from './TokenEfficiencyMeter';
 
 interface GrokBotActionBarProps {
   activePersona: BotPersona;
   activeBrain: BrainModel;
   telemetry: TokenTelemetry;
+  continuityMode?: ChatEnvironmentMode;
   onOpenRoster: () => void;
   onOpenBrainPicker: () => void;
   onOpenComputerPane: () => void;
   onOpenRoutines: () => void;
+  onOpenContinuity?: () => void;
 }
 
 export const GrokBotActionBar: React.FC<GrokBotActionBarProps> = ({
   activePersona,
   activeBrain,
   telemetry,
+  continuityMode = 'local_mac',
   onOpenRoster,
   onOpenBrainPicker,
   onOpenComputerPane,
   onOpenRoutines,
+  onOpenContinuity,
 }) => {
   return (
     <View style={styles.wrapper}>
@@ -161,6 +166,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     gap: 4,
+  },
+  activeContinuityBtn: {
+    backgroundColor: 'rgba(14, 165, 233, 0.18)',
+    borderColor: 'rgba(14, 165, 233, 0.4)',
+  },
+  activeContinuityText: {
+    color: '#38BDF8',
+    fontWeight: '700',
   },
   toolIcon: {
     fontSize: 11,
