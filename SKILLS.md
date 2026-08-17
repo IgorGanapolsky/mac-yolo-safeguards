@@ -47,7 +47,10 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 | `notebook-guidance` | Skill instructions and usage guide. | `~/.gemini/config/skills/notebook-guidance/SKILL.md` | global |
 | `skill-repair` | | | `~/.gemini/config/skills/skill-repair/SKILL.md` | global |
 | `tinker-brain` | Skill instructions and usage guide. | `~/.gemini/config/skills/tinker-brain/SKILL.md` | global |
+| `github-marketplace-action-publish` | Publish or update a GitHub Actions Marketplace listing (free only for ThumbGate until counsel clearance). Never claim LIVE without verify. Slash: /github-marketplace-action-publish. | `.agents/skills/github-marketplace-action-publish/SKILL.md` | local |
+| `verify-github-marketplace-listing` | Evidence-only check that a GitHub Actions Marketplace listing is LIVE (HTTP 200 + real title). Never infer from a release banner. Slash: /verify-github-marketplace-listing. | `.agents/skills/verify-github-marketplace-listing/SKILL.md` | local |
+| `advertise-thumbgate-github-marketplace` | Cite the live ThumbGate Marketplace listing (free only). Verify first. No paid plans or buyer outreach without ECI clearance. Slash: /advertise-thumbgate-github-marketplace. | `.agents/skills/advertise-thumbgate-github-marketplace/SKILL.md` | local |
 
 ---
 
-*Last synchronized: 2026-08-06T14:45:44.805Z*
+*Last synchronized: 2026-08-17T22:06:00.000Z*
