@@ -24,6 +24,16 @@ import {
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
+/** CoreWeave-style capacity snapshot from /api/me (enforced governance caps). */
+type ContinuityUsage = {
+  cloudTasks30d: number;
+  cloudTaskLimit: number;
+  cloudTasksRemaining: number;
+  activeTasks: number;
+  maxActiveTasks: number;
+  plan: string;
+  windowDays: number;
+};
 type Device = {
   id: string;
   name: string;
@@ -233,6 +243,8 @@ export default function DashboardClient() {
     const cached = readJsonSessionStorage<CachedIdentity<User, Organization>>(DASHBOARD_CACHE_KEYS.me);
     return cached?.organization ?? null;
   });
+  /** CoreWeave-style remaining capacity from /api/me (governance-enforced caps). */
+  const [continuityUsage, setContinuityUsage] = useState<ContinuityUsage | null>(null);
   const [devices, setDevices] = useState<Device[]>([]);
   const [threads, setThreads] = useState<Thread[]>(() => readJsonSessionStorage<Thread[]>(DASHBOARD_CACHE_KEYS.threads) ?? []);
   const [tasks, setTasks] = useState<Task[]>(() => readJsonSessionStorage<Task[]>(DASHBOARD_CACHE_KEYS.tasks) ?? []);
@@ -659,9 +671,14 @@ export default function DashboardClient() {
       window.location.replace(`/api/auth/login?return_to=${encodeURIComponent(returnTo)}`);
       return;
     }
-    const identity = await me.json() as { user: User; organization: Organization };
+    const identity = await me.json() as {
+      user: User;
+      organization: Organization;
+      continuityUsage?: ContinuityUsage;
+    };
     setUser(identity.user);
     setOrganization(identity.organization);
+    if (identity.continuityUsage) setContinuityUsage(identity.continuityUsage);
     writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.me, {
       user: identity.user,
       organization: identity.organization,
@@ -1247,6 +1264,42 @@ export default function DashboardClient() {
             <span>{notice}</span>
             <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss">×</button>
           </div>
+        )}
+
+        {continuityUsage && (
+          <section
+            className="continuity-usage-meter"
+            data-testid="continuity-usage-meter"
+            aria-label="Continuity capacity remaining"
+          >
+            <div className="continuity-usage-meter-copy">
+              <p className="eyebrow">Continuity capacity</p>
+              <strong>
+                {continuityUsage.cloudTasks30d}/{continuityUsage.cloudTaskLimit} VPS runs used
+              </strong>
+              <small>
+                {continuityUsage.cloudTasksRemaining} remaining · plan {continuityUsage.plan} ·{" "}
+                {continuityUsage.windowDays}d window · {continuityUsage.activeTasks}/
+                {continuityUsage.maxActiveTasks} active
+              </small>
+            </div>
+            <div
+              className="continuity-usage-bar"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={Math.max(1, continuityUsage.cloudTaskLimit)}
+              aria-valuenow={Math.min(continuityUsage.cloudTasks30d, Math.max(1, continuityUsage.cloudTaskLimit))}
+              aria-label={`${continuityUsage.cloudTasks30d} of ${continuityUsage.cloudTaskLimit} Continuity runs used`}
+            >
+              <i
+                style={{
+                  width: `${continuityUsage.cloudTaskLimit > 0
+                    ? Math.min(100, Math.round((continuityUsage.cloudTasks30d / continuityUsage.cloudTaskLimit) * 100))
+                    : 0}%`,
+                }}
+              />
+            </div>
+          </section>
         )}
 
         <nav className="metric-grid metric-grid-four" aria-label="Workspace status shortcuts">
