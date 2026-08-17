@@ -110,7 +110,7 @@
     "reassure": "^1.5.1",
     "rozenite": "^1.13.0",
     "source-map-explorer": "^2.5.3",
-    "typescript": "~5.9.2"
+    "typescript": "~7.0.2"
   },
   "private": true,
   "overrides": {
