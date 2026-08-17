@@ -11,7 +11,6 @@ import {
   LandingPricingCtaPaid,
 } from "./LandingAuthChrome";
 import { BrandMark } from "./BrandMark";
-import { StoreBadgeRow } from "./StoreBadges";
 import styles from "./landing.module.css";
 import {
   CONTINUITY_EXECUTION_MODES,
@@ -24,35 +23,34 @@ import {
  * Public marketing shell is static: no cookie jar reads and no D1 on first paint.
  * Session chrome hydrates via /api/me after paint (LandingAuthChrome).
  *
- * Product truth (2026-08-17 CEO): ThumbGate.app sells Continuity on a fenced VPS
- * runner — not Mac pairing as the product. Hermes Mobile is the phone companion
- * (Leash approvals, alerts, voice) for that Continuity workspace.
+ * Product truth (2026-08-17 CEO): ThumbGate.app sells Cloud Continuity on a VPS.
+ * Approvals happen in thumbgate.app itself. Do not offer a phone leash.
  */
 const FAQ_ITEMS = [
   {
     question: "What is ThumbGate?",
     answer:
-      "ThumbGate Continuity is a fenced cloud VPS runner for autonomous agent work: coding, research, and computer-use tasks under LLM-as-a-Judge gates, 90-second renewable leases, and plan caps. You run Continuity from the browser — no Mac pairing required as the product path.",
+      "ThumbGate Continuity is a fenced cloud VPS runner for autonomous agent work: coding, research, and computer-use tasks under LLM-as-a-Judge gates, 90-second renewable leases, and plan caps. You run and approve from the browser.",
   },
   {
-    question: "What is Hermes Mobile?",
+    question: "Where do approvals happen?",
     answer:
-      "Hermes Mobile is a separate iOS/Android app. It is not ThumbGate.app. Use it for biometric Leash approvals, lockscreen alerts, and voice when Continuity or agent work needs a human decision away from the desk.",
+      "In thumbgate.app. Approve or deny a tool call in the web workspace. There is no phone leash on this product.",
   },
   {
-    question: "Why show Hermes Mobile on this site?",
+    question: "Do I need a phone app?",
     answer:
-      "Continuity can run for hours on a VPS. Hermes Mobile is how you approve protected actions and get pinged only when a decision is required — without treating the phone as the Continuity control plane or billing surface.",
+      "No. Continuity, billing, and approvals all live on thumbgate.app.",
   },
   {
-    question: "Do I need to pair a Mac with ThumbGate.app?",
+    question: "Do I need to pair a Mac?",
     answer:
-      "No. Continuity on ThumbGate.app is offered as fenced VPS execution. Sign in, start a Continuity trial or Pro plan, and run work on the cloud runner. Hermes desktop/mobile remain separate products for machine chat if you use them elsewhere.",
+      "No. Continuity is fenced VPS execution. Sign in, start a trial or Pro plan, and run work on the cloud runner.",
   },
   {
     question: "How much does Continuity cost?",
     answer:
-      "Pro Continuity is a paid subscription for the fenced VPS runner (14-day trial available). Live list price is shown on this page and at https://thumbgate.app/api/billing/plan — currently $10/month for Pro, not a higher static FAQ price.",
+      "Pro Continuity is $10/month for the fenced VPS runner, with a 14-day trial. Live list price is https://thumbgate.app/api/billing/plan.",
   },
 ] as const;
 
@@ -67,7 +65,7 @@ export default function Home() {
         applicationCategory: "DeveloperApplication",
         operatingSystem: "Web",
         description:
-          "Fenced cloud VPS Continuity for autonomous agents with LLM-as-a-Judge guardrails. Hermes Mobile is an optional phone companion for approvals and alerts.",
+          "Fenced cloud VPS Continuity for autonomous agents. Approvals happen in thumbgate.app.",
         offers: [
           { "@type": "Offer", name: "Pro Continuity", price: "10", priceCurrency: "USD" },
         ],
@@ -104,19 +102,15 @@ export default function Home() {
           <p className="eyebrow"><span className="live-dot" /> Continuity · Fenced VPS</p>
           <h1>Agent work on a<br /><span>fenced Continuity VPS.</span></h1>
           <p className="hero-lede">
-            ThumbGate Continuity runs autonomous coding, research, and computer-use workflows on a fenced cloud VPS with LLM-as-a-Judge pre-action gates, renewable 90s leases, and plan caps. No Mac pairing step — Continuity is the product.
+            Your agents keep running on a fenced VPS. Approve or deny tool calls in thumbgate.app. $10/month. 14 days free.
           </p>
           <LandingAuthHero />
           <p className="signin-note">Continuity by ThumbGate. Continue with Google today — more providers activate once configured.</p>
           <div className="trust-row">
             <span>Fenced VPS runner</span>
-            <span>LLM-as-a-Judge gates</span>
-            <span>No Mac pair required</span>
+            <span>Approvals in thumbgate.app</span>
+            <span>$10/month</span>
           </div>
-          <p className="signin-note" style={{ marginTop: "20px", marginBottom: "10px" }}>
-            <strong>Hermes Mobile</strong> (optional phone app) — Leash approvals, push alerts, and voice. Not ThumbGate.app; Continuity and billing stay here.
-          </p>
-          <StoreBadgeRow aria-label="Hermes Mobile on Google Play and App Store" />
         </div>
 
         <nav className="hero-console hero-actions-panel" aria-label="Private workspace actions">
@@ -147,7 +141,7 @@ export default function Home() {
         </div>
         <FailoverPathDemo />
         <div className="steps-grid steps-grid-after-demo">
-          <article><span>01</span><h3>Web Continuity console</h3><p>Sign in, manage billing, and dispatch Continuity runs from thumbgate.app.</p></article>
+          <article><span>01</span><h3>Approve in thumbgate.app</h3><p>Risky tool calls pause in the browser. Approve or deny here. No phone leash.</p></article>
           <article><span>02</span><h3>LLM-as-a-Judge safety</h3><p>Pre-action checks block destructive commands, secret leaks, and spend overruns.</p></article>
           <article><span>03</span><h3>Fenced Cloud VPS runner</h3><p>Serverless Continuity execution with one active lease per task thread.</p></article>
         </div>
@@ -286,81 +280,30 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="mobile" className="section-block">
-        <div className="section-heading">
-          <p className="eyebrow">Why the store badges</p>
-          <h2>ThumbGate.app vs Hermes Mobile</h2>
-          <p>
-            Two products. Continuity and billing live on <strong>ThumbGate.app</strong>. The store apps are <strong>Hermes Mobile</strong> — a phone companion for approvals and alerts, not a download of Continuity itself.
-          </p>
-        </div>
-
-        <div className="steps-grid steps-grid-after-demo">
-          <article>
-            <span>01</span>
-            <h3>ThumbGate.app · Continuity VPS</h3>
-            <p>
-              <strong>Product:</strong> Fenced cloud Continuity runner, dashboard, trial/Pro billing, and judge policy for agent work that stays in the cloud.
-            </p>
-            <p>
-              <strong>Not:</strong> A Mac pairing installer product path. Continuity does not require pairing your laptop to ThumbGate.app.
-            </p>
-          </article>
-
-          <article>
-            <span>02</span>
-            <h3>Hermes Mobile · Pocket Leash</h3>
-            <p>
-              <strong>Product:</strong> Native iOS/Android app for biometric approvals, lockscreen notifications, and voice when Continuity (or other Hermes agents) need a human decision.
-            </p>
-            <p>
-              <strong>Not:</strong> ThumbGate Continuity, billing, or the VPS control plane. Install only if you want phone-side oversight.
-            </p>
-          </article>
-
-          <article>
-            <span>03</span>
-            <h3>How they work together</h3>
-            <p>
-              <strong>Dispatch</strong> long Continuity runs from the web. <strong>Walk away.</strong> Hermes Mobile pings only when Leash or a milestone needs your sign-off.
-            </p>
-            <p>
-              <strong>Same session story:</strong> Continuity owns cloud execution; Hermes Mobile owns on-the-go human gate — not a second Continuity SKU.
-            </p>
-          </article>
-        </div>
-
-        <div style={{ marginTop: "32px", textAlign: "center" }}>
-          <p className="signin-note" style={{ marginBottom: "16px" }}>
-            Download <strong>Hermes Mobile</strong> — not ThumbGate Continuity.
-          </p>
-          <StoreBadgeRow className="hero-store-links-lg" size="lg" aria-label="Download Hermes Mobile" />
-        </div>
-      </section>
 
       <section id="expertise" className="section-block">
         <div className="section-heading">
           <p className="eyebrow">Engineering expertise</p>
-          <h2>Built from live production data, not static claims.</h2>
+          <h2>Public Continuity telemetry, no invented customers.</h2>
           <p>
-            ThumbGate Continuity is maintained by the same engineering team that runs the Hermes stack. Our expertise page pairs original case studies with real control-plane telemetry — Continuity runs, uptime, and scale metrics.
+            Raw JSON at /api/expertise/stats. No founder case studies. No implied paying teams.
           </p>
         </div>
         <div className="steps-grid">
           <article>
             <span>01</span>
             <h3>Live telemetry</h3>
-            <p>Success rates, p95 durations, and uptime computed from the production control plane.</p>
+            <p>Success rates, p95 durations, and run counts from the production control plane.</p>
           </article>
           <article>
             <span>02</span>
-            <h3>Named case studies</h3>
-            <p>Authored by the engineering team behind ThumbGate, with concrete metrics and outcomes.</p>
+            <h3>No fake stories</h3>
+            <p>If a stranger has not paid, the page does not claim a team shipped faster.</p>
           </article>
           <article>
             <span>03</span>
             <h3>Public methodology</h3>
-            <p>Canary runs excluded, privacy boundary documented, raw JSON endpoint at /api/expertise/stats.</p>
+            <p>Canary runs excluded. Privacy boundary documented. Endpoint: /api/expertise/stats.</p>
           </article>
         </div>
         <div className="hero-actions" style={{ marginTop: "32px" }}>
@@ -385,7 +328,7 @@ export default function Home() {
 
       <footer>
         <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate <small>Continuity</small></span></Link>
-        <p>Fenced VPS Continuity · LLM-as-a-Judge guardrails.</p>
+        <p>Fenced VPS Continuity · approvals in thumbgate.app.</p>
       </footer>
     </main>
   );
