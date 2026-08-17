@@ -338,7 +338,11 @@ try {
       activeTasks: 0,
       maxActiveTasks: 10,
       plan: "pro",
+      purchaseMode: "on_demand_monthly",
       windowDays: 30,
+      percentUsed: 0,
+      exhausted: false,
+      upgradeHint: null,
     },
   });
 

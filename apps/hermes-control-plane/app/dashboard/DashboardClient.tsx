@@ -32,7 +32,11 @@ type ContinuityUsage = {
   activeTasks: number;
   maxActiveTasks: number;
   plan: string;
+  purchaseMode?: string;
   windowDays: number;
+  percentUsed?: number;
+  exhausted?: boolean;
+  upgradeHint?: string | null;
 };
 type Device = {
   id: string;
@@ -862,6 +866,14 @@ export default function DashboardClient() {
       setNotice("Continuity needs a trial or Pro plan. Open Manage plan to start Continuity.");
       return;
     }
+    // Client-side capacity preflight (server still enforces) — CoreWeave-style remaining truth.
+    if (effectiveRoute === "cloud" && continuityUsage?.exhausted) {
+      setNotice(
+        continuityUsage.upgradeHint
+          ?? "Continuity capacity exhausted for this 30-day window. Use a local machine or upgrade.",
+      );
+      return;
+    }
     // Auto with Continuity never forces pair — only pure local-without-machine does.
     if (!devices.length && effectiveRoute !== "cloud") {
       openPairingSettings("pair");
@@ -886,7 +898,15 @@ export default function DashboardClient() {
           routePreference: effectiveRoute,
         }),
       });
-      let body: { task?: { route: string; threadId: string; preference?: string; deviceId?: string; traceId?: string }; error?: string; traceId?: string } = {};
+      let body: {
+        task?: { route: string; threadId: string; preference?: string; deviceId?: string; traceId?: string };
+        error?: string;
+        code?: string;
+        limit?: number | null;
+        observed?: number | null;
+        remaining?: number | null;
+        traceId?: string;
+      } = {};
       try {
         body = await response.json() as typeof body;
       } catch {
@@ -899,11 +919,11 @@ export default function DashboardClient() {
           ?? selectedDeviceLabel;
         setNotice(
           body.task.route === "local"
-            ? `Sent — running on ${macName}.`
+            ? `Sent — running on ${macName} (local/spot · $0 Continuity quota).`
             : body.task.route === "cloud"
               ? (devices.length
-                  ? `Sent — Continuity (Cloud VPS) · workspace: ${macName}.`
-                  : "Sent — Continuity (Cloud VPS) on ThumbGate.app.")
+                  ? `Sent — Continuity on-demand VPS · workspace: ${macName}.`
+                  : "Sent — Continuity on-demand VPS on ThumbGate.app.")
               : `Sent — awaiting route on ${macName}.`
         );
         setPrompt("");
@@ -913,7 +933,27 @@ export default function DashboardClient() {
           document.getElementById("task-activity")?.scrollIntoView({ behavior: "smooth", block: "start" });
         });
       } else {
-        setNotice(body.error ?? "Task routing failed");
+        if (body.code === "cloud_task_limit" || body.code === "cloud_entitlement_required") {
+          const rem = typeof body.remaining === "number" ? body.remaining : null;
+          const lim = typeof body.limit === "number" ? body.limit : null;
+          const capacityNote =
+            lim != null
+              ? ` Capacity ${Math.max(0, (lim ?? 0) - (rem ?? 0))}/${lim} used.`
+              : "";
+          setNotice(`${body.error ?? "Continuity capacity denied."}${capacityNote}`);
+          // Refresh meter so remaining capacity matches the enforcer.
+          try {
+            const me = await fetch("/api/me", { credentials: "include", cache: "no-store" });
+            if (me.ok) {
+              const identity = await me.json() as { continuityUsage?: ContinuityUsage };
+              if (identity.continuityUsage) setContinuityUsage(identity.continuityUsage);
+            }
+          } catch {
+            /* ignore meter refresh failure */
+          }
+        } else {
+          setNotice(body.error ?? "Task routing failed");
+        }
       }
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Network error — task not sent.");
@@ -1268,20 +1308,36 @@ export default function DashboardClient() {
 
         {continuityUsage && (
           <section
-            className="continuity-usage-meter"
+            className={`continuity-usage-meter${continuityUsage.exhausted ? " is-exhausted" : ""}`}
             data-testid="continuity-usage-meter"
+            data-exhausted={continuityUsage.exhausted ? "true" : "false"}
             aria-label="Continuity capacity remaining"
           >
             <div className="continuity-usage-meter-copy">
-              <p className="eyebrow">Continuity capacity</p>
+              <p className="eyebrow">Continuity capacity · {continuityUsage.purchaseMode ?? continuityUsage.plan}</p>
               <strong>
                 {continuityUsage.cloudTasks30d}/{continuityUsage.cloudTaskLimit} VPS runs used
+                {continuityUsage.exhausted ? " · exhausted" : ""}
               </strong>
               <small>
                 {continuityUsage.cloudTasksRemaining} remaining · plan {continuityUsage.plan} ·{" "}
                 {continuityUsage.windowDays}d window · {continuityUsage.activeTasks}/
                 {continuityUsage.maxActiveTasks} active
+                {typeof continuityUsage.percentUsed === "number" ? ` · ${continuityUsage.percentUsed}%` : ""}
               </small>
+              {continuityUsage.upgradeHint ? (
+                <p className="continuity-usage-hint" data-testid="continuity-upgrade-hint">
+                  {continuityUsage.upgradeHint}{" "}
+                  <button
+                    type="button"
+                    className="button button-small button-secondary"
+                    onClick={() => void (["pro", "team"].includes(organization?.plan ?? "") ? manageBilling() : subscribe())}
+                    disabled={busy}
+                  >
+                    {["pro", "team"].includes(organization?.plan ?? "") ? "Manage plan" : "Upgrade Continuity"}
+                  </button>
+                </p>
+              ) : null}
             </div>
             <div
               className="continuity-usage-bar"
@@ -1293,9 +1349,11 @@ export default function DashboardClient() {
             >
               <i
                 style={{
-                  width: `${continuityUsage.cloudTaskLimit > 0
-                    ? Math.min(100, Math.round((continuityUsage.cloudTasks30d / continuityUsage.cloudTaskLimit) * 100))
-                    : 0}%`,
+                  width: `${typeof continuityUsage.percentUsed === "number"
+                    ? continuityUsage.percentUsed
+                    : continuityUsage.cloudTaskLimit > 0
+                      ? Math.min(100, Math.round((continuityUsage.cloudTasks30d / continuityUsage.cloudTaskLimit) * 100))
+                      : 0}%`,
                 }}
               />
             </div>
