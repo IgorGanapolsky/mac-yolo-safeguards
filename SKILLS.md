@@ -50,8 +50,15 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 | `ona-cloud-agents` | Ona + OpenAI Enterprise Cloud Agent Architecture, Cross-Device Session State Persistence, and ThumbGate Pre-Action Governance Interdiction | `~/.gemini/config/skills/ona-cloud-agents/SKILL.md` | global |
 | `dimagent-runtime-engine` | DimAgent-inspired Cache-Native Agent Runtime Engine (90-98% KV-cache hit rate, 3-layer error recovery, large output blob offloading for 20+ hour continuous execution, ACP JSON-RPC 2.0 stdio server, and two-layer hard plan mode) | `.agents/skills/dimagent-runtime-engine/SKILL.md` | local |
 | `ontoprank-growth-engine` | OnTopRank Credit Escrow & Google Play 14-Day 15-Tester Pack Orchestration Engine for Hermes Mobile and LipoShield (30 credits per activity, escrow lifecycle, 14-day compliance verification) | `.agents/skills/ontoprank-growth-engine/SKILL.md` | local |
+| `token-unit-economics` | Stripe x a16z Token Unit Economics, Gross Margin Governance (>=70%), Outcome Packaging, and Prepaid Credit Escrow Engine | `.agents/skills/token-unit-economics/SKILL.md` | local |
+| `inference-economics-optimizer` | Hardware-Aware AI Inference Economics, Latency Routing, Exact SHA-256 Prompt Caching, Step Circuit Breakers, and Async Batch Queuing | `.agents/skills/inference-economics-optimizer/SKILL.md` | local |
+| `claude-employee-governance` | 9-Pillar Claude Code AI Employee Architecture, The Eyes Post-Build Operator Verification, and 3-Tier Permission Matrix | `.agents/skills/claude-employee-governance/SKILL.md` | local |
+| `open-mono-local-ai` | 3-Step Local AI Setup, One-Command Relay Binding, Typed Playbooks with Step Autonomy Gates, and Zero-Marginal-Cost ($0.00) Inference | `.agents/skills/open-mono-local-ai/SKILL.md` | local |
+| `autonomous-outcome-engine` | Autonomous Outcome Execution & Zero-Babysitting Engine: 5-stage task lifecycle without mid-execution stops. | `.agents/skills/autonomous-outcome-engine/SKILL.md` | local |
+| `thumbgate-vps-continuity` | ThumbGate 24/7 Fenced Cloud VPS Continuity: 90s renewable leases, LLM-as-a-Judge pre-action validation, zero Mac pairing. | `.agents/skills/thumbgate-vps-continuity/SKILL.md` | local |
 | `tinker-brain` | Skill instructions and usage guide. | `~/.gemini/config/skills/tinker-brain/SKILL.md` | global |
 
 ---
 
-*Last synchronized: 2026-08-06T14:45:44.805Z*
+*Last synchronized: 2026-08-17T20:37:00.000Z*
+
