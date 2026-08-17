@@ -437,7 +437,9 @@ test("explains the failover path with an interactive approve/deny demo", () => {
   assert.match(landing, /Fenced VPS execution with renewable leases/);
   assert.match(failoverDemo, /Deny call/);
   assert.match(failoverDemo, /Approve call/);
-  assert.match(failoverDemo, /Close Mac lid/);
+  assert.match(failoverDemo, /Drop VPS runner/);
+  assert.doesNotMatch(failoverDemo, /Close Mac lid/);
+  assert.doesNotMatch(failoverDemo, /Leash decides the call|Approve runs the call on your Mac/);
   assert.match(failoverDemo, /Continue in cloud/);
   assert.match(failoverDemo, /aria-live="polite"/);
   assert.match(failoverDemo, /no real tools run/);
