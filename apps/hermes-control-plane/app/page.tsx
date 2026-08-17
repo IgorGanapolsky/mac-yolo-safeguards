@@ -367,6 +367,7 @@ export default function Home() {
       <footer>
         <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate <small>Continuity</small></span></Link>
         <p>Fenced VPS Continuity · closed-system · flat $10/month.</p>
+        <p><Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link></p>
         <p><a href="#pricing" className="button button-primary" data-funnel-event="cloud_continuity_click">Start Continuity — $10/mo</a></p>
       </footer>
     </main>
