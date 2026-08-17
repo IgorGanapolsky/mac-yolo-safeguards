@@ -1,32 +1,43 @@
-/** Static illustration: Continuity VPS execution with optional Hermes Mobile oversight. */
+/** Static illustration: Web Workspace & Cloud Continuity VPS with LLM-as-a-Judge safety. */
 export function RemoteControlDiagram() {
   return (
     <div
       className="remote-diagram"
       role="img"
-      aria-label="Hermes Mobile for approvals; LLM-as-a-Judge gates; fenced Continuity VPS runner"
+      aria-label="Web Workspace (or Hermes Mobile) for approvals; LLM-as-a-Judge gates; fenced Continuity VPS runner"
     >
       <svg viewBox="0 0 460 150" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="22" y="18" width="58" height="112" rx="12" stroke="var(--line)" strokeWidth="2" fill="rgba(255,255,255,.03)" />
-        <rect x="30" y="30" width="42" height="78" rx="4" fill="rgba(34,211,238,.08)" />
-        <rect x="36" y="40" width="30" height="6" rx="3" fill="var(--accent)" opacity=".75" />
-        <rect x="36" y="53" width="22" height="6" rx="3" fill="var(--muted)" opacity=".5" />
-        <rect x="36" y="66" width="26" height="6" rx="3" fill="var(--accent)" opacity=".4" />
-        <circle cx="51" cy="120" r="3" fill="var(--muted)" />
+        {/* Web Workspace Browser Console */}
+        <rect x="18" y="24" width="96" height="72" rx="6" stroke="var(--line)" strokeWidth="2" fill="rgba(255,255,255,.03)" />
+        <rect x="18" y="24" width="96" height="16" rx="6" fill="rgba(255,255,255,.05)" />
+        <circle cx="28" cy="32" r="2.5" fill="#f87171" opacity=".8" />
+        <circle cx="36" cy="32" r="2.5" fill="#fbbf24" opacity=".8" />
+        <circle cx="44" cy="32" r="2.5" fill="#34d399" opacity=".8" />
+        <rect x="26" y="48" width="54" height="6" rx="3" fill="var(--accent)" opacity=".75" />
+        <rect x="26" y="60" width="76" height="6" rx="3" fill="var(--muted)" opacity=".5" />
+        <rect x="26" y="72" width="40" height="6" rx="3" fill="var(--accent)" opacity=".4" />
 
-        <line x1="86" y1="72" x2="352" y2="60" stroke="var(--accent)" strokeWidth="2" strokeDasharray="5 7" className="diagram-flow" />
-        <circle cx="219" cy="66" r="16" fill="rgba(79,70,229,.16)" stroke="rgba(79,70,229,.45)" strokeWidth="1.4" />
-        <rect x="212" y="69" width="14" height="10" rx="2" stroke="var(--primary)" strokeWidth="1.6" />
-        <path d="M215 69v-3a4 4 0 0 1 8 0v3" stroke="var(--primary)" strokeWidth="1.6" fill="none" />
+        {/* Animated Connecting Flow */}
+        <line x1="118" y1="60" x2="346" y2="60" stroke="var(--accent)" strokeWidth="2" strokeDasharray="5 7" className="diagram-flow" />
 
-        <rect x="358" y="24" width="86" height="56" rx="6" stroke="var(--line)" strokeWidth="2" fill="rgba(255,255,255,.03)" />
-        <rect x="366" y="32" width="70" height="40" rx="3" fill="rgba(34,211,238,.06)" />
-        <path d="M346 88 L456 88 L446 100 L356 100 Z" stroke="var(--line)" strokeWidth="2" fill="rgba(255,255,255,.02)" />
-        <circle cx="401" cy="52" r="11" fill="rgba(34,211,238,.18)" stroke="var(--accent)" strokeWidth="1.4" />
-        <text x="401" y="56" textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--accent)" fontFamily="ui-monospace, monospace">VPS</text>
+        {/* Center: LLM-as-a-Judge Security Gate */}
+        <circle cx="230" cy="60" r="18" fill="rgba(79,70,229,.18)" stroke="rgba(79,70,229,.55)" strokeWidth="1.5" />
+        <rect x="223" y="63" width="14" height="10" rx="2" stroke="var(--primary)" strokeWidth="1.6" fill="rgba(79,70,229,.2)" />
+        <path d="M226 63v-3a4 4 0 0 1 8 0v3" stroke="var(--primary)" strokeWidth="1.6" fill="none" />
+
+        {/* Right: Fenced Cloud VPS Sandbox */}
+        <rect x="350" y="24" width="92" height="72" rx="6" stroke="var(--line)" strokeWidth="2" fill="rgba(255,255,255,.03)" />
+        <rect x="358" y="34" width="76" height="16" rx="3" fill="rgba(34,211,238,.08)" stroke="rgba(34,211,238,.25)" strokeWidth="1" />
+        <circle cx="368" cy="42" r="3" fill="var(--accent)" />
+        <rect x="376" y="39" width="48" height="6" rx="3" fill="var(--accent)" opacity=".7" />
+        <rect x="358" y="56" width="76" height="16" rx="3" fill="rgba(255,255,255,.04)" stroke="var(--line)" strokeWidth="1" />
+        <circle cx="368" cy="64" r="3" fill="#34d399" />
+        <rect x="376" y="61" width="36" height="6" rx="3" fill="var(--muted)" opacity=".6" />
+        <rect x="358" y="78" width="76" height="10" rx="2" fill="rgba(34,211,238,.12)" />
+        <text x="396" y="86" textAnchor="middle" fontSize="8" fontWeight="700" fill="var(--accent)" fontFamily="ui-monospace, monospace">90s LEASE</text>
       </svg>
       <div className="remote-diagram-labels">
-        <span>Hermes Mobile</span>
+        <span>Web Workspace / Hermes Mobile</span>
         <span>LLM-as-a-Judge</span>
         <span>Continuity VPS</span>
       </div>

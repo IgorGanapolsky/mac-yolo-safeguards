@@ -146,9 +146,9 @@ export default function Home() {
         </div>
         <FailoverPathDemo />
         <div className="steps-grid steps-grid-after-demo">
-          <article><span>01</span><h3>Approve in thumbgate.app</h3><p>Risky tool calls pause in the browser. Approve or deny here. No phone leash.</p></article>
-          <article><span>02</span><h3>LLM-as-a-Judge safety</h3><p>Pre-action checks block destructive commands, secret leaks, and spend overruns.</p></article>
-          <article><span>03</span><h3>Fenced Cloud VPS runner</h3><p>Serverless Continuity execution with one active lease per task thread.</p></article>
+          <article><span>01</span><h3>Approve in thumbgate.app</h3><p>Sensitive tool calls pause in the browser. You retain complete execution authority with one-click approvals.</p></article>
+          <article><span>02</span><h3>LLM-as-a-Judge safety</h3><p>Pre-action checks block destructive commands, secret leaks, and unauthorized spend.</p></article>
+          <article><span>03</span><h3>Fenced Cloud VPS runner</h3><p>Serverless Continuity execution with isolated sandboxes and 90s renewable leases.</p></article>
         </div>
       </section>
 
@@ -157,25 +157,25 @@ export default function Home() {
           <p className="eyebrow">Closed-system · Zero leaks</p>
           <h2>Your data stays in your workspace.</h2>
           <p>
-            Tool calls, approvals, and Continuity runs stay on thumbgate.app. Access is the signed-in org.
-            There is no phone leash and no third-party approval surface on this product.
+            Tool calls, audit receipts, and agent sessions remain strictly isolated within your organization.
+            Zero external data exfiltration, zero dependency on hardware tethering.
           </p>
         </div>
         <div className="steps-grid">
           <article>
             <span>01</span>
             <h3>Approvals in-app</h3>
-            <p>Approve or deny in the browser. The sell is Continuity, not a companion app.</p>
+            <p>Approve or deny directly in the browser workspace with full context and command previews.</p>
           </article>
           <article>
             <span>02</span>
-            <h3>Fenced VPS</h3>
-            <p>Work runs on an isolated Continuity runner with 90-second leases and receipts.</p>
+            <h3>Fenced VPS Sandboxes</h3>
+            <p>Tasks run on isolated Continuity runners with deterministic 90-second renewable leases.</p>
           </article>
           <article>
             <span>03</span>
             <h3>Flat $10, not metered tokens</h3>
-            <p>Pro Continuity is a monthly list price. Live amount is /api/billing/plan.</p>
+            <p>Pro Continuity is a flat monthly list price. Live pricing endpoint: /api/billing/plan.</p>
           </article>
         </div>
         <div className="hero-actions" style={{ marginTop: "32px" }}>
@@ -324,24 +324,24 @@ export default function Home() {
           <p className="eyebrow">Engineering expertise</p>
           <h2>Public Continuity telemetry, no invented customers.</h2>
           <p>
-            Raw JSON at /api/expertise/stats. No founder case studies. No implied paying teams.
+            Live telemetry endpoint at /api/expertise/stats. Transparent methodology and verified execution data.
           </p>
         </div>
         <div className="steps-grid">
           <article>
             <span>01</span>
             <h3>Live telemetry</h3>
-            <p>Success rates, p95 durations, and run counts from the production control plane.</p>
+            <p>Success rates, p95 durations, and active run counts computed directly from the production control plane.</p>
           </article>
           <article>
             <span>02</span>
             <h3>No fake stories</h3>
-            <p>If a stranger has not paid, the page does not claim a team shipped faster.</p>
+            <p>Zero fabricated testimonials or inflated claims. Verified telemetry with full methodology transparency.</p>
           </article>
           <article>
             <span>03</span>
             <h3>Public methodology</h3>
-            <p>Canary runs excluded. Privacy boundary documented. Endpoint: /api/expertise/stats.</p>
+            <p>Canary runs excluded. Strict privacy boundary documented. Live raw JSON: /api/expertise/stats.</p>
           </article>
         </div>
         <div className="hero-actions" style={{ marginTop: "32px" }}>
