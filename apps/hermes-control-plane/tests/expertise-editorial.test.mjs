@@ -25,8 +25,9 @@ test("expertise track is surfaced and cites live D1 data", async () => {
   assert.match(landing, /id="expertise"/);
   assert.match(landing, /href="\/expertise"/);
   assert.match(landing, /Live telemetry/);
-  assert.match(landing, /Named case studies/);
+  assert.match(landing, /No fake stories|no invented customers/);
   assert.match(landing, /Public methodology/);
+  assert.doesNotMatch(landing, /Named case studies/);
   assert.doesNotMatch(landing, /Igor|Ganapolsky/i);
 
   // llms.txt points crawlers at the expertise hub and the public stats endpoint.
