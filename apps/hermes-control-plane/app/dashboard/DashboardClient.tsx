@@ -1410,7 +1410,29 @@ export default function DashboardClient() {
             </div>
             <div className="hermes-scroll-pane">
             {selectedThread && <div className="conversation-history">
-              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><FormattedMessage text={message.content} /></article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. Retrying automatically.</div> : <div className="conversation-empty">No messages in this thread yet. Send a Continuity task below to start the conversation on the fenced VPS runner.</div>}
+              {threadDetails?.snapshot.length ? (
+                threadDetails.snapshot.map((message, index) =>
+                  message.role === "system" ? (
+                    <details key={`snapshot-${index}`} className="system-instructions-details" style={{ margin: "0.5rem 0", padding: "0.4rem 0.6rem", background: "rgba(255,255,255,0.03)", borderRadius: "6px", fontSize: "0.78rem", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.05)" }}>
+                      <summary style={{ cursor: "pointer", userSelect: "none" }}>⚙ System Context &amp; Instructions ({message.content.length > 500 ? `${Math.round(message.content.length / 1000)}k chars` : `${message.content.length} chars`})</summary>
+                      <div style={{ marginTop: "0.4rem", maxHeight: "160px", overflowY: "auto", fontSize: "0.75rem" }}>
+                        <FormattedMessage text={message.content} />
+                      </div>
+                    </details>
+                  ) : (
+                    <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}>
+                      <span>{message.role}</span>
+                      <FormattedMessage text={message.content} />
+                    </article>
+                  ),
+                )
+              ) : loadState === "loading" && !threadDetails ? (
+                <div className="conversation-empty" data-state="loading">Loading this conversation…</div>
+              ) : loadState === "error" && !threadDetails ? (
+                <div className="conversation-empty" data-state="error">Could not load workspace data. Retrying automatically.</div>
+              ) : (
+                <div className="conversation-empty">No messages in this thread yet. Send a Continuity task below to start the conversation on the fenced VPS runner.</div>
+              )}
               {threadDetails?.tasks.flatMap((task, index) => [
                 <article key={`task-user-${index}`} className="conversation-message role-user"><span>web</span><p>{task.prompt}</p></article>,
                 task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><FormattedMessage text={task.result} />{feedbackControls(task.id)}</article>
