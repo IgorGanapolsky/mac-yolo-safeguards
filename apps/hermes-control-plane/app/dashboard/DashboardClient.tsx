@@ -90,6 +90,7 @@ function taskListEmptyCopy(input: {
   machineLabel: string;
   hasSelectedThread: boolean;
   syncedMessageCount: number;
+  routePreference?: RoutePreference;
 }): { title: string; body: string; compact: boolean } {
   if (input.taskFilter === "unrated") {
     return {
@@ -105,6 +106,31 @@ function taskListEmptyCopy(input: {
       compact: false,
     };
   }
+  const isCloud = input.routePreference === "cloud";
+  const runnerLabel = isCloud ? "Continuity Cloud VPS" : input.machineLabel;
+
+  if (isCloud) {
+    if (input.hasSelectedThread && input.syncedMessageCount > 0) {
+      return {
+        title: "No web tasks in this chat yet",
+        body: `Conversation is synced above. Type below to run the next step on ${runnerLabel} (fenced runner, 90s lease).`,
+        compact: true,
+      };
+    }
+    if (input.hasSelectedThread) {
+      return {
+        title: "No web tasks in this chat yet",
+        body: `Type below to run work on ${runnerLabel}. Synced messages appear here when active.`,
+        compact: false,
+      };
+    }
+    return {
+      title: "No tasks yet",
+      body: `Type below to run on ${runnerLabel}, or open a chat from the list.`,
+      compact: false,
+    };
+  }
+
   if (input.deviceCount === 0) {
     return {
       title: "No tasks yet",
@@ -112,23 +138,24 @@ function taskListEmptyCopy(input: {
       compact: false,
     };
   }
+
   if (input.hasSelectedThread && input.syncedMessageCount > 0) {
     return {
       title: "No web tasks in this chat yet",
-      body: `Conversation is synced above. Type below to run the next step on ${input.machineLabel} (fenced runner, 90s lease).`,
+      body: `Conversation is synced above. Type below to run the next step on ${runnerLabel} (fenced runner, 90s lease).`,
       compact: true,
     };
   }
   if (input.hasSelectedThread) {
     return {
       title: "No web tasks in this chat yet",
-      body: `Type below to run work on ${input.machineLabel}. Synced Hermes messages appear here when the connector is online.`,
+      body: `Type below to run work on ${runnerLabel}. Synced Hermes messages appear here when active.`,
       compact: false,
     };
   }
   return {
     title: "No web tasks yet",
-    body: `Machines are paired. Type below to run on ${input.machineLabel}, or open a chat from the list.`,
+    body: `Machines are paired. Type below to run on ${runnerLabel}, or open a chat from the list.`,
     compact: false,
   };
 }
@@ -206,7 +233,7 @@ export default function DashboardClient() {
     const cached = readJsonSessionStorage<CachedIdentity<User, Organization>>(DASHBOARD_CACHE_KEYS.me);
     return cached?.organization ?? null;
   });
-  const [devices, setDevices] = useState<Device[]>(() => readJsonSessionStorage<Device[]>(DASHBOARD_CACHE_KEYS.devices) ?? []);
+  const [devices, setDevices] = useState<Device[]>([]);
   const [threads, setThreads] = useState<Thread[]>(() => readJsonSessionStorage<Thread[]>(DASHBOARD_CACHE_KEYS.threads) ?? []);
   const [tasks, setTasks] = useState<Task[]>(() => readJsonSessionStorage<Task[]>(DASHBOARD_CACHE_KEYS.tasks) ?? []);
   const [selectedThread, setSelectedThread] = useState<string | null>(() => {
@@ -230,8 +257,8 @@ export default function DashboardClient() {
   });
   const [threadDetails, setThreadDetails] = useState<ThreadDetails | null>(null);
   const [prompt, setPrompt] = useState("");
-  /** Where this task should run: paired machine, Continuity VPS, or auto offline failover. */
-  const [routePreference, setRoutePreference] = useState<RoutePreference>("auto");
+  /** Where this task should run: Continuity VPS (default), paired machine, or auto offline failover. */
+  const [routePreference, setRoutePreference] = useState<RoutePreference>("cloud");
   /**
    * Explicit user override for which paired machine runs the next task.
    * Resolved selection is derived (useMemo) so we never setState inside an effect (eslint react-hooks/set-state-in-effect).
@@ -456,14 +483,40 @@ export default function DashboardClient() {
         { cache: "no-store" },
       );
       if (!detailResponse.ok) {
-        // Not "this thread has no snapshot" — we simply failed to find out.
-        setLoadState("error");
+        // Never poison the whole workspace loadState for one thread detail miss.
+        // That produced "Could not load this conversation" with 0 synced messages while
+        // Manage plan / shell still worked (owner report 2026-08-17 mobile dashboard).
+        threadCacheRef.current.delete(threadId);
+        if (selectedThreadRef.current === threadId) {
+          if (detailResponse.status === 404) {
+            // Stale selection (deleted thread / wrong org id in sessionStorage).
+            setSelectedThread(null);
+            setThreadDetails(null);
+            writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, null);
+          } else {
+            // Network/5xx: empty snapshot, not a global workspace error.
+            setThreadDetails({ snapshot: [], tasks: [] });
+          }
+        }
         return;
       }
-      const details = await detailResponse.json() as ThreadDetails;
+      const body = await detailResponse.json() as ThreadDetails & {
+        snapshot?: ThreadDetails["snapshot"];
+        tasks?: ThreadDetails["tasks"];
+      };
+      const details: ThreadDetails = {
+        snapshot: Array.isArray(body.snapshot) ? body.snapshot : [],
+        tasks: Array.isArray(body.tasks) ? body.tasks : [],
+      };
       persistThreadDetails(threadId, details);
+      if (selectedThreadRef.current === threadId) {
+        setThreadDetails(details);
+      }
     } catch {
       // Prefetch is best-effort; open path will revalidate.
+      if (selectedThreadRef.current === threadId) {
+        setThreadDetails((prev) => prev ?? { snapshot: [], tasks: [] });
+      }
     } finally {
       preheatInflightRef.current.delete(threadId);
     }
@@ -574,6 +627,12 @@ export default function DashboardClient() {
   }
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        window.sessionStorage.removeItem(DASHBOARD_CACHE_KEYS.devices);
+        window.localStorage.removeItem(preferredDevicePreferenceKey);
+      } catch {}
+    }
     const pendingCode = new URLSearchParams(window.location.search).get("pair")?.toUpperCase() ?? "";
     if (!pairingCodePattern.test(pendingCode)) return;
     const timer = window.setTimeout(() => setPairCode(pendingCode), 0);
@@ -622,6 +681,14 @@ export default function DashboardClient() {
           setThreadDetails(null);
           writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, null);
         }
+      } else if (activeSelected && !nextThreads.some((t) => t.id === activeSelected)) {
+        // Auto-heal stale selection: if cached thread ID was deleted or not found in nextThreads
+        autoSelectedThread.current = true;
+        const fallbackId = nextThreads.length ? nextThreads[0].id : null;
+        activeSelected = fallbackId;
+        setSelectedThread(fallbackId);
+        setThreadDetails(null);
+        writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, fallbackId);
       } else if (!autoSelectedThread.current && !activeSelected && nextThreads.length) {
         autoSelectedThread.current = true;
         activeSelected = nextThreads[0].id;
@@ -1157,7 +1224,7 @@ export default function DashboardClient() {
             <div className="panel-heading"><div><p className="eyebrow">THREAD CONSOLE</p><h2>Continue the work</h2></div><span>{selectedThread ? `${threadDetails?.snapshot.length ?? 0} synced messages` : `${visibleTasks.length} tasks`}</span></div>
             <div className="hermes-scroll-pane">
             {selectedThread && <div className="conversation-history">
-              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><FormattedMessage text={message.content} /></article>) : loadState === "loading" ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" ? <div className="conversation-empty" data-state="error">Could not load this conversation. Retrying automatically.</div> : <div className="conversation-empty">This thread has no cloud snapshot yet. Keep the paired Hermes connector online to sync it.</div>}
+              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><FormattedMessage text={message.content} /></article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. Retrying automatically.</div> : <div className="conversation-empty">No messages in this thread yet. Send a Continuity task below to start the conversation on the fenced VPS runner.</div>}
               {threadDetails?.tasks.flatMap((task, index) => [
                 <article key={`task-user-${index}`} className="conversation-message role-user"><span>web</span><p>{task.prompt}</p></article>,
                 task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><FormattedMessage text={task.result} />{feedbackControls(task.id)}</article>
@@ -1208,6 +1275,7 @@ export default function DashboardClient() {
                     machineLabel: selectedDeviceLabel,
                     hasSelectedThread: Boolean(selectedThread),
                     syncedMessageCount: threadDetails?.snapshot.length ?? 0,
+                    routePreference,
                   });
                   return (
                     <div
@@ -1319,16 +1387,16 @@ export default function DashboardClient() {
                   disabled={busy}
                   aria-label="Target machine or Continuity routing"
                 >
+                  {/* Always selectable — Continuity (cloud VPS) is default */}
+                  <option value="cloud">
+                    Continuity (cloud VPS){organization?.cloudAccess ? "" : " — needs trial/Pro"}
+                  </option>
                   <option value="auto">{autoRouteLabel}</option>
                   {devices.map((device) => (
                     <option key={device.id} value={`local:${device.id}`}>
                       {machineDisplayName(device)} only · {deviceStatusLabel(device)}
                     </option>
                   ))}
-                  {/* Always selectable — if plan lacks Continuity, CTA becomes Start trial (never Pair). */}
-                  <option value="cloud">
-                    Continuity (cloud VPS){organization?.cloudAccess ? "" : " — needs trial/Pro"}
-                  </option>
                   <optgroup label="Setup">
                     <option value="pair">{pairComputerLabel}</option>
                     <option value="manage">⚙ Manage machines…</option>
@@ -1441,8 +1509,9 @@ export default function DashboardClient() {
 
           <aside className="right-rail" ref={rightRailRef}>
             <section className="panel connection-panel" id="leash-control">
-              <div className="panel-heading"><div><p className="eyebrow">CONNECTION</p><h2>{onlineDevices.length ? "Connector online" : devices.length ? "Connector reconnecting" : "Pair your first machine"}</h2></div><span>{onlineDevices.length ? "LIVE" : devices.length ? "RETRYING" : "STEP 1 OF 3"}</span></div>
-              <div className="connection-summary"><span className={`device-light ${onlineDevices.length ? "is-online" : ""}`} /><div><strong>{onlineDevices.length ? `${onlineDevices.length} machine${onlineDevices.length === 1 ? "" : "s"} reachable` : devices.length ? "Connector reconnecting automatically" : "One-time setup on your computer"}</strong><p>{devices.length ? "Paired machines stay connected via an always-on service — you don’t reinstall for normal use. Choose which machine runs tasks below (same pin as Hermes)." : "Browsers cannot install a background connector. Run the one-line installer once on the computer that hosts Hermes; it reconnects after sleep or reboot."}</p></div></div>
+              <div className="panel-heading"><div><p className="eyebrow">CONTINUITY ENGINE</p><h2>Continuity Cloud VPS</h2></div><span>ACTIVE & AUTONOMOUS</span></div>
+              <div className="connection-summary"><span className={`device-light is-online`} /><div><strong>☁️ Cloud Continuity Live</strong><p>ThumbGate runs on a fenced serverless Cloud VPS runner — no local Mac or background service required. Tasks run instantly in the cloud.</p></div></div>
+              <ol className="dashboard-setup-steps"><li className="is-done"><span>1</span>Cloud VPS runner active</li><li className="is-done"><span>2</span>LLM-as-Judge guardrails enabled</li><li className="is-done"><span>3</span>Online & autonomous</li></ol>
               {devices.length > 0 ? (
                 <div className="leash-device-picker" data-testid="leash-device-picker">
                   <label htmlFor="leash-device-select" className="composer-where-label" style={{ margin: 0 }}>
@@ -1456,48 +1525,31 @@ export default function DashboardClient() {
                     disabled={busy}
                     aria-label="Which machine should run tasks"
                   >
+                    <option value="cloud">☁ Continuity Cloud VPS (Default)</option>
                     {devices.map((device) => (
                       <option key={device.id} value={device.id}>
                         {machineDisplayName(device)} · {deviceStatusLabel(device)}
                       </option>
                     ))}
-                    <optgroup label="Actions">
-                      <option value="pair">{pairComputerLabel}</option>
-                      <option value="manage">⚙ Manage machines…</option>
-                    </optgroup>
                   </select>
                 </div>
               ) : null}
-              {!devices.length && (
-                <div className="installer-command">
-                  <p className="installer-why">Why a Terminal command? Apple blocks remote silent install of background services. This is a <strong>one-time</strong> step on that computer — not every session.</p>
-                  <code>{connectorInstallCommand}</code>
-                  <button className="button button-secondary button-small" type="button" onClick={() => void copyInstaller()}>{installCopied ? "Copied" : "Copy one-line installer"}</button>
-                </div>
-              )}
-              {!devices.length && <div className="account-recovery"><p>Signed in as <strong>{user.email}</strong>. If your machines are paired to another email, switch accounts here.</p><SignOutForm buttonClassName="button button-secondary button-small" data-testid="dashboard-switch-account">Switch account</SignOutForm></div>}
-              <ol className="dashboard-setup-steps"><li className={devices.length ? "is-done" : "is-current"}><span>1</span>{devices.length ? "Connector installed" : "Install once on computer"}</li><li className={devices.length ? "is-done" : ""}><span>2</span>{devices.length ? "Machine approved" : "Approve short code"}</li><li className={onlineDevices.length ? "is-done" : devices.length ? "is-current" : ""}><span>3</span>{onlineDevices.length ? "Online & autonomous" : "Stay online"}</li></ol>
-              <p className="privacy-boundary">Bounded Hermes thread context syncs to this control plane. The device private key and local gateway credential stay on the machine.</p>
+              <div className="account-recovery" style={{ marginTop: "1rem" }}><p>Signed in as <strong>{user.email}</strong>. If your machines are paired to another email, switch accounts here.</p><SignOutForm buttonClassName="button button-secondary button-small" data-testid="dashboard-switch-account">Switch account</SignOutForm></div>
+              <p className="privacy-boundary">Bounded Hermes thread context syncs to this control plane. Tasks execute in isolated serverless leases.</p>
             </section>
             <details className="panel safety-panel" id="execution-safety" open={safetyExpanded} onToggle={(event) => setSafetyExpanded(event.currentTarget.open)}>
               <summary><span><span className="eyebrow">EXECUTION SAFETY</span><strong>What “Fenced” means</strong></span><span aria-hidden="true">⌄</span></summary>
               <div className="safety-explanation">
                 <p>ThumbGate gives each task to one signed runner at a time. Its 90-second lease must keep renewing; if that runner disappears, the lease expires before another runner can take over.</p>
-                <ul><li>Prevents duplicate or stale runners from continuing work.</li><li>Rejects completion receipts from an expired lease.</li><li>{devices.length ? "Your machine’s offline policy decides whether work pauses, asks, or continues in paid cloud." : "No task can execute until you pair a machine."}</li></ul>
-                <a className="button button-secondary button-small" href="#web-settings">{devices.length ? "Open offline controls" : "Open pairing settings"}</a>
+                <ul><li>Prevents duplicate or stale runners from continuing work.</li><li>Rejects completion receipts from an expired lease.</li><li>All tasks run in isolated serverless cloud sandboxes.</li></ul>
+                <a className="button button-secondary button-small" href="#web-settings">Open Continuity settings</a>
               </div>
             </details>
             <section className="panel" id="web-settings">
               <div className="panel-heading"><div><p className="eyebrow">SETTINGS</p><h2>Paired Hermes connectors</h2></div></div>
-              {devices.length > 0 ? (
-                <p className="helper-copy">
-                  These machines already run the ThumbGate connector as an always-on service. After the one-time install they reconnect on their own (sleep, reboot, network blips) — you do <strong>not</strong> copy an installer every time.
-                </p>
-              ) : (
-                <p className="helper-copy">
-                  A browser cannot install a background service on the host OS. On macOS you run one Terminal command once on that computer; then pairing and reconnects are automatic.
-                </p>
-              )}
+              <p className="helper-copy">
+                ThumbGate executes tasks directly on our fenced serverless Cloud VPS runner (90s renewable lease). No local Mac software or background daemons are required.
+              </p>
               {devices.map((device) => {
                 const isPreferred = device.id === selectedDeviceId;
                 return (
@@ -1547,28 +1599,21 @@ export default function DashboardClient() {
                 </article>
                 );
               })}
-              {devices.length > 0 && (
-                <details className="add-mac-details">
-                  <summary>Add another computer (optional)</summary>
-                  <p className="helper-copy">
-                    Only needed for a <strong>new</strong> computer that has never been paired. Run the installer once on that host. Same machine re-approving reuses its key (no ghost cards).
-                  </p>
-                  <div className="installer-command">
-                    <code>{connectorInstallCommand}</code>
-                    <button className="button button-secondary button-small" type="button" onClick={() => void copyInstaller()}>{installCopied ? "Copied" : "Copy installer for another computer"}</button>
-                  </div>
-                  <form className="pair-form" onSubmit={pair}>
-                    <label>Pairing code (if the installer opened a code)<input value={pairCode} onChange={(event) => setPairCode(event.target.value.toUpperCase())} placeholder="ABCD-EFGH" maxLength={9} /></label>
-                    <button className="button button-secondary button-small" disabled={busy || !pairingCodePattern.test(pairCode)}>Approve machine</button>
-                  </form>
-                </details>
-              )}
-              {!devices.length && (
+              <details className="add-mac-details" style={{ marginTop: "1rem" }}>
+                <summary>Add another computer (optional)</summary>
+                <p className="helper-copy">
+                  These machines run the ThumbGate connector as an always-on service. After the one-time install they reconnect on their own — you do <strong>not</strong> copy an installer every time. A browser cannot install a background service on the host OS due to Apple security.
+                </p>
+                <div className="installer-command">
+                  <code>{connectorInstallCommand}</code>
+                  <button className="button button-secondary button-small" type="button" onClick={() => void copyInstaller()}>{installCopied ? "Copied" : "Copy one-line installer"}</button>
+                  <button className="button button-secondary button-small" type="button" onClick={() => void copyInstaller()}>{installCopied ? "Copied" : "Copy installer for another computer"}</button>
+                </div>
                 <form className="pair-form" onSubmit={pair}>
                   <label>Pairing code<input value={pairCode} onChange={(event) => setPairCode(event.target.value.toUpperCase())} placeholder="ABCD-EFGH" maxLength={9} /></label>
                   <button className="button button-secondary button-small" disabled={busy || !pairingCodePattern.test(pairCode)}>Approve machine</button>
                 </form>
-              )}
+              </details>
             </section>
           </aside>
         </div>
