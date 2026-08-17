@@ -693,7 +693,7 @@ def write_drift_md(bundle: dict) -> None:
         "4. Paste only from `~/Downloads/*READY_TO_PASTE*` — never agent Send on Upwork.",
         "5. After work: update Linear claim + `Projects/YourStageTickets/State.md` + this Drift via re-run.",
         "",
-        f"## Project ensure result",
+        "## Project ensure result",
         "",
         f"```json\n{json.dumps(bundle.get('project_ensure') or {}, indent=2)[:4000]}\n```",
         "",
