@@ -95,6 +95,9 @@ describe("versioned agent governance", () => {
       error: "monthly cloud continuation limit reached",
       code: "cloud_task_limit",
       policyVersion: AGENT_GOVERNANCE_POLICY_VERSION,
+      limit: 100,
+      observed: 101,
+      remaining: 0,
     });
   });
 });
