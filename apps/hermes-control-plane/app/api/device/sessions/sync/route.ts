@@ -56,7 +56,12 @@ export async function POST(request: Request) {
   if (new TextEncoder().encode(body).byteLength > MAX_BODY_BYTES) return jsonError("session sync payload is too large", 413);
   const identity = await requireDevice(request, body);
   if (identity instanceof Response) return identity;
-  const payload = JSON.parse(body || "{}") as { sessions?: SessionInput[] };
+  let payload: { sessions?: SessionInput[] };
+  try {
+    payload = JSON.parse(body || "{}");
+  } catch {
+    return jsonError("invalid JSON body", 400);
+  }
   if (!Array.isArray(payload.sessions) || payload.sessions.length > MAX_SESSIONS) {
     return jsonError(`sessions must contain at most ${MAX_SESSIONS} items`);
   }
