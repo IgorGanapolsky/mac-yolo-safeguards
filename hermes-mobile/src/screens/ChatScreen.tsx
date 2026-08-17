@@ -8648,6 +8648,64 @@ export default function ChatScreen() {
               >
                 {MAC_PICKER_SUBTITLE}
               </Text>
+              {/* Cloud Continuity VPS Hub Option */}
+              <TouchableOpacity
+                style={[
+                  styles.continuityPickerCard,
+                  continuitySyncState.activeEnvironment === 'cloud_continuity' && styles.continuityPickerCardActive,
+                ]}
+                onPress={() => {
+                  handleSelectChatEnvironment('cloud_continuity');
+                  closeMacPicker();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Switch to Cloud Continuity VPS"
+                testID="picker-cloud-continuity-option"
+              >
+                <View style={styles.continuityPickerIconContainer}>
+                  <Text style={styles.continuityPickerIcon}>☁️</Text>
+                </View>
+                <View style={styles.continuityPickerBody}>
+                  <View style={styles.continuityPickerHeaderRow}>
+                    <Text style={styles.continuityPickerTitle}>Cloud Continuity VPS</Text>
+                    <View style={styles.continuityActiveBadge}>
+                      <Text style={styles.continuityActiveBadgeText}>24/7 VPS</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.continuityPickerSubtitle}>
+                    Autonomous cloud agent with bidirectional Mac sync
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.pickerRadioCircle,
+                    continuitySyncState.activeEnvironment === 'cloud_continuity' && styles.pickerRadioCircleSelected,
+                  ]}
+                >
+                  {continuitySyncState.activeEnvironment === 'cloud_continuity' && (
+                    <View style={styles.pickerRadioInner} />
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              {/* Local This Phone S25 Device Badge */}
+              <View style={styles.phoneDeviceCard} testID="picker-s25-device-badge">
+                <View style={styles.phoneDeviceIconContainer}>
+                  <Text style={styles.phoneDeviceIcon}>📱</Text>
+                </View>
+                <View style={styles.phoneDeviceBody}>
+                  <View style={styles.phoneDeviceHeaderRow}>
+                    <Text style={styles.phoneDeviceTitle}>Galaxy S25 (This Phone)</Text>
+                    <View style={styles.phoneDeviceStatusChip}>
+                      <View style={styles.phoneDeviceGreenDot} />
+                      <Text style={styles.phoneDeviceStatusText}>Online</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.phoneDeviceSubtitle}>
+                    Paired controller • Tailscale node & local offline cache active
+                  </Text>
+                </View>
+              </View>
               <GatewayProfilePicker
                 profiles={switchComputerProfiles}
                 activeProfileId={activeGatewayProfile?.id ?? null}
@@ -9766,5 +9824,143 @@ const styles = StyleSheet.create({
   sessionActionText: {
     fontSize: 16,
     color: colors.textMuted,
+  },
+  continuityPickerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: 'rgba(30, 41, 59, 0.65)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(59, 130, 246, 0.45)',
+    marginBottom: 10,
+    gap: 12,
+  },
+  continuityPickerCardActive: {
+    borderColor: colors.accent,
+    backgroundColor: 'rgba(6, 182, 212, 0.12)',
+  },
+  continuityPickerIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  continuityPickerIcon: {
+    fontSize: 18,
+  },
+  continuityPickerBody: {
+    flex: 1,
+  },
+  continuityPickerHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  continuityPickerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  continuityActiveBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: 'rgba(6, 182, 212, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(6, 182, 212, 0.5)',
+  },
+  continuityActiveBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.accent,
+    textTransform: 'uppercase',
+  },
+  continuityPickerSubtitle: {
+    fontSize: 12,
+    color: colors.textMuted,
+    lineHeight: 16,
+  },
+  pickerRadioCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.borderLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pickerRadioCircleSelected: {
+    borderColor: colors.accent,
+  },
+  pickerRadioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.accent,
+  },
+  phoneDeviceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    marginBottom: 14,
+    gap: 12,
+  },
+  phoneDeviceIconContainer: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  phoneDeviceIcon: {
+    fontSize: 16,
+  },
+  phoneDeviceBody: {
+    flex: 1,
+  },
+  phoneDeviceHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  phoneDeviceTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  phoneDeviceStatusChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+  },
+  phoneDeviceGreenDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.success,
+  },
+  phoneDeviceStatusText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.success,
+  },
+  phoneDeviceSubtitle: {
+    fontSize: 11,
+    color: colors.textMuted,
+    lineHeight: 15,
   },
 });
