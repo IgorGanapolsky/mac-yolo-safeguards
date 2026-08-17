@@ -113,6 +113,71 @@ function isPrivateIpv4(address) {
   return false;
 }
 
+/** Tailscale CGNAT 100.64.0.0/10 — a client here reached us over the tailnet, not the LAN. */
+function isCgnatIpv4(address) {
+  if (!address || address.includes(':')) return false;
+  const parts = address.split('.').map(Number);
+  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) return false;
+  const [a, b] = parts;
+  return a === 100 && b >= 64 && b <= 127;
+}
+
+/** Node reports IPv4 peers as "::ffff:172.29.12.116" on dual-stack sockets. */
+function normalizeRemoteIp(remoteAddress) {
+  const raw = String(remoteAddress || '').trim();
+  if (!raw) return '';
+  const mapped = raw.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
+  return mapped ? mapped[1] : raw;
+}
+
+/**
+ * True when the request reached us over the local network.
+ *
+ * P0 2026-08-13: the pair server preferred Tailscale unconditionally whenever this Mac had a
+ * tailnet IP, so a phone on the same Wi-Fi was handed http://100.x:8642 and could never connect
+ * with the Tailscale VPN switched off. Answer on the interface the request arrived on instead.
+ * CGNAT (tailnet) and loopback (adb reverse) deliberately return false — those paths already
+ * have correct answers and must not be rewritten to LAN.
+ */
+function isLanClient(clientIp) {
+  const ip = normalizeRemoteIp(clientIp);
+  if (!ip || isCgnatIpv4(ip)) return false;
+  return isPrivateIpv4(ip);
+}
+
+/** Swap only the host of a gateway URL, preserving scheme and port. */
+function withGatewayHost(url, host) {
+  try {
+    const parsed = new URL(url);
+    parsed.hostname = host;
+    return parsed.toString().replace(/\/$/, '');
+  } catch {
+    return url;
+  }
+}
+
+/** Gateway URL this specific client should use. Non-LAN clients keep the canonical answer. */
+function resolveClientGatewayUrl(seed, lanIp, clientIp) {
+  const canonical = String(seed?.gatewayUrl || '').trim();
+  if (!canonical || !isLanClient(clientIp)) return canonical;
+  if (isLoopbackGatewayUrl(canonical)) return canonical; // live USB primary wins
+  const lan = String(lanIp || '').trim();
+  if (!lan || !isPrivateIpv4(lan)) return canonical;
+  return withGatewayHost(canonical, lan);
+}
+
+/** Always publish both routes so the app can fail over without a re-pair. */
+function buildRouteAlternates(seed, lanIp) {
+  const canonical = String(seed?.gatewayUrl || '').trim();
+  const out = {};
+  if (!canonical || isLoopbackGatewayUrl(canonical)) return out;
+  const lan = String(lanIp || '').trim();
+  if (lan && isPrivateIpv4(lan)) out.lanGatewayUrl = withGatewayHost(canonical, lan);
+  const tailnetIp = localTailscaleIpv4();
+  if (tailnetIp) out.tailscaleGatewayUrl = withGatewayHost(canonical, tailnetIp);
+  return out;
+}
+
 function detectLocalLanIp() {
   const ifaces = os.networkInterfaces();
   for (const name of Object.keys(ifaces)) {
@@ -560,7 +625,9 @@ function buildLivePairHtml({
 </body></html>`;
 }
 
-function resolveCameraPageUrl(lanIp) {
+function resolveCameraPageUrl(lanIp, { clientIp = null } = {}) {
+  const lan = String(lanIp || '').trim();
+  if (lan && isLanClient(clientIp)) return `http://${lan}:${PAIR_PORT}/pair`;
   const tailnetIp = localTailscaleIpv4();
   if (tailnetIp) return `http://${tailnetIp}:${PAIR_PORT}/pair`;
   return `http://${lanIp}:${PAIR_PORT}/pair`;
@@ -572,22 +639,26 @@ function resolveCameraPageUrl(lanIp) {
  * 10.x/192.168.x even when the QR page itself was opened via Tailscale.
  * Never use 127.0.0.1 here (that only works for adb reverse deep links).
  */
-function resolvePhoneReachablePairServerUrl(lanIp) {
+function resolvePhoneReachablePairServerUrl(lanIp, { clientIp = null } = {}) {
+  const lan = String(lanIp || '').trim();
+  const lanUsable = Boolean(lan) && lan !== '127.0.0.1' && lan !== 'localhost';
+  // A phone that reached us over the LAN can always redeem over the LAN, and may have
+  // Tailscale switched off entirely — do not hand it a tailnet address it cannot route to.
+  if (lanUsable && isLanClient(clientIp)) return `http://${lan}:${PAIR_PORT}`;
   const tailnetIp = localTailscaleIpv4();
   if (tailnetIp) return `http://${tailnetIp}:${PAIR_PORT}`;
-  const lan = String(lanIp || '').trim();
-  if (lan && lan !== '127.0.0.1' && lan !== 'localhost') {
-    return `http://${lan}:${PAIR_PORT}`;
-  }
+  if (lanUsable) return `http://${lan}:${PAIR_PORT}`;
   return `http://127.0.0.1:${PAIR_PORT}`;
 }
 
 /** Prefer Tailscale/LAN for HTTP remints; keep loopback only when seed has no better host. */
-function resolveLiveMintPairServerUrl(seed) {
+function resolveLiveMintPairServerUrl(seed, { clientIp = null } = {}) {
   const lanIp = seed?.localIp || detectLocalLanIp() || '127.0.0.1';
-  const phoneReachable = resolvePhoneReachablePairServerUrl(lanIp);
+  const phoneReachable = resolvePhoneReachablePairServerUrl(lanIp, { clientIp });
   const fromSeed = String(seed?.pairServer || '').replace(/\/$/, '');
   if (!fromSeed) return phoneReachable;
+  // Request arrived over the LAN — the LAN answer beats any stored Tailscale seed.
+  if (isLanClient(clientIp) && phoneReachable.includes(`${lanIp}:`)) return phoneReachable;
   // Stale seed often stores LAN while Camera QR already uses Tailscale — upgrade.
   if (phoneReachable.includes('100.') && !fromSeed.includes('100.')) {
     return phoneReachable;
@@ -732,13 +803,13 @@ function writePairAssets({
 }
 
 /** Mint a fresh secretless deep link from the on-disk seed (HTTP /pair + /pair-live.json). */
-function mintLivePairSession({ renderPage = true } = {}) {
+function mintLivePairSession({ renderPage = true, clientIp = null } = {}) {
   const seed = loadPairSeed();
   if (!seed || !seed.gatewayUrl || !seed.apiKey) {
     return { ok: false, reason: 'no_seed' };
   }
   // Camera/HTTP path: always mint against Tailscale/LAN — never stale LAN while QR is Tailscale.
-  const pairServer = resolveLiveMintPairServerUrl(seed);
+  const pairServer = resolveLiveMintPairServerUrl(seed, { clientIp });
   const minted = mintPairingCode(
     {
       gatewayUrl: seed.gatewayUrl,
@@ -752,13 +823,23 @@ function mintLivePairSession({ renderPage = true } = {}) {
     { ttlMs: PAIRING_CODE_DISPLAY_TTL_MS },
   );
   const deepLink = buildSecretlessDeepLink(minted.code, pairServer, seed.macName || seed.hostname);
+  // Canonical (interface-independent) view — this is what stays on disk for the watchdog.
+  const canonicalPairServer = resolveLiveMintPairServerUrl(seed);
+  const canonicalDeepLink =
+    canonicalPairServer === pairServer
+      ? deepLink
+      : buildSecretlessDeepLink(minted.code, canonicalPairServer, seed.macName || seed.hostname);
   const lanIp = seed.localIp || detectLocalLanIp() || '127.0.0.1';
-  const cameraPageUrl = seed.pageUrl || resolveCameraPageUrl(lanIp);
+  const clientGatewayUrl = resolveClientGatewayUrl(seed, lanIp, clientIp);
+  const routeAlternates = buildRouteAlternates(seed, lanIp);
+  const cameraPageUrl = isLanClient(clientIp)
+    ? resolveCameraPageUrl(lanIp, { clientIp })
+    : seed.pageUrl || resolveCameraPageUrl(lanIp);
   let html = '';
   if (renderPage) {
     const { imgTag } = writePairQrPng(cameraPageUrl);
     html = buildLivePairHtml({
-      gatewayUrl: seed.gatewayUrl,
+      gatewayUrl: clientGatewayUrl,
       deepLink,
       pageUrl: cameraPageUrl,
       hostname: seed.macName || seed.hostname || 'Mac',
@@ -768,7 +849,8 @@ function mintLivePairSession({ renderPage = true } = {}) {
       refreshMs: PAIRING_CODE_REFRESH_MS,
     });
     // Keep on-disk index.html aligned with the live mint for --open / file viewers.
-    fs.writeFileSync(path.join(OUT_DIR, 'index.html'), html);
+    // Per-request renders are client-specific and must not clobber that canonical copy.
+    if (!clientIp) fs.writeFileSync(path.join(OUT_DIR, 'index.html'), html);
   }
   // P0 2026-07-24: Play Store installs paste Tailscale IP → phone GETs /pair.json then
   // /pair-exchange. Static pair.json on disk kept advertising expired codes while /pair
@@ -776,7 +858,8 @@ function mintLivePairSession({ renderPage = true } = {}) {
   // rewrite pair.json with the same mint so Connect/Find computers redeem works.
   const displayName = (seed.macName || seed.hostname || 'Mac').replace(/\.local$/i, '');
   const pairJson = {
-    gatewayUrl: seed.gatewayUrl,
+    gatewayUrl: clientGatewayUrl,
+    ...routeAlternates,
     deepLink,
     qrUrl: cameraPageUrl,
     hostname: displayName,
@@ -788,7 +871,14 @@ function mintLivePairSession({ renderPage = true } = {}) {
       : {}),
   };
   try {
-    writePairJsonAtomic(path.join(OUT_DIR, 'pair.json'), pairJson);
+    // One phone's LAN-specific answer must never become the snapshot every other client
+    // and the Tailscale health watchdog read — persist the canonical view instead.
+    writePairJsonAtomic(
+      path.join(OUT_DIR, 'pair.json'),
+      clientIp
+        ? { ...pairJson, gatewayUrl: seed.gatewayUrl, deepLink: canonicalDeepLink }
+        : pairJson,
+    );
   } catch {
     // Non-fatal: in-memory exchange still works for this process.
   }
@@ -801,7 +891,7 @@ function mintLivePairSession({ renderPage = true } = {}) {
     refreshMs: PAIRING_CODE_REFRESH_MS,
     ttlMs: minted.ttlMs,
     pageUrl: cameraPageUrl,
-    gatewayUrl: seed.gatewayUrl,
+    gatewayUrl: clientGatewayUrl,
     hostname: displayName,
     html,
     pairJson,
@@ -992,10 +1082,12 @@ function createPairServer(lanIp) {
   const server = http.createServer((req, res) => {
     const url = req.url?.split('?')[0] ?? '/';
     const method = (req.method || 'GET').toUpperCase();
+    // Which interface did this phone actually reach us on? Drives LAN-vs-tailnet answers.
+    const clientIp = normalizeRemoteIp(req.socket?.remoteAddress);
     if (url === '/pair.json') {
       // Live remint — never serve a disk snapshot whose pairCode is already dead in memory.
       // JSON is a watchdog/discovery fast path and must never render or generate a QR.
-      const live = mintLivePairSession({ renderPage: false });
+      const live = mintLivePairSession({ renderPage: false, clientIp });
       if (live.ok && live.pairJson) {
         res.writeHead(200, {
           'Content-Type': 'application/json',
@@ -1084,7 +1176,7 @@ function createPairServer(lanIp) {
       return;
     }
     if (url === '/pair-live.json') {
-      const live = mintLivePairSession({ renderPage: false });
+      const live = mintLivePairSession({ renderPage: false, clientIp });
       if (!live.ok) {
         res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
         res.end(JSON.stringify({ error: live.reason || 'unavailable' }));
@@ -1106,7 +1198,7 @@ function createPairServer(lanIp) {
       return;
     }
     if (url === '/pair' || url === '/') {
-      const live = mintLivePairSession();
+      const live = mintLivePairSession({ clientIp });
       if (live.ok) {
         res.writeHead(200, {
           'Content-Type': 'text/html; charset=utf-8',
@@ -1556,6 +1648,14 @@ function runPairMain(args) {
 module.exports = {
   createPairServer,
   mintLivePairSession,
+  isLanClient,
+  isCgnatIpv4,
+  normalizeRemoteIp,
+  withGatewayHost,
+  resolveClientGatewayUrl,
+  buildRouteAlternates,
+  resolvePhoneReachablePairServerUrl,
+  resolveLiveMintPairServerUrl,
   writePairQrPng,
 };
 

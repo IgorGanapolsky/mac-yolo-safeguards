@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Updates from 'expo-updates';
+import { OTA_BILLING_FREEZE_UNTIL_MS } from '../utils/otaClientPromptPolicy';
 
 jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 
@@ -42,6 +43,9 @@ describe('useOtaUpdateBanner', () => {
   afterEach(() => {
     if (prevThaw === undefined) delete process.env.EXPO_PUBLIC_OTA_BILLING_THAW;
     else process.env.EXPO_PUBLIC_OTA_BILLING_THAW = prevThaw;
+    if (jest.isMockFunction(Date.now)) {
+      (Date.now as jest.Mock).mockRestore();
+    }
   });
 
   it('returns idle when OTA is disabled (dev builds)', () => {
@@ -196,6 +200,7 @@ describe('useOtaUpdateBanner', () => {
     delete process.env.EXPO_PUBLIC_OTA_BILLING_THAW;
     delete process.env.EXPO_PUBLIC_OTA_CLIENT_PROMPTS;
     delete process.env.HERMES_OTA_BILLING_THAW;
+    jest.spyOn(Date, 'now').mockReturnValue(OTA_BILLING_FREEZE_UNTIL_MS - 1);
     (Updates as any).isEnabled = true;
     mockUseUpdates.mockReturnValue({
       ...baseReturn,
@@ -216,6 +221,7 @@ describe('useOtaUpdateBanner', () => {
     delete process.env.EXPO_PUBLIC_OTA_BILLING_THAW;
     delete process.env.EXPO_PUBLIC_OTA_CLIENT_PROMPTS;
     delete process.env.HERMES_OTA_BILLING_THAW;
+    jest.spyOn(Date, 'now').mockReturnValue(OTA_BILLING_FREEZE_UNTIL_MS - 1);
     (Updates as any).isEnabled = true;
     mockUseUpdates.mockReturnValue({
       ...baseReturn,

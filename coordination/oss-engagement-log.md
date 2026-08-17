@@ -4,6 +4,244 @@ Dated entries from the autonomous OSS-engagement routine (Thinking Machines Lab 
 
 ---
 
+## 2026-08-13 — New LanceDB bug investigated (inconclusive, no fix); upstream PR-creation block re-confirmed unchanged; nothing opened
+
+### Repos surveyed
+
+| Org | Repos |
+|-----|-------|
+| Thinking Machines Lab | `thinking-machines-lab/tinker` (issue list, last 48h) |
+| Poolside AI | `poolsideai/pool`, `bridge-sdk`, `acp-go-sdk`, `n8n-poolside-node`, `LMCache` (open-issues check) |
+| LanceDB | `lancedb/lancedb` (issue list, last 48h) |
+
+### Session-scope check (repeated from every prior run since 08-03)
+
+`add_repo` for `igorganapolsky/lancedb` and `igorganapolsky/tinker` with `access:"push"` succeeded
+again (same-owner as session source), and a `git push --dry-run` against `IgorGanapolsky/lancedb`
+confirmed push credentials still work. `add_repo` for `lancedb/lancedb` and
+`thinking-machines-lab/tinker` directly failed again with the identical `cross-tier adds are not
+supported` error. `mcp__github__create_pull_request` against `lancedb/lancedb` (tested against the
+already-parked, already-verified `fix/list-tables-pagination-boundary-v2` branch from 08-12) failed
+again with `Access denied: repository "lancedb/lancedb" is not configured for this session.` No
+change from every prior run back to 08-03: this session can push to Igor's own forks but cannot
+open PRs, list issues via the API, or post comments against any repo outside the
+`igorganapolsky`/`IgorGanapolsky` owner. All issue survey this run was therefore done via public
+web pages (WebFetch), not the GitHub API.
+
+### Issues considered
+
+**LanceDB #3923** (new, opened 2026-08-12) — "JSON Column Encoding Bug in merge_insert": a
+`merge_insert(...).when_matched_update_all()` on a table with a JSON (`pa.json_()`/lance
+`arrow.json` extension) column stores the column unencoded, corrupting `json_extract()` for the
+*entire* table afterward, not just the touched rows. Well-documented repro, no assignee, no PR.
+This looked like the strongest new candidate this run, so it got the bulk of the effort (via a
+background agent, ~3 rounds, ~440k agent-tokens, ~65 minutes wall time — Rust builds against the
+pinned `lance` dependency take 8-70+ min per cycle in this environment). Result: **inconclusive,
+not shippable**, reported here in full rather than papered over:
+- Confirmed by reading source (not yet by running it) that `lancedb`'s `merge_insert`
+  (`rust/lancedb/src/table/merge.rs::execute_merge_insert`) never routes `new_data` through
+  `cast_to_table_schema` / any JSON-aware preprocessing, unlike `.add()`
+  (`rust/lancedb/src/table/add_data.rs::into_plan`) — this part of the reporter's hypothesis is
+  code-confirmed.
+- But reading the pinned upstream `lance` crate (`lance-format/lance@v11.0.0-beta.6`) shows
+  lance-core's own merge_insert write paths (`rust/lance/src/dataset/write/merge_insert.rs`,
+  `write_fragments_internal`'s `SchemaAdapter`) already contain JSON-conversion logic in several
+  places — consistent with the reporter's own claim that lance-core's merge_insert works fine when
+  called directly. This means the naive "lancedb forgot to cast" fix is not obviously correct, and
+  the actual drop point (if any) could be inside lance-core's join/exec-plan construction, i.e.
+  potentially an upstream-`lance` issue rather than a `lancedb` one.
+- The regression test written to settle this
+  (`test_merge_insert_arrow_json_into_lance_json_table` in `rust/lancedb/src/table/merge.rs`) has
+  its own bug: it asserts the post-merge scan returns exactly 1 `RecordBatch`
+  (`assert_eq!(results.len(), 1)` at merge.rs:572) but the real scan returned 2 (almost certainly
+  one batch per fragment — untouched fragment + merge-rewritten fragment). The test panicked on
+  that assertion before ever reaching the JSON-decode assertions, so **no run has yet observed
+  either the InvalidJsonb symptom or its absence**. Actual output:
+  ```
+  thread '...test_merge_insert_arrow_json_into_lance_json_table' panicked at rust/lancedb/src/table/merge.rs:572:9:
+  assertion `left == right` failed
+    left: 2
+   right: 1
+  test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 503 filtered out
+  ```
+- No fix was written. Per the hard rule against fabricating verification, the agent correctly
+  stopped rather than push a fix it could not verify against a real repro.
+- State left behind: local-only, not pushed. `IgorGanapolsky/lancedb` branch
+  `fix/merge-insert-json-encoding` exists locally in the run's scratch clone (based on fresh
+  `upstream/main` @ `6fb976cf`) with the broken test uncommitted. Nothing pushed, so there's no
+  compare link to hand off this time — next run (or a differently-scoped session) should start by
+  fixing the test's batch-count assumption (e.g. `arrow::compute::concat_batches` over `results`
+  before asserting row content) to get a real pass/fail signal before attempting any fix.
+
+**LanceDB #3915** (pagination boundary bug, parked and re-verified 08-12) — still open, still
+unclaimed, not re-touched this run since nothing upstream changed; the `v2` branch and drafted PR
+body from 08-12 remain the ready artifact, still blocked on the same PR-creation wall confirmed
+above.
+
+**Tinker** — no issues opened in the last 48h (newest remains #51, Jul 20, per public issue-list
+check). Not re-touched; the 08-12 parked `fix/sync-only-async-method-name-v2` branch stands
+as-is.
+
+**Poolside AI** — `pool` now shows 12 open issues (up from the previously-reported zero-actionable
+state), but all are generic user feedback against the closed-source hosted product (repeated
+"Error during ACP method session/prompt" reports, a Windows-Terminal feature request, a
+self-healing wishlist item) — nothing with enough technical detail to investigate or answer
+confidently, and the closed-source core means no code-level path in regardless. `bridge-sdk`,
+`acp-go-sdk`, `n8n-poolside-node` remain at zero open issues. `LMCache` is new to the org's repo
+list (added 08-12) but is a vanilla fork of the unrelated upstream `LMCache/LMCache` project with
+no Poolside-specific issues of its own — contributing there wouldn't build Poolside-specific
+credibility, so it was not investigated further.
+
+### What was opened
+
+Nothing. Same upstream PR-creation block as every run since 08-03 (see Session-scope check above),
+and this run's one new candidate (#3923) didn't reach a verified-fixable state anyway.
+
+### What was answered
+
+Nothing. Comment-posting requires the same blocked GitHub API access to non-`igorganapolsky`-owned
+repos.
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| LanceDB #3923 fix, attempted this run | Investigation inconclusive — see above; would need a fixed regression test and an actual observed repro before any fix is defensible |
+| LanceDB #3915 | Already parked/verified 08-12, unchanged, still blocked on PR creation only — no new work needed |
+| Poolside `pool` issues (all 12) | Closed-source core; feedback reports lack technical detail for a confident, specific answer |
+| Poolside `LMCache` | Vanilla fork of an unrelated upstream project inside the org; not genuinely Poolside-specific work |
+| New manufactured question | No real unknown hit this run outside the #3923 ambiguity, which is already fully documented above |
+
+### ThumbGate mentions
+
+**None** this run — no one asked about agent write-gating in anything surveyed, and comment-posting
+is blocked regardless.
+
+---
+
+## 2026-08-12 — Push access to Igor's forks restored; both parked fixes rebased, re-verified, pushed; upstream PR creation still blocked
+
+### Repos surveyed
+
+| Org | Repos |
+|-----|-------|
+| Thinking Machines Lab | `thinking-machines-lab/tinker` (issue list, last 48h) |
+| Poolside AI | `poolsideai/pool`, `bridge-sdk`, `acp-go-sdk`, `n8n-poolside-node` (open-issues check) |
+| LanceDB | `lancedb/lancedb` (issue list, last 48h) |
+
+### What changed this run
+
+`add_repo` for `lancedb/lancedb`, `thinking-machines-lab/tinker-cookbook`, and `poolsideai/pool`
+directly still fails exactly as every prior run: `cross-tier adds are not supported ... session
+already has repos from owner(s) [igorganapolsky]`. But `add_repo` for **`igorganapolsky/lancedb`**
+and **`igorganapolsky/tinker`** (Igor's own forks, same owner as the session's initial source)
+**succeeded** and granted push access — cloned both, confirmed `git push` works. This is new
+compared to every previous entry back to 08-03, which treated the whole fork-and-push path as
+blocked. `mcp__github__create_pull_request` against the upstream repos (`lancedb/lancedb`,
+`thinking-machines-lab/tinker`) is still hard-blocked ("not configured for this session") — so
+the wall is specifically at *upstream PR creation*, not at push access to same-owner forks. Net
+effect: this run could push real, freshly-rebased, freshly-tested fixes to Igor's forks; it still
+could not open the upstream PRs itself.
+
+### Issues considered
+
+**LanceDB #3915** (`list_tables()` pagination skips one table per page boundary, parked
+08-11) — re-surveyed the last-48h issue list first (#3917, #3916, #3915, #3914, #3912, all from
+Aug 10; nothing newer) and confirmed #3915 is still the best candidate, unclaimed, no PR yet.
+The parked branch `fix/list-tables-pagination-boundary` at `igorganapolsky/lancedb` turned out to
+be **stale** — diffing it against a fresh clone of current upstream `main` showed 350 files /
+81k lines changed, because the branch's base predates several days of upstream churn. Cherry-picked
+just the fix commit onto a fresh `main` instead of reusing the stale branch; the first
+cherry-pick attempt auto-resolved into a conflict block that would have **resurrected three
+tests upstream had already deleted** since 08-11 (`test_listing_database_root_ops_do_not_create_manifest`,
+`test_open_table_reuses_connection_object_store`, `test_open_table_follows_hugging_face_symlinks`
+— confirmed absent anywhere in current `main` via `git grep`, i.e. deliberately removed, not
+moved). Re-did the resolution to keep only the new regression test. Result: a clean 59-line diff
+against current `main` (1 file, matches the original fix's size).
+
+**Tinker** — no issues opened in the last 48h (newest is #51, Jul 20). The parked branch
+`fix/sync-only-async-method-name-issue-38` (08-10, fixes a nonexistent-method-name bug in the
+`sync_only` async-context warning, secondary to #38's Kimi K2 report) was also stale against
+current `main` (32 files / ~2k lines of unrelated drift from this repo's periodic "Sync contents"
+mirror commits). Cherry-picked cleanly onto fresh `main` with zero conflicts this time. Also
+amended the commit message: it originally said "Fixes #38", which would have auto-closed #38 on
+merge even though this only fixes a secondary symptom (the warning text) — #38's actual bug (a
+`kimi_k2`/`deepseek_v3` model-type mismatch) is untouched and still open. Changed to "Refs #38"
+and said so explicitly in the commit body and the (unopenable) PR draft.
+
+**Poolside AI** — `pool`'s core remains closed-source (re-confirmed pattern, not re-cloned this
+run since nothing changed). Checked open issues on `bridge-sdk`, `acp-go-sdk`, and
+`n8n-poolside-node` (newly noticed, updated Aug 10): all zero. No action possible.
+
+### What was opened
+
+Nothing (upstream PR creation confirmed still blocked for both attempts, see above). What exists
+instead, now in materially better shape than 08-11's parked state:
+
+| Artifact | Where |
+|----------|-------|
+| LanceDB #3915 fix, rebased onto current `main`, re-verified, pushed | `igorganapolsky/lancedb@fix/list-tables-pagination-boundary-v2` — compare: https://github.com/lancedb/lancedb/compare/main...IgorGanapolsky:fix/list-tables-pagination-boundary-v2?expand=1 |
+| Tinker #38 (partial) fix, rebased onto current `main`, re-verified, pushed | `igorganapolsky/tinker@fix/sync-only-async-method-name-v2` — compare: https://github.com/thinking-machines-lab/tinker/compare/main...IgorGanapolsky:fix/sync-only-async-method-name-v2?expand=1 |
+
+Both PR bodies are fully drafted (root cause, before/after, verification) and were submitted to
+`mcp__github__create_pull_request` this run — both calls failed with the identical
+"not configured for this session" error against the upstream repo, confirming the block is still
+live. Whoever next has upstream PR scope (Mac-side `gh`, or a session whose initial source is the
+target org) can open both verbatim from the compare links with zero further investigation.
+
+#### LanceDB fix — verification detail (this run, not reused from 08-11)
+
+Installed `protobuf-compiler` (missing `protoc` blocked the first build attempt). Then, on the
+rebuilt branch:
+- `cargo test -p lancedb --lib database::listing::tests::test_list_tables_pagination_no_boundary_loss
+  -- --exact` with the fix: **1 passed**.
+- Reverted just the `>=` → `>` line (test file untouched), reran: **FAILED** — assertion diff
+  showed the exact boundary tables missing, matching the issue's reported symptom.
+- Reapplied the fix, reran: **1 passed** again. `git diff main` for the file is exactly the
+  original 59-line change — no accidental resurrection of deleted code.
+
+#### Tinker fix — verification detail (this run)
+
+`uv sync --python 3.11` (repo's `.python-version` pins 3.9, incompatible with
+`requires-python >=3.11`; used `--python 3.11` throughout to work around it without touching the
+pin file). On the rebuilt branch:
+- `uv run --python 3.11 pytest src/tinker/lib/sync_only_test.py -v` with the fix: **5 passed**.
+- Reverted just `sync_only.py` (kept the new test file), reran: **1 error** —
+  `ImportError: cannot import name '_suggest_async_method_name'` (the test file doesn't even
+  collect without the fix, i.e. it's genuinely exercising the new code path).
+- Restored the fix, confirmed `_suggest_async_method_name` present again; discarded an unrelated
+  `uv.lock` diff produced by `uv sync` before pushing, so the pushed branch is fix-only.
+
+### What was answered
+
+Nothing (same upstream-comment block that blocks PR creation also blocks `add_issue_comment`
+against issues outside session scope — not re-tested this run, per the existing 08-06/08-11
+finding that testing this specific call has already been exhausted).
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| `tinker-cookbook`, `poolsideai/pool` forks | `add_repo` cross-tier restriction still blocks adding repos from a different owner than the session's existing sources — confirmed again this run for all three target orgs directly |
+| Reusing the 08-11 parked branches as-is | Both had drifted far enough from current `main` (81k and ~2k line diffs respectively) that a PR opened from them would not read as a clean, reviewable diff; rebuilt from a single cherry-picked commit onto fresh `main` instead |
+| "Fixes #38" keyword | Would auto-close #38 on merge despite the primary bug (Kimi K2 model-type mismatch) being untouched; changed to "Refs #38" |
+| New manufactured question | No real unknown hit this run |
+
+### ThumbGate mentions
+
+**None** this run — no one asked about agent write-gating in anything surveyed.
+
+### Action needed from Igor
+
+Both fixes are now fully ready — tested, clean diffs against current upstream `main`, pushed to
+your forks, PR bodies drafted. The only remaining gap is opening the actual upstream PR, which
+this session's GitHub scope cannot do (confirmed again this run, same as every prior run since
+08-03). Either link works and needs nothing further investigated:
+- https://github.com/lancedb/lancedb/compare/main...IgorGanapolsky:fix/list-tables-pagination-boundary-v2?expand=1
+- https://github.com/thinking-machines-lab/tinker/compare/main...IgorGanapolsky:fix/sync-only-async-method-name-v2?expand=1
+
+---
+
 ## 2026-08-10 — jcode engagement (Igor-directed): #869 fix verified + forensic packet parked; 2 answer drafts
 
 Igor's live directive this run: engage https://github.com/1jehuang/jcode (16.8k★ Rust agent
@@ -184,5 +422,127 @@ Nothing against any of the three target orgs — blocked as above.
 ### Action needed from Igor
 
 This is an environment/session configuration problem, not a "nothing worth doing" day — a real, unclaimed bug was found (LanceDB #3764) and could not be submitted. Whatever creates the session/trigger for this routine needs to either (a) fire into a fresh session per run with the target org repo as its initial source instead of `mac-yolo-safeguards`, or (b) otherwise grant this session cross-owner repo scope. Until that's fixed, every future run of this routine will hit the same wall.
+
+---
+
+## 2026-08-11 — LanceDB pagination bug fixed + verified; Tinker #24 confirmed already fixed; Poolside re-confirmed no public source
+
+### Repos surveyed
+
+| Org | Repos |
+|-----|-------|
+| Thinking Machines Lab | `thinking-machines-lab/tinker`, `tinker-cookbook` |
+| Poolside AI | `poolsideai/pool`, `bridge-sdk`, `acp-go-sdk` (org repo listing for anything newly public) |
+| LanceDB | `lancedb/lancedb` |
+
+### The recurring cross-owner wall, and what actually worked this run
+
+Confirmed again (probe against `lancedb/lancedb`: `fork_repository` and a no-op
+`create_pull_request` both hit "not configured for this session") that this session
+cannot fork or open PRs against any org outside `igorganapolsky/*` — same wall as
+2026-08-04/08-06/08-10. Per `docs/agents/anti-babysitting.md`'s worked example, this
+is not re-reported; it's re-tested silently and handled via the sanctioned path:
+**forks already existed** at `igorganapolsky/lancedb` and `igorganapolsky/tinker`
+(same-owner, so push-capable from this session) — attached and used directly.
+`igorganapolsky/tinker-cookbook` and `igorganapolsky/pool` don't exist and
+`fork_repository` against the upstream orgs is blocked, so no fork could be created
+for those.
+
+### Issues considered
+
+**LanceDB** — surveyed all `lancedb/lancedb` issues opened in the last few days.
+[#3915](https://github.com/lancedb/lancedb/issues/3915) (`list_tables()` page-token
+pagination skips one table per page boundary) — real, reproducible, unclaimed, no
+open PR — **acted**. [#3914](https://github.com/lancedb/lancedb/issues/3914)
+(`table_names()` silent truncation at default `limit=10`) — real but an API-design
+call (raise vs. document vs. change default) better left for a maintainer decision,
+not a mechanical fix; skipped. [#3889](https://github.com/lancedb/lancedb/issues/3889)
+(BITMAP index validation treats `lance.json` as raw `LargeBinary`) — filed by a
+frequent contributor (`Xuanwo`) who self-flagged it "moderate complexity," likely
+their own pending fix; skipped to avoid pile-on. [#3868](https://github.com/lancedb/lancedb/issues/3868)
+(tests hang) — too vague to reproduce blind.
+
+**Tinker** — no issues opened in the last 48h in `tinker` or `tinker-cookbook`.
+Widened to "any real unclaimed bug," per the routine's own preference ordering.
+[#24](https://github.com/thinking-machines-lab/tinker/issues/24) (`checkpoint delete`
+"unexpected extra argument" using a bare `tinker://` path) — investigated, and
+current `main` (0.25.0, vs. the reporter's 0.16.1) no longer reproduces: the `delete`
+command's positional arg was rewritten from single-value to variadic
+(`nargs=-1`, bulk-delete support) since the issue was filed. Verified concretely,
+not just by reading: ran `tests/test_checkpoint_delete.py` — 21 passed, including
+`test_explicit_tinker_path_deletes_checkpoint`, which is the exact repro. This is an
+answer, not a PR (nothing to fix). [#25](https://github.com/thinking-machines-lab/tinker/issues/25)
+(`sampler_weights` load path 400s) looks server-side (Tinker is a hosted training
+API; the client only builds the `tinker://` URL), out of reach for a client-side fix
+or confident answer — skipped.
+
+**Poolside AI** — re-cloned `poolsideai/pool` (`git clone --depth 1`, read-only,
+unauthenticated — this always works regardless of session scope): repo contains only
+`README.md`, `CHANGELOG.md`, `LICENSE.md`, `third_party/` — no source of any kind,
+despite GitHub's language stats showing "TypeScript, 396★" for it (the actual CLI
+is closed-source; the repo is packaging/docs for a binary release, matching the
+2026-08-03 finding). Checked `poolsideai/bridge-sdk` and `poolsideai/acp-go-sdk`
+(the two other repos with any real star count) for open issues — both zero. No
+action possible against any Poolside AI repo this run.
+
+### What was opened
+
+Nothing directly (cross-owner PR creation is structurally blocked, per above). What
+exists instead:
+
+| Artifact | Where |
+|----------|-------|
+| LanceDB #3915 fix + regression test, pushed | `igorganapolsky/lancedb@fix/list-tables-pagination-boundary` — compare: https://github.com/lancedb/lancedb/compare/main...IgorGanapolsky:fix/list-tables-pagination-boundary?expand=1 |
+| Tinker #24 ready-to-post answer | `coordination/ready-to-post/tinker-24-checkpoint-delete-fixed-answer.md` |
+
+#### LanceDB fix detail
+
+- **Root cause** (`rust/lancedb/src/database/listing.rs`, `ListingDatabase::list_tables`):
+  `next_page_token` is set to the name of the first table *excluded* from the current
+  page — i.e. the name the next page is supposed to start at — but the next page's
+  `page_token` filter used `name > page_token` (strict), which also excludes a name
+  *equal to* the token. The boundary table is therefore excluded from every page and
+  never returned.
+- **Fix:** `>` → `>=` in that one filter, with a comment explaining the invariant so
+  it doesn't regress the same way. The unrelated `start_after` cursor (deprecated
+  `table_names()` path, exclusive-by-design like S3's `start-after`) is untouched.
+- **Test:** `test_list_tables_pagination_no_boundary_loss` — creates 15 tables, walks
+  `list_tables(limit=5, page_token=...)` across all pages exactly like the issue's
+  repro, asserts every table returned exactly once.
+- **Verified, not assumed:**
+  - Reverted the fix, built, ran the new test: **FAILED** — `left: [..13 names..]`
+    missing `t05` and `t11`, i.e. exactly the issue's reported symptom.
+  - Reapplied the fix, reran: **1 passed**.
+  - Reapplied cleanly on a *fresh* `upstream/main` (the stale fork's `main` was ~600
+    commits behind; rebuilt the fix directly on current upstream rather than patching
+    the old fork, so the eventual PR diff is clean against `main`).
+  - Full `cargo test --lib database::` module on the upstream-based branch: **56
+    passed, 0 failed** — no regressions in clone/namespace/read-freshness tests that
+    touch the same listing code.
+- **PR not opened** (cross-owner block, see above); branch + compare URL are the
+  parked artifact. PR body is drafted and ready — whoever picks this up next
+  (Mac-side `gh`, or a properly-scoped session) can open it verbatim from the compare
+  link with zero further investigation.
+
+### What was answered
+
+Nothing posted (same cross-owner block covers `add_issue_comment`). Tinker #24's
+answer is parked as above, ready to post as-is.
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| LanceDB #3914 | API-design call (raise/warn/change-default), not a mechanical fix a first PR should make unilaterally |
+| LanceDB #3889 | Likely the reporter's (a frequent contributor's) own pending fix; avoid pile-on |
+| LanceDB #3868 | Too vague ("tests hang") to reproduce blind |
+| Tinker #25 | Server-side (hosted training API), not fixable or confidently answerable from the client repo alone |
+| `tinker-cookbook` | No fork exists and none could be created (cross-owner block); no issue there was concrete enough to answer blind either |
+| Poolside AI (all repos) | `pool`'s core is closed-source (re-confirmed); `bridge-sdk`/`acp-go-sdk` have zero open issues |
+| New manufactured question | No real unknown hit this run |
+
+### ThumbGate mentions
+
+**None** this run — no one asked about agent write-gating in anything surveyed.
 
 ---

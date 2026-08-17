@@ -1,0 +1,13 @@
+{
+  "name": "mac-yolo-safeguards-skills",
+  "displayName": "mac-yolo-safeguards Agent Skills",
+  "description": "Fleet skills for Hermes, ThumbGate, and multi-agent ops (AMD catalog governance patterns applied).",
+  "version": "2026.08.13",
+  "license": "MIT",
+  "homepage": "https://github.com/IgorGanapolsky/mac-yolo-safeguards",
+  "skillsRoot": ".agents/skills",
+  "validator": "tools/skill-card-validate.js",
+  "sources": ".agents/skills/sources.yml",
+  "agents": ["cursor", "claude-code", "codex", "grok", "gemini"],
+  "notes": "Inspired by amd/skills multi-agent plugin packaging; not an AMD product."
+}

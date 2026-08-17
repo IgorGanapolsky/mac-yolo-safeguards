@@ -63,7 +63,7 @@ export function LandingAuthNav() {
   const isSession = session.mode === "session";
   return (
     <div className="nav-actions" data-landing-auth={session.mode}>
-      <a href="#pair" className="nav-link">Pair</a>
+      <a href="#setup" className="nav-link">Setup</a>
       <a href="#mobile" className="nav-link">Apps</a>
       <a href="#how-it-works" className="nav-link">How it works</a>
       <a href="#pricing" className="nav-link">Pricing</a>
@@ -76,7 +76,10 @@ export function LandingAuthNav() {
   );
 }
 
-/** Dual-track hero CTA: free sign-in stays primary, but a real paid-intent path sits next to it — not buried in the pricing section. */
+/**
+ * Continuity-first hero CTAs. Product is fenced VPS Continuity — not Mac pairing.
+ * Hermes Mobile is marketed separately on the page as a phone companion.
+ */
 export function LandingAuthHero() {
   const session = useLandingAuth();
   const isSession = session.mode === "session";
@@ -84,34 +87,63 @@ export function LandingAuthHero() {
 
   return (
     <div className="hero-actions" data-landing-hero-auth={session.mode}>
-      <a
-        href={isSession ? "/dashboard" : "/api/auth/login"}
-        className="button button-primary"
-        data-funnel-event={isSession ? "dashboard_open_click" : "sign_in_click"}
-      >
-        {isSession ? "Open Hermes on the web" : "Sign in to Hermes Web"}{" "}
-        <span aria-hidden="true">→</span>
-      </a>
       {isPaid ? (
-        <a href="/api/billing/portal" className="button button-secondary" data-funnel-event="manage_billing_click">
-          You&apos;re on Pro · Manage billing
-        </a>
+        <>
+          <a
+            href="/dashboard"
+            className="button button-primary"
+            data-funnel-event="dashboard_open_click"
+          >
+            Open Continuity dashboard <span aria-hidden="true">→</span>
+          </a>
+          <a href="/api/billing/portal" className="button button-secondary" data-funnel-event="manage_billing_click">
+            You&apos;re on Pro · Manage billing
+          </a>
+        </>
       ) : isSession ? (
-        <a href="/api/billing/checkout" className="button button-secondary" data-funnel-event="upgrade_pro_click">
-          Upgrade to Pro ($10/mo)
-        </a>
+        <>
+          {/* Checkout is POST-only — never <a href> (GET → 405). */}
+          <form action="/api/billing/checkout" method="POST" className="hero-cta-form">
+            <button
+              type="submit"
+              className="button button-primary"
+              data-funnel-event="upgrade_pro_click"
+            >
+              Start Continuity trial <span aria-hidden="true">→</span>
+            </button>
+          </form>
+          <a
+            href="/dashboard"
+            className="button button-secondary"
+            data-funnel-event="dashboard_open_click"
+          >
+            Open Continuity dashboard
+          </a>
+        </>
       ) : (
-        <a href="#pricing" className="button button-secondary" data-funnel-event="cloud_continuity_click">
-          Try Continuity — 14 days free
-        </a>
+        <>
+          <a
+            href="#pricing"
+            className="button button-primary"
+            data-funnel-event="cloud_continuity_click"
+          >
+            Try Continuity — 14 days free <span aria-hidden="true">→</span>
+          </a>
+          <a
+            href="/api/auth/login"
+            className="button button-secondary"
+            data-funnel-event="sign_in_click"
+          >
+            Sign in to Continuity
+          </a>
+        </>
       )}
     </div>
   );
 }
 
 /**
- * Private-workspace panel: no second Sign-in when anon.
- * Points to pair + Continuity (keeps public HTML free of workspace telemetry).
+ * Private-workspace panel: Continuity VPS first (keeps public HTML free of telemetry).
  */
 export function LandingAuthPanel() {
   const mode = useLandingAuth();
@@ -128,19 +160,19 @@ export function LandingAuthPanel() {
         </span>
       </div>
       <div className="landing-action-list">
-        <a className="landing-action" href="#pair">
-          <span className="action-icon" aria-hidden="true">+</span>
-          <span>
-            <strong>Pair your Mac</strong>
-            <small>One installer. Approve a short code.</small>
-          </span>
-          <b aria-hidden="true">→</b>
-        </a>
         <a className="landing-action" href="#pricing">
           <span className="action-icon" aria-hidden="true">☁</span>
           <span>
-            <strong>Continuity</strong>
-            <small>Hands eligible work to a fenced VPS runner when your Mac is offline.</small>
+            <strong>Continuity (VPS)</strong>
+            <small>Fenced cloud runner with 90s leases. Continuity is the product — no Mac pair step.</small>
+          </span>
+          <b aria-hidden="true">→</b>
+        </a>
+        <a className="landing-action" href="#mobile">
+          <span className="action-icon" aria-hidden="true">📱</span>
+          <span>
+            <strong>Hermes Mobile (optional)</strong>
+            <small>Phone Leash approvals and alerts. Separate app — not ThumbGate Continuity.</small>
           </span>
           <b aria-hidden="true">→</b>
         </a>
@@ -162,7 +194,7 @@ export function LandingPricingCtaFree() {
   const href = useSessionHref();
   return (
     <a href={href} className="button button-secondary" data-funnel-event="free_control_click">
-      Use web control free →
+      Sign in →
     </a>
   );
 }
@@ -171,7 +203,7 @@ export function LandingPricingCtaPaid() {
   const href = useSessionHref();
   return (
     <a href={href} className="button button-primary" data-funnel-event="cloud_continuity_click">
-      Try cloud continuity →
+      Try Continuity →
     </a>
   );
 }

@@ -300,6 +300,25 @@ async function main() {
     else pass(`${pathName} redirect`, String(res.status));
   }
 
+  // Compatibility redirects: /app is not a product URL; /pricing is a landing hash
+  for (const { pathName, needle } of [
+    { pathName: "/app", needle: "/dashboard" },
+    { pathName: "/app/", needle: "/dashboard" },
+    { pathName: "/pricing", needle: "#pricing" },
+    { pathName: "/pricing/", needle: "#pricing" },
+  ]) {
+    const res = await fetch(`${BASE}${pathName}`, {
+      redirect: "manual",
+      headers: { "user-agent": "thumbgate-web-reliability/1.0" },
+    });
+    if (![301, 302, 303, 307, 308].includes(res.status)) fail(`${pathName} expected redirect got ${res.status}`);
+    else {
+      const loc = res.headers.get("location") || "";
+      if (!loc.includes(needle)) fail(`${pathName} Location missing ${needle}: ${loc}`);
+      else pass(`${pathName} redirect`, `${res.status} → ${loc}`);
+    }
+  }
+
   // Landing contracts
   {
     const { text } = await get("/");
