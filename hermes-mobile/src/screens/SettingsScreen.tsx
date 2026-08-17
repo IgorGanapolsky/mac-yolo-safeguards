@@ -196,14 +196,15 @@ export default function SettingsScreen() {
   }, []);
 
   const handleNotificationToggle = useCallback(
-    async (val: boolean, setter: (next: boolean) => void): Promise<void> => {
-      if (val) {
-        const granted = await ensureNotificationPermission();
-        if (!granted) {
-          return;
-        }
-      }
+    async (
+      val: boolean,
+      setter: (next: boolean) => void,
+    ): Promise<void> => {
       setter(val);
+      haptics.selection();
+      if (val) {
+        void ensureNotificationPermission();
+      }
     },
     [ensureNotificationPermission],
   );
