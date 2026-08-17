@@ -16,6 +16,14 @@ test("tracks whether a load has actually completed", () => {
   );
 });
 
+test("shows CoreWeave-style Continuity capacity meter from /api/me", () => {
+  assert.match(dashboard, /continuityUsage\?: ContinuityUsage/);
+  assert.match(dashboard, /setContinuityUsage\(identity\.continuityUsage\)/);
+  assert.match(dashboard, /data-testid="continuity-usage-meter"/);
+  assert.match(dashboard, /cloudTasksRemaining/);
+  assert.match(dashboard, /role="progressbar"/);
+});
+
 test("does not claim 'No tasks yet' before a successful load", () => {
   assert.match(dashboard, /No tasks yet/, "empty state copy still present");
   assert.match(
