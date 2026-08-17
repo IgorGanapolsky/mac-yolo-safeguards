@@ -50,7 +50,12 @@ const FAQ_ITEMS = [
   {
     question: "How much does Continuity cost?",
     answer:
-      "Pro Continuity is $10/month for the fenced VPS runner, with a 14-day trial. Live list price is https://thumbgate.app/api/billing/plan.",
+      "Pro Continuity is a flat $10/month for the fenced VPS runner, with a 14-day trial. Not per-token. Live list price is https://thumbgate.app/api/billing/plan.",
+  },
+  {
+    question: "Is this a closed system?",
+    answer:
+      "Yes. Approvals, billing, and Continuity runs stay in thumbgate.app. Your org controls access. There is no phone leash on this product.",
   },
 ] as const;
 
@@ -102,14 +107,14 @@ export default function Home() {
           <p className="eyebrow"><span className="live-dot" /> Continuity · Fenced VPS</p>
           <h1>Agent work on a<br /><span>fenced Continuity VPS.</span></h1>
           <p className="hero-lede">
-            Your agents keep running on a fenced VPS. Approve or deny tool calls in thumbgate.app. $10/month. 14 days free.
+            Your agents keep running on a fenced VPS. Approve or deny tool calls in thumbgate.app. Flat $10/month. Not per-token. 14 days free.
           </p>
           <LandingAuthHero />
           <p className="signin-note">Continuity by ThumbGate. Continue with Google today — more providers activate once configured.</p>
           <div className="trust-row">
             <span>Fenced VPS runner</span>
-            <span>Approvals in thumbgate.app</span>
-            <span>$10/month</span>
+            <span>Closed-system · zero leaks</span>
+            <span>Flat $10/month</span>
           </div>
         </div>
 
@@ -144,6 +149,39 @@ export default function Home() {
           <article><span>01</span><h3>Approve in thumbgate.app</h3><p>Risky tool calls pause in the browser. Approve or deny here. No phone leash.</p></article>
           <article><span>02</span><h3>LLM-as-a-Judge safety</h3><p>Pre-action checks block destructive commands, secret leaks, and spend overruns.</p></article>
           <article><span>03</span><h3>Fenced Cloud VPS runner</h3><p>Serverless Continuity execution with one active lease per task thread.</p></article>
+        </div>
+      </section>
+
+      <section id="closed-system" className="section-block">
+        <div className="section-heading">
+          <p className="eyebrow">Closed-system · Zero leaks</p>
+          <h2>Your data stays in your workspace.</h2>
+          <p>
+            Tool calls, approvals, and Continuity runs stay on thumbgate.app. Access is the signed-in org.
+            There is no phone leash and no third-party approval surface on this product.
+          </p>
+        </div>
+        <div className="steps-grid">
+          <article>
+            <span>01</span>
+            <h3>Approvals in-app</h3>
+            <p>Approve or deny in the browser. The sell is Continuity, not a companion app.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>Fenced VPS</h3>
+            <p>Work runs on an isolated Continuity runner with 90-second leases and receipts.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Flat $10, not metered tokens</h3>
+            <p>Pro Continuity is a monthly list price. Live amount is /api/billing/plan.</p>
+          </article>
+        </div>
+        <div className="hero-actions" style={{ marginTop: "32px" }}>
+          <a href="#pricing" className="button button-primary" data-funnel-event="cloud_continuity_click">
+            Start Continuity — $10/mo <span aria-hidden="true">→</span>
+          </a>
         </div>
       </section>
 
@@ -328,7 +366,9 @@ export default function Home() {
 
       <footer>
         <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate <small>Continuity</small></span></Link>
-        <p>Fenced VPS Continuity · approvals in thumbgate.app.</p>
+        <p>Fenced VPS Continuity · closed-system · flat $10/month.</p>
+        <p><Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link></p>
+        <p><a href="#pricing" className="button button-primary" data-funnel-event="cloud_continuity_click">Start Continuity — $10/mo</a></p>
       </footer>
     </main>
   );
