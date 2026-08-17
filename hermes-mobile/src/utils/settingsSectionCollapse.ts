@@ -17,6 +17,7 @@ export type CollapsibleSectionId =
   | 'computer-connection'
   | 'notifications'
   | 'safeguards'
+  | 'voice'
   | 'ai-glasses'
   | 'developer'
   // GatewayOpsSection catalogs
@@ -38,6 +39,7 @@ export const SECTION_DEFAULT_EXPANDED: Record<CollapsibleSectionId, boolean> = {
   'computer-connection': false,
   notifications: false,
   safeguards: false,
+  voice: false,
   'ai-glasses': false,
   developer: false,
   'ops-essentials': true,

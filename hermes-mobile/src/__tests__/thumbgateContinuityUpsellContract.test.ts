@@ -14,13 +14,13 @@ describe('ThumbGate promo is a short consumer upsell', () => {
   it('keeps copy short and free of agent/dev manuals', () => {
     for (const s of SURFACES) {
       const promo = thumbGatePromoCopy(s);
-      expect(promo.headline).toBe('ThumbGate.app');
+      expect(promo.headline).toBe('Cloud Continuity');
       expect(promo.body).toBe(
-        'Web dashboard and Continuity when your computer is offline.',
+        '24/7 Agent Session Persistence & Background VPS Sandbox.',
       );
       expect(promo.body.length).toBeLessThan(90);
       expect(promo.buttonLabel).toBe(THUMBGATE_PROMO_BUTTON_LABEL);
-      expect(promo.buttonLabel).toMatch(/ThumbGate\.app/);
+      expect(promo.buttonLabel).toMatch(/Cloud Continuity/);
       expect(promo.body).not.toMatch(/coding agent|npx skills|one-line Mac installer|Herdr/i);
       expect(promo.body).not.toMatch(
         /phone cannot reach|unable to reach|pair a Mac and continue|replacement for Hermes Mobile/i,

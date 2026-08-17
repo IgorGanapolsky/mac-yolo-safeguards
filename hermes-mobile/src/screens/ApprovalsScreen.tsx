@@ -264,7 +264,7 @@ export default function ApprovalsScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <View testID="THUMBGATE_LEASH" accessible={true} collapsable={false}>
-          <Text style={styles.title}>THUMBGATE LEASH</Text>
+          <Text style={styles.title}>HERMES LEASH</Text>
         </View>
         <Text style={styles.subtitle} testID="leash-hero-subtitle">
           When Hermes on your Mac blocks a risky tool (shell, files, browser, etc.), approve or deny

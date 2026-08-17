@@ -18,7 +18,7 @@ export const THUMBGATE_WEB_URL =
   'https://thumbgate.app/dashboard?utm_source=hermes-mobile&utm_medium=app&utm_campaign=paid_companion';
 
 /** Primary consumer CTA — short. */
-export const THUMBGATE_PROMO_BUTTON_LABEL = 'Open ThumbGate.app';
+export const THUMBGATE_PROMO_BUTTON_LABEL = 'Cloud Continuity Hub';
 
 export { THUMBGATE_CONNECTOR_INSTALL_BUTTON_LABEL };
 
@@ -31,10 +31,10 @@ export type ThumbGatePromoCopy = {
   url: string;
 };
 
-/** Short consumer card — CEO 2026-08-03: no long instructions, no coding agents. */
+/** Short consumer card — in-app Cloud Continuity. */
 const PAID_COMPANION_COPY = {
-  headline: 'ThumbGate.app',
-  body: 'Web dashboard and Continuity when your computer is offline.',
+  headline: 'Cloud Continuity',
+  body: '24/7 Agent Session Persistence & Background VPS Sandbox.',
 } as const;
 
 /**

@@ -18,9 +18,9 @@ describe('ThumbGatePromoCard', () => {
     );
 
     expect(getByTestId('thumbgate-promo-connection_unreachable')).toBeTruthy();
-    expect(getByText('ThumbGate.app')).toBeTruthy();
-    expect(getByText('Web dashboard and Continuity when your computer is offline.')).toBeTruthy();
-    expect(getByText('Open ThumbGate.app')).toBeTruthy();
+    expect(getByText('Cloud Continuity')).toBeTruthy();
+    expect(getByText('24/7 Agent Session Persistence & Background VPS Sandbox.')).toBeTruthy();
+    expect(getByText('Cloud Continuity Hub')).toBeTruthy();
 
     // Must not pollute Leash with agent/dev manuals.
     expect(queryByText(/Coding agents/i)).toBeNull();

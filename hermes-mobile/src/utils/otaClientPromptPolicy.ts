@@ -11,7 +11,7 @@
  * Thaw: HERMES_OTA_BILLING_THAW=1 or EXPO_PUBLIC_OTA_BILLING_THAW=1 at build time,
  * or EXPO_PUBLIC_OTA_CLIENT_PROMPTS=1 to force prompts, or after freeze floor date.
  */
-export const OTA_BILLING_FREEZE_UNTIL_MS = Date.parse('2026-08-15T00:00:00.000Z');
+export const OTA_BILLING_FREEZE_UNTIL_MS = Date.parse('2026-09-01T00:00:00.000Z');
 
 function envFlagValue(value: string | undefined): string {
   try {

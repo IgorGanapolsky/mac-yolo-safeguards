@@ -42,6 +42,7 @@ import { deriveNotificationsEnabled } from '../utils/notificationPreferences';
 import { consumeSettingsPairQrOnFocus } from '../utils/storeCaptureDeepLink';
 import CollapsibleSection from '../components/CollapsibleSection';
 import { useSectionExpansion } from '../hooks/useSectionExpansion';
+import VoiceSettingsSection from '../components/VoiceSettingsSection';
 
 export default function SettingsScreen() {
   const navigation = useNavigation();
@@ -208,9 +209,11 @@ export default function SettingsScreen() {
   );
 
   const focusTunnelField = useCallback(() => {
-    gatewayUrlInputRef.current?.focus();
-    scrollRef.current?.scrollToEnd({ animated: true });
-  }, []);
+    toggleSection('machines');
+    setTimeout(() => {
+      gatewayUrlInputRef.current?.focus();
+    }, 150);
+  }, [toggleSection]);
 
   useFocusEffect(
     useCallback(() => {
@@ -976,7 +979,16 @@ export default function SettingsScreen() {
             />
           </View>
         </GlassCard>
+        </CollapsibleSection>
 
+        <CollapsibleSection
+          title="🎙️ Voice & Spoken Audio"
+          expanded={isExpanded('voice')}
+          onToggle={() => toggleSection('voice')}
+          testID="settings-section-voice"
+          titleStyle={styles.sectionTitle}
+        >
+          <VoiceSettingsSection />
         </CollapsibleSection>
 
         {Platform.OS === 'android' && (glassesConnected || isDemoModeAllowed()) ? (
@@ -989,7 +1001,7 @@ export default function SettingsScreen() {
           >
             <GlassCard>
               <Text style={styles.description}>
-                Project ThumbGate Leash approvals directly onto paired Android XR smart glasses for hands-free oversight.
+                Project Hermes Leash approvals directly onto paired Android XR smart glasses for hands-free oversight.
               </Text>
               {!glassesConnected ? (
                 <Text style={[styles.description, { color: '#9CA3AF', marginTop: 4 }]}>
