@@ -157,7 +157,7 @@ Session start prints open count. Detail: [docs/agents/codeql-orchestration.md](.
 ## Detail index
 
 - [docs/agents/coordination.md](./docs/agents/coordination.md) — full multi-agent protocol, swarm roles, megafiles, verification lenses
-- [docs/agents/shipping-and-hygiene.md](./docs/agents/shipping-and-hygiene.md) — ship protocol, Dependabot/security/CI policy, Issues board
+- [docs/agents/shipping-and-hygiene.md](./docs/agents/shipping-and-hygiene.md) — ship protocol, Dependabot/security/CI policy, Issues board, **PR hygiene session pattern**
 - [docs/agents/decision-stack.md](./docs/agents/decision-stack.md) — RAG loop, research routing, decision-stack tables
 - [docs/agents/social-gates.md](./docs/agents/social-gates.md) — publish gates, campaign analytics
 - [docs/agents/hermes-mobile.md](./docs/agents/hermes-mobile.md) — mobile verification contract
