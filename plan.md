@@ -19,6 +19,14 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 ## 1. Task Board
 
+| T-VPS-247-CONTINUITY-ALIGNMENT-20260817 | Align FailoverPathDemo.tsx and landing copy with 24/7 Always-On Fenced Cloud VPS Continuity; remove all outdated Mac lid/heartbeat tethering assumptions | done | antigravity | `apps/hermes-control-plane/app/FailoverPathDemo.tsx`, `apps/hermes-control-plane/tests/frictionless-onboarding.test.mjs`, `plan.md` | PASS: 56/56 control-plane tests green; 24/7 Cloud VPS Continuity with 90s renewable fenced leases and remote Leash gating verified |
+| T-STRIPE-A16Z-TOKEN-UNIT-ECONOMICS-20260817 | Implement Stripe x a16z Token Unit Economics & Margin Governor: token product telemetry, gross margin governance (>=70%), outcome billing packaging, prepaid credit escrow, and complexity routing | done | antigravity | `tools/token-unit-economics-engine.js`, `bin/token-economics`, `tests/test-token-unit-economics.js`, `.agents/skills/token-unit-economics/SKILL.md`, `plan.md` | PASS: 7/7 unit tests green; token telemetry, gross margin target (>=70%), outcome packaging ($1.50 lead, $15 PR), and prepaid credit escrow verified |
+| T-HARDWARE-AWARE-INFERENCE-ECONOMICS-20260817 | Implement Hardware-Aware Inference Economics & Call Reduction Engine: interactive vs async batch separation, exact SHA-256 prompt caching, step-level $0.05 circuit breakers, and A/B benchmark suite | done | antigravity | `tools/inference-economics-optimizer.js`, `bin/inference-optimizer`, `tests/test-inference-economics.js`, `.agents/skills/inference-economics-optimizer/SKILL.md`, `plan.md` | PASS: 7/7 unit tests green; exact caching (0ms, $0.00), $0.05 step ceiling, async batch queue, and A/B benchmark (80-92% cost savings) verified |
+| T-CLAUDE-CODE-9PILLARS-EMPLOYEE-20260817 | Implement 9-Pillar Claude Code AI Employee Architecture: self-explaining workspace, persistent memory, structured ticket system, The Eyes post-build operator inspection, and 3-tier permission matrix | done | antigravity | `tools/claude-code-employee-engine.js`, `bin/claude-employee`, `tests/test-claude-employee-engine.js`, `.agents/skills/claude-employee-governance/SKILL.md`, `plan.md` | PASS: 7/7 unit tests green; 9-pillar audit scorecard, structured ticket manifest, The Eyes inspection (typecheck + test runner), and 3-tier permissions verified |
+| T-OPEN-MONO-3STEP-LOCAL-AI-20260817 | Implement Open Mono 3-Step Local AI & Typed Playbook Engine: host hardware detection (Metal/CUDA), one-command local relay (http://localhost:11434/v1), and typed playbooks with step autonomy gates | done | antigravity | `tools/open-mono-local-ai.js`, `bin/mono-local-ai`, `tests/test-open-mono-local-ai.js`, `.agents/skills/open-mono-local-ai/SKILL.md`, `plan.md` | PASS: 5/5 unit tests green; Apple Silicon Metal detection (48GB RAM), local relay binding, typed autonomy gates, and $0.00 zero-marginal-cost execution verified |
+| T-THUMBGATE-SALES-POSITIONING-20260817 | Rebuilt ThumbGate.app landing page & copy on `apps/hermes-control-plane/app/page.tsx` with outcome-first developer positioning, 5 free starter trial runs, and Pocket Leash mobile framing | done | antigravity | `apps/hermes-control-plane/app/page.tsx`, `apps/hermes-control-plane/tests/rendered-html.test.mjs`, `plan.md` | PASS: 56/56 control-plane tests green; outcome-first benefit copy, 5 free starter runs trust badge, and unified Pocket Leash companion framing |
+| T-COREWEAVE-COMPUTE-ARBITRAGE-20260817 | Implement CoreWeave GPU pricing steals, 3-tier compute arbitrator (On-Demand, Spot, Fractional), zero-egress local Apple Silicon priority, and $10/mo fleet budget guardrails | done | antigravity | `tools/compute-capacity-arbitrage.js`, `bin/compute-arbitrage`, `tests/test-compute-arbitrage.js`, `.agents/skills/coreweave-compute-arbitrage/SKILL.md`, `plan.md` | PASS: 4/4 tests green in `tests/test-compute-arbitrage.js`; 3-tier route resolution, spot batch savings calculation, and hard $10/mo fail-closed gate operational |
+| T-SKILL-CATALOG-GOVERNANCE-20260817 | Auto-generate and synchronize `skill-card.md` across all 35 skills in `.agents/skills/` with automated compliance verification | done | antigravity | `tools/auto-generate-skill-cards.js`, `.agents/skills/**/skill-card.md`, `tools/skill-card-validate.js`, `plan.md` | PASS: 35/35 skills pass validation via `tools/skill-card-validate.js` |
 | T-CHAT-CONTINUITY-LEASH-PURITY-20260817 | Align tab architecture: restore Leash tab purity for ThumbGate risk gate approvals, move Cloud Continuity environment selection directly into Hermes Chat tab action bar with full bidirectional sync (preserving message timestamps & tool state), and verify test suites | done | antigravity | `hermes-mobile/src/services/continuitySyncService.ts`, `hermes-mobile/src/components/ContinuityEnvironmentModal.tsx`, `hermes-mobile/src/components/GrokBotActionBar.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx`, `hermes-mobile/src/screens/ApprovalsScreen.tsx`, `hermes-mobile/src/__tests__/continuitySyncService.test.ts`, `hermes-mobile/src/__tests__/ApprovalsScreen.test.tsx`, `plan.md` | PASS: 274/274 test suites passing (2,433/2,433 tests clean); Leash tab dedicated strictly to ThumbGate approvals; Hermes Chat tab contains native Continuity VPS environment switcher with bidirectional transcript sync |
 | T-ONTOPRANK-GROWTH-ENGINE-20260817 | Implement and test OnTopRank (ontoprank.com) Credit Escrow & Google Play 14-Day 15-Tester Pack Orchestration Engine: 30 credits per activity, reservation on start, settlement upon proof verification, 14-day continuous compliance cohort tracker for Hermes Mobile and LipoShield, CLI, and system harness integration | done | antigravity | `tools/ontoprank-growth-engine.js`, `bin/ontoprank-engine`, `tests/test-ontoprank-growth-engine.js`, `tools/system-wide-harness.js`, `.agents/skills/ontoprank-growth-engine/SKILL.md`, `SKILLS.md`, `plan.md` | PASS: 100% green test suite (tests/test-ontoprank-growth-engine.js 4/4 suites); Credit escrow lifecycle, reciprocal testing rewards, 14-day closed testing cohort compliance (12/12 qualifying testers), and multi-app campaign manager verified |
 | T-DIMAGENT-RUNTIME-STEALS-20260817 | Steal DimAgent (dimagent.com) high-ROI architectures: Cache-Native KV Prefix Optimizer (98% cache hit rate), 3-layer error recovery, large output blob offloading (>2KB to disk blobs) for 20+ hour resilience, ACP JSON-RPC 2.0 stdio server, two-layer plan gate, CLI, and system harness integration | done | antigravity | `tools/dimagent-runtime-engine.js`, `bin/dim-agent`, `tests/test-dimagent-runtime-engine.js`, `tools/system-wide-harness.js`, `.agents/skills/dimagent-runtime-engine/SKILL.md`, `SKILLS.md`, `plan.md` | PASS: 100% green test suite (tests/test-dimagent-runtime-engine.js 5/5 suites); KV-cache optimizer (98% hit rate), Blob offload engine, 3-layer error recovery runtime, two-layer plan mode hard gate, ACP JSON-RPC server & replay verified; system-wide harness integration verified |
@@ -3064,3 +3072,74 @@ CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, too
 - Fix: Re-position as Guardian Mobile, merge Continuity into Pro tier
 - The $19/mo Pro firewall gets mobile approval, web dashboard, and built-in continuity
 - No separate Continuity tier to confuse customers
+
+### T-GUARDIAN-MOBILE-REPOSITION-20260818
+**Task:** Re-position thumbgate.app as Guardian Mobile - mobile approval surface for thumbgate.ai
+
+**Root cause:** Brand confusion between three products (thumbgate.ai, thumbgate.app, mac-yolo-safeguards) leads to nobody buying.
+
+**Stolen from CoreWeave positioning framework:**
+- Visionary positioning > commodity infrastructure
+- Reserved instance pricing > per-token usage
+- Built-in reliability > optional add-ons
+- Mobile as essential approval surface > optional view surface
+
+**Work to do:**
+1. **Update promo copy** in `hermes-mobile/src/utils/thumbgatePromoCopy.ts`:
+   - Change `THUMBGATE_PROMO_BUTTON_LABEL` from "Cloud Continuity Hub" to "Guardian Approval"
+   - Change `PAID_COMPANION_COPY` to position as mobile approval surface
+   - Update URL to point to approval-focused landing
+
+2. **Update ApprovalsScreen.tsx** to be the primary value surface:
+   - Market as "Your mobile guardrail for AI agents"
+   - Show agent safety approvals as mission-critical
+   - Connect to thumbgate.ai Pro tier, not Continuity add-on
+
+3. **Update thumbgate.app website** copy:
+   - Position as "Guardian Mobile" for thumbgate.ai
+   - Bundle Continuity into Pro tier (include, not add-on)
+   - Kill the $10/mo Continuity tier confusion
+
+4. **Cross-link products properly:**
+   - thumbgate.app = Guardian Mobile (mobile approval for thumbgate.ai agents)
+   - thumbgate.ai = Web firewall with optional mobile companion
+   - Continuity = Built-in safety to Pro, not $10 add-on
+
+**Files:**
+- `hermes-mobile/src/utils/thumbgatePromoCopy.ts`
+- `hermes-mobile/src/screens/ApprovalsScreen.tsx`
+- `apps/hermes-control-plane/app/page.tsx`
+- `docs/THUMBGATE-APP-ROAST-JULY-2026.md`
+
+**Verification:**
+- Unit tests pass (thumbgatePromoCopy.ts, ApprovalsScreen.tsx)
+- E2E passes (continuous E2E currently FAILING - see latest.json)
+- Manual connection proof on device
+
+**Owner:** This agent (deep-roast-reposition)
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| hermes-mobile/src/utils/thumbgatePromoCopy.ts | deep-roast-reposition-20260818 | 2026-08-18T13:08:22Z |
+| hermes-mobile/src/screens/ApprovalsScreen.tsx | deep-roast-reposition-20260818 | 2026-08-18T13:08:22Z |
+| apps/hermes-control-plane/app/page.tsx | deep-roast-reposition-20260818 | 2026-08-18T13:08:22Z |
+
+### Decision
+- Re-position thumbgate.app as Guardian Mobile approval surface
+- Continuity becomes built-in safety feature, not $10 add-on
+- Position as agent safety, not chat continuation
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| hermes-mobile/src/utils/thumbgatePromoCopy.ts | deep-roast-reposition-20260818 | 2026-08-18T13:08:22Z |
+| hermes-mobile/src/__tests__/thumbgatePromoCopy.test.ts | deep-roast-reposition-20260818 | 2026-08-18T13:08:22Z |
+| hermes-mobile/src/__tests__/ThumbGatePromoCard.test.tsx | deep-roast-reposition-20260818 | 2026-08-18T13:08:22Z |
+
+### File claims (§2 append)
+| File	| Owner	| Claimed	|
+|------|-------|---------|
+| hermes-mobile/src/utils/thumbgatePromoCopy.ts	| deep-roast-reposition-20260818	| 2026-08-18T13:08:22Z	|
+| hermes-mobile/src/__tests__/thumbgatePromoCopy.test.ts	| deep-roast-reposition-20260818	| 2026-08-18T13:08:22Z	|
+| hermes-mobile/src/__tests__/ThumbGatePromoCard.test.tsx	| deep-roast-reposition-20260818	| 2026-08-18T13:08:22Z	|
