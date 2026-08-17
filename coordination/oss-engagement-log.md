@@ -546,3 +546,80 @@ answer is parked as above, ready to post as-is.
 **None** this run — no one asked about agent write-gating in anything surveyed.
 
 ---
+
+## 2026-08-11 (PM) — same-day follow-up: no new action, cross-owner wall re-confirmed
+
+Second firing today. Re-surveyed all three orgs for anything new since the morning run
+rather than re-doing the same work.
+
+### Repos surveyed
+
+| Org | Repos |
+|-----|-------|
+| Thinking Machines Lab | `thinking-machines-lab/tinker`, `tinker-cookbook` |
+| Poolside AI | `poolsideai/pool`, `bridge-sdk` |
+| LanceDB | `lancedb/lancedb`, `lancedb/lance`, unanswered Q&A discussions |
+
+### Cross-owner wall
+
+Re-tested silently, once. Unchanged from every prior run back to 2026-08-04.
+
+### Issues considered
+
+**LanceDB** — [#3915](https://github.com/lancedb/lancedb/issues/3915) is still open, still
+unfixed upstream (no linked PR), confirming the parked fix from this morning
+(`igorganapolsky/lancedb@fix/list-tables-pagination-boundary`) is still the live, correct,
+unclaimed artifact — nothing to redo. Noticed the fork also carries a stale first-attempt
+branch, `fix/list-tables-pagination-off-by-one` (dated Aug 10, same fix, built on an
+~600-commits-stale base) — superseded by the clean rebuild on current `main`; left in place,
+not destructive, not touched. New issues since this morning: `#3917` (feature: drop hard
+`aws-lc-rs` dependency) and `#3916` (feature: StreamingDataset placeholder option) — both
+feature requests, not bugs, opened same day as the morning survey; skipped, out of scope
+for this routine's bug/test/docs-gap preference.
+
+**LanceDB (Rust core, `lancedb/lance`)** — two *new* `bug`-labeled issues opened today by
+`dentiny`: [#8466](https://github.com/lancedb/lance/issues/8466) (stable row-id reuse after
+`restore()`) and [#8460](https://github.com/lancedb/lance/issues/8460) (tag creation not
+atomic). Checked before touching: `dentiny` is a multi-year core maintainer (8+ visible
+commits spanning docs/dataset/SQL/index/JSON subsystems) and both issues reference their
+own just-landed PR #8459 — i.e. self-discovered mid-development, near-certain to be
+self-fixed. Skipped to avoid pile-on, same policy as the 2026-08-11 AM #3889 skip.
+`#8472`/`#8468`/`#8461` are perf/proposal work, not first-PR-sized bug fixes; skipped.
+
+**Tinker** — `tinker`, `tinker-cookbook` issue lists unchanged from this morning; no new
+issues in either. Nothing new to act on or answer.
+
+**Poolside AI** — `pool` issues unchanged (still dominated by the recurring "Error during
+ACP method session/prompt" cluster — needs user-side logs/maintainer triage, not
+externally fixable); `bridge-sdk` has zero open issues. No public source still, confirmed
+same as every prior run.
+
+**LanceDB discussions** — skimmed unanswered Q&A for a genuinely answerable question, e.g.
+"How to verify whether namespace and table exist?" is answerable from `list_tables()`/
+`open_table()` semantics — but posting a discussion comment hits the identical cross-owner
+wall (and no discussion-comment tool is exposed by this session's GitHub MCP regardless),
+so no answer was drafted this run; the morning run's ready-to-post artifacts already cover
+the two items that *are* answerable within this session's reach.
+
+### What was opened
+
+Nothing new. The one live, verified, unclaimed fix (LanceDB #3915) remains parked exactly
+as documented in the AM entry above: pushed branch + compare link, ready for any
+properly cross-owner-scoped session to open the PR verbatim.
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| lance#8466, #8460 | Self-filed by an active core maintainer mid-development; near-certain self-fix, avoid pile-on |
+| lance#8472, #8468, #8461 | Perf/design proposals, not first-PR-sized bug fixes |
+| lancedb#3916, #3917 | Feature requests, not bugs/test/docs gaps |
+| LanceDB Q&A discussion answers | No comment path reachable from this session (same cross-owner wall; no discussion-comment tool exposed) |
+| Poolside ACP disconnect cluster | Needs user-side logs; maintainers already own it; core agent still closed-source |
+| Re-attempting the LanceDB #3915 PR | Structurally blocked, re-verified once (not re-hammered) |
+
+### ThumbGate mentions
+
+**None** this run.
+
+---
