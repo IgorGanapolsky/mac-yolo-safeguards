@@ -13,6 +13,12 @@ import {
 import { BrandMark } from "./BrandMark";
 import { StoreBadgeRow } from "./StoreBadges";
 import styles from "./landing.module.css";
+import {
+  CONTINUITY_EXECUTION_MODES,
+  CONTINUITY_PRICE_TIERS,
+  CONTINUITY_ZERO_EGRESS,
+  judgeGatesLabel,
+} from "@/lib/continuity-pricing";
 
 /**
  * Public marketing shell is static: no cookie jar reads and no D1 on first paint.
@@ -153,7 +159,8 @@ export default function Home() {
           <h2>Transparent Continuity capacity.</h2>
           <p>
             CoreWeave-style public specs: on-demand monthly Pro, short trial capacity, and reserved Team options.
-            Caps match the control-plane enforcer — not marketing fiction.
+            Caps match the control-plane enforcer — not marketing fiction. Egress, idle, and NAT-style fees:{" "}
+            <strong>{CONTINUITY_ZERO_EGRESS.surpriseEgress}</strong>.
           </p>
         </div>
         <div className="price-grid">
@@ -163,7 +170,7 @@ export default function Home() {
             <ul>
               <li>Account + Continuity dashboard shell</li>
               <li>LLM-as-a-Judge policy surface</li>
-              <li><strong>0</strong> fenced VPS runs / 30 days</li>
+              <li><strong>{CONTINUITY_PRICE_TIERS[0].cloudRunsDisplay}</strong> fenced VPS runs / 30 days</li>
               <li>No Mac pair required to explore</li>
             </ul>
             <LandingPricingCtaFree />
@@ -172,8 +179,8 @@ export default function Home() {
             <div><span>Pro Continuity</span><BillingPlan /></div>
             <p className="price-mode">On-demand monthly · live Stripe list price</p>
             <ul>
-              <li><strong>100</strong> Continuity VPS runs / 30 days</li>
-              <li>14-day trial: <strong>5</strong> runs / 30 days</li>
+              <li><strong>{CONTINUITY_PRICE_TIERS[2].cloudRunsDisplay}</strong> Continuity VPS runs / 30 days</li>
+              <li>14-day trial: <strong>{CONTINUITY_PRICE_TIERS[1].cloudRunsDisplay}</strong> runs / 30 days</li>
               <li>90s renewable leases + receipts</li>
               <li>LLM-as-a-Judge pre-action gates</li>
               <li>Autonomous computer-use / web tasks</li>
@@ -194,7 +201,7 @@ export default function Home() {
           </article>
         </div>
 
-        {/* CoreWeave-inspired capacity matrix — unit economics, no surprise fees */}
+        {/* CoreWeave-inspired capacity matrix — numbers from CONTINUITY_PRICE_TIERS only */}
         <div className="capacity-matrix" data-testid="continuity-capacity-matrix" aria-label="Continuity capacity comparison">
           <h3>Capacity matrix</h3>
           <div className="capacity-table-wrap">
@@ -202,58 +209,51 @@ export default function Home() {
               <thead>
                 <tr>
                   <th scope="col">Included</th>
-                  <th scope="col">Free</th>
-                  <th scope="col">Trial</th>
-                  <th scope="col">Pro</th>
-                  <th scope="col">Team</th>
+                  {CONTINUITY_PRICE_TIERS.map((tier) => (
+                    <th key={tier.id} scope="col">{tier.id === "free" ? "Free" : tier.id === "trial" ? "Trial" : tier.id === "pro" ? "Pro" : "Team"}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <th scope="row">Purchase mode</th>
-                  <td>Free start</td>
-                  <td>14-day trial</td>
-                  <td>On-demand / mo</td>
-                  <td>Reserved</td>
+                  {CONTINUITY_PRICE_TIERS.map((tier) => (
+                    <td key={`${tier.id}-mode`}>{tier.purchaseModeLabel}</td>
+                  ))}
                 </tr>
                 <tr>
                   <th scope="row">Fenced VPS runs / 30d</th>
-                  <td>0</td>
-                  <td>5</td>
-                  <td>100</td>
-                  <td>100+</td>
+                  {CONTINUITY_PRICE_TIERS.map((tier) => (
+                    <td key={`${tier.id}-runs`}>{tier.cloudRunsDisplay}</td>
+                  ))}
                 </tr>
                 <tr>
                   <th scope="row">Concurrent active tasks</th>
-                  <td>10</td>
-                  <td>10</td>
-                  <td>10</td>
-                  <td>10+</td>
+                  {CONTINUITY_PRICE_TIERS.map((tier) => (
+                    <td key={`${tier.id}-active`}>{tier.maxActiveTasksDisplay}</td>
+                  ))}
                 </tr>
                 <tr>
                   <th scope="row">90s renewable lease</th>
-                  <td>—</td>
-                  <td>✓</td>
-                  <td>✓</td>
-                  <td>✓</td>
+                  {CONTINUITY_PRICE_TIERS.map((tier) => (
+                    <td key={`${tier.id}-lease`}>{tier.renewableLeases ? "✓" : "—"}</td>
+                  ))}
                 </tr>
                 <tr>
                   <th scope="row">LLM-as-a-Judge gates</th>
-                  <td>Policy only</td>
-                  <td>✓</td>
-                  <td>✓</td>
-                  <td>Custom</td>
+                  {CONTINUITY_PRICE_TIERS.map((tier) => (
+                    <td key={`${tier.id}-judge`}>{judgeGatesLabel(tier.judgeGates)}</td>
+                  ))}
                 </tr>
                 <tr>
                   <th scope="row">Mac pair required</th>
-                  <td>No</td>
-                  <td>No</td>
-                  <td>No</td>
-                  <td>No</td>
+                  {CONTINUITY_PRICE_TIERS.map((tier) => (
+                    <td key={`${tier.id}-mac`}>{tier.macPairRequired ? "Yes" : "No"}</td>
+                  ))}
                 </tr>
                 <tr>
                   <th scope="row">Surprise egress / idle fees</th>
-                  <td colSpan={4}>None — plan caps only (enforced in control plane)</td>
+                  <td colSpan={4}>{CONTINUITY_ZERO_EGRESS.billingModel}</td>
                 </tr>
               </tbody>
             </table>
@@ -261,6 +261,27 @@ export default function Home() {
           <p className="capacity-footnote">
             Live Pro list price from Stripe (<code>/api/billing/plan</code>). Run caps match{" "}
             <code>agent-governance</code> hard limits — dashboard shows remaining capacity after sign-in.
+          </p>
+        </div>
+
+        <div className="execution-modes" data-testid="continuity-execution-modes" aria-label="Continuity execution modes">
+          <h3>Execution modes</h3>
+          <p className="capacity-footnote" style={{ marginTop: 0, marginBottom: 12 }}>
+            Same idea as on-demand vs spot vs reserved capacity — mapped to Continuity product rails (no invented GPU SKUs).
+          </p>
+          <div className="execution-mode-grid">
+            {CONTINUITY_EXECUTION_MODES.map((mode) => (
+              <article key={mode.id} className="execution-mode-card" data-mode={mode.id}>
+                <span className="price-mode">{mode.priority}</span>
+                <strong>{mode.label}</strong>
+                <small>{mode.priceHint}</small>
+                <p>{mode.bestFor}</p>
+              </article>
+            ))}
+          </div>
+          <p className="capacity-footnote" data-testid="continuity-zero-egress">
+            Networking trust: data transfer {CONTINUITY_ZERO_EGRESS.dataTransfer.toLowerCase()}, idle fees{" "}
+            {CONTINUITY_ZERO_EGRESS.idleFees.toLowerCase()}. {CONTINUITY_ZERO_EGRESS.footnote}
           </p>
         </div>
       </section>

@@ -423,8 +423,11 @@ test("keeps every workspace telemetry value behind authentication", () => {
   // Public pricing shows CoreWeave-style capacity matrix; live usage stays behind auth.
   assert.match(landing, /data-testid="continuity-capacity-matrix"/);
   assert.match(landing, /Transparent Continuity capacity/);
+  assert.match(landing, /data-testid="continuity-execution-modes"/);
+  assert.match(landing, /data-testid="continuity-zero-egress"/);
   assert.match(dashboard, /data-testid="continuity-usage-meter"/);
   assert.match(dashboard, /continuityUsage/);
+  assert.match(dashboard, /data-testid="continuity-upgrade-hint"/);
 });
 
 test("explains the failover path with an interactive approve/deny demo", () => {
