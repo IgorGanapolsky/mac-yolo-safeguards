@@ -13,12 +13,12 @@ import {
 } from './thumbgateFacilitation';
 
 /** Canonical Hermes Web / ThumbGate.app control-plane URL (not thumbgate.ai). */
-/** Product-first: open /dashboard. Never deep-link to pricing. */
+/** Product-first: ThumbGate Cloud Continuity dashboard. */
 export const THUMBGATE_WEB_URL =
   'https://thumbgate.app/dashboard?utm_source=hermes-mobile&utm_medium=app&utm_campaign=paid_companion';
 
-/** Primary consumer CTA — short. */
-export const THUMBGATE_PROMO_BUTTON_LABEL = 'Cloud Continuity Hub';
+/** Primary consumer CTA — Cloud Continuity for 24/7 VPS agent persistence. */
+export const THUMBGATE_PROMO_BUTTON_LABEL = 'Cloud Continuity';
 
 export { THUMBGATE_CONNECTOR_INSTALL_BUTTON_LABEL };
 
@@ -31,7 +31,7 @@ export type ThumbGatePromoCopy = {
   url: string;
 };
 
-/** Short consumer card — in-app Cloud Continuity. */
+/** Short consumer card — 24/7 Cloud Continuity persistence. */
 const PAID_COMPANION_COPY = {
   headline: 'Cloud Continuity',
   body: '24/7 Agent Session Persistence & Background VPS Sandbox.',

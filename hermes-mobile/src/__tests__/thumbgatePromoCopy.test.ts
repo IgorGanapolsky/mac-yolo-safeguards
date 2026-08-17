@@ -6,7 +6,7 @@ import {
 } from '../utils/thumbgatePromoCopy';
 
 describe('thumbgatePromoCopy', () => {
-  it('uses thumbgate.app as the canonical web URL', () => {
+  it('uses thumbgate.app as the canonical web URL for Cloud Continuity', () => {
     expect(THUMBGATE_WEB_URL).toMatch(/^https:\/\/thumbgate\.app\//);
     expect(THUMBGATE_WEB_URL).toContain('utm_campaign=paid_companion');
     expect(THUMBGATE_WEB_URL).toContain('/dashboard');

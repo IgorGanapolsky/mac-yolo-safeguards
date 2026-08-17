@@ -134,3 +134,14 @@ node_modules/
 
 # install-grok-yolo SuperGrok recovery temp
 .hermes-yolo-wrapper.from-main.js
+
+# Ephemeral build, test, and workspace caches
+.cache/
+.worktrees/
+tmp/
+test-results/
+out/
+android/**/.gradle/
+android/**/build/
+*.mp4
+trapeze_time_freeze_commercial.json
