@@ -64,7 +64,7 @@ export function LandingAuthNav() {
   return (
     <div className="nav-actions" data-landing-auth={session.mode}>
       <a href="#setup" className="nav-link">Setup</a>
-      <a href="#mobile" className="nav-link">Apps</a>
+      <a href="#closed-system" className="nav-link">Security</a>
       <a href="#how-it-works" className="nav-link">How it works</a>
       <a href="#pricing" className="nav-link">Pricing</a>
       {isSession ? (
@@ -78,7 +78,7 @@ export function LandingAuthNav() {
 
 /**
  * Continuity-first hero CTAs. Product is fenced VPS Continuity — not Mac pairing.
- * Hermes Mobile is marketed separately on the page as a phone companion.
+ * Do not market a phone leash or Hermes Mobile on this page.
  */
 export function LandingAuthHero() {
   const session = useLandingAuth();
@@ -168,11 +168,11 @@ export function LandingAuthPanel() {
           </span>
           <b aria-hidden="true">→</b>
         </a>
-        <a className="landing-action" href="#mobile">
-          <span className="action-icon" aria-hidden="true">📱</span>
+        <a className="landing-action" href="#closed-system">
+          <span className="action-icon" aria-hidden="true">🛡</span>
           <span>
-            <strong>Hermes Mobile (optional)</strong>
-            <small>Phone Leash approvals and alerts. Separate app — not ThumbGate Continuity.</small>
+            <strong>Closed-system</strong>
+            <small>Approvals stay in thumbgate.app. Fenced VPS. No phone leash.</small>
           </span>
           <b aria-hidden="true">→</b>
         </a>
@@ -203,7 +203,7 @@ export function LandingPricingCtaPaid() {
   const href = useSessionHref();
   return (
     <a href={href} className="button button-primary" data-funnel-event="cloud_continuity_click">
-      Try Continuity →
+      Start Continuity — $10/mo →
     </a>
   );
 }
