@@ -9,7 +9,7 @@ type OfflinePolicy = "disabled" | "manual" | "auto";
 const TOOL_CALL = {
   name: "Bash",
   summary: "npm run deploy -- --prod",
-  detail: "Hermes wants to run this on your machine. You decide first.",
+  detail: "Continuity wants to run this on the VPS. You decide in thumbgate.app.",
 };
 
 const OFFLINE_COPY: Record<OfflinePolicy, { label: string; blurb: string }> = {
@@ -30,15 +30,15 @@ const OFFLINE_COPY: Record<OfflinePolicy, { label: string; blurb: string }> = {
 function phaseLabel(phase: Phase): string {
   switch (phase) {
     case "pending":
-      return "Leash · pending approval";
+      return "thumbgate.app · pending approval";
     case "denied":
-      return "Leash · denied";
+      return "thumbgate.app · denied";
     case "running":
-      return "Running on your Mac";
+      return "Running on Continuity VPS";
     case "offline_choice":
-      return "Mac offline · pick policy";
+      return "Runner dropped · pick policy";
     case "paused":
-      return "Paused · waiting for Mac";
+      return "Paused · waiting for a runner";
     case "ask":
       return "Needs failover · waiting on you";
     case "cloud":
@@ -60,13 +60,13 @@ export function FailoverPathDemo() {
       case "pending":
         return "Demo ready. Approve or deny the sample tool call.";
       case "denied":
-        return "Call denied. Hermes is told no and the command never runs.";
+        return "Call denied in thumbgate.app. The command never runs.";
       case "running":
-        return "Call approved. Hermes is executing on your Mac under a 90-second lease.";
+        return "Call approved in thumbgate.app. Continuity is executing on a fenced VPS under a 90-second lease.";
       case "offline_choice":
-        return "Mac closed. Choose how ThumbGate should handle the unfinished work.";
+        return "The VPS runner dropped. Choose how Continuity should handle the unfinished work.";
       case "paused":
-        return "Work paused until the Mac heartbeats again. No cloud spend.";
+        return "Work paused until a Continuity runner claims the next lease. No extra spend.";
       case "ask":
         return "You are asked before cloud. Approve failover only when you want it.";
       case "cloud":
@@ -144,7 +144,7 @@ export function FailoverPathDemo() {
           <p className={styles.eyebrow}>Interactive demo · no real tools run</p>
           <h3 id={titleId}>Watch ThumbGate approve, deny, and fail over</h3>
           <p className={styles.lede}>
-            Click the buttons. This is the exact product path: Leash decides the call, then your offline policy decides who finishes the work.
+            Click the buttons. Approve or deny in thumbgate.app, then Continuity decides how the VPS finishes the work.
           </p>
         </div>
         <div className={styles.headerActions}>
@@ -166,7 +166,7 @@ export function FailoverPathDemo() {
         <div className={styles.phone} aria-hidden="true">
           <div className={styles.phoneChrome}>
             <span />
-            <span>Hermes Web</span>
+            <span>thumbgate.app</span>
             <span />
           </div>
           <div className={styles.phoneBody}>
@@ -179,7 +179,7 @@ export function FailoverPathDemo() {
               <header>
                 <span className={styles.toolPill}>{TOOL_CALL.name}</span>
                 <span className={styles.leasePill}>
-                  {phase === "cloud" ? "cloud lease · 90s" : phase === "running" || phase === "ask" || phase === "paused" || phase === "offline_choice" ? "local lease · 90s" : "awaiting you"}
+                  {phase === "cloud" ? "VPS lease · 90s" : phase === "running" || phase === "ask" || phase === "paused" || phase === "offline_choice" ? "VPS lease · 90s" : "awaiting you"}
                 </span>
               </header>
               <code>{TOOL_CALL.summary}</code>
@@ -199,7 +199,7 @@ export function FailoverPathDemo() {
               {phase === "denied" ? (
                 <div className={`${styles.outcome} ${styles.denied}`}>
                   <strong>Denied</strong>
-                  <p>Command never runs. Hermes is told no. Your Hermes work stays on the safe path.</p>
+                  <p>Command never runs. The deny happened in thumbgate.app.</p>
                   <button type="button" className={styles.ghostButton} onClick={reset}>
                     Try approve instead
                   </button>
@@ -208,17 +208,17 @@ export function FailoverPathDemo() {
 
               {phase === "running" ? (
                 <div className={`${styles.outcome} ${styles.approved}`}>
-                  <strong>Approved · Mac is running it</strong>
-                  <p>One signed runner holds the lease. Now close the lid and see failover.</p>
+                  <strong>Approved · Continuity VPS is running it</strong>
+                  <p>One fenced VPS runner holds the lease. Drop the runner to see Continuity failover.</p>
                   <button type="button" className={styles.approveButton} onClick={closeLid}>
-                    Close Mac lid →
+                    Drop VPS runner →
                   </button>
                 </div>
               ) : null}
 
               {phase === "offline_choice" || phase === "paused" || phase === "ask" || phase === "cloud" ? (
                 <div className={styles.offlineBlock}>
-                  <p className={styles.offlineBanner}>Mac heartbeat lost. Offline policy decides next.</p>
+                  <p className={styles.offlineBanner}>VPS runner lost. Continuity policy decides next.</p>
                   <div className={styles.policyRow} role="group" aria-label="Offline policy">
                     {(Object.keys(OFFLINE_COPY) as OfflinePolicy[]).map((key) => (
                       <button
@@ -237,7 +237,7 @@ export function FailoverPathDemo() {
                   {phase === "paused" ? (
                     <div className={`${styles.outcome} ${styles.paused}`}>
                       <strong>offline_blocked</strong>
-                      <p>No cloud runner starts. Work resumes when the Mac comes back online.</p>
+                      <p>No replacement runner starts. Work waits for the next Continuity lease.</p>
                     </div>
                   ) : null}
 
@@ -254,7 +254,7 @@ export function FailoverPathDemo() {
                   {phase === "cloud" ? (
                     <div className={`${styles.outcome} ${styles.cloud}`}>
                       <strong>cloud_pending → completed</strong>
-                      <p>Fenced cloud runner claimed generation N+1. Stale Mac receipts cannot overwrite it.</p>
+                      <p>Fenced VPS runner claimed generation N+1. Stale receipts cannot overwrite it.</p>
                       <button type="button" className={styles.ghostButton} onClick={reset}>
                         Run the demo again
                       </button>
@@ -270,15 +270,15 @@ export function FailoverPathDemo() {
           <li className={phase === "pending" || phase === "denied" || phase === "running" ? styles.legendActive : ""}>
             <span>01</span>
             <div>
-              <strong>Leash gate</strong>
-              <p>Approve runs the call on your Mac. Deny stops it cold.</p>
+              <strong>Approve in thumbgate.app</strong>
+              <p>Approve runs the call on the VPS. Deny stops it cold.</p>
             </div>
           </li>
           <li className={phase === "running" ? styles.legendActive : ""}>
             <span>02</span>
             <div>
-              <strong>Local execution</strong>
-              <p>One signed Hermes machine holds a 90-second lease while online.</p>
+              <strong>VPS execution</strong>
+              <p>One fenced Continuity runner holds a 90-second lease.</p>
             </div>
           </li>
           <li className={phase === "offline_choice" || phase === "paused" || phase === "ask" || phase === "cloud" ? styles.legendActive : ""}>
