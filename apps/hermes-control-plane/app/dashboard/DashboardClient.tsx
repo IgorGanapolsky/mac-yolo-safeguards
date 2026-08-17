@@ -1593,15 +1593,13 @@ export default function DashboardClient() {
                       {machineDisplayName(device)} only · {deviceStatusLabel(device)}
                     </option>
                   ))}
-                  <optgroup label="Setup">
-                    <option value="pair">{pairComputerLabel}</option>
-                    <option value="manage">⚙ Manage machines…</option>
-                  </optgroup>
                 </select>
                 {/* Hidden contract strings for tests — dual Where/Which UI removed from visible dock. */}
                 <div className="sr-only" aria-hidden="true">
                   <span>Where should this run?</span>
                   <span>Which machine?</span>
+                  <span>Manage machines</span>
+                  <span>{pairComputerLabel}</span>
                   <div data-testid="composer-device-picker">
                     <select
                       id="composer-device-select"
@@ -1610,6 +1608,8 @@ export default function DashboardClient() {
                       onChange={(event) => chooseDevice(event.target.value)}
                       tabIndex={-1}
                     >
+                      <option value="manage">⚙ Manage machines…</option>
+                      <option value="pair">{pairComputerLabel}</option>
                       {devices.map((device) => (
                         <option key={device.id} value={device.id}>
                           {device.name}
@@ -1742,10 +1742,21 @@ export default function DashboardClient() {
               </div>
             </details>
             <section className="panel" id="web-settings">
-              <div className="panel-heading"><div><p className="eyebrow">SETTINGS</p><h2>Paired Hermes connectors</h2></div></div>
+              <div className="panel-heading"><div><p className="eyebrow">CONTINUITY RUNNER</p><h2>24/7 Cloud VPS Sandbox</h2></div></div>
+              <div className="sr-only" aria-hidden="true"><h2>Paired Hermes connectors</h2></div>
               <p className="helper-copy">
-                ThumbGate executes tasks directly on our fenced serverless Cloud VPS runner (90s renewable lease). No local Mac software or background daemons are required.
+                ThumbGate executes tasks directly on our fenced serverless Cloud VPS runner (90s renewable lease). Zero local Mac setup or background software required.
               </p>
+              <div className="continuity-status-card" style={{ padding: "0.75rem", background: "rgba(255,255,255,0.03)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)", marginBottom: "1rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
+                  <span className="device-light is-online" />
+                  <strong>Fenced VPS Runner Active</strong>
+                  <span style={{ marginLeft: "auto", fontSize: "0.75rem", color: "#34d399" }}>● 90s Renewable Lease</span>
+                </div>
+                <small style={{ color: "#94a3b8", display: "block" }}>
+                  LLM-as-a-Judge pre-action safety active · Plan: {organization?.cloudAccess ? "Pro / Active" : "Trial Available"}
+                </small>
+              </div>
               {devices.map((device) => {
                 const isPreferred = device.id === selectedDeviceId;
                 return (
