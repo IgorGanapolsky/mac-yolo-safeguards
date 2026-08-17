@@ -127,8 +127,9 @@ try {
   assert.equal(landing.status, 200);
   assert.match(html, /ThumbGate/);
   assert.match(html, /by ThumbGate/);
-  assert.match(html, /Autonomous Cloud AI Agents/i);
-  assert.match(html, /Guarded by LLM-as-a-Judge/i);
+  // Continuity marketed as fenced VPS (not Mac-pair / old "Autonomous Cloud AI Agents" hero).
+  assert.match(html, /fenced Continuity VPS|Fenced VPS|fenced cloud VPS/i);
+  assert.match(html, /LLM-as-a-Judge/i);
   assert.match(html, /Continuity/i);
   assert.doesNotMatch(html, /Self-Improving Firewall|self-improving firewall/);
   // Static shell defaults to anon/loading chrome (session via /api/me after paint).
