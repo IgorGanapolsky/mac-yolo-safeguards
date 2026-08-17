@@ -1,6 +1,6 @@
 Hermes Mobile connects to the reviewer's OWN computer running Hermes (macOS, Linux, or Windows). There is no mock or sandbox mode.
 1. Install Hermes on a computer and start the local gateway (docs: https://github.com/IgorGanapolsky/mac-yolo-safeguards).
-2. In the app, use Connect / Find computers (or scan the gateway QR) to pair that computer over the same network or Tailscale.
+2. In the app, use Connect / Find computers (or enter local/Tailscale IP) to pair that computer.
 3. Open Chat and send a message — replies come from the paired computer.
 4. Open Leash to approve or deny blocked agent tools from the phone.
 No account is required for local pairing.
