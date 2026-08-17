@@ -2967,3 +2967,6 @@ CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, too
 - `hermes-mobile/src/__tests__/useOtaUpdateBanner.test.ts` → **released by codex** (stale leftover) (2026-08-15T17:20:00Z)
 - `hermes-mobile/src/__tests__/appOtaUpdate.test.ts` → **grok-ota-freeze-clock-20260815** (T-OTA-FREEZE-CLOCK-20260815: pin Date.now in freeze-path tests only) (2026-08-15T17:20:00Z)
 - `hermes-mobile/src/__tests__/useOtaUpdateBanner.test.ts` → **grok-ota-freeze-clock-20260815** (T-OTA-FREEZE-CLOCK-20260815: pin Date.now in freeze-path tests only) (2026-08-15T17:20:00Z)
+
+| T-PR-HYGIENE-MAC-YOLO-20260817 | CTO PR/branch hygiene: inventory 86 open PRs, merge green, close stale drafts, prune worktrees | done | grok | `plan.md` (log only; no code ownership thrash) | MERGED #1661@48072ea75715; closed 29 stale draft/content PRs; worktrees 26→18; remotes 179→~155; open ~60; auto-merge armed #1592/#1593/#1612/#1736/#1737/#1747; ~36 CONFLICTING feature PRs left for rebase |
+- 2026-08-17T21:12Z grok: PR hygiene session — merged #1661 (48072ea75715); closed 29 stale draft/content PRs; deleted their remotes; pruned 4 merged worktrees; auto-merge on mergeable candidates; left CONFLICTING feature PRs open for rebase (no force-close). Main CI green on pre-merge tip 1f0ab6215 (run 32067839937). Remaining: ~36 conflicts, #1747 CodeQL highs, strict:true BEHIND thrash.
