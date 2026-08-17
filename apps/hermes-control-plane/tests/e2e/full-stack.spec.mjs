@@ -75,8 +75,8 @@ test("the device picker lets a real user target a specific paired Mac, and the t
   // Unified "Run on" select (local:<deviceId> values).
   const picker = page.locator('[data-testid="composer-target-select"]');
   await expect(picker).toBeVisible();
-  // auto + 2 paired devices + Continuity + pair + manage
-  await expect(picker.locator("option")).toHaveCount(6, { timeout: 5_000 });
+  // auto + 2 paired devices + Continuity (legacy pair/manage removed from visible target select)
+  await expect(picker.locator("option")).toHaveCount(4, { timeout: 5_000 });
   await picker.selectOption(`local:${state.deviceB.deviceId}`);
 
   const textarea = page.getByLabel("Message for Hermes");

@@ -272,13 +272,23 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     border-bottom:1px solid var(--line);
     background:#0B0F19;
   }
-  .sidebar.is-collapsed{padding-inline:14px}
+  .sidebar.is-collapsed{padding-inline:14px;position:relative}
   .sidebar.is-collapsed .sidebar-header{flex-direction:row}
   .sidebar.is-collapsed .sidebar-header .brand>span{display:inline}
+  .sidebar:not(.is-collapsed){
+    position:absolute;
+    top:0;
+    left:0;
+    right:0;
+    z-index:50;
+    max-height:min(55dvh, 460px);
+    box-shadow:0 12px 32px rgba(0,0,0,0.75);
+    border-bottom:1px solid var(--line);
+  }
   .sidebar:not(.is-collapsed) .workspace-label{display:block}
   .sidebar:not(.is-collapsed) .thread-list{display:flex}
   .sidebar:not(.is-collapsed) .sidebar-bottom{display:grid}
-  .sidebar-content{max-height:min(52dvh,480px);overflow:auto;-webkit-overflow-scrolling:touch}
+  .sidebar-content{max-height:min(40dvh,320px);overflow:auto;-webkit-overflow-scrolling:touch}
   .side-item.thread-item{min-height:64px}
   .thread-menu-trigger{align-self:center}
   .thread-actions{top:57px;right:2px}
