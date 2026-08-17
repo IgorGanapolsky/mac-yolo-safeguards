@@ -583,34 +583,16 @@ export default function SettingsScreen() {
             showReachabilityHints
           />
           <LoadingButton
-            label="Search local network"
-            loadingLabel="Searching locally…"
+            label="Find computers (Wi‑Fi & Tailscale)"
+            loadingLabel="Searching…"
             loading={isScanningMacs || profileScanning}
             onPress={handleFindMacs}
             testID="find-macs-on-wifi"
             style={styles.pairButton}
           />
           <Text style={styles.description}>
-            Hermes on your computer must be running. Find computers searches home Wi‑Fi and Tailscale.
+            Hermes on your computer must be running. We automatically discover computers on your local Wi‑Fi and Tailnet.
           </Text>
-          <MacPairingHelp variant="getting-started" compact testID="settings-mac-pairing-help" />
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={handleAutoConnect}
-            disabled={isAutoConnecting}
-            testID="auto-connect-gateway"
-          >
-            <Text style={styles.primaryButtonText}>
-              {isAutoConnecting ? 'Connecting…' : 'Find computer on USB or Wi‑Fi'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.pairButton}
-            onPress={() => setQrScannerVisible(true)}
-            testID="scan-pairing-qr"
-          >
-            <Text style={styles.pairButtonText}>Scan local QR from computer</Text>
-          </TouchableOpacity>
           {effectiveGatewayUrl ? (
             <Text style={styles.metaLine}>
               Active: {formatGatewayHostLabel(effectiveGatewayUrl, health)}
@@ -618,10 +600,9 @@ export default function SettingsScreen() {
             </Text>
           ) : null}
           <View style={styles.spacer} />
-          <Text style={styles.label}>Advanced — Direct URL / Tunnel</Text>
+          <Text style={styles.label}>Advanced — Direct URL / Tailscale IP</Text>
           <Text style={styles.description}>
-            Only for direct Chat/ops fallback. Paste Tailscale, ngrok, Cloudflare, or LAN IP (port
-            8642). Required on cellular when your saved profile uses a private Wi‑Fi address.
+            Direct Chat/ops connection. Enter your Tailscale 100.x IP or tunnel URL (e.g. 100.x.x.x:8642).
           </Text>
           <TextInput
             ref={gatewayUrlInputRef}
@@ -629,27 +610,38 @@ export default function SettingsScreen() {
             style={styles.input}
             value={gatewayUrl}
             onChangeText={setGatewayUrl}
-            placeholder="https://xxxx.ngrok-free.app"
+            placeholder="e.g. 100.x.x.x:8642 or https://..."
             placeholderTextColor={colors.textMuted}
             autoCapitalize="none"
             autoCorrect={false}
           />
           <View style={styles.spacer} />
-          <Text style={styles.label}>Direct Link API Key</Text>
+          <Text style={styles.label}>Mac API Key (Optional API_SERVER_KEY)</Text>
           <TextInput
             testID="gateway-api-key-input"
             style={styles.input}
             value={inputApiKey}
             onChangeText={setInputApiKey}
-            placeholder="sk-..."
+            placeholder="Optional (if configured in .env on Mac)"
             placeholderTextColor={colors.textMuted}
             secureTextEntry
             autoCapitalize="none"
             autoCorrect={false}
           />
           <Text style={styles.description}>
-            Stored in the device keychain. Required for direct Chat tab session APIs.
+            Stored securely in keychain. Only required if your Mac Hermes server enforces API_SERVER_KEY authentication.
           </Text>
+          <View style={styles.spacer} />
+          <TouchableOpacity
+            style={[styles.primaryButton, isSaving && styles.saveButtonDisabled]}
+            onPress={handleSave}
+            disabled={isSaving}
+            testID="settings-inline-save-button"
+          >
+            <Text style={styles.primaryButtonText}>
+              {isSaving ? 'Connecting…' : 'Save & Connect'}
+            </Text>
+          </TouchableOpacity>
         </GlassCard>
 
         </CollapsibleSection>

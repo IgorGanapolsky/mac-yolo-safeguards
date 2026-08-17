@@ -8669,6 +8669,15 @@ export default function ChatScreen() {
                   void addDiscoveredTailscaleComputer(discovery);
                 }}
               />
+              <ManualComputerAddressForm
+                pickerMode
+                compactMode={switchComputerProfiles.length > 0}
+                testIDPrefix="mac-picker-manual"
+                onAddProfile={async (label, gatewayUrl, verifiedApiKey) => {
+                  await addGatewayProfile(label, gatewayUrl, verifiedApiKey);
+                  closeMacPicker();
+                }}
+              />
               <LoadingButton
                 label="Find computers"
                 loadingLabel="Finding computers…"
@@ -8685,15 +8694,6 @@ export default function ChatScreen() {
                 }}
                 testID="chat-find-macs-on-wifi"
                 style={styles.macPickerFindBtn}
-              />
-              <ManualComputerAddressForm
-                pickerMode
-                compactMode={switchComputerProfiles.length > 0}
-                testIDPrefix="mac-picker-manual"
-                onAddProfile={async (label, gatewayUrl, verifiedApiKey) => {
-                  await addGatewayProfile(label, gatewayUrl, verifiedApiKey);
-                  closeMacPicker();
-                }}
               />
             </ScrollView>
       </BottomSheetModal>
