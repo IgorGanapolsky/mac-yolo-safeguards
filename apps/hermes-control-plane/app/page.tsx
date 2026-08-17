@@ -150,39 +150,118 @@ export default function Home() {
       <section id="pricing" className="pricing-section">
         <div className="pricing-copy">
           <p className="eyebrow">Pro Continuity · live list price</p>
-          <h2>Pay for the fenced VPS runner.</h2>
+          <h2>Transparent Continuity capacity.</h2>
+          <p>
+            CoreWeave-style public specs: on-demand monthly Pro, short trial capacity, and reserved Team options.
+            Caps match the control-plane enforcer — not marketing fiction.
+          </p>
         </div>
         <div className="price-grid">
           <article className="price-card">
             <div><span>Sign-in workspace</span><strong>$0<small>/start</small></strong></div>
+            <p className="price-mode">Free · no Continuity runs</p>
             <ul>
               <li>Account + Continuity dashboard shell</li>
-              <li>Standard LLM-as-a-Judge policy surface</li>
-              <li>Billing portal when you upgrade</li>
+              <li>LLM-as-a-Judge policy surface</li>
+              <li><strong>0</strong> fenced VPS runs / 30 days</li>
+              <li>No Mac pair required to explore</li>
             </ul>
             <LandingPricingCtaFree />
           </article>
           <article className="price-card featured">
             <div><span>Pro Continuity</span><BillingPlan /></div>
+            <p className="price-mode">On-demand monthly · live Stripe list price</p>
             <ul>
-              <li>Fenced Continuity VPS runner</li>
+              <li><strong>100</strong> Continuity VPS runs / 30 days</li>
+              <li>14-day trial: <strong>5</strong> runs / 30 days</li>
               <li>90s renewable leases + receipts</li>
+              <li>LLM-as-a-Judge pre-action gates</li>
               <li>Autonomous computer-use / web tasks</li>
-              <li>14-day trial with Continuity access</li>
             </ul>
             <LandingPricingCtaPaid />
           </article>
           <article className="price-card">
             <div><span>Team &amp; Enterprise</span><strong>$49<small>/month</small></strong></div>
+            <p className="price-mode">Reserved capacity · contact for custom caps</p>
             <ul>
               <li>Everything in Pro Continuity</li>
               <li>Custom judge rubrics</li>
-              <li>Higher Continuity run caps</li>
+              <li>Higher Continuity run caps (contract)</li>
               <li>BYO API keys &amp; custom endpoints</li>
               <li>Priority Continuity leases</li>
             </ul>
             <LandingPricingCtaPaid />
           </article>
+        </div>
+
+        {/* CoreWeave-inspired capacity matrix — unit economics, no surprise fees */}
+        <div className="capacity-matrix" data-testid="continuity-capacity-matrix" aria-label="Continuity capacity comparison">
+          <h3>Capacity matrix</h3>
+          <div className="capacity-table-wrap">
+            <table className="capacity-table">
+              <thead>
+                <tr>
+                  <th scope="col">Included</th>
+                  <th scope="col">Free</th>
+                  <th scope="col">Trial</th>
+                  <th scope="col">Pro</th>
+                  <th scope="col">Team</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">Purchase mode</th>
+                  <td>Free start</td>
+                  <td>14-day trial</td>
+                  <td>On-demand / mo</td>
+                  <td>Reserved</td>
+                </tr>
+                <tr>
+                  <th scope="row">Fenced VPS runs / 30d</th>
+                  <td>0</td>
+                  <td>5</td>
+                  <td>100</td>
+                  <td>100+</td>
+                </tr>
+                <tr>
+                  <th scope="row">Concurrent active tasks</th>
+                  <td>10</td>
+                  <td>10</td>
+                  <td>10</td>
+                  <td>10+</td>
+                </tr>
+                <tr>
+                  <th scope="row">90s renewable lease</th>
+                  <td>—</td>
+                  <td>✓</td>
+                  <td>✓</td>
+                  <td>✓</td>
+                </tr>
+                <tr>
+                  <th scope="row">LLM-as-a-Judge gates</th>
+                  <td>Policy only</td>
+                  <td>✓</td>
+                  <td>✓</td>
+                  <td>Custom</td>
+                </tr>
+                <tr>
+                  <th scope="row">Mac pair required</th>
+                  <td>No</td>
+                  <td>No</td>
+                  <td>No</td>
+                  <td>No</td>
+                </tr>
+                <tr>
+                  <th scope="row">Surprise egress / idle fees</th>
+                  <td colSpan={4}>None — plan caps only (enforced in control plane)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="capacity-footnote">
+            Live Pro list price from Stripe (<code>/api/billing/plan</code>). Run caps match{" "}
+            <code>agent-governance</code> hard limits — dashboard shows remaining capacity after sign-in.
+          </p>
         </div>
       </section>
 
