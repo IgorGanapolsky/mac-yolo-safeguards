@@ -69,6 +69,16 @@ const diracEditor = require('./dirac-precision-editor');
 const morningBrief = require('./founder-morning-brief');
 const factoryDroid = require('./factory-droid-coordinator');
 const ontoprankEngine = require('./ontoprank-growth-engine');
+const ragLoopDispatcher = require('./rag-loop-dispatcher');
+const computeArbitrageEngine = require('./compute-capacity-arbitrage');
+const gurobiHub = require('./gurobi-intelligence-hub');
+const screenpipeSync = require('./screenpipe-obsidian-sync');
+const screenpipeGraphRAG = require('./screenpipe-graphrag-pipeline');
+const tokenUnitEconomics = require('./token-unit-economics-engine');
+const inferenceOptimizer = require('./inference-economics-optimizer');
+const claudeEmployeeEngine = require('./claude-code-employee-engine');
+const openMonoLocalAI = require('./open-mono-local-ai');
+const openMonoAgentEngine = require('./open-mono-agent-engine');
 
 const MONTHLY_BUDGET_USD = 10.00;
 
@@ -189,7 +199,17 @@ function runSystemWideDiagnostic() {
         initialGrant: ontoprankEngine.INITIAL_APP_CREDIT_GRANT,
         supportedApps: ['Hermes Mobile', 'LipoShield'],
         googlePlayComplianceTarget: '12_TESTERS_14_DAYS'
-      }
+      },
+      ragLoopDispatcher: ragLoopDispatcher.runDoctor(),
+      coreweaveComputeArbitrage: computeArbitrageEngine.runDoctor(),
+      gurobiIntelligenceHub: gurobiHub.runDoctor(),
+      screenpipeObsidianSync: screenpipeSync.runDoctor(),
+      screenpipeGraphRAG: screenpipeGraphRAG.runDoctor(),
+      tokenUnitEconomics: tokenUnitEconomics.runDoctor(),
+      inferenceEconomicsOptimizer: inferenceOptimizer.runDoctor(),
+      claudeEmployeeEngine: claudeEmployeeEngine.runDoctor(),
+      openMonoLocalAI: openMonoLocalAI.runDoctor(),
+      openMonoAgentEngine: openMonoAgentEngine.runDoctor()
     },
   };
 }

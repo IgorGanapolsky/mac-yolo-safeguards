@@ -54,6 +54,7 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 | `inference-economics-optimizer` | Hardware-Aware AI Inference Economics, Latency Routing, Exact SHA-256 Prompt Caching, Step Circuit Breakers, and Async Batch Queuing | `.agents/skills/inference-economics-optimizer/SKILL.md` | local |
 | `claude-employee-governance` | 9-Pillar Claude Code AI Employee Architecture, The Eyes Post-Build Operator Verification, and 3-Tier Permission Matrix | `.agents/skills/claude-employee-governance/SKILL.md` | local |
 | `open-mono-local-ai` | 3-Step Local AI Setup, One-Command Relay Binding, Typed Playbooks with Step Autonomy Gates, and Zero-Marginal-Cost ($0.00) Inference | `.agents/skills/open-mono-local-ai/SKILL.md` | local |
+| `open-mono-agent-engine` | OpenMonoAgent.ai Zero-Meter Local Architecture: hardware-aware quantization selector, sensitive file shield, dual-box mobile companion relay, and Roslyn-inspired local AST code intelligence. | `.agents/skills/open-mono-agent-engine/SKILL.md` | local |
 | `autonomous-outcome-engine` | Autonomous Outcome Execution & Zero-Babysitting Engine: 5-stage task lifecycle without mid-execution stops. | `.agents/skills/autonomous-outcome-engine/SKILL.md` | local |
 | `thumbgate-vps-continuity` | ThumbGate 24/7 Fenced Cloud VPS Continuity: 90s renewable leases, LLM-as-a-Judge pre-action validation, zero Mac pairing. | `.agents/skills/thumbgate-vps-continuity/SKILL.md` | local |
 | `tinker-brain` | Skill instructions and usage guide. | `~/.gemini/config/skills/tinker-brain/SKILL.md` | global |
