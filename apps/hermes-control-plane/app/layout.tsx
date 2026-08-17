@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     template: "%s | ThumbGate Continuity",
   },
   description:
-    "Continuity keeps Hermes work running on a fenced VPS when your Mac is offline—synced with the same agents on your real machines. Hermes owns chat; ThumbGate owns offline failover.",
+    "Continuity keeps autonomous agent work running 24/7 on a fenced VPS sandbox under LLM-as-a-Judge pre-action safety gates. Flat $10/month with full agent observability.",
   alternates: { canonical: "/" },
   applicationName: "ThumbGate Continuity",
   category: "developer tools",
@@ -45,7 +45,7 @@ export const metadata: Metadata = {
     siteName: "ThumbGate Continuity",
     title: "ThumbGate Continuity — VPS failover for Hermes agents",
     description:
-      "When the Mac closes, eligible Hermes work continues on a fenced VPS—synced with agents on your real machines.",
+      "Autonomous agent work on a fenced VPS sandbox under LLM-as-a-Judge pre-action safety gates. Flat $10/month.",
     images: [{
       url: "/og.png",
       width: 1200,
@@ -56,7 +56,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "ThumbGate Continuity — VPS failover for Hermes agents",
-    description: "Fenced VPS Continuity when your machine is offline. Hermes owns chat with real machines.",
+    description: "Fenced VPS Continuity with 90s renewable leases and LLM-as-a-Judge pre-action safety.",
     images: ["/og.png"],
   },
   icons: {
