@@ -49,6 +49,7 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 | `managing-python-dependencies` | | | `~/.gemini/config/skills/managing-python-dependencies/SKILL.md` | global |
 | `ona-cloud-agents` | Ona + OpenAI Enterprise Cloud Agent Architecture, Cross-Device Session State Persistence, and ThumbGate Pre-Action Governance Interdiction | `~/.gemini/config/skills/ona-cloud-agents/SKILL.md` | global |
 | `dimagent-runtime-engine` | DimAgent-inspired Cache-Native Agent Runtime Engine (90-98% KV-cache hit rate, 3-layer error recovery, large output blob offloading for 20+ hour continuous execution, ACP JSON-RPC 2.0 stdio server, and two-layer hard plan mode) | `.agents/skills/dimagent-runtime-engine/SKILL.md` | local |
+| `ontoprank-growth-engine` | OnTopRank Credit Escrow & Google Play 14-Day 15-Tester Pack Orchestration Engine for Hermes Mobile and LipoShield (30 credits per activity, escrow lifecycle, 14-day compliance verification) | `.agents/skills/ontoprank-growth-engine/SKILL.md` | local |
 | `tinker-brain` | Skill instructions and usage guide. | `~/.gemini/config/skills/tinker-brain/SKILL.md` | global |
 
 ---

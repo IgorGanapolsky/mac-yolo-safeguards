@@ -1,0 +1,97 @@
+#!/usr/bin/env node
+/**
+ * bin/ontoprank-engine
+ *
+ * OnTopRank Credit & 14-Day Testing Pack CLI:
+ * - Check credit balance & escrow status
+ * - Manage Google Play 14-day closed testing cohorts
+ * - Review exchange campaigns for Hermes Mobile and LipoShield
+ */
+
+const {
+  CREDITS_PER_ACTIVITY,
+  INITIAL_APP_CREDIT_GRANT,
+  CreditEscrowLedger,
+  TestingPackCohortManager,
+  AppExchangeCampaignManager,
+} = require('../tools/ontoprank-growth-engine');
+
+const args = process.argv.slice(2);
+
+function printHelp() {
+  console.log(`
+OnTopRank Growth & Testing Pack CLI
+
+Usage:
+  ontoprank-engine status
+  ontoprank-engine app <appId>
+  ontoprank-engine boost <appId> <multiplier>
+  ontoprank-engine verify-play-readiness <appId>
+
+Examples:
+  ontoprank-engine app com.igor.hermesmobile
+  ontoprank-engine app com.liposhield.app
+  ontoprank-engine boost com.igor.hermesmobile 2.5
+`);
+}
+
+async function main() {
+  const manager = new AppExchangeCampaignManager();
+
+  if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
+    printHelp();
+    process.exit(0);
+  }
+
+  const command = args[0];
+
+  if (command === 'status') {
+    const hermes = manager.getAppStatus('com.igor.hermesmobile');
+    const lipo = manager.getAppStatus('com.liposhield.app');
+    console.log(
+      JSON.stringify(
+        {
+          engine: 'OnTopRank Growth Engine',
+          creditUnitPerActivity: CREDITS_PER_ACTIVITY,
+          campaigns: [hermes, lipo],
+        },
+        null,
+        2
+      )
+    );
+    process.exit(0);
+  }
+
+  if (command === 'app') {
+    const appId = args[1] || 'com.igor.hermesmobile';
+    const status = manager.getAppStatus(appId);
+    if (!status) {
+      console.error(`App '${appId}' not registered in campaign manager.`);
+      process.exit(1);
+    }
+    console.log(JSON.stringify(status, null, 2));
+    process.exit(0);
+  }
+
+  if (command === 'boost') {
+    const appId = args[1] || 'com.igor.hermesmobile';
+    const mult = parseFloat(args[2]) || 2.0;
+    const ok = manager.applyBoost(appId, mult);
+    console.log(JSON.stringify({ appId, boostApplied: ok, newMultiplier: mult }, null, 2));
+    process.exit(0);
+  }
+
+  if (command === 'verify-play-readiness') {
+    const appId = args[1] || 'com.igor.hermesmobile';
+    const status = manager.getAppStatus(appId);
+    console.log(JSON.stringify(status.compliance, null, 2));
+    process.exit(0);
+  }
+
+  printHelp();
+}
+
+main().catch((err) => {
+  console.error('Error in ontoprank-engine:', err);
+  process.exit(1);
+});

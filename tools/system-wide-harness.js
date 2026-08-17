@@ -62,6 +62,13 @@ const changeTenantManager = require('./change-tenant-manager');
 const codexContextManager = require('./codex-context-manager');
 const zcodeGoalExecutor = require('./zcode-goal-executor');
 const dimagentEngine = require('./dimagent-runtime-engine');
+const tencentHunyuan = require('./tencent-hunyuan-harness');
+const ossScout = require('./oss-engagement-scout');
+const devinHarness = require('./devin-agent-harness');
+const diracEditor = require('./dirac-precision-editor');
+const morningBrief = require('./founder-morning-brief');
+const factoryDroid = require('./factory-droid-coordinator');
+const ontoprankEngine = require('./ontoprank-growth-engine');
 
 const MONTHLY_BUDGET_USD = 10.00;
 
@@ -168,6 +175,20 @@ function runSystemWideDiagnostic() {
         resilienceLayers: 3,
         blobOffload: 'ACTIVE',
         acpProtocol: 'JSON-RPC_2.0'
+      },
+      tencentHunyuanSuite: tencentHunyuan.runDoctor(),
+      ossEngagementScout: ossScout.runDoctor(),
+      devinAgentBridge: devinHarness.runDoctor(),
+      diracPrecisionEditor: diracEditor.runDoctor(),
+      founderMorningBrief: morningBrief.runDoctor(),
+      factoryDroidCoordinator: factoryDroid.runDoctor(),
+      ontoprankGrowthEngine: {
+        service: 'ontoprank-growth-engine',
+        status: 'READY',
+        creditsPerActivity: ontoprankEngine.CREDITS_PER_ACTIVITY,
+        initialGrant: ontoprankEngine.INITIAL_APP_CREDIT_GRANT,
+        supportedApps: ['Hermes Mobile', 'LipoShield'],
+        googlePlayComplianceTarget: '12_TESTERS_14_DAYS'
       }
     },
   };
