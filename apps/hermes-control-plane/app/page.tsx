@@ -11,42 +11,46 @@ import {
   LandingPricingCtaPaid,
 } from "./LandingAuthChrome";
 import { BrandMark } from "./BrandMark";
-import { StoreBadgeRow } from "./StoreBadges";
 import styles from "./landing.module.css";
+import {
+  CONTINUITY_EXECUTION_MODES,
+  CONTINUITY_PRICE_TIERS,
+  CONTINUITY_ZERO_EGRESS,
+  judgeGatesLabel,
+} from "@/lib/continuity-pricing";
 
 /**
  * Public marketing shell is static: no cookie jar reads and no D1 on first paint.
  * Session chrome hydrates via /api/me after paint (LandingAuthChrome).
  *
- * Product truth (2026-08): ThumbGate.app = Continuity / VPS failover synced with
- * Hermes agents on real machines. Hermes (desktop + Mobile) owns chatting with
- * those machines. Free pair/status is scaffolding, not a second chat product.
+ * Product truth (2026-08-17 CEO): ThumbGate.app sells Cloud Continuity on a VPS.
+ * Approvals happen in thumbgate.app itself. Do not offer a phone leash.
  */
 const FAQ_ITEMS = [
   {
     question: "What is ThumbGate?",
     answer:
-      "ThumbGate Continuity is paid VPS failover for Hermes: when your Mac goes offline, eligible work continues on a fenced cloud runner under the policy you set—synced with the same Hermes agents that run on your machines.",
+      "ThumbGate Continuity is a fenced cloud VPS runner for autonomous agent work: coding, research, and computer-use tasks under LLM-as-a-Judge gates, 90-second renewable leases, and plan caps. You run and approve from the browser.",
   },
   {
-    question: "What is Hermes Mobile?",
+    question: "Where do approvals happen?",
     answer:
-      "Hermes Mobile is the iOS and Android app that chats with your Hermes agent on your real machines, handles Leash approvals, and switches between paired computers. Chat lives in Hermes; ThumbGate Continuity keeps eligible work running when those machines are offline.",
+      "In thumbgate.app. Approve or deny a tool call in the web workspace. There is no phone leash on this product.",
   },
   {
-    question: "Does ThumbGate open inbound ports on my Mac?",
+    question: "Do I need a phone app?",
     answer:
-      "No. The connector dials out over HTTPS with private-key pairing. Your local gateway credential stays on the Mac; ThumbGate uses a separate device identity.",
+      "No. Continuity, billing, and approvals all live on thumbgate.app.",
   },
   {
-    question: "What happens when my Mac is offline?",
+    question: "Do I need to pair a Mac?",
     answer:
-      "Without Continuity, free pair/status scaffolding pauses or asks. Eligible trial or paid Continuity tasks continue on a fenced VPS runner so work stays recoverable when the lid closes.",
+      "No. Continuity is fenced VPS execution. Sign in, start a trial or Pro plan, and run work on the cloud runner.",
   },
   {
-    question: "How much does ThumbGate cost?",
+    question: "How much does Continuity cost?",
     answer:
-      "Pairing and status scaffolding are free. Continuity is a recurring paid subscription (VPS failover when offline); current pricing is shown live on this page and at https://thumbgate.app/api/billing/plan.",
+      "Pro Continuity is $10/month for the fenced VPS runner, with a 14-day trial. Live list price is https://thumbgate.app/api/billing/plan.",
   },
 ] as const;
 
@@ -59,12 +63,11 @@ export default function Home() {
         name: "ThumbGate Continuity",
         url: "https://thumbgate.app/",
         applicationCategory: "DeveloperApplication",
-        operatingSystem: "Web, macOS, iOS, Android",
+        operatingSystem: "Web",
         description:
-          "VPS failover Continuity for Hermes agents on real machines. Chat stays in Hermes; Continuity keeps eligible work running when the laptop is offline.",
+          "Fenced cloud VPS Continuity for autonomous agents. Approvals happen in thumbgate.app.",
         offers: [
-          { "@type": "Offer", name: "Pair & status (free)", price: "0", priceCurrency: "USD" },
-          { "@type": "Offer", name: "Pro Continuity", priceCurrency: "USD" },
+          { "@type": "Offer", name: "Pro Continuity", price: "10", priceCurrency: "USD" },
         ],
       },
       {
@@ -96,15 +99,18 @@ export default function Home() {
 
       <section id="main-content" className="hero" tabIndex={-1}>
         <div className="hero-copy">
-          <p className="eyebrow"><span className="live-dot" /> Continuity · VPS for Hermes</p>
-          <h1>Keep Hermes work running<br /><span>when the Mac closes.</span></h1>
+          <p className="eyebrow"><span className="live-dot" /> Continuity · Fenced VPS</p>
+          <h1>Agent work on a<br /><span>fenced Continuity VPS.</span></h1>
           <p className="hero-lede">
-            Hermes already chats with your real machines—and Leash approvals stay on the paired Mac while it is online. ThumbGate Continuity syncs with those same agents and hands eligible work to a fenced VPS runner when the laptop is offline, under the offline policy you set (pause, ask, or auto-continue).
+            Your agents keep running on a fenced VPS. Approve or deny tool calls in thumbgate.app. $10/month. 14 days free.
           </p>
           <LandingAuthHero />
           <p className="signin-note">Continuity by ThumbGate. Continue with Google today — more providers activate once configured.</p>
-          <div className="trust-row"><span>No inbound ports</span><span>Same Hermes agents</span><span>Fenced VPS only when enabled</span></div>
-          <StoreBadgeRow />
+          <div className="trust-row">
+            <span>Fenced VPS runner</span>
+            <span>Approvals in thumbgate.app</span>
+            <span>$10/month</span>
+          </div>
         </div>
 
         <nav className="hero-console hero-actions-panel" aria-label="Private workspace actions">
@@ -113,109 +119,191 @@ export default function Home() {
         </nav>
       </section>
 
-      <section id="pair" className="setup-section">
+      <section id="setup" className="setup-section">
         <div className="section-heading">
-          <p className="eyebrow">Pair once · free scaffolding</p>
-          <h2>Connect your Mac. Enable Continuity.</h2>
+          <p className="eyebrow">Start Continuity</p>
+          <h2>Sign in. Run on VPS. Stay gated.</h2>
         </div>
         <ol className="setup-steps">
-          <li><span>01</span><div><h3>Run one installer</h3><p>Connector dials out over HTTPS. No inbound ports.</p></div></li>
-          <li><span>02</span><div><h3>Approve the Mac</h3><p>Sign in and confirm the short code. Hermes still owns the chat.</p></div></li>
-          <li><span>03</span><div><h3>Pick offline behavior</h3><p>Pause, ask, or auto-continue on Continuity (VPS).</p></div></li>
+          <li><span>01</span><div><h3>Sign in</h3><p>Google via AuthKit. Open the Continuity dashboard from any browser.</p></div></li>
+          <li><span>02</span><div><h3>Start trial or Pro</h3><p>Continuity entitlement unlocks the fenced cloud VPS runner under your plan caps.</p></div></li>
+          <li><span>03</span><div><h3>Dispatch work</h3><p>Agents run on Continuity VPS with pre-action gates — not on a paired laptop product path.</p></div></li>
         </ol>
       </section>
 
       <section id="how-it-works" className="section-block">
         <div className="section-heading">
-          <p className="eyebrow">Hermes on machines · Continuity when offline</p>
-          <h2>Chat stays in Hermes. Continuity keeps work alive.</h2>
+          <p className="eyebrow">How Continuity runs</p>
+          <h2>Fenced VPS execution with renewable leases.</h2>
           <p>
-            Pair free so status and failover policy are in place. Paid Continuity fails eligible threads over to a fenced VPS runner when the machine disappears—one thread, one executor, synced with Hermes on your real hardware.
+            Tasks execute in isolated Continuity sandboxes with 90-second renewable leases, receipt audit trails, and LLM-as-a-Judge interdiction before sensitive tool calls.
           </p>
         </div>
         <FailoverPathDemo />
         <div className="steps-grid steps-grid-after-demo">
-          <article><span>01</span><h3>Hermes on your machines</h3><p>Desktop and Hermes Mobile chat and approve tools on the paired Mac.</p></article>
-          <article><span>02</span><h3>Run on your Mac</h3><p>While online, work stays on the paired machine under a 90s lease.</p></article>
-          <article><span>03</span><h3>Continuity (VPS)</h3><p>When the lid closes: pause, ask, or auto-continue on paid Continuity.</p></article>
+          <article><span>01</span><h3>Approve in thumbgate.app</h3><p>Risky tool calls pause in the browser. Approve or deny here. No phone leash.</p></article>
+          <article><span>02</span><h3>LLM-as-a-Judge safety</h3><p>Pre-action checks block destructive commands, secret leaks, and spend overruns.</p></article>
+          <article><span>03</span><h3>Fenced Cloud VPS runner</h3><p>Serverless Continuity execution with one active lease per task thread.</p></article>
         </div>
       </section>
 
       <section id="pricing" className="pricing-section">
         <div className="pricing-copy">
-          <p className="eyebrow">Free pair. Paid Continuity.</p>
-          <h2>Pay only when the Mac can&apos;t run the work.</h2>
+          <p className="eyebrow">Pro Continuity · live list price</p>
+          <h2>Transparent Continuity capacity.</h2>
+          <p>
+            CoreWeave-style public specs: on-demand monthly Pro, short trial capacity, and reserved Team options.
+            Caps match the control-plane enforcer — not marketing fiction. Egress, idle, and NAT-style fees:{" "}
+            <strong>{CONTINUITY_ZERO_EGRESS.surpriseEgress}</strong>.
+          </p>
         </div>
         <div className="price-grid">
           <article className="price-card">
-            <div><span>Pair &amp; status</span><strong>$0<small>/month</small></strong></div>
+            <div><span>Sign-in workspace</span><strong>$0<small>/start</small></strong></div>
+            <p className="price-mode">Free · no Continuity runs</p>
             <ul>
-              <li>Signed machine pairing</li>
-              <li>Offline policy (pause / ask)</li>
-              <li>Status scaffolding while online</li>
-              <li>Hermes Mobile still owns chat</li>
+              <li>Account + Continuity dashboard shell</li>
+              <li>LLM-as-a-Judge policy surface</li>
+              <li><strong>{CONTINUITY_PRICE_TIERS[0].cloudRunsDisplay}</strong> fenced VPS runs / 30 days</li>
+              <li>No Mac pair required to explore</li>
             </ul>
             <LandingPricingCtaFree />
           </article>
           <article className="price-card featured">
             <div><span>Pro Continuity</span><BillingPlan /></div>
+            <p className="price-mode">On-demand monthly · live Stripe list price</p>
             <ul>
-              <li>Fenced VPS when the Mac is offline</li>
-              <li>100 cloud continuations / 30 days</li>
-              <li>DeepSeek &amp; Auto model routing</li>
-              <li>14-day trial with 5 cloud runs</li>
+              <li><strong>{CONTINUITY_PRICE_TIERS[2].cloudRunsDisplay}</strong> Continuity VPS runs / 30 days</li>
+              <li>14-day trial: <strong>{CONTINUITY_PRICE_TIERS[1].cloudRunsDisplay}</strong> runs / 30 days</li>
+              <li>90s renewable leases + receipts</li>
+              <li>LLM-as-a-Judge pre-action gates</li>
+              <li>Autonomous computer-use / web tasks</li>
             </ul>
             <LandingPricingCtaPaid />
           </article>
           <article className="price-card">
             <div><span>Team &amp; Enterprise</span><strong>$49<small>/month</small></strong></div>
+            <p className="price-mode">Reserved capacity · contact for custom caps</p>
             <ul>
               <li>Everything in Pro Continuity</li>
-              <li>500 cloud continuations / 30 days</li>
-              <li>Auto model routing across providers</li>
-              <li>Custom BYO API Key support</li>
-              <li>Priority Fly.io cloud VPS runner</li>
+              <li>Custom judge rubrics</li>
+              <li>Higher Continuity run caps (contract)</li>
+              <li>BYO API keys &amp; custom endpoints</li>
+              <li>Priority Continuity leases</li>
             </ul>
             <LandingPricingCtaPaid />
           </article>
         </div>
-      </section>
 
-
-      <section id="mobile" className="section-block">
-        <div className="section-heading">
-          <p className="eyebrow">On your phone · Hermes Mobile</p>
-          <h2>Chat with your machines in Hermes. Continuity when they sleep.</h2>
-          <p>
-            Hermes Mobile pairs to your Mac for chat and Leash approvals. Continuity settings live here so eligible work can fail over to VPS when you&apos;re away from a browser and the machine is offline.
+        {/* CoreWeave-inspired capacity matrix — numbers from CONTINUITY_PRICE_TIERS only */}
+        <div className="capacity-matrix" data-testid="continuity-capacity-matrix" aria-label="Continuity capacity comparison">
+          <h3>Capacity matrix</h3>
+          <div className="capacity-table-wrap">
+            <table className="capacity-table">
+              <thead>
+                <tr>
+                  <th scope="col">Included</th>
+                  {CONTINUITY_PRICE_TIERS.map((tier) => (
+                    <th key={tier.id} scope="col">{tier.id === "free" ? "Free" : tier.id === "trial" ? "Trial" : tier.id === "pro" ? "Pro" : "Team"}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">Purchase mode</th>
+                  {CONTINUITY_PRICE_TIERS.map((tier) => (
+                    <td key={`${tier.id}-mode`}>{tier.purchaseModeLabel}</td>
+                  ))}
+                </tr>
+                <tr>
+                  <th scope="row">Fenced VPS runs / 30d</th>
+                  {CONTINUITY_PRICE_TIERS.map((tier) => (
+                    <td key={`${tier.id}-runs`}>{tier.cloudRunsDisplay}</td>
+                  ))}
+                </tr>
+                <tr>
+                  <th scope="row">Concurrent active tasks</th>
+                  {CONTINUITY_PRICE_TIERS.map((tier) => (
+                    <td key={`${tier.id}-active`}>{tier.maxActiveTasksDisplay}</td>
+                  ))}
+                </tr>
+                <tr>
+                  <th scope="row">90s renewable lease</th>
+                  {CONTINUITY_PRICE_TIERS.map((tier) => (
+                    <td key={`${tier.id}-lease`}>{tier.renewableLeases ? "✓" : "—"}</td>
+                  ))}
+                </tr>
+                <tr>
+                  <th scope="row">LLM-as-a-Judge gates</th>
+                  {CONTINUITY_PRICE_TIERS.map((tier) => (
+                    <td key={`${tier.id}-judge`}>{judgeGatesLabel(tier.judgeGates)}</td>
+                  ))}
+                </tr>
+                <tr>
+                  <th scope="row">Mac pair required</th>
+                  {CONTINUITY_PRICE_TIERS.map((tier) => (
+                    <td key={`${tier.id}-mac`}>{tier.macPairRequired ? "Yes" : "No"}</td>
+                  ))}
+                </tr>
+                <tr>
+                  <th scope="row">Surprise egress / idle fees</th>
+                  <td colSpan={4}>{CONTINUITY_ZERO_EGRESS.billingModel}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="capacity-footnote">
+            Live Pro list price from Stripe (<code>/api/billing/plan</code>). Run caps match{" "}
+            <code>agent-governance</code> hard limits — dashboard shows remaining capacity after sign-in.
           </p>
         </div>
-        <StoreBadgeRow className="hero-store-links-lg" size="lg" />
+
+        <div className="execution-modes" data-testid="continuity-execution-modes" aria-label="Continuity execution modes">
+          <h3>Execution modes</h3>
+          <p className="capacity-footnote" style={{ marginTop: 0, marginBottom: 12 }}>
+            Same idea as on-demand vs spot vs reserved capacity — mapped to Continuity product rails (no invented GPU SKUs).
+          </p>
+          <div className="execution-mode-grid">
+            {CONTINUITY_EXECUTION_MODES.map((mode) => (
+              <article key={mode.id} className="execution-mode-card" data-mode={mode.id}>
+                <span className="price-mode">{mode.priority}</span>
+                <strong>{mode.label}</strong>
+                <small>{mode.priceHint}</small>
+                <p>{mode.bestFor}</p>
+              </article>
+            ))}
+          </div>
+          <p className="capacity-footnote" data-testid="continuity-zero-egress">
+            Networking trust: data transfer {CONTINUITY_ZERO_EGRESS.dataTransfer.toLowerCase()}, idle fees{" "}
+            {CONTINUITY_ZERO_EGRESS.idleFees.toLowerCase()}. {CONTINUITY_ZERO_EGRESS.footnote}
+          </p>
+        </div>
       </section>
+
 
       <section id="expertise" className="section-block">
         <div className="section-heading">
           <p className="eyebrow">Engineering expertise</p>
-          <h2>Built from live production data, not static claims.</h2>
+          <h2>Public Continuity telemetry, no invented customers.</h2>
           <p>
-            ThumbGate Continuity is maintained by the same engineering team that runs the Hermes stack. Our expertise page pairs original case studies with real D1 telemetry — pairing success, continuity runs, control-plane uptime, and scale metrics.
+            Raw JSON at /api/expertise/stats. No founder case studies. No implied paying teams.
           </p>
         </div>
         <div className="steps-grid">
           <article>
             <span>01</span>
             <h3>Live telemetry</h3>
-            <p>Success rates, p95 durations, and uptime computed from the production control plane.</p>
+            <p>Success rates, p95 durations, and run counts from the production control plane.</p>
           </article>
           <article>
             <span>02</span>
-            <h3>Named case studies</h3>
-            <p>Authored by the engineering team behind ThumbGate, with concrete metrics and outcomes.</p>
+            <h3>No fake stories</h3>
+            <p>If a stranger has not paid, the page does not claim a team shipped faster.</p>
           </article>
           <article>
             <span>03</span>
             <h3>Public methodology</h3>
-            <p>Canary runs excluded, privacy boundary documented, raw JSON endpoint at /api/expertise/stats.</p>
+            <p>Canary runs excluded. Privacy boundary documented. Endpoint: /api/expertise/stats.</p>
           </article>
         </div>
         <div className="hero-actions" style={{ marginTop: "32px" }}>
@@ -226,7 +314,7 @@ export default function Home() {
       <section id="faq" className="section-block" aria-labelledby="faq-heading">
         <div className="section-heading">
           <p className="eyebrow">Answers</p>
-          <h2 id="faq-heading">What people ask before they enable Continuity.</h2>
+          <h2 id="faq-heading">What people ask before using Continuity.</h2>
         </div>
         <div className="steps-grid">
           {FAQ_ITEMS.map((item) => (
@@ -240,7 +328,7 @@ export default function Home() {
 
       <footer>
         <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate <small>Continuity</small></span></Link>
-        <p>Your Hermes work, still running when the lid closes—synced with agents on real machines.</p>
+        <p>Fenced VPS Continuity · approvals in thumbgate.app.</p>
       </footer>
     </main>
   );
