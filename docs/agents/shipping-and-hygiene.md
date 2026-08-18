@@ -83,3 +83,11 @@ Fleet triage order (evidence-first):
 6. **Proof**: every merge claim needs `mergeCommit.oid` + post-merge CI link; withhold “Done merging PRs. CI passing…” until tip CI is SUCCESS.
 
 Cross-repo: ThumbGate uses Trunk + strict checks; ai-operations-agency needs 1 review; hermes-mobile main may be unprotected — still require green checks before squash.
+
+## PR hygiene addendum (2026-08-18 PM)
+
+- Live `GET /branches/main/protection` on mac-yolo-safeguards: `strict=false`, reviews=null, `required_conversation_resolution=true`, `enforce_admins=true`. Do not assume AGENTS prose `strict:true` without a live API read.
+- Stale MERGEABLE PRs often fail **macOS guard kit** on `ruff F541` in an old `tools/hilltown_triple_bus_drift.py` that **no longer exists on main**. `gh pr update-branch` on MERGEABLE heads is the fix; do not re-introduce the file.
+- Do **not** fan-out `search/issues` for 80+ orphan remotes — GitHub search rate-limits (403). Delete remotes only via `gh pr list --state merged` heads with no open PR.
+- Green **draft** content logs may be marked ready and squash-merged when all 7 required contexts are SUCCESS/SKIPPED (`#1800`, `#1798`).
+- Copilot CLI is the standalone `copilot` binary, not `gh copilot`. Reserve it for a second-model opinion; `gh` remains the merge/CI rail.
