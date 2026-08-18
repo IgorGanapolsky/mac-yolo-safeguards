@@ -41,7 +41,7 @@ done
 resolve_hermes_yolo_wrapper_src() {
   local src="${1:-$ROOT/hermes-yolo-wrapper.js}"
   local tmp="$ROOT/.hermes-yolo-wrapper.from-main.js"
-  if [[ -f "$src" ]] && grep -q 'isGrokBackendReady' "$src" && grep -q 'auto-supergrok-ready' "$src"; then
+  if [[ -f "$src" ]] && grep -q 'isGrokBackendReady' "$src" && grep -qE 'auto-hermes-quality|auto-supergrok-ready|force-supergrok' "$src"; then
     printf '%s\n' "$src"
     return 0
   fi
@@ -49,7 +49,7 @@ resolve_hermes_yolo_wrapper_src() {
   if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     if git -C "$ROOT" show origin/main:hermes-yolo-wrapper.js 2>/dev/null | grep -q 'isGrokBackendReady'; then
       git -C "$ROOT" show origin/main:hermes-yolo-wrapper.js >"$tmp"
-      if grep -q 'auto-supergrok-ready' "$tmp"; then
+      if grep -qE 'auto-hermes-quality|auto-supergrok-ready|force-supergrok' "$tmp"; then
         echo "install-grok-yolo: using origin/main:hermes-yolo-wrapper.js instead of stale checkout" >&2
         printf '%s\n' "$tmp"
         return 0
@@ -114,7 +114,7 @@ install_local_files() {
   pin_supergrok_launch_env
   # Post-install hard gate: installed file must still look like SuperGrok auto.
   if ! grep -q 'isGrokBackendReady' "$HOME/.hermes/hermes-yolo-wrapper.js" \
-    || ! grep -q 'auto-supergrok-ready' "$HOME/.hermes/hermes-yolo-wrapper.js"; then
+    || ! grep -qE 'auto-hermes-quality|auto-supergrok-ready|force-supergrok' "$HOME/.hermes/hermes-yolo-wrapper.js"; then
     echo "install-grok-yolo: installed wrapper failed SuperGrok gate" >&2
     return 1
   fi

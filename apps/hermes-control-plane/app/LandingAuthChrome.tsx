@@ -208,11 +208,3 @@ export function LandingPricingCtaPaid() {
   );
 }
 
-export function LandingPricingCtaTeam() {
-  const href = useSessionHref();
-  return (
-    <a href={href} className="button button-secondary" data-funnel-event="team_continuity_click">
-      Team — $49/mo →
-    </a>
-  );
-}
