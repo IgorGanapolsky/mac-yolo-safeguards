@@ -130,46 +130,9 @@ jobs:
 
       - name: Node tool unit tests
         run: |
-          set -u
-          # test-hermes-yolo.js spawns the real Hermes binary. The runner has no
-          # ~/.local/bin/hermes, so point the wrapper's HERMES_BIN override at a
-          # stub emitting the version string the test asserts on.
-          stub_dir="$(mktemp -d)"
-          printf '#!/bin/sh\necho "Hermes Agent 0.17.0 (ci-stub)"\n' > "$stub_dir/hermes"
-          chmod +x "$stub_dir/hermes"
-          export HERMES_BIN="$stub_dir/hermes"
-
-          # test-mac-text-hotkeys-config.js asserts on the contents of a personal
-          # Hammerspoon config (~/Documents/mac-text-hotkeys/init.lua) not present
-          # in the repo. Stubbing it would assert against the stub, so it stays
-          # excluded until that config is checked in.
-          #
-          # test-hermes-buzz-integration.js needs root npm deps (@noble/curves,
-          # @scure/base). This job does not npm ci (speed); the dedicated
-          # "Hermes Buzz / Nostr integration" step under Public funnel does.
-          failed=0
-          # Two naming conventions live under tests/: test-*.js and *.test.js.
-          # Globbing only the first silently excluded 4 green suites
-          # (revenue-send-safety, sender-health-gate, smtp-auth-check,
-          # stale-checkout-audit) that had never run in CI. Both shapes now run;
-          # tools/test-discovery-audit.js fails the build if a new test is orphaned.
-          for f in tests/test-*.js tests/*.test.js; do
-            case "$f" in
-              tests/test-mac-text-hotkeys-config.js) continue ;;
-              tests/test-hermes-buzz-integration.js) continue ;;
-            esac
-            if node "$f" >/tmp/node-test.log 2>&1; then
-              echo "ok   $f"
-            else
-              echo "FAIL $f"
-              cat /tmp/node-test.log
-              failed=$((failed + 1))
-            fi
-          done
-          if [ "$failed" -ne 0 ]; then
-            echo "::error::$failed node tool unit test file(s) failed"
-            exit 1
-          fi
+          set -eu
+          # Parallel runner covers: for f in tests/test-*.js tests/*.test.js
+          node tools/run-node-unit-tests.js
 
       - name: Smoke install and yolo-health
         run: |
