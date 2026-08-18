@@ -2,27 +2,24 @@
   width: min(1180px, calc(100% - 40px));
 }
 
-.grid {
+.stack {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.8fr);
+  gap: 20px;
+}
+
+.panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(240px, 0.85fr);
   gap: 24px;
   align-items: start;
-}
-
-.surfaces {
-  display: grid;
-  gap: 1px;
-  background: var(--line);
-  border: 1px solid var(--line);
-}
-
-.surfaces article {
-  background: var(--bg);
   padding: 28px 30px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--panel);
 }
 
-.primary {
-  background: rgba(255, 255, 255, 0.03);
+.panel:first-child {
+  grid-template-columns: 1fr;
 }
 
 .kicker {
@@ -33,46 +30,96 @@
   text-transform: uppercase;
 }
 
-.surfaces h3,
+.panel h3,
 .card h3 {
   margin: 0 0 8px;
   font-size: 22px;
   letter-spacing: -0.03em;
 }
 
-.surfaces p {
-  margin: 0 0 14px;
+.panel p {
+  margin: 0 0 16px;
   color: var(--muted);
   line-height: 1.5;
 }
 
-.stores {
-  margin: 0 !important;
+.wakeCopy {
+  min-width: 0;
 }
 
-.stores a {
-  color: var(--ink);
-  text-decoration: underline;
+.osInvert {
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.osInvert li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.osInvert strong {
+  font-size: 14px;
+}
+
+.osInvert span {
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .card {
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 22px 22px 18px;
-  background: var(--panel);
+  background: var(--bg);
 }
 
 .cardEyebrow {
-  margin: 0 0 6px;
+  margin: 0 0 14px;
   color: var(--muted);
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
+.identity {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
 .role {
-  margin: 0 0 16px;
+  margin: 0 0 4px;
   color: var(--text-secondary);
+}
+
+.status {
+  margin: 0;
+  color: var(--accent);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .facts {
@@ -111,7 +158,13 @@
     width: calc(100% - 28px);
   }
 
-  .grid {
+  .panel {
     grid-template-columns: 1fr;
+    padding: 22px 18px;
+  }
+
+  .osInvert li {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

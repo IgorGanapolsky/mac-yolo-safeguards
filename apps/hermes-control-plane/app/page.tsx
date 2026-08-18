@@ -82,6 +82,11 @@ const FAQ_ITEMS = [
       "It pauses. You approve or deny in thumbgate.app. Conflicting goals without a human gate is how agents ship malware. Hosted Hermes does not auto-run that.",
   },
   {
+    question: "How do I get started?",
+    answer:
+      "Sign in with email, Google, or Apple in this browser. Start the $10 hosted Hermes trial. There is no Mac, Windows, or Linux download. Approvals stay in thumbgate.app.",
+  },
+  {
     question: "Do I install a desktop app?",
     answer:
       "No. Hosted Hermes is one always-on agent on a fenced VPS. Local desktop employees die when the laptop sleeps. Approvals stay in thumbgate.app.",
@@ -169,6 +174,7 @@ export default function Home() {
       </section>
 
       <HostingSelector />
+      <StartSurfaces />
 
       <section id="qualifier" className="section-block" data-testid="qualifier">
         <div className="section-heading">
@@ -224,8 +230,6 @@ export default function Home() {
           </article>
         </div>
       </section>
-
-      <StartSurfaces />
 
       <section id="setup" className="setup-section">
         <div className="section-heading">
