@@ -150,6 +150,7 @@ export default function Home() {
           <div className="trust-row">
             <span>One offer · $10/mo</span>
             <span>One clock · 14-day trial</span>
+            <span>No Mac pair required</span>
             <span>Approvals in thumbgate.app</span>
           </div>
         </div>
