@@ -11,6 +11,7 @@ import {
   LandingPricingCtaPaid,
 } from "./LandingAuthChrome";
 import { BrandMark } from "./BrandMark";
+import { HostingSelector } from "./HostingSelector";
 import styles from "./landing.module.css";
 import {
   CONTINUITY_PRICE_TIERS,
@@ -82,7 +83,7 @@ const FAQ_ITEMS = [
   {
     question: "Can I run it on my machine instead?",
     answer:
-      "No picker. One offer: hosted Hermes on a fenced VPS. Local-only assistants stop when the laptop sleeps. Approvals stay in thumbgate.app.",
+      "Yes. Use Hosting on this page. Local runs directly on your machine and your data never leaves your computer. Local dies when the laptop sleeps. ThumbGate Cloud is the $10 always-on fenced VPS. Approvals stay in thumbgate.app.",
   },
   {
     question: "Is this a memory or session-handoff plugin?",
@@ -160,6 +161,8 @@ export default function Home() {
           <LandingAuthPanel />
         </nav>
       </section>
+
+      <HostingSelector />
 
       <section id="qualifier" className="section-block" data-testid="qualifier">
         <div className="section-heading">
