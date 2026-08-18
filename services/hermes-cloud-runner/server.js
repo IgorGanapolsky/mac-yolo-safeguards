@@ -22,7 +22,7 @@ function pollingSchedule(env = process.env) {
   const activePollMs = positiveMilliseconds(env.ACTIVE_POLL_MS, 500);
   const idlePollMs = Math.max(
     activePollMs,
-    positiveMilliseconds(env.IDLE_POLL_MS || env.POLL_MS, 1_500),
+    positiveMilliseconds(env.IDLE_POLL_MS || env.POLL_MS, 10_000),
   );
   return { activePollMs, idlePollMs };
 }
