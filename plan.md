@@ -3050,3 +3050,17 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 - 2026-08-18T18:25Z `grok-qoder-start-surfaces`: Raised StartSurfaces to two-panel Qoder invert (optional store badges + honest OS invert + identity card). Merged origin/main so HostingSelector stays. No fake Wake SKU, no invented 28/9/78 stats.
 - 2026-08-18T17:50Z `grok-thumbgate-hosting-picker`: **T-THUMBGATE-HOSTING-PICKER-20260818 / AGENT-405 claimed.** Chief: put Vellum Hosting picker on thumbgate.app. Cloud = fenced VPS always-on $10. Local = your machine. No Mac-pair. No second SKU.
 - 2026-08-18T18:40Z `grok-qoder-start-surfaces`: CI unit-and-coverage failed on rendered-html expecting "Run on VPS"; #1817 renamed heading to "Start on VPS". Aligned test. Not a product revert.
+
+| T-TIELINE-INTENT-CONTRACT-20260818 | Slim Tieline process steal: reviewed AC contract + intent-check blast radius | in_progress | grok-tieline-intent-contract-20260818 | `scripts/intent-check.js`, `tests/test-intent-check.js`, `.intent/contract.yaml`, `.agents/skills/intent-contract/**`, `.agents/skills/tieline-product-contract/**`, `bin/intent-check`, `SKILLS.md` (append), `plan.md` | AGENT-407 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| scripts/intent-check.js | grok-tieline-intent-contract-20260818 | 2026-08-18T17:30:00Z |
+| tests/test-intent-check.js | grok-tieline-intent-contract-20260818 | 2026-08-18T17:30:00Z |
+| .intent/contract.yaml | grok-tieline-intent-contract-20260818 | 2026-08-18T17:30:00Z |
+| .agents/skills/intent-contract/** | grok-tieline-intent-contract-20260818 | 2026-08-18T17:30:00Z |
+| .agents/skills/tieline-product-contract/** | grok-tieline-intent-contract-20260818 | 2026-08-18T17:30:00Z |
+| bin/intent-check | grok-tieline-intent-contract-20260818 | 2026-08-18T17:30:00Z |
+| SKILLS.md (append rows only) | grok-tieline-intent-contract-20260818 | 2026-08-18T17:30:00Z |
+| plan.md (append only) | grok-tieline-intent-contract-20260818 | 2026-08-18T17:30:00Z |
