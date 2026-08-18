@@ -142,9 +142,20 @@ export function governanceAuditMetadata(
 
 export function governanceError(decision: GovernanceDecision): Response {
   if (decision.allowed) throw new Error("Cannot render an allow decision as an error");
-  return Response.json({
-    error: decision.message,
-    code: decision.code,
-    policyVersion: decision.policyVersion,
-  }, { status: decision.status, headers: { "cache-control": "no-store" } });
+  // CoreWeave-style capacity truth: clients get limit/observed so UI can meter without a second fetch.
+  const remaining =
+    decision.limit != null && decision.observed != null
+      ? Math.max(0, decision.limit - Math.min(decision.observed, decision.limit))
+      : null;
+  return Response.json(
+    {
+      error: decision.message,
+      code: decision.code,
+      policyVersion: decision.policyVersion,
+      limit: decision.limit,
+      observed: decision.observed,
+      remaining,
+    },
+    { status: decision.status, headers: { "cache-control": "no-store" } },
+  );
 }
