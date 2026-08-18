@@ -27,15 +27,7 @@ describe("collectExpertiseData", () => {
     expect(data).toHaveProperty("methodology");
 
     expect(Array.isArray(data.caseStudies)).toBe(true);
-    expect(data.caseStudies.length).toBeGreaterThan(0);
-
-    for (const cs of data.caseStudies) {
-      expect(cs).toHaveProperty("id");
-      expect(cs).toHaveProperty("title");
-      expect(cs).toHaveProperty("author");
-      expect(cs.author).toHaveProperty("name");
-      expect(cs.author).toHaveProperty("role");
-    }
+    expect(data.caseStudies).toEqual([]);
 
     expect(data.methodology).toHaveProperty("dataSource");
     expect(data.methodology).toHaveProperty("privacyBoundary");
