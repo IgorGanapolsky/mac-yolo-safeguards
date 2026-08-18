@@ -337,7 +337,7 @@ function runDoctor(options = {}) {
     && zsh.slice(zsh.indexOf(SHELL_MARK_BEGIN), zsh.indexOf(SHELL_MARK_END) + SHELL_MARK_END.length)
       .includes('JCODE_DEFAULT_PROVIDER=openai');
   const jcode = auditJcodeConfig({ home, configPath: options.jcodeConfigPath });
-  const hasApiKey = Boolean(process.env.OPENAI_API_KEY);
+  const openAiKeyConfigured = Boolean(process.env.OPENAI_API_KEY);
   return {
     schema: 'openai-ultrafast-fleet/v1',
     source: 'https://openai.com/index/previewing-ultrafast/',
@@ -350,7 +350,7 @@ function runDoctor(options = {}) {
     operational750Tps: false,
     measuredTps: null,
     inventedPricing: false,
-    hasApiKey,
+    openAiKeyConfigured,
     defaultInteractiveCoder: HARNESS_DEFAULTS.default,
     harnessDefaults: HARNESS_DEFAULTS,
     ultrafastIsDefault: false,
