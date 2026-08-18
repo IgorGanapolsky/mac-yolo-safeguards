@@ -269,6 +269,10 @@ try {
   // Minified bundles keep user-facing string literals; symbol identifiers may be renamed.
   assert.match(clientJs, /run-output/);
   assert.doesNotMatch(clientJs, /composer-target-select/);
+  assert.doesNotMatch(clientJs, /Auto — Continuity \(no Mac required\)/);
+  assert.doesNotMatch(clientJs, /Open Continuity settings/);
+  assert.doesNotMatch(clientJs, /Continuity Cloud VPS/);
+  assert.match(clientJs, /Open settings/);
   assert.match(clientJs, /thumbgate\.preferredDeviceId/);
   assert.doesNotMatch(clientJs, /Which Mac\?/);
   assert.doesNotMatch(clientJs, /My Mac only/);
@@ -318,6 +322,9 @@ try {
       assert.equal(await page.locator('[data-testid="composer-target-select"]').count(), 0);
       assert.equal(await page.locator('[data-testid="composer-device-select"]').count(), 0);
       assert.equal(await page.locator("select.composer-target-select").count(), 0);
+      assert.equal(await page.getByLabel("RUN ON").count(), 0);
+      assert.equal(await page.locator("text=Open Continuity settings").count(), 0);
+      assert.equal(await page.locator('[data-testid="open-settings"]').count(), 1);
       const chromeText = await page.locator("body").innerText();
       assert.doesNotMatch(chromeText, /Which Mac\?/);
       assert.doesNotMatch(chromeText, /\bMy Mac\b/);
@@ -326,7 +333,7 @@ try {
       await page.click("button.composer-run");
       await page.waitForTimeout(1500);
       const bodyText = await page.locator("body").innerText();
-      assert.match(bodyText, /browser e2e on Continuity|Running on Continuity|Continuity/);
+      assert.match(bodyText, /browser e2e on Continuity|Running on the hosted VPS|hosted VPS|Sent/);
       assert.doesNotMatch(bodyText, /Which Mac\?/);
       assert.doesNotMatch(bodyText, /\bMy Mac\b/);
       const outputText = await output.innerText();

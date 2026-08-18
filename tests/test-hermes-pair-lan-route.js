@@ -21,6 +21,7 @@ const {
   isLanClient,
   withGatewayHost,
   resolveClientGatewayUrl,
+  buildRouteAlternates,
 } = require('../tools/hermes-mobile-pair.js');
 
 let pass = 0;
@@ -104,12 +105,29 @@ check('an unknown/cellular peer keeps the canonical answer', () => {
   );
 });
 
-check('a live USB loopback primary is never rewritten to LAN', () => {
+check('P0 2026-08-18: Wi-Fi phone never receives USB loopback primary', () => {
   const usbSeed = { gatewayUrl: 'http://127.0.0.1:8642' };
   assert.strictEqual(
     resolveClientGatewayUrl(usbSeed, LAN_IP, '172.29.12.116'),
+    'http://172.29.12.111:8642',
+  );
+});
+
+check('USB/loopback peer still keeps loopback canonical', () => {
+  const usbSeed = { gatewayUrl: 'http://127.0.0.1:8642' };
+  assert.strictEqual(
+    resolveClientGatewayUrl(usbSeed, LAN_IP, '127.0.0.1'),
     'http://127.0.0.1:8642',
   );
+});
+
+check('USB primary still publishes LAN + Tailscale alternates', () => {
+  const usbSeed = { gatewayUrl: 'http://127.0.0.1:8642' };
+  const alts = buildRouteAlternates(usbSeed, LAN_IP);
+  assert.strictEqual(alts.lanGatewayUrl, 'http://172.29.12.111:8642');
+  assert.strictEqual(alts.usbGatewayUrl, 'http://127.0.0.1:8642');
+  // tailscaleGatewayUrl present only when this Mac has a tailnet IP — optional
+  assert.ok(!('tailscaleGatewayUrl' in alts) || String(alts.tailscaleGatewayUrl).includes('100.'));
 });
 
 check('an unusable LAN IP falls back to the canonical answer', () => {
