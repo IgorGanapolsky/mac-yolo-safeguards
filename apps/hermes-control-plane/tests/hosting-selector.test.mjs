@@ -25,5 +25,5 @@ test("Cloud continue is the $10 hosted path; Local is not a second SKU", () => {
   assert.match(selector, /href="#pricing"/);
   assert.match(selector, /not the \$10 hosted offer/);
   assert.match(page, /<HostingSelector/);
-  assert.match(page, /Use Hosting on this page/);
+  assert.match(page, /The \$10 offer is hosted Hermes on a fenced VPS/);
 });

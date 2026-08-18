@@ -94,7 +94,17 @@ const FAQ_ITEMS = [
   {
     question: "Can I run it on my machine instead?",
     answer:
-      "Yes. Use Hosting on this page. Local runs directly on your machine and your data never leaves your computer. Local dies when the laptop sleeps. ThumbGate Cloud is the $10 always-on fenced VPS. Approvals stay in thumbgate.app.",
+      "No. The $10 offer is hosted Hermes on a fenced VPS. Approvals stay in thumbgate.app. If it dies when the laptop sleeps, the trial failed.",
+  },
+  {
+    question: "Is this a training API?",
+    answer:
+      "No. We do not sell fine-tuning or a GPU cluster. Hosted Hermes is one always-on agent on a fenced VPS. $10/mo.",
+  },
+  {
+    question: "Do you train on my runs?",
+    answer:
+      "No. Your runs stay yours. We do not train our models on your data.",
   },
   {
     question: "Is this a memory or session-handoff plugin?",
@@ -153,7 +163,7 @@ export default function Home() {
           <p className="eyebrow"><span className="live-dot" /> Hosted Hermes · Fenced VPS</p>
           <h1>Hermes that stays on.</h1>
           <p className="hero-lede">
-            Always on, even when your computer is off. Always awake. Always working. Hosted on a fenced VPS. Not a laptop process. Approve money, customer, or production actions in this browser. Flat $10/month. 14 days free. Cancel anytime.
+            Always on, even when your computer is off. Always awake. Always working. Hosted on a fenced VPS. Not a laptop process. You own the work. We own the machine. Approve money, customer, or production actions in this browser. Flat $10/month. 14 days free. Cancel anytime.
           </p>
           <p className="signin-note">
             Automations can draft and run. Money, customer-facing, or production actions require your approval in this browser.
@@ -234,7 +244,7 @@ export default function Home() {
       <section id="setup" className="setup-section">
         <div className="section-heading">
           <p className="eyebrow">Start hosted Hermes</p>
-          <h2>Sign in. Run on VPS. Stay gated.</h2>
+          <h2>Sign in. Start on VPS. Stay gated.</h2>
         </div>
         <ol className="setup-steps">
           <li><span>01</span><div><h3>Sign in</h3><p>Google via AuthKit. Open the hosted Hermes dashboard from any browser.</p></div></li>
