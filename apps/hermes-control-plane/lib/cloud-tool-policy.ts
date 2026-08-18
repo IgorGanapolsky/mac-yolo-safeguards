@@ -1,13 +1,13 @@
 /**
- * Continuity is queued handoff, not Mac tool parity.
- * Block prompts that clearly require local-only surfaces before cloud claim/admission.
+ * Block prompts that clearly require local-only surfaces before cloud admission.
+ * The required hosted sidecar is not a laptop.
  */
 
 export type CloudToolDecision =
   | { allowed: true }
   | { allowed: false; code: "local_only_tool"; message: string; matched: string };
 
-/** Patterns that should not auto-run on the VPS Continuity runner. */
+/** Patterns that should not auto-run on the hosted VPS runner. */
 export const LOCAL_ONLY_PROMPT_PATTERNS: ReadonlyArray<{ id: string; re: RegExp; hint: string }> = Object.freeze([
   { id: "applescript", re: /\b(osascript|applescript|tell\s+application)\b/i, hint: "AppleScript / macOS automation" },
   { id: "keychain", re: /\b(security\s+find-generic-password|keychain)\b/i, hint: "macOS Keychain" },
@@ -25,9 +25,33 @@ export function evaluateCloudPromptToolPolicy(prompt: string): CloudToolDecision
         allowed: false,
         code: "local_only_tool",
         matched: pattern.id,
-        message: `Continuity cannot run this on the VPS (${pattern.hint}). Keep the Mac online or remove local-only steps.`,
+        message: `Hosted Hermes cannot run this send (${pattern.hint}). The required hosted sidecar is not this laptop. Remove the local-only step.`,
       };
     }
   }
   return { allowed: true };
 }
+
+export type HostedSidecarName = "runner" | "model" | "browser";
+
+export function promptRequiresHostedBrowser(prompt: string): boolean {
+  const text = String(prompt ?? "");
+  return HOSTED_BROWSER_CUE_RES.some((re) => re.test(text));
+}
+
+export function requiredHostedSidecars(prompt: string): HostedSidecarName[] {
+  const required: HostedSidecarName[] = ["runner", "model"];
+  if (promptRequiresHostedBrowser(prompt)) required.push("browser");
+  return required;
+}
+
+const HOSTED_BROWSER_CUE_RES: RegExp[] = [
+  new RegExp("\\bplaywright\\b", "i"),
+  new RegExp("\\bpuppeteer\\b", "i"),
+  new RegExp("\\bselenium\\b", "i"),
+  new RegExp("\\bcomputer use\\b", "i"),
+  new RegExp("\\bcomputer-use\\b", "i"),
+  new RegExp("\\bheadless chrome\\b", "i"),
+  new RegExp("\\bscreenshot-and-click\\b", "i"),
+  new RegExp("\\bscreenshot and click\\b", "i"),
+];
