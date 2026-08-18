@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenAI Ultrafast Policy"
+  short_description: "Route urgent Sol work within a hard API cap"
+  default_prompt: "Use $openai-ultrafast-policy to assess and route this latency-critical task without exceeding the shared API budget."

@@ -1,0 +1,12 @@
+#!/usr/bin/env node
+'use strict';
+
+const path = require('path');
+const { main } = require(path.join(__dirname, '..', 'tools', 'openai-ultrafast-policy.js'));
+
+main(process.argv.slice(2))
+  .then((exitCode) => { process.exitCode = exitCode; })
+  .catch((error) => {
+    process.stderr.write(`[ultrafast-yolo] BLOCKED: ${error.message}\n`);
+    process.exitCode = 78;
+  });
