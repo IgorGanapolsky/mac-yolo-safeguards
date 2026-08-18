@@ -3172,3 +3172,5 @@ CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, too
 
 
 - 2026-08-18T03:30:00Z `grok-pr-hygiene`: Merged #1736 (`8d66b8f8`); unblocked 8 stale-DIRTY PRs via worktree `merge --no-ff origin/main`; closed 5 superseded drafts; pruned 6 remote heads. Lesson: GitHub DIRTY can be stale vs merge-tree. Remaining ~60 open accounted (CI-wait / real conflicts). Evidence: `docs/agents/PR-HYGIENE-SESSION-2026-08-18.md`.
+
+- `docs/agents/PR-HYGIENE-SESSION-2026-08-18.md`, `.github/workflows/mobile-e2e.yml` (Maestro required-check skip→success stub only), `plan.md` → **grok-pr-hygiene-maestro-stub-20260818** (unblock docs/fleet auto-merge when Maestro path-skips) (2026-08-18T03:50:00Z)

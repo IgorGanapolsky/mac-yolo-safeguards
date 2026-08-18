@@ -543,6 +543,7 @@ function scoreRoute(route, args, signals) {
     if (signals.asksForGlm) score += 45;
     if (signals.userDoubt || signals.architecture) score += 22;
     if (riskValue(args.risk) >= riskValue('high')) score += 18;
+    if (signals.exactContract || signals.highVarianceReasoning) score += 25;
   }
   if (route.id === 'fugu_escalation') {
     if (signals.asksForFugu) score += 90;
@@ -593,6 +594,11 @@ function scoreRoute(route, args, signals) {
     if (signals.architecture || signals.highVarianceReasoning) score += 18;
     if (signals.asksForSubagent) score += 25;
     if (!signals.longContextOrAgentic && !signals.architecture) score -= 10;
+  }
+  if (route.id === 'deepseek_v4_pro') {
+    if (signals.asksForDeepSeek || signals.asksForCodex) score += 85;
+    if (signals.codeGeneration || signals.refactoring) score += 20;
+    if (!signals.asksForDeepSeek && !signals.asksForCodex && !signals.codeGeneration) score -= 25;
   }
   return Number(score.toFixed(2));
 }
