@@ -52,6 +52,7 @@ node --check tests/test-kimi-model-upgrade-audit.js
 node --check tests/test-mac-text-hotkeys-config.js
 node --check tests/test-plan-coordination-snapshot.js
 node --check tests/test-agent-swarm-harness.js
+node --check tests/test-elevenlabs-voice-agents.js
 
 echo "=== Shell syntax ==="
 git ls-files '*.sh' | while IFS= read -r file; do
@@ -96,6 +97,7 @@ node tests/test-openmono-roi-audit.js
 node tests/test-kimi-model-upgrade-audit.js
 node tests/test-plan-coordination-snapshot.js
 node tests/test-agent-swarm-harness.js
+node tests/test-elevenlabs-voice-agents.js
 node tests/test-workos-production-guard.js
 tests/test-secondary-browser-reclaim.sh
 tests/test-adb-reverse-device-filter.sh
