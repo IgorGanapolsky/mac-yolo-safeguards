@@ -2984,3 +2984,5 @@ CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, too
 | SKILLS.md (append rows only) | grok-marketplace-skills-20260817 | 2026-08-17T22:06:00Z |
 | plan.md (append only) | grok-marketplace-skills-20260817 | 2026-08-17T22:06:00Z |
 
+
+- 2026-08-18T03:30:00Z `grok-pr-hygiene`: Merged #1736 (`8d66b8f8`); unblocked 8 stale-DIRTY PRs via worktree `merge --no-ff origin/main`; closed 5 superseded drafts; pruned 6 remote heads. Lesson: GitHub DIRTY can be stale vs merge-tree. Remaining ~60 open accounted (CI-wait / real conflicts). Evidence: `docs/agents/PR-HYGIENE-SESSION-2026-08-18.md`.
