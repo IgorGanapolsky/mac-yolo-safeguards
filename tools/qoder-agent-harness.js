@@ -59,11 +59,11 @@ function saveHarnessState(state) {
 function decomposeTask(instruction) {
   if (!instruction || typeof instruction !== 'string') return [];
 
-  // Split on conjunctions or semicolons
+  // Split on conjunctions, commas, or semicolons
   const parts = instruction
-    .split(/;|\band then\b|\bthen\b|, and\b/i)
+    .split(/;|\band then\b|\bthen\b|, and\b|,|\band\b/i)
     .map((p) => p.trim())
-    .filter(Boolean);
+    .filter((p) => p.length > 2);
 
   return parts.map((part, idx) => ({
     id: `subtask-${idx + 1}`,
