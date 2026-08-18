@@ -4,6 +4,55 @@ Dated entries from the autonomous OSS-engagement routine (Thinking Machines Lab 
 
 ---
 
+## 2026-08-18 (evening) — third same-day firing: nothing new, cross-owner wall unchanged
+
+Third firing today. Both prior 2026-08-18 entries below already did the substantive work
+(tinker-cookbook#896, poolside#38, LanceDB#2900 fixes) and two same-day follow-ups already
+re-confirmed no new issues. This run repeated that check rather than redoing prior work.
+
+### Repos surveyed
+
+| Org | Repos | Method |
+|-----|-------|--------|
+| Thinking Machines Lab | `thinking-machines-lab/tinker`, `tinker-cookbook` | `search_issues` `created:>2026-08-18` |
+| Poolside AI | `poolsideai` org | `search_issues` `org:poolsideai created:>2026-08-18` |
+| LanceDB | `lancedb` org (`lancedb`, `lance`) | `search_issues` `org:lancedb created:>2026-08-18` |
+
+All four queries returned **zero** new issues since today's earlier runs.
+
+### Cross-owner wall
+
+Re-tested once, silently, per standing policy: `add_repo` for `lancedb/lancedb` still fails
+with `cross-tier adds are not supported`; `pull_request_read` against
+`thinking-machines-lab/tinker` still returns `Access denied ... not configured for this
+session`. Unchanged since 2026-08-04. Confirmed `lancedb/lancedb#3958` ("docs(java): add
+vended credentials example") merged upstream 2026-08-17/18 — unrelated to any parked item,
+no action needed.
+
+### What was opened / answered
+
+Nothing. No new issue surfaced, and the previously-parked fixes and answer drafts (logged in
+the two entries directly below) are unchanged and still blocked only on PR-creation access.
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| Re-verifying parked branches via `git ls-remote` | Already done twice today (AM, PM entries below); a third re-check of unchanged state adds nothing |
+| New manufactured question | No real unknown hit this run |
+
+### ThumbGate mentions
+
+**None** this run.
+
+### Action needed from Igor
+
+Unchanged: the cross-owner `add_repo`/PR-creation block is still the only thing standing
+between the parked fixes and real upstream PRs. Not re-escalating — same known gap flagged
+in every entry since 2026-08-04.
+
+---
+
 ## 2026-08-18 (PM) — Same-day re-check: nothing new, cross-owner wall unchanged, no duplicate work
 
 Second firing today. The AM entry below (tinker-cookbook#896, poolside#38, LanceDB#2900)
