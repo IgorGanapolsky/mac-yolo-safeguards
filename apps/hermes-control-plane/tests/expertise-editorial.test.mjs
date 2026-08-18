@@ -53,14 +53,15 @@ test("expertise track is surfaced and cites live D1 data", async () => {
   assert.match(expertiseClient, /Privacy boundary/);
   assert.match(expertiseClient, /Canary exclusion/);
   assert.match(expertiseClient, /\/api\/expertise\/stats/);
-  assert.match(expertiseClient, /production control plane/);
-  assert.match(expertiseClient, /Author:/);
-  assert.match(expertiseClient, /cs\.author\.name/);
+  assert.match(expertiseClient, /operator control-plane|control-plane counters/i);
+  assert.doesNotMatch(expertiseClient, /Author:/);
+  assert.doesNotMatch(expertiseClient, /cs\.author\.name/);
+  assert.match(expertiseClient, /No stranger case studies|we do not invent customer stories/i);
   assert.doesNotMatch(expertiseClient, /still proving/);
 
-  // The data library computes from D1 tables and includes named-author case studies.
-  assert.match(expertiseData, /caseStudies/);
-  assert.match(expertiseData, /Igor Ganapolsky/);
+  // The data library computes from D1 tables. No invented named-author case studies.
+  assert.match(expertiseData, /caseStudies: \[\]/);
+  assert.doesNotMatch(expertiseData, /Igor Ganapolsky/);
   assert.match(expertiseData, /methodology/);
   assert.match(expertiseData, /canaryExclusion/);
   assert.match(expertiseData, /tasks/i);

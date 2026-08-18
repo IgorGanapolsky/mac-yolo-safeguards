@@ -190,7 +190,8 @@ test("routes paid accounts to billing management without opening a duplicate che
 });
 
 test("uses ThumbGate Continuity identity and production URLs", () => {
-  assert.match(layout, /ThumbGate Continuity — VPS failover for Hermes agents/);
+  assert.match(layout, /ThumbGate Continuity — agent keeps running on a fenced VPS/);
+  assert.doesNotMatch(layout, /VPS failover for Hermes/);
   assert.match(layout, /metadataBase: new URL\("https:\/\/thumbgate\.app"\)/);
   assert.match(dashboardPage, /title: "Hermes Web"/);
   assert.match(landing, /name: "ThumbGate Continuity"/);
@@ -424,7 +425,7 @@ test("keeps every workspace telemetry value behind authentication", () => {
   // Public pricing shows CoreWeave-style capacity matrix; live usage stays behind auth.
   assert.match(landing, /data-testid="continuity-capacity-matrix"/);
   assert.match(landing, /Transparent Continuity capacity/);
-  assert.match(landing, /data-testid="continuity-execution-modes"/);
+  assert.doesNotMatch(landing, /data-testid="continuity-execution-modes"/);
   assert.match(landing, /data-testid="continuity-zero-egress"/);
   assert.match(dashboard, /data-testid="continuity-usage-meter"/);
   assert.match(dashboard, /continuityUsage/);

@@ -22,6 +22,9 @@ test("builds the public Continuity VPS landing page", async () => {
   assert.match(layout, /height: 630/);
   assert.match(layout, /images: \["\/og\.png"\]/);
   assert.match(layout, /agent observability/);
+  assert.match(layout, /agent keeps running on a fenced VPS/);
+  assert.doesNotMatch(layout, /VPS failover for Hermes/);
+  assert.doesNotMatch(layout, /When the Mac closes/);
   assert.match(page, /ThumbGate/);
   assert.match(page, /fenced Continuity VPS|Fenced Continuity VPS|fenced cloud VPS/i);
   assert.match(page, /Continuity/);
@@ -30,12 +33,13 @@ test("builds the public Continuity VPS landing page", async () => {
   assert.doesNotMatch(page, /Sign in to pair free|Pair free →|Pair your Mac|when the Mac closes/);
   assert.match(page, /No Mac pair required|no Mac pairing/i);
   assert.match(page, /Pro Continuity/);
-  assert.match(page, /Continue with Google today/);
-  assert.doesNotMatch(page, /Continue with Google or Apple/);
+  assert.match(page, /Sign in with email, Google, or Apple\. Approvals stay in this browser/);
+  assert.doesNotMatch(page, /Continue with Google today/);
+  assert.doesNotMatch(page, /more providers activate once configured/);
   assert.match(page, /LLM-as-a-Judge/);
   assert.match(page, /Fenced Cloud VPS|Continuity VPS|fenced Continuity VPS/i);
   assert.doesNotMatch(page, /still proving/);
-  assert.match(page, /by ThumbGate/);
+  assert.doesNotMatch(page, /by ThumbGate/);
   assert.doesNotMatch(page, /id="mobile"/);
   assert.match(page, /Closed-system/);
   assert.match(page, /Flat \$10/);
@@ -82,6 +86,8 @@ test("builds the public Continuity VPS landing page", async () => {
   assert.match(failoverDemo, /offline_blocked/);
   assert.match(failoverDemo, /Interactive demo · no real tools run/);
   assert.match(billingPlan, /\/api\/billing\/plan/);
+  assert.match(billingPlan, /\$10/);
+  assert.doesNotMatch(billingPlan, /Live price/);
   assert.match(billingPlanRoute, /STRIPE_PRICE_ID/);
   assert.match(billingPlanRoute, /unitAmount: price\.unit_amount/);
   assert.doesNotMatch(billingPlanRoute, /["']STRIPE_SECRET_KEY["']\s*:/);
@@ -106,6 +112,9 @@ test("builds the public Continuity VPS landing page", async () => {
   assert.match(chrome, /data-funnel-event="cloud_continuity_click"/);
   assert.match(chrome, /data-funnel-event="sign_in_click"/);
   assert.match(chrome, /Try Continuity — 14 days free/);
+  assert.match(chrome, /cancel anytime/);
+  assert.match(chrome, /Team Continuity — \$49\/mo/);
+  assert.match(chrome, /Start Continuity — \$10\/mo, 14 days free, cancel anytime/);
   assert.match(chrome, /Sign in to Continuity/);
   assert.match(chrome, /Fenced cloud runner with 90s leases/);
   assert.doesNotMatch(chrome, /Sign in to pair free|Pair free →|Open pair/);
@@ -122,7 +131,8 @@ test("builds the public Continuity VPS landing page", async () => {
   assert.match(page, /SoftwareApplication/);
   assert.match(page, /RemoteControlDiagram/);
   const diagram = await readFile(new URL("../app/RemoteControlDiagram.tsx", import.meta.url), "utf8");
-  assert.match(diagram, /Hermes Mobile/);
+  assert.doesNotMatch(diagram, /Hermes Mobile/);
+  assert.match(diagram, /thumbgate\.app/);
   assert.match(diagram, /LLM-as-a-Judge/);
   assert.match(diagram, /Continuity VPS/);
   assert.match(llms, /not Mac pairing|no Mac-pair product path|without a Mac-pair/i);
@@ -138,7 +148,16 @@ test("builds the public Continuity VPS landing page", async () => {
   assert.match(page, /id="pricing"/);
   assert.match(page, /data-testid="sleep-vs-vps"/);
   assert.match(page, /When the machine sleeps, the agent dies/);
-  assert.match(page, /Your agent keeps running when the machine sleeps/);
+  assert.match(page, /Your coding agent dies when the laptop sleeps/);
+  assert.match(page, /It keeps running on a fenced VPS/);
+  assert.match(page, /data-testid="qualifier"/);
+  assert.match(page, /cancel anytime/);
+  assert.match(page, /14 days free/);
+  assert.match(page, /Start Continuity — \$10\/mo, 14 days free, cancel anytime/);
+  assert.match(page, /LandingPricingCtaTeam/);
+  assert.match(page, /data-testid="price-card-free"/);
+  assert.match(page, /data-testid="price-card-team"/);
+  assert.doesNotMatch(page, /scope="row">Mac pair required/);
   assert.doesNotMatch(page, /Agent work on afenced/);
   assert.doesNotMatch(page, /AI expert/);
   assert.doesNotMatch(page, /more providers activate once configured/);
@@ -149,11 +168,11 @@ test("builds the public Continuity VPS landing page", async () => {
   assert.match(page, /Surprise egress \/ idle fees/);
   assert.match(page, /from \"@\/lib\/continuity-pricing\"/);
   assert.match(page, /CONTINUITY_PRICE_TIERS/);
-  assert.match(page, /CONTINUITY_EXECUTION_MODES/);
+  assert.doesNotMatch(page, /CONTINUITY_EXECUTION_MODES/);
   assert.match(page, /CONTINUITY_ZERO_EGRESS/);
-  assert.match(page, /data-testid="continuity-execution-modes"/);
+  assert.doesNotMatch(page, /data-testid="continuity-execution-modes"/);
   assert.match(page, /data-testid="continuity-zero-egress"/);
-  assert.match(page, /data-mode=\{mode\.id\}/);
+  assert.doesNotMatch(page, /data-mode=\{mode\.id\}/);
   assert.match(robots, /disallow: \["\/dashboard", "\/admin", "\/api\/"\]/);
   assert.match(robots, /https:\/\/thumbgate\.app\/sitemap\.xml/);
   assert.match(page, /href="\/privacy"/);
@@ -171,6 +190,16 @@ test("builds the public Continuity VPS landing page", async () => {
   assert.doesNotMatch(`${layout}\n${robots}\n${sitemap}\n${llms}`, /Igor|Ganapolsky/i);
   assert.doesNotMatch(page, /codex-preview|react-loading-skeleton/);
   assert.doesNotMatch(`${layout}\n${robots}\n${sitemap}\n${llms}`, /https:\/\/leash\.dev/);
+  const health = await readFile(new URL("../app/api/health/route.ts", import.meta.url), "utf8");
+  assert.match(health, /thumbgate-continuity/);
+  assert.doesNotMatch(health, /leash-control/);
+  assert.doesNotMatch(health, /usersTotal|paidOrganizationsTotal|users_total|paid_organizations_total/);
+  const expertisePage = await readFile(new URL("../app/expertise/page.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(expertisePage, /Named-author engineering case studies/);
+  assert.doesNotMatch(expertisePage, /running Hermes Agents in production/);
+  const expertiseClient = await readFile(new URL("../app/expertise/ExpertiseClient.tsx", import.meta.url), "utf8");
+  assert.match(expertiseClient, /No stranger case studies|we do not invent customer stories/i);
+  assert.doesNotMatch(expertiseClient, /Running Hermes Agents in production/);
 });
 
 test("keeps secrets server-side, redirects mutable, and device requests signed", async () => {

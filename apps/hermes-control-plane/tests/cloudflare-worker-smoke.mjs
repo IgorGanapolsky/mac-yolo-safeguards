@@ -126,7 +126,7 @@ try {
   const html = await landing.text();
   assert.equal(landing.status, 200);
   assert.match(html, /ThumbGate/);
-  assert.match(html, /by ThumbGate/);
+  assert.match(html, /cancel anytime/);
   // Continuity marketed as fenced VPS (not Mac-pair / old "Autonomous Cloud AI Agents" hero).
   assert.match(html, /fenced Continuity VPS|Fenced VPS|fenced cloud VPS/i);
   assert.match(html, /LLM-as-a-Judge/i);
@@ -172,7 +172,7 @@ try {
   assert.equal(health.headers.get("strict-transport-security"), "max-age=63072000; includeSubDomains; preload");
   const healthPayload = await health.json();
   assert.equal(healthPayload.ok, true);
-  assert.equal(healthPayload.service, "leash-control");
+  assert.equal(healthPayload.service, "thumbgate-continuity");
   assert.equal(healthPayload.database, "available");
   assert.equal(healthPayload.schema, "current");
   assert.equal(typeof healthPayload.checkedAt, "number");
@@ -186,8 +186,6 @@ try {
   });
   assert.equal(healthPayload.concerns.length, 4);
   assert.deepEqual(healthPayload.telemetry, {
-    usersTotal: 0,
-    organizationsTotal: 0,
     activeSessions: 0,
     activeDevices: 0,
     deviceHeartbeatLatestAt: null,
@@ -206,8 +204,10 @@ try {
     portalCreatedLast24h: 0,
     portalFailedLast24h: 0,
     billingEventsLast24h: 0,
-    paidOrganizationsTotal: 0,
   });
+  assert.equal(healthPayload.telemetry.usersTotal, undefined);
+  assert.equal(healthPayload.telemetry.paidOrganizationsTotal, undefined);
+  assert.equal(healthPayload.telemetry.organizationsTotal, undefined);
 
   const funnel = await fetch(`http://127.0.0.1:${port}/api/analytics/event`, {
     method: "POST",
