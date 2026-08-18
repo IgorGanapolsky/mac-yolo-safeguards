@@ -6,7 +6,8 @@ Dated entries from the autonomous OSS-engagement routine (Thinking Machines Lab 
 
 ## 2026-08-18 — tinker-cookbook#896 fixed + parked (no fork exists, patch route); poolside#38 answer drafted; LanceDB#2900 fix in progress
 
-First run since 08-13 (5-day gap). Cross-owner wall re-tested silently per
+`main`'s merged log last shows 08-13, but two coordination PRs from 2026-08-17 (`#1768`, `#1778`)
+are still open/unmerged with real work in them — see the #3950 correction below. Cross-owner wall re-tested silently per
 `docs/agents/anti-babysitting.md` — unchanged: `add_repo` cross-tier refusal on
 `thinking-machines-lab/tinker-cookbook` and `poolsideai/pool`; `mcp__github__fork_repository`,
 `list_issues`, `get_file_contents`, `add_issue_comment`, and `pull_request_read` all denied
@@ -91,11 +92,12 @@ link, or a note if verification fails and the fix is dropped, per the no-fabrica
 rule. `#3915` (the already-parked pagination fix from 08-11/08-12/08-13) re-checked: still open,
 unclaimed, unchanged — not re-touched.
 
-Also noted for a future run: `#3950` (`lancedb-compat` version lookup uses the wrong dist name,
-opened 2026-08-16, no PR, reporter already verified a fix locally) — fresher and simpler than
-#2900, deliberately not started this run to avoid splitting effort across two LanceDB fixes in
-one sitting; a strong first candidate for next time. `#3951` (no macOS x86_64 wheels) is a
-packaging/CI issue, not a code PR — skipped.
+**Correction while writing this entry:** initially flagged `#3950` as an unstarted candidate for
+"next run" — wrong. `main`'s merged log only goes up to 08-13 because two coordination PRs from
+2026-08-17 (`#1768`, `#1778`) are still open/unmerged; `#1768` already fixed and parked #3950
+(`IgorGanapolsky/lancedb@fix/compat-dist-version-lookup`, verified via a real installed-wheel
+repro, before/after). `git ls-remote` against the fork confirms the branch exists untouched.
+Not redone here. `#3951` (no macOS x86_64 wheels) is a packaging/CI issue, not a code PR — skipped.
 
 ### Deliberately skipped
 
