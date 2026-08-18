@@ -1,0 +1,272 @@
+diff --git a/desktop/src-tauri/src/commands/personas/inbound.rs b/desktop/src-tauri/src/commands/personas/inbound.rs
+index cbb2314..a716459 100644
+--- a/desktop/src-tauri/src/commands/personas/inbound.rs
++++ b/desktop/src-tauri/src/commands/personas/inbound.rs
+@@ -117,6 +117,12 @@ fn reconcile_inbound_persona_event_blocking(
+     if let Some(managed_agent) = &inbound_managed_agent {
+         validate_inbound_managed_agent_definition(managed_agent)?;
+     }
++    let inbound_team = (kind == KIND_TEAM)
++        .then(|| team_content_from_event(&event))
++        .transpose()?;
++    if let Some(team) = &inbound_team {
++        validate_inbound_team_definition(team)?;
++    }
+     let d_tag = match &inbound_persona {
+         Some(persona) => persona_d_tag(persona),
+         None => event_d_tag(&event)?,
+@@ -168,7 +174,11 @@ fn reconcile_inbound_persona_event_blocking(
+         }
+         KIND_TEAM => {
+             let mut teams = load_teams(&app)?;
+-            apply_inbound_team(&mut teams, d_tag, team_content_from_event(&event)?);
++            apply_inbound_team(
++                &mut teams,
++                d_tag,
++                inbound_team.expect("team parsed and validated above"),
++            );
+             save_teams(&app, &teams)?;
+         }
+         KIND_MANAGED_AGENT => {
+@@ -209,6 +219,21 @@ fn validate_inbound_managed_agent_definition(
+     .map_err(|error| format!("Inbound managed-agent definition is unsafe: {error}"))
+ }
+ 
++/// Team instructions are shared and executed at launch exactly like a
++/// persona's `system_prompt` — this is the inbound-boundary half of #5734's
++/// fix, mirroring `validate_inbound_persona_definition` and
++/// `validate_inbound_managed_agent_definition` above so a hostile or
++/// corrupted kind:30176 event can no longer land unvalidated instructions in
++/// the local store via relay sync.
++fn validate_inbound_team_definition(team: &TeamEventContent) -> Result<(), String> {
++    // `instructions: None` means "publisher predates always-publish" (see
++    // `TeamEventContent` doc comment) and carries no text to validate;
++    // `Some(None)` is an explicit clear, also nothing to validate.
++    let instructions = team.instructions.clone().flatten();
++    crate::managed_agents::validate_team_definition_text(&team.name, instructions.as_deref())
++        .map_err(|error| format!("Inbound team definition is unsafe: {error}"))
++}
++
+ /// Parse an inbound wire event and enforce the signature gate. Everything
+ /// downstream trusts `event.pubkey` (ownership routing, tombstone scoping,
+ /// behavioral-quad application), so a forged pubkey must die here — the
+diff --git a/desktop/src-tauri/src/commands/personas/inbound/inbound_tests.rs b/desktop/src-tauri/src/commands/personas/inbound/inbound_tests.rs
+index e65973f..672abf6 100644
+--- a/desktop/src-tauri/src/commands/personas/inbound/inbound_tests.rs
++++ b/desktop/src-tauri/src/commands/personas/inbound/inbound_tests.rs
+@@ -733,3 +733,53 @@ fn inbound_definition_less_agent_accepts_visible_multiline_prompt() {
+ 
+     assert!(validate_inbound_managed_agent_definition(&inbound).is_ok());
+ }
++
++fn inbound_team_content(name: &str, instructions: Option<Option<&str>>) -> TeamEventContent {
++    TeamEventContent {
++        name: name.to_string(),
++        description: None,
++        instructions: instructions.map(|inner| inner.map(str::to_string)),
++        persona_ids: Some(vec![]),
++    }
++}
++
++#[test]
++fn inbound_team_rejects_invisible_instructions() {
++    let inbound = inbound_team_content("Release Team", Some(Some("Deploy\u{200B} now.")));
++
++    let error = validate_inbound_team_definition(&inbound)
++        .expect_err("relay sync must reject invisible team instructions (#5734)");
++
++    assert!(error.contains("U+200B"));
++}
++
++#[test]
++fn inbound_team_rejects_bidirectional_override_in_name() {
++    let inbound = inbound_team_content("Release\u{202E} Team", None);
++
++    let error = validate_inbound_team_definition(&inbound)
++        .expect_err("relay sync must reject bidirectional team names (#5734)");
++
++    assert!(error.contains("U+202E"));
++}
++
++#[test]
++fn inbound_team_accepts_visible_multiline_instructions() {
++    let inbound = inbound_team_content(
++        "Release Team",
++        Some(Some("Coordinate the release.\n\tVerify before deploy.")),
++    );
++
++    assert!(validate_inbound_team_definition(&inbound).is_ok());
++}
++
++#[test]
++fn inbound_team_accepts_absent_and_cleared_instructions() {
++    // `None` = publisher predates always-publish; `Some(None)` = explicitly
++    // cleared. Neither carries text to validate.
++    assert!(validate_inbound_team_definition(&inbound_team_content("Release Team", None)).is_ok());
++    assert!(
++        validate_inbound_team_definition(&inbound_team_content("Release Team", Some(None)))
++            .is_ok()
++    );
++}
+diff --git a/desktop/src-tauri/src/commands/teams.rs b/desktop/src-tauri/src/commands/teams.rs
+index 4377dda..706ade2 100644
+--- a/desktop/src-tauri/src/commands/teams.rs
++++ b/desktop/src-tauri/src/commands/teams.rs
+@@ -5,7 +5,8 @@ use crate::{
+     app_state::AppState,
+     managed_agents::{
+         delete_team_with_cascade, ensure_persona_ids_are_active, load_personas, load_teams,
+-        save_teams, try_regenerate_nest, CreateTeamRequest, TeamRecord, UpdateTeamRequest,
++        save_teams, try_regenerate_nest, validate_team_definition_text, CreateTeamRequest,
++        TeamRecord, UpdateTeamRequest,
+     },
+     util::now_iso,
+ };
+@@ -148,6 +149,7 @@ pub async fn create_team(input: CreateTeamRequest, app: AppHandle) -> Result<Tea
+         let name = trim_required(&input.name, "Team name")?;
+         let description = trim_optional(input.description);
+         let instructions = trim_optional(input.instructions);
++        validate_team_definition_text(&name, instructions.as_deref())?;
+         let now = now_iso();
+ 
+         let _store_guard = state
+@@ -189,6 +191,7 @@ pub async fn update_team(input: UpdateTeamRequest, app: AppHandle) -> Result<Tea
+         let name = trim_required(&input.name, "Team name")?;
+         let description = trim_optional(input.description);
+         let instructions = trim_optional(input.instructions);
++        validate_team_definition_text(&name, instructions.as_deref())?;
+ 
+         let _store_guard = state
+             .managed_agents_store_lock
+diff --git a/desktop/src-tauri/src/managed_agents/definition_validation.rs b/desktop/src-tauri/src/managed_agents/definition_validation.rs
+index 9244560..4469749 100644
+--- a/desktop/src-tauri/src/managed_agents/definition_validation.rs
++++ b/desktop/src-tauri/src/managed_agents/definition_validation.rs
+@@ -60,6 +60,21 @@ pub(crate) fn validate_managed_agent_definition_text(
+     validate_agent_definition_text(name, executable_prompt)
+ }
+ 
++/// Validate a team's human-reviewed name and instructions text.
++///
++/// Team instructions are shared and executed at launch exactly like a
++/// persona's `system_prompt` (#5734) but were never routed through this
++/// module — teams got their own ad hoc `trim`-only checks instead. This
++/// reuses [`validate_agent_definition_text`] rather than re-implementing the
++/// same invisible-character/length rules a second time, so team and
++/// agent/persona definitions can't drift out of sync again.
++pub(crate) fn validate_team_definition_text(
++    name: &str,
++    instructions: Option<&str>,
++) -> Result<(), String> {
++    validate_agent_definition_text(name, instructions.unwrap_or_default())
++}
++
+ fn validate_visible_text(
+     value: &str,
+     label: &str,
+@@ -258,6 +273,34 @@ mod tests {
+         .is_ok());
+     }
+ 
++    #[test]
++    fn team_definition_accepts_plain_name_and_instructions() {
++        assert!(validate_team_definition_text(
++            "Release Team 🐝",
++            Some("Coordinate the release.\n\tVerify before deploy."),
++        )
++        .is_ok());
++    }
++
++    #[test]
++    fn team_definition_accepts_absent_instructions() {
++        assert!(validate_team_definition_text("Release Team", None).is_ok());
++    }
++
++    #[test]
++    fn team_definition_rejects_invisible_characters_in_instructions() {
++        let error = validate_team_definition_text("Release Team", Some("Deploy\u{200B} now."))
++            .expect_err("hidden zero-width space must be rejected");
++        assert!(error.contains("U+200B"));
++    }
++
++    #[test]
++    fn team_definition_rejects_bidirectional_override_in_name() {
++        let error = validate_team_definition_text("Release\u{202E} Team", None)
++            .expect_err("bidirectional override in team name must be rejected");
++        assert!(error.contains("U+202E"));
++    }
++
+     #[test]
+     fn definition_linked_managed_agent_ignores_inert_record_prompt() {
+         assert!(validate_managed_agent_definition_text(
+diff --git a/desktop/src-tauri/src/managed_agents/mod.rs b/desktop/src-tauri/src/managed_agents/mod.rs
+index c6ccd37..489d976 100644
+--- a/desktop/src-tauri/src/managed_agents/mod.rs
++++ b/desktop/src-tauri/src/managed_agents/mod.rs
+@@ -54,6 +54,7 @@ pub(crate) fn lock_path_mutex() -> std::sync::MutexGuard<'static, ()> {
+ pub use backend::*;
+ pub(crate) use definition_validation::{
+     validate_agent_definition_text, validate_managed_agent_definition_text,
++    validate_team_definition_text,
+ };
+ pub use discovery::*;
+ pub use env_vars::*;
+diff --git a/desktop/src-tauri/src/managed_agents/team_snapshot.rs b/desktop/src-tauri/src/managed_agents/team_snapshot.rs
+index 96082ac..904e9bf 100644
+--- a/desktop/src-tauri/src/managed_agents/team_snapshot.rs
++++ b/desktop/src-tauri/src/managed_agents/team_snapshot.rs
+@@ -40,7 +40,7 @@ use std::io::Cursor;
+ 
+ use crate::managed_agents::{
+     agent_snapshot::{make_png_with_text, validate_snapshot, AgentSnapshot, MemoryLevel},
+-    TeamRecord,
++    validate_team_definition_text, TeamRecord,
+ };
+ 
+ // ── Constants ─────────────────────────────────────────────────────────────────
+@@ -209,6 +209,12 @@ pub(crate) fn validate_team_snapshot(snapshot: &TeamSnapshot) -> Result<(), Stri
+     if snapshot.team.name.trim().is_empty() {
+         return Err("Team snapshot team.name is empty".to_string());
+     }
++    // Member `system_prompt`s are covered by `validate_snapshot` below, but
++    // the team-level name/instructions header (#5734) was never routed
++    // through the same invisible-character checks a shared/imported snapshot
++    // needs before it's previewed or confirmed.
++    validate_team_definition_text(&snapshot.team.name, snapshot.team.instructions.as_deref())
++        .map_err(|e| format!("Team snapshot header is unsafe: {e}"))?;
+     if snapshot.members.is_empty() {
+         return Err("Team snapshot must have at least one member".to_string());
+     }
+@@ -426,6 +432,32 @@ mod tests {
+         assert!(result.unwrap_err().contains("team.name is empty"));
+     }
+ 
++    #[test]
++    fn validate_rejects_invisible_characters_in_team_instructions() {
++        let mut snapshot = two_member_team();
++        snapshot.team.instructions = Some("Deploy\u{200B} now.".to_string());
++        let bytes = serde_json::to_vec(&snapshot).unwrap();
++        let result = decode_team_snapshot_json(&bytes);
++        assert!(
++            result.is_err(),
++            "imported snapshot must reject hidden characters in team instructions (#5734)"
++        );
++        assert!(result.unwrap_err().contains("U+200B"));
++    }
++
++    #[test]
++    fn validate_rejects_bidirectional_override_in_team_name() {
++        let mut snapshot = two_member_team();
++        snapshot.team.name = "My\u{202E} Team".to_string();
++        let bytes = serde_json::to_vec(&snapshot).unwrap();
++        let result = decode_team_snapshot_json(&bytes);
++        assert!(
++            result.is_err(),
++            "imported snapshot must reject bidirectional overrides in team name (#5734)"
++        );
++        assert!(result.unwrap_err().contains("U+202E"));
++    }
++
+     #[test]
+     fn validate_rejects_zero_members() {
+         let alice = build_snapshot(&agent_record("Alice"), MemoryLevel::None, vec![], None);
