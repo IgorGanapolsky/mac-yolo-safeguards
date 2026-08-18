@@ -50,24 +50,24 @@ PAST="$ROOT/past.err";   printf 'reset at 2026-07-01 10:00:00\n' > "$PAST"
 FUTURE="$ROOT/fut.err";  printf 'reset at 2099-01-01 00:00:00\n' > "$FUTURE"
 NONE="$ROOT/none.err";   : > "$NONE"
 
-# 1. primary serving itself => nothing to do, never restarts
+# 1. glm-coding serving itself is NOT healthy — switch to SuperGrok now
 echo "glm-coding" > "$SERVED_FILE"
-run "$PAST" "$ROOT/s1" | grep -q "OK:" && ok "primary healthy -> no action" || no "primary healthy -> no action"
+run "$PAST" "$ROOT/s1" | grep -q "would switch primary" && ok "glm serving -> switch now" || no "glm serving -> switch now"
 
-# 2. fell back, reset still in the future => wait (upstream is legitimately out)
+# 2. fell back, reset still in the future => ACT now (do not sit idle until Aug 22)
 echo "nemotron3-free" > "$SERVED_FILE"
-run "$FUTURE" "$ROOT/s2" | grep -q "waiting" && ok "fallback + reset in future -> waits" || no "fallback + reset in future -> waits"
+run "$FUTURE" "$ROOT/s2" | grep -q "would switch primary" && ok "fallback + reset in future -> switch now" || no "fallback + reset in future -> switch now"
 
-# 3. fell back, reset passed, no recent restart => acts
+# 3. glm primary + fallback, reset passed => switch now (not wait, not idle restart-only)
 out="$(run "$PAST" "$ROOT/s3")"
-echo "$out" | grep -q "DRY-RUN: would restart" && ok "fallback + reset passed -> would restart" || no "fallback + reset passed -> would restart ($out)"
+echo "$out" | grep -qE "DRY-RUN: would switch primary|DRY-RUN: would restart" && ok "fallback + reset passed -> would act" || no "fallback + reset passed -> would act ($out)"
 
 # 4. fell back, reset passed, but restarted moments ago => cooldown, no thrash
 date '+%s' > "$ROOT/s4"
 run "$PAST" "$ROOT/s4" | grep -q "cooling down" && ok "recent restart -> cooldown, no thrash" || no "recent restart -> cooldown"
 
-# 5. fell back but upstream never told us a reset time => must not invent a window
-run "$NONE" "$ROOT/s5" | grep -q "not guessing" && ok "no reset time -> refuses to guess" || no "no reset time -> refuses to guess"
+# 5. glm primary + fallback and no reset stamp => still leave glm (do not invent a wait window)
+run "$NONE" "$ROOT/s5" | grep -q "would switch primary" && ok "glm primary + no reset stamp -> switch now" || no "glm primary + no reset stamp -> switch now"
 
 # 6. gateway unreachable/erroring => cannot determine, must not restart on noise
 echo "__FAIL__" > "$SERVED_FILE"

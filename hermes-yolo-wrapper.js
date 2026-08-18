@@ -579,44 +579,60 @@ function chooseLocalModel(availableModels = listOllamaModels(), env = process.en
   return weak.find((model) => availableModels.includes(model)) || 'qwen3:8b-64k';
 }
 
+function isGlmCodingModel(model) {
+  return /^(glm-coding|glm-5\.2|glm-5\.3|glm-5|glm-47|glm-4\.7|glm-turbo|z-ai\/glm)/i.test(String(model || '').trim());
+}
+
+function allowExplicitGlm(env = {}) {
+  return env.HERMES_ALLOW_GLM === '1' && String(env.HERMES_YOLO_MODEL || '').trim() === 'glm-coding';
+}
+
+function grokUnavailable(env = {}, options = {}) {
+  if (env.HERMES_YOLO_FORCE_HERMES === '1') return true;
+  if (env.HERMES_PREFER_SUPERGROK === '0') return true;
+  if (options.grokReady === false) return true;
+  return false;
+}
+
+function defaultCodingRoute(env = {}, options = {}) {
+  // SuperGrok regular plan (not Cursor/Grok on-demand). DeepSeek if grok is unavailable.
+  const model = grokUnavailable(env, options) ? 'deepseek-v4-flash' : 'grok-4.5';
+  return {
+    provider: /^grok/i.test(model) ? 'grok-yolo' : 'custom:litellm-gateway',
+    model,
+  };
+}
+
 function defaultModelRoute(env = process.env, options = {}) {
   if (env.HERMES_YOLO_PROVIDER || env.HERMES_YOLO_MODEL) {
     const model = env.HERMES_YOLO_MODEL || chooseLocalModel(options.availableModels, env);
-    // Capability is enforced at spawn (assertAgentCapableModel), not here —
-    // so module load never crashes when a weak model is set in the environment.
-    return {
-      provider: env.HERMES_YOLO_PROVIDER || 'custom:litellm-gateway',
-      model,
-    };
+    // NEVER select glm-coding unless ALLOW_GLM=1 AND the operator pinned glm-coding.
+    if (!isGlmCodingModel(model) || allowExplicitGlm(env)) {
+      return {
+        provider: env.HERMES_YOLO_PROVIDER || (/^grok/i.test(model) ? 'grok-yolo' : 'custom:litellm-gateway'),
+        model,
+      };
+    }
   }
 
-  // Explicit model.default in ~/.hermes/config.yaml outranks key-presence heuristics.
-  // 2026-08-03: z.ai key still present but weekly quota exhausted — operator set
-  // default deepseek-v4-flash; hasZaiKey() alone must not pin every launch back to glm.
+  // Explicit model.default in ~/.hermes/config.yaml outranks key-presence heuristics,
+  // but a stale glm pin is ignored unless ALLOW_GLM + HERMES_YOLO_MODEL=glm-coding.
   const configuredDefault = options.configuredDefault !== undefined
     ? options.configuredDefault
     : configuredDefaultModel(options.configPath || HERMES_CONFIG_PATH);
   if (configuredDefault && configuredDefault.model) {
-    return {
-      provider: configuredDefault.provider || 'custom:litellm-gateway',
-      model: configuredDefault.model,
-    };
+    if (!isGlmCodingModel(configuredDefault.model) || allowExplicitGlm(env)) {
+      return {
+        provider: configuredDefault.provider || 'custom:litellm-gateway',
+        model: configuredDefault.model,
+      };
+    }
   }
 
-  // Fleet default (legacy hermes path only): LiteLLM gateway with agent-class model.
-  // Prefer glm-coding over raw glm-5.2 alias when no config override.
-  if (hasZaiKey(env) || env.HERMES_YOLO_USE_GATEWAY === '1' || env.HERMES_LITELLM_URL) {
-    return {
-      provider: 'custom:litellm-gateway',
-      model: 'glm-coding',
-    };
-  }
-
-  if (hasOpenRouterKey(env)) {
-    return {
-      provider: 'custom:litellm-gateway',
-      model: 'glm-coding',
-    };
+  // Keys / gateway prove a remote path exists. They must NEVER pin glm-coding.
+  // Default coding model is SuperGrok; DeepSeek if grok is unavailable.
+  if (hasZaiKey(env) || hasOpenRouterKey(env) || env.HERMES_YOLO_USE_GATEWAY === '1' || env.HERMES_LITELLM_URL) {
+    return defaultCodingRoute(env, options);
   }
 
   const local = chooseLocalModel(options.availableModels, env);
@@ -1760,6 +1776,10 @@ process.on('exit', releaseLock);
 module.exports = {
   buildChildPromptArgs,
   defaultModelRoute,
+  defaultCodingRoute,
+  isGlmCodingModel,
+  allowExplicitGlm,
+  grokUnavailable,
   chooseLocalModel,
   chooseZaiProvider,
   configuredProviderIds,

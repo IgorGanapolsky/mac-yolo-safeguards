@@ -7,6 +7,13 @@ const {
   ROUTES,
   commandEnv,
 } = require('../tools/hermes-yolo-route-policy.js');
+const {
+  isZaiWeeklyQuotaError,
+  composerPolicyForError,
+  applyQuotaFailover,
+  shouldDropDeadGlm,
+  UPSTREAM_QUOTA_RETRY_MESSAGE,
+} = require('../tools/inference-eng/degradation');
 
 const CLEAN = Object.freeze({
   HERMES_PREFER_SUPERGROK: '1',
@@ -121,6 +128,35 @@ function testPolicyVersionConsistent() {
   }
 }
 
+function testAllowGlmPlusExplicitStillPicksGlm() {
+  const r = selectRoute({
+    task: 'fix the auth bug',
+    env: {
+      ...CLEAN,
+      HERMES_ALLOW_GLM: '1',
+      HERMES_YOLO_MODEL: 'glm-coding',
+      HERMES_YOLO_PROVIDER: 'custom:litellm-gateway',
+    },
+  });
+  assert.strictEqual(r.model, 'glm-coding', r.reason);
+}
+
+function testZai429FailsOverNotComposerLock() {
+  const err = 'Weekly/Monthly Limit Exhausted. Your limit will reset at 2026-08-22 21:07:02';
+  assert.strictEqual(shouldDropDeadGlm({}), true);
+  assert.strictEqual(isZaiWeeklyQuotaError(err), true);
+  assert.strictEqual(isZaiWeeklyQuotaError('429 code 1310 from z.ai'), true);
+  const policy = composerPolicyForError(err);
+  assert.strictEqual(policy.lockComposer, false, 'composer must stay typable');
+  assert.strictEqual(policy.retry, true);
+  assert.strictEqual(policy.display, UPSTREAM_QUOTA_RETRY_MESSAGE);
+  assert.deepStrictEqual(policy.failover, ['grok-4.5', 'deepseek-v4-flash']);
+  const chain = applyQuotaFailover(['glm-coding', 'kimi-code'], err, {});
+  assert.strictEqual(chain[0], 'grok-4.5');
+  assert.strictEqual(chain[1], 'deepseek-v4-flash');
+  assert.ok(!chain.includes('glm-coding'), '429 must demote glm immediately');
+}
+
 function main() {
   testSmokeUsesFastNotGrok();
   testHardUsesGrok();
@@ -128,6 +164,8 @@ function main() {
   testDraftNotSuperGrok();
   testStaleGlmPinIgnored();
   testForceGlmPin();
+  testAllowGlmPlusExplicitStillPicksGlm();
+  testZai429FailsOverNotComposerLock();
   testLongContextUsesK3Membership();
   testCyberUsesGlmWhenPreferred();
   testCyberDoesNotStealDefaultCoding();

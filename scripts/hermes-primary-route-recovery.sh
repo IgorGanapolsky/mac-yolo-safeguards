@@ -1,38 +1,62 @@
 #!/usr/bin/env bash
 # hermes-primary-route-recovery - bring the gateway's PRIMARY model route back after an
-# upstream quota window closes, instead of sitting on a fallback model for days.
+# upstream quota window, instead of sitting on a fallback model for days.
 #
-# The failure this exists for (observed 2026-07-27):
+# The failure this exists for (observed 2026-07-27 and again 2026-08-17):
 #   z.ai returned `429 code 1310 "Weekly/Monthly Limit Exhausted. Your limit will reset
-#   at 2026-08-01 21:07:02"`. LiteLLM cooled the deployment down and every request for
-#   `glm-coding` silently began answering as `nvidia/nemotron-3-ultra-550b-a55b:free`.
-#   Nothing surfaced it; agents just got quietly worse. LiteLLM's cooldown is in-memory,
-#   so a proxy restart clears it — but only if somebody notices and restarts.
+#   at 2026-08-22 21:07:02"`. Waiting until that timestamp left Hermes Web dead for days.
+#   That is glm-coding quota, not the $10 Pro VPS cap. Act now: switch primary to
+#   SuperGrok / grok-4.5, then deepseek-v4-flash. Never sit idle until the reset.
 #
-# Rather than hardcode a reset date (brittle) this reads the reset timestamp the proxy
-# itself logged, and only restarts once that moment has actually passed. Before then it
-# does nothing, so it never thrashes a proxy whose upstream is still legitimately out.
-#
-#   hermes-primary-route-recovery.sh            check, and restart if warranted
+#   hermes-primary-route-recovery.sh            check, and switch/restart if warranted
 #   hermes-primary-route-recovery.sh --dry-run  report the decision, change nothing
 #
 # Exit: 0 no action needed / 0 acted / 1 could not determine (never fails the caller).
 set -euo pipefail
 
 GATEWAY="${HERMES_GATEWAY_URL:-http://127.0.0.1:4010/v1}"
-# 2026-08-05: z.ai coding plan empty-completions; SuperGrok is coding primary via hermes-yolo.
 # Gateway recovery default is free agent-capable DeepSeek, not dead glm-coding.
 PRIMARY="${HERMES_PRIMARY_MODEL:-deepseek-v4-flash}"
+GROK_MODEL="${HERMES_RECOVERY_GROK_MODEL:-grok-4.5}"
+FLASH_MODEL="${HERMES_RECOVERY_FLASH_MODEL:-deepseek-v4-flash}"
 API_KEY="${HERMES_GATEWAY_KEY:-hermes-local-gateway}"
 ERRLOG="${HERMES_LITELLM_ERRLOG:-$HOME/.hermes/litellm-logs/proxy.err.log}"
 SERVICE="${HERMES_LITELLM_SERVICE:-com.igor.hermes-litellm}"
 STATE="${HERMES_ROUTE_RECOVERY_STATE:-$HOME/.hermes/route-recovery-last}"
 LOG="${HERMES_ROUTE_RECOVERY_LOG:-$HOME/Library/Logs/hermes-primary-route-recovery.log}"
 COOLDOWN="${HERMES_ROUTE_RECOVERY_COOLDOWN:-21600}"   # 6h between restart attempts
+ENV_FILE="${HERMES_ENV_PATH:-$HOME/.hermes/.env}"
 DRY_RUN="${1:-}"
 
 mkdir -p "$(dirname "$LOG")" 2>/dev/null || true
 log() { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1" | tee -a "$LOG" >&2; }
+
+is_glm() {
+  local name="${1:-}"
+  [[ "$name" == glm-coding || "$name" == glm-5* || "$name" == *glm* ]]
+}
+
+healthy_coding_model() {
+  local name="${1:-}"
+  [[ "$name" == "$GROK_MODEL" || "$name" == "$FLASH_MODEL" || "$name" == grok-4.5 || "$name" == deepseek-v4-flash ]]
+}
+
+pin_coding_models() {
+  local target="$1"
+  local file="$ENV_FILE"
+  mkdir -p "$(dirname "$file")" 2>/dev/null || true
+  touch "$file"
+  local tmp
+  tmp="$(mktemp)"
+  # Rewrite only model pins. Never echo or copy secret values.
+  grep -vE '^(HERMES_PRIMARY_MODEL|HERMES_YOLO_MODEL|HERMES_ALLOW_GLM)=' "$file" > "$tmp" || true
+  {
+    cat "$tmp"
+    printf 'HERMES_PRIMARY_MODEL=%s\n' "$target"
+    printf 'HERMES_YOLO_MODEL=%s\n' "$GROK_MODEL"
+  } > "$file"
+  rm -f "$tmp"
+}
 
 # Which model does the gateway actually answer with? (1 token; the ID being listed in
 # /v1/models proves nothing — the fallback chain still answers as something else.)
@@ -66,10 +90,71 @@ reset_epoch() {
   date -d "$stamp" '+%s' 2>/dev/null || date --date="$stamp" '+%s' 2>/dev/null
 }
 
+switch_off_glm_now() {
+  local reason="$1"
+  local target="$GROK_MODEL"
+  if [[ "$PRIMARY" == "$GROK_MODEL" ]]; then
+    target="$FLASH_MODEL"
+  fi
+  last="$(cat "$STATE" 2>/dev/null || echo 0)"
+  [[ "$last" =~ ^[0-9]+$ ]] || last=0
+  now="$(date '+%s')"
+  if (( now - last < COOLDOWN )); then
+    log "ACT deferred: last switch was $(( (now - last) / 60 ))m ago — cooling down ($reason)"
+    exit 0
+  fi
+  if [[ "$DRY_RUN" == "--dry-run" ]]; then
+    log "DRY-RUN: would switch primary $PRIMARY -> $target (then $FLASH_MODEL) now — $reason"
+    exit 0
+  fi
+  log "ACTING: switching primary $PRIMARY -> $target now — $reason"
+  pin_coding_models "$target"
+  printf '%s\n' "$now" > "$STATE"
+  if launchctl kickstart -k "gui/$(id -u)/$SERVICE" >/dev/null 2>&1; then
+    sleep 12
+    after="$(serving_model || true)"
+    if healthy_coding_model "$after"; then
+      log "RECOVERED: serving ${after} after leaving glm quota"
+    else
+      log "STILL DEGRADED after switch: ${after:-unknown} — pinned $target / $GROK_MODEL"
+    fi
+  else
+    log "SWITCHED env pins to $target; could not kickstart $SERVICE"
+  fi
+}
+
 serving="$(serving_model || true)"
 if [[ -z "$serving" ]]; then
   log "UNKNOWN: gateway did not answer for $PRIMARY (down, or no capacity) — no action"
   exit 1
+fi
+
+reset_at=""
+if reset_at="$(reset_epoch)"; then
+  :
+else
+  reset_at=""
+fi
+now="$(date '+%s')"
+reset_in_future=0
+if [[ -n "$reset_at" ]] && (( now < reset_at )); then
+  reset_in_future=1
+fi
+
+# Dead glm as serving model, or a 429 reset still in the future: leave glm immediately.
+# Do not wait until Aug 22. SuperGrok regular plan, then DeepSeek.
+if is_glm "$serving" || is_glm "$PRIMARY" || (( reset_in_future == 1 )); then
+  if healthy_coding_model "$serving" && ! is_glm "$PRIMARY" && (( reset_in_future == 0 )); then
+    log "OK: $PRIMARY is serving itself — nothing to recover"
+    exit 0
+  fi
+  if is_glm "$serving" || is_glm "$PRIMARY"; then
+    switch_off_glm_now "serving/primary is glm-coding (z.ai weekly quota is not a product lock)"
+  fi
+  if (( reset_in_future == 1 )); then
+    reset_human="$(date -r "$reset_at" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || date -d "@$reset_at" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "$reset_at")"
+    switch_off_glm_now "upstream quota reset ${reset_human} is still in the future — failover now"
+  fi
 fi
 
 if [[ "$serving" == "$PRIMARY" ]]; then
@@ -77,16 +162,8 @@ if [[ "$serving" == "$PRIMARY" ]]; then
   exit 0
 fi
 
-if ! reset_at="$(reset_epoch)"; then
+if [[ -z "$reset_at" ]]; then
   log "FELL BACK: $PRIMARY -> $serving, but no upstream reset time logged — not guessing; no action"
-  exit 0
-fi
-
-now="$(date '+%s')"
-if (( now < reset_at )); then
-  # date -r is Darwin; GNU date uses -d @epoch
-  reset_human="$(date -r "$reset_at" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || date -d "@$reset_at" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "$reset_at")"
-  log "FELL BACK: $PRIMARY -> $serving; upstream quota resets ${reset_human} — waiting"
   exit 0
 fi
 
