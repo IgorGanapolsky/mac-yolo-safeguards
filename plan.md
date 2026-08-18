@@ -3045,3 +3045,24 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 - 2026-08-18T03:30:00Z `grok-pr-hygiene`: Merged #1736 (`8d66b8f8`); unblocked 8 stale-DIRTY PRs via worktree `merge --no-ff origin/main`; closed 5 superseded drafts; pruned 6 remote heads. Lesson: GitHub DIRTY can be stale vs merge-tree. Remaining ~60 open accounted (CI-wait / real conflicts). Evidence: `docs/agents/PR-HYGIENE-SESSION-2026-08-18.md`.
 - `tools/hermes-mobile-pair.js`, `tests/test-hermes-pair-lan-route.js` → **grok-pair-lan-alternates** (USB primary must still publish LAN/TS routes; Wi-Fi phone never gets 127.0.0.1) (2026-08-18)
 - 2026-08-13 hermes-yolo anti-gibberish: killed stale deepseek-v4-flash sessions (48x compression), quality-lock auto→hermes/glm-coding, strip free flash from inference chains, env pin HERMES_YOLO_BACKEND=hermes MODEL=glm-coding. PR agent/hermes-yolo-slop-fix-20260813.
+
+- 2026-08-18T17:05Z `grok-vellum-grok-bot-alt`: **T-VELLUM-GROK-BOT-ALT-20260818 claimed.** Vellum Assistant (vellum.ai Aug 2026) is a Grok Bot competitor. Implement Hermes-native alt: doctor/compare/identity/inventory/eval-gated promote; honest hybrid hosting (not ThumbGate, not official Vellum Cloud); research teardown. Isolated worktree. Do not touch PR #1808 control-plane copy.
+
+| T-VELLUM-GROK-BOT-ALT-20260818 | Hermes-native Vellum/Grok Bot alternative + Aug 2026 teardown | in_progress | grok-vellum-grok-bot-alt | `tools/vellum-grok-bot-alt.js`, `tools/vellum-hybrid-engine.js`, `tools/vellum-ai-engine.js`, `tests/test-vellum-*.js`, `bin/vellum-bot`, `bin/vellum-yolo`, `.agents/skills/vellum-*`, `docs/vault/Projects/Vellum-AI-Steals/`, `SKILLS.md` (append rows), `plan.md` | isolated worktree |
+
+### File claims (§2 append) 2026-08-18 grok-vellum-grok-bot-alt
+| File | Owner | Claimed |
+|------|-------|--------|
+| tools/vellum-grok-bot-alt.js | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
+| tools/vellum-hybrid-engine.js | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
+| tools/vellum-ai-engine.js | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
+| tests/test-vellum-grok-bot-alt.js | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
+| tests/test-vellum-hybrid-engine.js | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
+| tests/test-vellum-ai-engine.js | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
+| bin/vellum-bot | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
+| bin/vellum-yolo | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
+| .agents/skills/vellum-grok-bot-alt/** | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
+| .agents/skills/vellum-hybrid-engine/** | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
+| docs/vault/Projects/Vellum-AI-Steals/** | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
+| SKILLS.md (append rows only) | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
+| plan.md (append only) | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
