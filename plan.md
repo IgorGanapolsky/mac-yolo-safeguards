@@ -814,6 +814,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 | T-PROLO-ANDROID-PODCASTS-ONLY-20260815 | Fix ring double-tap+hold macro: open YouTube Music podcasts on the ANDROID phone (never Mac Apple Music), rewire legacy Mac launcher, stage F13 phone-native binding, add Android-only regression test | in_progress | jcode-prolo-android-podcasts-20260815 | `tools/prolo-play-latest-podcasts.sh`, `tools/prolo-podcast-macro.js`, `tests/test-prolo-android-podcasts-only.js`, `scripts/verify.sh`, `.agents/skills/prolo-ring-moodstrip/SKILL.md`, `plan.md` | 16/16 Android-only regression green; pattern gate clean on touched files; F13 staged in profile draft; remaining: wearer Flash-to-Ring + APK install when phone on adb |
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
+- `tools/anti-babysitting-next.js`, `tests/test-anti-babysitting-next.js`, `tests/fixtures/anti-babysitting-next.json`, `bin/anti-babysitting-next`, `.agents/skills/anti-babysitting-mandate/**`, `SKILLS.md` (append row), `plan.md` → **grok-anti-babysitting-mandate-20260818** (T-ANTI-BABYSITTING-MANDATE-20260818 / AGENT-409: residual-next lint; no auto-merge-all; no sibling steal) (2026-08-18T19:10:00Z)
 - `tools/jcode-yolo-wrapper.js`, `tests/test-jcode-intelligent-routing.js`, `tests/test-jcode-yolo-wrapper.js`, `plan.md` → **grok-jcode-yolo-sol-unstick-20260815** (T-JCODE-YOLO-SOL-UNSTICK-20260815: unstick GPT Sol; intelligent multi-model route + inherited-openai quarantine) (2026-08-15T14:05:00Z)
 - `tools/rubrik-mythos-triage-harness.js`, `tests/test-rubrik-mythos-triage.js`, `tests/fixtures/rubrik-mythos/`, `bin/rubrik-triage`, `.agents/skills/rubrik-mythos-triage/SKILL.md`, `.gitleaks.toml` (one TESTONLY allowlist line), `plan.md` → **grok-rubrik-mythos-roi-20260815** (T-RUBRIK-MYTHOS-ROI-20260815: Mythos high-ROI steal — checkpoints, trust boundaries, what-not-to-automate) (2026-08-15T14:20:00Z)
 - `tools/zai-glm53-systemwide.js`, `tests/test-zai-glm53-systemwide.js`, `tools/hermes-yolo-route-policy.js` (cyber signal + HERMES_PREFER_GLM53_CYBER branch only), `tests/test-hermes-yolo-route-policy.js` (two cyber cases), `bin/zai-glm53`, `plan.md` → **grok-glm53-fleet** (T-ZAI-GLM53-SYSTEMWIDE-20260815: persist $10 cap + cyber Coding Plan across launchd/zsh/OpenCode; does not steal SuperGrok default or rubrik-mythos-triage) (2026-08-15T16:10:00Z)
@@ -3069,3 +3070,18 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 - 2026-08-18T18:45Z `grok-buildkite-first-fail`: Remaining high-ROI (no vendor migrate, no auto-quarantine): live `--pr` loads job steps via `gh run view --json jobs`; required-name prefix match so Maestro stranger SKIPPED is present not missing; first TAP test from annotations; githubstatus JSON when required absent; dedicated `Intent contract` workflow. Did not copy sibling Test Engine that quarantines on first fail.
 
 | `.github/workflows/intent-check.yml` | grok-buildkite-first-fail-20260818 | 2026-08-18T18:45:00Z |
+
+| T-ANTI-BABYSITTING-MANDATE-20260818 | Grok anti-babysitting mandate + residual-next lint; no CEO continue | in_progress | grok-anti-babysitting-mandate-20260818 | `tools/anti-babysitting-next.js`, `tests/test-anti-babysitting-next.js`, `bin/anti-babysitting-next`, `.agents/skills/anti-babysitting-mandate/**`, `SKILLS.md` (append), `plan.md` | AGENT-409 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/anti-babysitting-next.js | grok-anti-babysitting-mandate-20260818 | 2026-08-18T19:10:00Z |
+| tests/test-anti-babysitting-next.js | grok-anti-babysitting-mandate-20260818 | 2026-08-18T19:10:00Z |
+| tests/fixtures/anti-babysitting-next.json | grok-anti-babysitting-mandate-20260818 | 2026-08-18T19:10:00Z |
+| bin/anti-babysitting-next | grok-anti-babysitting-mandate-20260818 | 2026-08-18T19:10:00Z |
+| .agents/skills/anti-babysitting-mandate/** | grok-anti-babysitting-mandate-20260818 | 2026-08-18T19:10:00Z |
+| SKILLS.md (append row only) | grok-anti-babysitting-mandate-20260818 | 2026-08-18T19:10:00Z |
+| plan.md (append only) | grok-anti-babysitting-mandate-20260818 | 2026-08-18T19:10:00Z |
+
+- 2026-08-18T19:10Z `grok-anti-babysitting-mandate`: CEO "I shouldn't have to keep stopping and tell you what to do". Grok-global `~/.grok/skills/anti-babysitting-mandate` + `high-roi-steal-and-finish`; upgraded `anti-babysitting-continue`. Repo lint refuses `--auto-merge-all` / `--quarantine`. Did not copy sibling autonomous-loop theater. AGENT-408 Done (`21757af97` / #1822).
