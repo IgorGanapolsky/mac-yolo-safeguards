@@ -1,7 +1,7 @@
 /**
  * Vellum steal: grant once / 10 minutes / always.
  * Default deny. Money, customer, and production stay once-only.
- * Approvals live in thumbgate.app. Not a phone leash.
+ * Approvals live in thumbgate.app. Approvals stay in the web app.
  */
 export const GRANT_WINDOWS = Object.freeze(["once", "10m", "always"]);
 export const SENSITIVE_CLASSES = Object.freeze(["money", "customer", "production"]);
