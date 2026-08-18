@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ThumbGate AI Guardrails</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body class="dark-theme">
+  <div class="popup-container">
+    <header class="header">
+      <div class="brand">
+        <span class="logo-icon">🛡️</span>
+        <div>
+          <h1 class="brand-title">ThumbGate</h1>
+          <span class="version-badge">v1.0.0</span>
+        </div>
+      </div>
+      <div id="status-pill" class="status-pill active">
+        <span class="status-dot"></span>
+        <span id="status-text">Protected</span>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <section class="card stats-card">
+        <div class="stat-item">
+          <span class="stat-value" id="blocked-count">0</span>
+          <span class="stat-label">Actions Blocked</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-value" id="memories-count">0</span>
+          <span class="stat-label">Memories Synced</span>
+        </div>
+      </section>
+
+      <section class="card toggle-card">
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-title">Web Action Interdiction</div>
+            <div class="toggle-desc">Gate destructive buttons on Stripe, AWS & GitHub</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="interdiction-toggle" checked>
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </section>
+
+      <section class="card budget-card">
+        <div class="budget-header">
+          <span>Monthly Pacing</span>
+          <span class="budget-status" id="budget-status">GREEN</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="budget-fill" style="width: 15%;"></div>
+        </div>
+        <div class="budget-footer">
+          <span id="budget-spent">$1.50 spent</span>
+          <span>$10.00 cap</span>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <a href="https://thumbgate.app/pricing" target="_blank" class="upgrade-btn">
+        ⚡ Upgrade to Pro ($19/mo)
+      </a>
+      <div class="links-row">
+        <a href="https://app.thumbgate.app" target="_blank" class="text-link">Dashboard</a>
+        <span>•</span>
+        <a href="https://thumbgate.app/docs" target="_blank" class="text-link">Docs</a>
+      </div>
+    </footer>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
