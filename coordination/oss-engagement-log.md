@@ -75,7 +75,7 @@ encrypted reasoning tokens" — plausible correlation, stated as a hypothesis, n
 Issue still open, zero replies. Parked at
 `coordination/ready-to-post/poolside-38-tool-call-schema-answer.md`.
 
-### LanceDB#2900 — fix written, build/verification in progress at time of this commit
+### LanceDB#2900 — fixed, tested, parked
 
 **Bug:** `RemoteDBConnection.create_table` (`python/python/lancedb/remote/db.py`) omits
 `storage_options` from its signature entirely (unlike the abstract `DBConnection.create_table`
@@ -86,10 +86,28 @@ already has the exact precedent for this: accept the kwarg, log that it's ignore
 
 Fork `igorganapolsky/lancedb` was 3.5 months stale (last synced May 2026, pure fork with no
 divergent commits) — reset to current upstream `main` (`d742b174`) and pushed before branching,
-so the eventual diff is clean. Full Rust build (`maturin develop`) was still running when this
-commit was made — this entry will get a follow-up commit with the pushed fix branch + compare
-link, or a note if verification fails and the fix is dropped, per the no-fabricated-verification
-rule. `#3915` (the already-parked pagination fix from 08-11/08-12/08-13) re-checked: still open,
+so the diff is clean. First `maturin develop` attempt hit a real environment limit: `ld
+terminated with signal 7 [Bus error]` at the final link step, caused by this session's disk
+allowance running out mid-build (`df` showed 1.2G free after ~29G of Rust build artifacts +
+uv/pip caches from the earlier tinker-cookbook `.venv`). Freed ~15G by deleting the no-longer-
+needed tinker-cookbook venv and `~/.cache/{uv,pip}`, then a clean rebuild succeeded.
+
+**Verified:** new `test_create_table_storage_options` in `python/tests/test_remote_db.py` fails
+on unpatched `main` (`TypeError: ... unexpected keyword argument 'storage_options'`), passes
+after the fix (confirmed both directions via `git stash`). Full `pytest
+python/tests/test_remote_db.py`: 59 passed. One run showed `test_remote_connection_after_fork`
+failing (a `tokio` runtime panic after `os.fork()`) — reproduced with the fix *reverted* too and
+passed in isolation both ways, so it's a pre-existing fork/threading flake in that test, not
+something this change touches or caused. `ruff format --check` / `ruff check`: clean.
+
+**Parked:** pushed to `igorganapolsky/lancedb@fix/remote-create-table-storage-options` — compare:
+https://github.com/lancedb/lancedb/compare/main...IgorGanapolsky:fix/remote-create-table-storage-options?expand=1
+PR body at `coordination/ready-to-post/lancedb-2900-remote-create-table-storage-options-pr.md`.
+Also noted: the original issue additionally names `exist_ok`/`on_bad_vectors` as missing from
+`RemoteDBConnection.create_table` — both are already present on current `main`, so the issue is
+partially stale; the PR body says so and scopes itself to the one still-real gap.
+
+`#3915` (the already-parked pagination fix from 08-11/08-12/08-13) re-checked: still open,
 unclaimed, unchanged — not re-touched.
 
 **Correction while writing this entry:** initially flagged `#3950` as an unstarted candidate for
