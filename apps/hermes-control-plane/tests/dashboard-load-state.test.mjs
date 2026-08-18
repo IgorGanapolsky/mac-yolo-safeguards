@@ -121,3 +121,21 @@ test("does not blame pairing when machines exist (Buzz shared-room honesty)", ()
   assert.match(dashboard, /fenced · 90s lease/);
   assert.match(dashboard, /data-testid="task-receipt"/);
 });
+
+test("agent activity bar never claims 'waiting on paired machine' when idle or running in cloud", () => {
+  assert.match(
+    dashboard,
+    /activeTasks\.length === 0\s*\?\s*"24\/7 Cloud Sandbox Ready"/,
+    "idle state must show Cloud Sandbox Ready",
+  );
+  assert.match(
+    dashboard,
+    /activeTasks\.length === 0\s*\?\s*"Fenced VPS · Instant execution"/,
+    "idle state must state Fenced VPS instant execution",
+  );
+  assert.doesNotMatch(
+    dashboard,
+    /activeTasks\.some\([^)]*\)\s*\?\s*"[^"]*"\s*:\s*"Waiting on your paired machine"/,
+    "must not default to waiting on paired machine when activeTasks is empty",
+  );
+});
