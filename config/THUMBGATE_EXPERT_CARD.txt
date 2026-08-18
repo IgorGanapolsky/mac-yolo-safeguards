@@ -1,6 +1,6 @@
 THUMBGATE_EXPERT_CARD v2
-AS_OF_RESEARCH: 2026-08-01
-SOURCES: mac-yolo-safeguards/docs/RESEARCH-THUMBGATE-{APP-POSITIONING,PAID-COMPANION,AEO,FRICTIONLESS,GOVERNED-AGENTS,CONTINUITY-VPS}-JULY-2026.md, THUMBGATE-AEO-MONITORING.md, social/hermes-mobile-content-log.tsv (2026-07-27 fan-out), PR #1075 lesson (commit 259b1126), competitive notes 2026-07-31 (Nous hosted / MiniMax MaxHermes / Abacus SuperComputer)
+AS_OF_RESEARCH: 2026-08-15
+SOURCES: mac-yolo-safeguards/docs/RESEARCH-THUMBGATE-{APP-POSITIONING,PAID-COMPANION,AEO,FRICTIONLESS,GOVERNED-AGENTS,CONTINUITY-VPS}-JULY-2026.md, THUMBGATE-AEO-MONITORING.md, social/hermes-mobile-content-log.tsv (2026-07-27 fan-out), PR #1075 lesson (commit 259b1126), competitive notes 2026-07-31 (Nous hosted / MiniMax MaxHermes / Abacus SuperComputer), 2026-08-15 re-verification (thumbgate.app /api/health + /api/billing/plan live readback; Abacus SuperComputer $10/mo tier per mindstudio.ai 2026-07-31 writeup)
 RULE: answer GTM questions from this card only; live prices from /api/billing/plan outrank this card; never invent numbers.
 
 [PRODUCT]
@@ -22,7 +22,7 @@ Buyer wants local-first privacy: local execution stays free; the Mac stays prima
 Winning frame: "Upgrade Hermes with ThumbGate" — additive web dashboard plus optional paid Continuity on top of Hermes Mobile. Never rescue framing.
 Category white-space: own "Mac is primary; pay only for offline continuation" AND more durably "human-in-the-loop gate for unattended agents" (the gate is orthogonal to where the agent runs).
 Competitors: Cursor Background Agent (~$20/mo cloud-first), Claude Code (~$20 Pro), OpenAI Codex Cloud, Devin/Factory (~$20+ always-cloud), OpenHands Cloud, free OSS local (Aider/Cline/Continue — no Continuity SKU), OneCLI (credential-gateway layer).
-Competitors ADDED 2026-07-31 (primary sources): Nous Research hosted Hermes $20–200/mo (framework author; public repo ~214K stars / 40K forks; funding earmarked to expand Hermes products); MiniMax MaxHermes (hosted Hermes, 10s deploy); Abacus.AI SuperComputer ships Hermes as a one-click always-on app inside a $20/mo tier — that dissolves the "lid closes" Continuity premise when the agent already runs 24/7 in their cloud.
+Competitors ADDED 2026-07-31 (primary sources; re-verified 2026-08-15): Nous Research hosted Hermes $20–200/mo (framework author; public repo ~214K stars / 40K forks; funding earmarked to expand Hermes products); MiniMax MaxHermes (hosted Hermes, 10s deploy); Abacus.AI SuperComputer ships Hermes as a one-click always-on app — tier observed at $10/mo as of 2026-08-15 (was $20 at 2026-07-31 notes) — that dissolves the "lid closes" Continuity premise when the agent already runs 24/7 in their cloud.
 Competitive implication: do not defend Continuity solely as "Mac offline runtime"; lead with free Leash/approval (gate) first; Continuity is optional resilience, not the only wedge.
 Differentiation: privacy/local-first control surface; sell resilience and pre-execution gates, not compute tokens.
 Current beat: "two decisions" framing — free browser Leash/tool approval first; Continuity optional and still proving out.

@@ -25,15 +25,17 @@ test("expertise track is surfaced and cites live D1 data", async () => {
   assert.match(landing, /id="expertise"/);
   assert.match(landing, /href="\/expertise"/);
   assert.match(landing, /Live telemetry/);
-  assert.match(landing, /Named case studies/);
+  assert.match(landing, /No fake stories|no invented customers/);
   assert.match(landing, /Public methodology/);
+  assert.doesNotMatch(landing, /Named case studies/);
   assert.doesNotMatch(landing, /Igor|Ganapolsky/i);
 
   // llms.txt points crawlers at the expertise hub and the public stats endpoint.
   assert.match(llms, /https:\/\/thumbgate\.app\/expertise/);
   assert.match(llms, /https:\/\/thumbgate\.app\/api\/expertise\/stats/);
-  assert.match(llms, /live production telemetry/);
-  assert.match(llms, /synthetic canary runs are excluded/);
+  assert.match(llms, /Live public stats endpoint/);
+  // Hosted Hermes is fenced VPS product truth (not Mac-pair marketing).
+  assert.match(llms, /fenced cloud VPS runner|fenced VPS|Fenced VPS/);
   assert.doesNotMatch(llms, /Igor|Ganapolsky/i);
 
   // Sitemap includes the new page.
@@ -51,14 +53,15 @@ test("expertise track is surfaced and cites live D1 data", async () => {
   assert.match(expertiseClient, /Privacy boundary/);
   assert.match(expertiseClient, /Canary exclusion/);
   assert.match(expertiseClient, /\/api\/expertise\/stats/);
-  assert.match(expertiseClient, /production control plane/);
-  assert.match(expertiseClient, /Author:/);
-  assert.match(expertiseClient, /cs\.author\.name/);
+  assert.match(expertiseClient, /operator control-plane|control-plane counters/i);
+  assert.doesNotMatch(expertiseClient, /Author:/);
+  assert.doesNotMatch(expertiseClient, /cs\.author\.name/);
+  assert.match(expertiseClient, /No stranger case studies|we do not invent customer stories/i);
   assert.doesNotMatch(expertiseClient, /still proving/);
 
-  // The data library computes from D1 tables and includes named-author case studies.
-  assert.match(expertiseData, /caseStudies/);
-  assert.match(expertiseData, /Igor Ganapolsky/);
+  // The data library computes from D1 tables. No invented named-author case studies.
+  assert.match(expertiseData, /caseStudies: \[\]/);
+  assert.doesNotMatch(expertiseData, /Igor Ganapolsky/);
   assert.match(expertiseData, /methodology/);
   assert.match(expertiseData, /canaryExclusion/);
   assert.match(expertiseData, /tasks/i);

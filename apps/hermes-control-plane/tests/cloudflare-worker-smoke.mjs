@@ -125,16 +125,17 @@ try {
   const landing = await fetch(`http://127.0.0.1:${port}/`);
   const html = await landing.text();
   assert.equal(landing.status, 200);
-  assert.match(html, /Leash/);
-  assert.match(html, /by ThumbGate/);
-  assert.match(html, /Keep Hermes work running/i);
-  assert.match(html, /when the Mac closes/i);
-  assert.match(html, /Continuity/i);
+  assert.match(html, /ThumbGate/);
+  assert.match(html, /cancel anytime/);
+  // Hosted Hermes marketed as fenced VPS (not Mac-pair / old "Autonomous Cloud AI Agents" hero).
+  assert.match(html, /Fenced VPS|fenced cloud VPS|fenced VPS/i);
+  assert.match(html, /LLM-as-a-Judge/i);
+  assert.match(html, /Is this Continuity\?|hosted Hermes/i);
   assert.doesNotMatch(html, /Self-Improving Firewall|self-improving firewall/);
   // Static shell defaults to anon/loading chrome (session via /api/me after paint).
   assert.match(html, /Sign-in required|Checking session/);
-  assert.match(html, /Try Continuity — 14 days free/);
-  assert.match(html, /Sign in to pair free/);
+  assert.match(html, /Start hosted Hermes — \$10\/mo/);
+  assert.match(html, />Sign in</);
   assert.equal((html.match(/data-funnel-event="sign_in_click"/g) ?? []).length, 1);
   assert.equal((html.match(/data-funnel-event="cloud_continuity_click"/g) ?? []).length >= 1, true);
   assert.doesNotMatch(html, /After you sign in/);
@@ -164,7 +165,7 @@ try {
 
   const llms = await fetch(`http://127.0.0.1:${port}/llms.txt`);
   assert.equal(llms.status, 200);
-  assert.match(await llms.text(), /# ThumbGate Continuity/);
+  assert.match(await llms.text(), /# ThumbGate/);
 
   const health = await fetch(`http://127.0.0.1:${port}/api/health`);
   assert.equal(health.status, 200);
@@ -302,7 +303,7 @@ try {
   const authenticatedHtml = await authenticatedLanding.text();
   assert.equal(authenticatedLanding.status, 200);
   // Marketing HTML is static (no D1 session read). Session chrome comes from /api/me.
-  assert.match(authenticatedHtml, /Try Continuity — 14 days free|Sign in to pair free|Open Continuity dashboard/);
+  assert.match(authenticatedHtml, /Start hosted Hermes — \$10\/mo|Sign in|Open hosted Hermes/);
   assert.doesNotMatch(authenticatedHtml, /e2e@example\.com/);
   // With a session cookie, HTML must not be edge-cached for other users.
   const landingCache = authenticatedLanding.headers.get("cache-control") || "";
@@ -329,6 +330,20 @@ try {
       trialEndsAt: null,
       cloudAccess: true,
     },
+    // CoreWeave-style capacity truth from governance-aligned caps.
+    continuityUsage: {
+      cloudTasks30d: 0,
+      cloudTaskLimit: 100,
+      cloudTasksRemaining: 100,
+      activeTasks: 0,
+      maxActiveTasks: 10,
+      plan: "pro",
+      purchaseMode: "on_demand_monthly",
+      windowDays: 30,
+      percentUsed: 0,
+      exhausted: false,
+      upgradeHint: null,
+    },
   });
 
   const logout = await fetch(`http://127.0.0.1:${port}/api/auth/logout`, {
@@ -348,8 +363,8 @@ try {
   const postLogoutHtml = await postLogoutLanding.text();
   assert.equal(postLogoutLanding.status, 200);
   assert.match(postLogoutHtml, /Sign-in required|Checking session/);
-  assert.match(postLogoutHtml, /Sign in to pair free/);
-  assert.match(postLogoutHtml, /Try Continuity — 14 days free/);
+  assert.match(postLogoutHtml, />Sign in</);
+  assert.match(postLogoutHtml, /Start hosted Hermes — \$10\/mo/);
   assert.equal((postLogoutHtml.match(/data-funnel-event="sign_in_click"/g) ?? []).length, 1);
   assert.doesNotMatch(postLogoutHtml, />Sign out</);
   const postLogoutMe = await fetch(`http://127.0.0.1:${port}/api/me`, { headers: authenticatedHeaders });
