@@ -85,6 +85,12 @@ test("builds the public hosted Hermes landing page", async () => {
   assert.match(failoverDemo, /needs_failover/);
   assert.match(failoverDemo, /offline_blocked/);
   assert.match(failoverDemo, /Interactive demo · no real tools run/);
+  assert.match(failoverDemo, /Hosted Hermes wants to run this on the VPS/);
+  assert.match(failoverDemo, /Running on hosted VPS/);
+  assert.match(failoverDemo, /Hosted VPS · fenced lease/);
+  assert.match(failoverDemo, /Hosted Hermes is executing on a fenced VPS/);
+  assert.doesNotMatch(failoverDemo, /Continuity wants to run this on the VPS/);
+  assert.doesNotMatch(failoverDemo, /Running on Continuity VPS/);
   assert.match(billingPlan, /\/api\/billing\/plan/);
   assert.match(billingPlan, /\$10/);
   assert.doesNotMatch(billingPlan, /Live price/);
@@ -141,6 +147,7 @@ test("builds the public hosted Hermes landing page", async () => {
   assert.match(page, /FAQPage/);
   assert.match(page, /id="faq"/);
   assert.match(page, /What is ThumbGate\?/);
+  assert.match(page, /Why not just run another agent pilot/);
   assert.match(page, /Where do approvals happen\?/);
   assert.match(page, /What if the agent wants to kill a process or copy itself\?/);
   assert.match(page, /does not auto-run that/);
@@ -173,7 +180,7 @@ test("builds the public hosted Hermes landing page", async () => {
   assert.match(page, /Transparent hosted capacity/);
   assert.match(page, /Fenced VPS runs \/ 30d/);
   assert.match(page, /Surprise egress \/ idle fees/);
-  assert.match(page, /from \"@\/lib\/continuity-pricing\"/);
+  assert.match(page, /from "@\/lib\/continuity-pricing"/);
   assert.match(page, /CONTINUITY_PRICE_TIERS/);
   assert.doesNotMatch(page, /CONTINUITY_EXECUTION_MODES/);
   assert.match(page, /CONTINUITY_ZERO_EGRESS/);
@@ -193,6 +200,7 @@ test("builds the public hosted Hermes landing page", async () => {
   assert.match(llms, /## Direct answers/);
   assert.match(llms, /fenced VPS agent execution|fenced cloud VPS/i);
   assert.match(llms, /Do I pair my Mac\? No/);
+  assert.match(llms, /Why not another laptop pilot/);
   assert.doesNotMatch(page, /Igor|Ganapolsky/i);
   assert.doesNotMatch(`${layout}\n${robots}\n${sitemap}\n${llms}`, /Igor|Ganapolsky/i);
   assert.doesNotMatch(page, /codex-preview|react-loading-skeleton/);
