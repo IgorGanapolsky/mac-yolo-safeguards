@@ -2984,3 +2984,4 @@ CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, too
 | SKILLS.md (append rows only) | grok-marketplace-skills-20260817 | 2026-08-17T22:06:00Z |
 | plan.md (append only) | grok-marketplace-skills-20260817 | 2026-08-17T22:06:00Z |
 
+- `bin/eleven-voice`, `.agents/skills/elevenlabs-voice-agents/**`, `tools/elevenlabs-voice-engine.js`, `tests/test-elevenlabs-voice-agents.js`, `config/voice-agents/**`, `docs/ELEVENLABS-VOICE-GOVERNANCE.md` → **grok-elevenlabs-roi** (implement+test ElevenLabs MCP high-ROI steals: promote gate, cost-compare, billing-escalation sim) (2026-08-18)

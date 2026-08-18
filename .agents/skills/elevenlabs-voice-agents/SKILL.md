@@ -39,11 +39,17 @@ eleven-voice audit
 # Estimate conversation costs across LLM backends (100 calls, 3 mins avg)
 eleven-voice cost-estimate --calls 100 --minutes 3
 
+# TNS question: cost with Gemini Flash instead of GPT-4o
+eleven-voice compare-models --baseline gpt-4o --candidate gemini-2.5-flash
+
 # Run conversational simulation tests on an agent config
-eleven-voice test-agent --config config/voice_agent_sample.json
+eleven-voice test-agent --config config/voice-agents/hermes-receptionist.v1.json
 
 # Validate ThumbGate pre-action safety gate on a proposed tool call
 eleven-voice gate-check --action delete_agent --agent-id agent_prod_01
+
+# Atomic promote (sim → cost → gate). Chat confirm alone never deploys.
+eleven-voice promote --config config/voice-agents/hermes-receptionist.v1.json
 ```
 
 ## Configuration Schema

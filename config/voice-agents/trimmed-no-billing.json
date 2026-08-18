@@ -1,0 +1,29 @@
+{
+  "agent_id": "hermes_voice_receptionist_trimmed",
+  "name": "Hermes Mobile Voice Receptionist",
+  "version": "1.0.0",
+  "conversation_config": {
+    "agent": {
+      "prompt": {
+        "prompt": "You are Hermes. Be concise in 1-2 sentences. Confirm risky commands on the phone screen.",
+        "llm": "gemini-2.5-flash",
+        "temperature": 0.3,
+        "max_tokens": 150
+      },
+      "first_message": "Hello! I am Hermes. What can I help you with today?",
+      "language": "en"
+    },
+    "tts": {
+      "voice_id": "21m00Tcm4TlvDq8ikWAM",
+      "model_id": "eleven_turbo_v2_5",
+      "stability": 0.5,
+      "similarity_boost": 0.8,
+      "latency_optimization": 3
+    },
+    "safety_guardrails": {
+      "require_simulation_test_pass": true,
+      "max_cost_per_conversation_usd": 0.2,
+      "block_destructive_deletions": true
+    }
+  }
+}

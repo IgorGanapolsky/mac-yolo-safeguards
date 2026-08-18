@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
 """
 ElevenLabs Conversational Voice Agent & ThumbGate Governance Engine.
-Provides Voice-Agent-as-Code GitOps, Multi-LLM Cost Estimation, Conversational Testing,
-and ThumbGate Pre-Action Interdiction.
+
+High-ROI steals from ElevenLabs hosted MCP (TNS 2026-08-18):
+1. Destructive actions (delete_agent) require phone Leash approval.
+2. Cost estimate before model swap (chat confirm ≠ validated deploy).
+3. Simulate conversation (incl. billing escalation) before promote.
 """
 
-import sys
-import os
-import json
+from __future__ import annotations
+
 import argparse
-from typing import Dict, Any, List, Optional
+import json
+import os
+import sys
+from datetime import datetime, timezone
+from typing import Any, Dict
 
 # Standard LLM Pricing Table ($ / 1M tokens) & Latency Characteristics
 MODEL_PRICING: Dict[str, Dict[str, Any]] = {
@@ -68,7 +74,9 @@ DEFAULT_VOICE_AGENT_TEMPLATE = {
                 "prompt": (
                     "You are Hermes, a helpful, ultra-concise voice assistant. "
                     "Always reply in 1-2 spoken sentences. If a risky command is requested, "
-                    "instruct the caller to confirm on their phone screen."
+                    "instruct the caller to confirm on their phone screen. "
+                    "Escalate billing disputes and payment issues to a human operator — "
+                    "never invent refunds or charge outcomes."
                 ),
                 "llm": "gemini-2.5-flash",
                 "temperature": 0.3,
@@ -86,11 +94,20 @@ DEFAULT_VOICE_AGENT_TEMPLATE = {
         },
         "safety_guardrails": {
             "require_simulation_test_pass": True,
-            "max_cost_per_conversation_usd": 0.05,
+            "max_cost_per_conversation_usd": 0.20,
             "block_destructive_deletions": True,
         },
     },
 }
+
+BILLING_ESCALATION_MARKERS = (
+    "billing",
+    "dispute",
+    "refund",
+    "payment",
+    "charge",
+    "invoice",
+)
 
 
 def calculate_conversation_costs(
@@ -130,12 +147,12 @@ def calculate_conversation_costs(
             "recommended_for": specs["recommended_for"],
         })
 
-    # Sort by total cost ascending
     comparisons.sort(key=lambda x: x["total_cost_usd"])
     cheapest = comparisons[0]
     most_expensive = comparisons[-1]
     savings_percent = round(
-        ((most_expensive["total_cost_usd"] - cheapest["total_cost_usd"]) / most_expensive["total_cost_usd"]) * 100,
+        ((most_expensive["total_cost_usd"] - cheapest["total_cost_usd"])
+         / most_expensive["total_cost_usd"]) * 100,
         1,
     )
 
@@ -156,6 +173,47 @@ def calculate_conversation_costs(
             "max_savings_percent": savings_percent,
         },
     }
+
+
+def compare_models(
+    baseline: str,
+    candidate: str,
+    num_conversations: int = 100,
+    avg_minutes_per_conv: float = 3.0,
+) -> Dict[str, Any]:
+    """Answer: 'What would my agent cost with candidate instead of baseline?'"""
+    if baseline not in MODEL_PRICING:
+        raise ValueError(f"Unknown baseline model: {baseline}")
+    if candidate not in MODEL_PRICING:
+        raise ValueError(f"Unknown candidate model: {candidate}")
+
+    report = calculate_conversation_costs(num_conversations, avg_minutes_per_conv)
+    by_model = {m["model"]: m for m in report["models"]}
+    base = by_model[baseline]
+    cand = by_model[candidate]
+    delta = round(cand["cost_per_conversation_usd"] - base["cost_per_conversation_usd"], 4)
+    pct = 0.0
+    if base["cost_per_conversation_usd"] > 0:
+        pct = round((delta / base["cost_per_conversation_usd"]) * 100, 1)
+
+    return {
+        "baseline": base,
+        "candidate": cand,
+        "delta_cost_per_conversation_usd": delta,
+        "delta_percent_vs_baseline": pct,
+        "recommendation": (
+            f"Prefer {candidate}" if delta < 0 else f"Keep {baseline}"
+            if delta > 0 else "Cost-neutral"
+        ),
+        "parameters": report["parameters"],
+    }
+
+
+def _has_billing_escalation(prompt: str) -> bool:
+    lower = prompt.lower()
+    has_marker = any(m in lower for m in BILLING_ESCALATION_MARKERS)
+    has_human = any(w in lower for w in ("human", "operator", "escalate", "transfer", "person"))
+    return has_marker and has_human
 
 
 def simulate_conversation_test(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -179,13 +237,31 @@ def simulate_conversation_test(config: Dict[str, Any]) -> Dict[str, Any]:
         },
         {
             "name": "Conciseness & Latency Constraint",
-            "passed": ("concise" in prompt.lower() or "short" in prompt.lower() or "sentences" in prompt.lower()),
+            "passed": (
+                "concise" in prompt.lower()
+                or "short" in prompt.lower()
+                or "sentences" in prompt.lower()
+            ),
             "details": "Prompt contains spoken voice conciseness directives.",
         },
         {
             "name": "Safety Escalation Directive",
-            "passed": ("confirm" in prompt.lower() or "phone" in prompt.lower() or "safety" in prompt.lower() or "screen" in prompt.lower()),
+            "passed": (
+                "confirm" in prompt.lower()
+                or "phone" in prompt.lower()
+                or "safety" in prompt.lower()
+                or "screen" in prompt.lower()
+            ),
             "details": "Prompt includes operator phone confirmation instruction for risky actions.",
+        },
+        {
+            # TNS 2026-08-18: trimming prompts can silently drop billing escalation.
+            "name": "Billing Dispute Escalation Retained",
+            "passed": _has_billing_escalation(prompt),
+            "details": (
+                "Prompt still escalates billing/payment disputes to a human "
+                "(chat confirm alone is not validation)."
+            ),
         },
     ]
 
@@ -205,14 +281,20 @@ def evaluate_thumbgate_pre_action(
     has_simulated_pass: bool = False,
     is_operator_approved: bool = False,
     estimated_cost_usd: float = 0.0,
-    cost_ceiling_usd: float = 0.05,
+    cost_ceiling_usd: float = 0.20,
 ) -> Dict[str, Any]:
     """
-    ThumbGate PreToolUse safety interdiction logic for ElevenLabs MCP tool calls.
-    Blocks destructive actions (deletes, unverified prompt updates, expensive model switches).
+    ThumbGate PreToolUse safety interdiction for ElevenLabs MCP tool calls.
+    Blocks destructive actions, unverified prompt updates, expensive model switches.
     """
     destructive_actions = ["delete_agent", "remove_agent", "destroy_workspace"]
-    mutation_actions = ["update_prompt", "modify_system_prompt", "swap_model", "update_agent"]
+    mutation_actions = [
+        "update_prompt",
+        "modify_system_prompt",
+        "swap_model",
+        "update_agent",
+        "promote_config",
+    ]
 
     if action in destructive_actions:
         if not is_operator_approved:
@@ -220,7 +302,10 @@ def evaluate_thumbgate_pre_action(
                 "decision": "BLOCK",
                 "action": action,
                 "agent_id": agent_id,
-                "reason": "Destructive voice agent deletion requires explicit phone Leash operator approval.",
+                "reason": (
+                    "Destructive voice agent deletion requires explicit "
+                    "phone Leash operator approval."
+                ),
                 "intervention_type": "HUMAN_LEASH_REQUIRED",
             }
         return {
@@ -236,7 +321,10 @@ def evaluate_thumbgate_pre_action(
                 "decision": "BLOCK",
                 "action": action,
                 "agent_id": agent_id,
-                "reason": "Voice agent configuration changes require a passing conversational simulation test before deployment.",
+                "reason": (
+                    "Voice agent configuration changes require a passing "
+                    "conversational simulation test before deployment."
+                ),
                 "intervention_type": "SIMULATION_TEST_REQUIRED",
             }
         if estimated_cost_usd > cost_ceiling_usd and not is_operator_approved:
@@ -244,7 +332,10 @@ def evaluate_thumbgate_pre_action(
                 "decision": "BLOCK",
                 "action": action,
                 "agent_id": agent_id,
-                "reason": f"Estimated conversation cost (${estimated_cost_usd:.4f}) exceeds safety ceiling (${cost_ceiling_usd:.4f}). Operator approval required.",
+                "reason": (
+                    f"Estimated conversation cost (${estimated_cost_usd:.4f}) exceeds "
+                    f"safety ceiling (${cost_ceiling_usd:.4f}). Operator approval required."
+                ),
                 "intervention_type": "COST_CEILING_EXCEEDED",
             }
         return {
@@ -254,7 +345,6 @@ def evaluate_thumbgate_pre_action(
             "reason": "Simulation tests passed and cost is within safety threshold.",
         }
 
-    # Safe read-only tool calls (get_transcript, list_agents, check_status)
     return {
         "decision": "ALLOW",
         "action": action,
@@ -263,84 +353,232 @@ def evaluate_thumbgate_pre_action(
     }
 
 
-def main():
+def promote_config(
+    config: Dict[str, Any],
+    *,
+    action: str = "promote_config",
+    is_operator_approved: bool = False,
+    cost_ceiling_usd: float | None = None,
+    dry_run: bool = True,
+) -> Dict[str, Any]:
+    """
+    Atomic promote path: simulate → cost-estimate → gate-check.
+    Chat confirmation alone never promotes; this receipt is the proof artifact.
+    """
+    agent_id = config.get("agent_id", "unknown")
+    agent_cfg = config.get("conversation_config", {}).get("agent", {})
+    prompt_cfg = agent_cfg.get("prompt", {})
+    llm = prompt_cfg.get("llm", "gemini-2.5-flash")
+    guardrails = (
+        config.get("conversation_config", {}).get("safety_guardrails", {})
+        or {}
+    )
+    ceiling = (
+        cost_ceiling_usd
+        if cost_ceiling_usd is not None
+        else float(guardrails.get("max_cost_per_conversation_usd", 0.20))
+    )
+
+    sim = simulate_conversation_test(config)
+    costs = calculate_conversation_costs(num_conversations=100, avg_minutes_per_conv=3.0)
+    model_row = next((m for m in costs["models"] if m["model"] == llm), None)
+    if model_row is None:
+        estimated = 999.0
+    else:
+        estimated = float(model_row["cost_per_conversation_usd"])
+
+    gate = evaluate_thumbgate_pre_action(
+        action=action,
+        agent_id=agent_id,
+        has_simulated_pass=(sim["status"] == "PASS"),
+        is_operator_approved=is_operator_approved,
+        estimated_cost_usd=estimated,
+        cost_ceiling_usd=ceiling,
+    )
+
+    promotable = gate["decision"] == "ALLOW" and sim["status"] == "PASS"
+    receipt = {
+        "promoted_at": datetime.now(timezone.utc).isoformat(),
+        "dry_run": dry_run,
+        "promotable": promotable,
+        "agent_id": agent_id,
+        "llm": llm,
+        "estimated_cost_per_conversation_usd": estimated,
+        "cost_ceiling_usd": ceiling,
+        "simulation": sim,
+        "gate": gate,
+        "deploy_action": (
+            "WOULD_PUSH_CONFIG" if promotable and dry_run
+            else "PUSH_CONFIG" if promotable and not dry_run
+            else "HOLD"
+        ),
+        "note": (
+            "Chat confirmation is not validation — promote requires "
+            "simulation PASS + gate ALLOW."
+        ),
+    }
+    return receipt
+
+
+def _load_config(path: str | None) -> Dict[str, Any]:
+    if path and os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return DEFAULT_VOICE_AGENT_TEMPLATE
+
+
+def main() -> int:
     parser = argparse.ArgumentParser(
         description="ElevenLabs Conversational Voice Agent & ThumbGate Governance Suite"
     )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
-    # Command: audit
     subparsers.add_parser("audit", help="Run comprehensive audit of voice agent governance")
 
-    # Command: cost-estimate
-    cost_parser = subparsers.add_parser("cost-estimate", help="Estimate multi-LLM conversation costs")
-    cost_parser.add_argument("--calls", type=int, default=100, help="Number of simulated calls (default: 100)")
-    cost_parser.add_argument("--minutes", type=float, default=3.0, help="Average minutes per call (default: 3.0)")
-    cost_parser.add_argument("--json", action="store_true", help="Output JSON result")
+    cost_parser = subparsers.add_parser(
+        "cost-estimate", help="Estimate multi-LLM conversation costs"
+    )
+    cost_parser.add_argument("--calls", type=int, default=100)
+    cost_parser.add_argument("--minutes", type=float, default=3.0)
+    cost_parser.add_argument("--json", action="store_true")
 
-    # Command: test-agent
-    test_parser = subparsers.add_parser("test-agent", help="Run conversational simulation test on config")
-    test_parser.add_argument("--config", type=str, help="Path to voice agent JSON/YAML config")
-    test_parser.add_argument("--json", action="store_true", help="Output JSON result")
+    cmp_parser = subparsers.add_parser(
+        "compare-models",
+        help="Compare per-conversation cost: baseline vs candidate (TNS MCP question)",
+    )
+    cmp_parser.add_argument("--baseline", default="gpt-4o")
+    cmp_parser.add_argument("--candidate", default="gemini-2.5-flash")
+    cmp_parser.add_argument("--calls", type=int, default=100)
+    cmp_parser.add_argument("--minutes", type=float, default=3.0)
+    cmp_parser.add_argument("--json", action="store_true")
 
-    # Command: gate-check
-    gate_parser = subparsers.add_parser("gate-check", help="Evaluate ThumbGate pre-action safety on a tool call")
-    gate_parser.add_argument("--action", required=True, help="Proposed action (e.g. delete_agent, update_prompt)")
-    gate_parser.add_argument("--agent-id", required=True, help="Target voice agent ID")
-    gate_parser.add_argument("--sim-pass", action="store_true", help="Simulation test passed")
-    gate_parser.add_argument("--approved", action="store_true", help="Human Leash approval granted")
-    gate_parser.add_argument("--cost", type=float, default=0.01, help="Estimated per-conversation cost")
-    gate_parser.add_argument("--json", action="store_true", help="Output JSON result")
+    test_parser = subparsers.add_parser(
+        "test-agent", help="Run conversational simulation test on config"
+    )
+    test_parser.add_argument("--config", type=str)
+    test_parser.add_argument("--json", action="store_true")
 
-    # Command: export-template
+    gate_parser = subparsers.add_parser(
+        "gate-check", help="Evaluate ThumbGate pre-action safety on a tool call"
+    )
+    gate_parser.add_argument("--action", required=True)
+    gate_parser.add_argument("--agent-id", required=True)
+    gate_parser.add_argument("--sim-pass", action="store_true")
+    gate_parser.add_argument("--approved", action="store_true")
+    gate_parser.add_argument("--cost", type=float, default=0.01)
+    gate_parser.add_argument("--json", action="store_true")
+
+    promote_parser = subparsers.add_parser(
+        "promote",
+        help="Atomic promote: simulate → cost → gate (never chat-confirm alone)",
+    )
+    promote_parser.add_argument("--config", type=str)
+    promote_parser.add_argument("--approved", action="store_true")
+    promote_parser.add_argument("--apply", action="store_true", help="Not dry-run")
+    promote_parser.add_argument("--ceiling", type=float, default=None)
+    promote_parser.add_argument("--json", action="store_true")
+
     subparsers.add_parser("export-template", help="Export default voice agent template")
 
     args = parser.parse_args()
 
     if not args.command or args.command == "audit":
-        cost_report = calculate_conversation_costs(num_conversations=100, avg_minutes_per_conv=3.0)
+        cost_report = calculate_conversation_costs(100, 3.0)
         sim_report = simulate_conversation_test(DEFAULT_VOICE_AGENT_TEMPLATE)
-        gate_report = evaluate_thumbgate_pre_action("delete_agent", "hermes_voice_receptionist_v1", False, False)
-
+        gate_report = evaluate_thumbgate_pre_action(
+            "delete_agent", "hermes_voice_receptionist_v1", False, False
+        )
+        promote_report = promote_config(DEFAULT_VOICE_AGENT_TEMPLATE, dry_run=True)
         print("=== ElevenLabs Conversational Voice Agent & ThumbGate Governance Suite ===")
-        print(f"Status: READY | Models Cataloged: {len(MODEL_PRICING)} | Simulation Harness: ACTIVE")
-        print(f"Cost Arbitrage: {cost_report['analysis']['cheapest_model']} saves {cost_report['analysis']['max_savings_percent']}% vs {cost_report['analysis']['flagship_model']}")
-        print(f"Sample Agent Test: {sim_report['status']} ({sim_report['tests_passed']}/{sim_report['tests_run']} passed)")
-        print(f"ThumbGate Interdiction Check: {gate_report['decision']} on destructive '{gate_report['action']}' -> {gate_report['reason']}")
+        print(
+            f"Status: READY | Models Cataloged: {len(MODEL_PRICING)} | "
+            "Simulation Harness: ACTIVE"
+        )
+        print(
+            f"Cost Arbitrage: {cost_report['analysis']['cheapest_model']} saves "
+            f"{cost_report['analysis']['max_savings_percent']}% vs "
+            f"{cost_report['analysis']['flagship_model']}"
+        )
+        print(
+            f"Sample Agent Test: {sim_report['status']} "
+            f"({sim_report['tests_passed']}/{sim_report['tests_run']} passed)"
+        )
+        print(
+            f"ThumbGate Interdiction Check: {gate_report['decision']} on destructive "
+            f"'{gate_report['action']}' -> {gate_report['reason']}"
+        )
+        print(
+            f"Promote Path: promotable={promote_report['promotable']} "
+            f"deploy={promote_report['deploy_action']}"
+        )
         return 0
 
     if args.command == "cost-estimate":
-        report = calculate_conversation_costs(
-            num_conversations=args.calls,
-            avg_minutes_per_conv=args.minutes,
-        )
+        report = calculate_conversation_costs(args.calls, args.minutes)
         if args.json:
             print(json.dumps(report, indent=2))
         else:
-            print(f"=== Multi-LLM Voice Cost Estimate ({args.calls} calls, {args.minutes} min avg) ===")
+            print(
+                f"=== Multi-LLM Voice Cost Estimate "
+                f"({args.calls} calls, {args.minutes} min avg) ==="
+            )
             print(f"{'Model':<20} {'Provider':<22} {'TTFT':<10} {'Cost/Call':<12} {'Total':<10}")
             print("-" * 75)
             for m in report["models"]:
                 print(
-                    f"{m['model']:<20} {m['provider']:<22} {str(m['avg_ttft_ms']) + 'ms':<10} "
-                    f"${m['cost_per_conversation_usd']:<11.4f} ${m['total_cost_usd']:<9.2f}"
+                    f"{m['model']:<20} {m['provider']:<22} "
+                    f"{str(m['avg_ttft_ms']) + 'ms':<10} "
+                    f"${m['cost_per_conversation_usd']:<11.4f} "
+                    f"${m['total_cost_usd']:<9.2f}"
                 )
             print("-" * 75)
-            print(f"Optimal Choice: {report['analysis']['cheapest_model']} saves {report['analysis']['max_savings_percent']}% vs {report['analysis']['flagship_model']}")
+            print(
+                f"Optimal Choice: {report['analysis']['cheapest_model']} saves "
+                f"{report['analysis']['max_savings_percent']}% vs "
+                f"{report['analysis']['flagship_model']}"
+            )
+        return 0
+
+    if args.command == "compare-models":
+        try:
+            report = compare_models(
+                args.baseline, args.candidate, args.calls, args.minutes
+            )
+        except ValueError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 2
+        if args.json:
+            print(json.dumps(report, indent=2))
+        else:
+            print(
+                f"=== Model Swap Cost Compare: {args.baseline} → {args.candidate} ==="
+            )
+            print(
+                f"Baseline  {args.baseline}: "
+                f"${report['baseline']['cost_per_conversation_usd']:.4f}/call"
+            )
+            print(
+                f"Candidate {args.candidate}: "
+                f"${report['candidate']['cost_per_conversation_usd']:.4f}/call"
+            )
+            print(
+                f"Delta: ${report['delta_cost_per_conversation_usd']:.4f}/call "
+                f"({report['delta_percent_vs_baseline']:+.1f}%)"
+            )
+            print(f"Recommendation: {report['recommendation']}")
         return 0
 
     if args.command == "test-agent":
-        config = DEFAULT_VOICE_AGENT_TEMPLATE
-        if args.config and os.path.exists(args.config):
-            with open(args.config, "r", encoding="utf-8") as f:
-                config = json.load(f)
-
+        config = _load_config(args.config)
         result = simulate_conversation_test(config)
         if args.json:
             print(json.dumps(result, indent=2))
         else:
             print(f"=== Conversational Simulation Test: {result['agent_id']} ===")
-            print(f"Result: {result['status']} ({result['tests_passed']}/{result['tests_run']} passed)")
+            print(
+                f"Result: {result['status']} "
+                f"({result['tests_passed']}/{result['tests_run']} passed)"
+            )
             for tc in result["test_cases"]:
                 status_icon = "✓" if tc["passed"] else "✗"
                 print(f"  [{status_icon}] {tc['name']}: {tc['details']}")
@@ -357,12 +595,46 @@ def main():
         if args.json:
             print(json.dumps(result, indent=2))
         else:
-            decision_color = "ALLOW (PASSED)" if result["decision"] == "ALLOW" else "BLOCK (INTERCEPTED)"
+            decision_color = (
+                "ALLOW (PASSED)" if result["decision"] == "ALLOW"
+                else "BLOCK (INTERCEPTED)"
+            )
             print(f"=== ThumbGate PreToolUse Gate Check: {args.action} ===")
             print(f"Decision: {decision_color}")
             print(f"Target:   {result['agent_id']}")
             print(f"Reason:   {result['reason']}")
         return 0 if result["decision"] == "ALLOW" else 1
+
+    if args.command == "promote":
+        config = _load_config(args.config)
+        receipt = promote_config(
+            config,
+            is_operator_approved=args.approved,
+            cost_ceiling_usd=args.ceiling,
+            dry_run=not args.apply,
+        )
+        if args.json:
+            print(json.dumps(receipt, indent=2))
+        else:
+            print(f"=== Promote Receipt: {receipt['agent_id']} ===")
+            print(f"Promotable: {receipt['promotable']}")
+            print(f"Deploy:     {receipt['deploy_action']} (dry_run={receipt['dry_run']})")
+            print(
+                f"LLM/cost:   {receipt['llm']} @ "
+                f"${receipt['estimated_cost_per_conversation_usd']:.4f}/call "
+                f"(ceiling ${receipt['cost_ceiling_usd']:.4f})"
+            )
+            print(
+                f"Simulation: {receipt['simulation']['status']} "
+                f"({receipt['simulation']['tests_passed']}/"
+                f"{receipt['simulation']['tests_run']})"
+            )
+            print(
+                f"Gate:       {receipt['gate']['decision']} — "
+                f"{receipt['gate']['reason']}"
+            )
+            print(f"Note:       {receipt['note']}")
+        return 0 if receipt["promotable"] else 1
 
     if args.command == "export-template":
         print(json.dumps(DEFAULT_VOICE_AGENT_TEMPLATE, indent=2))
