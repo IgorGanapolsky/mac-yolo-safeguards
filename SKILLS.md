@@ -57,9 +57,11 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 | `tieline-product-contract` | Tieline process steal: reviewed product behavior + AC blast radius. Not HVAC. No Postgres/npx tieline. Slash: /tieline. | `.agents/skills/tieline-product-contract/SKILL.md` | local |
 | `ci-first-fail` | Buildkite-style first-fail CI annotations. Name the failing STEP; never dump logs; do not migrate off GitHub Actions. Slash: /ci-first-fail. | `.agents/skills/ci-first-fail/SKILL.md` | local |
 | `anti-babysitting-mandate` | HARD: never park waiting for continue / want-me-to on pre-authorized work. Residual picker + wrap-up lint. Own PRs only. Slash: /anti-babysitting-mandate. | `.agents/skills/anti-babysitting-mandate/SKILL.md` | local |
+| `git-hooks-no-husky` | Husky process steal without the npm package. Keep relative core.hooksPath=.githooks so each worktree runs its own hook. Slash: /git-hooks-no-husky. | `.agents/skills/git-hooks-no-husky/SKILL.md` | local |
 
 ---
 
 *Last synchronized: 2026-08-18T17:30:00.000Z*
 *Last synchronized: 2026-08-18T17:45:00.000Z*
 *Last synchronized: 2026-08-18T19:10:00.000Z*
+*Last synchronized: 2026-08-18T20:05:00.000Z*
