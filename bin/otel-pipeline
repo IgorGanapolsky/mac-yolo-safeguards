@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# otel-pipeline — CLI wrapper for OpenTelemetry Collector & Distributed Telemetry Engine
+set -euo pipefail
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+REPO_ROOT="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
+
+exec node "${REPO_ROOT}/tools/opentelemetry-collector-pipeline.js" "$@"
