@@ -329,6 +329,7 @@ export default function ConnectMacGate() {
                   result={profileScanResult}
                   connectableProfileCount={pickerProfiles.length}
                   testID="connect-mac-scan-progress"
+                  autoDismiss={false}
                 />
               ) : null}
 

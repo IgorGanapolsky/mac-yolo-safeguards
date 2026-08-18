@@ -15,6 +15,8 @@ type MacScanProgressCardProps = {
   result: LanScanResult | null;
   connectableProfileCount?: number;
   testID?: string;
+  /** Set to false to disable auto-dismiss on scan result (for persistent discovery feedback) */
+  autoDismiss?: boolean;
 };
 
 const RESULT_TTL_MS = 12000;
@@ -25,6 +27,7 @@ export default function MacScanProgressCard({
   result,
   connectableProfileCount,
   testID = 'mac-scan-progress',
+  autoDismiss = true,
 }: MacScanProgressCardProps) {
   const [showResult, setShowResult] = useState(false);
 
@@ -34,9 +37,11 @@ export default function MacScanProgressCard({
       return;
     }
     setShowResult(true);
-    const timer = setTimeout(() => setShowResult(false), RESULT_TTL_MS);
-    return () => clearTimeout(timer);
-  }, [result, scanning]);
+    if (autoDismiss) {
+      const timer = setTimeout(() => setShowResult(false), RESULT_TTL_MS);
+      return () => clearTimeout(timer);
+    }
+  }, [result, scanning, autoDismiss]);
 
   if (scanning && progress) {
     const fraction = lanScanFraction(progress);
