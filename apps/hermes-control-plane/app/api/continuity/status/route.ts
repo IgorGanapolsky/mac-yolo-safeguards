@@ -2,6 +2,7 @@ import {
   describeHostedResources,
   lastCachedModelError,
   MODEL_ERROR_LOOKBACK_MS,
+  probeBrowserHealth,
 } from "@/lib/hosted-apphost";
 import { db } from "@/lib/runtime";
 
@@ -84,11 +85,14 @@ export async function GET() {
       WHERE route = 'cloud' AND status = 'failed' AND error IS NOT NULL AND updated_at >= ?
       ORDER BY updated_at DESC LIMIT 1`,
   ).bind(now - MODEL_ERROR_LOOKBACK_MS).first<{ error: string | null }>().catch(() => null);
+  const browser = await probeBrowserHealth({ now, timeoutMs: 8_000 });
   const hosted = describeHostedResources({
     runner: { ok: runner?.ok, lastPollAt: runner?.lastPollAt ?? null },
     modelError: lastModelError?.error ?? lastCachedModelError(),
+    browser: { ok: browser.ok, lastPollAt: browser.lastPollAt ?? null },
     now,
     runnerKnown: true,
+    browserKnown: true,
   });
 
   return Response.json({
@@ -97,6 +101,7 @@ export async function GET() {
     checkedAt: now,
     hostedRunner: hosted.hostedRunner,
     hostedModel: hosted.hostedModel,
+    hostedBrowser: hosted.hostedBrowser,
     claims: {
       model: "queued_prompt_handoff",
       not: "process_migration",
