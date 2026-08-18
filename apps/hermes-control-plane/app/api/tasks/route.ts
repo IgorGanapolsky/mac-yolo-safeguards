@@ -6,11 +6,12 @@ import {
   governanceError,
 } from "@/lib/agent-governance";
 import { db } from "@/lib/runtime";
-import { evaluateCloudPromptToolPolicy } from "@/lib/cloud-tool-policy";
+import { evaluateCloudPromptToolPolicy, requiredHostedSidecars } from "@/lib/cloud-tool-policy";
 import {
   admitCloudSend,
   lastCachedModelError,
   MODEL_ERROR_LOOKBACK_MS,
+  probeBrowserHealth,
   probeRunnerHealth,
   waitForHostedReady,
 } from "@/lib/hosted-apphost";
@@ -125,8 +126,12 @@ export async function POST(request: Request) {
     if (!toolPolicy.allowed) {
       return jsonError(toolPolicy.message, 409);
     }
+    const required = requiredHostedSidecars(prompt);
     const probeNow = Date.now();
     const runner = await probeRunnerHealth({ now: probeNow, timeoutMs: 8_000, force: true });
+    const browser = required.includes("browser")
+      ? await probeBrowserHealth({ now: probeNow, timeoutMs: 8_000, force: true })
+      : null;
     let modelError = lastCachedModelError();
     try {
       const lastFailed = await db().prepare(
@@ -142,6 +147,8 @@ export async function POST(request: Request) {
     const hostedReady = waitForHostedReady({
       runner: { ok: runner.ok, lastPollAt: runner.lastPollAt ?? null },
       modelError,
+      browser: browser ? { ok: browser.ok, lastPollAt: browser.lastPollAt ?? null } : null,
+      required,
       now: probeNow,
     });
     const hostedAdmit = admitCloudSend(hostedReady);

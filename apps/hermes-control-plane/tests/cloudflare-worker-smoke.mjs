@@ -316,35 +316,39 @@ try {
   assert.equal(authenticatedDashboard.status, 200);
   const authenticatedMe = await fetch(`http://127.0.0.1:${port}/api/me`, { headers: authenticatedHeaders });
   assert.equal(authenticatedMe.status, 200);
-  assert.deepEqual(await authenticatedMe.json(), {
-    authenticated: true,
-    user: {
-      id: "e2e-user",
-      email: "e2e@example.com",
-      name: "E2E User",
-      avatarUrl: null,
-    },
-    organization: {
-      id: "e2e-org",
-      plan: "pro",
-      trialEndsAt: null,
-      cloudAccess: true,
-    },
-    // CoreWeave-style capacity truth from governance-aligned caps.
-    continuityUsage: {
-      cloudTasks30d: 0,
-      cloudTaskLimit: 100,
-      cloudTasksRemaining: 100,
-      activeTasks: 0,
-      maxActiveTasks: 10,
-      plan: "pro",
-      purchaseMode: "on_demand_monthly",
-      windowDays: 30,
-      percentUsed: 0,
-      exhausted: false,
-      upgradeHint: null,
-    },
+  const me = await authenticatedMe.json();
+  assert.equal(me.authenticated, true);
+  assert.deepEqual(me.user, {
+    id: "e2e-user",
+    email: "e2e@example.com",
+    name: "E2E User",
+    avatarUrl: null,
   });
+  assert.deepEqual(me.organization, {
+    id: "e2e-org",
+    plan: "pro",
+    trialEndsAt: null,
+    cloudAccess: true,
+  });
+  assert.deepEqual(me.continuityUsage, {
+    cloudTasks30d: 0,
+    cloudTaskLimit: 100,
+    cloudTasksRemaining: 100,
+    activeTasks: 0,
+    maxActiveTasks: 10,
+    plan: "pro",
+    purchaseMode: "on_demand_monthly",
+    windowDays: 30,
+    percentUsed: 0,
+    exhausted: false,
+    upgradeHint: null,
+  });
+  const hostedStates = ["waiting", "healthy", "unhealthy"];
+  for (const key of ["hostedRunner", "hostedModel", "hostedBrowser"]) {
+    assert.ok(me[key], `${key} must be present`);
+    assert.ok(hostedStates.includes(me[key].status), `${key}.status`);
+    assert.equal(typeof me[key].message, "string");
+  }
 
   const logout = await fetch(`http://127.0.0.1:${port}/api/auth/logout`, {
     method: "POST",

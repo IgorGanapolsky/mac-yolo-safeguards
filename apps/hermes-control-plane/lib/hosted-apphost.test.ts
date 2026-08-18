@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   admitCloudSend,
+  browserHealthy,
   clearHostedAppHostCaches,
   describeHostedResources,
   hostedConnectionCopy,
@@ -9,6 +10,7 @@ import {
   mapProviderError,
   modelHealthy,
   parseResetEpoch,
+  probeBrowserHealth,
   rememberProviderError,
   runnerHealthy,
   waitForHostedReady,
@@ -213,5 +215,76 @@ describe("rememberProviderError", () => {
     rememberProviderError(mapProviderError(QUOTA), RESET_EPOCH - 1);
     expect(modelHealthy({ now: RESET_EPOCH - 1 })).toBe(false);
     expect(modelHealthy({ now: RESET_EPOCH })).toBe(true);
+  });
+});
+
+describe("browserHealthy", () => {
+  const now = RESET_EPOCH;
+
+  it("is false for undefined/null and true for a healthy poll", () => {
+    expect(browserHealthy(undefined, now)).toBe(false);
+    expect(browserHealthy(null, now)).toBe(false);
+    expect(browserHealthy({ ok: true, lastPollAt: now - 5_000 }, now)).toBe(true);
+  });
+});
+
+describe("waitForHostedReady browser sidecar", () => {
+  const now = RESET_EPOCH - 1_000;
+  const healthyRunner = { ok: true, lastPollAt: now - 5_000 };
+
+  it("stays ready when browser is missing if browser is not required", () => {
+    const result = waitForHostedReady({
+      runner: healthyRunner,
+      modelError: null,
+      browser: null,
+      now,
+    });
+    expect(result.ready).toBe(true);
+    expect(result.waitingOn).toEqual([]);
+  });
+
+  it("waits on browser and refuses admit when required browser is null", () => {
+    const result = waitForHostedReady({
+      runner: healthyRunner,
+      modelError: null,
+      browser: null,
+      required: ["runner", "model", "browser"],
+      now,
+    });
+    expect(result.ready).toBe(false);
+    expect(result.waitingOn).toEqual(["browser"]);
+    expect(admitCloudSend(result).allowed).toBe(false);
+  });
+
+  it("is ready when required browser is healthy", () => {
+    const result = waitForHostedReady({
+      runner: healthyRunner,
+      modelError: null,
+      browser: { ok: true, lastPollAt: now - 5_000 },
+      required: ["runner", "model", "browser"],
+      now,
+    });
+    expect(result.ready).toBe(true);
+    expect(result.waitingOn).toEqual([]);
+  });
+});
+
+describe("probeBrowserHealth", () => {
+  it("does not call fetchImpl when HERMES_HOSTED_BROWSER_HEALTH_URL is unset", async () => {
+    const prev = process.env.HERMES_HOSTED_BROWSER_HEALTH_URL;
+    delete process.env.HERMES_HOSTED_BROWSER_HEALTH_URL;
+    let called = false;
+    const fetchImpl = (async () => {
+      called = true;
+      throw new Error("fetchImpl should not be called");
+    }) as unknown as typeof fetch;
+    try {
+      const health = await probeBrowserHealth({ now: RESET_EPOCH, fetchImpl, force: true });
+      expect(called).toBe(false);
+      expect(health.ok).toBe(false);
+    } finally {
+      if (prev === undefined) delete process.env.HERMES_HOSTED_BROWSER_HEALTH_URL;
+      else process.env.HERMES_HOSTED_BROWSER_HEALTH_URL = prev;
+    }
   });
 });
