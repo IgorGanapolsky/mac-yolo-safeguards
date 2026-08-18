@@ -112,7 +112,7 @@ test("builds the public hosted Hermes landing page", async () => {
   assert.match(portalRoute, /export async function POST/);
   assert.match(portalRoute, /handlePortalRequest|isGet/);
   assert.match(dashboard, /\? manageBilling\(\) : subscribe\(\)/);
-  assert.match(page, /Sign in\. Run on VPS\. Stay gated\./);
+  assert.match(page, /Sign in\. Start on VPS\. Stay gated\./);
   assert.match(page, /Hosted Hermes/);
   // Pricing CTAs live in client chrome (static shell + /api/me personalization).
   const chrome = await readFile(new URL("../app/LandingAuthChrome.tsx", import.meta.url), "utf8");
