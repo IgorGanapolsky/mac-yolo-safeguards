@@ -149,8 +149,5 @@ export function resolveAutoRouteLabel(input: {
       ? `Auto — Continuity while ${input.deviceLabel} is offline`
       : `Auto — wait for ${input.deviceLabel} (no Continuity)`;
   }
-  if (input.hasCloudAccess) {
-    return "Auto — Continuity (no Mac required)";
-  }
-  return "Auto — needs a paired Mac (or Continuity plan)";
+  return "Continuity (cloud VPS)";
 }
