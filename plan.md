@@ -3046,4 +3046,7 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 - `tools/hermes-mobile-pair.js`, `tests/test-hermes-pair-lan-route.js` → **grok-pair-lan-alternates** (USB primary must still publish LAN/TS routes; Wi-Fi phone never gets 127.0.0.1) (2026-08-18)
 - 2026-08-13 hermes-yolo anti-gibberish: killed stale deepseek-v4-flash sessions (48x compression), quality-lock auto→hermes/glm-coding, strip free flash from inference chains, env pin HERMES_YOLO_BACKEND=hermes MODEL=glm-coding. PR agent/hermes-yolo-slop-fix-20260813.
 
+- 2026-08-18T17:55Z `grok-qoder-start-surfaces`: **T-QODER-START-SURFACES-20260818 / AGENT-406 claimed.** Qoder download-page steal: zero-install start, always-on agent card, optional store badges. No fake desktop installers. No 1813 files.
+- 2026-08-18T18:25Z `grok-qoder-start-surfaces`: Raised StartSurfaces to two-panel Qoder invert (optional store badges + honest OS invert + identity card). Merged origin/main so HostingSelector stays. No fake Wake SKU, no invented 28/9/78 stats.
 - 2026-08-18T17:50Z `grok-thumbgate-hosting-picker`: **T-THUMBGATE-HOSTING-PICKER-20260818 / AGENT-405 claimed.** Chief: put Vellum Hosting picker on thumbgate.app. Cloud = fenced VPS always-on $10. Local = your machine. No Mac-pair. No second SKU.
+- 2026-08-18T18:40Z `grok-qoder-start-surfaces`: CI unit-and-coverage failed on rendered-html expecting "Run on VPS"; #1817 renamed heading to "Start on VPS". Aligned test. Not a product revert.
