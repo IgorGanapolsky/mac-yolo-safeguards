@@ -53,7 +53,8 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 | `github-marketplace-action-publish` | Publish or update a GitHub Actions Marketplace listing (free only for ThumbGate until counsel clearance). Never claim LIVE without verify. Slash: /github-marketplace-action-publish. | `.agents/skills/github-marketplace-action-publish/SKILL.md` | local |
 | `verify-github-marketplace-listing` | Evidence-only check that a GitHub Actions Marketplace listing is LIVE (HTTP 200 + real title). Never infer from a release banner. Slash: /verify-github-marketplace-listing. | `.agents/skills/verify-github-marketplace-listing/SKILL.md` | local |
 | `advertise-thumbgate-github-marketplace` | Cite the live ThumbGate Marketplace listing (free only). Verify first. No paid plans or buyer outreach without ECI clearance. Slash: /advertise-thumbgate-github-marketplace. | `.agents/skills/advertise-thumbgate-github-marketplace/SKILL.md` | local |
+| `ci-first-fail` | Buildkite-style first-fail CI annotations. Name the failing STEP; never dump logs; do not migrate off GitHub Actions. Slash: /ci-first-fail. | `.agents/skills/ci-first-fail/SKILL.md` | local |
 
 ---
 
-*Last synchronized: 2026-08-17T22:06:00.000Z*
+*Last synchronized: 2026-08-18T17:45:00.000Z*

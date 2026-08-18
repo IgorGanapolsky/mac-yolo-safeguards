@@ -3050,3 +3050,5 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 - 2026-08-18T18:25Z `grok-qoder-start-surfaces`: Raised StartSurfaces to two-panel Qoder invert (optional store badges + honest OS invert + identity card). Merged origin/main so HostingSelector stays. No fake Wake SKU, no invented 28/9/78 stats.
 - 2026-08-18T17:50Z `grok-thumbgate-hosting-picker`: **T-THUMBGATE-HOSTING-PICKER-20260818 / AGENT-405 claimed.** Chief: put Vellum Hosting picker on thumbgate.app. Cloud = fenced VPS always-on $10. Local = your machine. No Mac-pair. No second SKU.
 - 2026-08-18T18:40Z `grok-qoder-start-surfaces`: CI unit-and-coverage failed on rendered-html expecting "Run on VPS"; #1817 renamed heading to "Start on VPS". Aligned test. Not a product revert.
+
+| T-BUILDKITE-FIRST-FAIL-20260818 | Buildkite process steal: first-fail CI annotations; stay on GHA | in_progress | grok-buildkite-first-fail-20260818 | `tools/ci-first-fail.js`, `tests/test-ci-first-fail.js`, `bin/ci-first-fail`, `.agents/skills/ci-first-fail/**`, `SKILLS.md` (append), `plan.md` | AGENT-408 |
