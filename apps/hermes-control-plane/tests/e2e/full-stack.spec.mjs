@@ -69,15 +69,11 @@ test("a task submitted through the real composer round-trips through the real co
   await expect(completedCard.locator("pre")).toContainText("fake-gateway E2E reply");
 });
 
-test("the device picker lets a real user target a specific paired Mac, and the task actually runs there", async ({ page }) => {
+test("composer has no RUN ON picker and shows Output after send", async ({ page }) => {
   await page.goto("/dashboard");
 
-  // Unified "Run on" select (local:<deviceId> values).
-  const picker = page.locator('[data-testid="composer-target-select"]');
-  await expect(picker).toBeVisible();
-  // auto + 2 paired devices + Continuity + pair + manage
-  await expect(picker.locator("option")).toHaveCount(6, { timeout: 5_000 });
-  await picker.selectOption(`local:${state.deviceB.deviceId}`);
+  await expect(page.locator('[data-testid="run-output"]')).toBeVisible();
+  await expect(page.locator('[data-testid="composer-target-select"]')).toHaveCount(0);
 
   const textarea = page.getByLabel("Message for Hermes");
   await textarea.fill("run this on the MacBook Pro specifically");
