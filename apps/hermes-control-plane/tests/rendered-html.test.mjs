@@ -134,6 +134,10 @@ test("builds the public Continuity VPS landing page", async () => {
   assert.match(page, /Where do approvals happen\?/);
   assert.doesNotMatch(page, /id="mobile"/);
   assert.match(page, /id="pricing"/);
+  assert.match(page, /data-testid="sleep-vs-vps"/);
+  assert.match(page, /When the machine sleeps, the agent dies/);
+  assert.doesNotMatch(page, /Agent work on afenced/);
+  assert.doesNotMatch(page, /more providers activate once configured/);
   // CoreWeave-style transparent capacity: public matrix + governance-aligned run caps.
   assert.match(page, /data-testid="continuity-capacity-matrix"/);
   assert.match(page, /Transparent Continuity capacity/);
