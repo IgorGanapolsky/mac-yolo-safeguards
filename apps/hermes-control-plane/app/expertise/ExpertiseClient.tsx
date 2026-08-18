@@ -84,15 +84,15 @@ export default function ExpertiseClient() {
 
       <section className="hero" tabIndex={-1}>
         <div className="hero-copy">
-          <p className="eyebrow">Engineering expertise · original data</p>
-          <h1 className="hero-title">Running Hermes Agents in production</h1>
+          <p className="eyebrow">Operator telemetry · not a customer story</p>
+          <h1 className="hero-title">Internal hosted telemetry</h1>
           <p className="hero-lede">
-            ThumbGate is built and operated by the engineer who maintains the
-            Hermes remote-control stack. Every number below is computed live
-            from our production control plane — not a static marketing figure.
+            Numbers below are operator control-plane counters. They are not
+            stranger case studies and they do not imply paying customers.
+            We measure recovered runs after you start.
           </p>
           <div className="trust-row">
-            <span>Named author</span>
+            <span>No invented customers</span>
             <span>Original D1 data</span>
             <span>Canaries excluded</span>
           </div>
@@ -114,8 +114,8 @@ export default function ExpertiseClient() {
             <p className="eyebrow">Live telemetry</p>
             <h2>Metrics unavailable right now</h2>
             <p className="hero-lede">
-              The stats endpoint could not be reached ({state.message}). The
-              engineering case studies below remain fully cited.
+              The stats endpoint could not be reached ({state.message}). No
+              case studies are invented to fill the gap.
             </p>
           </div>
         </section>
@@ -168,50 +168,13 @@ export default function ExpertiseClient() {
 
       <section className="section-block" aria-labelledby="case-studies-heading">
         <div className="section-heading">
-          <p className="eyebrow">Case studies · named authors</p>
-          <h2 id="case-studies-heading">What we actually run</h2>
-        </div>
-        <div className="steps-grid">
-          {state.status === "ready" && state.data.caseStudies.length > 0 ? (
-            state.data.caseStudies.map((cs) => (
-              <article key={cs.id} className="price-card">
-                <h3>{cs.title}</h3>
-                <p className="signin-note">
-                  {cs.orgType} · published {formatDate(cs.publishedAt)}
-                </p>
-                <p>
-                  <strong>Challenge:</strong> {cs.challenge}
-                </p>
-                <p>
-                  <strong>Solution:</strong> {cs.solution}
-                </p>
-                <p>
-                  <strong>Outcome:</strong> {cs.outcome}
-                </p>
-                <p className="trust-row">
-                  <span>{cs.metric}</span>
-                </p>
-                <p className="signin-note">
-                  Author: <strong>{cs.author.name}</strong> — {cs.author.role}
-                  {cs.author.linkedin ? (
-                    <>
-                      {" "}
-                      ·{" "}
-                      <a href={cs.author.linkedin} rel="nofollow noopener">
-                        LinkedIn
-                      </a>
-                    </>
-                  ) : null}
-                </p>
-              </article>
-            ))
-          ) : (
-            <p className="hero-lede">
-              Case studies load from the same endpoint. If metrics are
-              unavailable, the live cards above still explain what this page
-              tracks.
-            </p>
-          )}
+          <p className="eyebrow">No stranger case studies</p>
+          <h2 id="case-studies-heading">We do not invent customer stories</h2>
+          <p className="hero-lede">
+            ThumbGate has no stranger testimonials on this page.
+            Operator telemetry is not a case study. If a paying customer
+            later publishes a real write-up, it will be marked as such.
+          </p>
         </div>
       </section>
 
