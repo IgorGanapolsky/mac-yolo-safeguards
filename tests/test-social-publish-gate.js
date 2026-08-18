@@ -119,9 +119,11 @@ test('campaignStem collapses meme/image/v2 suffixes', () => {
 
 test('same-beat campaign family blocks meme variant after LIVE text post', () => {
   // Repro 2026-08-04: text LIVE under …-gates, then …-gates-meme ALLOWED → double-post
+  // Use a date inside lookbackDays so the test is not calendar-flaky (failed 2026-08-18 = day 14).
+  const recent = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const log = writeTempLog([
     [
-      '2026-08-04',
+      recent,
       'LinkedIn',
       'p',
       'pain',
