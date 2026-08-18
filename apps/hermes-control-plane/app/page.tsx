@@ -11,6 +11,7 @@ import {
   LandingPricingCtaPaid,
 } from "./LandingAuthChrome";
 import { BrandMark } from "./BrandMark";
+import { StartSurfaces } from "./StartSurfaces";
 import styles from "./landing.module.css";
 import {
   CONTINUITY_PRICE_TIERS,
@@ -215,6 +216,9 @@ export default function Home() {
           </article>
         </div>
       </section>
+
+      <StartSurfaces />
+
       <section id="setup" className="setup-section">
         <div className="section-heading">
           <p className="eyebrow">Start hosted Hermes</p>
