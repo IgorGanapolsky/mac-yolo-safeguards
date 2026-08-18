@@ -19,10 +19,10 @@ function positiveMilliseconds(value, fallback) {
 }
 
 function pollingSchedule(env = process.env) {
-  const activePollMs = positiveMilliseconds(env.ACTIVE_POLL_MS, 1_000);
+  const activePollMs = positiveMilliseconds(env.ACTIVE_POLL_MS, 500);
   const idlePollMs = Math.max(
     activePollMs,
-    positiveMilliseconds(env.IDLE_POLL_MS || env.POLL_MS, 30_000),
+    positiveMilliseconds(env.IDLE_POLL_MS || env.POLL_MS, 10_000),
   );
   return { activePollMs, idlePollMs };
 }
@@ -44,6 +44,9 @@ function configFromEnv(env = process.env) {
     controlPlaneUrl: stripTrailingSlashes(env.HERMES_CONTROL_PLANE_URL), token: env.HERMES_CLOUD_RUNNER_TOKEN,
     openaiBaseUrl: stripTrailingSlashes(env.OPENAI_BASE_URL), openaiKey: env.OPENAI_API_KEY,
     model: env.OPENAI_MODEL, runnerId: env.HERMES_CLOUD_RUNNER_ID || os.hostname(),
+    fallbackBaseUrl: env.FALLBACK_OPENAI_BASE_URL ? stripTrailingSlashes(env.FALLBACK_OPENAI_BASE_URL) : null,
+    fallbackKey: env.FALLBACK_OPENAI_API_KEY || null,
+    fallbackModel: env.FALLBACK_OPENAI_MODEL || null,
   };
 }
 
@@ -58,18 +61,44 @@ async function callControl(config, pathname, body = {}) {
   return payload;
 }
 
+async function requestCompletions(baseUrl, key, model, messages) {
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ model, messages, max_tokens: MODEL_MAX_TOKENS, stream: false }),
+    signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    const errMsg = payload.error?.message || payload.error || `Model provider HTTP ${response.status}`;
+    const err = new Error(errMsg);
+    err.status = response.status;
+    err.isQuota = response.status === 429 || /limit exhausted|quota|overloaded/i.test(errMsg);
+    throw err;
+  }
+  return payload.choices?.[0]?.message?.content ?? JSON.stringify(payload);
+}
+
 async function execute(config, task) {
   const context = Array.isArray(task.contextMessages)
     ? task.contextMessages.filter((message) => ['user', 'assistant', 'system'].includes(message?.role) && typeof message?.content === 'string')
     : [];
-  const response = await fetch(`${config.openaiBaseUrl}/chat/completions`, {
-    method: 'POST', headers: { authorization: `Bearer ${config.openaiKey}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ model: config.model, messages: [...context, { role: 'user', content: task.prompt }], max_tokens: MODEL_MAX_TOKENS, stream: false }),
-    signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
-  });
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload.error?.message || payload.error || `Model provider HTTP ${response.status}`);
-  return payload.choices?.[0]?.message?.content ?? JSON.stringify(payload);
+  const messages = [...context, { role: 'user', content: task.prompt }];
+
+  try {
+    return await requestCompletions(config.openaiBaseUrl, config.openaiKey, config.model, messages);
+  } catch (primaryError) {
+    // If primary failed due to quota/rate-limit and fallback is available, attempt fallback
+    if (primaryError.isQuota && config.fallbackBaseUrl && config.fallbackKey && config.fallbackModel) {
+      try {
+        console.warn(`[hermes-cloud-runner] Primary provider hit quota limit (${primaryError.message}). Failing over to fallback ${config.fallbackModel}...`);
+        return await requestCompletions(config.fallbackBaseUrl, config.fallbackKey, config.fallbackModel, messages);
+      } catch (fallbackError) {
+        console.error(`[hermes-cloud-runner] Fallback provider also failed: ${fallbackError.message}`);
+      }
+    }
+    throw primaryError;
+  }
 }
 
 async function withLeaseRenewal(work, renew, intervalMs = LEASE_RENEW_MS) {

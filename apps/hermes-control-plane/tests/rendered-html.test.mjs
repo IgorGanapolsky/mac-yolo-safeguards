@@ -249,3 +249,16 @@ test("public legal pages use hosted Hermes, not Continuity", async () => {
   assert.match(terms, /no phone leash/);
   assert.doesNotMatch(terms, /Continuity/);
 });
+
+test("NexPlanCard implements interactive plan mode approval matching Nex.ai", async () => {
+  const card = await readFile(new URL("../app/components/NexPlanCard.tsx", import.meta.url), "utf8");
+  assert.match(card, /export function NexPlanCard/);
+  assert.match(card, /Approve plan/);
+  assert.match(card, /Discard plan/);
+  assert.match(card, /Request changes/);
+  assert.match(card, /Goal/);
+  assert.match(card, /Market Evidence/);
+  assert.match(card, /Constraints/);
+  assert.match(card, /Approach/);
+});
+

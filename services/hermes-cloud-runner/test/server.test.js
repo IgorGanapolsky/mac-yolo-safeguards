@@ -18,9 +18,9 @@ test('normalizes runner configuration without exposing tokens', () => {
 
 test('backs off empty cloud polls while draining active work quickly', () => {
   const defaults = pollingSchedule({});
-  assert.deepEqual(defaults, { activePollMs: 1_000, idlePollMs: 30_000 });
-  assert.equal(nextPollDelay(false, defaults), 30_000);
-  assert.equal(nextPollDelay(true, defaults), 1_000);
+  assert.deepEqual(defaults, { activePollMs: 500, idlePollMs: 10_000 });
+  assert.equal(nextPollDelay(false, defaults), 10_000);
+  assert.equal(nextPollDelay(true, defaults), 500);
   assert.deepEqual(pollingSchedule({ POLL_MS: '15000', ACTIVE_POLL_MS: '500' }), {
     activePollMs: 500,
     idlePollMs: 15_000,
@@ -62,3 +62,40 @@ test('renews a cloud lease throughout long-running model work', async () => {
   assert.equal(result, 'complete');
   assert.ok(renewals >= 3, `expected at least 3 renewals, received ${renewals}`);
 });
+
+test('fails over to fallback provider when primary returns 429 quota exhausted', async () => {
+  const primaryServer = http.createServer((request, response) => {
+    response.writeHead(429, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({ error: { message: 'Weekly/Monthly Limit Exhausted. Your limit will reset at 2026-08-22' } }));
+  });
+  const fallbackServer = http.createServer((request, response) => {
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({ choices: [{ message: { content: 'fallback model response' } }] }));
+  });
+
+  await new Promise((resolve) => primaryServer.listen(0, '127.0.0.1', resolve));
+  await new Promise((resolve) => fallbackServer.listen(0, '127.0.0.1', resolve));
+
+  const pAddr = primaryServer.address();
+  const fAddr = fallbackServer.address();
+
+  try {
+    const result = await execute({
+      openaiBaseUrl: `http://127.0.0.1:${pAddr.port}`,
+      openaiKey: 'primary-key',
+      model: 'primary-model',
+      fallbackBaseUrl: `http://127.0.0.1:${fAddr.port}`,
+      fallbackKey: 'fallback-key',
+      fallbackModel: 'fallback-model',
+    }, {
+      prompt: 'hello world',
+      contextMessages: [],
+    });
+
+    assert.equal(result, 'fallback model response');
+  } finally {
+    await new Promise((resolve) => primaryServer.close(resolve));
+    await new Promise((resolve) => fallbackServer.close(resolve));
+  }
+});
+

@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "ThumbGate — AI Agent Pre-Action Gate & Memory HUD",
+  "version": "1.0.0",
+  "description": "Pre-action safety guardrails, destructive web action interdiction, and 1-click memory capture for AI agents in Chrome.",
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://*.thumbgate.app/*",
+    "https://chatgpt.com/*",
+    "https://claude.ai/*",
+    "https://github.com/*",
+    "https://*.stripe.com/*",
+    "https://*.aws.amazon.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "ThumbGate AI Guardrails"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://claude.ai/*",
+        "https://github.com/*",
+        "https://*.stripe.com/*",
+        "https://*.aws.amazon.com/*"
+      ],
+      "js": ["content-script.js"],
+      "css": ["content-style.css"],
+      "run_at": "document_end"
+    }
+  ]
+}

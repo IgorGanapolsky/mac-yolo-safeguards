@@ -66,7 +66,7 @@ const block = renderManagedConfigBlock(
 assert(block.includes(MANAGED_BEGIN));
 assert(block.includes(MANAGED_END));
 assert(block.includes('[model.ollama-hermes-64k]'));
-assert(block.includes('fork_secondary_model = "ollama-hermes-fast"'));
+assert(mergeManagedConfig('', block).includes('fork_secondary_model = "ollama-hermes-fast"'));
 
 const mergedOnce = mergeManagedConfig('[ui]\nyolo = true\nfork_secondary_model = "grok-build"\n', block);
 assert(mergedOnce.includes('yolo = true'));

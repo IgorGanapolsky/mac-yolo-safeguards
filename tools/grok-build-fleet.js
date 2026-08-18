@@ -206,10 +206,6 @@ function renderManagedConfigBlock(resolvedModels) {
     '# Use: grok -m ollama-hermes-64k  or  /model ollama-hermes-64k',
     '# Source: https://github.com/xai-org/grok-build  ' + SOURCE_NEWS,
     '',
-    '[models]',
-    '# Prefer local for cheap forks when secondary model is used.',
-    'fork_secondary_model = "ollama-hermes-fast"',
-    '',
   ];
 
   for (const entry of resolvedModels) {

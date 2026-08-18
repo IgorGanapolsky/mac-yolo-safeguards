@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# now — CLI wrapper to inspect and sync active working scratchpad NOW.md
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec node "${REPO_ROOT}/tools/soul-now-context-engine.js" --now "$@"

@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# wright-sdlc — CLI launcher for Wrights Phased Work Order SDLC Engine
+set -euo pipefail
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+REPO_ROOT="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
+
+exec node "${REPO_ROOT}/tools/wright-sdlc-engine.js" "$@"
