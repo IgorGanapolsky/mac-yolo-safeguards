@@ -141,7 +141,7 @@ export default function Home() {
           <p className="eyebrow"><span className="live-dot" /> Hosted Hermes · Fenced VPS</p>
           <h1>Hermes that stays on.</h1>
           <p className="hero-lede">
-            Always on, even when your computer is off. Hosted on a fenced VPS, not a laptop process. Approve money, customer, or production actions in this browser. Flat $10/month. 14 days free. Cancel anytime.
+            Always on, even when your computer is off. Hosted on a fenced VPS. Not a laptop process. Approve money, customer, or production actions in this browser. Flat $10/month. 14 days free. Cancel anytime.
           </p>
           <p className="signin-note">
             Automations can draft and run. Money, customer-facing, or production actions require your approval in this browser.
