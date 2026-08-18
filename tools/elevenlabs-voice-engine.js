@@ -208,7 +208,7 @@ function simulateConversationTest(config = DEFAULT_VOICE_AGENT_TEMPLATE) {
     {
       name: 'Initial Greeting Test',
       passed: firstMessage.trim().length > 0,
-      details: `Greeting is non-empty: "${firstMessage.slice(0, 40)}..."`,
+      details: "Greeting is non-empty.",
     },
     {
       name: 'LLM Selection Validity',

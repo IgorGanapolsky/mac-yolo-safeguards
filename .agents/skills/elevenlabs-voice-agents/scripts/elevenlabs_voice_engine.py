@@ -228,7 +228,7 @@ def simulate_conversation_test(config: Dict[str, Any]) -> Dict[str, Any]:
         {
             "name": "Initial Greeting Test",
             "passed": len(first_message.strip()) > 0,
-            "details": f"Greeting is non-empty: '{first_message[:40]}...'",
+            "details": "Greeting is non-empty.",
         },
         {
             "name": "LLM Selection Validity",
@@ -420,6 +420,46 @@ def promote_config(
     return receipt
 
 
+
+def _public_sim_result(result: Dict[str, Any]) -> Dict[str, Any]:
+    """JSON-safe sim result without prompt/greeting snippets (CodeQL clear-text)."""
+    return {
+        "status": result.get("status"),
+        "agent_id": result.get("agent_id"),
+        "tests_run": result.get("tests_run"),
+        "tests_passed": result.get("tests_passed"),
+        "test_cases": [
+            {"name": tc.get("name"), "passed": tc.get("passed")}
+            for tc in result.get("test_cases", [])
+        ],
+    }
+
+
+def _public_promote_receipt(receipt: Dict[str, Any]) -> Dict[str, Any]:
+    """JSON-safe promote receipt without embedded prompt text."""
+    out = {
+        "promoted_at": receipt.get("promoted_at"),
+        "dry_run": receipt.get("dry_run"),
+        "promotable": receipt.get("promotable"),
+        "agent_id": receipt.get("agent_id"),
+        "llm": receipt.get("llm"),
+        "estimated_cost_per_conversation_usd": receipt.get(
+            "estimated_cost_per_conversation_usd"
+        ),
+        "cost_ceiling_usd": receipt.get("cost_ceiling_usd"),
+        "deploy_action": receipt.get("deploy_action"),
+        "note": receipt.get("note"),
+        "gate": {
+            "decision": receipt.get("gate", {}).get("decision"),
+            "action": receipt.get("gate", {}).get("action"),
+            "intervention_type": receipt.get("gate", {}).get("intervention_type"),
+            "reason": receipt.get("gate", {}).get("reason"),
+        },
+        "simulation": _public_sim_result(receipt.get("simulation", {})),
+    }
+    return out
+
+
 def _load_config(path: str | None) -> Dict[str, Any]:
     if path and os.path.exists(path):
         with open(path, "r", encoding="utf-8") as f:
@@ -572,7 +612,7 @@ def main() -> int:
         config = _load_config(args.config)
         result = simulate_conversation_test(config)
         if args.json:
-            print(json.dumps(result, indent=2))
+            print(json.dumps(_public_sim_result(result), indent=2))
         else:
             print(f"=== Conversational Simulation Test: {result['agent_id']} ===")
             print(
@@ -614,7 +654,7 @@ def main() -> int:
             dry_run=not args.apply,
         )
         if args.json:
-            print(json.dumps(receipt, indent=2))
+            print(json.dumps(_public_promote_receipt(receipt), indent=2))
         else:
             print(f"=== Promote Receipt: {receipt['agent_id']} ===")
             print(f"Promotable: {receipt['promotable']}")
