@@ -3040,6 +3040,7 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 | SKILLS.md (append rows only) | grok-marketplace-skills-20260817 | 2026-08-17T22:06:00Z |
 | plan.md (append only) | grok-marketplace-skills-20260817 | 2026-08-17T22:06:00Z |
 
+- `bin/eleven-voice`, `.agents/skills/elevenlabs-voice-agents/**`, `tools/elevenlabs-voice-engine.js`, `tests/test-elevenlabs-voice-agents.js`, `config/voice-agents/**`, `docs/ELEVENLABS-VOICE-GOVERNANCE.md` → **grok-elevenlabs-roi** (implement+test ElevenLabs MCP high-ROI steals: promote gate, cost-compare, billing-escalation sim) (2026-08-18)
 
 - 2026-08-18T03:30:00Z `grok-pr-hygiene`: Merged #1736 (`8d66b8f8`); unblocked 8 stale-DIRTY PRs via worktree `merge --no-ff origin/main`; closed 5 superseded drafts; pruned 6 remote heads. Lesson: GitHub DIRTY can be stale vs merge-tree. Remaining ~60 open accounted (CI-wait / real conflicts). Evidence: `docs/agents/PR-HYGIENE-SESSION-2026-08-18.md`.
 - `tools/hermes-mobile-pair.js`, `tests/test-hermes-pair-lan-route.js` → **grok-pair-lan-alternates** (USB primary must still publish LAN/TS routes; Wi-Fi phone never gets 127.0.0.1) (2026-08-18)
