@@ -92,6 +92,11 @@ const FAQ_ITEMS = [
       "No. Hosted Hermes is one always-on agent on a fenced VPS. Local desktop employees die when the laptop sleeps. Approvals stay in thumbgate.app.",
   },
   {
+    question: "Does the browser get full VPS access?",
+    answer:
+      "No. The browser is untrusted. A session with no matching capability cannot reach core commands. Money, customer, and production still pause for you in thumbgate.app.",
+  },
+  {
     question: "Can I run it on my machine instead?",
     answer:
       "No. The $10 offer is hosted Hermes on a fenced VPS. Approvals stay in thumbgate.app. If it dies when the laptop sleeps, the trial failed.",
