@@ -18,9 +18,9 @@ test('normalizes runner configuration without exposing tokens', () => {
 
 test('backs off empty cloud polls while draining active work quickly', () => {
   const defaults = pollingSchedule({});
-  assert.deepEqual(defaults, { activePollMs: 1_000, idlePollMs: 30_000 });
-  assert.equal(nextPollDelay(false, defaults), 30_000);
-  assert.equal(nextPollDelay(true, defaults), 1_000);
+  assert.deepEqual(defaults, { activePollMs: 500, idlePollMs: 1_500 });
+  assert.equal(nextPollDelay(false, defaults), 1_500);
+  assert.equal(nextPollDelay(true, defaults), 500);
   assert.deepEqual(pollingSchedule({ POLL_MS: '15000', ACTIVE_POLL_MS: '500' }), {
     activePollMs: 500,
     idlePollMs: 15_000,

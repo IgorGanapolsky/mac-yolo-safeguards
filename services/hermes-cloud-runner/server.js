@@ -19,10 +19,10 @@ function positiveMilliseconds(value, fallback) {
 }
 
 function pollingSchedule(env = process.env) {
-  const activePollMs = positiveMilliseconds(env.ACTIVE_POLL_MS, 1_000);
+  const activePollMs = positiveMilliseconds(env.ACTIVE_POLL_MS, 500);
   const idlePollMs = Math.max(
     activePollMs,
-    positiveMilliseconds(env.IDLE_POLL_MS || env.POLL_MS, 30_000),
+    positiveMilliseconds(env.IDLE_POLL_MS || env.POLL_MS, 1_500),
   );
   return { activePollMs, idlePollMs };
 }
