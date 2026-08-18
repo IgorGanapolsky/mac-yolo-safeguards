@@ -79,10 +79,13 @@ test("composer has no RUN ON picker and shows Output after send", async ({ page 
   await expect(page.locator("select.composer-target-select")).toHaveCount(0);
   await expect(page.getByLabel("RUN ON")).toHaveCount(0);
   await expect(page.getByText("Which Mac?")).toHaveCount(0);
+  await expect(page.getByText("Which machine?", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Open Continuity settings")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Open settings" })).toHaveCount(1);
+  // Settings lives inside a collapsed details panel. Do not require it in the first viewport,
+  // and do not restore a Mac-pair Settings control to make this pass.
+  await expect(page.getByTestId("open-settings")).toHaveCount(1);
 
-  const prompt = "prove Continuity output pane after send";
+  const prompt = "prove hosted Hermes output pane after send";
   const textarea = page.getByLabel("Message for Hermes");
   await textarea.fill(prompt);
   await page.locator(".composer-run").click();
@@ -90,9 +93,9 @@ test("composer has no RUN ON picker and shows Output after send", async ({ page 
   const taskCard = page.locator(".dashboard-task", { hasText: prompt });
   await expect(taskCard).toBeVisible({ timeout: 10_000 });
   await expect(output).toBeVisible();
-  await expect(output).toContainText(/Output|Continuity|Results show here|Sent|Running/i);
+  await expect(output).toContainText(/Output|hosted Hermes|Results show here|Sent|Running/i);
 
-  // Continuity-only composer: any online connector can claim. Do not pin a Mac.
+  // Hosted-Hermes composer: VPS is the only route. Do not pin a Mac.
   const cycle = runConnector({
     device: state.deviceA,
     controlPlaneUrl: state.baseURL,

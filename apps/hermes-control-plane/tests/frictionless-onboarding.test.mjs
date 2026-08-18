@@ -267,7 +267,7 @@ test("lessons workspace activity stats and lesson cards deep-link into Hermes", 
   assert.doesNotMatch(dashboard, /pairComputerLabel/);
   assert.doesNotMatch(dashboard, /⚙ Manage machines/);
   assert.doesNotMatch(dashboard, /Open Continuity settings/);
-  assert.match(dashboard, />Open settings</);
+  assert.match(dashboard, /<button[\s\S]*data-testid="open-settings"[\s\S]*>\s*Open settings/);
   assert.match(globals, /\.lesson-activity li a\{/);
   assert.match(globals, /\.lesson-card-actions\{/);
   assert.match(globals, /\.task-filter-banner\{/);
@@ -328,7 +328,7 @@ test("hosted VPS is the only composer target — no RUN ON selector", () => {
 
 test("Open settings is a real control, not a dead Continuity hash link", () => {
   assert.doesNotMatch(dashboard, /Open Continuity settings/);
-  assert.match(dashboard, />Open settings</);
+  assert.match(dashboard, /<button[\s\S]*data-testid="open-settings"[\s\S]*>\s*Open settings/);
   assert.match(dashboard, /data-testid="open-settings"/);
   assert.match(dashboard, /openSettingsPanel/);
   assert.match(dashboard, /setMobileTab\("settings"\)/);
@@ -440,10 +440,10 @@ test("keeps every workspace telemetry value behind authentication", () => {
   assert.doesNotMatch(chrome, /getPublicTelemetry|Live production telemetry|Machines online now/);
   assert.doesNotMatch(landing, /getPublicTelemetry|Live production telemetry|Machines online now|P95 task completion|LAST CLOUD CONTINUATION|cloudRunsCompleted|machinesOnlineNow/);
   // Public pricing shows CoreWeave-style capacity matrix; live usage stays behind auth.
-  assert.match(landing, /data-testid="continuity-capacity-matrix"/);
+  assert.match(landing, /data-testid="hosted-capacity-matrix"/);
   assert.match(landing, /Transparent hosted capacity/);
   assert.doesNotMatch(landing, /data-testid="continuity-execution-modes"/);
-  assert.match(landing, /data-testid="continuity-zero-egress"/);
+  assert.match(landing, /data-testid="hosted-zero-egress"/);
   assert.match(dashboard, /data-testid="continuity-usage-meter"/);
   assert.match(dashboard, /continuityUsage/);
   assert.match(dashboard, /data-testid="continuity-upgrade-hint"/);

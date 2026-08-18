@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "chief-command": {
+      "command": "node",
+      "args": ["/home/box/chief-mcp/server.mjs"]
+    }
+  }
+}
