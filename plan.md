@@ -20,6 +20,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 ## 1. Task Board
 
 | T-SEED-YOLO-SEEDANCE-20260815 | Wire BytePlus Seedance 2.5 into seed-yolo: official 30s Broadway prompt, 50-ref cap, precision revise, honest STAGED jobs, $10 fail-closed | in_progress | grok-seed-yolo-seedance-20260815 | `tools/seedance-video-engine.js`, `tools/seed-yolo-wrapper.js` (video/starter/revise dispatch only), `tests/test-seedance-video-engine.js`, `bin/seedance`, `.agents/skills/seedance-video-suite/SKILL.md`, `plan.md` | 9/9 Seedance tests + existing seed-yolo tests PASS |
+| T-RUBRIK-MYTHOS-ROI-20260815 | Implement and test high-ROI Rubrik Mythos lessons: file-hash checkpoints, trust-boundary prune, tightly-scoped Track A, Track B for secrets/eval/chains | in_progress | grok-rubrik-mythos-roi-20260815 | `tools/rubrik-mythos-triage-harness.js`, `tests/test-rubrik-mythos-triage.js`, `tests/fixtures/rubrik-mythos/`, `bin/rubrik-triage`, `.agents/skills/rubrik-mythos-triage/SKILL.md`, `plan.md` | 9/9 fixture tests; doctor $10 fail-closed |
 | T-ZAI-GLM53-SYSTEMWIDE-20260815 | Persist GLM-5.3 + $10/mo cap system-wide (launchd, zsh, OpenCode, cyber rail) | done | grok-glm53-fleet |
 | T-ZAI-GLM53-FLEET-20260815 | Wire GLM-5.3 across all harnesses on the Coding Plan ($0 marginal) with a hard $10/mo metered API token budget | done | grok-glm53-fleet | `tools/zai-api-budget-guard.js`, `tools/zai-glm53-fleet.js`, `bin/zai-glm53`, `tests/test-zai-glm53-fleet.js`, `.agents/skills/zai-glm53-fleet/SKILL.md`, `docs/ZAI-GLM53-FLEET.md`, `plan.md` | PASS: 15/15 tests; live probe model=glm-5.3 preview=GLM53_OK; gateway glm-coding GLM53_OK; $10 metered fail-closed; zai-coding-glm53 moved off /api/paas/v4 |
 
@@ -812,6 +813,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
 - `tools/seedance-video-engine.js`, `tests/test-seedance-video-engine.js`, `bin/seedance`, `tools/seed-yolo-wrapper.js` (video/starter/revise dispatch only), `.agents/skills/seedance-video-suite/SKILL.md`, `plan.md` → **grok-seed-yolo-seedance-20260815** (T-SEED-YOLO-SEEDANCE-20260815: BytePlus Seedance 2.5 on seed-yolo) (2026-08-15T14:25:00Z)
+- `tools/rubrik-mythos-triage-harness.js`, `tests/test-rubrik-mythos-triage.js`, `tests/fixtures/rubrik-mythos/`, `bin/rubrik-triage`, `.agents/skills/rubrik-mythos-triage/SKILL.md`, `.gitleaks.toml` (one TESTONLY allowlist line), `plan.md` → **grok-rubrik-mythos-roi-20260815** (T-RUBRIK-MYTHOS-ROI-20260815: Mythos high-ROI steal — checkpoints, trust boundaries, what-not-to-automate) (2026-08-15T14:20:00Z)
 - `tools/zai-glm53-systemwide.js`, `tests/test-zai-glm53-systemwide.js`, `tools/hermes-yolo-route-policy.js` (cyber signal + HERMES_PREFER_GLM53_CYBER branch only), `tests/test-hermes-yolo-route-policy.js` (two cyber cases), `bin/zai-glm53`, `plan.md` → **grok-glm53-fleet** (T-ZAI-GLM53-SYSTEMWIDE-20260815: persist $10 cap + cyber Coding Plan across launchd/zsh/OpenCode; does not steal SuperGrok default or rubrik-mythos-triage) (2026-08-15T16:10:00Z)
 - `tools/zai-api-budget-guard.js`, `tools/zai-glm53-fleet.js`, `bin/zai-glm53`, `tests/test-zai-glm53-fleet.js`, `.agents/skills/zai-glm53-fleet/SKILL.md`, `docs/ZAI-GLM53-FLEET.md`, `tools/lib/glm53-yolo-hook.js`, `tools/agent-session-start.js` (GLM-5.3 doctor line only), `hermes-yolo-wrapper.js` (MODEL_CAPABILITY_REGISTRY glm-5.3 aliases only), `SKILLS.md` (one registry row), `plan.md` → **grok-glm53-fleet** (T-ZAI-GLM53-FLEET-20260815: GLM-5.3 fleet + $10/mo API cap; does not edit dirty hermes-eval litellm/config.yaml or uncommitted glm53-hermes-config.js) (2026-08-15T15:20:00Z)
 
@@ -1943,6 +1945,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 ### D-2026-08-15-seed-yolo-seedance
 BytePlus Seedance 2.5 starter email: one prompt, 30s, 50 refs, precision edit. Live `seed-yolo video` was already staging but claimed QUEUED_FOR_RENDER with a fake mp4 URI and ignored --refs/--duration. Fix: honest STAGED jobs, official Broadway prompt as empty-command default, 50-ref hard cap, precision revise windows, --apply fail-closed at $10/mo. No live render fired (spend guard). Sequential with open seed-yolo wrapper PRs — only video dispatch added to origin wrapper.
+### D-2026-08-15-rubrik-mythos-roi
+TNS https://thenewstack.io/rubrik-mythos-learnings/: AI discovery outruns human review; build a harness with checkpoints + context; automate only a tight subset. Implemented local 3-pass triage: file-hash checkpoints, UNTRUSTED vs INTERNAL prune, Track A = cmd/SQLi/CORS only, Track B = secrets/eval/path + cross-file taint chains. $10/mo fail-closed (no paid API). 9/9 isolated fixture tests. Does not clone Mythos; does not hire-reviewer theater.
 
 ### D-2026-08-10-jcode-engagement-and-scorecard-run
 Igor-directed run (live orders: engage 1jehuang/jcode; steal Synaptiq high-ROI items; anti-babysitting directive). **Shipped & merged same-day:** PR #1600 `382d242` Agent Risk Scorecard lead magnet (Synaptiq AIQ pattern; contract test 8/8; headless-Chromium smoke incl. zero-egress proof); PR #1608 `0eed2fa` anti-babysitting protocol (`.agents/skills/anti-babysitting/` + SKILLS.md registry; Codex P1s fixed pre-merge: Never-list vs consent-gated separation, discovery-path registration); PR #1609 `829fdee` jcode forensic packet — #869 root-caused + fail-first verified on jcode master `5ae2385` (weekly-only regression FAILS pre-fix; 44/44 `cargo test -p jcode-base usage::` post-fix), full git-am patch embedded in the postable body per Codex P2; PR #1613 claim releases. **Key findings:** jcode PR creation is collaborator-only — forensic issue packets are the accepted contribution format there; unresolved PR review threads gate merges in THIS repo (a fully-green #1609 sat blocked ~1h until its addressed thread was resolved — resolve threads after replying, before expecting auto-merge). **Fleet handoff (next actor: Mac-side gh):** post the 3 `coordination/ready-to-post/jcode-*.md` drafts (freshness checks inside; #803 draft carries the run's single permitted ThumbGate mention); deploy `docs/funnel/agent-risk-scorecard.html` to a real URL then swap the md link (session Vercel token cannot create projects). **Still parked:** lancedb#3759 fix, tested, on `igorganapolsky/lancedb@fix/blob-coerce-null-column` (cross-owner PR wall; relay session GC'd unapproved — do not rebuild relay machinery). Evidence: merge SHAs above; oss-engagement-log 2026-08-10 entry.
@@ -2944,6 +2948,27 @@ CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, too
 - Hybrid default paid route = `glm52_reasoning` (not fictional cloud_general); candidates must match hermes-economic-router ROUTES.
 - Skip ROCm/Instinct bulk install on Apple Silicon.
 
+## Scheduled repair claim — 2026-08-15
+- T-GLM53-ACCEPTANCE-FIX-20260815 [done] released (jcode-glm53-acceptance): repaired live 401 false-success, explicit GLM-5.3 selection, isolated tests, and conservative $10/month accounting after released T-GLM53-CODING-PLAN-SMART-BUDGET-20260815. PASS: 6/6 focused tests; fake zero-exit HTTP 401 becomes exit 65; live marker `GLM53_FOCUSED_PATCH_OK_20260815` returned with exit 0; production ledger advanced exactly $0.05; OpenCode doctor healthy; router selected `glm53_coding`.
+- `tools/glm53-coding-plan-harness.js`, `tests/test-glm53-coding-plan.js`, `tools/hermes-economic-router.js`, `opencode-yolo`, `hermes-yolo-wrapper.js`, `plan.md` → **released by jcode-glm53-acceptance** (2026-08-15T13:31:00Z)
+
+## Ona last-mile placement (append 2026-08-15T15:55:00Z) — agent `grok-ona-last-mile-20260815`
+
+Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices, customer-controlled env, reviewable work. Implement as **local-first last-mile placement** for our Mac+phone fleet. Do **not** edit untracked Antigravity `tools/ona-cloud-agent-*.js` theater. Do **not** add net-new ThumbGate governance product.
+
+### Task
+| T-ONA-LAST-MILE-20260815 | Place workloads local-vs-cloud for the Mac+phone fleet using Ona's persist/control/review primitives; default local under $10/mo | in_progress | grok-ona-last-mile-20260815 | `tools/ona-last-mile-placement.js`, `tests/test-ona-last-mile-placement.js`, `bin/ona-last-mile`, `.agents/skills/ona-last-mile/**`, `coordination/ona-design-partner-draft.md`, `plan.md`, `SKILLS.md` (append row) | tests green; secrets stay local; cloud only explicit+budget; design-partner draft staged |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/ona-last-mile-placement.js | grok-ona-last-mile-20260815 | 2026-08-15T15:55:00Z |
+| tests/test-ona-last-mile-placement.js | grok-ona-last-mile-20260815 | 2026-08-15T15:55:00Z |
+| bin/ona-last-mile | grok-ona-last-mile-20260815 | 2026-08-15T15:55:00Z |
+| .agents/skills/ona-last-mile/** | grok-ona-last-mile-20260815 | 2026-08-15T15:55:00Z |
+| coordination/ona-design-partner-draft.md | grok-ona-last-mile-20260815 | 2026-08-15T15:55:00Z |
+| SKILLS.md (append row only) | grok-ona-last-mile-20260815 | 2026-08-15T15:55:00Z |
+| plan.md (this append) | grok-ona-last-mile-20260815 | 2026-08-15T15:55:00Z |
 ## OTA freeze clock (append 2026-08-15T17:20:00Z) — agent `grok-ota-freeze-clock-20260815`
 
 ### Task
@@ -2990,4 +3015,5 @@ CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, too
 | plan.md (append only) | grok-marketplace-skills-20260817 | 2026-08-17T22:06:00Z |
 
 
+- 2026-08-18T03:30:00Z `grok-pr-hygiene`: Merged #1736 (`8d66b8f8`); unblocked 8 stale-DIRTY PRs via worktree `merge --no-ff origin/main`; closed 5 superseded drafts; pruned 6 remote heads. Lesson: GitHub DIRTY can be stale vs merge-tree. Remaining ~60 open accounted (CI-wait / real conflicts). Evidence: `docs/agents/PR-HYGIENE-SESSION-2026-08-18.md`.
 - `tools/hermes-mobile-pair.js`, `tests/test-hermes-pair-lan-route.js` → **grok-pair-lan-alternates** (USB primary must still publish LAN/TS routes; Wi-Fi phone never gets 127.0.0.1) (2026-08-18)
