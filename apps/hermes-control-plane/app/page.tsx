@@ -105,12 +105,12 @@ export default function Home() {
       <section id="main-content" className="hero" tabIndex={-1}>
         <div className="hero-copy">
           <p className="eyebrow"><span className="live-dot" /> Continuity · Fenced VPS</p>
-          <h1>Agent work on a<br /><span>fenced Continuity VPS.</span></h1>
+          <h1>Agent work on a fenced Continuity VPS.</h1>
           <p className="hero-lede">
             Your agents keep running on a fenced VPS. Approve or deny tool calls in thumbgate.app. Flat $10/month. Not per-token. 14 days free.
           </p>
           <LandingAuthHero />
-          <p className="signin-note">Continuity by ThumbGate. Continue with Google today — more providers activate once configured.</p>
+          <p className="signin-note">Sign in with email, Google, or Apple. Approvals stay in this browser.</p>
           <div className="trust-row">
             <span>Fenced VPS runner</span>
             <span>Closed-system · zero leaks</span>
@@ -124,6 +124,24 @@ export default function Home() {
         </nav>
       </section>
 
+
+      <section id="when-it-stops" className="section-block" data-testid="sleep-vs-vps">
+        <div className="section-heading">
+          <p className="eyebrow">The failure that matters</p>
+          <h2>When the machine sleeps, the agent dies.</h2>
+          <p>Continuity is the always-on runner. Approvals stay in thumbgate.app. Not a second product.</p>
+        </div>
+        <div className="steps-grid">
+          <article>
+            <h3>Laptop / local session</h3>
+            <p>Lid closes or the box sleeps. The watch process is gone. Nothing reports it. Work stops until you sit down again.</p>
+          </article>
+          <article>
+            <h3>Continuity VPS</h3>
+            <p>The run keeps a lease on a fenced VPS. You approve or deny in the browser. Flat $10/mo. No phone required.</p>
+          </article>
+        </div>
+      </section>
       <section id="setup" className="setup-section">
         <div className="section-heading">
           <p className="eyebrow">Start Continuity</p>
