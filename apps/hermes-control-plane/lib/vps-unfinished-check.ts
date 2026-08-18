@@ -3,7 +3,7 @@
  *
  * Steal: Vellum's hourly re-read of unfinished or due-soon work, without
  * interrupting an active conversation.
- * Do not steal: phone leash, Cloud vs Local picker, Continuity as a hero.
+ * Do not steal: companion-app approvals, a hosting picker, or memory-handoff as a hero.
  * Laptop sleep is the fail — this contract must not fire on laptop/unknown.
  */
 
