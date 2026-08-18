@@ -9,7 +9,7 @@ type OfflinePolicy = "disabled" | "manual" | "auto";
 const TOOL_CALL = {
   name: "Bash",
   summary: "npm run deploy -- --prod",
-  detail: "Continuity wants to run this on the VPS. You decide in thumbgate.app.",
+  detail: "Hosted Hermes wants to run this on the VPS. You decide in thumbgate.app.",
 };
 
 const OFFLINE_COPY: Record<OfflinePolicy, { label: string; blurb: string }> = {
@@ -22,7 +22,7 @@ const OFFLINE_COPY: Record<OfflinePolicy, { label: string; blurb: string }> = {
     blurb: "Task sits at needs_failover until you explicitly continue on cloud.",
   },
   auto: {
-    label: "Auto cloud continuity",
+    label: "Auto-continue on VPS",
     blurb: "A fenced cloud runner claims the 90s lease and keeps the same thread.",
   },
 };
@@ -34,7 +34,7 @@ function phaseLabel(phase: Phase): string {
     case "denied":
       return "thumbgate.app · denied";
     case "running":
-      return "Running on Continuity VPS";
+      return "Running on hosted VPS";
     case "offline_choice":
       return "Runner dropped · pick policy";
     case "paused":
@@ -42,7 +42,7 @@ function phaseLabel(phase: Phase): string {
     case "ask":
       return "Needs failover · waiting on you";
     case "cloud":
-      return "Cloud continuity · fenced lease";
+      return "Hosted VPS · fenced lease";
     default:
       return "Demo";
   }
@@ -62,11 +62,11 @@ export function FailoverPathDemo() {
       case "denied":
         return "Call denied in thumbgate.app. The command never runs.";
       case "running":
-        return "Call approved in thumbgate.app. Continuity is executing on a fenced VPS under a 90-second lease.";
+        return "Call approved in thumbgate.app. Hosted Hermes is executing on a fenced VPS under a 90-second lease.";
       case "offline_choice":
-        return "The VPS runner dropped. Choose how Continuity should handle the unfinished work.";
+        return "The VPS runner dropped. Choose how hosted Hermes should handle the unfinished work.";
       case "paused":
-        return "Work paused until a Continuity runner claims the next lease. No extra spend.";
+        return "Work paused until a hosted runner claims the next lease. No extra spend.";
       case "ask":
         return "You are asked before cloud. Approve failover only when you want it.";
       case "cloud":
@@ -144,7 +144,7 @@ export function FailoverPathDemo() {
           <p className={styles.eyebrow}>Interactive demo · no real tools run</p>
           <h3 id={titleId}>Watch ThumbGate approve, deny, and fail over</h3>
           <p className={styles.lede}>
-            Click the buttons. Approve or deny in thumbgate.app, then Continuity decides how the VPS finishes the work.
+            Click the buttons. Approve or deny in thumbgate.app, then the VPS finishes the work under the policy you picked.
           </p>
         </div>
         <div className={styles.headerActions}>
@@ -208,8 +208,8 @@ export function FailoverPathDemo() {
 
               {phase === "running" ? (
                 <div className={`${styles.outcome} ${styles.approved}`}>
-                  <strong>Approved · Continuity VPS is running it</strong>
-                  <p>One fenced VPS runner holds the lease. Drop the runner to see Continuity failover.</p>
+                  <strong>Approved · hosted VPS is running it</strong>
+                  <p>One fenced VPS runner holds the lease. Drop the runner to see hosted failover.</p>
                   <button type="button" className={styles.approveButton} onClick={closeLid}>
                     Drop VPS runner →
                   </button>
@@ -218,7 +218,7 @@ export function FailoverPathDemo() {
 
               {phase === "offline_choice" || phase === "paused" || phase === "ask" || phase === "cloud" ? (
                 <div className={styles.offlineBlock}>
-                  <p className={styles.offlineBanner}>VPS runner lost. Continuity policy decides next.</p>
+                  <p className={styles.offlineBanner}>VPS runner lost. The offline policy decides next.</p>
                   <div className={styles.policyRow} role="group" aria-label="Offline policy">
                     {(Object.keys(OFFLINE_COPY) as OfflinePolicy[]).map((key) => (
                       <button
@@ -237,7 +237,7 @@ export function FailoverPathDemo() {
                   {phase === "paused" ? (
                     <div className={`${styles.outcome} ${styles.paused}`}>
                       <strong>offline_blocked</strong>
-                      <p>No replacement runner starts. Work waits for the next Continuity lease.</p>
+                      <p>No replacement runner starts. Work waits for the next hosted lease.</p>
                     </div>
                   ) : null}
 
@@ -278,7 +278,7 @@ export function FailoverPathDemo() {
             <span>02</span>
             <div>
               <strong>VPS execution</strong>
-              <p>One fenced Continuity runner holds a 90-second lease.</p>
+              <p>One fenced VPS runner holds a 90-second lease.</p>
             </div>
           </li>
           <li className={phase === "offline_choice" || phase === "paused" || phase === "ask" || phase === "cloud" ? styles.legendActive : ""}>
