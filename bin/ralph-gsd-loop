@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# ralph-gsd-loop — CLI wrapper for Autonomous 24/7 Ralph-Loop & GSD Revenue Engine
+set -euo pipefail
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+REPO_ROOT="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
+
+exec node "${REPO_ROOT}/tools/ralph-gsd-revenue-loop.js" "$@"
