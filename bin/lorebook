@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# lorebook — CLI wrapper for Lorebook & Triggered Context Engine
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec node "${REPO_ROOT}/tools/lorebook-context-engine.js" "$@"
