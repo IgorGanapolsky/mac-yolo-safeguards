@@ -3065,3 +3065,7 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 | SKILLS.md (append rows only) | grok-tieline-intent-contract-20260818 | 2026-08-18T17:30:00Z |
 | plan.md (append only) | grok-tieline-intent-contract-20260818 | 2026-08-18T17:30:00Z |
 | T-BUILDKITE-FIRST-FAIL-20260818 | Buildkite process steal: first-fail CI annotations; stay on GHA | in_progress | grok-buildkite-first-fail-20260818 | `tools/ci-first-fail.js`, `tests/test-ci-first-fail.js`, `bin/ci-first-fail`, `.agents/skills/ci-first-fail/**`, `SKILLS.md` (append), `plan.md` | AGENT-408 |
+
+- 2026-08-18T18:45Z `grok-buildkite-first-fail`: Remaining high-ROI (no vendor migrate, no auto-quarantine): live `--pr` loads job steps via `gh run view --json jobs`; required-name prefix match so Maestro stranger SKIPPED is present not missing; first TAP test from annotations; githubstatus JSON when required absent; dedicated `Intent contract` workflow. Did not copy sibling Test Engine that quarantines on first fail.
+
+| `.github/workflows/intent-check.yml` | grok-buildkite-first-fail-20260818 | 2026-08-18T18:45:00Z |

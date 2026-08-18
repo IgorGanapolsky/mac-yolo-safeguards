@@ -21,13 +21,15 @@ GHA contexts on `ubuntu-latest`.
 | Buildkite | Here |
 |-----------|------|
 | Step-level visibility / annotations | `bin/ci-first-fail --pr N` names the first failed step |
-| Token-optimized pipeline reads | JSON of steps only — never `gh run view --log-failed` |
-| Flaky / wait less | Fail-closed on the step; do not dump teardown |
+| Token-optimized pipeline reads | `gh run view --json jobs` only — never `--log-failed` |
+| Test identity | first TAP `not ok` from check **annotations**, not logs |
+| Missing vs failing | absent required → `githubstatus.com` JSON, not a code blame |
 
 ## What we do not steal
 
-Pipelines SaaS, Test Engine, Package Registries, Mobile Delivery Cloud, MCP
-server, hosted Mac agents, or a second CI bill.
+Pipelines SaaS, Test Engine auto-quarantine, Package Registries, Mobile
+Delivery Cloud, MCP server, hosted Mac agents, or a second CI bill.
+Auto-quarantine on first fail hides real regressions (`--quarantine` refused).
 
 ## Run
 
