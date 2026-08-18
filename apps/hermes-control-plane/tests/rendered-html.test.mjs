@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("builds the public Continuity VPS landing page", async () => {
+test("builds the public hosted Hermes landing page", async () => {
   const [page, billingPlan, billingPlanRoute, checkoutRoute, portalRoute, dashboard, layout, robots, sitemap, llms] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/BillingPlan.tsx", import.meta.url), "utf8"),
@@ -22,20 +22,24 @@ test("builds the public Continuity VPS landing page", async () => {
   assert.match(layout, /height: 630/);
   assert.match(layout, /images: \["\/og\.png"\]/);
   assert.match(layout, /agent observability/);
+  assert.match(layout, /agent keeps running on a fenced VPS|Hermes that stays on/);
+  assert.doesNotMatch(layout, /VPS failover for Hermes/);
+  assert.doesNotMatch(layout, /When the Mac closes/);
   assert.match(page, /ThumbGate/);
-  assert.match(page, /fenced Continuity VPS|Fenced Continuity VPS|fenced cloud VPS/i);
-  assert.match(page, /Continuity/);
+  assert.match(page, /fenced cloud VPS|Fenced VPS|fenced VPS/i);
+  assert.match(page, /Is this Continuity\?/);
   assert.doesNotMatch(page, /Self-Improving Firewall|self-improving firewall/);
-  // Product truth: Continuity on VPS — not Mac pairing as the marketed path.
+  // Product truth: hosted Hermes on a fenced VPS — not Mac pairing as the marketed path.
   assert.doesNotMatch(page, /Sign in to pair free|Pair free →|Pair your Mac|when the Mac closes/);
   assert.match(page, /No Mac pair required|no Mac pairing/i);
-  assert.match(page, /Pro Continuity/);
-  assert.match(page, /Continue with Google today/);
-  assert.doesNotMatch(page, /Continue with Google or Apple/);
+  assert.match(page, /Hosted Hermes/);
+  assert.match(page, /Sign in with email, Google, or Apple\. Approvals stay in this browser/);
+  assert.doesNotMatch(page, /Continue with Google today/);
+  assert.doesNotMatch(page, /more providers activate once configured/);
   assert.match(page, /LLM-as-a-Judge/);
-  assert.match(page, /Fenced Cloud VPS|Continuity VPS|fenced Continuity VPS/i);
+  assert.match(page, /Fenced Cloud VPS|fenced VPS|fenced cloud VPS/i);
   assert.doesNotMatch(page, /still proving/);
-  assert.match(page, /by ThumbGate/);
+  assert.doesNotMatch(page, /by ThumbGate/);
   assert.doesNotMatch(page, /id="mobile"/);
   assert.match(page, /Closed-system/);
   assert.match(page, /Flat \$10/);
@@ -45,7 +49,7 @@ test("builds the public Continuity VPS landing page", async () => {
   assert.match(page, /Approvals in thumbgate\.app|Where do approvals happen/);
   assert.doesNotMatch(page, /Hermes Mobile/);
   assert.doesNotMatch(page, /store-link-badge/);
-  // FAQ must not hardcode a false \$20 Continuity price (live plan is \$10).
+  // FAQ must not hardcode a false \$20 hosted price (live plan is \$10).
   assert.doesNotMatch(page, /\$20\/month/);
   const storeBadges = await readFile(new URL("../app/StoreBadges.tsx", import.meta.url), "utf8");
   assert.match(storeBadges, /href="\/go\/android"/);
@@ -82,6 +86,8 @@ test("builds the public Continuity VPS landing page", async () => {
   assert.match(failoverDemo, /offline_blocked/);
   assert.match(failoverDemo, /Interactive demo · no real tools run/);
   assert.match(billingPlan, /\/api\/billing\/plan/);
+  assert.match(billingPlan, /\$10/);
+  assert.doesNotMatch(billingPlan, /Live price/);
   assert.match(billingPlanRoute, /STRIPE_PRICE_ID/);
   assert.match(billingPlanRoute, /unitAmount: price\.unit_amount/);
   assert.doesNotMatch(billingPlanRoute, /["']STRIPE_SECRET_KEY["']\s*:/);
@@ -99,14 +105,17 @@ test("builds the public Continuity VPS landing page", async () => {
   assert.match(portalRoute, /handlePortalRequest|isGet/);
   assert.match(dashboard, /\? manageBilling\(\) : subscribe\(\)/);
   assert.match(page, /Sign in\. Run on VPS\. Stay gated\./);
-  assert.match(page, /Pro Continuity/);
+  assert.match(page, /Hosted Hermes/);
   // Pricing CTAs live in client chrome (static shell + /api/me personalization).
   const chrome = await readFile(new URL("../app/LandingAuthChrome.tsx", import.meta.url), "utf8");
   assert.match(chrome, /data-funnel-event="free_control_click"/);
   assert.match(chrome, /data-funnel-event="cloud_continuity_click"/);
   assert.match(chrome, /data-funnel-event="sign_in_click"/);
-  assert.match(chrome, /Try Continuity — 14 days free/);
-  assert.match(chrome, /Sign in to Continuity/);
+  assert.match(chrome, /Start hosted Hermes — \$10\/mo/);
+  assert.match(chrome, /cancel anytime/);
+  assert.match(chrome, /Team — \$49\/mo/);
+  assert.match(chrome, /Start hosted Hermes — \$10\/mo/);
+  assert.match(chrome, /Sign in/);
   assert.match(chrome, /Fenced cloud runner with 90s leases/);
   assert.doesNotMatch(chrome, /Sign in to pair free|Pair free →|Open pair/);
   assert.doesNotMatch(chrome, /still proving/);
@@ -122,9 +131,10 @@ test("builds the public Continuity VPS landing page", async () => {
   assert.match(page, /SoftwareApplication/);
   assert.match(page, /RemoteControlDiagram/);
   const diagram = await readFile(new URL("../app/RemoteControlDiagram.tsx", import.meta.url), "utf8");
-  assert.match(diagram, /Hermes Mobile/);
+  assert.doesNotMatch(diagram, /Hermes Mobile/);
+  assert.match(diagram, /thumbgate\.app/);
   assert.match(diagram, /LLM-as-a-Judge/);
-  assert.match(diagram, /Continuity VPS/);
+  assert.match(diagram, /Fenced VPS/);
   assert.match(llms, /not Mac pairing|no Mac-pair product path|without a Mac-pair/i);
   // AEO contract (config/thumbgate-aeo-prompts.json): landing must ship a
   // visible FAQ + FAQPage JSON-LD so answer engines can cite it.
@@ -132,20 +142,44 @@ test("builds the public Continuity VPS landing page", async () => {
   assert.match(page, /id="faq"/);
   assert.match(page, /What is ThumbGate\?/);
   assert.match(page, /Where do approvals happen\?/);
+  assert.match(page, /What if the agent wants to kill a process or copy itself\?/);
+  assert.match(page, /does not auto-run that/);
   assert.doesNotMatch(page, /id="mobile"/);
   assert.match(page, /id="pricing"/);
+  assert.match(page, /data-testid="sleep-vs-vps"/);
+  assert.match(page, /When the machine sleeps, the agent dies/);
+  assert.match(page, /Your coding agent dies when the laptop sleeps/);
+  assert.match(page, /Hosted on a fenced VPS\. Not a laptop process/);
+  assert.match(page, /<h1>Hermes that stays on\.<\/h1>/);
+  assert.match(page, /data-testid="qualifier"/);
+  assert.match(page, /data-testid="one-offer"/);
+  assert.match(page, /One offer · one clock · one number/);
+  assert.match(page, /Keep one coding agent running 14 days|Keep one agent alive 14 days/);
+  assert.match(page, /the trial failed/);
+  assert.match(page, /Not a vault of n8n templates/);
+  assert.doesNotMatch(page, /cash ROI refund|30-day ROI/i);
+  assert.match(page, /cancel anytime/);
+  assert.match(page, /14 days free/);
+  assert.match(page, /Start hosted Hermes — \$10\/mo/);
+  assert.match(page, /LandingPricingCtaTeam/);
+  assert.match(page, /data-testid="price-card-free"/);
+  assert.match(page, /data-testid="price-card-team"/);
+  assert.doesNotMatch(page, /scope="row">Mac pair required/);
+  assert.doesNotMatch(page, /Agent work on afenced/);
+  assert.doesNotMatch(page, /AI expert/);
+  assert.doesNotMatch(page, /more providers activate once configured/);
   // CoreWeave-style transparent capacity: public matrix + governance-aligned run caps.
   assert.match(page, /data-testid="continuity-capacity-matrix"/);
-  assert.match(page, /Transparent Continuity capacity/);
+  assert.match(page, /Transparent hosted capacity/);
   assert.match(page, /Fenced VPS runs \/ 30d/);
   assert.match(page, /Surprise egress \/ idle fees/);
   assert.match(page, /from \"@\/lib\/continuity-pricing\"/);
   assert.match(page, /CONTINUITY_PRICE_TIERS/);
-  assert.match(page, /CONTINUITY_EXECUTION_MODES/);
+  assert.doesNotMatch(page, /CONTINUITY_EXECUTION_MODES/);
   assert.match(page, /CONTINUITY_ZERO_EGRESS/);
-  assert.match(page, /data-testid="continuity-execution-modes"/);
+  assert.doesNotMatch(page, /data-testid="continuity-execution-modes"/);
   assert.match(page, /data-testid="continuity-zero-egress"/);
-  assert.match(page, /data-mode=\{mode\.id\}/);
+  assert.doesNotMatch(page, /data-mode=\{mode\.id\}/);
   assert.match(robots, /disallow: \["\/dashboard", "\/admin", "\/api\/"\]/);
   assert.match(robots, /https:\/\/thumbgate\.app\/sitemap\.xml/);
   assert.match(page, /href="\/privacy"/);
@@ -154,7 +188,7 @@ test("builds the public Continuity VPS landing page", async () => {
   assert.match(sitemap, /https:\/\/thumbgate\.app\/terms/);
   assert.match(sitemap, /https:\/\/thumbgate\.app\//);
   assert.match(sitemap, /2026-07-22/);
-  assert.match(llms, /# ThumbGate Continuity/);
+  assert.match(llms, /# ThumbGate/);
   assert.match(llms, /Aggregate, content-free product analytics/);
   assert.match(llms, /## Direct answers/);
   assert.match(llms, /fenced VPS agent execution|fenced cloud VPS/i);
