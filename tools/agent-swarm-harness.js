@@ -388,14 +388,18 @@ function whereIsStateCheck({
     try {
       const planText = fs.readFileSync(planPath, 'utf8');
       const activeTasks = parseActiveTasks(planText);
-      activeTaskCount = activeTasks.length;
-      const contention = findFileContention(activeTasks);
+      const liveTasks = filterLiveActiveTasks(activeTasks, { nowMs });
+      activeTaskCount = liveTasks.length;
+      const rawContention = findFileContention(activeTasks);
+      const contention = findFileContention(liveTasks);
       contentionCount = contention.length;
       ownershipOk = contentionCount === 0;
       ownershipStatus = ownershipOk ? 'clear' : 'contention';
+      const staleSkipped = activeTasks.length - liveTasks.length;
       ownershipEvidence = ownershipOk
-        ? `plan.md readable; ${activeTaskCount} active task(s); no multi-owner file contention`
-        : `plan.md readable; ${activeTaskCount} active task(s); ${contentionCount} multi-owner contention hit(s) — STOP, do not edit overlapping claims`;
+        ? `plan.md readable; ${activeTaskCount} live task(s) (${staleSkipped} stale board row(s) ignored); no live multi-owner file contention` +
+          (rawContention.length ? ` (raw stale hits=${rawContention.length})` : '')
+        : `plan.md readable; ${activeTaskCount} live task(s) (${staleSkipped} stale ignored); ${contentionCount} live multi-owner contention hit(s) — STOP, do not edit overlapping claims`;
     } catch (error) {
       ownershipEvidence = `plan.md unreadable: ${error.message}`;
       ownershipStatus = 'error';
@@ -2076,6 +2080,60 @@ function claimsOverlap(a, b) {
   return isClaimedPath(left, right) || isClaimedPath(right, left);
 }
 
+
+/** Default: board rows older than this are debt, not live locks. */
+const STALE_BOARD_TASK_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+
+/**
+ * Extract YYYYMMDD from task ids like T-FOO-20260721 or T-20260818-BAR.
+ * @param {string} id
+ * @returns {string|null} YYYY-MM-DD or null
+ */
+function taskBoardDateIso(id) {
+  const m = String(id || '').match(/(20\d{2})(\d{2})(\d{2})/);
+  if (!m) return null;
+  return `${m[1]}-${m[2]}-${m[3]}`;
+}
+
+/**
+ * Stale §1 in_progress rows (July megafile thrash) create hundreds of false
+ * multi-owner hits and a HARD STOP that is not real fleet contention.
+ * Undated ids (T-129) are treated as stale for the live gate.
+ *
+ * @param {{ id?: string, status?: string }} task
+ * @param {{ nowMs?: number, maxAgeMs?: number }} [opts]
+ */
+function isStaleBoardTask(task, opts = {}) {
+  const nowMs = opts.nowMs ?? Date.now();
+  const maxAgeMs = opts.maxAgeMs ?? STALE_BOARD_TASK_MAX_AGE_MS;
+  const iso = taskBoardDateIso(task?.id);
+  if (!iso) return true;
+  const ts = Date.parse(`${iso}T00:00:00Z`);
+  if (!Number.isFinite(ts)) return true;
+  return nowMs - ts > maxAgeMs;
+}
+
+/**
+ * @param {Array<{ id?: string, status?: string }>} tasks
+ * @param {{ nowMs?: number, maxAgeMs?: number }} [opts]
+ */
+function filterLiveActiveTasks(tasks, opts = {}) {
+  return (tasks || []).filter((t) => !isStaleBoardTask(t, opts));
+}
+
+
+/** Append-only coordination files — multi-claim is expected, not STOP contention. */
+const SHARED_BOARD_CLAIMS = Object.freeze(['plan.md', 'SKILLS.md']);
+
+function isSharedBoardClaim(claim) {
+  const n = normalizeClaim(claim);
+  if (!n) return false;
+  if (SHARED_BOARD_CLAIMS.includes(n)) return true;
+  // coordination/*-engagement-log.md (merge=union)
+  if (n.startsWith('coordination/') && n.endsWith('-engagement-log.md')) return true;
+  return false;
+}
+
 function findFileContention(activeTasks) {
   const hits = [];
   for (let i = 0; i < activeTasks.length; i += 1) {
@@ -2086,9 +2144,9 @@ function findFileContention(activeTasks) {
       const leftFiles = left.claimedFiles || parseClaimedFiles(left.files);
       const rightFiles = right.claimedFiles || parseClaimedFiles(right.files);
       for (const lf of leftFiles) {
-        if (lf === 'plan.md') continue;
+        if (isSharedBoardClaim(lf)) continue;
         for (const rf of rightFiles) {
-          if (rf === 'plan.md') continue;
+          if (isSharedBoardClaim(rf)) continue;
           if (!claimsOverlap(lf, rf)) continue;
           hits.push({
             path: normalizeClaim(lf) === normalizeClaim(rf) ? normalizeClaim(lf) : `${normalizeClaim(lf)} ↔ ${normalizeClaim(rf)}`,
@@ -3085,6 +3143,12 @@ function main() {
 
 module.exports = {
   MEGAFILES,
+  SHARED_BOARD_CLAIMS,
+  isSharedBoardClaim,
+  STALE_BOARD_TASK_MAX_AGE_MS,
+  taskBoardDateIso,
+  isStaleBoardTask,
+  filterLiveActiveTasks,
   FIELD_GUIDE_LINE_BUDGET,
   CONCURRENCY_CAP,
   ROLE_GUIDANCE,
