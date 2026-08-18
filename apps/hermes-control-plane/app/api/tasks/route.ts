@@ -104,7 +104,7 @@ export async function POST(request: Request) {
   // Continuity (cloud) does not require a paired local computer. Local/auto still do.
   if (!device && preference !== "cloud") {
     return jsonError(
-      "Pair a computer first, or set Run on to Continuity (Cloud VPS) on ThumbGate.app.",
+      "Hosted VPS is required for this workspace. Start a trial or Pro on ThumbGate.app.",
       409,
     );
   }
