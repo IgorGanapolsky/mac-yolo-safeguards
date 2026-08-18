@@ -290,6 +290,7 @@ export default function DashboardClient() {
   /** In-memory thread detail cache for instant switch + hover preheat. */
   const threadCacheRef = useRef<Map<string, ThreadDetails>>(new Map());
   const preheatInflightRef = useRef<Set<string>>(new Set());
+  const conversationBottomRef = useRef<HTMLDivElement>(null);
 
   const selectedDeviceId = useMemo(() => {
     if (!devices.length) return "";
@@ -813,6 +814,12 @@ export default function DashboardClient() {
   }, [pairCode, user]);
   const visibleThreads = useMemo(() => orderThreadsForDisplay(threads, threadSortOrder), [threads, threadSortOrder]);
   const activeTasks = useMemo(() => tasks.filter((task) => !terminal.has(task.status)), [tasks]);
+
+  useEffect(() => {
+    if (threadDetails?.tasks?.length || threadDetails?.snapshot?.length || activeTasks.length) {
+      conversationBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [threadDetails?.tasks?.length, threadDetails?.snapshot?.length, activeTasks.length]);
   const visibleTasks = useMemo(() => {
     if (taskFilter === "completed") {
       return tasks.filter((task) => task.status === "completed" && Boolean(task.result));
@@ -1478,9 +1485,21 @@ export default function DashboardClient() {
                 <article key={`task-user-${index}`} className="conversation-message role-user"><span>web</span><p>{task.prompt}</p></article>,
                 task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><FormattedMessage text={task.result} />{feedbackControls(task.id)}</article>
                   : task.error ? <article key={`task-error-${index}`} className="conversation-message role-error"><span>failed</span><FormattedMessage text={task.error} /></article>
-                  : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><p>Waiting for {task.route === "cloud" ? "the fenced Continuity runner" : "your paired machine"} to pick this up…</p></article>
-                  : null,
+                  : task.status !== "completed" && task.status !== "failed" ? (
+                    <article key={`task-pending-${index}`} className="conversation-message role-pending" style={{ background: "rgba(34, 211, 238, 0.08)", border: "1px solid rgba(34, 211, 238, 0.3)", borderRadius: "12px", padding: "12px 14px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                        <span style={{ fontWeight: 700, color: "#a5f3fc" }}>{taskReceiptLabel(task)}</span>
+                        <span className="live-dot" style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#22d3ee", display: "inline-block", boxShadow: "0 0 8px #22d3ee" }} />
+                      </div>
+                      <p style={{ margin: "0 0 6px", color: "#e2e8f0", fontSize: "0.85rem" }}>Waiting for {task.route === "cloud" ? "the fenced Continuity runner" : "your paired machine"} to pick this up…</p>
+                      <div style={{ padding: "6px 10px", background: "#060913", borderRadius: "6px", fontFamily: "monospace", fontSize: "0.75rem", color: "#34d399", display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span style={{ animation: "pulse 1.5s infinite" }}>▶</span>
+                        <span>90s lease reserved · LLM-as-a-Judge pre-action safety active...</span>
+                      </div>
+                    </article>
+                  ) : null,
               ])}
+              <div ref={conversationBottomRef} style={{ height: "1px" }} />
             </div>}
             <div className="task-list" id="task-activity">
               {taskFilter !== "all" ? (
