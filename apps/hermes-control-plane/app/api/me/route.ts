@@ -5,6 +5,7 @@ import {
   describeHostedResources,
   lastCachedModelError,
   MODEL_ERROR_LOOKBACK_MS,
+  probeBrowserHealth,
   probeRunnerHealth,
 } from "@/lib/hosted-apphost";
 import { db } from "@/lib/runtime";
@@ -35,10 +36,14 @@ export async function GET() {
     status: "waiting" as const,
     message: "Hosted model status is still loading.",
   };
+  let hostedBrowser = {
+    status: "waiting" as const,
+    message: "Hosted browser sidecar status is still loading.",
+  };
   try {
     const now = Date.now();
     const windowStart = now - 30 * DAY_MS;
-    const [usageRow, lastFailed, runner] = await Promise.all([
+    const [usageRow, lastFailed, runner, browser] = await Promise.all([
       db()
         .prepare(
           `SELECT
@@ -59,6 +64,7 @@ export async function GET() {
         .bind(session.organizationId, now - MODEL_ERROR_LOOKBACK_MS)
         .first<{ error: string | null }>(),
       probeRunnerHealth({ now, timeoutMs: 8_000 }),
+      probeBrowserHealth({ now, timeoutMs: 8_000 }),
     ]);
 
     usage = buildContinuityUsageSnapshot({
@@ -69,11 +75,14 @@ export async function GET() {
     const hosted = describeHostedResources({
       runner: { ok: runner.ok, lastPollAt: runner.lastPollAt ?? null },
       modelError: lastFailed?.error ?? lastCachedModelError(),
+      browser: { ok: browser.ok, lastPollAt: browser.lastPollAt ?? null },
       now,
       runnerKnown: true,
+      browserKnown: true,
     });
     hostedRunner = hosted.hostedRunner;
     hostedModel = hosted.hostedModel;
+    hostedBrowser = hosted.hostedBrowser;
   } catch {
     // Keep zeroed snapshot with plan-correct limits. Resources stay waiting.
   }
@@ -92,6 +101,7 @@ export async function GET() {
       continuityUsage: usage,
       hostedRunner,
       hostedModel,
+      hostedBrowser,
     },
     { headers: { "cache-control": "no-store" } },
   );
