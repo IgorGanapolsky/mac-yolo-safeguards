@@ -344,6 +344,8 @@ try {
       exhausted: false,
       upgradeHint: null,
     },
+    hostedRunner: { status: "healthy", message: "Hosted runner is healthy." },
+    hostedModel: { status: "healthy", message: "Hosted model is ready." },
   });
 
   const logout = await fetch(`http://127.0.0.1:${port}/api/auth/logout`, {
