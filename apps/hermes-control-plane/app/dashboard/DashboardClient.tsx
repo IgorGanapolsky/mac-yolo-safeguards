@@ -15,12 +15,7 @@ import {
   threadDetailsStorageKey,
   writeJsonSessionStorage,
 } from "@/lib/dashboard-nav-cache";
-import {
-  resolveAutoRouteLabel,
-  resolveComposerRunCta,
-  resolveEffectiveRoutePreference,
-  type RoutePreference,
-} from "@/lib/composer-run-cta";
+import { resolveComposerRunCta } from "@/lib/composer-run-cta";
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
@@ -100,11 +95,8 @@ function shortMachineLabel(name: string, max = 12): string {
  */
 function taskListEmptyCopy(input: {
   taskFilter: "all" | "completed" | "unrated";
-  deviceCount: number;
-  machineLabel: string;
   hasSelectedThread: boolean;
   syncedMessageCount: number;
-  routePreference?: RoutePreference;
 }): { title: string; body: string; compact: boolean } {
   if (input.taskFilter === "unrated") {
     return {
@@ -120,62 +112,29 @@ function taskListEmptyCopy(input: {
       compact: false,
     };
   }
-  const isCloud = input.routePreference === "cloud";
-  const runnerLabel = isCloud ? "Continuity Cloud VPS" : input.machineLabel;
-
-  if (isCloud) {
-    if (input.hasSelectedThread && input.syncedMessageCount > 0) {
-      return {
-        title: "No web tasks in this chat yet",
-        body: `Conversation is synced above. Type below to run the next step on ${runnerLabel} (fenced runner, 90s lease).`,
-        compact: true,
-      };
-    }
-    if (input.hasSelectedThread) {
-      return {
-        title: "No web tasks in this chat yet",
-        body: `Type below to run work on ${runnerLabel}. Synced messages appear here when active.`,
-        compact: false,
-      };
-    }
-    return {
-      title: "No tasks yet",
-      body: `Type below to run on ${runnerLabel}, or open a chat from the list.`,
-      compact: false,
-    };
-  }
-
-  if (input.deviceCount === 0) {
-    return {
-      title: "No tasks yet",
-      body: "Pair a machine, then continue a Hermes thread from anywhere.",
-      compact: false,
-    };
-  }
-
   if (input.hasSelectedThread && input.syncedMessageCount > 0) {
     return {
       title: "No web tasks in this chat yet",
-      body: `Conversation is synced above. Type below to run the next step on ${runnerLabel} (fenced runner, 90s lease).`,
+      body: "Conversation is synced above. Type below to run the next step on the hosted VPS (fenced runner, 90s lease).",
       compact: true,
     };
   }
   if (input.hasSelectedThread) {
     return {
       title: "No web tasks in this chat yet",
-      body: `Type below to run work on ${runnerLabel}. Synced Hermes messages appear here when active.`,
+      body: "Type below to run work on the hosted VPS. Synced messages appear here when active.",
       compact: false,
     };
   }
   return {
-    title: "No web tasks yet",
-    body: `Machines are paired. Type below to run on ${runnerLabel}, or open a chat from the list.`,
+    title: "No tasks yet",
+    body: "Type below to run on the hosted VPS, or open a chat from the list.",
     compact: false,
   };
 }
 
 function taskReceiptLabel(task: { route: string; deviceName: string | null; status: string }): string {
-  if (task.route === "cloud") return "☁ Continuity · fenced · 90s lease";
+  if (task.route === "cloud") return "☁ hosted Hermes · fenced · 90s lease";
   if (task.route === "local") {
     const host = task.deviceName?.trim() || "Hermes machine";
     return `⌘ ${host} · fenced · 90s lease`;
@@ -273,8 +232,6 @@ export default function DashboardClient() {
   });
   const [threadDetails, setThreadDetails] = useState<ThreadDetails | null>(null);
   const [prompt, setPrompt] = useState("");
-  /** Where this task should run: Continuity VPS (default), paired machine, or auto offline failover. */
-  const [routePreference, setRoutePreference] = useState<RoutePreference>("cloud");
   /**
    * Explicit user override for which paired machine runs the next task.
    * Resolved selection is derived (useMemo) so we never setState inside an effect (eslint react-hooks/set-state-in-effect).
@@ -310,46 +267,7 @@ export default function DashboardClient() {
   const selectedDevice = devices.find((device) => device.id === selectedDeviceId) ?? null;
   /** Real paired hostname when present — never a vague placeholder. */
   const selectedDeviceLabel = machineDisplayName(selectedDevice, "paired Mac");
-  const pairComputerLabel = devices.length
-    ? "+ Pair another computer…"
-    : "+ Pair computer…";
   const hasCloudAccess = Boolean(organization?.cloudAccess);
-  const onlineDeviceCount = devices.filter(
-    (device) => device.online || device.presence === "online",
-  ).length;
-  /** Auto: Continuity is first-class — never implies "you must pair" when Continuity is entitled. */
-  const autoRouteLabel = resolveAutoRouteLabel({
-    hasCloudAccess,
-    deviceLabel: selectedDevice ? selectedDeviceLabel : null,
-    onlineDeviceCount,
-    deviceCount: devices.length,
-  });
-
-  /** Plain-English copy for the machine / Continuity / Auto control (always show, never jargon-only). */
-  const routeExplain =
-    routePreference === "cloud"
-      ? {
-          title: "Continuity (Cloud VPS)",
-          body: hasCloudAccess
-            ? "Runs on ThumbGate.app’s fenced cloud runner — no local computer required for this mode. Uses a Continuity run from your plan."
-            : "Needs a Continuity trial or Pro plan on ThumbGate.app. Start Continuity to use the cloud runner.",
-        }
-      : !devices.length
-        ? {
-            title: "No computer paired yet",
-            body: hasCloudAccess
-              ? "Pair a Mac in Settings for Auto/local runs, or keep Run on as Continuity (Cloud VPS) to send without a paired computer."
-              : "Pair the Mac that runs Hermes (Settings → one-line installer). Or start Continuity trial/Pro to run on Cloud VPS without a local machine.",
-          }
-        : routePreference === "local"
-          ? {
-              title: `${selectedDeviceLabel} only`,
-              body: `Runs on ${selectedDeviceLabel}. If that machine is asleep or offline, this task waits — Continuity will not start.`,
-            }
-          : {
-              title: `Auto — ${selectedDeviceLabel} first`,
-              body: `Uses ${selectedDeviceLabel} while online. If that machine goes offline, Continuity can continue based on its “If this machine goes offline” setting in Settings.`,
-            };
   const [pairCode, setPairCode] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -394,8 +312,6 @@ export default function DashboardClient() {
     });
     return () => window.cancelAnimationFrame(raf);
   }, [mobileTab]);
-  /** Desktop: route explain is secondary chrome — collapsed by default (Genspark-style). */
-  const [routeExplainExpanded, setRouteExplainExpanded] = useState(false);
   const chatsListDeepLink =
     typeof window !== "undefined" && window.location.hash === "#chats";
   // True when we must not auto-pick nextThreads[0] (user already chose, or #chats list view).
@@ -438,33 +354,25 @@ export default function DashboardClient() {
     selectedThreadRef.current = selectedThread;
   }, [selectedThread]);
 
-  /** Jump to Settings installer — used by RUN ON → Pair and the primary unpaired CTA. */
-  function openPairingSettings(reason: "pair" | "manage" = "pair") {
+  /** Switch to Settings (mobile tab + hash) and focus the panel. Hash-only links do nothing in this shell. */
+  function openSettingsPanel() {
     setMobileTab("settings");
     window.history.replaceState(null, "", "#web-settings");
     window.setTimeout(() => {
-      document.getElementById("web-settings")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const el = document.getElementById("web-settings");
+      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (el instanceof HTMLElement) {
+        el.focus({ preventScroll: true });
+      }
     }, 50);
-    if (reason === "manage") {
-      setNotice("Manage machines: remove or add connectors under Settings.");
-      return;
-    }
-    setNotice(
-      devices.length
-        ? "Pair another computer: run the one-line installer there, then approve the code under Settings."
-        : "Pair a computer: run the one-line installer on the Mac that hosts Hermes, then approve the code under Settings.",
-    );
   }
 
   function chooseDevice(deviceId: string) {
-    if (deviceId === "pair") {
-      openPairingSettings("pair");
+    if (deviceId === "pair" || deviceId === "manage") {
+      openSettingsPanel();
       return;
     }
-    if (deviceId === "manage") {
-      openPairingSettings("manage");
-      return;
-    }
+    if (deviceId === "cloud") return;
     setDeviceOverrideId(deviceId);
     try {
       window.localStorage.setItem(preferredDevicePreferenceKey, deviceId);
@@ -848,39 +756,19 @@ export default function DashboardClient() {
     event.preventDefault();
     const text = prompt.trim();
     if (!text) {
-      setNotice("Type a message first, then tap Run task.");
+      setNotice("Type a message first, then tap Run.");
       return;
     }
     const hasCloud = Boolean(organization?.cloudAccess);
-    // Continuity never requires a paired Mac (owner bug 2026-08: Continuity selected + "Pair first").
-    const onlineCount = devices.filter(
-      (device) => device.online || device.presence === "online",
-    ).length;
-    const effectiveRoute = resolveEffectiveRoutePreference({
-      routePreference,
-      deviceCount: devices.length,
-      hasCloudAccess: hasCloud,
-      onlineDeviceCount: onlineCount,
-    });
-    if (effectiveRoute === "cloud" && !hasCloud) {
-      setNotice("Continuity needs a trial or Pro plan. Open Manage plan to start Continuity.");
+    if (!hasCloud) {
+      setNotice("A trial or Pro plan is required to run on the hosted VPS. Open Manage plan.");
       return;
     }
-    // Client-side capacity preflight (server still enforces) — CoreWeave-style remaining truth.
-    if (effectiveRoute === "cloud" && continuityUsage?.exhausted) {
+    if (continuityUsage?.exhausted) {
       setNotice(
         continuityUsage.upgradeHint
-          ?? "Continuity capacity exhausted for this 30-day window. Use a local machine or upgrade.",
+          ?? "Hosted VPS capacity exhausted for this 30-day window. Upgrade to continue.",
       );
-      return;
-    }
-    // Auto with Continuity never forces pair — only pure local-without-machine does.
-    if (!devices.length && effectiveRoute !== "cloud") {
-      openPairingSettings("pair");
-      return;
-    }
-    if (!selectedDeviceId && effectiveRoute !== "cloud") {
-      setNotice("Select which machine should run this task.");
       return;
     }
     setBusy(true);
@@ -895,7 +783,7 @@ export default function DashboardClient() {
           deviceId: selectedDeviceId || undefined,
           idempotencyKey: crypto.randomUUID(),
           traceId: crypto.randomUUID(),
-          routePreference: effectiveRoute,
+          routePreference: "cloud",
         }),
       });
       let body: {
@@ -918,13 +806,9 @@ export default function DashboardClient() {
           devices.find((device) => device.id === (body.task?.deviceId ?? selectedDeviceId))?.name
           ?? selectedDeviceLabel;
         setNotice(
-          body.task.route === "local"
-            ? `Sent — running on ${macName} (local/spot · $0 Continuity quota).`
-            : body.task.route === "cloud"
-              ? (devices.length
-                  ? `Sent — Continuity on-demand VPS · workspace: ${macName}.`
-                  : "Sent — Continuity on-demand VPS on ThumbGate.app.")
-              : `Sent — awaiting route on ${macName}.`
+          body.task.route === "cloud"
+            ? "Sent — running on the hosted VPS."
+            : `Sent — running on ${macName}.`,
         );
         setPrompt("");
         setSelectedThread(body.task.threadId);
@@ -940,7 +824,7 @@ export default function DashboardClient() {
             lim != null
               ? ` Capacity ${Math.max(0, (lim ?? 0) - (rem ?? 0))}/${lim} used.`
               : "";
-          setNotice(`${body.error ?? "Continuity capacity denied."}${capacityNote}`);
+          setNotice(`${body.error ?? "Hosted VPS capacity denied."}${capacityNote}`);
           // Refresh meter so remaining capacity matches the enforcer.
           try {
             const me = await fetch("/api/me", { credentials: "include", cache: "no-store" });
@@ -1146,7 +1030,7 @@ export default function DashboardClient() {
           window.localStorage.setItem(chatRailPreferenceKey, "false");
           setMobileTab("hermes");
         }
-        setNotice(`${body.cleared ?? threads.length} chats cleared. Type a Continuity task below to start again.`);
+        setNotice(`${body.cleared ?? threads.length} chats cleared. Type a task below to start again.`);
         window.requestAnimationFrame(() => focusComposer());
       }
       setChatDialog(null);
@@ -1159,7 +1043,6 @@ export default function DashboardClient() {
   function openThread(threadId: string | null) {
     setThreadMenu(null);
     setSelectedThread(threadId);
-    setRouteExplainExpanded(false);
     // Leaving the #chats list view for a concrete thread (or workspace home).
     if (typeof window !== "undefined" && window.location.hash === "#chats") {
       const url = new URL(window.location.href);
@@ -1311,10 +1194,10 @@ export default function DashboardClient() {
             className={`continuity-usage-meter${continuityUsage.exhausted ? " is-exhausted" : ""}`}
             data-testid="continuity-usage-meter"
             data-exhausted={continuityUsage.exhausted ? "true" : "false"}
-            aria-label="Continuity capacity remaining"
+            aria-label="Hosted VPS capacity remaining"
           >
             <div className="continuity-usage-meter-copy">
-              <p className="eyebrow">Continuity capacity · {continuityUsage.purchaseMode ?? continuityUsage.plan}</p>
+              <p className="eyebrow">Hosted VPS capacity · {continuityUsage.purchaseMode ?? continuityUsage.plan}</p>
               <strong>
                 {continuityUsage.cloudTasks30d}/{continuityUsage.cloudTaskLimit} VPS runs used
                 {continuityUsage.exhausted ? " · exhausted" : ""}
@@ -1334,7 +1217,7 @@ export default function DashboardClient() {
                     onClick={() => void (["pro", "team"].includes(organization?.plan ?? "") ? manageBilling() : subscribe())}
                     disabled={busy}
                   >
-                    {["pro", "team"].includes(organization?.plan ?? "") ? "Manage plan" : "Upgrade Continuity"}
+                    {["pro", "team"].includes(organization?.plan ?? "") ? "Manage plan" : "Upgrade plan"}
                   </button>
                 </p>
               ) : null}
@@ -1345,7 +1228,7 @@ export default function DashboardClient() {
               aria-valuemin={0}
               aria-valuemax={Math.max(1, continuityUsage.cloudTaskLimit)}
               aria-valuenow={Math.min(continuityUsage.cloudTasks30d, Math.max(1, continuityUsage.cloudTaskLimit))}
-              aria-label={`${continuityUsage.cloudTasks30d} of ${continuityUsage.cloudTaskLimit} Continuity runs used`}
+              aria-label={`${continuityUsage.cloudTasks30d} of ${continuityUsage.cloudTaskLimit} hosted VPS runs used`}
             >
               <i
                 style={{
@@ -1361,7 +1244,7 @@ export default function DashboardClient() {
         )}
 
         <nav className="metric-grid metric-grid-four" aria-label="Workspace status shortcuts">
-          <a className="metric-card" href="#web-settings" aria-label={`View ${devices.length} paired machines in settings`}><span>Paired machines</span><strong>{devices.length}</strong><small>{onlineDevices.length} online now</small><b>View machines →</b></a>
+          <a className="metric-card" href="#web-settings" onClick={(event) => { event.preventDefault(); openSettingsPanel(); }} aria-label={`View ${devices.length} paired machines in settings`}><span>Paired machines</span><strong>{devices.length}</strong><small>{onlineDevices.length} online now</small><b>View machines →</b></a>
           <a className="metric-card" href="#task-activity" aria-label={`View ${activeTasks.length} active tasks`}><span>Active tasks</span><strong>{activeTasks.length}</strong><small>{tasks.filter((task) => task.route === "cloud" && !terminal.has(task.status)).length} routed to cloud</small><b>View activity →</b></a>
           <a className="metric-card" href="#task-activity" aria-label={`View task receipts; P95 completion is ${latency(p95CompletionLatency)}`}><span>P95 completion</span><strong>{latency(p95CompletionLatency)}</strong><small>{p95CompletionLatency === null ? "Waiting for completed runs" : "Measured from real task receipts"}</small><b>View receipts →</b></a>
           <a className="metric-card" href="#execution-safety" aria-label="Explain fenced execution safety" onClick={() => setSafetyExpanded(true)}><span>Execution safety</span><strong className="safe-copy">Fenced</strong><small>One signed runner; 90-second lease</small><b>Explain safety →</b></a>
@@ -1399,8 +1282,8 @@ export default function DashboardClient() {
               <i className="agent-activity-dot" aria-hidden="true" />
               <strong>
                 {activeTasks.length === 1
-                  ? "1 Continuity run active"
-                  : `${activeTasks.length} Continuity runs active`}
+                  ? "1 hosted run active"
+                  : `${activeTasks.length} hosted runs active`}
               </strong>
               <span>
                 {activeTasks.some((task) => task.route === "cloud")
@@ -1410,12 +1293,12 @@ export default function DashboardClient() {
             </div>
             <div className="hermes-scroll-pane">
             {selectedThread && <div className="conversation-history">
-              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><FormattedMessage text={message.content} /></article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. Retrying automatically.</div> : <div className="conversation-empty">No messages in this thread yet. Send a Continuity task below to start the conversation on the fenced VPS runner.</div>}
+              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><FormattedMessage text={message.content} /></article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. Retrying automatically.</div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
               {threadDetails?.tasks.flatMap((task, index) => [
                 <article key={`task-user-${index}`} className="conversation-message role-user"><span>web</span><p>{task.prompt}</p></article>,
                 task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><FormattedMessage text={task.result} />{feedbackControls(task.id)}</article>
                   : task.error ? <article key={`task-error-${index}`} className="conversation-message role-error"><span>failed</span><FormattedMessage text={task.error} /></article>
-                  : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><p>Waiting for {task.route === "cloud" ? "the fenced Continuity runner" : "your paired machine"} to pick this up…</p></article>
+                  : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><p>Waiting for {task.route === "cloud" ? "the fenced VPS runner" : "your paired machine"} to pick this up…</p></article>
                   : null,
               ])}
             </div>}
@@ -1457,11 +1340,8 @@ export default function DashboardClient() {
                 (() => {
                   const empty = taskListEmptyCopy({
                     taskFilter,
-                    deviceCount: devices.length,
-                    machineLabel: selectedDeviceLabel,
                     hasSelectedThread: Boolean(selectedThread),
                     syncedMessageCount: threadDetails?.snapshot.length ?? 0,
-                    routePreference,
                   });
                   return (
                     <div
@@ -1479,7 +1359,7 @@ export default function DashboardClient() {
                           data-testid="empty-start-work"
                           onClick={focusComposer}
                         >
-                          Write a Continuity task →
+                          Write a task →
                         </button>
                       ) : null}
                     </div>
@@ -1544,37 +1424,16 @@ export default function DashboardClient() {
               />
               <div className="run-output" id="run-output" data-testid="run-output" role="status" aria-live="polite">
                 <p className="eyebrow">Output</p>
-                {notice ? <p>{notice}</p> : visibleTasks[0]?.result ? <p>{visibleTasks[0].result}</p> : visibleTasks[0]?.error ? <p>{visibleTasks[0].error}</p> : visibleTasks[0] ? <p>Running on Continuity…</p> : <p>Results show here after you send.</p>}
+                {notice ? <p>{notice}</p> : visibleTasks[0]?.result ? <p>{visibleTasks[0].result}</p> : visibleTasks[0]?.error ? <p>{visibleTasks[0].error}</p> : visibleTasks[0] ? <p>Running on the hosted VPS…</p> : <p>Results show here after you send.</p>}
               </div>
               <div className="composer-actions">
                 {/* Fallback hidden submit button so form.requestSubmit() and soft keyboard Enter always find a submitter */}
                 <button type="submit" className="sr-only" aria-hidden="true" tabIndex={-1}>Submit</button>
                 {(() => {
                   const cta = resolveComposerRunCta({
-                    routePreference,
-                    deviceCount: devices.length,
                     hasCloudAccess,
-                    onlineDeviceCount,
                     busy,
                   });
-                  if (cta.kind === "pair") {
-                    return (
-                      <button
-                        type="submit"
-                        className="button button-primary button-small composer-run"
-                        data-testid={cta.testId}
-                        disabled={cta.disabled}
-                        onClick={(e) => {
-                          if (!prompt.trim()) {
-                            e.preventDefault();
-                            openPairingSettings("pair");
-                          }
-                        }}
-                      >
-                        {cta.label}
-                      </button>
-                    );
-                  }
                   if (cta.kind === "upgrade") {
                     return (
                       <button
@@ -1585,7 +1444,7 @@ export default function DashboardClient() {
                         onClick={(e) => {
                           if (!prompt.trim()) {
                             e.preventDefault();
-                            setNotice("Continuity needs a trial or Pro plan. Open Manage plan to start Continuity.");
+                            setNotice("A trial or Pro plan is required to run on the hosted VPS. Open Manage plan.");
                             document.getElementById("billing")?.scrollIntoView({ behavior: "smooth" });
                             window.location.hash = "billing";
                           }
@@ -1602,11 +1461,7 @@ export default function DashboardClient() {
                       data-testid={cta.testId}
                       disabled={cta.disabled}
                       aria-busy={busy}
-                      aria-label={
-                        cta.isContinuity
-                          ? "Run on Continuity cloud VPS — no local computer required"
-                          : "Run task"
-                      }
+                      aria-label="Run"
                     >
                       {busy ? "Sending…" : cta.label}
                     </button>
@@ -1618,8 +1473,8 @@ export default function DashboardClient() {
 
           <aside className="right-rail" ref={rightRailRef}>
             <section className="panel connection-panel" id="leash-control">
-              <div className="panel-heading"><div><p className="eyebrow">CONTINUITY ENGINE</p><h2>Continuity Cloud VPS</h2></div><span>ACTIVE & AUTONOMOUS</span></div>
-              <div className="connection-summary"><span className={`device-light is-online`} /><div><strong>☁️ Cloud Continuity Live</strong><p>ThumbGate runs on a fenced serverless Cloud VPS runner — no local Mac or background service required. Tasks run instantly in the cloud.</p></div></div>
+              <div className="panel-heading"><div><p className="eyebrow">HOSTED HERMES</p><h2>Fenced VPS</h2></div><span>ACTIVE & AUTONOMOUS</span></div>
+              <div className="connection-summary"><span className={`device-light is-online`} /><div><strong>☁️ Hosted Hermes live</strong><p>ThumbGate runs on a fenced serverless Cloud VPS runner — no local Mac or background service required. Tasks run instantly in the cloud.</p></div></div>
               <ol className="dashboard-setup-steps"><li className="is-done"><span>1</span>Cloud VPS runner active</li><li className="is-done"><span>2</span>LLM-as-Judge guardrails enabled</li><li className="is-done"><span>3</span>Online & autonomous</li></ol>
               {devices.length > 0 ? (
                 <div className="leash-device-picker" data-testid="leash-device-picker">
@@ -1634,7 +1489,7 @@ export default function DashboardClient() {
                     disabled={busy}
                     aria-label="Which machine should run tasks"
                   >
-                    <option value="cloud">☁ Continuity Cloud VPS (Default)</option>
+                    <option value="cloud">☁ Hosted VPS (default)</option>
                     {devices.map((device) => (
                       <option key={device.id} value={device.id}>
                         {machineDisplayName(device)} · {deviceStatusLabel(device)}
@@ -1651,10 +1506,17 @@ export default function DashboardClient() {
               <div className="safety-explanation">
                 <p>ThumbGate gives each task to one signed runner at a time. Its 90-second lease must keep renewing; if that runner disappears, the lease expires before another runner can take over.</p>
                 <ul><li>Prevents duplicate or stale runners from continuing work.</li><li>Rejects completion receipts from an expired lease.</li><li>All tasks run in isolated serverless cloud sandboxes.</li></ul>
-                <a className="button button-secondary button-small" href="#web-settings">Open Continuity settings</a>
+                <button
+                  type="button"
+                  className="button button-secondary button-small"
+                  data-testid="open-settings"
+                  onClick={openSettingsPanel}
+                >
+                  Open settings
+                </button>
               </div>
             </details>
-            <section className="panel" id="web-settings">
+            <section className="panel" id="web-settings" tabIndex={-1}>
               <div className="panel-heading"><div><p className="eyebrow">SETTINGS</p><h2>Paired Hermes connectors</h2></div></div>
               <p className="helper-copy">
                 ThumbGate executes tasks directly on our fenced serverless Cloud VPS runner (90s renewable lease). No local Mac software or background daemons are required.
