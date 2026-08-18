@@ -80,6 +80,11 @@ const FAQ_ITEMS = [
       "It pauses. You approve or deny in thumbgate.app. Conflicting goals without a human gate is how agents ship malware. Hosted Hermes does not auto-run that.",
   },
   {
+    question: "Do I install a desktop app?",
+    answer:
+      "No. Hosted Hermes is one always-on agent on a fenced VPS. Local desktop employees die when the laptop sleeps. Approvals stay in thumbgate.app.",
+  },
+  {
     question: "Can I run it on my machine instead?",
     answer:
       "No picker. One offer: hosted Hermes on a fenced VPS. Local-only assistants stop when the laptop sleeps. Approvals stay in thumbgate.app.",
@@ -141,7 +146,7 @@ export default function Home() {
           <p className="eyebrow"><span className="live-dot" /> Hosted Hermes · Fenced VPS</p>
           <h1>Hermes that stays on.</h1>
           <p className="hero-lede">
-            Always on, even when your computer is off. Hosted on a fenced VPS. Not a laptop process. Approve money, customer, or production actions in this browser. Flat $10/month. 14 days free. Cancel anytime.
+            Always on, even when your computer is off. Always awake. Always working. Hosted on a fenced VPS. Not a laptop process. Approve money, customer, or production actions in this browser. Flat $10/month. 14 days free. Cancel anytime.
           </p>
           <p className="signin-note">
             Automations can draft and run. Money, customer-facing, or production actions require your approval in this browser.
