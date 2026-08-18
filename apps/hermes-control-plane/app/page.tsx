@@ -55,11 +55,6 @@ const FAQ_ITEMS = [
       "No. Billing and approvals live on thumbgate.app.",
   },
   {
-    question: "Do I need to pair a Mac?",
-    answer:
-      "No. Hosted Hermes is fenced VPS execution. Sign in, start a trial or Pro plan, and run work on the cloud runner.",
-  },
-  {
     question: "How much does it cost?",
     answer:
       "$10/mo, 14-day trial. Cancel anytime. Not per-token. Live list price is https://thumbgate.app/api/billing/plan.",
@@ -207,7 +202,7 @@ export default function Home() {
         <div className="steps-grid">
           <article>
             <h3>Laptop / local session</h3>
-            <p>Lid closes or the box sleeps. The watch process is gone. Nothing reports it. Work stops until you sit down again.</p>
+            <p>The laptop sleeps. The process is gone. Nothing reports it. Work stops until you sit down again.</p>
           </article>
           <article>
             <h3>Fenced VPS</h3>
@@ -222,8 +217,8 @@ export default function Home() {
         </div>
         <ol className="setup-steps">
           <li><span>01</span><div><h3>Sign in</h3><p>Google via AuthKit. Open the hosted Hermes dashboard from any browser.</p></div></li>
-          <li><span>02</span><div><h3>Start trial or Pro</h3><p>A paid plan unlocks the fenced cloud VPS runner under your plan caps.</p></div></li>
-          <li><span>03</span><div><h3>Dispatch work</h3><p>Agents run on a fenced VPS with pre-action gates — not on a paired laptop product path.</p></div></li>
+          <li><span>02</span><div><h3>Start the $10 trial</h3><p>A paid plan unlocks the fenced cloud VPS runner under your plan caps.</p></div></li>
+          <li><span>03</span><div><h3>Dispatch work</h3><p>Agents run on a fenced VPS with pre-action gates. Not on your laptop.</p></div></li>
         </ol>
       </section>
 
@@ -294,7 +289,7 @@ export default function Home() {
               <li>Account + hosted Hermes dashboard shell</li>
               <li>LLM-as-a-Judge policy surface</li>
               <li><strong>{CONTINUITY_PRICE_TIERS[0].cloudRunsDisplay}</strong> fenced VPS runs / 30 days</li>
-              <li>No Mac pair required to explore</li>
+              <li>No laptop required. Sign in from any browser.</li>
             </ul>
             <LandingPricingCtaFree />
           </article>
