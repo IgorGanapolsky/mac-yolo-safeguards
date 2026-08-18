@@ -766,3 +766,80 @@ Six runs have now spent their budget confirming that the upstream repo says no.
 The refusal message names the way around itself; read it rather than re-testing
 it. The backlogged drafts (#4860, #5492, #5557, #5611) can be *built and pushed*
 today by the route above — only the final submit click needs a human.
+
+---
+
+## 2026-08-18 — #6175 fixed, tested, and staged (dead BIP-340 check); access wall confirmed, still one click from a human; a pileup finding
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+- **Canonical repo:** [`github.com/block/buzz`](https://github.com/block/buzz) — Apache-2.0, unchanged maintainer/architecture from all prior runs.
+- **This session's `buzz-wf08-pr-plan.md` / `feat/buzz-nostr-acp-bridge` check:** neither exists on `main` of this repo or on any branch reachable from it in this session — same non-finding as Run 4a. Not re-investigated further; superseded by the fork route documented in the Cross-run note above, which this run used directly.
+- **Access:** `add_repo(owner:"block", repo:"buzz", access:"push")` → same cross-tier rejection as every prior run. `add_repo(owner:"igorganapolsky", repo:"buzz", access:"push")` → accepted, as the Cross-run note above documents. Cloned the fork, added `upstream` = `block/buzz`, fetched `upstream/main` (`f8692fa9`, 2026-08-17). `mcp__github__create_pull_request(owner:"block", repo:"buzz", ...)` → *"Access denied: repository 'block/buzz' is not configured for this session. Allowed repositories: igorganapolsky/mac-yolo-safeguards, igorganapolsky/buzz."* Confirms the Cross-run note's finding still holds precisely: fork clone/build/test/push all work from this session tier; the upstream API submit does not. Not treated as new information — treated as the expected, now-routine result of following the note's documented route, and recorded because the hard rule requires never asserting a PR was opened without checking.
+- **PR [#4624](https://github.com/block/buzz/pull/4624)** (Run 2's contribution): reconfirmed open via `WebFetch` on the public PR listing, still the only PR from `IgorGanapolsky` ever actually reached on `block/buzz` — 15 days after the code-owner review request, still no human review.
+
+### Pileup finding (new this run, worth surfacing)
+
+`mcp__github__list_pull_requests` on this repo (`igorganapolsky/mac-yolo-safeguards`) shows **three open, unmerged draft PRs** whose sole content is a prior run's log entry for this exact file, going back to 2026-08-14–17: #1689 (Run 8, #5665 fix), #1777 (Run 8, #5734 fix), #1776 (Run 11, WF-08 fix). `coordination/*-engagement-log.md` already carries `merge=union` (fixed in Run 4a for exactly this reason), so these are not blocked by conflicts — they are simply sitting unmerged. Between them and this run, there are now **at least six** fully-built, tested, DCO-signed fix branches sitting on `igorganapolsky/buzz` (`fix/acp-auth-tag-profile-republish`, `fix/acp-panic-dead-letter-notice`, `fix/multi-h-filter-*`, `fix/projects-update-aged-head-drift`, `fix/team-instruction-validation*`, `fix/wf08-approval-gate-*`, and this run's `fix/git-sign-nostr-off-curve-pubkey`) that have never reached `block/buzz` because the API submit step is blocked every run. This is not a new blocker — it is the same one the Cross-run note already named — but the *volume* backed up behind it is now large enough that it is worth a human doing one pass to either (a) submit the ready compare-URLs in `coordination/buzz-pr-drafts/`, or (b) merge the backlog of log-only PRs in this repo so future runs stop finding a longer and longer queue of open PRs to read past. Reported as a status finding, not a request routed to a human per AGENTS.md.
+
+### What was surveyed (last ~72h, as of 2026-08-18)
+
+Newest open issues, all filed 2026-08-17: #6179, #6175, #6172, #6171, #6165, #6160, #6158, #6157, #6152, #6150, #6149, #6146.
+
+| Issue | Topic | Action |
+|-------|-------|--------|
+| [#6175](https://github.com/block/buzz/issues/6175) | `git-sign-nostr`: nostr 0.44 bump made `PublicKey::from_hex().is_err()` a dead BIP-340 on-curve check at 4 call sites; the crate's own regression test for this was never wired into CI | **Fixed, tested, staged** (below) — squarely verification-vs-self-report (a security check that silently stopped checking, invisible because its own test never ran) |
+| [#6160](https://github.com/block/buzz/issues/6160) | `buzz-acp`: a turn that answers in text without calling `buzz messages send` completes with no error and posts nothing — success signal, silent no-op | Read in full — same domain (self-report vs. actual effect), but the issue already proposes a complete, specific fix (harness-side per-turn tracking of streamed text vs. published messages); a comment adds no new signal. Logged as a pattern data point, not drafted. |
+| [#6149](https://github.com/block/buzz/issues/6149) | Desktop: `AppIo::archive` flush re-derives identity/relay from *current* `AppState` instead of the scope the sync task started in — an identity/community switch mid-buffer causes scope-A events to be validated (and dropped) under scope-B credentials | Read in full — real silent-data-loss bug, already has a complete, specific proposed fix (capture `(identity_pubkey, relay_url)` at construction, pass explicitly). Skipped as a comment target for the same reason as #6160. |
+| [#6158](https://github.com/block/buzz/issues/6158) | GPG-sign tags/releases | Skipped — release-process hygiene request, not a reliability bug |
+| [#6157](https://github.com/block/buzz/issues/6157) | `GLIBC_2.38' not found` | Skipped — packaging/distro compatibility bug, outside stated domain |
+| [#6179](https://github.com/block/buzz/issues/6179), [#6172](https://github.com/block/buzz/issues/6172), [#6171](https://github.com/block/buzz/issues/6171), [#6165](https://github.com/block/buzz/issues/6165), [#6152](https://github.com/block/buzz/issues/6152), [#6150](https://github.com/block/buzz/issues/6150), [#6146](https://github.com/block/buzz/issues/6146) | Feature requests (TTS CLI, opening local files, tenant export/migration docs, text-selection UX, CNPG helm chart), a desktop build failure, and a search/UI context gap | Skipped — feature requests, packaging/build issues, or UI/UX gaps, none in Igor's stated domain (agent reliability, idempotency, double-execution, write-gating, leases/fencing, retries, audit trails, verification-vs-self-report) |
+
+### Investigation and fix for #6175 (this run — real engineering, not a draft)
+
+Read the actual source (`crates/git-sign-nostr/src/lib.rs`) and the vendored `nostr` 0.44.7 crate (`~/.cargo/registry/.../nostr-0.44.7/src/key/public_key.rs`) before touching anything, rather than trusting the issue's line numbers or claims:
+
+- Confirmed `PublicKey::from_hex()` in nostr 0.44.7 is `hex::decode_to_slice` into 32 bytes, nothing more — no curve check. `xonly()` calls `XOnlyPublicKey::from_slice`, which does the real validation.
+- Found the four call sites the issue names (`lib.rs:1020, 1246→1251, 1424→1428, 2265→2270` — line numbers had drifted slightly from the issue's snapshot), confirmed each uses `from_hex(...).is_err()`/`.map_err(...)` with no subsequent `.xonly()` call — a true dead gate.
+- Also checked the two *other* `from_hex` call sites in the file (envelope signer pk at `verify_envelope`, owner pk inside `verify_oa`) that the issue did *not* flag, to confirm they weren't also silently broken: both parse a `PublicKey` and call `.xonly()` on it immediately before a schnorr-verify, so an off-curve key there still fails at the xonly conversion — correctly out of scope, not fixed.
+- Reproduced the failure for real: `cargo test -p git-sign-nostr --lib test_parse_envelope_rejects_invalid_oa_pubkey` on unmodified `upstream/main` → **FAILED**, `assertion failed: result.is_err()` at `lib.rs:2136`. This is the fails-before evidence, not inferred from the issue text.
+- Applied the fix: `.and_then(|k| k.xonly())` at all four gates. Added `git-sign-nostr` to the `test-unit` enumeration in `Justfile` (it was never there — the actual reason the regression shipped and stayed invisible).
+
+#### Verification (executed this run — real output)
+
+```text
+cargo test -p git-sign-nostr --lib
+test result: ok. 56 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+cargo clippy -p git-sign-nostr --lib --all-targets -- -D warnings   # clean
+cargo fmt -p git-sign-nostr -- --check                              # clean
+```
+
+No new test needed — `test_parse_envelope_rejects_invalid_oa_pubkey` already encoded the correct assertion; the bug was that it was never run, not that it was missing.
+
+### What was opened / answered this run
+
+| Action | Status | URL |
+|--------|--------|-----|
+| Fix branch for #6175, DCO-signed, full crate suite green | **Pushed to Igor's fork** | `IgorGanapolsky/buzz@fix/git-sign-nostr-off-curve-pubkey` |
+| PR to `block/buzz` | **Staged — one click** (API blocked, confirmed this run — see Access above) | [compare/open PR](https://github.com/block/buzz/compare/main...IgorGanapolsky:buzz:fix/git-sign-nostr-off-curve-pubkey?expand=1) |
+| Full PR body, ready to paste | Committed to this repo | `coordination/buzz-pr-drafts/6175-git-sign-nostr-off-curve-pubkey.md` |
+
+Commit is DCO-signed as `Igor Ganapolsky <iganapolsky@gmail.com>` with a `Co-Authored-By: Claude` trailer. No second PR opened. **ThumbGate is not mentioned anywhere in the branch, commit, or PR draft** — this is a Nostr-crypto-library-version regression inside Buzz's own crate, with no relevance to a ThumbGate answer.
+
+### Positioning read: **neither** (unchanged, reconfirmed)
+
+- Not a competitor: Buzz remains a team workspace/chat+git+workflow fabric on Nostr; ThumbGate remains a cross-tool pre-action governance gate for arbitrary agent writes. No change in either product's shape.
+- Not a partner: no relationship exists; nothing this run changes that.
+- The recurring technical-overlap signal — local/per-unit correctness that silently stops holding under a dependency change, concurrency, or partial failure, with no downstream check to catch it — picked up its strongest data point yet: #6175 is a *security* check (on-curve pubkey validation, the actual anti-forgery gate for NIP-OA owner attestation) that went dead and stayed invisible because its own regression test wasn't wired into CI. #6160 and #6149 this run are two more instances of the same shape (self-reported success masking silent data loss). None of this was seeded by Igor or ThumbGate — ten-plus unprompted surveys of Buzz's own tracker keep finding it independently.
+
+### What was skipped and why
+
+- **#6160, #6149** — read in full, both already well-specified with complete proposed fixes; a comment adds no new signal (same standard as prior runs on #5471/#5472). Logged as pattern data, not drafted.
+- **#6158, #6157, #6179, #6172, #6171, #6165, #6152, #6150, #6146** — outside stated domain (release process, packaging/build, feature requests, UI/UX), per table above.
+- **Second fix/PR** — hard max 1/run; also would only add to the pileup documented above rather than resolve it.
+- **Backlogged drafts from prior runs (#4860, #5492, #5557, #5555, #5611, #5665, #5734, WF-08)** — not re-verified this run; time went to the new #6175 investigation and the pileup finding instead. No reason to expect any have gone stale faster than the ~week cadence prior runs found.
+
+### Blocker status (report only — no action requested)
+
+Unchanged in kind from the Cross-run note: fork clone/build/test/push work from this session tier; `block/buzz`'s PR-creation API does not, confirmed again this run at the create-call layer specifically (not inferred from the repo-scope rejection). New this run is the **volume** finding above — six-plus ready branches and three open log-only PRs in this repo, all one human action away from either landing on `block/buzz` or being cleaned up. Compare URLs for all of this run's and prior runs' ready fixes are collected in `coordination/buzz-pr-drafts/`.
