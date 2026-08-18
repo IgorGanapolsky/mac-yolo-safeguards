@@ -47,7 +47,7 @@ export function resolveComposerRunCta(input: {
     }
     return {
       kind: "run",
-      label: "Run on Continuity (Cloud VPS) →",
+      label: "Run →",
       disabled: busy,
       testId: "composer-run-cta",
       isContinuity: true,
@@ -59,7 +59,7 @@ export function resolveComposerRunCta(input: {
     if (hasCloudAccess && unpaired) {
       return {
         kind: "run",
-        label: "Run on Continuity (Cloud VPS) →",
+        label: "Run →",
         disabled: busy,
         testId: "composer-run-cta",
         isContinuity: true,
@@ -69,7 +69,7 @@ export function resolveComposerRunCta(input: {
       // Mac listed but offline — Auto falls through to Continuity; do not demand re-pair.
       return {
         kind: "run",
-        label: "Run on Continuity (Mac offline) →",
+        label: "Run →",
         disabled: busy,
         testId: "composer-run-cta",
         isContinuity: true,

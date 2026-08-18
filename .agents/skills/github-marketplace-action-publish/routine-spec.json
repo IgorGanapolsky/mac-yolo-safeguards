@@ -1,0 +1,74 @@
+{
+  "meta": {
+    "source": "https://docs.x.ai/grok-bot/overview",
+    "pattern": "task → skill → test → routine",
+    "stolen_for": "Grok + mac-yolo-safeguards Marketplace listing truth"
+  },
+  "skills": [
+    {
+      "name": "github-marketplace-action-publish",
+      "when_to_use": "Publish or update a GitHub Actions Marketplace listing",
+      "required_inputs": [
+        "public repo root action.yml with branding",
+        "gh auth",
+        "BrowserOS neo",
+        "ECI STATUS.json for ThumbGate"
+      ],
+      "access": ["gh CLI", "BrowserOS neo", "Gmail MCP for sudo OTP"],
+      "sequence": [
+        "Probe listing with verify-listing.js",
+        "Tag + gh release create",
+        "Point floating major tag",
+        "Marketplace checkbox via BrowserOS neo after Developer Agreement",
+        "Verify LIVE before any LIVE claim"
+      ],
+      "validate": "verify-listing.js exit 0 against slug derived from action.yml name",
+      "return": "LIVE URL, uses snippet, tag SHA, ECI free-only vs paid-paused",
+      "approval_boundary": "Draft-stop before paid Marketplace plans, enterprise-claim expansion, or buyer outreach. Free listing of the existing Action is in-skill."
+    },
+    {
+      "name": "verify-github-marketplace-listing",
+      "when_to_use": "Is the Action on Marketplace / LIVE / 404 / advertise the listing",
+      "required_inputs": ["slug or action.yml name", "HTTPS github.com"],
+      "access": ["verify-listing.js", "no token required for public listing pages"],
+      "sequence": [
+        "GET /marketplace/actions/<slug>",
+        "Optional Marketplace search",
+        "Classify live vs not-live vs unknown"
+      ],
+      "validate": "HTTP 200 + real title, not a GitHub 404 page. Exit 1 is unknown, not missing.",
+      "return": "JSON live, listing.url, listing.http, listing.title, listing.uses, search.hasSlug",
+      "approval_boundary": "Read-only. Never publish, edit a release, or post."
+    },
+    {
+      "name": "advertise-thumbgate-github-marketplace",
+      "when_to_use": "Cite the Marketplace listing when advertising ThumbGate",
+      "required_inputs": ["verify-listing.js exit 0 this turn", "ECI STATUS.json"],
+      "access": ["verify skill", "counsel_clearance field only"],
+      "sequence": [
+        "Verify LIVE",
+        "If counsel_clearance is false, cite free listing only",
+        "Return URL + uses snippet from verify JSON"
+      ],
+      "validate": "Same-turn live=true and listing.http=200. No stale vault notes.",
+      "return": "Listing URL, title, uses snippet, ECI free-cite-only",
+      "approval_boundary": "Do not invent paid plans, pilot CTAs, or buyer outreach. Cite only."
+    }
+  ],
+  "routines": [
+    {
+      "name": "weekly-thumbgate-marketplace-live-check",
+      "owning_bot": "grok",
+      "schedule_or_event": "weekday phrase match: marketplace listing / is ThumbGate on Marketplace; optional weekly Mon 09:00 after a second live test",
+      "timezone": "America/New_York",
+      "input_source": "live HTTPS GET github.com/marketplace/actions/thumbgate-agent-governance (refetch every run)",
+      "skill_name": "verify-github-marketplace-listing",
+      "expected_result": "JSON live=true or an explicit NOT LIVE / UNKNOWN with http status",
+      "approval_boundary": "Read-only verify. Stop before publish, social post, or paid-plan changes.",
+      "missing_source_policy": "If the probe errors or times out, report UNKNOWN — do not invent LIVE or missing",
+      "stale_data_policy": "Refetch every run; never reuse a previous session snapshot; mark stale if evidence is not from this invocation",
+      "partial_completion_report": "Always report listing.http + title; if search fails, say search skipped and still use listing as truth",
+      "test_run_required": true
+    }
+  ]
+}
