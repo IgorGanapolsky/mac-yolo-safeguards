@@ -25,22 +25,11 @@ const webPackage = JSON.parse(readFileSync(new URL("../package.json", import.met
 const connector = readFileSync(new URL("../../../tools/hermes-cloud-connector.js", import.meta.url), "utf8");
 const installer = readFileSync(new URL("../../../saas/install-connector.sh", import.meta.url), "utf8");
 
-test("preserves a prefilled pairing code through hosted sign-in", () => {
-  assert.match(dashboard, /searchParams\.get\("pair"\)/);
-  assert.match(dashboard, /\/api\/auth\/login\?return_to=/);
-  assert.match(dashboard, /window\.location\.replace/);
-  assert.match(dashboard, /searchParams\.delete\("pair"\)/);
-  assert.match(dashboard, /Verify its name, then approve the prefilled code/);
-});
-
-test("offers one command and opens ThumbGate instead of making users copy a code", () => {
-  assert.match(dashboard, /Copy one-line installer/);
+test("executes tasks directly in Cloud VPS without local install steps", () => {
+  assert.match(dashboard, /composer-run/);
+  assert.match(dashboard, /24\/7 Cloud Sandbox Ready/);
+  assert.match(dashboard, /Fenced VPS · Instant execution/);
   assert.match(installer, /https:\/\/thumbgate\.app/);
-  assert.match(installer, /--pair --pair-only/);
-  assert.match(installer, /pairingMatchesControlPlane\(config,process\.argv\[3\]\)/);
-  assert.match(installer, /Reusing this machine's existing signed ThumbGate pairing/);
-  assert.match(connector, /childProcess\.spawn\('\/usr\/bin\/open'/);
-  assert.match(connector, /target\.searchParams\.set\('pair', userCode\)/);
 });
 
 test("reuses the local Hermes credential without putting it in launchd", () => {
@@ -204,7 +193,7 @@ test("preserves web accessibility contracts while adopting the mobile feel", () 
   assert.match(globals, /min-height:44px/);
   assert.match(globals, /:focus-visible\{outline:3px solid var\(--accent\)/);
   assert.match(globals, /@media\(prefers-reduced-motion:reduce\)/);
-  assert.match(dashboard, /<form className="pair-form"/);
+  assert.match(dashboard, /className="composer"/);
   assert.match(dashboard, /aria-label="Hermes workspace"/);
 });
 
@@ -403,12 +392,9 @@ test("lists connectors not Tailscale peers and can revoke ghost machines", () =>
   assert.match(dashboard, /Remove machine/);
   assert.match(dashboard, /Remove stale machine/);
   assert.match(dashboard, /deviceStatusLabel/);
-  assert.match(dashboard, /Copy installer for another computer/);
-  assert.match(dashboard, /Add another computer \(optional\)/);
-  assert.match(dashboard, /always-on service/);
-  assert.match(dashboard, /do <strong>not<\/strong> copy an installer every time/);
-  assert.match(dashboard, /one-time/);
-  assert.match(dashboard, /Apple security|cannot install/);
+  assert.match(dashboard, /CLOUD EXECUTION RUNNER/);
+  assert.match(dashboard, /isolated, serverless cloud sandbox/);
+  assert.match(dashboard, /Manage subscription/);
   assert.match(dashboard, /method: "DELETE"/);
   assert.match(devicesRoute, /export async function DELETE/);
   assert.match(devicesRoute, /device\.revoke/);

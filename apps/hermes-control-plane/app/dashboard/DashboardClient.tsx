@@ -1580,21 +1580,16 @@ export default function DashboardClient() {
                 </article>
                 );
               })}
-              <details className="add-mac-details" style={{ marginTop: "1rem" }}>
-                <summary>Add another computer (optional)</summary>
-                <p className="helper-copy">
-                  These machines run the ThumbGate connector as an always-on service. After the one-time install they reconnect on their own — you do <strong>not</strong> copy an installer every time. A browser cannot install a background service on the host OS due to Apple security.
-                </p>
-                <div className="installer-command">
-                  <code>{connectorInstallCommand}</code>
-                  <button className="button button-secondary button-small" type="button" onClick={() => void copyInstaller()}>{installCopied ? "Copied" : "Copy one-line installer"}</button>
-                  <button className="button button-secondary button-small" type="button" onClick={() => void copyInstaller()}>{installCopied ? "Copied" : "Copy installer for another computer"}</button>
+                <div className="workspace-cloud-info" style={{ marginTop: "1rem", padding: "1rem", borderRadius: "8px", background: "rgba(255, 255, 255, 0.03)", border: "1px solid rgba(255, 255, 255, 0.08)" }}>
+                  <p className="eyebrow" style={{ margin: "0 0 0.5rem" }}>CLOUD EXECUTION RUNNER</p>
+                  <p className="helper-copy" style={{ margin: "0 0 0.75rem" }}>
+                    All tasks run in an isolated, serverless cloud sandbox with 90-second renewable leases and LLM-as-a-Judge governance. No local processes or background daemons are required.
+                  </p>
+                  <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                    <a href="/api/billing/portal" className="button button-secondary button-small">Manage subscription</a>
+                    <a href="/dashboard/lessons" className="button button-secondary button-small">View safety lessons</a>
+                  </div>
                 </div>
-                <form className="pair-form" onSubmit={pair}>
-                  <label>Pairing code<input value={pairCode} onChange={(event) => setPairCode(event.target.value.toUpperCase())} placeholder="ABCD-EFGH" maxLength={9} /></label>
-                  <button className="button button-secondary button-small" disabled={busy || !pairingCodePattern.test(pairCode)}>Approve machine</button>
-                </form>
-              </details>
             </section>
           </aside>
         </div>
