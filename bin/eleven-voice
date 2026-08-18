@@ -1,4 +1,20 @@
 #!/usr/bin/env bash
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-exec python3 "${DIR}/.agents/skills/elevenlabs-voice-agents/scripts/elevenlabs_voice_engine.py" "$@"
-
+# Wrapper for ElevenLabs Voice Agent & ThumbGate Governance Engine
+set -euo pipefail
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+DIR="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
+PYTHON_EXEC="python3"
+if [ -f "$DIR/.venv/bin/python3" ]; then
+  PYTHON_EXEC="$DIR/.venv/bin/python3"
+fi
+ENGINE="$DIR/.agents/skills/elevenlabs-voice-agents/scripts/elevenlabs_voice_engine.py"
+if [ ! -f "$ENGINE" ]; then
+  echo "eleven-voice: engine missing at $ENGINE" >&2
+  exit 2
+fi
+exec "$PYTHON_EXEC" "$ENGINE" "$@"

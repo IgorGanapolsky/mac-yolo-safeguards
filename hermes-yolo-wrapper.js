@@ -69,6 +69,7 @@ const DIRECT_RESPONSE_RULES = [
   'Do not restate the request, announce a plan, use generic headings, or mention being an AI.',
   'No bot slop: no filler (Certainly!/Great question!/As an AI), no multi-section essay for a short ask, no repeated self-narration, no fake progress theater.',
   'No gibberish: never emit broken tokens, half-reasoned scrap, empty tool theater, or stream noise. If the model cannot answer, say so in one clear sentence.',
+  'Never dump internal chain-of-thought, hidden reasoning tags, or token soup into the user-visible answer.',
   'Use available tools when they add evidence. Before saying a tool is unavailable, check the current tool registry and distinguish built-in tools from optional MCP integrations.',
   'Never invent tool access, evidence, completion, provider state, or money received. Name the exact missing capability only when it is truly absent, then continue with the best supported answer.',
   'Honor AGENTS.md project restrictions and require explicit approval for irreversible destruction, external sends, payments, or publication.',
@@ -948,11 +949,13 @@ function classifyBackend(rawArgs, env = process.env, dependencies = {}) {
   if (backend === 'grok') {
     return { requestedBackend: backend, selectedBackend: 'grok-4.5', reason: 'explicit-grok-backend' };
   }
-  // auto: prefer SuperGrok/grok-4.5 when grok-yolo doctor is green.
-  if (isGrokBackendReady(env, dependencies)) {
-    return { requestedBackend: backend, selectedBackend: 'grok-4.5', reason: 'auto-supergrok-ready' };
+  // auto (2026-08-13 quality lock): prefer Hermes glm-coding route for clean agent
+  // output. SuperGrok often streams reasoning/filler that looks like gibberish in
+  // Herdr panes. Opt in with HERMES_YOLO_BACKEND=grok or HERMES_YOLO_FORCE_GROK=1.
+  if (env.HERMES_YOLO_FORCE_GROK === '1' && isGrokBackendReady(env, dependencies)) {
+    return { requestedBackend: backend, selectedBackend: 'grok-4.5', reason: 'force-supergrok' };
   }
-  return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'auto-hermes-fallback' };
+  return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'auto-hermes-quality' };
 }
 
 function shouldUseGrokBackend(rawArgs, env = process.env, dependencies = {}) {
@@ -1040,17 +1043,18 @@ function routeStatus(env = process.env, dependencies = {}) {
     : env.HERMES_YOLO_FORCE_GROK === '1'
       ? 'grok'
       : String(env.HERMES_YOLO_BACKEND || 'auto').trim().toLowerCase();
+  // auto defaults to hermes quality (glm-coding). SuperGrok is opt-in only.
   const routingMode = requestedMode === 'hermes'
     ? 'explicit-hermes'
     : requestedMode === 'grok'
       ? 'explicit-grok'
-      : 'auto-supergrok-preferred';
+      : 'auto-hermes-quality';
   const base = {
     schema: 'hermes-yolo/route-status-v1',
     generatedAt: new Date().toISOString(),
-    // Prefer SuperGrok when doctor-ready; hermes-legacy is fallback only.
+    // Quality lock 2026-08-13: hermes-legacy/glm-coding primary; SuperGrok opt-in.
     routingMode,
-    defaultPromptBackend: 'auto',
+    defaultPromptBackend: 'hermes-legacy',
     silentFallbackAllowed: false,
     grokLauncher: grokYoloBin ? path.basename(grokYoloBin) : null,
     grokLauncherDigest: grokYoloBin ? fileDigest(grokYoloBin) : null,

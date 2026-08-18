@@ -62,7 +62,7 @@ console.log('  pricing: PASS');
 const normal = selectModelChain({ taskText: 'fix login', mode: 'normal', env: {} });
 assert.ok(normal.chain.length >= 2);
 const emergency = selectModelChain({ taskText: 'fix login', mode: 'emergency', env: {} });
-assert.ok(/hermes|deepseek/.test(emergency.primary));
+assert.ok(/glm-coding|hermes-local|hermes|deepseek/.test(emergency.primary), `emergency primary=${emergency.primary}`);
 assert.strictEqual(inferMode({ swapUsedPct: 95, recentFailRate: 0.8 }), 'emergency');
 assert.strictEqual(inferMode({ swapUsedPct: 10, recentFailRate: 0.05 }), 'normal');
 // SuperGrok must survive degraded mode (v3) and beat stale glm pin
@@ -102,13 +102,29 @@ const draftChain = selectModelChain({
   env: { HERMES_YOLO_BACKEND: 'auto', HERMES_PREFER_SUPERGROK: '1' },
 });
 assert.notStrictEqual(draftChain.primary, 'grok-4.5', `draft must not use SuperGrok primary, got ${draftChain.primary}`);
-const codeNoGlm = selectModelChain({
+// Quality lock default (no SuperGrok prefer): glm-coding is coding primary.
+const codeQualityLock = selectModelChain({
   taskText: 'implement the auth fix',
   mode: 'normal',
   env: { HERMES_YOLO_BACKEND: 'auto', HERMES_DROP_DEAD_GLM: '1' },
 });
-assert.strictEqual(codeNoGlm.primary, 'grok-4.5');
-assert.ok(!codeNoGlm.chain.includes('glm-coding'), 'dead GLM should be demoted off auto code chain');
+assert.strictEqual(
+  codeQualityLock.primary,
+  'glm-coding',
+  `quality-lock coding primary should be glm-coding, got ${codeQualityLock.primary}`,
+);
+// Opt-in SuperGrok + drop-dead GLM: grok primary and glm demoted off chain.
+const codePreferGrok = selectModelChain({
+  taskText: 'implement the auth fix',
+  mode: 'normal',
+  env: {
+    HERMES_YOLO_BACKEND: 'auto',
+    HERMES_PREFER_SUPERGROK: '1',
+    HERMES_DROP_DEAD_GLM: '1',
+  },
+});
+assert.strictEqual(codePreferGrok.primary, 'grok-4.5');
+assert.ok(!codePreferGrok.chain.includes('glm-coding'), 'dead GLM should be demoted off SuperGrok code chain');
 console.log('  degradation: PASS');
 
 // Pipelines

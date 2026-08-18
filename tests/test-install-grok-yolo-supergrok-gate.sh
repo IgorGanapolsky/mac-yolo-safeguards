@@ -11,7 +11,7 @@ trap cleanup EXIT
 # Re-implement the gate checks the script uses (same markers).
 has_supergrok() {
   local f="$1"
-  grep -q 'isGrokBackendReady' "$f" && grep -q 'auto-supergrok-ready' "$f"
+  grep -q 'isGrokBackendReady' "$f" && grep -qE 'auto-hermes-quality|auto-supergrok-ready|force-supergrok' "$f"
 }
 
 echo "=== test-install-grok-yolo-supergrok-gate ==="
@@ -46,14 +46,14 @@ source /dev/null
 resolve_hermes_yolo_wrapper_src() {
   local src="${1:-$ROOT/hermes-yolo-wrapper.js}"
   local tmp="$ROOT/.hermes-yolo-wrapper.from-main.js"
-  if [[ -f "$src" ]] && grep -q "isGrokBackendReady" "$src" && grep -q "auto-supergrok-ready" "$src"; then
+  if [[ -f "$src" ]] && grep -q "isGrokBackendReady" "$src" && grep -qE "auto-hermes-quality|auto-supergrok-ready|force-supergrok" "$src"; then
     printf "%s\n" "$src"
     return 0
   fi
   if git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     if git -C "$ROOT" show origin/main:hermes-yolo-wrapper.js 2>/dev/null | grep -q "isGrokBackendReady"; then
       git -C "$ROOT" show origin/main:hermes-yolo-wrapper.js >"$tmp"
-      if grep -q "auto-supergrok-ready" "$tmp"; then
+      if grep -qE "auto-hermes-quality|auto-supergrok-ready|force-supergrok" "$tmp"; then
         printf "%s\n" "$tmp"
         return 0
       fi

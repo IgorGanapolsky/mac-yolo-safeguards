@@ -8,16 +8,22 @@ const {
   commandEnv,
 } = require('../tools/hermes-yolo-route-policy.js');
 
+// Quality lock default: no SuperGrok prefer → glm-coding for interactive coding.
 const CLEAN = Object.freeze({
-  HERMES_PREFER_SUPERGROK: '1',
   HERMES_YOLO_BACKEND: 'auto',
   HERMES_DROP_DEAD_GLM: '1',
+});
+
+// Opt-in SuperGrok for hard/coding when explicitly preferred.
+const CLEAN_SUPERGROK = Object.freeze({
+  ...CLEAN,
+  HERMES_PREFER_SUPERGROK: '1',
 });
 
 function testSmokeUsesFastNotGrok() {
   const r = selectRoute({
     task: 'Reply with exactly HERMES-YOLO-READY',
-    env: { ...CLEAN },
+    env: { ...CLEAN_SUPERGROK },
   });
   assert.notStrictEqual(r.model, 'grok-4.5', r.reason);
   assert.ok(
@@ -26,32 +32,44 @@ function testSmokeUsesFastNotGrok() {
   );
 }
 
-function testHardUsesGrok() {
+function testHardUsesGrokWhenPreferred() {
   const r = selectRoute({
     task: 'are you sure this architecture is right?',
-    env: { ...CLEAN },
+    env: { ...CLEAN_SUPERGROK },
   });
   assert.strictEqual(r.model, 'grok-4.5', r.reason);
 }
 
-function testDefaultCodingUsesGrok() {
+function testDefaultCodingUsesGlmCoding() {
   const r = selectRoute({
     task: 'implement the login form validation',
     env: { ...CLEAN },
   });
+  // 2026-08-13 quality lock: glm-coding is default interactive coding (anti-slop).
+  assert.strictEqual(r.model, 'glm-coding', r.reason);
+  assert.ok(
+    String(r.provider || '').includes('litellm') || r.provider === 'custom:litellm-gateway',
+    `expected litellm gateway, got ${r.provider}`,
+  );
+}
+
+function testPreferSuperGrokCodingUsesGrok() {
+  const r = selectRoute({
+    task: 'implement the login form validation',
+    env: { ...CLEAN_SUPERGROK },
+  });
   assert.strictEqual(r.model, 'grok-4.5', r.reason);
-  assert.strictEqual(r.provider, 'grok-yolo');
 }
 
 function testDraftNotSuperGrok() {
   const r = selectRoute({
     task: 'draft outreach email newsletter',
-    env: { ...CLEAN },
+    env: { ...CLEAN_SUPERGROK },
   });
   assert.notStrictEqual(r.model, 'grok-4.5', r.reason);
 }
 
-function testStaleGlmPinIgnored() {
+function testGlmCodingPinIsQualityPrimary() {
   const r = selectRoute({
     task: 'fix the auth bug',
     env: {
@@ -60,14 +78,15 @@ function testStaleGlmPinIgnored() {
       HERMES_YOLO_PROVIDER: 'custom:litellm-gateway',
     },
   });
-  assert.strictEqual(r.model, 'grok-4.5', `stale glm pin should yield SuperGrok, got ${r.model}`);
+  // Quality lock: glm-coding is the intentional coding primary (not a stale pin).
+  assert.strictEqual(r.model, 'glm-coding', `expected glm-coding primary, got ${r.model}`);
 }
 
 function testForceGlmPin() {
   const r = selectRoute({
     task: 'fix the auth bug',
     env: {
-      ...CLEAN,
+      ...CLEAN_SUPERGROK,
       HERMES_YOLO_FORCE_MODEL: '1',
       HERMES_YOLO_MODEL: 'glm-coding',
       HERMES_YOLO_PROVIDER: 'custom:litellm-gateway',
@@ -99,12 +118,13 @@ function testCyberDoesNotStealDefaultCoding() {
     task: 'implement the login form validation',
     env: { ...CLEAN, HERMES_PREFER_GLM53_CYBER: '1' },
   });
-  assert.strictEqual(r.model, 'grok-4.5', r.reason);
+  // Default coding is already glm-coding; cyber prefer must not change that.
+  assert.strictEqual(r.model, 'glm-coding', r.reason);
 }
 
 function testCommandEnv() {
   const env = commandEnv(ROUTES.coding);
-  assert.strictEqual(env.HERMES_YOLO_MODEL, 'grok-4.5');
+  assert.strictEqual(env.HERMES_YOLO_MODEL, 'glm-coding');
   assert.ok(taskSignals('smoke').smoke);
 }
 
@@ -123,10 +143,11 @@ function testPolicyVersionConsistent() {
 
 function main() {
   testSmokeUsesFastNotGrok();
-  testHardUsesGrok();
-  testDefaultCodingUsesGrok();
+  testHardUsesGrokWhenPreferred();
+  testDefaultCodingUsesGlmCoding();
+  testPreferSuperGrokCodingUsesGrok();
   testDraftNotSuperGrok();
-  testStaleGlmPinIgnored();
+  testGlmCodingPinIsQualityPrimary();
   testForceGlmPin();
   testLongContextUsesK3Membership();
   testCyberUsesGlmWhenPreferred();

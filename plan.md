@@ -3032,6 +3032,23 @@ CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, too
 - Hybrid default paid route = `glm52_reasoning` (not fictional cloud_general); candidates must match hermes-economic-router ROUTES.
 - Skip ROCm/Instinct bulk install on Apple Silicon.
 
+
+## OpenAI Ultrafast fleet persist (append 2026-08-15T14:32:00Z) — agent `grok-openai-ultrafast-fleet-20260815`
+
+Complementary to Codex `T-OPENAI-ULTRAFAST-POLICY-20260815` / PR #1743 (`ultrafast-yolo`). This lane owns persist + opt-in routing only. Does **not** edit `tools/openai-ultrafast-policy.js`, `bin/ultrafast-yolo`, or `.agents/skills/openai-ultrafast-policy/**`.
+
+### Task
+| T-OPENAI-ULTRAFAST-FLEET-20260815 | Persist OpenAI Ultrafast (GPT-5.6 Sol + service_tier=ultrafast) system-wide as OPT-IN at $10/mo; never default jcode/hermes-yolo to Sol | in_progress | grok-openai-ultrafast-fleet-20260815 | `tools/openai-ultrafast-fleet.js`, `tests/test-openai-ultrafast-fleet.js`, `bin/ultrafast-fleet`, `.agents/skills/openai-ultrafast-fleet/**`, `plan.md`, `SKILLS.md` (append row only) | persist zsh/launchd/hermes env; doctor OPT_IN_ONLY; route default=GLM; $10 fail-closed; no live spend |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/openai-ultrafast-fleet.js | grok-openai-ultrafast-fleet-20260815 | 2026-08-15T14:32:00Z |
+| tests/test-openai-ultrafast-fleet.js | grok-openai-ultrafast-fleet-20260815 | 2026-08-15T14:32:00Z |
+| bin/ultrafast-fleet | grok-openai-ultrafast-fleet-20260815 | 2026-08-15T14:32:00Z |
+| .agents/skills/openai-ultrafast-fleet/** | grok-openai-ultrafast-fleet-20260815 | 2026-08-15T14:32:00Z |
+| SKILLS.md (append row only) | grok-openai-ultrafast-fleet-20260815 | 2026-08-15T14:32:00Z |
+| plan.md (this append) | grok-openai-ultrafast-fleet-20260815 | 2026-08-15T14:32:00Z |
 ### D-2026-08-15-skill-yaml-preflight
 
 - Reproduced both repo startup failures with the canonical skill validator: comma-separated quoted `trigger` scalars were invalid YAML. Replaced them with trigger guidance in the standard `description` field; both manifests now validate.
@@ -3207,8 +3224,10 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 | SKILLS.md (append rows only) | grok-marketplace-skills-20260817 | 2026-08-17T22:06:00Z |
 | plan.md (append only) | grok-marketplace-skills-20260817 | 2026-08-17T22:06:00Z |
 
+- `bin/eleven-voice`, `.agents/skills/elevenlabs-voice-agents/**`, `tools/elevenlabs-voice-engine.js`, `tests/test-elevenlabs-voice-agents.js`, `config/voice-agents/**`, `docs/ELEVENLABS-VOICE-GOVERNANCE.md` → **grok-elevenlabs-roi** (implement+test ElevenLabs MCP high-ROI steals: promote gate, cost-compare, billing-escalation sim) (2026-08-18)
 
 - 2026-08-18T03:30:00Z `grok-pr-hygiene`: Merged #1736 (`8d66b8f8`); unblocked 8 stale-DIRTY PRs via worktree `merge --no-ff origin/main`; closed 5 superseded drafts; pruned 6 remote heads. Lesson: GitHub DIRTY can be stale vs merge-tree. Remaining ~60 open accounted (CI-wait / real conflicts). Evidence: `docs/agents/PR-HYGIENE-SESSION-2026-08-18.md`.
 
 - `docs/agents/PR-HYGIENE-SESSION-2026-08-18.md`, `.github/workflows/mobile-e2e.yml` (Maestro required-check skip→success stub only), `plan.md` → **grok-pr-hygiene-maestro-stub-20260818** (unblock docs/fleet auto-merge when Maestro path-skips) (2026-08-18T03:50:00Z)
 - `tools/hermes-mobile-pair.js`, `tests/test-hermes-pair-lan-route.js` → **grok-pair-lan-alternates** (USB primary must still publish LAN/TS routes; Wi-Fi phone never gets 127.0.0.1) (2026-08-18)
+- 2026-08-13 hermes-yolo anti-gibberish: killed stale deepseek-v4-flash sessions (48x compression), quality-lock auto→hermes/glm-coding, strip free flash from inference chains, env pin HERMES_YOLO_BACKEND=hermes MODEL=glm-coding. PR agent/hermes-yolo-slop-fix-20260813.
