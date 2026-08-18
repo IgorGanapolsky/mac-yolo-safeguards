@@ -76,8 +76,10 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 | `ci-first-fail` | Buildkite-style first-fail CI annotations. Name the failing STEP; never dump logs; do not migrate off GitHub Actions. Slash: /ci-first-fail. | `.agents/skills/ci-first-fail/SKILL.md` | local |
 | `anti-babysitting-mandate` | HARD: never park waiting for continue / want-me-to on pre-authorized work. Residual picker + wrap-up lint. Own PRs only. Slash: /anti-babysitting-mandate. | `.agents/skills/anti-babysitting-mandate/SKILL.md` | local |
 | `aspire-fleet-apphost` | .NET Aspire-Style Code-First AppHost & Service Discovery Engine. Orchestrates distributed fleet services (ControlPlane, CloudRunner, LiteLLM, OTel, Zoekt) with topological startup DAGs, automated health discovery, and standardized resilience defaults. | `.agents/skills/aspire-fleet-apphost/SKILL.md` | local |
+| `wright-sdlc-engine` | Wrights-Style Phased Work Order & Agentic SDLC Gate Engine. Manages structured work order progression through 5 deterministic stage gates (SPEC -> BUILD -> TEST -> CI_CD -> OBSERVABILITY) with immutable audit receipts. | `.agents/skills/wright-sdlc-engine/SKILL.md` | local |
 
 ---
 
-*Last synchronized: 2026-08-18T19:30:00.000Z*
+*Last synchronized: 2026-08-18T19:35:00.000Z*
+
 
