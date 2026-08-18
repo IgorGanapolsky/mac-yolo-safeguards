@@ -4,6 +4,65 @@ Dated entries from the autonomous OSS-engagement routine (Thinking Machines Lab 
 
 ---
 
+## 2026-08-18 (PM) — second same-day firing: nothing new since the morning run, no action taken
+
+Second firing today. The morning entry (immediately below) already did exhaustive survey +
+fix work this same date (tinker-cookbook#896, poolside#38, LanceDB#2900, plus a correction on
+#3950). This run re-surveyed for anything new rather than repeating that work.
+
+### Repos surveyed
+
+| Org | Repos |
+|-----|-------|
+| Thinking Machines Lab | `thinking-machines-lab/tinker`, `tinker-cookbook` — issue search, created since 08-16/08-17 |
+| Poolside AI | `poolsideai` org — issue search, created since 08-16 |
+| LanceDB | `lancedb/lancedb` — issue search, created since 08-16/08-17 |
+
+### Cross-owner wall
+
+Re-tested once, silently, per standing policy. Unchanged: `add_repo` for `lancedb/lancedb`
+still fails with `cross-tier adds are not supported`; `issue_read`/`pull_request_read` against
+any repo outside `igorganapolsky/*` still return `Access denied ... not configured for this
+session`. `search_issues`/`search_pull_requests` (no owner/repo header) still work and were
+used for this run's survey instead.
+
+### What changed since the morning run
+
+Nothing. `search_issues` for all three orgs with `created:>2026-08-16` (LanceDB, Poolside) and
+`created:>2026-08-17` (Tinker, tinker-cookbook) returned **zero** new issues. No new PRs by
+`IgorGanapolsky` exist beyond the two already logged (`lancedb/lancedb#3775`, merged 08-17;
+`thinking-machines-lab/tinker#54`, still open). PR #54 has no maintainer response beyond an
+automated Codex-bot usage-limit note — nothing to reply to. LanceDB #3950 is still open, zero
+comments, unclaimed — matches this morning's finding exactly.
+
+Verified all four parked fix branches are still present and untouched on Igor's forks
+(`git ls-remote`): `igorganapolsky/lancedb@{fix/compat-dist-version-lookup,
+fix/list-tables-pagination-boundary-v2, fix/remote-create-table-storage-options}` and
+`igorganapolsky/tinker@fix/sync-only-async-method-name-v2`. All still blocked only on the
+upstream-PR-creation step, same as every run since 08-03.
+
+### What was opened / answered
+
+Nothing. No new unclaimed issue existed to act on, and posting the already-drafted answers
+(`coordination/ready-to-post/poolside-38-tool-call-schema-answer.md`,
+`coordination/ready-to-post/tinker-24-checkpoint-delete-fixed-answer.md`) is blocked by the same
+cross-owner wall as PR creation.
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| Re-running the morning's survey depth | Already exhaustive as of this same date; re-doing it would be pile-on-yourself, not new coverage |
+| Replying to the Codex bot note on tinker#54 | Automated usage-limit notice, not a maintainer comment — nothing to respond to |
+| New manufactured question | No real unknown hit this run |
+
+### ThumbGate mentions
+
+**None** this run — no one asked about agent write-gating in anything surveyed, and
+comment-posting is blocked regardless.
+
+---
+
 ## 2026-08-17 — Addendum: recovering unique content from a closed 2026-08-05 PR
 
 Not a routine run — a PR check-in surfaced that #1490 (this log's original 2026-08-05 entry) had
