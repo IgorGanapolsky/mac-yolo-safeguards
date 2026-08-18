@@ -9,7 +9,6 @@ import {
   LandingAuthPanel,
   LandingPricingCtaFree,
   LandingPricingCtaPaid,
-  LandingPricingCtaTeam,
 } from "./LandingAuthChrome";
 import { BrandMark } from "./BrandMark";
 import styles from "./landing.module.css";
@@ -18,6 +17,8 @@ import {
   CONTINUITY_ZERO_EGRESS,
   judgeGatesLabel,
 } from "@/lib/continuity-pricing";
+
+const PUBLIC_PRICE_TIERS = CONTINUITY_PRICE_TIERS.filter((tier) => tier.id !== "team");
 
 /**
  * Public marketing shell is static: no cookie jar reads and no D1 on first paint.
@@ -84,9 +85,9 @@ const FAQ_ITEMS = [
       "It pauses. You approve or deny in thumbgate.app. Conflicting goals without a human gate is how agents ship malware. Hosted Hermes does not auto-run that.",
   },
   {
-    question: "Is this Continuity?",
+    question: "Is this a memory or session-handoff plugin?",
     answer:
-      "People say Continuity for memory plugins and session handoff. This is the always-on box: hosted Hermes on a fenced VPS.",
+      "No. Hosted Hermes is the always-on box: a fenced VPS. Approvals happen in thumbgate.app.",
   },
 ] as const;
 
@@ -309,28 +310,16 @@ export default function Home() {
             </ul>
             <LandingPricingCtaPaid />
           </article>
-          <article className="price-card" data-testid="price-card-team">
-            <div><span>Team &amp; Enterprise</span><strong>$49<small>/month</small></strong></div>
-            <p className="price-mode">Reserved capacity · contact for custom caps</p>
-            <ul>
-              <li>Everything in hosted Hermes</li>
-              <li>Custom judge rubrics</li>
-              <li>Higher hosted run caps (contract)</li>
-              <li>BYO API keys &amp; custom endpoints</li>
-              <li>Priority hosted leases</li>
-            </ul>
-            <LandingPricingCtaTeam />
-          </article>
         </div>
 
-        <div className="capacity-matrix" data-testid="continuity-capacity-matrix" aria-label="Hosted Hermes capacity comparison">
+        <div className="capacity-matrix" data-testid="hosted-capacity-matrix" aria-label="Hosted Hermes capacity comparison">
           <h3>Capacity matrix</h3>
           <div className="capacity-table-wrap">
             <table className="capacity-table">
               <thead>
                 <tr>
                   <th scope="col">Included</th>
-                  {CONTINUITY_PRICE_TIERS.map((tier) => (
+                  {PUBLIC_PRICE_TIERS.map((tier) => (
                     <th key={tier.id} scope="col">{tier.id === "free" ? "Free" : tier.id === "trial" ? "Trial" : tier.id === "pro" ? "Pro" : "Team"}</th>
                   ))}
                 </tr>
@@ -338,37 +327,37 @@ export default function Home() {
               <tbody>
                 <tr>
                   <th scope="row">Purchase mode</th>
-                  {CONTINUITY_PRICE_TIERS.map((tier) => (
+                  {PUBLIC_PRICE_TIERS.map((tier) => (
                     <td key={`${tier.id}-mode`}>{tier.purchaseModeLabel}</td>
                   ))}
                 </tr>
                 <tr>
                   <th scope="row">Fenced VPS runs / 30d</th>
-                  {CONTINUITY_PRICE_TIERS.map((tier) => (
+                  {PUBLIC_PRICE_TIERS.map((tier) => (
                     <td key={`${tier.id}-runs`}>{tier.cloudRunsDisplay}</td>
                   ))}
                 </tr>
                 <tr>
                   <th scope="row">Concurrent active tasks</th>
-                  {CONTINUITY_PRICE_TIERS.map((tier) => (
+                  {PUBLIC_PRICE_TIERS.map((tier) => (
                     <td key={`${tier.id}-active`}>{tier.maxActiveTasksDisplay}</td>
                   ))}
                 </tr>
                 <tr>
                   <th scope="row">90s renewable lease</th>
-                  {CONTINUITY_PRICE_TIERS.map((tier) => (
+                  {PUBLIC_PRICE_TIERS.map((tier) => (
                     <td key={`${tier.id}-lease`}>{tier.renewableLeases ? "✓" : "—"}</td>
                   ))}
                 </tr>
                 <tr>
                   <th scope="row">LLM-as-a-Judge gates</th>
-                  {CONTINUITY_PRICE_TIERS.map((tier) => (
+                  {PUBLIC_PRICE_TIERS.map((tier) => (
                     <td key={`${tier.id}-judge`}>{judgeGatesLabel(tier.judgeGates)}</td>
                   ))}
                 </tr>
                 <tr>
                   <th scope="row">Surprise egress / idle fees</th>
-                  <td colSpan={4}>{CONTINUITY_ZERO_EGRESS.billingModel}</td>
+                  <td colSpan={PUBLIC_PRICE_TIERS.length}>{CONTINUITY_ZERO_EGRESS.billingModel}</td>
                 </tr>
               </tbody>
             </table>
@@ -377,7 +366,7 @@ export default function Home() {
             Live Pro list price from Stripe (<code>/api/billing/plan</code>). Run caps match{" "}
             <code>agent-governance</code> hard limits — dashboard shows remaining capacity after sign-in.
           </p>
-          <p className="capacity-footnote" data-testid="continuity-zero-egress">
+          <p className="capacity-footnote" data-testid="hosted-zero-egress">
             Networking trust: data transfer {CONTINUITY_ZERO_EGRESS.dataTransfer.toLowerCase()}, idle fees{" "}
             {CONTINUITY_ZERO_EGRESS.idleFees.toLowerCase()}. {CONTINUITY_ZERO_EGRESS.footnote}
           </p>

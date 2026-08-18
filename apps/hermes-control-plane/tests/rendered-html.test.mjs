@@ -27,7 +27,8 @@ test("builds the public hosted Hermes landing page", async () => {
   assert.doesNotMatch(layout, /When the Mac closes/);
   assert.match(page, /ThumbGate/);
   assert.match(page, /fenced cloud VPS|Fenced VPS|fenced VPS/i);
-  assert.match(page, /Is this Continuity\?/);
+  assert.match(page, /Is this a memory or session-handoff plugin\?/);
+  assert.doesNotMatch(page, /Is this Continuity\?/);
   assert.doesNotMatch(page, /Self-Improving Firewall|self-improving firewall/);
   // Product truth: hosted Hermes on a fenced VPS — not Mac pairing as the marketed path.
   assert.doesNotMatch(page, /Sign in to pair free|Pair free →|Pair your Mac|when the Mac closes/);
@@ -119,7 +120,8 @@ test("builds the public hosted Hermes landing page", async () => {
   assert.match(chrome, /data-funnel-event="sign_in_click"/);
   assert.match(chrome, /Start hosted Hermes — \$10\/mo/);
   assert.match(chrome, /cancel anytime/);
-  assert.match(chrome, /Team — \$49\/mo/);
+  assert.doesNotMatch(chrome, /Team — \$49\/mo/);
+  assert.doesNotMatch(chrome, /LandingPricingCtaTeam/);
   assert.match(chrome, /Start hosted Hermes — \$10\/mo/);
   assert.match(chrome, /Sign in/);
   assert.match(chrome, /Fenced cloud runner with 90s leases/);
@@ -168,24 +170,29 @@ test("builds the public hosted Hermes landing page", async () => {
   assert.match(page, /cancel anytime/);
   assert.match(page, /14 days free/);
   assert.match(page, /Start hosted Hermes — \$10\/mo/);
-  assert.match(page, /LandingPricingCtaTeam/);
+  assert.doesNotMatch(page, /LandingPricingCtaTeam/);
   assert.match(page, /data-testid="price-card-free"/);
-  assert.match(page, /data-testid="price-card-team"/);
+  assert.doesNotMatch(page, /data-testid="price-card-team"/);
+  assert.doesNotMatch(page, /Team &amp; Enterprise/);
   assert.doesNotMatch(page, /scope="row">Mac pair required/);
   assert.doesNotMatch(page, /Agent work on afenced/);
   assert.doesNotMatch(page, /AI expert/);
   assert.doesNotMatch(page, /more providers activate once configured/);
   // CoreWeave-style transparent capacity: public matrix + governance-aligned run caps.
-  assert.match(page, /data-testid="continuity-capacity-matrix"/);
+  assert.match(page, /data-testid="hosted-capacity-matrix"/);
+  assert.doesNotMatch(page, /data-testid="continuity-capacity-matrix"/);
   assert.match(page, /Transparent hosted capacity/);
   assert.match(page, /Fenced VPS runs \/ 30d/);
   assert.match(page, /Surprise egress \/ idle fees/);
   assert.match(page, /from "@\/lib\/continuity-pricing"/);
+  assert.doesNotMatch(page, /Is this Continuity/);
+  assert.doesNotMatch(page, /\$49<small>\/month<\/small>/);
   assert.match(page, /CONTINUITY_PRICE_TIERS/);
   assert.doesNotMatch(page, /CONTINUITY_EXECUTION_MODES/);
   assert.match(page, /CONTINUITY_ZERO_EGRESS/);
   assert.doesNotMatch(page, /data-testid="continuity-execution-modes"/);
-  assert.match(page, /data-testid="continuity-zero-egress"/);
+  assert.match(page, /data-testid="hosted-zero-egress"/);
+  assert.doesNotMatch(page, /data-testid="continuity-zero-egress"/);
   assert.doesNotMatch(page, /data-mode=\{mode\.id\}/);
   assert.match(robots, /disallow: \["\/dashboard", "\/admin", "\/api\/"\]/);
   assert.match(robots, /https:\/\/thumbgate\.app\/sitemap\.xml/);
