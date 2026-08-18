@@ -34,8 +34,8 @@ test("expertise track is surfaced and cites live D1 data", async () => {
   assert.match(llms, /https:\/\/thumbgate\.app\/expertise/);
   assert.match(llms, /https:\/\/thumbgate\.app\/api\/expertise\/stats/);
   assert.match(llms, /Live public stats endpoint/);
-  // Continuity is fenced VPS product truth (not Mac-pair marketing).
-  assert.match(llms, /fenced cloud VPS runner|Fenced VPS/);
+  // Hosted Hermes is fenced VPS product truth (not Mac-pair marketing).
+  assert.match(llms, /fenced cloud VPS runner|fenced VPS|Fenced VPS/);
   assert.doesNotMatch(llms, /Igor|Ganapolsky/i);
 
   // Sitemap includes the new page.

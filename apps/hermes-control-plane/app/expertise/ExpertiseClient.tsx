@@ -85,7 +85,7 @@ export default function ExpertiseClient() {
       <section className="hero" tabIndex={-1}>
         <div className="hero-copy">
           <p className="eyebrow">Operator telemetry · not a customer story</p>
-          <h1 className="hero-title">Internal Continuity telemetry</h1>
+          <h1 className="hero-title">Internal hosted telemetry</h1>
           <p className="hero-lede">
             Numbers below are operator control-plane counters. They are not
             stranger case studies and they do not imply paying customers.
@@ -171,7 +171,7 @@ export default function ExpertiseClient() {
           <p className="eyebrow">No stranger case studies</p>
           <h2 id="case-studies-heading">We do not invent customer stories</h2>
           <p className="hero-lede">
-            ThumbGate Continuity has no stranger testimonials on this page.
+            ThumbGate has no stranger testimonials on this page.
             Operator telemetry is not a case study. If a paying customer
             later publishes a real write-up, it will be marked as such.
           </p>

@@ -1,10 +1,10 @@
-/** Static illustration: you approve in thumbgate.app; work runs on a fenced Continuity VPS. */
+/** Static illustration: you approve in thumbgate.app; work runs on a fenced VPS. */
 export function RemoteControlDiagram() {
   return (
     <div
       className="remote-diagram"
       role="img"
-      aria-label="You approve in thumbgate.app; LLM-as-a-Judge gates; fenced Continuity VPS runner"
+      aria-label="You approve in thumbgate.app; LLM-as-a-Judge gates; fenced VPS runner"
     >
       <svg viewBox="0 0 460 150" fill="none" xmlns="http://www.w3.org/2000/svg">
         <rect x="22" y="18" width="58" height="112" rx="12" stroke="var(--line)" strokeWidth="2" fill="rgba(255,255,255,.03)" />
@@ -28,7 +28,7 @@ export function RemoteControlDiagram() {
       <div className="remote-diagram-labels">
         <span>thumbgate.app</span>
         <span>LLM-as-a-Judge</span>
-        <span>Continuity VPS</span>
+        <span>Fenced VPS</span>
       </div>
     </div>
   );

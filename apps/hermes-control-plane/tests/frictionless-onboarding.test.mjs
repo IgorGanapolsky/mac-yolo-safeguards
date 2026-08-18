@@ -189,12 +189,12 @@ test("routes paid accounts to billing management without opening a duplicate che
   assert.match(dashboard, /"Keep cloud after trial"/);
 });
 
-test("uses ThumbGate Continuity identity and production URLs", () => {
-  assert.match(layout, /ThumbGate Continuity — agent keeps running on a fenced VPS/);
+test("uses ThumbGate hosted Hermes identity and production URLs", () => {
+  assert.match(layout, /ThumbGate — Hermes that stays on/);
   assert.doesNotMatch(layout, /VPS failover for Hermes/);
   assert.match(layout, /metadataBase: new URL\("https:\/\/thumbgate\.app"\)/);
   assert.match(dashboardPage, /title: "Hermes Web"/);
-  assert.match(landing, /name: "ThumbGate Continuity"/);
+  assert.match(landing, /name: "ThumbGate"/);
   assert.match(landing, /url: "https:\/\/thumbgate\.app\/"/);
   assert.doesNotMatch(layout + landing + dashboardPage, /leash\.dev|Leash by ThumbGate/);
 });
@@ -424,7 +424,7 @@ test("keeps every workspace telemetry value behind authentication", () => {
   assert.doesNotMatch(landing, /getPublicTelemetry|Live production telemetry|Machines online now|P95 task completion|LAST CLOUD CONTINUATION|cloudRunsCompleted|machinesOnlineNow/);
   // Public pricing shows CoreWeave-style capacity matrix; live usage stays behind auth.
   assert.match(landing, /data-testid="continuity-capacity-matrix"/);
-  assert.match(landing, /Transparent Continuity capacity/);
+  assert.match(landing, /Transparent hosted capacity/);
   assert.doesNotMatch(landing, /data-testid="continuity-execution-modes"/);
   assert.match(landing, /data-testid="continuity-zero-egress"/);
   assert.match(dashboard, /data-testid="continuity-usage-meter"/);
