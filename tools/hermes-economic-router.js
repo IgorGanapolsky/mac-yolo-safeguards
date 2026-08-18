@@ -82,6 +82,25 @@ const ROUTES = [
     candidateOnly: true,
   },
   {
+    id: 'glm53_coding',
+    label: 'GLM 5.3 coding and agentic reasoning route',
+    agent: 'coding-specialist',
+    provider: 'custom:zai-coding-glm',
+    fallbackProvider: 'custom:openrouter-glm53',
+    model: 'glm-5.3',
+    costUsd: 0,
+    latencyMs: 12000,
+    reliability: 0.88,
+    riskCeiling: 'critical',
+    strengths: ['glm', 'glm-5.3', 'coding', 'agentic', 'cyber', 'architecture', 'cross-file', 'refactor', 'debugging'],
+    commandEnv: {
+      HERMES_YOLO_PROVIDER: 'custom:zai-coding-glm',
+      HERMES_YOLO_MODEL: 'glm-5.3',
+      HERMES_TOKEN_BUDGET_USD: '10.00',
+    },
+    proofGates: ['provider-key-present', 'endpoint-smoke-pass', 'receipt-written'],
+  },
+  {
     id: 'glm52_reasoning',
     label: 'GLM 5.2 reasoning route',
     agent: 'reasoning-specialist',
@@ -451,7 +470,9 @@ function taskSignals(task) {
   const externalDelivery = !noExternalAction && /\b(?:send|publish|post|deploy|deliver|charge|transfer|ship|submit)\b|stripe payment|wallet payment|x402 payment|monetization gateway|cloudflare\.pay|cloudflare\s+wallets?\b/i.test(text);
   const asksForCloudflareWallet = /\bcloudflare\s+(?:wallet|wallets)\b|\bx402\b|\bcloudflare\.pay\b|\bvirtual\s+(?:wallet|wallets)\b|\baccount\s+(?:wallet|wallets)\b|agent\s+(?:wallet|wallets)/i.test(text);
   return {
-    asksForGlm: /\bglm\b|glm[- ]?5\.?2|z\.?ai|zai/.test(text),
+    asksForGlm: /\bglm\b|glm[- ]?5\.?[23]|z\.?ai|zai|glm-coding/.test(text),
+    asksForGlm53: /glm[- ]?5\.?3/.test(text),
+    asksForGlm52: /glm[- ]?5\.?2/.test(text),
     asksForFugu: /\bfugu\b|sakana/.test(text),
     asksForNemotron: /\bnemotron\b|\bnvidia\b|\bnim\b/.test(text),
     asksForGrok: /\bgrok\b|grok[- ]?4\.5|\bxai\b|\bx\.ai\b/.test(text),
@@ -505,10 +526,24 @@ function scoreRoute(route, args, signals) {
       score -= 25;
     }
   }
-  if (route.id === 'glm52_reasoning') {
-    if (signals.asksForGlm) score += 45;
-    if (signals.userDoubt || signals.architecture) score += 22;
-    if (riskValue(args.risk) >= riskValue('high')) score += 18;
+  if (route.id === 'glm53_coding' || route.id === 'glm52_reasoning') {
+    if (signals.asksForGlm) score += 50;
+    if (signals.userDoubt || signals.architecture || signals.longContextOrAgentic) score += 25;
+    if (riskValue(args.risk) >= riskValue('high')) score += 20;
+  }
+  if (route.id === 'glm53_coding' && !signals.asksForGlm53 && !signals.longContextOrAgentic) {
+    score -= 40;
+  }
+  if (signals.asksForGlm53) {
+    if (route.id === 'glm53_coding') score += 80;
+    if (route.id === 'glm52_reasoning') score -= 80;
+  }
+  if (signals.asksForGlm52) {
+    if (route.id === 'glm52_reasoning') score += 80;
+    if (route.id === 'glm53_coding') score -= 80;
+  }
+  if ((signals.exactContract || signals.highVarianceReasoning) && !signals.asksForGlm53) {
+    if (route.id === 'glm52_reasoning') score += 35;
   }
   if (route.id === 'fugu_escalation') {
     if (signals.asksForFugu) score += 90;
