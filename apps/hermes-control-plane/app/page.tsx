@@ -110,9 +110,9 @@ export default function Home() {
       <section id="main-content" className="hero" tabIndex={-1}>
         <div className="hero-copy">
           <p className="eyebrow"><span className="live-dot" /> Continuity · Fenced VPS</p>
-          <h1>Agent work on a fenced Continuity VPS.</h1>
+          <h1>Your agent keeps running when the machine sleeps.</h1>
           <p className="hero-lede">
-            Your agents keep running on a fenced VPS. Approve or deny tool calls in thumbgate.app. Flat $10/month. Not per-token. 14 days free.
+            ThumbGate Continuity is a fenced Continuity VPS. Approve or deny in this browser. Flat $10/month. Not per-token. 14 days free.
           </p>
           <LandingAuthHero />
           <p className="signin-note">Sign in with email, Google, or Apple. Approvals stay in this browser.</p>
