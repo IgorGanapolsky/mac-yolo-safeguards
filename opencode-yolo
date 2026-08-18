@@ -194,9 +194,11 @@ OPENCODE_YOLO_ALL_SKILLS="${OPENCODE_YOLO_ALL_SKILLS:-0}" node -e '
       name:"Hermes Fleet Gateway",
       options:{ baseURL:base, apiKey:"hermes-local-gateway" },
       models:{
-        "glm-coding":mkVision("GLM-5.2 (fleet, resilient, sees images)",200000,128000),
+        "glm-coding":mkVision("GLM-5.3 (fleet, resilient, 1M context, sees images)",1000000,128000),
+        "glm-5.3":mkVision("GLM-5.3 (Z.ai Coding Plan frontier)",1000000,128000),
+        "glm-5.2":mkVision("GLM-5.2 (fleet legacy)",200000,128000),
         "glm-turbo":mkVision("GLM-5-Turbo (fleet, sees images)",200000,128000),
-        "opencode-go-glm":mkVision("GLM-5.2 via OpenCode Go (sees images)",200000,128000),
+        "opencode-go-glm":mkVision("GLM-5.3 via OpenCode Go (sees images)",1000000,128000),
         "kimi-code":mkVision("Kimi K2.7 Code (flat, sees images)",262144,16384),
         "hermes-local":mk("qwen3:8b local (text only)",65536,8192),
         "glm-vision":mkVision("GLM-4.6V Vision (fleet, image input + computer-use)",65536,8192)
