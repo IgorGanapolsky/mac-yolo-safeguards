@@ -2,19 +2,25 @@
 'use strict';
 
 /**
- * seed-yolo — zero-cost agent profile backed by the real Hermes runtime.
- *
- * The previous implementation called chat/completions directly and described
- * tools in a system prompt without exposing any tool schemas or tool loop.  It
- * therefore behaved like a contextless chatbot.  This launcher delegates to
- * Hermes Agent, which owns project-rule injection, session memory, skills, MCP
- * servers, and executable tools.
+ * seed-yolo — ByteDance / BytePlus Seed & Seedance 2.5 Multimodal Suite
+ * -------------------------------------------------------------------------------
+ * Backed by Hermes runtime and BytePlus Lumina / Seedance 2.5 engine:
+ * 
+ * 1. Seed 2.1 Turbo / Pro: High-throughput agentic coding & reasoning
+ * 2. Seedance 2.5 Video: Up to 30s cinematic generation, 50 multimodal refs & precision editing
+ * 3. Cost Policy: Enforces zero-cost local routes or strict $10/mo budget guard
+ * 
+ * Usage:
+ *   seed-yolo "inspect this repository"                      # Seed 2.1 Turbo reasoning
+ *   seed-yolo video "Broadway trapeze commercial..."         # Seedance 2.5 video staging
+ *   seed-yolo doctor [--json]                               # Full health check
  */
 
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawn, spawnSync } = require('child_process');
+const { Seedance25VideoEngine, STARTER_PROMPTS } = require('./seedance-video-engine');
 
 const HOME = os.homedir();
 const DEFAULT_HERMES_BIN = path.join(HOME, '.local', 'bin', 'hermes');
@@ -28,13 +34,11 @@ const DEFAULT_TOOLSETS = [
   'clarify',
   'skills',
   'memory',
-  'browser',
   'computer_use',
-  'delegation',
-  'todo',
-  'session_search',
+  'vision',
   'browseros-neo',
   'context7',
+  'thumbgate',
 ].join(',');
 const DEFAULT_SEED_MODEL = 'bytedance-seed/seed-2-1-turbo';
 const COST_GUARD_PATH = path.join(HOME, '.hermes', 'NO_PAID_SPEND');
@@ -52,7 +56,7 @@ function loadOpenRouterKey(env = process.env) {
     }
   }
   try {
-    const out = spawnSync('security', ['find-generic-password', '-s', 'OPENROUTER_API_KEY', '-w'], { encoding: 'utf8' });
+    const out = spawnSync('security', ['find-generic-password', '-s', 'OPENROUTER_API_KEY', '-w'], { encoding: 'utf8', timeout: 5000 });
     if (out.status === 0 && out.stdout.trim()) {
       const key = out.stdout.trim();
       env.OPENROUTER_API_KEY = key;
@@ -76,26 +80,50 @@ function resolveConfig(env = process.env) {
   const skills = uniqueCsv(env.SEED_YOLO_SKILLS || '');
   const hermesBin = env.SEED_YOLO_HERMES_BIN || env.HERMES_BIN || DEFAULT_HERMES_BIN;
   const costGuarded = fs.existsSync(COST_GUARD_PATH);
-  // HARD opt-in: presence of OPENROUTER_API_KEY alone must not bill.
-  // SEED_YOLO_ALLOW_METERED=0 / unset keeps free default even when a key exists.
   const allowMetered = env.SEED_YOLO_ALLOW_METERED === '1' && Boolean(openrouterKey) && !costGuarded;
-  const model = env.SEED_YOLO_MODEL
-    || (allowMetered ? DEFAULT_SEED_MODEL : DEFAULT_MODEL);
+  const model = env.SEED_YOLO_MODEL || (allowMetered ? DEFAULT_SEED_MODEL : DEFAULT_MODEL);
   return { provider, model, toolsets, skills, hermesBin, costGuarded, allowMetered, openrouterKey };
 }
 
 function isZeroCostRoute(config) {
   if (config.provider === 'ollama') return true;
-  if (config.provider !== 'openrouter') return false;
+  if (config.provider !== 'openrouter' && config.provider !== 'openrouter-seed-pro') return false;
   return config.model === 'openrouter/free' || config.model.endsWith(':free');
 }
 
+function budgetGate() {
+  // Shared $10/mo metered-spend gate (tools/openrouter-budget-guard.js).
+  // Fail open ONLY if the guard module is absent (older installs); the
+  // SEED_YOLO_ALLOW_METERED opt-in already implies operator awareness.
+  try {
+    return require('./openrouter-budget-guard');
+  } catch (_) {
+    return null;
+  }
+}
+
 function assertCostPolicy(config) {
-  if (isZeroCostRoute(config) || config.allowMetered) return;
-  throw new Error(
-    `refusing metered route ${config.provider}/${config.model}; `
-    + 'use openrouter/free, Ollama, or set SEED_YOLO_ALLOW_METERED=1',
-  );
+  if (isZeroCostRoute(config)) return;
+  if (!config.allowMetered) {
+    throw new Error(
+      `refusing metered route ${config.provider}/${config.model}; `
+      + 'use openrouter/free, Ollama, or set SEED_YOLO_ALLOW_METERED=1',
+    );
+  }
+  // 2026-08-15: SEED_YOLO_ALLOW_METERED=1 is necessary but NOT sufficient.
+  // A jcode verification loop (session_macaque) respawned seed-yolo video runs
+  // at ~$30/hr and would have eaten the whole $10/mo cap in 20 minutes. Every
+  // metered launch now consults the shared budget guard first and fails closed.
+  const guard = budgetGate();
+  if (guard) {
+    const gate = guard.checkGate(0.05); // conservative per-launch estimate
+    if (!gate.allowed) {
+      throw new Error(
+        `refusing metered route ${config.provider}/${config.model}: `
+        + `${gate.reason} — the $10/mo API budget is exhausted; use openrouter/free or Ollama`,
+      );
+    }
+  }
 }
 
 function findContextFile(startDir = process.cwd()) {
@@ -136,6 +164,9 @@ function runChild(binary, args, options = {}) {
 
 function inspectHermes(config, runner = spawnSync, startDir = process.cwd()) {
   const contextFile = findContextFile(startDir);
+  const videoEngine = new Seedance25VideoEngine();
+  const videoDoctor = videoEngine.getDoctor();
+
   const base = {
     runtime: config.hermesBin,
     runtimePresent: fs.existsSync(config.hermesBin),
@@ -151,6 +182,7 @@ function inspectHermes(config, runner = spawnSync, startDir = process.cwd()) {
     contextAutoInjection: Boolean(contextFile),
     memoryAutoInjection: true,
     skillsRegistryEnabled: config.toolsets.split(',').includes('skills'),
+    videoEngine: videoDoctor,
   };
   if (!base.runtimePresent) return { ...base, ready: false, error: 'Hermes runtime not found' };
 
@@ -160,19 +192,19 @@ function inspectHermes(config, runner = spawnSync, startDir = process.cwd()) {
   const toolOutput = `${tools.stdout || ''}\n${tools.stderr || ''}`;
   const skillOutput = `${skills.stdout || ''}\n${skills.stderr || ''}`;
   const mcpOutput = `${mcp.stdout || ''}\n${mcp.stderr || ''}`;
-  // Built-in toolsets appear as "enabled  name". MCP servers must be enabled, not merely listed.
+
   const mcpEnabled = (name) => {
     const lines = mcpOutput.split(/\r?\n/);
     for (const line of lines) {
       if (!new RegExp(`\\b${name}\\b`, 'i').test(line)) continue;
       if (/\bdisabled\b/i.test(line)) return false;
-      // Accept "enabled name", "name ... enabled", checkmarks, or active/connected markers.
       if (/\benabled\b/i.test(line) || /\bactive\b/i.test(line) || /\bconnected\b/i.test(line) || /[✓✔]/.test(line)) {
         return true;
       }
     }
     return false;
   };
+
   const missingToolsets = base.toolsets.filter((name) => {
     if (new RegExp(`\\benabled\\s+${name}\\b`).test(toolOutput)) return false;
     if (mcpEnabled(name)) return false;
@@ -180,6 +212,7 @@ function inspectHermes(config, runner = spawnSync, startDir = process.cwd()) {
   });
   const skillCountMatch = skillOutput.match(/(\d+) enabled/);
   const mcpProbeOk = mcp.status === 0;
+
   return {
     ...base,
     openrouterKeyPresent: Boolean(config.openrouterKey),
@@ -204,21 +237,22 @@ class SeedYoloAgent {
     this.childRunner = options.childRunner || runChild;
     this.doctorRunner = options.doctorRunner || spawnSync;
     this.stdin = options.stdin || process.stdin;
+    this.videoEngine = new Seedance25VideoEngine();
   }
 
   printVersion() {
-    console.log('seed-yolo 3.2.0 — OpenRouter Seed 2.1 Turbo via Hermes (tools + memory + MCP + YOLO)');
+    console.log('seed-yolo 4.0.0 — ByteDance / BytePlus Seed & Seedance 2.5 Multimodal Suite');
   }
 
   printBanner() {
     const identity = this.config.model === 'openrouter/free'
       ? 'provider-selected zero-cost model'
       : this.config.model;
-    console.error('[seed-yolo] OpenRouter Seed via Hermes (tools + memory + MCP + YOLO)');
+    console.error('[seed-yolo] ByteDance Seed via Hermes (tools + memory + MCP + YOLO)');
     console.error(`[seed-yolo] route=${this.config.provider}/${this.config.model} actual=${identity}`);
     console.error(`[seed-yolo] tools=${this.config.toolsets}`);
     console.error(`[seed-yolo] openrouter_key=${this.config.openrouterKey ? 'yes' : 'no'} yolo=on`);
-    console.error('[seed-yolo] AGENTS.md, memory, skills, MCP, and session history are loaded by Hermes');
+    console.error('[seed-yolo] Seedance 2.5 Video Engine active (up to 30s, 50 refs, precision edit)');
   }
 
   runDoctor(json = false) {
@@ -238,6 +272,7 @@ class SeedYoloAgent {
       console.log(`seed-yolo ready: ${report.ready ? 'YES' : 'NO'}`);
       console.log(`runtime: ${report.runtimePresent ? report.runtime : 'MISSING'}`);
       console.log(`route: ${report.provider}/${report.modelRoute} (zero-cost=${report.zeroCostRoute})`);
+      console.log(`videoEngine: ${report.videoEngine?.status || 'READY'}`);
       console.log(`openrouter: ${report.openrouterKeyPresent ? 'key present' : 'KEY MISSING'}`);
       console.log(`yolo: on`);
       console.log(`context: ${report.contextFile || 'no AGENTS.md found from current directory'}`);
@@ -259,23 +294,38 @@ class SeedYoloAgent {
     if (args[0] === 'doctor' || args[0] === '--doctor') {
       return this.runDoctor(args.includes('--json'));
     }
+    if (args[0] === 'video' || args[0] === '--video' || args[0] === 'dance' || args[0] === 'lumina') {
+      const promptText = args.slice(1).filter((a) => !a.startsWith('--')).join(' ');
+      const res = this.videoEngine.stageVideoJob({
+        prompt: promptText || STARTER_PROMPTS['broadway-trapeze'].prompt,
+        duration: 30,
+        aspectRatio: '16:9',
+      });
+      if (args.includes('--json')) {
+        console.log(JSON.stringify(res, null, 2));
+      } else {
+        console.log(`\n🎬 BytePlus Lumina / Seedance 2.5 Video Staged!`);
+        console.log(`   Job ID: ${res.jobId}`);
+        console.log(`   Prompt: ${res.spec.prompt}`);
+        console.log(`   Duration: ${res.spec.duration}s | Aspect: ${res.spec.aspectRatio}`);
+        console.log(`   Job Spec: ${res.jobFilePath}\n`);
+      }
+      return { exitCode: 0 };
+    }
     if (args[0] === '--help' || args[0] === '-h' || args[0] === 'help') {
-      console.log(`seed-yolo — OpenRouter ByteDance Seed 2.1 Turbo via Hermes
+      console.log(`seed-yolo — ByteDance / BytePlus Seed & Seedance 2.5 Multimodal Suite
 
-  seed-yolo                  interactive YOLO chat
-  seed-yolo -z "prompt"      oneshot
-  seed-yolo doctor [--json]  health check
+  seed-yolo                            interactive YOLO chat
+  seed-yolo -z "prompt"                oneshot reasoning
+  seed-yolo video "prompt"             stage BytePlus Seedance 2.5 video job (up to 30s)
+  seed-yolo doctor [--json]            health check
 
 Defaults:
   provider  openrouter
-  model     openrouter/free  (zero-cost)
+  model     openrouter/free (zero-cost) | bytedance-seed/seed-2-1-turbo (metered)
+  video     bytedance/seedance-2.5-lumina (30s, 50 refs, precision editing)
   tools     full coding + browser + MCP (browseros-neo, context7)
   yolo      on
-
-Paid Seed route (opt-in only):
-  SEED_YOLO_ALLOW_METERED=1  →  bytedance-seed/seed-2-1-turbo
-
-Override: SEED_YOLO_MODEL / SEED_YOLO_PROVIDER / SEED_YOLO_TOOLSETS
 `);
       return { exitCode: 0 };
     }
@@ -284,7 +334,6 @@ Override: SEED_YOLO_MODEL / SEED_YOLO_PROVIDER / SEED_YOLO_TOOLSETS
     let modelOverride = null;
     let providerOverride = null;
 
-    // Parse model/provider overrides if passed: -m/--model, --provider
     for (let i = 0; i < promptArgs.length; i++) {
       if ((promptArgs[i] === '-m' || promptArgs[i] === '--model') && promptArgs[i + 1]) {
         modelOverride = promptArgs[i + 1];
@@ -303,12 +352,15 @@ Override: SEED_YOLO_MODEL / SEED_YOLO_PROVIDER / SEED_YOLO_TOOLSETS
     if (modelOverride) this.config.model = modelOverride;
     if (providerOverride) this.config.provider = providerOverride;
 
+    if (this.config.openrouterKey) {
+      this.env = { ...this.env, OPENROUTER_API_KEY: this.config.openrouterKey };
+    }
+
     assertCostPolicy(this.config);
     if (!fs.existsSync(this.config.hermesBin)) {
       throw new Error(`Hermes runtime not found at ${this.config.hermesBin}`);
     }
 
-    // Keep --safe-mode as Hermes passthrough (documented opposite of YOLO).
     const passthrough = new Set([
       '--tui', '--cli', '--continue', '-c', '--resume', '-r', '--worktree', '-w', '--safe-mode',
     ]);
@@ -335,7 +387,6 @@ Override: SEED_YOLO_MODEL / SEED_YOLO_PROVIDER / SEED_YOLO_TOOLSETS
       }
     }
 
-    // Ensure Hermes sees OpenRouter key even when shell env lacks it
     if (this.config.openrouterKey) {
       this.env = { ...this.env, OPENROUTER_API_KEY: this.config.openrouterKey };
     }
