@@ -8,10 +8,9 @@ const page = fs.readFileSync(
   "utf8",
 );
 
-test("steals Vellum Hosting picker for thumbgate.app, not Vellum Cloud checkout", () => {
+test("steals Vellum always-on copy, not a Cloud vs Local picker", () => {
   assert.match(page, /Always on, even when your computer is off/);
-  assert.match(page, /<HostingSelector/);
-  assert.doesNotMatch(page, /No picker/);
+  assert.doesNotMatch(page, /<HostingSelector/);
   assert.doesNotMatch(page, /Vellum Cloud/);
   assert.doesNotMatch(page, /RUN ON/);
 });
