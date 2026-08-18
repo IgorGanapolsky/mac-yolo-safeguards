@@ -57,6 +57,11 @@ const FAQ_ITEMS = [
     answer:
       "Yes. Approvals, billing, and Continuity runs stay in thumbgate.app. Your org controls access. There is no phone leash on this product.",
   },
+  {
+    question: "What if the agent wants to kill a process or copy itself?",
+    answer:
+      "It pauses. You approve or deny in thumbgate.app. Conflicting goals without a human gate is how agents ship malware. Continuity does not auto-run that.",
+  },
 ] as const;
 
 export default function Home() {
