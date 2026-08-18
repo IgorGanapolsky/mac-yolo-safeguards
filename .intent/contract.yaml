@@ -1,0 +1,148 @@
+version: 1
+inspired_by: https://github.com/knoxgraeme/tieline
+affiliation: not affiliated
+description: >
+  Reviewed product intent for mac-yolo-safeguards / thumbgate.app.
+  Merge accepts this YAML. Do not vendor Tieline Postgres or `npx tieline`.
+capabilities:
+  - key: OFFER
+    name: Hosted Hermes public offer
+    description: The $10/mo fenced-VPS offer buyers see on thumbgate.app.
+    stories:
+      - key: OFFER-001
+        title: Name the one paid offer
+        actor: buyer
+        goal: see the live price and trial clock before signing in
+        benefit: no invented SKU or traction claim
+        lifecycle: production
+        acceptance_criteria:
+          - key: OFFER-001-AC1
+            criterion: The public landing must name hosted Hermes at $10/mo with a 14-day trial.
+            implements:
+              - apps/hermes-control-plane/app/page.tsx
+            tests:
+              - apps/hermes-control-plane/tests/hosting-selector.test.mjs
+            must_contain:
+              - in: apps/hermes-control-plane/app/page.tsx
+                pattern: '\$10/mo'
+              - in: apps/hermes-control-plane/app/page.tsx
+                pattern: '14-day trial'
+            must_not_contain:
+              - in: apps/hermes-control-plane/app/page.tsx
+                pattern: ThumbGate Wake
+              - in: apps/hermes-control-plane/app/page.tsx
+                pattern: QoderWork
+      - key: OFFER-002
+        title: Approvals stay in the browser
+        actor: buyer
+        goal: approve money, customer, or production actions in thumbgate.app
+        benefit: no phone leash and no third-party approval surface
+        lifecycle: production
+        acceptance_criteria:
+          - key: OFFER-002-AC1
+            criterion: Landing copy must say approvals happen in thumbgate.app.
+            implements:
+              - apps/hermes-control-plane/app/page.tsx
+            tests:
+              - apps/hermes-control-plane/tests/qoder-wake-steal.test.mjs
+            must_contain:
+              - in: apps/hermes-control-plane/app/page.tsx
+                pattern: Approvals happen in thumbgate.app
+      - key: OFFER-003
+        title: Chief product lock
+        actor: implementing agent
+        goal: read the accepted offer before changing landing copy
+        benefit: agents do not restore Continuity, Mac-pair, or a RUN ON picker
+        lifecycle: production
+        acceptance_criteria:
+          - key: OFFER-003-AC1
+            criterion: CHIEF.md must keep the hosted Hermes $10/mo 14-day lock.
+            implements:
+              - .agents/CHIEF.md
+            tests:
+              - tests/test-intent-check.js
+            must_contain:
+              - in: .agents/CHIEF.md
+                pattern: '\$10/mo'
+              - in: .agents/CHIEF.md
+                pattern: '14-day trial'
+              - in: .agents/CHIEF.md
+                pattern: 'Do not hero Continuity'
+  - key: HOST
+    name: Hosting picker
+    description: Cloud is the $10 offer. Local is the machine, not a second SKU.
+    stories:
+      - key: HOST-001
+        title: Default to Cloud
+        actor: buyer
+        goal: start hosted Hermes without choosing a second paid product
+        benefit: Local cannot be sold as a $0 SKU
+        lifecycle: production
+        acceptance_criteria:
+          - key: HOST-001-AC1
+            criterion: HostingSelector must default to cloud and say Local is not a second SKU.
+            implements:
+              - apps/hermes-control-plane/app/HostingSelector.tsx
+            tests:
+              - apps/hermes-control-plane/tests/hosting-selector.test.mjs
+            must_contain:
+              - in: apps/hermes-control-plane/app/HostingSelector.tsx
+                pattern: 'useState<HostingMode>\("cloud"\)'
+              - in: apps/hermes-control-plane/app/HostingSelector.tsx
+                pattern: 'not a second SKU'
+            must_not_contain:
+              - in: apps/hermes-control-plane/app/HostingSelector.tsx
+                pattern: 'Vellum Cloud'
+              - in: apps/hermes-control-plane/app/HostingSelector.tsx
+                pattern: 'Mac-pair|phone leash|RUN ON'
+  - key: START
+    name: Zero-install start surfaces
+    description: Browser start, optional stores, no fake desktop installers.
+    stories:
+      - key: START-001
+        title: No desktop download wall
+        actor: buyer
+        goal: start hosted Hermes in the current tab
+        benefit: no invented installer or QoderWake stats
+        lifecycle: production
+        acceptance_criteria:
+          - key: START-001-AC1
+            criterion: StartSurfaces must invert the desktop download wall without invented metrics.
+            implements:
+              - apps/hermes-control-plane/app/StartSurfaces.tsx
+            tests:
+              - apps/hermes-control-plane/tests/start-surfaces.test.mjs
+            must_contain:
+              - in: apps/hermes-control-plane/app/StartSurfaces.tsx
+                pattern: 'No desktop install'
+              - in: apps/hermes-control-plane/app/StartSurfaces.tsx
+                pattern: '\$10/mo · 14-day trial'
+            must_not_contain:
+              - in: apps/hermes-control-plane/app/StartSurfaces.tsx
+                pattern: 'curl -fsSL'
+              - in: apps/hermes-control-plane/app/StartSurfaces.tsx
+                pattern: 'ThumbGate Wake'
+              - in: apps/hermes-control-plane/app/StartSurfaces.tsx
+                pattern: '28 days|78 Tasks'
+  - key: PROCESS
+    name: Intent contract process
+    description: Agents grade accepted behavior against linked files before claiming done.
+    stories:
+      - key: PROCESS-001
+        title: Deterministic intent check
+        actor: implementing agent
+        goal: fail closed on broken AC links and content drift
+        benefit: silent offer regressions become a local exit 1
+        lifecycle: production
+        acceptance_criteria:
+          - key: PROCESS-001-AC1
+            criterion: intent-check must exist and be covered by a node test.
+            implements:
+              - scripts/intent-check.js
+            tests:
+              - tests/test-intent-check.js
+            must_contain:
+              - in: scripts/intent-check.js
+                pattern: not affiliated
+              - in: scripts/intent-check.js
+                pattern: Do not npx tieline
