@@ -36,7 +36,7 @@ const body = `# ThumbGate
 - Do I pair my Mac? No — hosted Hermes is offered as VPS execution without a Mac-pair product path
 - Where do approvals happen? In thumbgate.app. No phone leash.
 - Access hosted Hermes: sign in, start trial or Pro, run work on the fenced cloud runner
-- Is this Continuity? People say Continuity for memory plugins; this is the always-on box
+- Is this a memory plugin? No. Hosted Hermes is the always-on VPS box.
 - Why not another laptop pilot? Pilots die when the machine sleeps. Hosted Hermes is one always-on VPS agent with in-browser approvals.
 `;
 
