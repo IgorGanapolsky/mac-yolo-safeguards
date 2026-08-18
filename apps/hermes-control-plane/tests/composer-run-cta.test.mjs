@@ -46,7 +46,7 @@ try {
     );
     const cases = JSON.parse(out.trim());
     assert.equal(cases[0].kind, "run");
-    assert.match(cases[0].label, /Continuity/i);
+    assert.match(cases[0].label, /Run/i);
     assert.doesNotMatch(cases[0].label, /pair/i);
     assert.equal(cases[1].kind, "upgrade");
     assert.doesNotMatch(cases[1].label, /pair/i);
@@ -67,7 +67,7 @@ describe("resolveComposerRunCta", () => {
       hasCloudAccess: true,
     });
     assert.equal(cta.kind, "run");
-    assert.match(cta.label, /Continuity/i);
+    assert.match(cta.label, /Run/i);
     assert.doesNotMatch(cta.label, /pair/i);
     assert.equal(cta.isContinuity, true);
   });
