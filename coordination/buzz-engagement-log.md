@@ -766,3 +766,83 @@ Six runs have now spent their budget confirming that the upstream repo says no.
 The refusal message names the way around itself; read it rather than re-testing
 it. The backlogged drafts (#4860, #5492, #5557, #5611) can be *built and pushed*
 today by the route above — only the final submit click needs a human.
+
+---
+
+## 2026-08-14 — Run 11 (WF-08 fix rebased against current upstream, fully re-verified including a live Postgres integration test; PR-creation block confirmed at the write-call layer, not just read)
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+- **Canonical repo:** [`github.com/block/buzz`](https://github.com/block/buzz) — unchanged identity, maintainer (Block/Jack Dorsey), architecture, and community surface (GitHub issues/PRs only) from Runs 1-10.
+- **`buzz-wf08-pr-plan.md` / `feat/buzz-nostr-acp-bridge`:** neither exists in `mac-yolo-safeguards` (reconfirmed — same as every prior run). But this run found what those filenames most likely pointed to: a real, DCO-signed WF-08 fix already sitting on the fork (`igorganapolsky/buzz@fix/wf08-approval-gate-finalize-run`, committed **2026-08-05**, `Fixes #3525`) that **no run's log entry between Run 4b (2026-08-10) and Run 10 (2026-08-13) ever mentioned**. It was discoverable this run only because `git ls-remote --heads` on the fork was checked directly rather than relying on this log's own backlog list, which never named it. Recorded here so it isn't lost a second time.
+- **Write access to `block/buzz`:** still blocked, **12th consecutive run** (Runs 1, 3-11). `add_repo(owner:"block", repo:"buzz", access:"push")` — not attempted again this run (per the cross-run note, re-testing this specific call adds nothing new). Instead, this run tested the *actual write call* directly: `mcp__github__create_pull_request(owner:"block", repo:"buzz", head:"IgorGanapolsky:fix/wf08-approval-gate-finalize-run-rebased", base:"main", ...)` → `"Access denied: repository 'block/buzz' is not configured for this session. Allowed repositories: igorganapolsky/mac-yolo-safeguards, igorganapolsky/buzz"`. This is new evidence, not a repeat: prior runs inferred the create-PR block from the read-tool denial; this run confirms the create call itself is denied, identically, even after `igorganapolsky/buzz` was added to the session's scope mid-run. `mcp__github__pull_request_read` on `block/buzz` was also retried once, before and after adding the fork, to confirm the allowed-repos list only grew by the fork, not by `block/buzz` — same denial both times.
+- **Read access:** `git clone`/`fetch` against both `igorganapolsky/buzz` (the fork) and `block/buzz` (as `upstream` remote) worked without issue. `WebFetch` against public issue/PR pages worked.
+- **PR [#4624](https://github.com/block/buzz/pull/4624)** (Run 2's multi-`#h` filter fix): reconfirmed still open, still zero human reviews, now 11 days.
+- **This repo's own PR queue:** [#1712](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1712) (#5708 patch), [#1714](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1714) (#5734 patch), [#1719](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1719) (Run 10), and the duplicate [#1689](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1689)/[#1682](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1682) pair are all still open and unreconciled, confirmed via `list_pull_requests`. Unchanged from Run 10's finding — not touched this run; reconciling other sessions' open PRs in this repo is still not something a single run should do unilaterally (per Run 9/10's own standing note), and this run's time went to rescuing the WF-08 branch instead, which was the more time-sensitive risk (an unmerged fork branch silently bit-rotting against a fast-moving upstream is a real, compounding cost — see below).
+
+### Why the WF-08 branch was this run's priority
+
+The fork's `fix/wf08-approval-gate-finalize-run` branch was **209 commits behind `upstream/main`** when found this run (base commit `ce56e34`, 2026-08-05; upstream now at `068a83b`). Left alone, a genuinely complete fix would have kept drifting further from mergeable and eventually needed a much harder reconciliation, or silently stopped applying at all. Treated this as more urgent than surveying fresh issues this run, consistent with the "rescue stranded work before it rots" priority Run 4b set for #5492.
+
+### WF-08 fix: rebased, conflict resolved, fully re-verified against current upstream (this run)
+
+Rebasing `fix/wf08-approval-gate-finalize-run` onto `upstream/main` produced exactly one conflict, in `crates/buzz-workflow/src/lib.rs::finalize_run`. Root cause: upstream added structured failure persistence (migration `0031_workflow_run_error_codes.sql`, a new `WorkflowRunFailure<'a> { code, message }` struct, and an `error_code` column) independently of this fix, sometime in the 209-commit gap. The original WF-08 fix predates that change and passed raw `&str`/`format!()` strings where the current API needs a `WorkflowRunFailure` struct. Resolved by keeping the WF-08 commit's approval-persistence logic (the 3-way `match (approval_token, approval_context)`) and converting its two error-path string literals to `WorkflowRunFailure { code, message }`, matching the pattern upstream's own `Err((e, progress))` arm in the same function already uses. No other file needed manual resolution — `bridge.rs`, `command_executor.rs`, and `executor.rs` auto-merged cleanly.
+
+Verified the resolution is correct rather than just "compiles," against current upstream `main` (`068a83b`), not the Aug 5 base the original commit was tested against:
+
+| Check | Result |
+|-------|--------|
+| `cargo check -p buzz-workflow -p buzz-db -p buzz-relay` | Clean |
+| `cargo test -p buzz-workflow -p buzz-db -p buzz-relay --lib` | **1139 passed** (105 buzz-db + 879 buzz-relay + 155 buzz-workflow), 0 failed |
+| `cargo clippy -p buzz-workflow -p buzz-db -p buzz-relay --lib --tests -- -D warnings` | Clean, zero warnings |
+| `cargo fmt -- --check` | Clean |
+| Live Postgres integration test (`wf08_approval_gate.rs`, real install: `apt`-installed PostgreSQL 16, migrated via `buzz-admin migrate`) | **Real fail-before/pass-after, executed this run, not inherited from the Aug 5 commit message:** temporarily reverted `finalize_run` to the old "mark Failed, WF-08 not implemented" body (adapted to compile against the new `WorkflowRunFailure` API so the revert itself wasn't invalidated by unrelated drift) → `cargo test -p buzz-workflow --test wf08_approval_gate -- --ignored` → **1 failed** (run ended `Failed` instead of `WaitingApproval`, exactly the bug). Restored the real fix, reran → **1 passed**. |
+
+Rebased onto a single clean commit (`820c2ef`, DCO `Signed-off-by: Igor Ganapolsky` preserved through the rebase) sitting directly on `upstream/main` — a 5-file, 370-insertion/47-deletion diff, not a merge commit carrying 209 unrelated upstream commits. Pushed to the fork: `igorganapolsky/buzz@fix/wf08-approval-gate-finalize-run-rebased`.
+
+**PR creation attempted and blocked** (see Access section above). Compare URL, ready for one click by a session with `block/buzz` in scope:
+https://github.com/block/buzz/compare/main...IgorGanapolsky:buzz:fix/wf08-approval-gate-finalize-run-rebased?expand=1
+
+This is qualitatively different from this log's prior backlog entries: not a drafted comment, not a `.patch` file sitting in an unrelated repo's unmerged PR, but a real branch, on the actual fork, rebased onto today's upstream tip, fully rebuilt and retested against it — the closest state to "ready" a session without `block/buzz` API access can produce.
+
+### What was surveyed (last ~72h, as of 2026-08-14)
+
+Newest open issues via `WebFetch` on the sorted issues list: #5817, #5814, #5813, #5810, #5803, #5800, #5797, #5794, #5787, #5786, #5784 (all 2026-08-13/14). Read against Igor's stated domain:
+
+| Issue | Topic | Action |
+|-------|-------|--------|
+| [#5800](https://github.com/block/buzz/issues/5800) | `buzz messages thread` silently returns a partial result (root event only, replies dropped) when `--channel` doesn't match the event's actual `h` tag — exits 0, looks like a valid empty-reply thread. Reporter already root-caused it precisely: `cmd_get_thread` builds two OR filters, only the replies filter is channel-scoped, the root-event filter isn't, and nothing validates the returned root's `h` tag against `--channel` before printing | Read in full — squarely in-domain (verification-vs-self-report: success exit code, wrong-scoped data), but the reporter's diagnosis is already complete and their proposed fix (validate `h` tag, non-zero exit on mismatch, regression test) is the obvious correct fix; a comment would be a redundant "+1." Logged as another data point, not drafted — this run's fix budget went to WF-08 |
+| #5784 | DeepSeek custom harness: "all 10 agents failed to start," `buzz-acp` crashes | Read — real reliability failure, but no stack trace or repro detail in the issue yet; underspecified for source-level investigation without more from the reporter |
+| #5786 | Deleting an agent leaves residual configs | Skipped — cleanup/UX, not reliability |
+| #5817, #5814, #5813, #5810, #5803, #5797, #5794, #5787 | Markdown rendering bug, desktop UX/copy feedback, feature requests (Gemini subscription auth, multi-machine device support), UI truncation | Skipped — outside stated domain |
+
+### What was opened / answered this run
+
+**Nothing posted to `block/buzz`** — 12th consecutive run with no write path (this run tested the create-PR call directly, not just read/add_repo; see Access section). This run's output: a previously-unlogged, real WF-08 fix rescued from 209 commits of drift, conflict-resolved against a genuine upstream API change (not just a mechanical rebase), and re-verified end-to-end including a live Postgres fail-before/pass-after — the strongest-verified artifact this log has produced. Pushed to the fork as `fix/wf08-approval-gate-finalize-run-rebased`, PR-creation attempted and confirmed blocked, compare URL staged above.
+
+### Positioning read: **neither** (unchanged, reconfirmed an eleventh time)
+
+- Not a competitor — Buzz remains a team workspace (chat + git + workflow automation) on Nostr; ThumbGate remains a cross-tool pre-action governance gate for arbitrary agent actions. No overlap in what either actually ships.
+- Not a partner — no relationship, no contact, no integration exists, and nothing this run changes that.
+- This run's work is the deepest technical-overlap data point yet, precisely because it's a *completion*, not just a bug report: WF-08 — the approval-gate persistence-and-resume path flagged as an acknowledged gap since Run 1 — is exactly a pre-action write-gate's missing half (the request/suspend side already existed; the persist/resume side didn't). Finishing it end-to-end, tested against a live database, is the clearest evidence in ten runs that this problem class is real *and solvable inside Buzz's own architecture*, independent of ThumbGate. ThumbGate is not mentioned anywhere in the fix, tests, commit message, or this log entry's technical content — the PR body describes only Buzz's own state machine.
+
+### What was skipped and why
+
+- **#5800** — real in-domain bug, but the reporter's own diagnosis and proposed fix are already complete; a comment adds nothing. Logged as a pattern data point (twelfth: #4565, #4860, #5492, #5557, #5555, #5611, #5665, #5667, #5708, #5734, #5759, now #5800 — self-report/success-signal diverging from actual verified state, recurring unprompted).
+- **#5784** — in-domain but underspecified without a stack trace or repro; not investigated at source without more from the reporter.
+- **#5817, #5814, #5813, #5810, #5803, #5797, #5794, #5787, #5786** — outside stated domain (UI, feature requests, cleanup), per table above.
+- **A second fix/PR** — hard rule caps this at one per run; WF-08 used this run's budget, and it was the higher-priority rescue given the 209-commit drift risk.
+- **Reconciling this repo's own duplicate/stranded PRs (#1682/#1689/#1712/#1714/#1719)** — still not this run's call to make unilaterally; flagged again, unchanged from Run 10.
+- **Posting anything to `block/buzz`** — impossible this run; confirmed at the actual write-call layer this time, not inferred (see Access section). Not a judgment-call skip.
+
+### Blocker status (report only — no action requested)
+
+Twelfth consecutive run (Runs 1, 3-11) with zero write access to `block/buzz` from this environment tier. New and more precise this run: the block was tested directly against `create_pull_request`, not just `pull_request_read`/`add_repo` — same denial, confirming Run 8's "the whole API surface is scoped out" finding still holds for the create path specifically. Updated backlog for a write-capable session, ranked by readiness:
+
+1. **`fix/wf08-approval-gate-finalize-run-rebased`** (this run) — fully rebuilt, retested (1139 unit tests + live Postgres integration test, fail-before/pass-after), clippy/fmt clean, rebased onto current upstream tip. Highest-value, most-ready item in the backlog. Compare URL above.
+2. **#5708** (`coordination/patches/buzz-5708-panic-dead-letter-notice.patch`, PR #1712) — full tested patch, not yet pushed to the fork as a branch (still a diff file in this repo's own unmerged PR queue).
+3. **#5734** (`coordination/patches/buzz-5734-team-instruction-validation.patch`, PR #1714) — same status as #5708.
+4. `fix/acp-auth-tag-profile-republish` (#5492, Run 4b) — pushed to the fork, not yet re-verified against current upstream this run (unlike WF-08, no evidence found this run that it's drifted enough to matter, but not re-checked either).
+5. Comment drafts still unposted: #4860 (Run 3), #5557 (Run 5), #5555 (Run 6), #5611 (Run 7, partial), #5667 (Run 8), #5759 (Run 10, partial).
+
+PR #4624 (Run 2, against `block/buzz` directly) still awaits its first human review, 11 days.
