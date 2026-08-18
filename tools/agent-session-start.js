@@ -466,6 +466,24 @@ if (!json) {
   }
 }
 
+{
+  const glm53 = path.join(REPO, 'tools/zai-glm53-fleet.js');
+  if (fs.existsSync(glm53)) {
+    const glmArgs = ['doctor', '--json'];
+    const glm = runNode('tools/zai-glm53-fleet.js', glmArgs, 15_000);
+    if (!json && glm.stdout) {
+      let line = glm.stdout.trim();
+      try {
+        const parsed = JSON.parse(glm.stdout);
+        line = `GLM-5.3 ${parsed.status} coding=${parsed.codingPlanConfigured} meteredAlias=${parsed.dangerousMeteredAlias} budget=$${parsed.budget?.currentSpentUsd ?? 0}/$${parsed.monthlyBudgetUsd ?? 10}`;
+      } catch {
+        /* keep raw */
+      }
+      process.stdout.write(`\n=== GLM-5.3 fleet ===\n${line}\n`);
+    }
+  }
+}
+
 const briefArgs = ['tools/ceo-operating-brief.js'];
 if (json) briefArgs.push('--json');
 if (full) briefArgs.push('--full');

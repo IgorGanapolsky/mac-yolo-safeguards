@@ -423,7 +423,7 @@ jobs:
       # a hard merge gate (per strict:true on main).
       - name: Hermes Mobile continuous E2E proof gate
         continue-on-error: true
-        run: node ../../tools/hermes-mobile-ci-proof-gate.js --fresh-hours 72
+        run: node ../tools/hermes-mobile-ci-proof-gate.js --fresh-hours 72
 
       - name: Type check
         run: npm run typecheck

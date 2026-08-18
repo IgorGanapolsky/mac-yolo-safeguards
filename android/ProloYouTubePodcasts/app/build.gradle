@@ -1,0 +1,19 @@
+apply plugin: "com.android.application"
+
+android {
+    namespace "com.igor.prolo.podcasts"
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "com.igor.prolo.podcasts"
+        minSdk 28
+        targetSdk 36
+        versionCode 1
+        versionName "1.0"
+    }
+
+    lint {
+        // The physical target is the Galaxy S25 on Android 16 / API 36.
+        disable "OldTargetApi"
+    }
+}
