@@ -10,24 +10,24 @@
       "displayName": "Hermes Web by ThumbGate",
       "type": "text/plain",
       "url": "https://thumbgate.app/llms.txt",
-      "description": "Authenticated, local-first Hermes chat continuity with signed machine pairing, fenced execution, optional paid cloud failover, private response feedback, and a lessons dashboard.",
+      "description": "Hosted Hermes on a fenced VPS with in-browser approvals, signed receipts, and a 14-day $10/mo trial. Not a local-pair or laptop-failover product.",
       "tags": [
         "hermes",
         "agent-runtime",
-        "local-first",
-        "fenced-execution",
-        "cloud-continuity"
+        "fenced-vps",
+        "hosted-hermes",
+        "in-browser-approvals"
       ],
       "capabilities": [
-        "HermesChatContinuity",
-        "SignedMachinePairing",
+        "HostedHermesVps",
+        "InBrowserApprovals",
         "FencedTaskExecution",
-        "PrivateResponseFeedback"
+        "SignedReceipts"
       ],
       "representativeQueries": [
-        "Continue my Hermes chats securely from the web",
-        "Run a Hermes task locally and fail over to cloud when my machine is offline",
-        "Review private thumbs feedback and lessons from Hermes responses"
+        "Keep a Hermes coding agent running when my laptop sleeps",
+        "Approve agent tool calls in the browser on a fenced VPS",
+        "Hosted Hermes $10 a month with a 14-day trial"
       ],
       "version": "1.0.0",
       "metadata": {

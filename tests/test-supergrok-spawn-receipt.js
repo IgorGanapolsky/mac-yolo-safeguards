@@ -43,8 +43,13 @@ assert.deepStrictEqual(classifyBackend(['-z', 'ping'], { HERMES_YOLO_BACKEND: 'g
   selectedBackend: 'grok-4.5',
   reason: 'explicit-grok-backend',
 });
+// Quality lock (2026-08-13): auto backend prefers glm-coding, not SuperGrok.
 assert.strictEqual(
   shouldUseGrokBackend(['-z', 'ping'], { HERMES_YOLO_BACKEND: 'auto' }, { grokReady: true }),
+  false,
+);
+assert.strictEqual(
+  shouldUseGrokBackend(['-z', 'ping'], { HERMES_YOLO_BACKEND: 'grok' }, { grokReady: true }),
   true,
 );
 assert.strictEqual(
