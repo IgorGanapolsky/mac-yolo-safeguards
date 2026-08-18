@@ -16,10 +16,17 @@ import {
   writeJsonSessionStorage,
 } from "@/lib/dashboard-nav-cache";
 import { resolveComposerRunCta } from "@/lib/composer-run-cta";
+import {
+  hostedConnectionCopy,
+  hostedResourceLabel,
+  type HostedResourceState,
+  type HostedResourceStatus,
+} from "@/lib/hosted-apphost";
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
 /** CoreWeave-style capacity snapshot from /api/me (enforced governance caps). */
+type HostedResourceView = HostedResourceStatus;
 type ContinuityUsage = {
   cloudTasks30d: number;
   cloudTaskLimit: number;
@@ -208,6 +215,8 @@ export default function DashboardClient() {
   });
   /** CoreWeave-style remaining capacity from /api/me (governance-enforced caps). */
   const [continuityUsage, setContinuityUsage] = useState<ContinuityUsage | null>(null);
+  const [hostedRunner, setHostedRunner] = useState<HostedResourceView | null>(null);
+  const [hostedModel, setHostedModel] = useState<HostedResourceView | null>(null);
   const [devices, setDevices] = useState<Device[]>([]);
   const [threads, setThreads] = useState<Thread[]>(() => readJsonSessionStorage<Thread[]>(DASHBOARD_CACHE_KEYS.threads) ?? []);
   const [tasks, setTasks] = useState<Task[]>(() => readJsonSessionStorage<Task[]>(DASHBOARD_CACHE_KEYS.tasks) ?? []);
@@ -587,10 +596,14 @@ export default function DashboardClient() {
       user: User;
       organization: Organization;
       continuityUsage?: ContinuityUsage;
+      hostedRunner?: HostedResourceView;
+      hostedModel?: HostedResourceView;
     };
     setUser(identity.user);
     setOrganization(identity.organization);
     if (identity.continuityUsage) setContinuityUsage(identity.continuityUsage);
+    if (identity.hostedRunner) setHostedRunner(identity.hostedRunner);
+    if (identity.hostedModel) setHostedModel(identity.hostedModel);
     writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.me, {
       user: identity.user,
       organization: identity.organization,
@@ -720,6 +733,17 @@ export default function DashboardClient() {
     return () => window.clearTimeout(timer);
   }, [pairCode, user]);
   const visibleThreads = useMemo(() => orderThreadsForDisplay(threads, threadSortOrder), [threads, threadSortOrder]);
+  const runnerStatus: HostedResourceState = hostedRunner?.status ?? "waiting";
+  const modelStatus: HostedResourceState = hostedModel?.status ?? "waiting";
+  const hostedCopy = hostedConnectionCopy({
+    runnerStatus,
+    modelStatus,
+    message: hostedModel?.status === "unhealthy"
+      ? hostedModel.message
+      : hostedRunner?.status === "unhealthy"
+        ? hostedRunner.message
+        : null,
+  });
   const activeTasks = useMemo(() => tasks.filter((task) => !terminal.has(task.status)), [tasks]);
   const visibleTasks = useMemo(() => {
     if (taskFilter === "completed") {
@@ -1473,9 +1497,27 @@ export default function DashboardClient() {
 
           <aside className="right-rail" ref={rightRailRef}>
             <section className="panel connection-panel" id="leash-control">
-              <div className="panel-heading"><div><p className="eyebrow">HOSTED HERMES</p><h2>Fenced VPS</h2></div><span>ACTIVE & AUTONOMOUS</span></div>
-              <div className="connection-summary"><span className={`device-light is-online`} /><div><strong>☁️ Hosted Hermes live</strong><p>ThumbGate runs on a fenced serverless Cloud VPS runner — no local Mac or background service required. Tasks run instantly in the cloud.</p></div></div>
-              <ol className="dashboard-setup-steps"><li className="is-done"><span>1</span>Cloud VPS runner active</li><li className="is-done"><span>2</span>LLM-as-Judge guardrails enabled</li><li className="is-done"><span>3</span>Online & autonomous</li></ol>
+              <div className="panel-heading"><div><p className="eyebrow">HOSTED HERMES</p><h2>Fenced VPS</h2></div><span>{hostedCopy.badge}</span></div>
+              <div className="connection-summary" data-testid="hosted-connection-summary" data-hosted-ready={hostedCopy.live ? "1" : "0"}>
+                <span className={`device-light ${hostedCopy.live ? "is-online" : runnerStatus === "unhealthy" || modelStatus === "unhealthy" ? "is-stale" : ""}`} />
+                <div>
+                  <strong>{hostedCopy.headline}</strong>
+                  <p>{hostedCopy.body}</p>
+                </div>
+              </div>
+              <ul className="hosted-resource-status" data-testid="hosted-resource-status">
+                <li data-testid="hosted-runner-status" data-status={runnerStatus}>
+                  Runner · {hostedResourceLabel(runnerStatus)}
+                </li>
+                <li data-testid="hosted-model-status" data-status={modelStatus}>
+                  Model · {hostedResourceLabel(modelStatus)}
+                </li>
+              </ul>
+              <ol className="dashboard-setup-steps">
+                <li className={runnerStatus === "healthy" ? "is-done" : ""}><span>1</span>Cloud VPS runner {hostedResourceLabel(runnerStatus).toLowerCase()}</li>
+                <li className="is-done"><span>2</span>LLM-as-a-Judge guardrails enabled</li>
+                <li className={hostedCopy.live ? "is-done" : ""}><span>3</span>{hostedCopy.live ? "Online & autonomous" : "Waiting until runner and model are healthy"}</li>
+              </ol>
               {devices.length > 0 ? (
                 <div className="leash-device-picker" data-testid="leash-device-picker">
                   <label htmlFor="leash-device-select" className="composer-where-label" style={{ margin: 0 }}>

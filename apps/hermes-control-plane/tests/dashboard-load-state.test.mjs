@@ -120,3 +120,20 @@ test("empty task copy is hosted VPS, not Mac-pair blame", () => {
   assert.match(dashboard, /hosted Hermes · fenced · 90s lease/);
   assert.match(dashboard, /data-testid="task-receipt"/);
 });
+
+test("does not claim live or instantly when hosted resources are unhealthy", () => {
+  // Aspire WaitFor lesson: Running ≠ Ready. Copy comes from hostedConnectionCopy.
+  assert.match(dashboard, /hostedConnectionCopy/);
+  assert.match(dashboard, /hostedResourceLabel/);
+  assert.match(dashboard, /hostedRunner/);
+  assert.match(dashboard, /hostedModel/);
+  assert.match(dashboard, /data-testid="hosted-runner-status"/);
+  assert.match(dashboard, /data-testid="hosted-model-status"/);
+  assert.match(dashboard, /Runner · \{hostedResourceLabel\(runnerStatus\)\}/);
+  assert.match(dashboard, /Model · \{hostedResourceLabel\(modelStatus\)\}/);
+  assert.doesNotMatch(dashboard, /Tasks run instantly in the cloud/);
+  assert.doesNotMatch(dashboard, /<strong>☁️ Hosted Hermes live<\/strong>/);
+  assert.match(dashboard, /data-hosted-ready=\{hostedCopy\.live \? "1" : "0"\}/);
+  assert.match(dashboard, /fenced VPS/);
+  assert.doesNotMatch(dashboard, /Continuity hero|Mac lid|Cloud vs Local/);
+});
