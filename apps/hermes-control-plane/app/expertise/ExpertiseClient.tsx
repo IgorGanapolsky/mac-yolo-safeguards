@@ -132,19 +132,19 @@ export default function ExpertiseClient() {
             </div>
             <div className="price-grid">
               <Stat
-                label="Cloud continuity success"
+                label="Hosted VPS success"
                 value={formatPercent(state.data.continuity.successRate30d)}
                 sub={`${formatNumber(state.data.continuity.completedRuns30d)} completed / ${formatNumber(state.data.continuity.failedRuns30d)} failed`}
               />
               <Stat
-                label="Median continuity run"
+                label="Median hosted run"
                 value={formatMs(state.data.continuity.medianDurationMs)}
                 sub={`p95 ${formatMs(state.data.continuity.p95DurationMs)}`}
               />
               <Stat
-                label="Pairings completed"
-                value={formatNumber(state.data.pairing.pairingsCompleted30d)}
-                sub={`median ${state.data.pairing.medianPairTimeSec === null ? "—" : `${state.data.pairing.medianPairTimeSec}s`} · USB ${state.data.pairing.transportMix.usb} / Tailscale ${state.data.pairing.transportMix.tailscale} / LAN ${state.data.pairing.transportMix.lan}`}
+                label="Hosted sessions (24h)"
+                value={formatNumber(state.data.scale.activeSessions24h)}
+                sub={`${formatNumber(state.data.scale.totalTasks30d)} tasks in 30d`}
               />
               <Stat
                 label="Control-plane uptime"
@@ -152,9 +152,9 @@ export default function ExpertiseClient() {
                 sub={`runner ${formatPercent(state.data.availability.runnerUptime30d)} · ${formatNumber(state.data.availability.orgsWithOnlineMachine)} orgs online now`}
               />
               <Stat
-                label="Scale"
+                label="Hosted workspaces"
                 value={formatNumber(state.data.scale.totalPairedMachines)}
-                sub={`${formatNumber(state.data.scale.activeSessions24h)} active sessions · ${formatNumber(state.data.scale.totalTasks30d)} tasks in 30d`}
+                sub={`${formatNumber(state.data.availability.orgsWithOnlineMachine)} orgs with a live runner`}
               />
               <Stat
                 label="Generated"
@@ -205,9 +205,9 @@ export default function ExpertiseClient() {
             <p className="signin-note">
               {state.status === "ready"
                 ? state.data.methodology.canaryExclusion
-                  ? "Synthetic canary runs are excluded from every continuity stat."
+                  ? "Synthetic canary runs are excluded from every hosted-run stat."
                   : "Canary exclusion is not enabled."
-                : "Synthetic canary runs are excluded from every continuity stat."}
+                : "Synthetic canary runs are excluded from every hosted-run stat."}
             </p>
           </article>
           <article className="price-card">
