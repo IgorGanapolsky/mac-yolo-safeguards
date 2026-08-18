@@ -1,0 +1,11 @@
+#!/usr/bin/env node
+'use strict';
+
+const { main } = require('../tools/hooks-path-doctor');
+
+try {
+  process.exitCode = main();
+} catch (error) {
+  process.stderr.write(`${error.message}\n`);
+  process.exitCode = error.code === 'REFUSED_FLAG' ? 3 : 1;
+}
