@@ -9,7 +9,7 @@ export const RUNNER_PROBE_TIMEOUT_MS = 8_000;
 export const RUNNER_PROBE_CACHE_MS = 15_000;
 export const MODEL_ERROR_LOOKBACK_MS = 86_400_000;
 
-export type HostedResourceName = "runner" | "model";
+export type HostedResourceName = "runner" | "model" | "browser";
 export type HostedResourceState = "waiting" | "healthy" | "unhealthy";
 
 export type RunnerHealthInput = {
@@ -56,12 +56,20 @@ type RunnerProbeCache = {
 
 let modelErrorCache: ModelErrorCache | null = null;
 let runnerProbeCache: RunnerProbeCache | null = null;
+let browserProbeCache: RunnerProbeCache | null = null;
 
 export function runnerHealthUrl(): string {
   const fromEnv = typeof process !== "undefined"
     ? process.env.HERMES_CLOUD_RUNNER_HEALTH_URL?.trim()
     : "";
   return fromEnv || DEFAULT_RUNNER_HEALTH_URL;
+}
+
+export function browserHealthUrl(): string {
+  const fromEnv = typeof process !== "undefined"
+    ? process.env.HERMES_HOSTED_BROWSER_HEALTH_URL?.trim()
+    : "";
+  return fromEnv || "";
 }
 
 export function parseResetEpoch(text: string): number | null {
@@ -123,6 +131,15 @@ export function runnerHealthy(
   return now - lastPollAt < staleMs;
 }
 
+export function browserHealthy(
+  health: { ok?: boolean; lastPollAt?: number | null } | null | undefined,
+  now: number,
+  staleMs = RUNNER_STALE_MS,
+): boolean {
+  if (!health) return false;
+  return runnerHealthy(health, now, staleMs);
+}
+
 export function modelHealthy(input: { lastError?: string | null; now: number }): boolean {
   const lastError = input.lastError ?? modelErrorCache?.errorText ?? null;
   if (!lastError) return true;
@@ -132,35 +149,51 @@ export function modelHealthy(input: { lastError?: string | null; now: number }):
   return false;
 }
 
+const BROWSER_NOT_READY =
+  "Hosted browser sidecar is not ready. A cloud send that needs the browser is not admitted until that sidecar is healthy. This is not a laptop browser.";
+
 function waitingMessage(waitingOn: HostedResourceName[], modelError?: string | null): string {
+  if (waitingOn.includes("browser") && waitingOn.length === 1) {
+    return BROWSER_NOT_READY;
+  }
   if (waitingOn.includes("runner") && waitingOn.includes("model")) {
     const model = modelError ? mapProviderError(modelError) : "Hosted model is not ready.";
-    return `Hosted runner is not healthy, and ${model}`;
+    const extra = waitingOn.includes("browser") ? ` ${BROWSER_NOT_READY}` : "";
+    return `Hosted runner is not healthy, and ${model}${extra}`;
   }
   if (waitingOn.includes("runner")) {
-    return "Hosted runner is not healthy. Cloud send is not admitted until health is ok and lastPollAt is fresh.";
+    const extra = waitingOn.includes("browser") ? ` ${BROWSER_NOT_READY}` : "";
+    return `Hosted runner is not healthy. Cloud send is not admitted until health is ok and lastPollAt is fresh.${extra}`;
   }
   if (waitingOn.includes("model")) {
-    return modelError
+    const model = modelError
       ? mapProviderError(modelError)
       : "Hosted model is not ready. The runner being up is not enough.";
+    const extra = waitingOn.includes("browser") ? ` ${BROWSER_NOT_READY}` : "";
+    return `${model}${extra}`;
   }
+  if (waitingOn.includes("browser")) return BROWSER_NOT_READY;
   return "Hosted runner and model are ready.";
 }
 
 export function waitForHostedReady(input: {
   runner: { ok?: boolean; lastPollAt?: number | null };
   modelError?: string | null;
+  browser?: { ok?: boolean; lastPollAt?: number | null } | null;
+  required?: HostedResourceName[];
   now: number;
 }): HostedReadyResult {
+  const required = input.required ?? ["runner", "model"];
   const waitingOn: HostedResourceName[] = [];
-  if (!runnerHealthy(input.runner, input.now)) waitingOn.push("runner");
-  if (!modelHealthy({ lastError: input.modelError, now: input.now })) waitingOn.push("model");
-  return {
-    ready: waitingOn.length === 0,
-    waitingOn,
-    message: waitingMessage(waitingOn, input.modelError),
-  };
+  if (required.includes("runner") && !runnerHealthy(input.runner, input.now)) waitingOn.push("runner");
+  if (required.includes("model") && !modelHealthy({ lastError: input.modelError, now: input.now })) waitingOn.push("model");
+  if (required.includes("browser") && !browserHealthy(input.browser, input.now)) waitingOn.push("browser");
+  const ready = waitingOn.length === 0;
+  let message = waitingMessage(waitingOn, input.modelError);
+  if (ready && required.includes("browser")) {
+    message = "Hosted runner, model, and browser sidecar are ready.";
+  }
+  return { ready, waitingOn, message };
 }
 
 export function admitCloudSend(ready: {
@@ -194,6 +227,7 @@ export function lastCachedModelError(): string | null {
 export function clearHostedAppHostCaches(): void {
   modelErrorCache = null;
   runnerProbeCache = null;
+  browserProbeCache = null;
 }
 
 export function hostedResourceLabel(status: HostedResourceState): string {
@@ -205,6 +239,7 @@ export function hostedResourceLabel(status: HostedResourceState): string {
 export function hostedConnectionCopy(input: {
   runnerStatus: HostedResourceState;
   modelStatus: HostedResourceState;
+  browserStatus?: HostedResourceState;
   message?: string | null;
 }): {
   headline: string;
@@ -212,7 +247,9 @@ export function hostedConnectionCopy(input: {
   badge: string;
   live: boolean;
 } {
-  const live = input.runnerStatus === "healthy" && input.modelStatus === "healthy";
+  const live = input.runnerStatus === "healthy"
+    && input.modelStatus === "healthy"
+    && (input.browserStatus == null || input.browserStatus === "healthy");
   if (live) {
     return {
       headline: "Hosted Hermes live",
@@ -235,11 +272,14 @@ export function hostedConnectionCopy(input: {
 export function describeHostedResources(input: {
   runner: { ok?: boolean; lastPollAt?: number | null };
   modelError?: string | null;
+  browser?: { ok?: boolean; lastPollAt?: number | null } | null;
   now: number;
   runnerKnown?: boolean;
+  browserKnown?: boolean;
 }): {
   hostedRunner: HostedResourceStatus;
   hostedModel: HostedResourceStatus;
+  hostedBrowser: HostedResourceStatus;
   ready: boolean;
   waitingOn: HostedResourceName[];
 } {
@@ -251,6 +291,28 @@ export function describeHostedResources(input: {
   });
   const runnerOk = runnerHealthy(input.runner, input.now);
   const modelOk = modelHealthy({ lastError: input.modelError, now: input.now });
+  const browserUrl = browserHealthUrl();
+  const browserOk = browserHealthy(input.browser, input.now);
+  const browserKnown = input.browserKnown === true;
+  let hostedBrowser: HostedResourceStatus;
+  if (!browserUrl) {
+    hostedBrowser = {
+      status: "unhealthy",
+      message: "Hosted browser sidecar is not configured. Browser sends are refused until a VPS sidecar health URL is set.",
+    };
+  } else if (!browserKnown) {
+    hostedBrowser = {
+      status: "waiting",
+      message: "Hosted browser sidecar status is still loading.",
+    };
+  } else {
+    hostedBrowser = {
+      status: browserOk ? "healthy" : "unhealthy",
+      message: browserOk
+        ? "Hosted browser sidecar is healthy."
+        : BROWSER_NOT_READY,
+    };
+  }
   return {
     hostedRunner: {
       status: known ? (runnerOk ? "healthy" : "unhealthy") : "waiting",
@@ -264,6 +326,7 @@ export function describeHostedResources(input: {
         ? "Hosted model is ready."
         : (input.modelError ? mapProviderError(input.modelError) : "Hosted model is not ready."),
     },
+    hostedBrowser,
     ready: wait.ready,
     waitingOn: wait.waitingOn,
   };
@@ -307,5 +370,50 @@ export async function probeRunnerHealth(input?: {
     };
   }
   runnerProbeCache = { health, at: now };
+  return health;
+}
+
+export async function probeBrowserHealth(input?: {
+  now?: number;
+  timeoutMs?: number;
+  force?: boolean;
+  fetchImpl?: typeof fetch;
+}): Promise<RunnerHealthInput> {
+  const now = input?.now ?? Date.now();
+  const url = browserHealthUrl();
+  if (!url) {
+    return { ok: false, lastPollAt: null, error: "hosted browser health URL is not configured" };
+  }
+  if (!input?.force && browserProbeCache && now - browserProbeCache.at < RUNNER_PROBE_CACHE_MS) {
+    return browserProbeCache.health;
+  }
+  const timeoutMs = input?.timeoutMs ?? RUNNER_PROBE_TIMEOUT_MS;
+  const fetchImpl = input?.fetchImpl ?? fetch;
+  let health: RunnerHealthInput;
+  try {
+    const response = await fetchImpl(url, {
+      signal: AbortSignal.timeout(timeoutMs),
+      headers: { accept: "application/json" },
+    });
+    if (!response.ok) {
+      health = { ok: false, lastPollAt: null, error: `HTTP ${response.status}` };
+    } else {
+      const body = await response.json() as RunnerHealthInput;
+      health = {
+        ok: body?.ok,
+        lastPollAt: body?.lastPollAt ?? null,
+        lastTaskAt: body?.lastTaskAt ?? null,
+        degraded: body?.degraded,
+        error: null,
+      };
+    }
+  } catch (error) {
+    health = {
+      ok: false,
+      lastPollAt: null,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+  browserProbeCache = { health, at: now };
   return health;
 }
