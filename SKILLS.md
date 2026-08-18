@@ -71,8 +71,15 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 | `advertise-thumbgate-github-marketplace` | Cite the live ThumbGate Marketplace listing (free only). Verify first. No paid plans or buyer outreach without ECI clearance. Slash: /advertise-thumbgate-github-marketplace. | `.agents/skills/advertise-thumbgate-github-marketplace/SKILL.md` | local |
 | `tieline-product-contract` | Tieline-Style Reviewed Source of Truth for Product Behavior & Product-Level Blast Radius Engine. Maps features and acceptance criteria to code and test contracts, preventing silent business regressions. Slash: /tieline. | `.agents/skills/tieline-product-contract/SKILL.md` | local |
 | `anti-babysitting-autonomous-loop` | Autonomous Anti-Babysitting & Continuous Self-Driving Engine. Automatically scans for open PRs, invariant drift, and pending tasks, driving them to green verification and shipping without manual human handoffs. Slash: /anti-babysitting-loop. | `.agents/skills/anti-babysitting-autonomous-loop/SKILL.md` | local |
+| `intent-contract` | HARD: durable product intent linked to code and tests (Tieline-inspired). Blast radius + graded AC evidence. Slash: /intent-contract. Not affiliated with knoxgraeme/tieline. | `.agents/skills/intent-contract/SKILL.md` | local |
+| `tieline-product-contract` | Tieline process steal: reviewed product behavior + AC blast radius. Not HVAC. No Postgres/npx tieline. Slash: /tieline. | `.agents/skills/tieline-product-contract/SKILL.md` | local |
+| `ci-first-fail` | Buildkite-style first-fail CI annotations. Name the failing STEP; never dump logs; do not migrate off GitHub Actions. Slash: /ci-first-fail. | `.agents/skills/ci-first-fail/SKILL.md` | local |
+| `anti-babysitting-mandate` | HARD: never park waiting for continue / want-me-to on pre-authorized work. Residual picker + wrap-up lint. Own PRs only. Slash: /anti-babysitting-mandate. | `.agents/skills/anti-babysitting-mandate/SKILL.md` | local |
 
 ---
 
 *Last synchronized: 2026-08-18T14:11:00.000Z*
 
+*Last synchronized: 2026-08-18T17:30:00.000Z*
+*Last synchronized: 2026-08-18T17:45:00.000Z*
+*Last synchronized: 2026-08-18T19:10:00.000Z*

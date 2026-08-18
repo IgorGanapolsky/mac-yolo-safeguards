@@ -1,24 +1,15 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import fs from "node:fs";
+import path from "node:path";
 import test from "node:test";
 
-const componentSource = readFileSync(
-  new URL("../app/components/HostingSelector.tsx", import.meta.url),
-  "utf8"
-);
+const root = path.join(import.meta.dirname, "..");
+const page = fs.readFileSync(path.join(root, "app/page.tsx"), "utf8");
 
-test("HostingSelector component contains cloud and local hosting options", () => {
-  assert.match(componentSource, /export function HostingSelector/);
-  assert.match(componentSource, /ThumbGate Cloud/);
-  assert.match(componentSource, /Always on, 24\/7, even when your computer is off/);
-  assert.match(componentSource, /Local/);
-  assert.match(componentSource, /Your code, keys, and private data never leave your computer/);
-});
-
-test("HostingSelector supports mode switching and action callbacks", () => {
-  assert.match(componentSource, /onSelect\?:\s*\(mode:\s*HostingMode\)\s*=>\s*void/);
-  assert.match(componentSource, /onContinue\?:\s*\(mode:\s*HostingMode\)\s*=>\s*void/);
-  assert.match(componentSource, /Need help deciding\?/);
-  assert.match(componentSource, /Continue/);
-  assert.match(componentSource, /← Back/);
+test("thumbgate.app landing has no Cloud vs Local hosting picker", () => {
+  assert.doesNotMatch(page, /<HostingSelector/);
+  assert.doesNotMatch(page, /Choose where you want your assistant to live/);
+  assert.doesNotMatch(page, /RUN ON/);
+  assert.match(page, /The \$10 offer is hosted Hermes on a fenced VPS/);
+  assert.match(page, /Always on, even when your computer is off/);
 });

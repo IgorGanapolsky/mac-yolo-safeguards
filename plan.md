@@ -814,6 +814,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 | T-PROLO-ANDROID-PODCASTS-ONLY-20260815 | Fix ring double-tap+hold macro: open YouTube Music podcasts on the ANDROID phone (never Mac Apple Music), rewire legacy Mac launcher, stage F13 phone-native binding, add Android-only regression test | in_progress | jcode-prolo-android-podcasts-20260815 | `tools/prolo-play-latest-podcasts.sh`, `tools/prolo-podcast-macro.js`, `tests/test-prolo-android-podcasts-only.js`, `scripts/verify.sh`, `.agents/skills/prolo-ring-moodstrip/SKILL.md`, `plan.md` | 16/16 Android-only regression green; pattern gate clean on touched files; F13 staged in profile draft; remaining: wearer Flash-to-Ring + APK install when phone on adb |
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
+- `tools/anti-babysitting-next.js`, `tests/test-anti-babysitting-next.js`, `tests/fixtures/anti-babysitting-next.json`, `bin/anti-babysitting-next`, `.agents/skills/anti-babysitting-mandate/**`, `SKILLS.md` (append row), `plan.md` → **grok-anti-babysitting-mandate-20260818** (T-ANTI-BABYSITTING-MANDATE-20260818 / AGENT-409: residual-next lint; no auto-merge-all; no sibling steal) (2026-08-18T19:10:00Z)
 - `tools/jcode-yolo-wrapper.js`, `tests/test-jcode-intelligent-routing.js`, `tests/test-jcode-yolo-wrapper.js`, `plan.md` → **grok-jcode-yolo-sol-unstick-20260815** (T-JCODE-YOLO-SOL-UNSTICK-20260815: unstick GPT Sol; intelligent multi-model route + inherited-openai quarantine) (2026-08-15T14:05:00Z)
 - `tools/rubrik-mythos-triage-harness.js`, `tests/test-rubrik-mythos-triage.js`, `tests/fixtures/rubrik-mythos/`, `bin/rubrik-triage`, `.agents/skills/rubrik-mythos-triage/SKILL.md`, `.gitleaks.toml` (one TESTONLY allowlist line), `plan.md` → **grok-rubrik-mythos-roi-20260815** (T-RUBRIK-MYTHOS-ROI-20260815: Mythos high-ROI steal — checkpoints, trust boundaries, what-not-to-automate) (2026-08-15T14:20:00Z)
 - `tools/zai-glm53-systemwide.js`, `tests/test-zai-glm53-systemwide.js`, `tools/hermes-yolo-route-policy.js` (cyber signal + HERMES_PREFER_GLM53_CYBER branch only), `tests/test-hermes-yolo-route-policy.js` (two cyber cases), `bin/zai-glm53`, `plan.md` → **grok-glm53-fleet** (T-ZAI-GLM53-SYSTEMWIDE-20260815: persist $10 cap + cyber Coding Plan across launchd/zsh/OpenCode; does not steal SuperGrok default or rubrik-mythos-triage) (2026-08-15T16:10:00Z)
@@ -3045,3 +3046,42 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 - 2026-08-18T03:30:00Z `grok-pr-hygiene`: Merged #1736 (`8d66b8f8`); unblocked 8 stale-DIRTY PRs via worktree `merge --no-ff origin/main`; closed 5 superseded drafts; pruned 6 remote heads. Lesson: GitHub DIRTY can be stale vs merge-tree. Remaining ~60 open accounted (CI-wait / real conflicts). Evidence: `docs/agents/PR-HYGIENE-SESSION-2026-08-18.md`.
 - `tools/hermes-mobile-pair.js`, `tests/test-hermes-pair-lan-route.js` → **grok-pair-lan-alternates** (USB primary must still publish LAN/TS routes; Wi-Fi phone never gets 127.0.0.1) (2026-08-18)
 - 2026-08-13 hermes-yolo anti-gibberish: killed stale deepseek-v4-flash sessions (48x compression), quality-lock auto→hermes/glm-coding, strip free flash from inference chains, env pin HERMES_YOLO_BACKEND=hermes MODEL=glm-coding. PR agent/hermes-yolo-slop-fix-20260813.
+
+- 2026-08-18T17:55Z `grok-qoder-start-surfaces`: **T-QODER-START-SURFACES-20260818 / AGENT-406 claimed.** Qoder download-page steal: zero-install start, always-on agent card, optional store badges. No fake desktop installers. No 1813 files.
+- 2026-08-18T18:25Z `grok-qoder-start-surfaces`: Raised StartSurfaces to two-panel Qoder invert (optional store badges + honest OS invert + identity card). Merged origin/main so HostingSelector stays. No fake Wake SKU, no invented 28/9/78 stats.
+- 2026-08-18T17:50Z `grok-thumbgate-hosting-picker`: **T-THUMBGATE-HOSTING-PICKER-20260818 / AGENT-405 claimed.** Chief: put Vellum Hosting picker on thumbgate.app. Cloud = fenced VPS always-on $10. Local = your machine. No Mac-pair. No second SKU.
+- 2026-08-18T18:40Z `grok-qoder-start-surfaces`: CI unit-and-coverage failed on rendered-html expecting "Run on VPS"; #1817 renamed heading to "Start on VPS". Aligned test. Not a product revert.
+
+| T-TIELINE-INTENT-CONTRACT-20260818 | Slim Tieline process steal: reviewed AC contract + intent-check blast radius | in_progress | grok-tieline-intent-contract-20260818 | `scripts/intent-check.js`, `tests/test-intent-check.js`, `.intent/contract.yaml`, `.agents/skills/intent-contract/**`, `.agents/skills/tieline-product-contract/**`, `bin/intent-check`, `SKILLS.md` (append), `plan.md` | AGENT-407 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| scripts/intent-check.js | grok-tieline-intent-contract-20260818 | 2026-08-18T17:30:00Z |
+| tests/test-intent-check.js | grok-tieline-intent-contract-20260818 | 2026-08-18T17:30:00Z |
+| .intent/contract.yaml | grok-tieline-intent-contract-20260818 | 2026-08-18T17:30:00Z |
+| .agents/skills/intent-contract/** | grok-tieline-intent-contract-20260818 | 2026-08-18T17:30:00Z |
+| .agents/skills/tieline-product-contract/** | grok-tieline-intent-contract-20260818 | 2026-08-18T17:30:00Z |
+| bin/intent-check | grok-tieline-intent-contract-20260818 | 2026-08-18T17:30:00Z |
+| SKILLS.md (append rows only) | grok-tieline-intent-contract-20260818 | 2026-08-18T17:30:00Z |
+| plan.md (append only) | grok-tieline-intent-contract-20260818 | 2026-08-18T17:30:00Z |
+| T-BUILDKITE-FIRST-FAIL-20260818 | Buildkite process steal: first-fail CI annotations; stay on GHA | in_progress | grok-buildkite-first-fail-20260818 | `tools/ci-first-fail.js`, `tests/test-ci-first-fail.js`, `bin/ci-first-fail`, `.agents/skills/ci-first-fail/**`, `SKILLS.md` (append), `plan.md` | AGENT-408 |
+
+- 2026-08-18T18:45Z `grok-buildkite-first-fail`: Remaining high-ROI (no vendor migrate, no auto-quarantine): live `--pr` loads job steps via `gh run view --json jobs`; required-name prefix match so Maestro stranger SKIPPED is present not missing; first TAP test from annotations; githubstatus JSON when required absent; dedicated `Intent contract` workflow. Did not copy sibling Test Engine that quarantines on first fail.
+
+| `.github/workflows/intent-check.yml` | grok-buildkite-first-fail-20260818 | 2026-08-18T18:45:00Z |
+
+| T-ANTI-BABYSITTING-MANDATE-20260818 | Grok anti-babysitting mandate + residual-next lint; no CEO continue | in_progress | grok-anti-babysitting-mandate-20260818 | `tools/anti-babysitting-next.js`, `tests/test-anti-babysitting-next.js`, `bin/anti-babysitting-next`, `.agents/skills/anti-babysitting-mandate/**`, `SKILLS.md` (append), `plan.md` | AGENT-409 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/anti-babysitting-next.js | grok-anti-babysitting-mandate-20260818 | 2026-08-18T19:10:00Z |
+| tests/test-anti-babysitting-next.js | grok-anti-babysitting-mandate-20260818 | 2026-08-18T19:10:00Z |
+| tests/fixtures/anti-babysitting-next.json | grok-anti-babysitting-mandate-20260818 | 2026-08-18T19:10:00Z |
+| bin/anti-babysitting-next | grok-anti-babysitting-mandate-20260818 | 2026-08-18T19:10:00Z |
+| .agents/skills/anti-babysitting-mandate/** | grok-anti-babysitting-mandate-20260818 | 2026-08-18T19:10:00Z |
+| SKILLS.md (append row only) | grok-anti-babysitting-mandate-20260818 | 2026-08-18T19:10:00Z |
+| plan.md (append only) | grok-anti-babysitting-mandate-20260818 | 2026-08-18T19:10:00Z |
+
+- 2026-08-18T19:10Z `grok-anti-babysitting-mandate`: CEO "I shouldn't have to keep stopping and tell you what to do". Grok-global `~/.grok/skills/anti-babysitting-mandate` + `high-roi-steal-and-finish`; upgraded `anti-babysitting-continue`. Repo lint refuses `--auto-merge-all` / `--quarantine`. Did not copy sibling autonomous-loop theater. AGENT-408 Done (`21757af97` / #1822).

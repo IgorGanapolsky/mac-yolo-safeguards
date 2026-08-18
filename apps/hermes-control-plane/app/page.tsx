@@ -11,6 +11,7 @@ import {
   LandingPricingCtaPaid,
 } from "./LandingAuthChrome";
 import { BrandMark } from "./BrandMark";
+import { StartSurfaces } from "./StartSurfaces";
 import styles from "./landing.module.css";
 import {
   CONTINUITY_PRICE_TIERS,
@@ -37,7 +38,7 @@ const FAQ_ITEMS = [
   {
     question: "Why not just run another agent pilot on my laptop?",
     answer:
-      "Pilots die when the machine sleeps. Hosted Hermes is one always-on agent on a fenced VPS. You approve money, customer, or production actions in this browser. If it dies when the laptop sleeps, the trial failed.",
+      "Pilots die when the machine sleeps. Scheduled work and watchers do not fire if the computer is off. Hosted Hermes is one always-on agent on a fenced VPS. You approve money, customer, or production actions in this browser. If it dies when the laptop sleeps, the trial failed.",
   },
   {
     question: "Where do approvals happen?",
@@ -78,6 +79,36 @@ const FAQ_ITEMS = [
     question: "What if the agent wants to kill a process or copy itself?",
     answer:
       "It pauses. You approve or deny in thumbgate.app. Conflicting goals without a human gate is how agents ship malware. Hosted Hermes does not auto-run that.",
+  },
+  {
+    question: "How do I get started?",
+    answer:
+      "Sign in with email, Google, or Apple in this browser. Start the $10 hosted Hermes trial. There is no Mac, Windows, or Linux download. Approvals stay in thumbgate.app.",
+  },
+  {
+    question: "Do I install a desktop app?",
+    answer:
+      "No. Hosted Hermes is one always-on agent on a fenced VPS. Local desktop employees die when the laptop sleeps. Approvals stay in thumbgate.app.",
+  },
+  {
+    question: "Does the browser get full VPS access?",
+    answer:
+      "No. The browser is untrusted. A session with no matching capability cannot reach core commands. Money, customer, and production still pause for you in thumbgate.app.",
+  },
+  {
+    question: "Can I run it on my machine instead?",
+    answer:
+      "No. The $10 offer is hosted Hermes on a fenced VPS. Approvals stay in thumbgate.app. If it dies when the laptop sleeps, the trial failed.",
+  },
+  {
+    question: "Is this a training API?",
+    answer:
+      "No. We do not sell fine-tuning or a GPU cluster. Hosted Hermes is one always-on agent on a fenced VPS. $10/mo.",
+  },
+  {
+    question: "Do you train on my runs?",
+    answer:
+      "No. Your runs stay yours. We do not train our models on your data.",
   },
   {
     question: "Is this a memory or session-handoff plugin?",
@@ -136,7 +167,7 @@ export default function Home() {
           <p className="eyebrow"><span className="live-dot" /> Hosted Hermes · Fenced VPS</p>
           <h1>Hermes that stays on.</h1>
           <p className="hero-lede">
-            Hosted on a fenced VPS. Not a laptop process. Approve money, customer, or production actions in this browser. Flat $10/month. 14 days free. Cancel anytime.
+            Always on, even when your computer is off. Always awake. Always working. Hosted on a fenced VPS. Not a laptop process. You own the work. We own the machine. Approve money, customer, or production actions in this browser. Flat $10/month. 14 days free. Cancel anytime.
           </p>
           <p className="signin-note">
             Automations can draft and run. Money, customer-facing, or production actions require your approval in this browser.
@@ -155,6 +186,8 @@ export default function Home() {
           <LandingAuthPanel />
         </nav>
       </section>
+
+      <StartSurfaces />
 
       <section id="qualifier" className="section-block" data-testid="qualifier">
         <div className="section-heading">
@@ -210,10 +243,11 @@ export default function Home() {
           </article>
         </div>
       </section>
+
       <section id="setup" className="setup-section">
         <div className="section-heading">
           <p className="eyebrow">Start hosted Hermes</p>
-          <h2>Sign in. Run on VPS. Stay gated.</h2>
+          <h2>Sign in. Start on VPS. Stay gated.</h2>
         </div>
         <ol className="setup-steps">
           <li><span>01</span><div><h3>Sign in</h3><p>Google via AuthKit. Open the hosted Hermes dashboard from any browser.</p></div></li>
