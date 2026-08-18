@@ -156,25 +156,41 @@ function withGatewayHost(url, host) {
   }
 }
 
-/** Gateway URL this specific client should use. Non-LAN clients keep the canonical answer. */
+/**
+ * Gateway URL this specific client should use.
+ * CEO 2026-08-18: a Wi-Fi phone must NEVER receive 127.0.0.1 even if USB reverse
+ * is live on the Mac (cable plugged in for agents must not poison phone pairing).
+ * USB clients (loopback / non-LAN) keep the canonical loopback primary.
+ */
 function resolveClientGatewayUrl(seed, lanIp, clientIp) {
   const canonical = String(seed?.gatewayUrl || '').trim();
-  if (!canonical || !isLanClient(clientIp)) return canonical;
-  if (isLoopbackGatewayUrl(canonical)) return canonical; // live USB primary wins
+  if (!canonical) return canonical;
+  if (!isLanClient(clientIp)) return canonical;
   const lan = String(lanIp || '').trim();
   if (!lan || !isPrivateIpv4(lan)) return canonical;
+  // LAN phone: always rewrite host to LAN IP (including when canonical is USB loopback).
   return withGatewayHost(canonical, lan);
 }
 
-/** Always publish both routes so the app can fail over without a re-pair. */
+/**
+ * Always publish LAN + Tailscale routes so the app can fail over without a re-pair.
+ * CEO 2026-08-18: USB loopback primary must NOT strip alternates — that made Wi-Fi
+ * Connect show Direct LAN/Tailscale timeouts while the Mac was healthy.
+ */
 function buildRouteAlternates(seed, lanIp) {
-  const canonical = String(seed?.gatewayUrl || '').trim();
+  const canonical = String(seed?.gatewayUrl || '').trim() || 'http://127.0.0.1:8642';
   const out = {};
-  if (!canonical || isLoopbackGatewayUrl(canonical)) return out;
   const lan = String(lanIp || '').trim();
-  if (lan && isPrivateIpv4(lan)) out.lanGatewayUrl = withGatewayHost(canonical, lan);
+  if (lan && isPrivateIpv4(lan)) {
+    out.lanGatewayUrl = withGatewayHost(canonical, lan);
+  }
   const tailnetIp = localTailscaleIpv4();
-  if (tailnetIp) out.tailscaleGatewayUrl = withGatewayHost(canonical, tailnetIp);
+  if (tailnetIp) {
+    out.tailscaleGatewayUrl = withGatewayHost(canonical, tailnetIp);
+  }
+  if (isLoopbackGatewayUrl(canonical)) {
+    out.usbGatewayUrl = 'http://127.0.0.1:8642';
+  }
   return out;
 }
 
