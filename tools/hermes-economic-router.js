@@ -82,7 +82,6 @@ const ROUTES = [
     candidateOnly: true,
   },
   {
-<<<<<<< HEAD
     id: 'local_muse_glimmer',
     label: 'Meta Muse Glimmer 30B open-weight coding route',
     agent: 'coding-specialist',
@@ -113,8 +112,10 @@ const ROUTES = [
     commandEnv: {
       HERMES_YOLO_PROVIDER: 'deepseek',
       HERMES_YOLO_MODEL: 'deepseek-v4-pro',
-||||||| a5b8a5c58
-=======
+    },
+    proofGates: ['exact-marker-smoke', 'provider-key-present'],
+  },
+  {
     id: 'glm53_coding',
     label: 'GLM 5.3 coding and agentic reasoning route',
     agent: 'coding-specialist',
@@ -130,7 +131,6 @@ const ROUTES = [
       HERMES_YOLO_PROVIDER: 'custom:zai-coding-glm',
       HERMES_YOLO_MODEL: 'glm-5.3',
       HERMES_TOKEN_BUDGET_USD: '10.00',
->>>>>>> origin/main
     },
     proofGates: ['provider-key-present', 'endpoint-smoke-pass', 'receipt-written'],
   },
@@ -560,13 +560,6 @@ function scoreRoute(route, args, signals) {
       score -= 25;
     }
   }
-<<<<<<< HEAD
-  if (route.id === 'glm52_reasoning') {
-    if (signals.asksForGlm) score += 45;
-    if (signals.userDoubt || signals.architecture) score += 22;
-    if (riskValue(args.risk) >= riskValue('high')) score += 18;
-    if (signals.exactContract || signals.highVarianceReasoning) score += 25;
-||||||| a5b8a5c58
   if (route.id === 'glm53_coding' || route.id === 'glm52_reasoning') {
     if (signals.asksForGlm) score += 50;
     if (signals.userDoubt || signals.architecture || signals.longContextOrAgentic) score += 25;
