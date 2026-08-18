@@ -27,6 +27,20 @@ Compare-page copy from May 2026 still says “Free Base + Pro from $50”. **Liv
 
 Older “Pro from $50” copy remains on some comparison URLs. Treat pricing page as source of truth.
 
+## Hosting picker (official Vellum.app, 2026-08-18 12:21)
+
+Exact UI copy from the hatch **Hosting** screen:
+
+- Prompt: *Choose where you want your assistant to live.*
+- **Vellum Cloud** — *Always on, 24/7, even when your computer is off. Runs on Vellum's secure infrastructure.*
+- **Local** (selected) — *Runs directly on your machine. Your data never leaves your computer.*
+
+**Decision:** stay on **Local**. Cloud is Mighty $30+ and is not required for a Grok Bot alternative. The 24/7 idea is stolen as Hermes always-on (`hosting --choose hermes-always-on`), not a Vellum checkout.
+
+`bin/vellum-bot hosting` reproduces this picker. `--choose vellum-cloud` is spend-refused unless `VELLUM_CLOUD_PAID_OK=1`.
+
+Lockfile on this Mac is already `cloud: local`.
+
 ## Official app on Igor’s Mac (same day)
 
 - `/Applications/Vellum.app` **0.11.3** running (Electron + bun daemon/gateway/CES/schedule/memory workers)

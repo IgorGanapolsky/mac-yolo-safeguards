@@ -81,6 +81,48 @@ const VELLUM_PRICING = Object.freeze({
   },
 });
 
+/**
+ * Exact copy stolen from official Vellum.app hosting picker
+ * (screenshot 2026-08-18 12:21, window "Hosting").
+ * Official options are only Cloud vs Local. We keep Local as default
+ * and map "24/7 even when the computer is off" onto a Hermes always-on
+ * host — not a paid Vellum Cloud checkout.
+ */
+const HOSTING_PICKER = Object.freeze({
+  title: 'Hosting',
+  prompt: 'Choose where you want your assistant to live.',
+  help: 'Need help deciding?',
+  options: [
+    {
+      id: 'vellum-cloud',
+      label: 'Vellum Cloud',
+      blurb:
+        'Always on, 24/7, even when your computer is off. Runs on Vellum\'s secure infrastructure.',
+      selectedByDefault: false,
+      spendUsd: 30,
+      recommended: false,
+    },
+    {
+      id: 'local',
+      label: 'Local',
+      blurb: 'Runs directly on your machine. Your data never leaves your computer.',
+      selectedByDefault: true,
+      spendUsd: 0,
+      recommended: true,
+    },
+  ],
+  hermesAlwaysOn: {
+    id: 'hermes-always-on',
+    label: 'Hermes always-on (stolen 24/7 idea, not Vellum Cloud)',
+    blurb:
+      'LaunchAgent or user-owned VPS so work continues when the laptop sleeps. Same promise as the Cloud card; $0 Vellum platform fee.',
+    spendUsd: 0,
+    isOfficialVellumCloud: false,
+  },
+  defaultChoice: 'local',
+  screenshotAsOf: '2026-08-18T12:21:00-04:00',
+});
+
 const VELLUM_MEMORY_TYPES = Object.freeze([
   'episodic',
   'semantic',
@@ -174,6 +216,76 @@ const SECRET_NAME_RE = /(token|secret|password|bearer|guardian|api[_-]?key|auth)
 
 function botHome() {
   return process.env.VELLUM_BOT_HOME || path.join(os.homedir(), '.hermes', 'vellum-bot');
+}
+
+function hostingStatePath() {
+  return path.join(botHome(), 'hosting.json');
+}
+
+function hostingPicker() {
+  return {
+    ...HOSTING_PICKER,
+    recommendation: 'local',
+    reason:
+      'Local is already selected in official Vellum.app and matches the $0 Grok Bot alternative. Vellum Cloud is Mighty $30+ and is not required.',
+    doNot: [
+      'Do not click Vellum Cloud unless Igor explicitly authorizes spend',
+      'Do not brand ThumbGate.app as Vellum Cloud',
+    ],
+  };
+}
+
+function chooseHosting(choice, options = {}) {
+  const raw = String(choice || '').toLowerCase().trim();
+  const alias = {
+    local: 'local',
+    machine: 'local',
+    'vellum-cloud': 'vellum-cloud',
+    cloud: 'hermes-always-on',
+    'hermes-always-on': 'hermes-always-on',
+    alwayson: 'hermes-always-on',
+    'always-on': 'hermes-always-on',
+  }[raw];
+  if (!alias) {
+    return {
+      ok: false,
+      status: 'INVALID_HOSTING',
+      errors: [`unknown hosting choice: ${choice}`],
+      picker: hostingPicker(),
+    };
+  }
+  if (alias === 'vellum-cloud' && process.env.VELLUM_CLOUD_PAID_OK !== '1' && !options.paidOk) {
+    return {
+      ok: false,
+      status: 'SPEND_REFUSED',
+      errors: [
+        'Vellum Cloud is paid (Mighty $30 / Super $100 / Ultra $200). Refusing without VELLUM_CLOUD_PAID_OK=1.',
+      ],
+      keep: 'local',
+    };
+  }
+
+  let hermesMode = alias === 'hermes-always-on' ? 'cloud' : 'local';
+  if (alias === 'vellum-cloud') hermesMode = 'local';
+  try {
+    const hybrid = require('./vellum-hybrid-engine');
+    hybrid.setHostingMode(hermesMode);
+  } catch {
+    /* hybrid optional in unit isolation */
+  }
+
+  const record = {
+    choice: alias,
+    hermesMode,
+    isOfficialVellumCloud: alias === 'vellum-cloud',
+    isThumbgate: false,
+    selectedAt: new Date().toISOString(),
+    copy: HOSTING_PICKER,
+  };
+  const dest = options.destPath || hostingStatePath();
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  fs.writeFileSync(dest, JSON.stringify(record, null, 2), 'utf8');
+  return { ok: true, status: 'HOSTING_SET', dest, ...record };
 }
 
 function skipLive() {
@@ -644,6 +756,8 @@ async function runDoctor(options = {}) {
     hermesAlt: hermes,
     viableAlternative: hermes.ready,
     officialReady: official.ready,
+    hosting: hostingPicker(),
+    officialHosting: (official.lockfile && official.lockfile.assistants[0] && official.lockfile.assistants[0].cloud) || null,
     pricing: VELLUM_PRICING,
     next: hermes.ready
       ? 'Use bin/vellum-bot as the $0 Grok Bot alternative. Official Vellum stays optional.'
@@ -662,6 +776,8 @@ Commands:
   identity-pack       Print SOUL/NOW/IDENTITY; --write to disk
   inventory           Inventory-first import (land=false)
   promote --spec PATH Eval-gated skill/routine promote (draft only)
+  hosting             Official Cloud vs Local picker (default Local)
+  hosting --choose local|hermes-always-on
   example-spec        Print a valid promote spec
 `);
 }
@@ -716,6 +832,15 @@ async function main(argv) {
     console.log(JSON.stringify(result, null, 2));
     return result.ok ? 0 : 1;
   }
+  if (cmd === 'hosting') {
+    const chooseAt = args.indexOf('--choose');
+    if (chooseAt >= 0) {
+      const result = chooseHosting(args[chooseAt + 1], { paidOk: args.includes('--paid-ok') });
+      console.log(JSON.stringify(result, null, 2));
+      return result.ok ? 0 : 1;
+    }
+    return emit(hostingPicker());
+  }
   if (cmd === 'example-spec') {
     console.log(JSON.stringify(exampleSpec(), null, 2));
     return 0;
@@ -738,6 +863,9 @@ module.exports = {
   RESEARCH_AS_OF,
   OFFICIAL,
   VELLUM_PRICING,
+  HOSTING_PICKER,
+  hostingPicker,
+  chooseHosting,
   VELLUM_MEMORY_TYPES,
   MEMORY_MAP,
   STEAL_MATRIX,

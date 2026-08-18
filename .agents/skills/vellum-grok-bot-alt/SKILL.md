@@ -20,6 +20,8 @@ not ThumbGate.app.
 ```bash
 bin/vellum-bot doctor
 bin/vellum-bot compare
+bin/vellum-bot hosting
+bin/vellum-bot hosting --choose local
 bin/vellum-bot identity-pack --write
 bin/vellum-bot inventory
 bin/vellum-bot promote --spec path/to/spec.json
@@ -35,6 +37,7 @@ node tests/test-vellum-grok-bot-alt.js
 | Inventory-first import | `inventory` land=false | Upload to vellum.ai/import |
 | CES credential isolation | Keychain; doctor redacts | Print guardian tokens |
 | Skill → eval → routine | `promote` + outcome-routine-spec | Schedule untested |
+| Hosting picker (Cloud vs Local) | `hosting --choose local` (default). 24/7 steal is `hermes-always-on` | Click official **Vellum Cloud** (Mighty $30+) without spend auth |
 | Always-on | LaunchAgents / user VPS | Brand ThumbGate as Vellum Cloud |
 
 ## Official app on this Mac

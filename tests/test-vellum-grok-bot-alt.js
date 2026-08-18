@@ -13,6 +13,9 @@ const {
   VELLUM_MEMORY_TYPES,
   VELLUM_PRICING,
   compareProducts,
+  HOSTING_PICKER,
+  hostingPicker,
+  chooseHosting,
   memoryMap,
   identityPackContents,
   writeIdentityPack,
@@ -29,6 +32,7 @@ const { exampleSpec } = require('../tools/outcome-routine-spec');
 async function run() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'vellum-bot-alt-'));
   process.env.VELLUM_BOT_HOME = tmp;
+  process.env.VELLUM_HYBRID_STATE = path.join(tmp, 'hybrid-state.json');
 
   console.log('=== test-vellum-grok-bot-alt ===');
 
@@ -42,6 +46,35 @@ async function run() {
   assert.ok(cmp.hardBans.some((row) => /ThumbGate/i.test(row)));
   assert.ok(cmp.stealMatrix.length >= 6);
   console.log('  ✓ compare: competitor=true, Aug 2026 pricing, dual product');
+
+  {
+    const picker = hostingPicker();
+    assert.strictEqual(picker.title, 'Hosting');
+    assert.match(picker.prompt, /where you want your assistant to live/);
+    const cloud = picker.options.find((o) => o.id === 'vellum-cloud');
+    const local = picker.options.find((o) => o.id === 'local');
+    assert.match(cloud.blurb, /Always on, 24\/7, even when your computer is off/);
+    assert.match(local.blurb, /data never leaves your computer/);
+    assert.strictEqual(local.selectedByDefault, true);
+    assert.strictEqual(local.recommended, true);
+    assert.strictEqual(picker.recommendation, 'local');
+
+    const localSet = chooseHosting('local', { destPath: path.join(tmp, 'hosting.json') });
+    assert.strictEqual(localSet.ok, true);
+    assert.strictEqual(localSet.choice, 'local');
+    assert.strictEqual(localSet.isOfficialVellumCloud, false);
+
+    const refused = chooseHosting('vellum-cloud', { destPath: path.join(tmp, 'hosting.json') });
+    assert.strictEqual(refused.ok, false);
+    assert.strictEqual(refused.status, 'SPEND_REFUSED');
+
+    const alwaysOn = chooseHosting('cloud', { destPath: path.join(tmp, 'hosting.json') });
+    assert.strictEqual(alwaysOn.ok, true);
+    assert.strictEqual(alwaysOn.choice, 'hermes-always-on');
+    assert.strictEqual(alwaysOn.isOfficialVellumCloud, false);
+    assert.ok(HOSTING_PICKER.options.length === 2);
+    console.log('  ✓ hosting picker: Local default, Vellum Cloud spend-refused');
+  }
 
   const mapped = memoryMap();
   assert.strictEqual(VELLUM_MEMORY_TYPES.length, 8);
