@@ -64,7 +64,7 @@ export function LandingAuthNav() {
   return (
     <div className="nav-actions" data-landing-auth={session.mode}>
       <a href="#setup" className="nav-link">Setup</a>
-      <a href="#mobile" className="nav-link">Apps</a>
+      <a href="#closed-system" className="nav-link">Security</a>
       <a href="#how-it-works" className="nav-link">How it works</a>
       <a href="#pricing" className="nav-link">Pricing</a>
       {isSession ? (
@@ -77,8 +77,8 @@ export function LandingAuthNav() {
 }
 
 /**
- * Continuity-first hero CTAs. Product is fenced VPS Continuity — not Mac pairing.
- * Hermes Mobile is marketed separately on the page as a phone companion.
+ * Hosted-Hermes hero CTAs. Product is hosted Hermes on a fenced VPS — not Mac pairing.
+ * Do not market a phone leash or Hermes Mobile on this page.
  */
 export function LandingAuthHero() {
   const session = useLandingAuth();
@@ -94,7 +94,7 @@ export function LandingAuthHero() {
             className="button button-primary"
             data-funnel-event="dashboard_open_click"
           >
-            Open Continuity dashboard <span aria-hidden="true">→</span>
+            Open hosted Hermes <span aria-hidden="true">→</span>
           </a>
           <a href="/api/billing/portal" className="button button-secondary" data-funnel-event="manage_billing_click">
             You&apos;re on Pro · Manage billing
@@ -109,7 +109,7 @@ export function LandingAuthHero() {
               className="button button-primary"
               data-funnel-event="upgrade_pro_click"
             >
-              Start Continuity trial <span aria-hidden="true">→</span>
+              Start hosted Hermes trial <span aria-hidden="true">→</span>
             </button>
           </form>
           <a
@@ -117,7 +117,7 @@ export function LandingAuthHero() {
             className="button button-secondary"
             data-funnel-event="dashboard_open_click"
           >
-            Open Continuity dashboard
+            Open hosted Hermes
           </a>
         </>
       ) : (
@@ -127,14 +127,14 @@ export function LandingAuthHero() {
             className="button button-primary"
             data-funnel-event="cloud_continuity_click"
           >
-            Try Continuity — 14 days free <span aria-hidden="true">→</span>
+            Start hosted Hermes — $10/mo <span aria-hidden="true">→</span>
           </a>
           <a
             href="/api/auth/login"
             className="button button-secondary"
             data-funnel-event="sign_in_click"
           >
-            Sign in to Continuity
+            Sign in
           </a>
         </>
       )}
@@ -143,7 +143,7 @@ export function LandingAuthHero() {
 }
 
 /**
- * Private-workspace panel: Continuity VPS first (keeps public HTML free of telemetry).
+ * Private-workspace panel: hosted Hermes first (keeps public HTML free of telemetry).
  */
 export function LandingAuthPanel() {
   const mode = useLandingAuth();
@@ -163,16 +163,16 @@ export function LandingAuthPanel() {
         <a className="landing-action" href="#pricing">
           <span className="action-icon" aria-hidden="true">☁</span>
           <span>
-            <strong>Continuity (VPS)</strong>
-            <small>Fenced cloud runner with 90s leases. Continuity is the product — no Mac pair step.</small>
+            <strong>Hosted Hermes</strong>
+            <small>Fenced cloud runner with 90s leases. 14 days free, cancel anytime. No Mac pair step.</small>
           </span>
           <b aria-hidden="true">→</b>
         </a>
-        <a className="landing-action" href="#mobile">
-          <span className="action-icon" aria-hidden="true">📱</span>
+        <a className="landing-action" href="#closed-system">
+          <span className="action-icon" aria-hidden="true">🛡</span>
           <span>
-            <strong>Hermes Mobile (optional)</strong>
-            <small>Phone Leash approvals and alerts. Separate app — not ThumbGate Continuity.</small>
+            <strong>Closed-system</strong>
+            <small>Approvals stay in thumbgate.app. Fenced VPS. No phone leash.</small>
           </span>
           <b aria-hidden="true">→</b>
         </a>
@@ -203,7 +203,16 @@ export function LandingPricingCtaPaid() {
   const href = useSessionHref();
   return (
     <a href={href} className="button button-primary" data-funnel-event="cloud_continuity_click">
-      Try Continuity →
+      Start hosted Hermes — $10/mo →
+    </a>
+  );
+}
+
+export function LandingPricingCtaTeam() {
+  const href = useSessionHref();
+  return (
+    <a href={href} className="button button-secondary" data-funnel-event="team_continuity_click">
+      Team — $49/mo →
     </a>
   );
 }
