@@ -123,7 +123,7 @@ export function LandingAuthHero() {
       ) : (
         <>
           <a
-            href="#pricing"
+            href="/api/auth/login"
             className="button button-primary"
             data-funnel-event="cloud_continuity_click"
           >

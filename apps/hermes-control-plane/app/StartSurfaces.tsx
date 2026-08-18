@@ -58,7 +58,7 @@ export function StartSurfaces() {
               </li>
             </ul>
             <a
-              href="#pricing"
+              href="/api/auth/login"
               className="button button-primary"
               data-funnel-event="cloud_continuity_click"
               data-testid="start-browser"
