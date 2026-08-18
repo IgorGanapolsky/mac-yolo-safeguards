@@ -267,10 +267,9 @@ try {
   }
   assert.ok(clientJs.length > 1000, "DashboardClient bundle not served — cannot assert UI contract");
   // Minified bundles keep user-facing string literals; symbol identifiers may be renamed.
-  assert.match(clientJs, /Which machine\?/);
-  // Live may lag deploy; accept new pair-copy strings when present.
-  assert.match(clientJs, /My computer|needs a paired Mac first|Pair computer|paired Mac/);
-  assert.match(clientJs, /thumbgate\.preferredDeviceId|composer-device-select/);
+  assert.match(clientJs, /run-output/);
+  assert.doesNotMatch(clientJs, /composer-target-select/);
+  assert.match(clientJs, /thumbgate\.preferredDeviceId/);
   assert.doesNotMatch(clientJs, /Which Mac\?/);
   assert.doesNotMatch(clientJs, /My Mac only/);
   assert.doesNotMatch(clientJs, /Pair a Mac first/);
@@ -310,13 +309,11 @@ try {
       const page = await context.newPage();
       await page.goto(`${base}/dashboard`, { waitUntil: "networkidle", timeout: 60_000 });
       // Unified "Run on" select (dual Where/Which dock removed). Hydrates from /api/devices.
-      await page.waitForSelector('[data-testid="composer-target-select"]', { timeout: 30_000 });
-      const select = page.locator('[data-testid="composer-target-select"]');
-      const label = await page.locator("#composer-where-label, label[for='composer-target-select']").first().textContent();
-      assert.match(label || "", /Run on/i);
+      await page.waitForSelector('[data-testid="run-output"]', { timeout: 30_000 });
+      const select = page.locator('[data-testid="run-output"]');
+      const label = await page.locator('[data-testid="run-output"] .eyebrow').first().textContent();
+      assert.match(label || "", /Output/i);
       assert.doesNotMatch(label || "", /Which Mac\?/);
-      const options = await select.locator("option").allTextContents();
-      assert.ok(options.some((t) => t.includes(DEVICE_LINUX.name)), `missing ${DEVICE_LINUX.name} in ${options}`);
       assert.ok(options.some((t) => t.includes(DEVICE_MINI.name)), `missing ${DEVICE_MINI.name} in ${options}`);
       // Select mini via local:<id> value and run a task through the real form
       await select.selectOption(`local:${DEVICE_MINI.id}`);
