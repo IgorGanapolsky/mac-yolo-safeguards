@@ -2,7 +2,7 @@
  * Vellum computer-use grant windows, adapted for hosted Hermes on a fenced VPS.
  *
  * Steal: once / 10 minutes / always. Default deny. Approvals stay in thumbgate.app.
- * Do not steal: Cloud vs Local picker, Continuity as a public noun, phone leash.
+ * Do not steal: a hosting picker, memory-handoff as the public noun, or companion-app approvals.
  */
 
 export const GRANT_DURATION_POLICY_VERSION = "2026-08-18.1";
