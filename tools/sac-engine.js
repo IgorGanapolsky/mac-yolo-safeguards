@@ -506,14 +506,14 @@ class AgenticSearchSDK {
       const status = confidence >= 0.7 ? 'VERIFIED' : confidence >= 0.4 ? 'PARTIAL_EVIDENCE' : 'UNSUPPORTED';
 
       // Find best citation source
-      let bestSource = 'unknown';
+      let bestSource = evidenceRecords[0]?.source || evidenceRecords[0]?.url || evidenceRecords[0]?.id || 'unknown';
       let highestOverlap = 0;
       for (const ev of evidenceRecords) {
         const evText = `${ev.title || ''} ${ev.snippet || ''} ${ev.content || ''}`.toLowerCase();
         const overlap = claimTokens.filter((t) => evText.includes(t)).length;
         if (overlap > highestOverlap) {
           highestOverlap = overlap;
-          bestSource = ev.source || ev.url || ev.id || 'unknown';
+          bestSource = ev.source || ev.url || ev.id || bestSource;
         }
       }
 

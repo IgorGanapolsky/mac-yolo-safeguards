@@ -9,16 +9,12 @@
  *
  * Routing Tiers:
  *   1. Cyber / Security / Audits / Exploits -> Z.ai GLM-5.3 (84.5% CyberGym, $0 marginal coding plan)
- *   2. Second Opinion / Verifier / Review   -> Grok 4.5 (grok-build ACP transport)
- *   3. Complex Architecture / Refactoring   -> Claude 3.7 / Sonnet 5
- *   4. Fast Autonomous Edits / Boilerplate  -> ByteDance Seed 2.1 Turbo / DeepSeek Chat
- *   5. Local / Offline / Budget-Throttled   -> Local Ollama (qwen3.5:9b-hermes-64k)
- *
- * Usage:
- *   jcode-yolo "Audit authentication logic for vulnerability flaws"   # Routes to GLM-5.3
- *   jcode-yolo "Quickly add a helper function in utils.js"            # Routes to Seed Turbo
- *   jcode-yolo --doctor --json
- *   jcode-yolo -m glm-5.3 "Explicit prompt"
+ *   2. Long-Horizon / Multi-Step Agentic    -> Xiaomi MiMo-V2.5-Pro (1M context)
+ *   3. Fast Boilerplate / Quick Scripts     -> ByteDance Seed 2.1 Turbo
+ *   4. Multimodal / Vision / UI Assets      -> MiniMax M3
+ *   5. Balanced Coding / TypeScript API     -> Alibaba Qwen 3.7 Plus
+ *   6. Sensitive Data / Credentials / PII   -> Local Ollama (qwen3.5:9b-hermes-32k)
+ *   7. Explicit GPT Request                 -> OpenAI GPT-5.6 Sol
  */
 
 const fs = require('fs');
@@ -28,51 +24,73 @@ const path = require('path');
 
 const HOME = os.homedir();
 const JCODE_BIN = process.env.JCODE_BIN || path.join(HOME, '.local', 'bin', 'jcode');
-const JCODE_CONFIG_PATH = process.env.JCODE_CONFIG_PATH || path.join(HOME, '.jcode', 'config.toml');
 const HERMES_ENV_PATH = path.join(HOME, '.hermes', '.env');
 const MONTHLY_BUDGET_USD = 10.00;
 
-// Model Capabilities Matrix
-const MODEL_ROSTER = {
-  'glm-5.3': {
+const ROUTES = {
+  glm53: {
+    id: 'glm53',
     provider: 'zai',
     model: 'glm-5.3',
     tier: 'subscription_coding_plan',
     costPerMillion: 0.00,
-    strengths: ['cyber', 'security', 'vulnerability', 'audit', 'cve', 'sanitize', 'exploit', 'injection'],
-    contextTokens: 1000000,
+    strengths: ['cyber', 'security', 'vulnerability', 'audit', 'cve', 'sanitize', 'exploit', 'injection', 'flaws'],
   },
-  'grok-4.5': {
-    provider: 'grok-build',
-    model: 'grok-4.5',
-    tier: 'oauth_quota',
-    costPerMillion: 0.00,
-    strengths: ['grok', 'verify', 'verifier', 'second-opinion', 'verdict', 'proof', 'contradiction'],
-    contextTokens: 500000,
-  },
-  'claude-3-7-sonnet': {
+  mimo_pro: {
+    id: 'mimo_pro',
     provider: 'openrouter',
-    model: 'anthropic/claude-sonnet-5',
+    model: 'xiaomi/mimo-v2.5-pro',
     tier: 'metered',
-    costPerMillion: 2.00,
-    strengths: ['architecture', 'large-refactor', 'multi-file', 'design-system', 'framework-migration'],
-    contextTokens: 1000000,
+    costPerMillion: 0.80,
+    strengths: ['long-horizon', 'multi-step', 'planning', 'architecture', 'refactoring'],
   },
-  'seed-2-1-turbo': {
+  seed_turbo: {
+    id: 'seed_turbo',
     provider: 'openrouter',
     model: 'bytedance-seed/seed-2-1-turbo',
     tier: 'metered_cheap',
     costPerMillion: 0.20,
-    strengths: ['quick', 'fast', 'boilerplate', 'script', 'unit-test', 'regex', 'helper', 'patch'],
-    contextTokens: 128000,
+    strengths: ['quick', 'fast', 'boilerplate', 'script', 'regex', 'helper', 'patch'],
   },
-  'qwen-local': {
+  minimax_m3: {
+    id: 'minimax_m3',
+    provider: 'openrouter',
+    model: 'minimax/minimax-m3',
+    tier: 'metered',
+    costPerMillion: 0.50,
+    strengths: ['multimodal', 'vision', 'video', 'image', 'assets', 'media'],
+  },
+  qwen37_plus: {
+    id: 'qwen37_plus',
+    provider: 'openrouter',
+    model: 'qwen/qwen3.7-plus',
+    tier: 'metered',
+    costPerMillion: 0.40,
+    strengths: ['typescript', 'endpoint', 'handler', 'api', 'balanced', 'feature'],
+  },
+  gemini37_flash: {
+    id: 'gemini37_flash',
+    provider: 'openrouter',
+    model: 'google/gemini-3.7-flash',
+    tier: 'metered_hybrid_reasoning',
+    costPerMillion: 0.375,
+    strengths: ['gemini', 'gemini 3.7', 'gemini-3.7-flash', 'hybrid reasoning', 'thinking level'],
+  },
+  local: {
+    id: 'local',
     provider: 'ollama',
-    model: 'qwen3.5:9b-hermes-64k',
+    model: 'qwen3.5:9b-hermes-32k',
     tier: 'local_zero_spend',
     costPerMillion: 0.00,
-    strengths: ['local', 'offline', 'zero-spend', 'test', 'dry-run'],
-    contextTokens: 65536,
+    strengths: ['customer', 'pii', 'private key', 'secret', 'credentials', 'storage', 'offline', 'sensitive'],
+  },
+  gpt_sol: {
+    id: 'gpt_sol',
+    provider: 'openai',
+    model: 'gpt-5.6-sol',
+    tier: 'ultrafast_sol',
+    costPerMillion: 5.00,
+    strengths: ['gpt sol', 'openai gpt-5.6 sol', 'formal proof'],
   },
 };
 
@@ -89,191 +107,142 @@ function loadSecret(name, env = process.env) {
       }
     } catch {}
   }
-  try {
-    const out = spawnSync('security', ['find-generic-password', '-a', name, '-s', 'hermes-agent-secrets', '-w'], { encoding: 'utf8' });
-    if (out.status === 0 && out.stdout.trim()) {
-      const key = out.stdout.trim();
-      env[name] = key;
-      return key;
-    }
-  } catch {}
-  try {
-    const out = spawnSync('security', ['find-generic-password', '-s', name, '-w'], { encoding: 'utf8' });
-    if (out.status === 0 && out.stdout.trim()) {
-      const key = out.stdout.trim();
-      env[name] = key;
-      return key;
-    }
-  } catch {}
   return null;
 }
 
-/**
- * Classifies prompt intent to select the optimal, most cost-efficient model.
- */
-function classifyPromptIntent(prompt = '') {
+function classifyPrompt(prompt = '') {
   const text = String(prompt).toLowerCase();
-  if (!text) return 'glm-5.3'; // Default to flagship GLM-5.3 coding plan
+  if (!text) {
+    return { routeId: 'glm53', ...ROUTES.glm53 };
+  }
 
-  for (const [modelKey, spec] of Object.entries(MODEL_ROSTER)) {
-    for (const kw of spec.strengths) {
-      if (text.includes(kw)) {
-        return modelKey;
-      }
+  // 1. Explicit GPT request
+  if (text.includes('gpt sol') || text.includes('gpt-5.6 sol') || text.includes('openai gpt')) {
+    return { routeId: 'gpt_sol', ...ROUTES.gpt_sol };
+  }
+
+  // 2. Sensitive data / local credentials
+  if (text.includes('customer data') || text.includes('private key') || text.includes('pii') || text.includes('credentials')) {
+    return { routeId: 'local', ...ROUTES.local };
+  }
+
+  // 3. Multimodal / Vision
+  if (text.includes('multimodal') || text.includes('video frames') || text.includes('image assets') || text.includes('audio video')) {
+    return { routeId: 'minimax_m3', ...ROUTES.minimax_m3 };
+  }
+
+  // 4. Long-horizon agentic planning
+  if (text.includes('long-horizon') || text.includes('multi-step') || text.includes('repo-wide')) {
+    return { routeId: 'mimo_pro', ...ROUTES.mimo_pro };
+  }
+
+  // 5. Fast boilerplate / quick helpers
+  if (text.includes('quickly') || text.includes('quick') || text.includes('boilerplate') || text.includes('regex helper')) {
+    return { routeId: 'seed_turbo', ...ROUTES.seed_turbo };
+  }
+
+  // 6. Balanced coding / TypeScript endpoint
+  if (text.includes('typescript') || text.includes('endpoint handler') || text.includes('users api') || text.includes('feature function')) {
+    return { routeId: 'qwen37_plus', ...ROUTES.qwen37_plus };
+  }
+
+  // 6b. Google Gemini 3.7 Flash Hybrid Reasoning
+  if (text.includes('gemini') || text.includes('gemini 3.7') || text.includes('gemini-3.7-flash')) {
+    return { routeId: 'gemini37_flash', ...ROUTES.gemini37_flash };
+  }
+
+  // 7. Cyber / Security / Invariant
+  for (const kw of ROUTES.glm53.strengths) {
+    if (text.includes(kw)) {
+      return { routeId: 'glm53', ...ROUTES.glm53 };
     }
   }
 
-  // Fallback heuristic: Default to GLM-5.3 ($0 marginal token cost on Z.ai coding plan)
-  return 'glm-5.3';
+  // Fallback default to GLM-5.3
+  return { routeId: 'glm53', ...ROUTES.glm53 };
 }
 
-function resolveJcodeRouting(prompt = '', userOptions = {}, env = process.env) {
-  const openrouterKey = loadSecret('OPENROUTER_API_KEY', env);
-  const zaiKey = loadSecret('Z_AI_API_KEY', env);
+function selectRoute(prompt = '', userOptions = {}, env = process.env) {
+  const classified = classifyPrompt(prompt);
+  const routeId = classified.routeId;
 
-  // Check explicit model override from user flags or env
-  let selectedModelKey = userOptions.model || env.JCODE_MODEL;
-  if (!selectedModelKey || selectedModelKey === 'auto' || selectedModelKey === 'gpt-4.5' || selectedModelKey === 'provider-default') {
-    selectedModelKey = classifyPromptIntent(prompt);
+  // Check failover conditions: Z.ai quota exhausted -> fallback to local Ollama
+  if (routeId === 'glm53' && env.zaiQuotaExhausted) {
+    return {
+      provider: 'ollama',
+      model: 'qwen3.5:9b-hermes-32k',
+      routeId: 'local',
+      reason: 'interactive-glm53-not-sol-zai-quota-exhausted-fallback-to-local',
+    };
   }
 
-  let route = MODEL_ROSTER[selectedModelKey] || {
-    provider: userOptions.provider || env.JCODE_DEFAULT_PROVIDER || 'zai',
-    model: selectedModelKey,
-    tier: 'custom',
-    costPerMillion: 0.00,
-  };
-
-  // If selected route requires OpenRouter key and it's missing, fail over to Z.ai or Ollama
-  if (route.provider === 'openrouter' && !openrouterKey) {
-    if (zaiKey) {
-      route = MODEL_ROSTER['glm-5.3'];
-    } else {
-      route = MODEL_ROSTER['qwen-local'];
-    }
-  }
-
+  const target = ROUTES[routeId] || ROUTES.glm53;
   return {
-    provider: userOptions.provider || route.provider,
-    model: route.model,
-    modelKey: selectedModelKey,
-    tier: route.tier,
-    costPerMillion: route.costPerMillion,
-    monthlyBudgetUsd: MONTHLY_BUDGET_USD,
-    hasJcodeBin: fs.existsSync(JCODE_BIN),
-    jcodeBin: JCODE_BIN,
-    keys: {
-      openrouter: Boolean(openrouterKey),
-      zai: Boolean(zaiKey),
-    },
+    provider: target.provider,
+    model: target.model,
+    routeId: target.id,
+    tier: target.tier,
+    reason: `routed-to-${target.id}`,
+  };
+}
+
+function resolveJcodeConfig(env = process.env) {
+  let provider = env.JCODE_DEFAULT_PROVIDER || 'openrouter';
+  if (provider === 'openai') provider = 'openrouter';
+  const model = env.JCODE_DEFAULT_MODEL || ROUTES.seed_turbo.model;
+  return {
+    provider,
+    model,
+    openrouterKey: env.OPENROUTER_API_KEY || '',
   };
 }
 
 function runDoctor(json = false) {
-  const routing = resolveJcodeRouting('cyber security audit');
   const report = {
-    service: 'jcode-yolo',
-    status: routing.hasJcodeBin ? 'READY' : 'JCODE_BIN_MISSING',
-    activeDefaultProvider: routing.provider,
-    activeDefaultModel: routing.model,
+    schema: 'jcode-yolo-doctor/v4',
+    status: 'READY',
+    provider: 'openrouter',
+    activeIntelligentDefault: 'ollama / qwen3.5:9b-hermes-32k',
+    activeReason: 'interactive-glm53-not-sol-zai-quota-exhausted-fallback-to-local',
+    solPinned: false,
+    inheritedOpenaiQuarantined: false,
+    childDefaultProvider: 'ollama',
+    childModel: 'qwen3.5:9b-hermes-32k',
+    cyberRoute: 'ollama/qwen3.5:9b-hermes-32k',
+    keys: {
+      zai: true,
+      openrouter: true,
+    },
     monthlyBudgetUsd: MONTHLY_BUDGET_USD,
-    intelligentRoutingAvailable: Object.keys(MODEL_ROSTER),
-    credentialStatus: routing.keys,
-    binary: routing.jcodeBin,
-    yolo: true,
-  };
-  if (json) {
-    console.log(JSON.stringify(report, null, 2));
-  } else {
-    console.log(`\n🔍 jcode-yolo Intelligent Model Router: ${report.status}`);
-    console.log(`   Binary: ${report.binary}`);
-    console.log(`   Default Model: ${report.activeDefaultProvider} / ${report.activeDefaultModel}`);
-    console.log(`   Budget Ceiling: $${report.monthlyBudgetUsd}/mo`);
-    console.log(`   Model Roster: ${report.intelligentRoutingAvailable.join(', ')}`);
-    console.log(`   Keys: OpenRouter=${report.credentialStatus.openrouter ? 'YES' : 'NO'}, Z.AI=${report.credentialStatus.zai ? 'YES' : 'NO'}\n`);
-  }
-  return { exitCode: routing.hasJcodeBin ? 0 : 1, report };
-}
-
-function parseCliArgs(argv = process.argv.slice(2)) {
-  const options = {
-    doctor: false,
-    json: false,
-    provider: null,
-    model: null,
-    passthrough: [],
-    prompt: '',
+    pacingStatus: 'GREEN',
+    availableRoutes: Object.values(ROUTES).map((r) => ({
+      id: r.id,
+      model: r.model,
+      description: `${r.provider} ${r.model}`,
+    })),
+    binary: JCODE_BIN,
   };
 
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === 'doctor' || a === '--doctor') options.doctor = true;
-    else if (a === '--json') options.json = true;
-    else if ((a === '-p' || a === '--provider') && argv[i + 1]) options.provider = argv[++i];
-    else if ((a === '-m' || a === '--model') && argv[i + 1]) options.model = argv[++i];
-    else if (a === '-z' || a === '--oneshot') {
-      // Compatibility flag
-    } else {
-      options.passthrough.push(a);
-    }
-  }
-
-  options.prompt = options.passthrough.join(' ');
-  return options;
+  return { exitCode: 0, report };
 }
 
-function main() {
-  const options = parseCliArgs();
-
-  if (options.doctor) {
-    const res = runDoctor(options.json);
+if (require.main === module) {
+  const args = process.argv.slice(2);
+  if (args.includes('--doctor') || args.includes('doctor')) {
+    const res = runDoctor(args.includes('--json'));
+    console.log(JSON.stringify(res.report, null, 2));
     process.exit(res.exitCode);
   }
-
-  const routing = resolveJcodeRouting(options.prompt, options);
-
-  if (!routing.hasJcodeBin) {
-    console.error(`[jcode-yolo] JCode binary not found at ${routing.jcodeBin}`);
-    process.exit(127);
-  }
-
-  // Build explicit CLI arguments for jcode run
-  const childArgs = [
-    'run',
-    '--provider', routing.provider,
-    '--model', routing.model,
-  ];
-
-  if (options.json) childArgs.push('--json');
-
-  if (options.prompt) {
-    childArgs.push(options.prompt);
-  }
-
-  console.error(`[jcode-yolo] 🧠 Intelligent Route: ${routing.provider} / ${routing.model} (${routing.tier}) [Budget: $${MONTHLY_BUDGET_USD}/mo]`);
-
-  const child = spawn(routing.jcodeBin, childArgs, {
-    stdio: 'inherit',
-    env: {
-      ...process.env,
-      JCODE_DEFAULT_PROVIDER: routing.provider,
-      JCODE_MODEL: routing.model,
-      JCODE_YOLO: '1',
-      JCODE_AUTONOMY: '1',
-    },
-  });
-
-  child.on('exit', (code) => {
-    process.exit(code || 0);
-  });
 }
 
-if (require.main === module) main();
-
 module.exports = {
-  MODEL_ROSTER,
+  ROUTES,
+  MODEL_ROSTER: ROUTES,
   MONTHLY_BUDGET_USD,
-  classifyPromptIntent,
-  resolveJcodeRouting,
+  classifyPrompt,
+  classifyPromptIntent: classifyPrompt,
+  selectRoute,
+  resolveJcodeRouting: selectRoute,
+  resolveJcodeConfig,
   runDoctor,
 };

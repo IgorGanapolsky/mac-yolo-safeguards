@@ -4,5 +4,9 @@
     "@scure/base": "^2.2.0"
   },
   "name": "mac-yolo-safeguards",
-  "private": true
+  "private": true,
+  "scripts": {
+    "typecheck:fast": "node tools/fast-ts-check.js",
+    "test": "node --test tests/*.js"
+  }
 }

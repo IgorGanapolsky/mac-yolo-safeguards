@@ -1,5 +1,5 @@
 # BrightTALK Daily Strategy Synthesis Report
-**Generated at**: 2026-08-12T23:29:38.998Z
+**Generated at**: 2026-08-18T04:06:00.633Z
 **Source Feed**: https://www.brighttalk.com/mybrighttalk/my-feed
 
 ---
