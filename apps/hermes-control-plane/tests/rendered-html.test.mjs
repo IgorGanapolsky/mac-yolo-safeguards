@@ -182,4 +182,8 @@ test("keeps secrets server-side, redirects mutable, and device requests signed",
   assert.doesNotMatch(logout, /Response\.redirect\(/);
   assert.match(logout, /"set-cookie": clearSessionCookie\(\)/);
   assert.doesNotMatch(callback, /localStorage|sessionStorage/);
+
+  // Target selector must be completely absent when zero paired machines exist (pure Cloud VPS).
+  assert.match(dashboard, /devices\.length > 0 \?/);
+  assert.match(dashboard, /is-cloud-only|sr-only/);
 });

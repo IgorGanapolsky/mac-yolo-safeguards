@@ -142,3 +142,17 @@ test("no region is clipped without its own scrollport", async ({ page }) => {
     `these regions clip content with no way to scroll to it: ${JSON.stringify(offenders, null, 2)}`,
   ).toEqual([]);
 });
+
+test("capacity meter stays compact on mobile (<=40px)", async ({ page }) => {
+  await page.goto("/dashboard");
+
+  // The capacity meter must stay compact on phone (<=40px).
+  const meter = page.locator(".continuity-usage-meter");
+  if (await meter.count()) {
+    const meterBox = await box(meter);
+    expect(
+      meterBox.height,
+      `continuity meter is ${meterBox.height}px on mobile -- it must stay <=40px to preserve conversation space`,
+    ).toBeLessThanOrEqual(40);
+  }
+});
