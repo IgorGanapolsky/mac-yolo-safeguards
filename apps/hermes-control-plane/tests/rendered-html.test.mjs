@@ -132,6 +132,8 @@ test("builds the public Continuity VPS landing page", async () => {
   assert.match(page, /id="faq"/);
   assert.match(page, /What is ThumbGate\?/);
   assert.match(page, /Where do approvals happen\?/);
+  assert.match(page, /What if the agent wants to kill a process or copy itself\?/);
+  assert.match(page, /does not auto-run that/);
   assert.doesNotMatch(page, /id="mobile"/);
   assert.match(page, /id="pricing"/);
   assert.match(page, /data-testid="sleep-vs-vps"/);
