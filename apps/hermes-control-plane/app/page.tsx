@@ -65,7 +65,7 @@ const FAQ_ITEMS = [
   {
     question: "Can I cancel anytime?",
     answer:
-      "Yes. Cancel anytime from billing in thumbgate.app. The 14-day trial is the whole offer — a recovered Continuity run or you cancel. No annual bonus stack.",
+      "Yes. Cancel anytime from billing in thumbgate.app. One offer, one clock, one number: $10/mo and 14 days. If the agent dies when the laptop sleeps, the trial failed. No cash-ROI refund.",
   },
   {
     question: "Is this a closed system?",
@@ -137,8 +137,8 @@ export default function Home() {
           <LandingAuthHero />
           <p className="signin-note">Sign in with email, Google, or Apple. Approvals stay in this browser.</p>
           <div className="trust-row">
-            <span>14 days free · cancel anytime</span>
-            <span>Flat $10/month</span>
+            <span>One offer · $10/mo</span>
+            <span>One clock · 14-day trial</span>
             <span>Approvals in thumbgate.app</span>
           </div>
         </div>
@@ -158,12 +158,30 @@ export default function Home() {
         <div className="steps-grid">
           <article>
             <h3>Yes</h3>
-            <p>Start Continuity. In 14 days you get a recovered Continuity run or you cancel. Flat $10/mo after the trial. Cancel anytime.</p>
+            <p>Keep one agent alive 14 days on a VPS. Approve in the browser. If it dies when the laptop sleeps, the trial failed. Cancel anytime. No cash-ROI refund theater.</p>
             <p><a href="#pricing" className="button button-primary" data-funnel-event="cloud_continuity_click">{PRO_CTA}</a></p>
           </article>
           <article>
             <h3>No</h3>
             <p>This product is not for you. We do not sell restaurant call capture, home-services agency work, or a vault of workflows.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="one-offer" className="section-block" data-testid="one-offer">
+        <div className="section-heading">
+          <p className="eyebrow">One offer · one clock · one number</p>
+          <h2>$10/mo. 14 days to keep one agent alive.</h2>
+          <p>Drop the agent on a fenced VPS. Approvals stay at thumbgate.app. Not a vault of n8n templates. Not a second SKU.</p>
+        </div>
+        <div className="steps-grid">
+          <article>
+            <h3>The trial is execution</h3>
+            <p>Keep one coding agent running 14 days on a Continuity VPS. You approve in this browser. If the run dies when the laptop sleeps, the trial failed.</p>
+          </article>
+          <article>
+            <h3>One path</h3>
+            <p>Sign in. Start the $10 Continuity trial. Dispatch work. No workflow dump, no annual bonus stack, no invented refund.</p>
           </article>
         </div>
       </section>

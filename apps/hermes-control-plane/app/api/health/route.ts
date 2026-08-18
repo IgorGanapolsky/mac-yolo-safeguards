@@ -10,6 +10,8 @@ export async function GET() {
          (SELECT COUNT(*) FROM sqlite_master
            WHERE type = 'table'
              AND name IN ('organizations', 'funnel_counters', 'audit_events', 'devices', 'billing_events')) AS table_count,
+         (SELECT COUNT(*) FROM users) AS users_total,
+         (SELECT COUNT(*) FROM organizations) AS organizations_total,
          (SELECT COUNT(*) FROM sessions WHERE expires_at > ?) AS active_sessions,
          (SELECT COUNT(*) FROM devices WHERE revoked_at IS NULL) AS active_devices,
          (SELECT MAX(last_seen_at) FROM devices WHERE revoked_at IS NULL) AS device_heartbeat_latest_at,
@@ -27,9 +29,12 @@ export async function GET() {
          (SELECT COUNT(*) FROM audit_events WHERE created_at >= ? AND action = 'billing.checkout.failed') AS checkout_failed_last_24h,
          (SELECT COUNT(*) FROM audit_events WHERE created_at >= ? AND action = 'billing.portal.created') AS portal_created_last_24h,
          (SELECT COUNT(*) FROM audit_events WHERE created_at >= ? AND action = 'billing.portal.failed') AS portal_failed_last_24h,
-         (SELECT COUNT(*) FROM billing_events WHERE processed_at >= ? AND event_type NOT LIKE '%.canary') AS billing_events_last_24h`,
+         (SELECT COUNT(*) FROM billing_events WHERE processed_at >= ? AND event_type NOT LIKE '%.canary') AS billing_events_last_24h,
+         (SELECT COUNT(*) FROM organizations WHERE plan IN ('pro', 'team')) AS paid_organizations_total`,
     ).bind(now, day, day, day, day, dayAgo, dayAgo, dayAgo, dayAgo, dayAgo, dayAgo, dayAgo).first<{
       table_count: number;
+      users_total: number;
+      organizations_total: number;
       active_sessions: number;
       active_devices: number;
       device_heartbeat_latest_at: number | null;
@@ -48,6 +53,7 @@ export async function GET() {
       portal_created_last_24h: number;
       portal_failed_last_24h: number;
       billing_events_last_24h: number;
+      paid_organizations_total: number;
     }>();
     if (Number(health?.table_count) !== 5) {
       throw new Error("required D1 migrations are missing");
@@ -66,13 +72,15 @@ export async function GET() {
       ok: true,
       ready: concerns.length === 0,
       status: concerns.length === 0 ? "ok" : "degraded",
-      service: "thumbgate-continuity",
+      service: "leash-control",
       database: "available",
       schema: "current",
       checkedAt: now,
       config,
       concerns,
       telemetry: {
+        usersTotal: Number(health?.users_total ?? 0),
+        organizationsTotal: Number(health?.organizations_total ?? 0),
         activeSessions: Number(health?.active_sessions ?? 0),
         activeDevices: Number(health?.active_devices ?? 0),
         deviceHeartbeatLatestAt: health?.device_heartbeat_latest_at ?? null,
@@ -91,6 +99,7 @@ export async function GET() {
         portalCreatedLast24h: Number(health?.portal_created_last_24h ?? 0),
         portalFailedLast24h: Number(health?.portal_failed_last_24h ?? 0),
         billingEventsLast24h: Number(health?.billing_events_last_24h ?? 0),
+        paidOrganizationsTotal: Number(health?.paid_organizations_total ?? 0),
       },
     });
   } catch (error) {
@@ -100,7 +109,7 @@ export async function GET() {
     return Response.json(
       {
         ok: false,
-        service: "thumbgate-continuity",
+        service: "leash-control",
         database: "unavailable",
         schema: "unknown",
         code: "LEASH_DATABASE_UNAVAILABLE",

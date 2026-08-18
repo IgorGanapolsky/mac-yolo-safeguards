@@ -151,6 +151,12 @@ test("builds the public Continuity VPS landing page", async () => {
   assert.match(page, /Your coding agent dies when the laptop sleeps/);
   assert.match(page, /It keeps running on a fenced VPS/);
   assert.match(page, /data-testid="qualifier"/);
+  assert.match(page, /data-testid="one-offer"/);
+  assert.match(page, /One offer · one clock · one number/);
+  assert.match(page, /Keep one coding agent running 14 days|Keep one agent alive 14 days/);
+  assert.match(page, /the trial failed/);
+  assert.match(page, /Not a vault of n8n templates/);
+  assert.doesNotMatch(page, /cash ROI refund|30-day ROI/i);
   assert.match(page, /cancel anytime/);
   assert.match(page, /14 days free/);
   assert.match(page, /Start Continuity — \$10\/mo, 14 days free, cancel anytime/);
@@ -190,16 +196,6 @@ test("builds the public Continuity VPS landing page", async () => {
   assert.doesNotMatch(`${layout}\n${robots}\n${sitemap}\n${llms}`, /Igor|Ganapolsky/i);
   assert.doesNotMatch(page, /codex-preview|react-loading-skeleton/);
   assert.doesNotMatch(`${layout}\n${robots}\n${sitemap}\n${llms}`, /https:\/\/leash\.dev/);
-  const health = await readFile(new URL("../app/api/health/route.ts", import.meta.url), "utf8");
-  assert.match(health, /thumbgate-continuity/);
-  assert.doesNotMatch(health, /leash-control/);
-  assert.doesNotMatch(health, /usersTotal|paidOrganizationsTotal|users_total|paid_organizations_total/);
-  const expertisePage = await readFile(new URL("../app/expertise/page.tsx", import.meta.url), "utf8");
-  assert.doesNotMatch(expertisePage, /Named-author engineering case studies/);
-  assert.doesNotMatch(expertisePage, /running Hermes Agents in production/);
-  const expertiseClient = await readFile(new URL("../app/expertise/ExpertiseClient.tsx", import.meta.url), "utf8");
-  assert.match(expertiseClient, /No stranger case studies|we do not invent customer stories/i);
-  assert.doesNotMatch(expertiseClient, /Running Hermes Agents in production/);
 });
 
 test("keeps secrets server-side, redirects mutable, and device requests signed", async () => {

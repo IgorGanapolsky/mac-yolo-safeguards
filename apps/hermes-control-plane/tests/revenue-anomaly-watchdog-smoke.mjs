@@ -153,7 +153,7 @@ try {
   const health = await fetch(`http://127.0.0.1:${port}/api/health`);
   const healthPayload = await health.json();
   assert.equal(healthPayload.telemetry.billingEventsLast24h, 1);
-  assert.equal(healthPayload.telemetry.paidOrganizationsTotal, undefined);
+  assert.equal(healthPayload.telemetry.paidOrganizationsTotal, 2);
 
   // --- Check 1: baseline. Must never alert on a first run. ---
   await runWatchdog();
@@ -189,17 +189,20 @@ try {
   assert.equal(alerts[1].title, "ThumbGate revenue: billing events resumed");
   console.log("PASS: real D1 proof — recovery notice fired once after billing events resumed");
 
-  // --- Org-count drop is no longer visible on public /api/health. ---
+  // --- Org-count drop: org-b churns off the paid plan. ---
   d1Execute(`UPDATE organizations SET plan = 'trial', updated_at = ${Date.now()} WHERE id = 'org-b'`);
   const droppedHealth = await (await fetch(`http://127.0.0.1:${port}/api/health`)).json();
-  assert.equal(droppedHealth.telemetry.paidOrganizationsTotal, undefined);
+  assert.equal(droppedHealth.telemetry.paidOrganizationsTotal, 1);
   await runWatchdog();
-  assert.equal(alerts.length, 2, "public health must not leak paid-org census, so no churn alert");
-  console.log("PASS: public /api/health strips paidOrganizationsTotal — no invented census leak");
+  assert.equal(alerts.length, 3, "must alert exactly once on the paid-org-count drop");
+  assert.equal(alerts[2].title, "ThumbGate revenue: paid organizations dropped");
+  assert.equal(alerts[2].priority, "high");
+  assert.match(alerts[2].body, /paidOrganizationsTotal dropped from 2 to 1/);
+  console.log("PASS: real D1 proof — org-count-drop alert fired with correct before/after");
 
-  // --- Healthy again: real billing activity present. ---
+  // --- Healthy again: unchanged org count, real billing activity present. ---
   await runWatchdog();
-  assert.equal(alerts.length, 2, "a normal/healthy state after recovery stays silent");
+  assert.equal(alerts.length, 3, "a normal/healthy state after the drop must stay silent");
   console.log("PASS: real D1 proof — normal/healthy state after recovery stays silent");
 
   // --- Confirm the watchdog never wrote to D1: re-seed a canary write marker
