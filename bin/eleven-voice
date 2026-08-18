@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# Wrapper for ElevenLabs Voice Agent & ThumbGate Governance Engine
 set -euo pipefail
-# Resolve through symlinks so ~/.local/bin/eleven-voice still finds repo root
 SOURCE="${BASH_SOURCE[0]}"
 while [ -L "$SOURCE" ]; do
   DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
@@ -10,7 +8,11 @@ while [ -L "$SOURCE" ]; do
 done
 DIR="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
 PYTHON_EXEC="python3"
-if [ -f "$DIR/.venv/bin/python3" ]; then
-  PYTHON_EXEC="$DIR/.venv/bin/python3"
+[ -f "$DIR/.venv/bin/python3" ] && PYTHON_EXEC="$DIR/.venv/bin/python3"
+ENGINE="$DIR/.agents/skills/elevenlabs-voice-agents/scripts/elevenlabs_voice_engine.py"
+# fallback: tools/ JS path not used; require python engine
+if [ ! -f "$ENGINE" ]; then
+  echo "eleven-voice: engine missing at $ENGINE (skill not on this checkout)" >&2
+  exit 2
 fi
-exec "$PYTHON_EXEC" "$DIR/.agents/skills/elevenlabs-voice-agents/scripts/elevenlabs_voice_engine.py" "$@"
+exec "$PYTHON_EXEC" "$ENGINE" "$@"
