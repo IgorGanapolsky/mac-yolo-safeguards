@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# dogwood-policy — CLI wrapper for AWS Dogwood Temporal Sequence Governance Engine
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec node "${REPO_ROOT}/tools/dogwood-temporal-policy.js" "$@"

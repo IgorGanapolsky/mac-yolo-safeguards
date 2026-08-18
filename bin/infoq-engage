@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# infoq-engage — CLI wrapper for InfoQ Autonomous Community Engagement & Monetization Engine
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec node "${REPO_ROOT}/tools/infoq-community-engagement.js" "$@"
