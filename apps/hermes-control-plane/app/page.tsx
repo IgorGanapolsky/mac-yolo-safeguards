@@ -11,7 +11,6 @@ import {
   LandingPricingCtaPaid,
 } from "./LandingAuthChrome";
 import { BrandMark } from "./BrandMark";
-import { HostingSelector } from "./HostingSelector";
 import { StartSurfaces } from "./StartSurfaces";
 import styles from "./landing.module.css";
 import {
@@ -188,7 +187,6 @@ export default function Home() {
         </nav>
       </section>
 
-      <HostingSelector />
       <StartSurfaces />
 
       <section id="qualifier" className="section-block" data-testid="qualifier">
