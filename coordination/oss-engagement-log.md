@@ -4,6 +4,133 @@ Dated entries from the autonomous OSS-engagement routine (Thinking Machines Lab 
 
 ---
 
+## 2026-08-17 — PR #3775 MERGED upstream (first landed contribution); new LanceDB #3950 fix built + verified end-to-end; PR-creation block unchanged
+
+### Headline
+
+**`lancedb/lancedb` PR [#3775](https://github.com/lancedb/lancedb/pull/3775) was merged today**
+(2026-08-17) — "fix(python): treat naive `lit(datetime)` as UTC wall clock (#3262)", opened
+2026-08-03, labeled `bug` + `Python`. This is the routine's **first contribution to actually land
+upstream**. Current upstream `main` HEAD is that merge commit (`a075aa6`). Tinker PR
+[#54](https://github.com/thinking-machines-lab/tinker/pull/54) (opened 08-03) remains open, no
+maintainer response yet.
+
+### Repos surveyed
+
+| Org | Repos |
+|-----|-------|
+| Thinking Machines Lab | `thinking-machines-lab/tinker` (full open-issue list) |
+| Poolside AI | `poolsideai/` org listing (61 repos); open-issue check on `bridge-sdk`, `acp-go-sdk`, `n8n-poolside-node`, `pooleval`, `reference_architectures`, `vllm-metal`, `flash-msa` |
+| LanceDB | `lancedb/lancedb` (open issues, newest first) |
+
+### Session-scope check
+
+Unchanged from every run since 08-03. `add_repo` succeeded for `igorganapolsky/lancedb` and
+`igorganapolsky/tinker` (same-owner forks) and push works; `add_repo` for `lancedb/lancedb` failed
+again with `cross-tier adds are not supported`. `mcp__github__create_pull_request` against
+`lancedb/lancedb` was attempted this run with the real finished branch and failed with
+`Access denied: repository "lancedb/lancedb" is not configured for this session.` Issue survey was
+therefore done via public web pages (WebFetch), not the GitHub API.
+
+### Issues considered
+
+**LanceDB [#3950](https://github.com/lancedb/lancedb/issues/3950)** (opened 08-16, reporter
+`tobocop2`, no assignee, no linked PR) — "lancedb-compat cannot be imported when installed
+standalone: version lookup uses the 'lancedb' dist name". **Acted — fix built, verified
+end-to-end, pushed.** `lancedb/__init__.py` resolved `__version__` via a hardcoded
+`importlib.metadata.version("lancedb")`, but the same import package is also published to PyPI as
+the `lancedb-compat` distribution (confirmed via PyPI JSON API: `lancedb-compat` 0.36.0 and 0.37.1
+exist, `Repository: github.com/lancedb/lancedb`), whose wheel registers metadata under that name
+only. Installing it standalone makes `import lancedb` crash on first import.
+
+- **Fix:** moved the lookup into a new `python/python/lancedb/_version.py` with a fallback to the
+  `lancedb-compat` dist name. 3-file diff, 87 insertions.
+- **Verified against the real published wheel, not just unit tests:** `pip install lancedb==0.37.1`
+  into a clean venv, renamed its `.dist-info` to `lancedb_compat-0.37.1.dist-info` with
+  `Name: lancedb-compat` (the exact metadata layout a standalone `lancedb-compat` install
+  produces). Before the patch: `PackageNotFoundError: No package metadata was found for lancedb` —
+  the reported symptom reproduced exactly. After: `import lancedb` succeeds, `__version__ ==
+  0.37.1`, and a real `connect` → `create_table` → `count_rows` round-trip returns 3.
+- **No-regression check:** dist-info restored to `Name: lancedb`, patched code still reports
+  `0.37.1` and the same round-trip passes.
+- **Unit tests:** new `python/python/tests/test_version.py`, 3 cases — `3 passed`. They load
+  `_version.py` by file path rather than `import lancedb`, so they run without the compiled
+  `_lancedb` extension.
+- **Lint:** `ruff check` + `ruff format --check` clean. First draft used a loop-over-dist-names and
+  tripped the repo's own `PERF203` rule (this repo selects `PERF` in `[tool.ruff.lint]`); rewritten
+  as a plain two-branch try/except, which is simpler anyway.
+- **Honest limitation, stated in the PR body:** the Rust extension could not be built in this
+  environment, so the broader Python suite was not run locally. The change is confined to
+  Python-level version resolution and touches no extension code.
+- Branch based on **fresh upstream `main` @ `a075aa6`** (not the stale fork `main`, which is ~3
+  months behind at `87b831b`).
+
+**LanceDB [#3926](https://github.com/lancedb/lancedb/issues/3926)** (Namespace QueryTable pushdown
+truncates to 10 rows) — real and well-specified, but **already has open PR #3927**. Skipped to
+avoid pile-on.
+
+**LanceDB [#3951](https://github.com/lancedb/lancedb/issues/3951)** (no macOS x86_64 wheels) —
+real and unclaimed, but the fix is a release-infrastructure change (adding `x86_64-apple-darwin` to
+the `pypi-publish.yml` build matrix, which uses org-specific Warp macOS runners and Fury upload
+tokens). Not verifiable by an external contributor — I cannot run the wheel build, so any PR would
+be an unverified CI edit, which the routine's own rules forbid. Skipped.
+
+**LanceDB #3915** (pagination boundary, parked since 08-11/08-12) — still open, still no linked PR,
+still no assignee. Not re-touched; branch `fix/list-tables-pagination-boundary-v2` confirmed still
+present on the fork.
+
+**Tinker** — no new issues since #51 (Jul 20); newest open issues are all pre-existing (#50, #45,
+#44, #43, #41, #38, #28, #25, #24, #19, #17), all previously triaged in earlier entries. Nothing
+new to act on. Parked branch `fix/sync-only-async-method-name-v2` confirmed still present.
+
+**Poolside AI** — surveyed the full 61-repo org listing this run rather than the usual short list.
+Every repo with any public issue tracker activity was checked: `bridge-sdk`, `acp-go-sdk`,
+`n8n-poolside-node`, `pooleval`, `reference_architectures`, `vllm-metal`, `flash-msa` — **all zero
+open issues**. `pool` (403★) remains a docs/packaging shell for a closed-source binary. Most of the
+remaining repos are vendored forks of unrelated upstreams (`llama.cpp`, `cutlass`, `sentencepiece`,
+`parquet-go`, `kargo`, `glamour`, …) where contributing would not build Poolside-specific
+credibility. No action possible — fourth consecutive run with this finding.
+
+### What was opened
+
+Nothing upstream — PR creation is still blocked (see Session-scope check). What exists instead:
+
+| Artifact | Where |
+|----------|-------|
+| LanceDB #3950 fix, verified end-to-end, pushed | `igorganapolsky/lancedb@fix/compat-dist-version-lookup` — compare: https://github.com/lancedb/lancedb/compare/main...IgorGanapolsky:fix/compat-dist-version-lookup?expand=1 |
+| Full PR body, ready to paste verbatim | `coordination/ready-to-post/lancedb-3950-compat-dist-version-pr.md` |
+
+### What was answered
+
+Nothing. Comment-posting requires the same blocked GitHub API access to non-`igorganapolsky`-owned
+repos.
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| LanceDB #3926 | Already has open PR #3927 — pile-on |
+| LanceDB #3951 (macOS x86_64 wheels) | Release-infra change requiring org runners/tokens; cannot be verified by an external contributor, and an unverified CI edit violates the routine's own rules |
+| LanceDB #3923 (JSON merge_insert, 08-13's inconclusive candidate) | Not re-attempted — 08-13 established it needs a working repro before any fix is defensible, and Rust builds here take 8–70 min/cycle; #3950 was a better use of the run |
+| LanceDB #3915, Tinker #38 parked branches | Unchanged upstream, still blocked only on PR creation — no new work needed |
+| Poolside (all 61 repos) | Zero open issues across every SDK repo; `pool` closed-source; rest are vendored forks |
+| New manufactured question | No real unknown hit this run |
+
+### ThumbGate mentions
+
+**None** this run — nothing surveyed asked about agent write-gating, and comment-posting is blocked
+regardless.
+
+### Action needed from Igor
+
+Three verified fixes now sit on your forks, each blocked only on the upstream-PR step this session
+cannot perform. #3950 is the freshest and most self-contained:
+- https://github.com/lancedb/lancedb/compare/main...IgorGanapolsky:fix/compat-dist-version-lookup?expand=1 (new this run)
+- https://github.com/lancedb/lancedb/compare/main...IgorGanapolsky:fix/list-tables-pagination-boundary-v2?expand=1
+- https://github.com/thinking-machines-lab/tinker/compare/main...IgorGanapolsky:fix/sync-only-async-method-name-v2?expand=1
+
+---
+
 ## 2026-08-18 — tinker-cookbook#896 fixed + parked (no fork exists, patch route); poolside#38 answer drafted; LanceDB#2900 fix in progress
 
 `main`'s merged log last shows 08-13, but two coordination PRs from 2026-08-17 (`#1768`, `#1778`)
