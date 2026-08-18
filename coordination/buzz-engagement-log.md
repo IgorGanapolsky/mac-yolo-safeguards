@@ -367,6 +367,72 @@ Unchanged, now three runs deep: this environment tier has never had write access
 - **`coordination/buzz-engagement-log.md` had no `merge=union` git attribute**, unlike `plan.md`/`SKILLS.md`. Discovered because four separate branches (`chore/buzz-engagement-log-run4`, `buzz-engagement-run4-20260810`, `chore/buzz-engagement-log-2026-08-05-run4`, `feat/buzz-engagement-run4-20260810`) were all pushed within roughly the same hour, each appending a "Run 4" entry to this exact file from independent scheduled-task firings — a guaranteed merge conflict for every one after the first, on a file where every side's content is wanted. Fixed in this PR: added `coordination/*-engagement-log.md merge=union` to `.gitattributes` (same fix already applied to `plan.md`/`SKILLS.md` for the identical reason).
 - An earlier version of this PR also modified `.github/workflows/auto-assign-reviewers.yml` to fix a real `assign_reviewers` CI failure (422 requesting review from the PR author) hit while driving this PR to green. That fix was reverted here on review feedback: PR [#1598](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1598) already exists as a dedicated, properly-scoped fix for the same bug (and handles an additional edge case — 422 on a mapped, non-collaborator reviewer — that this PR's version didn't). No need for two competing fixes to the same production workflow file.
 
+
+---
+
+## 2026-08-10 — Run 4b (concurrent session, same day; source-verified survey + second drafted answer)
+
+> Ran concurrently with the Run 4 entry above from a separate scheduled firing (the multi-branch race that entry documents). Kept per the log's append-only/union convention; unique findings here: WF-08 verified **at source** via an anonymous shallow clone (not blocked by the API 403), a drafted answer for **#5488** (vs. #5492 above), and confirmation that this tier can do full anonymous **git reads** of `block/buzz`, not just HTML fetches.
+
+### What was VERIFIED (Step 0 — reconfirmed against live sources)
+
+| Fact | Evidence |
+|------|----------|
+| **Canonical repo** | [`github.com/block/buzz`](https://github.com/block/buzz) — cloned fresh this run (shallow, anonymous git read via session proxy); `origin` confirmed `https://github.com/block/buzz`, HEAD `bb9aae1` committed 2026-08-10 09:47 -0700 — actively developed today |
+| **PR #4624 status** | [Still **open**](https://github.com/block/buzz/pull/4624), author `IgorGanapolsky`, title `fix(relay): multi-value #h filters must not narrow to first channel (#4579)`. **No review comments, no requested changes, no maintainer response** visible — 7 days since submission (2026-08-03). Nothing actionable from our side; it is simply waiting on code-owner review. |
+| **#4860 (watchdog issue)** | [Still open, still **zero comments**](https://github.com/block/buzz/issues/4860) — Run 3's drafted answer remains unposted and remains relevant |
+| **WF-08 approval gap** | **Re-verified at source level** (not just from memory) against today's HEAD `bb9aae1`: `crates/buzz-workflow/src/executor.rs:663` — `// TODO (WF-08): create approval record in DB, emit kind:46010.`; `crates/buzz-workflow/src/lib.rs:229-246` — runs hitting an approval gate are explicitly marked `Failed` with reason "approval gates not yet implemented — see WF-08". The gap Igor's `buzz-approval.js` maps onto is still open as of today. |
+
+### Access this session (same wall, one new detail)
+
+- `add_repo(block/buzz, access:"push")` → rejected again ("cross-tier adds are not supported in v1").
+- No `gh` CLI; GitHub API via curl/WebFetch → 403 from the session proxy for unattached repos.
+- **New this run:** `add_repo(block/buzz, access:"read")` revealed the proxy *does* serve anonymous git reads of public repos — a full shallow clone of `block/buzz` succeeded at `/workspace/block/buzz`. So this tier can do **source-level research** (grep, read, blame) but still has **no write path** (no API, no fork, no push, no comments). GitHub **HTML** pages are also fetchable read-only via WebFetch, which is how PR/issue states above were verified.
+
+### What was surveyed (last 72h, as of 2026-08-10)
+
+12 issues created since 2026-08-07 (via the public issues page):
+
+| Issue | Topic | In-domain? / Action |
+|-------|-------|---------------------|
+| [#5472](https://github.com/block/buzz/issues/5472) | No correlation trail across ACP socket → relay → Redis fan-out; all disconnects look identical; can't tell zero-subscriber publish from dropped event | In-domain (verification-vs-self-report, observability). **Skipped**: reporter already has [PR #4769](https://github.com/block/buzz/pull/4769) implementing the correlation-ID approach, awaiting design discussion — no gap for an outside comment to fill. |
+| [#5488](https://github.com/block/buzz/issues/5488) | Relay-URL change appends new managed-agent keypairs, never cleans up old ones → 9 duplicate mention-picker entries after 3 relay switches | In-domain (identity lifecycle, idempotency). **Answer drafted** (below). |
+| [#5492](https://github.com/block/buzz/issues/5492) | `BUZZ_AUTH_TAG` never reaches headless agent's kind:0 profile → NIP-OA sibling admission **silently fails** | In-domain (silent failure / fail-closed), but requires reproducing a headless-agent + managed-relay setup to say anything beyond restating the report. Skipped this run. |
+| [#5489](https://github.com/block/buzz/issues/5489) | mDNS `.local` relay URL ~5s/request resolution delay on macOS | Platform networking; out of domain. Skipped. |
+| [#5477](https://github.com/block/buzz/issues/5477), [#5468](https://github.com/block/buzz/issues/5468) | Docs/onboarding complaints | Out of domain; README-adjacent work is banned anyway. Skipped. |
+| [#5470](https://github.com/block/buzz/issues/5470) | Pre-push hooks start build-heavy jobs with no disk preflight | Marginal. Skipped. |
+| [#5471](https://github.com/block/buzz/issues/5471), [#5469](https://github.com/block/buzz/issues/5469), [#5467](https://github.com/block/buzz/issues/5467), [#5462](https://github.com/block/buzz/issues/5462), [#5461](https://github.com/block/buzz/issues/5461) | CLI refactor / UI / feature requests | Out of domain. Skipped. |
+
+### Drafted answer for #5488 (not posted — no write access this run)
+
+> Two separate defects here, worth fixing independently:
+>
+> 1. **Lifecycle, not cleanup.** The bug isn't "forgot to delete" — it's that `managed-agents.json` entries have no lifecycle key. If entries were keyed by `(relay_url, agent_slot)` with an `active` flag, a relay switch would be an idempotent *deactivate-old + activate-new* transition instead of an append, and switching back to `relay-a` would reactivate the original three keypairs rather than minting a fourth set.
+> 2. **Archive, don't delete.** The stale entries are keypairs, i.e. identity material. Past events on the old relays were signed by those npubs; deleting the keys destroys the ability to prove authorship of (or decrypt DMs addressed to) that history. So the picker should filter on `active`-for-current-community, but the entries themselves should be archived, never destroyed — the mention-picker bug is a *filtering* bug, and the fix should not quietly become a key-destruction bug.
+
+ThumbGate not mentioned — it's a desktop identity-lifecycle bug; a ThumbGate reference would not be a genuine answer.
+
+### What was opened / answered this run
+
+**Nothing posted** — same hard access blocker as Runs 1 and 3. This run produced: source-verified WF-08 status, PR #4624 status check, a 72h survey, and a second ready-to-post draft (#5488, above; #4860's draft from Run 3 also still ready).
+
+### Positioning read: **neither** (unchanged; now source-verified as of today)
+
+- Not a competitor, not a partner — unchanged reasoning from Runs 2–3.
+- The technical-overlap claim is now anchored to today's HEAD, not memory: WF-08 (approval persistence/resume) is still an explicit TODO in `buzz-workflow` at `bb9aae1`, and runs hitting an approval gate still hard-fail. The place where a pre-action gate on agent writes matters inside Buzz **still exists and is still unbuilt**. That keeps the honest answer at "real overlap, no relationship" — and keeps the WF-08 contribution (per `buzz-wf08-pr-plan.md`) the single highest-value candidate PR once a write-capable run picks it up.
+
+### What was skipped and why
+
+- **Posting #4860/#5488 answers, any PR** — no write path (see access section).
+- **#5472** — already has an implementation PR (#4769) by the reporter; commenting would add noise, not signal.
+- **#5492** — real and in-domain but needs a live repro to say anything non-obvious; candidate for a write-capable run with time to set up a headless agent.
+- **WF-08 implementation** — still deferred to a dedicated write-capable run; plan unchanged in `buzz-wf08-pr-plan.md`.
+
+### Action needed from Igor (3rd blocked run — worth acting on)
+
+1. **This environment tier cannot write to `block/buzz`** and `add_repo` confirms it never will in v1 (cross-tier). Either point this scheduled task at a write-capable environment, or accept this tier as research/drafting-only.
+2. **PR #4624 has sat 7 days with green checks and no review.** A polite ping in the PR thread from a write-capable session (or Igor manually) is now reasonable; nothing else on it is actionable.
+3. Two drafted answers (#4860 from Run 3, #5488 from this run) are ready to paste as-is by any session with comment access.
 ---
 
 ## 2026-08-10 — Run 4b (concurrent session — access SOLVED via the fork; #5492 fixed, tested, staged)
@@ -843,3 +909,80 @@ Commit is DCO-signed as `Igor Ganapolsky <iganapolsky@gmail.com>` with a `Co-Aut
 ### Blocker status (report only — no action requested)
 
 Unchanged in kind from the Cross-run note: fork clone/build/test/push work from this session tier; `block/buzz`'s PR-creation API does not, confirmed again this run at the create-call layer specifically (not inferred from the repo-scope rejection). New this run is the **volume** finding above — six-plus ready branches and three open log-only PRs in this repo, all one human action away from either landing on `block/buzz` or being cleaned up. Compare URLs for all of this run's and prior runs' ready fixes are collected in `coordination/buzz-pr-drafts/`.
+## 2026-08-14 — Run 11 (WF-08 fix rebased against current upstream, fully re-verified including a live Postgres integration test; PR-creation block confirmed at the write-call layer, not just read)
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+- **Canonical repo:** [`github.com/block/buzz`](https://github.com/block/buzz) — unchanged identity, maintainer (Block/Jack Dorsey), architecture, and community surface (GitHub issues/PRs only) from Runs 1-10.
+- **`buzz-wf08-pr-plan.md` / `feat/buzz-nostr-acp-bridge`:** neither exists in `mac-yolo-safeguards` (reconfirmed — same as every prior run). But this run found what those filenames most likely pointed to: a real, DCO-signed WF-08 fix already sitting on the fork (`igorganapolsky/buzz@fix/wf08-approval-gate-finalize-run`, committed **2026-08-05**, `Fixes #3525`) that **no run's log entry between Run 4b (2026-08-10) and Run 10 (2026-08-13) ever mentioned**. It was discoverable this run only because `git ls-remote --heads` on the fork was checked directly rather than relying on this log's own backlog list, which never named it. Recorded here so it isn't lost a second time.
+- **Write access to `block/buzz`:** still blocked, **12th consecutive run** (Runs 1, 3-11). `add_repo(owner:"block", repo:"buzz", access:"push")` — not attempted again this run (per the cross-run note, re-testing this specific call adds nothing new). Instead, this run tested the *actual write call* directly: `mcp__github__create_pull_request(owner:"block", repo:"buzz", head:"IgorGanapolsky:fix/wf08-approval-gate-finalize-run-rebased", base:"main", ...)` → `"Access denied: repository 'block/buzz' is not configured for this session. Allowed repositories: igorganapolsky/mac-yolo-safeguards, igorganapolsky/buzz"`. This is new evidence, not a repeat: prior runs inferred the create-PR block from the read-tool denial; this run confirms the create call itself is denied, identically, even after `igorganapolsky/buzz` was added to the session's scope mid-run. `mcp__github__pull_request_read` on `block/buzz` was also retried once, before and after adding the fork, to confirm the allowed-repos list only grew by the fork, not by `block/buzz` — same denial both times.
+- **Read access:** `git clone`/`fetch` against both `igorganapolsky/buzz` (the fork) and `block/buzz` (as `upstream` remote) worked without issue. `WebFetch` against public issue/PR pages worked.
+- **PR [#4624](https://github.com/block/buzz/pull/4624)** (Run 2's multi-`#h` filter fix): reconfirmed still open, still zero human reviews, now 11 days.
+- **This repo's own PR queue:** [#1712](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1712) (#5708 patch), [#1714](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1714) (#5734 patch), [#1719](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1719) (Run 10), and the duplicate [#1689](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1689)/[#1682](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1682) pair are all still open and unreconciled, confirmed via `list_pull_requests`. Unchanged from Run 10's finding — not touched this run; reconciling other sessions' open PRs in this repo is still not something a single run should do unilaterally (per Run 9/10's own standing note), and this run's time went to rescuing the WF-08 branch instead, which was the more time-sensitive risk (an unmerged fork branch silently bit-rotting against a fast-moving upstream is a real, compounding cost — see below).
+
+### Why the WF-08 branch was this run's priority
+
+The fork's `fix/wf08-approval-gate-finalize-run` branch was **209 commits behind `upstream/main`** when found this run (base commit `ce56e34`, 2026-08-05; upstream now at `068a83b`). Left alone, a genuinely complete fix would have kept drifting further from mergeable and eventually needed a much harder reconciliation, or silently stopped applying at all. Treated this as more urgent than surveying fresh issues this run, consistent with the "rescue stranded work before it rots" priority Run 4b set for #5492.
+
+### WF-08 fix: rebased, conflict resolved, fully re-verified against current upstream (this run)
+
+Rebasing `fix/wf08-approval-gate-finalize-run` onto `upstream/main` produced exactly one conflict, in `crates/buzz-workflow/src/lib.rs::finalize_run`. Root cause: upstream added structured failure persistence (migration `0031_workflow_run_error_codes.sql`, a new `WorkflowRunFailure<'a> { code, message }` struct, and an `error_code` column) independently of this fix, sometime in the 209-commit gap. The original WF-08 fix predates that change and passed raw `&str`/`format!()` strings where the current API needs a `WorkflowRunFailure` struct. Resolved by keeping the WF-08 commit's approval-persistence logic (the 3-way `match (approval_token, approval_context)`) and converting its two error-path string literals to `WorkflowRunFailure { code, message }`, matching the pattern upstream's own `Err((e, progress))` arm in the same function already uses. No other file needed manual resolution — `bridge.rs`, `command_executor.rs`, and `executor.rs` auto-merged cleanly.
+
+Verified the resolution is correct rather than just "compiles," against current upstream `main` (`068a83b`), not the Aug 5 base the original commit was tested against:
+
+| Check | Result |
+|-------|--------|
+| `cargo check -p buzz-workflow -p buzz-db -p buzz-relay` | Clean |
+| `cargo test -p buzz-workflow -p buzz-db -p buzz-relay --lib` | **1139 passed** (105 buzz-db + 879 buzz-relay + 155 buzz-workflow), 0 failed |
+| `cargo clippy -p buzz-workflow -p buzz-db -p buzz-relay --lib --tests -- -D warnings` | Clean, zero warnings |
+| `cargo fmt -- --check` | Clean |
+| Live Postgres integration test (`wf08_approval_gate.rs`, real install: `apt`-installed PostgreSQL 16, migrated via `buzz-admin migrate`) | **Real fail-before/pass-after, executed this run, not inherited from the Aug 5 commit message:** temporarily reverted `finalize_run` to the old "mark Failed, WF-08 not implemented" body (adapted to compile against the new `WorkflowRunFailure` API so the revert itself wasn't invalidated by unrelated drift) → `cargo test -p buzz-workflow --test wf08_approval_gate -- --ignored` → **1 failed** (run ended `Failed` instead of `WaitingApproval`, exactly the bug). Restored the real fix, reran → **1 passed**. |
+
+Rebased onto a single clean commit (`820c2ef`, DCO `Signed-off-by: Igor Ganapolsky` preserved through the rebase) sitting directly on `upstream/main` — a 5-file, 370-insertion/47-deletion diff, not a merge commit carrying 209 unrelated upstream commits. Pushed to the fork: `igorganapolsky/buzz@fix/wf08-approval-gate-finalize-run-rebased`.
+
+**PR creation attempted and blocked** (see Access section above). Compare URL, ready for one click by a session with `block/buzz` in scope:
+https://github.com/block/buzz/compare/main...IgorGanapolsky:buzz:fix/wf08-approval-gate-finalize-run-rebased?expand=1
+
+This is qualitatively different from this log's prior backlog entries: not a drafted comment, not a `.patch` file sitting in an unrelated repo's unmerged PR, but a real branch, on the actual fork, rebased onto today's upstream tip, fully rebuilt and retested against it — the closest state to "ready" a session without `block/buzz` API access can produce.
+
+### What was surveyed (last ~72h, as of 2026-08-14)
+
+Newest open issues via `WebFetch` on the sorted issues list: #5817, #5814, #5813, #5810, #5803, #5800, #5797, #5794, #5787, #5786, #5784 (all 2026-08-13/14). Read against Igor's stated domain:
+
+| Issue | Topic | Action |
+|-------|-------|--------|
+| [#5800](https://github.com/block/buzz/issues/5800) | `buzz messages thread` silently returns a partial result (root event only, replies dropped) when `--channel` doesn't match the event's actual `h` tag — exits 0, looks like a valid empty-reply thread. Reporter already root-caused it precisely: `cmd_get_thread` builds two OR filters, only the replies filter is channel-scoped, the root-event filter isn't, and nothing validates the returned root's `h` tag against `--channel` before printing | Read in full — squarely in-domain (verification-vs-self-report: success exit code, wrong-scoped data), but the reporter's diagnosis is already complete and their proposed fix (validate `h` tag, non-zero exit on mismatch, regression test) is the obvious correct fix; a comment would be a redundant "+1." Logged as another data point, not drafted — this run's fix budget went to WF-08 |
+| #5784 | DeepSeek custom harness: "all 10 agents failed to start," `buzz-acp` crashes | Read — real reliability failure, but no stack trace or repro detail in the issue yet; underspecified for source-level investigation without more from the reporter |
+| #5786 | Deleting an agent leaves residual configs | Skipped — cleanup/UX, not reliability |
+| #5817, #5814, #5813, #5810, #5803, #5797, #5794, #5787 | Markdown rendering bug, desktop UX/copy feedback, feature requests (Gemini subscription auth, multi-machine device support), UI truncation | Skipped — outside stated domain |
+
+### What was opened / answered this run
+
+**Nothing posted to `block/buzz`** — 12th consecutive run with no write path (this run tested the create-PR call directly, not just read/add_repo; see Access section). This run's output: a previously-unlogged, real WF-08 fix rescued from 209 commits of drift, conflict-resolved against a genuine upstream API change (not just a mechanical rebase), and re-verified end-to-end including a live Postgres fail-before/pass-after — the strongest-verified artifact this log has produced. Pushed to the fork as `fix/wf08-approval-gate-finalize-run-rebased`, PR-creation attempted and confirmed blocked, compare URL staged above.
+
+### Positioning read: **neither** (unchanged, reconfirmed an eleventh time)
+
+- Not a competitor — Buzz remains a team workspace (chat + git + workflow automation) on Nostr; ThumbGate remains a cross-tool pre-action governance gate for arbitrary agent actions. No overlap in what either actually ships.
+- Not a partner — no relationship, no contact, no integration exists, and nothing this run changes that.
+- This run's work is the deepest technical-overlap data point yet, precisely because it's a *completion*, not just a bug report: WF-08 — the approval-gate persistence-and-resume path flagged as an acknowledged gap since Run 1 — is exactly a pre-action write-gate's missing half (the request/suspend side already existed; the persist/resume side didn't). Finishing it end-to-end, tested against a live database, is the clearest evidence in ten runs that this problem class is real *and solvable inside Buzz's own architecture*, independent of ThumbGate. ThumbGate is not mentioned anywhere in the fix, tests, commit message, or this log entry's technical content — the PR body describes only Buzz's own state machine.
+
+### What was skipped and why
+
+- **#5800** — real in-domain bug, but the reporter's own diagnosis and proposed fix are already complete; a comment adds nothing. Logged as a pattern data point (twelfth: #4565, #4860, #5492, #5557, #5555, #5611, #5665, #5667, #5708, #5734, #5759, now #5800 — self-report/success-signal diverging from actual verified state, recurring unprompted).
+- **#5784** — in-domain but underspecified without a stack trace or repro; not investigated at source without more from the reporter.
+- **#5817, #5814, #5813, #5810, #5803, #5797, #5794, #5787, #5786** — outside stated domain (UI, feature requests, cleanup), per table above.
+- **A second fix/PR** — hard rule caps this at one per run; WF-08 used this run's budget, and it was the higher-priority rescue given the 209-commit drift risk.
+- **Reconciling this repo's own duplicate/stranded PRs (#1682/#1689/#1712/#1714/#1719)** — still not this run's call to make unilaterally; flagged again, unchanged from Run 10.
+- **Posting anything to `block/buzz`** — impossible this run; confirmed at the actual write-call layer this time, not inferred (see Access section). Not a judgment-call skip.
+
+### Blocker status (report only — no action requested)
+
+Twelfth consecutive run (Runs 1, 3-11) with zero write access to `block/buzz` from this environment tier. New and more precise this run: the block was tested directly against `create_pull_request`, not just `pull_request_read`/`add_repo` — same denial, confirming Run 8's "the whole API surface is scoped out" finding still holds for the create path specifically. Updated backlog for a write-capable session, ranked by readiness:
+
+1. **`fix/wf08-approval-gate-finalize-run-rebased`** (this run) — fully rebuilt, retested (1139 unit tests + live Postgres integration test, fail-before/pass-after), clippy/fmt clean, rebased onto current upstream tip. Highest-value, most-ready item in the backlog. Compare URL above.
+2. **#5708** (`coordination/patches/buzz-5708-panic-dead-letter-notice.patch`, PR #1712) — full tested patch, not yet pushed to the fork as a branch (still a diff file in this repo's own unmerged PR queue).
+3. **#5734** (`coordination/patches/buzz-5734-team-instruction-validation.patch`, PR #1714) — same status as #5708.
+4. `fix/acp-auth-tag-profile-republish` (#5492, Run 4b) — pushed to the fork, not yet re-verified against current upstream this run (unlike WF-08, no evidence found this run that it's drifted enough to matter, but not re-checked either).
+5. Comment drafts still unposted: #4860 (Run 3), #5557 (Run 5), #5555 (Run 6), #5611 (Run 7, partial), #5667 (Run 8), #5759 (Run 10, partial).
+
+PR #4624 (Run 2, against `block/buzz` directly) still awaits its first human review, 11 days.
