@@ -37,7 +37,7 @@ const FAQ_ITEMS = [
   {
     question: "Why not just run another agent pilot on my laptop?",
     answer:
-      "Pilots die when the machine sleeps. Hosted Hermes is one always-on agent on a fenced VPS. You approve money, customer, or production actions in this browser. If it dies when the laptop sleeps, the trial failed.",
+      "Pilots die when the machine sleeps. Scheduled work and watchers do not fire if the computer is off. Hosted Hermes is one always-on agent on a fenced VPS. You approve money, customer, or production actions in this browser. If it dies when the laptop sleeps, the trial failed.",
   },
   {
     question: "Where do approvals happen?",
@@ -78,6 +78,11 @@ const FAQ_ITEMS = [
     question: "What if the agent wants to kill a process or copy itself?",
     answer:
       "It pauses. You approve or deny in thumbgate.app. Conflicting goals without a human gate is how agents ship malware. Hosted Hermes does not auto-run that.",
+  },
+  {
+    question: "Can I run it on my machine instead?",
+    answer:
+      "No picker. One offer: hosted Hermes on a fenced VPS. Local-only assistants stop when the laptop sleeps. Approvals stay in thumbgate.app.",
   },
   {
     question: "Is this a memory or session-handoff plugin?",
@@ -136,7 +141,7 @@ export default function Home() {
           <p className="eyebrow"><span className="live-dot" /> Hosted Hermes · Fenced VPS</p>
           <h1>Hermes that stays on.</h1>
           <p className="hero-lede">
-            Hosted on a fenced VPS. Not a laptop process. Approve money, customer, or production actions in this browser. Flat $10/month. 14 days free. Cancel anytime.
+            Always on, even when your computer is off. Hosted on a fenced VPS. Not a laptop process. Approve money, customer, or production actions in this browser. Flat $10/month. 14 days free. Cancel anytime.
           </p>
           <p className="signin-note">
             Automations can draft and run. Money, customer-facing, or production actions require your approval in this browser.
