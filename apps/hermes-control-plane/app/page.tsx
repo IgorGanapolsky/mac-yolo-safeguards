@@ -34,6 +34,11 @@ const FAQ_ITEMS = [
       "Hosted Hermes on a fenced VPS with in-browser approvals.",
   },
   {
+    question: "Why not just run another agent pilot on my laptop?",
+    answer:
+      "Pilots die when the machine sleeps. Hosted Hermes is one always-on agent on a fenced VPS. You approve money, customer, or production actions in this browser. If it dies when the laptop sleeps, the trial failed.",
+  },
+  {
     question: "Where do approvals happen?",
     answer:
       "In thumbgate.app. Approve or deny a tool call in the web workspace. There is no phone leash on this product.",
