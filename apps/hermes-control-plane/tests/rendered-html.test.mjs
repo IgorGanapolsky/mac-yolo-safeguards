@@ -225,3 +225,19 @@ test("keeps secrets server-side, redirects mutable, and device requests signed",
   assert.match(logout, /"set-cookie": clearSessionCookie\(\)/);
   assert.doesNotMatch(callback, /localStorage|sessionStorage/);
 });
+
+test("public legal pages use hosted Hermes, not Continuity", async () => {
+  const [privacy, terms] = await Promise.all([
+    readFile(new URL("../app/privacy/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/terms/page.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(privacy, /title: "Privacy — ThumbGate hosted Hermes"/);
+  assert.match(privacy, /Hosted Hermes runs on thumbgate\.app/);
+  assert.match(privacy, /not on a phone leash/);
+  assert.doesNotMatch(privacy, /Continuity/);
+  assert.match(terms, /title: "Terms — ThumbGate hosted Hermes"/);
+  assert.match(terms, /Hosted Hermes is the product/);
+  assert.match(terms, /Hosted Hermes is a fenced VPS runner/);
+  assert.match(terms, /no phone leash/);
+  assert.doesNotMatch(terms, /Continuity/);
+});
