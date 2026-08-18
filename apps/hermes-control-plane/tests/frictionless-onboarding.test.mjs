@@ -242,7 +242,8 @@ test("dashboard uses shell-first SWR navigation cache (Issues-style instant nav)
   assert.match(dashboard, /onPointerEnter/);
   assert.match(dashboard, /readCachedThreadDetails|threadCacheRef/);
   assert.match(dashboard, /selectPreheatThreadIds/);
-  assert.match(dashboard, /composer-route-explain-toggle|routeExplainExpanded/);
+  assert.doesNotMatch(dashboard, /composer-route-explain-toggle/);
+  assert.doesNotMatch(dashboard, /routeExplainExpanded/);
   const signOut = readFileSync(new URL("../app/SignOutForm.tsx", import.meta.url), "utf8");
   assert.match(signOut, /clearDashboardNavCache/);
 });
@@ -262,8 +263,11 @@ test("lessons workspace activity stats and lesson cards deep-link into Hermes", 
   assert.match(dashboard, /id=\{`task-\$\{task\.id\}`\}/);
   assert.match(dashboard, /taskFilter/);
   assert.match(dashboard, /filter === "unrated"/);
-  assert.match(dashboard, /pairComputerLabel|Pair another computer|Pair a computer|Pair computer|resolveComposerRunCta/);
-  assert.match(dashboard, /Manage machines/);
+  assert.match(dashboard, /resolveComposerRunCta/);
+  assert.doesNotMatch(dashboard, /pairComputerLabel/);
+  assert.doesNotMatch(dashboard, /⚙ Manage machines/);
+  assert.doesNotMatch(dashboard, /Open Continuity settings/);
+  assert.match(dashboard, />Open settings</);
   assert.match(globals, /\.lesson-activity li a\{/);
   assert.match(globals, /\.lesson-card-actions\{/);
   assert.match(globals, /\.task-filter-banner\{/);
@@ -290,33 +294,60 @@ test("Improve/Helpful metric clicks navigate to Hermes when count is 1, else fil
   assert.match(lessonsUi, /#lesson-list/);
 });
 
-test("Continuity is the only composer target — no RUN ON selector", () => {
+test("hosted VPS is the only composer target — no RUN ON selector", () => {
   const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
   const taskRouting = readFileSync(new URL("../lib/task-routing.ts", import.meta.url), "utf8");
   const runCta = readFileSync(new URL("../lib/composer-run-cta.ts", import.meta.url), "utf8");
   assert.doesNotMatch(dashboard, /composer-target-select/);
   assert.doesNotMatch(dashboard, /composer-unified-target/);
+  assert.doesNotMatch(dashboard, /htmlFor="composer-target-select"/);
+  assert.doesNotMatch(dashboard, /id="composer-where-label"/);
   assert.doesNotMatch(dashboard, /Auto — Continuity \(no Mac required\)/);
+  assert.doesNotMatch(dashboard, /pairComputerLabel/);
+  assert.doesNotMatch(dashboard, /\+ Pair computer/);
+  assert.doesNotMatch(dashboard, /⚙ Manage machines/);
+  assert.doesNotMatch(dashboard, /optgroup label="Setup"/);
+  assert.doesNotMatch(dashboard, /setRoutePreference/);
+  assert.doesNotMatch(dashboard, /resolveAutoRouteLabel/);
+  assert.doesNotMatch(dashboard, />Run on</);
+  assert.doesNotMatch(dashboard, /["']RUN ON["']/);
+  assert.doesNotMatch(dashboard, /getByLabel\(["']RUN ON["']\)/);
+  assert.doesNotMatch(dashboard, /Run on Continuity/);
+  assert.doesNotMatch(dashboard, /Continuity Cloud VPS/);
+  assert.match(dashboard, /routePreference: "cloud"/);
   assert.match(dashboard, /data-testid="run-output"/);
   assert.match(dashboard, /Results show here after you send/);
   assert.match(dashboard, /resolveComposerRunCta/);
   assert.match(runCta, /kind: "run"/);
   assert.match(runCta, /label: "Run →"/);
+  assert.doesNotMatch(runCta, /kind: "pair"/);
+  assert.doesNotMatch(runCta, /resolveAutoRouteLabel/);
   assert.match(tasksRoute, /routePreference/);
   assert.match(taskRouting, /preference === "cloud"/);
 });
 
-test("always shows which paired machine will run a task and pins deviceId", () => {
+test("Open settings is a real control, not a dead Continuity hash link", () => {
+  assert.doesNotMatch(dashboard, /Open Continuity settings/);
+  assert.match(dashboard, />Open settings</);
+  assert.match(dashboard, /data-testid="open-settings"/);
+  assert.match(dashboard, /openSettingsPanel/);
+  assert.match(dashboard, /setMobileTab\("settings"\)/);
+  assert.match(dashboard, /el\.focus/);
+  assert.match(dashboard, /scrollIntoView/);
+  assert.doesNotMatch(dashboard, /href="#web-settings">Open settings</);
+  assert.match(dashboard, /<button[\s\S]*data-testid="open-settings"[\s\S]*>\s*Open settings/);
+});
+
+test("composer send always uses hosted VPS and never a RUN ON picker", () => {
   const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
-  // Unified select always POSTs deviceId; hostname via machineDisplayName (not hard-coded "Mac").
+  assert.match(dashboard, /routePreference: "cloud"/);
   assert.match(dashboard, /selectedDeviceId/);
   assert.match(dashboard, /machineDisplayName/);
-  assert.match(dashboard, /deviceId: selectedDeviceId/);
   assert.match(dashboard, /pickDefaultDeviceId/);
   assert.match(dashboard, /preferredDevicePreferenceKey|thumbgate\.preferredDeviceId/);
   assert.doesNotMatch(dashboard, /Most recently active/);
   assert.doesNotMatch(dashboard, /composer-target-select/);
-  // After schema validation, payload is typed — optional chain no longer required.
+  assert.doesNotMatch(dashboard, /composer-unified-target/);
   assert.match(tasksRoute, /payload(?:\?)?\.deviceId/);
 });
 
