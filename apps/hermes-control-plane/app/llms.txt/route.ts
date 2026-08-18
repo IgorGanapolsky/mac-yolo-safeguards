@@ -37,6 +37,7 @@ const body = `# ThumbGate
 - Where do approvals happen? In thumbgate.app. No phone leash.
 - Access hosted Hermes: sign in, start trial or Pro, run work on the fenced cloud runner
 - Is this Continuity? People say Continuity for memory plugins; this is the always-on box
+- Why not another laptop pilot? Pilots die when the machine sleeps. Hosted Hermes is one always-on VPS agent with in-browser approvals.
 `;
 
 export async function GET() {

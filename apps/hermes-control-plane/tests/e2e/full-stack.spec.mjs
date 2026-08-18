@@ -77,7 +77,10 @@ test("composer has no RUN ON picker and shows Output after send", async ({ page 
   await expect(output.locator(".eyebrow")).toContainText(/Output/i);
   await expect(page.locator('[data-testid="composer-target-select"]')).toHaveCount(0);
   await expect(page.locator("select.composer-target-select")).toHaveCount(0);
+  await expect(page.getByLabel("RUN ON")).toHaveCount(0);
   await expect(page.getByText("Which Mac?")).toHaveCount(0);
+  await expect(page.getByText("Open Continuity settings")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Open settings" })).toHaveCount(1);
 
   const prompt = "prove Continuity output pane after send";
   const textarea = page.getByLabel("Message for Hermes");

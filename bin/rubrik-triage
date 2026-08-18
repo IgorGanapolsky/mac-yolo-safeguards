@@ -1,0 +1,63 @@
+#!/usr/bin/env node
+'use strict';
+
+const path = require('path');
+const { RubrikMythosTriageHarness } = require('../tools/rubrik-mythos-triage-harness');
+
+const args = process.argv.slice(2);
+const jsonMode = args.includes('--json');
+const force = args.includes('--force');
+const command = args.find((a) => !a.startsWith('--')) || 'doctor';
+const stateDir = process.env.RUBRIK_MYTHOS_STATE_DIR || undefined;
+const harness = new RubrikMythosTriageHarness({ stateDir });
+
+async function run() {
+  if (command === 'doctor' || command === '--doctor') {
+    const doc = harness.runDoctor();
+    if (jsonMode) console.log(JSON.stringify(doc, null, 2));
+    else {
+      console.log(`Rubrik Mythos triage: ${doc.status}`);
+      console.log(`  budget: $${doc.tokenBudgetGuard.monthlyCapUsd}/mo (metered API disabled)`);
+      console.log(`  safe auto classes: ${doc.safeRemediationClassesCount}`);
+      console.log(`  Track B queue: ${doc.pendingEngineerEscalationsCount}`);
+      console.log(`  checkpointed files: ${doc.checkpointedFiles}`);
+    }
+    return;
+  }
+
+  if (command === 'queue' || command === '--queue') {
+    const queue = harness.loadEscalationQueue();
+    if (jsonMode) console.log(JSON.stringify(queue, null, 2));
+    else {
+      console.log(`Track B queue (${queue.length})`);
+      for (const item of queue) {
+        console.log(`  ${item.incidentId} ${item.finding.id} ${item.context.file}:${item.context.line} (${item.reason})`);
+      }
+    }
+    return;
+  }
+
+  if (command === 'scan' || command === '--scan') {
+    const target = args[1] && !args[1].startsWith('--') ? args[1] : process.cwd();
+    const report = harness.runTriagePipeline(path.resolve(target), { force });
+    if (jsonMode) console.log(JSON.stringify(report, null, 2));
+    else {
+      console.log(`Rubrik 3-pass triage: ${target}`);
+      console.log(`  pass1: ${report.pass1_BroadScan.rawCandidatesFound} raw (${report.pass1_BroadScan.skippedUnchanged} checkpoint-skipped)`);
+      console.log(`  pass2: ${report.pass2_ReachabilityFilter.actionableCount} actionable (${report.pass2_ReachabilityFilter.noiseReductionPercent} noise)`);
+      console.log(`  pass3: Track A ${report.pass3_TwoTrackTriage.trackA_SafeAutoFixed} / Track B ${report.pass3_TwoTrackTriage.trackB_EngineerEscalated} / chains ${report.pass3_TwoTrackTriage.crossComponentChains}`);
+    }
+    return;
+  }
+
+  console.log(`Usage: rubrik-triage <doctor|scan|queue> [--json] [--force]
+  doctor         Harness + $10/mo fail-closed budget
+  scan <path>    3-pass triage with checkpoints
+  queue          Track B engineer packets
+`);
+}
+
+run().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
