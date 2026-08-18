@@ -3085,3 +3085,18 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 | plan.md (append only) | grok-anti-babysitting-mandate-20260818 | 2026-08-18T19:10:00Z |
 
 - 2026-08-18T19:10Z `grok-anti-babysitting-mandate`: CEO "I shouldn't have to keep stopping and tell you what to do". Grok-global `~/.grok/skills/anti-babysitting-mandate` + `high-roi-steal-and-finish`; upgraded `anti-babysitting-continue`. Repo lint refuses `--auto-merge-all` / `--quarantine`. Did not copy sibling autonomous-loop theater. AGENT-408 Done (`21757af97` / #1822).
+
+| T-HUSKY-HOOKS-PATH-20260818 | Husky process steal: relative core.hooksPath=.githooks; do not npm i husky | in_progress | grok-husky-hooks-path-20260818 | `tools/hooks-path-doctor.js`, `tests/test-hooks-path-doctor.js`, `bin/hooks-path-doctor`, `scripts/install-git-hooks.sh` (relative-assert only), `.agents/skills/git-hooks-no-husky/**`, `SKILLS.md` (append), `plan.md` | AGENT-410 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/hooks-path-doctor.js | grok-husky-hooks-path-20260818 | 2026-08-18T20:05:00Z |
+| tests/test-hooks-path-doctor.js | grok-husky-hooks-path-20260818 | 2026-08-18T20:05:00Z |
+| bin/hooks-path-doctor | grok-husky-hooks-path-20260818 | 2026-08-18T20:05:00Z |
+| scripts/install-git-hooks.sh | grok-husky-hooks-path-20260818 | 2026-08-18T20:05:00Z |
+| .agents/skills/git-hooks-no-husky/** | grok-husky-hooks-path-20260818 | 2026-08-18T20:05:00Z |
+| SKILLS.md (append row only) | grok-husky-hooks-path-20260818 | 2026-08-18T20:05:00Z |
+| plan.md (append only) | grok-husky-hooks-path-20260818 | 2026-08-18T20:05:00Z |
+
+- 2026-08-18T20:05Z `grok-husky-hooks-path`: typicode/husky does **not** transfer as a package. We already have `.githooks` + installer. Steal: keep `core.hooksPath` the relative token `.githooks` so worktrees do not run the primary dirty hook. Doctor refuses `--add-husky`. Did not edit `.githooks/pre-commit` (T-WORKTREE historical).

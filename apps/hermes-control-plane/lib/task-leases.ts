@@ -12,6 +12,7 @@ import {
 import { db } from "./runtime";
 import { randomToken, sha256 } from "./security";
 import { evaluateCloudPromptToolPolicy } from "./cloud-tool-policy";
+import { mapProviderError, rememberProviderError } from "./hosted-apphost";
 import { webSessionIdForThread } from "./web-session";
 
 export const TASK_LEASE_MS = 90_000;
@@ -315,20 +316,26 @@ export async function completeTask(input: {
     createdAt: number;
   }>();
   if (!existing) return false;
+  const storedError = input.error
+    ? (existing.route === "cloud" ? mapProviderError(input.error) : input.error)
+    : null;
   const update = await db().prepare(
     `UPDATE tasks SET status = ?, result = ?, error = ?, completed_at = ?, updated_at = ?,
             lease_owner = NULL, lease_token_hash = NULL, lease_expires_at = NULL
       WHERE id = ? AND status = 'running' AND lease_owner = ? AND lease_token_hash = ?
         AND lease_expires_at > ?`
-  ).bind(status, input.result ?? null, input.error ?? null, now, now,
+  ).bind(status, input.result ?? null, storedError, now, now,
     input.taskId, input.owner, tokenHash, now).run();
   if (update.meta.changes !== 1) return false;
+  if (existing.route === "cloud") {
+    rememberProviderError(storedError, now);
+  }
   const receipt = buildTaskCompletionReceipt({
     actorType: input.actorType,
     actorId: input.owner,
     taskId: input.taskId,
     route: existing.route,
-    error: input.error,
+    error: storedError ?? undefined,
     externalCheckPassed: input.externalCheckPassed,
     externalCheckKind: input.externalCheckKind,
     externalEvidenceId: input.externalEvidenceId,
