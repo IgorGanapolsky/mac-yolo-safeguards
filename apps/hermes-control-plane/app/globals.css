@@ -646,6 +646,9 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     width:100%;
     padding:4px 8px;
   }
+  .composer-unified-target.is-cloud-only{
+    display:none !important;
+  }
   .composer-unified-target .composer-where-label{
     font-size:10px;
     font-weight:700;
@@ -915,6 +918,9 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   border:1px solid rgba(56,189,248,.35);
   border-radius:12px;
   background:rgba(15,23,42,.95);
+}
+.composer-unified-target.is-cloud-only{
+  display:none !important;
 }
 .composer-unified-target label{margin:0;color:#38BDF8;font-size:12px;font-weight:700;white-space:nowrap}
 .composer-unified-target select{

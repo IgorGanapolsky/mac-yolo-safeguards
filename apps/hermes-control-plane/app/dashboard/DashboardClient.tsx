@@ -1624,9 +1624,9 @@ export default function DashboardClient() {
                 aria-label="Message for Hermes"
                 disabled={busy}
               />
-              {/* Single control: route + preferred Mac (dual Where/Which was redundant + unreadable on mobile). */}
+              {/* Single control: route + preferred Mac (hidden when 0 machines since Continuity Cloud VPS is the default product). */}
               <div
-                className="composer-unified-target"
+                className={`composer-unified-target${!devices.length ? " is-cloud-only" : ""}`}
                 data-testid="composer-unified-target"
                 role="region"
                 aria-labelledby="composer-where-label"
