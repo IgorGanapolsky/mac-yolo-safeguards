@@ -1802,8 +1802,8 @@ export default function DashboardClient() {
 
           <aside className="right-rail" ref={rightRailRef}>
             <section className="panel connection-panel" id="leash-control">
-              <div className="panel-heading"><div><p className="eyebrow">CONTINUITY ENGINE</p><h2>Continuity Cloud VPS</h2></div><span>ACTIVE & AUTONOMOUS</span></div>
-              <div className="connection-summary"><span className={`device-light is-online`} /><div><strong>☁️ Cloud Continuity Live</strong><p>ThumbGate runs on a fenced serverless Cloud VPS runner — no local Mac or background service required. Tasks run instantly in the cloud.</p></div></div>
+              <div className="panel-heading"><div><p className="eyebrow">CLOUD RUNNER</p><h2>24/7 Cloud AI Engineer</h2></div><span>ACTIVE & AUTONOMOUS</span></div>
+              <div className="connection-summary"><span className={`device-light is-online`} /><div><strong>☁️ 24/7 Cloud VPS Live</strong><p>ThumbGate runs on a fenced serverless Cloud VPS runner — no local Mac or background service required. Tasks run instantly in the cloud.</p></div></div>
               <ol className="dashboard-setup-steps"><li className="is-done"><span>1</span>Cloud VPS runner active</li><li className="is-done"><span>2</span>LLM-as-Judge guardrails enabled</li><li className="is-done"><span>3</span>Online & autonomous</li></ol>
               {devices.length > 0 ? (
                 <div className="leash-device-picker" data-testid="leash-device-picker">
@@ -1818,7 +1818,7 @@ export default function DashboardClient() {
                     disabled={busy}
                     aria-label="Which machine should run tasks"
                   >
-                    <option value="cloud">☁ Continuity Cloud VPS (Default)</option>
+                    <option value="cloud">☁ 24/7 Cloud VPS Runner (Default)</option>
                     {devices.map((device) => (
                       <option key={device.id} value={device.id}>
                         {machineDisplayName(device)} · {deviceStatusLabel(device)}
@@ -1835,11 +1835,22 @@ export default function DashboardClient() {
               <div className="safety-explanation">
                 <p>ThumbGate gives each task to one signed runner at a time. Its 90-second lease must keep renewing; if that runner disappears, the lease expires before another runner can take over.</p>
                 <ul><li>Prevents duplicate or stale runners from continuing work.</li><li>Rejects completion receipts from an expired lease.</li><li>All tasks run in isolated serverless cloud sandboxes.</li></ul>
-                <a className="button button-secondary button-small" href="#web-settings">Open Continuity settings</a>
+                <button
+                  type="button"
+                  className="button button-secondary button-small"
+                  onClick={() => {
+                    const el = document.getElementById("web-settings");
+                    if (el) {
+                      el.scrollIntoView({ behavior: "smooth" });
+                    }
+                  }}
+                >
+                  View Cloud Runner Status
+                </button>
               </div>
             </details>
             <section className="panel" id="web-settings">
-              <div className="panel-heading"><div><p className="eyebrow">CONTINUITY RUNNER</p><h2>24/7 Cloud VPS Sandbox</h2></div></div>
+              <div className="panel-heading"><div><p className="eyebrow">SANDBOX RUNNER</p><h2>24/7 Cloud VPS Sandbox</h2></div></div>
               <div className="sr-only" aria-hidden="true"><h2>Paired Hermes connectors</h2></div>
               <p className="helper-copy">
                 ThumbGate executes tasks directly on our fenced serverless Cloud VPS runner (90s renewable lease). Zero local Mac setup or background software required.
