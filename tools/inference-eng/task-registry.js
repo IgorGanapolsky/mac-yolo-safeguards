@@ -66,8 +66,8 @@ const TASKS = Object.freeze([
     qualityMin: 0.9,
     concurrency: 'interactive',
     modelClass: 'frontier',
-    // 2026-08-05: demote glm-coding (tool noncompliance); SuperGrok first for hard plan.
-    preferredModels: ['grok-4.5', 'kimi-code', 'deepseek-v4-flash', 'glm-coding'],
+    // 2026-08-13 quality lock: glm-coding before free flash (flash = gibberish under YOLO).
+    preferredModels: ['grok-4.5', 'glm-coding', 'kimi-code', 'hermes-local'],
     match: ['plan', 'architecture', 'design', 'are you sure', 'root cause'],
     businessKpi: 'first_pass_pr_acceptance',
   },
@@ -80,8 +80,8 @@ const TASKS = Object.freeze([
     qualityMin: 0.88,
     concurrency: 'interactive',
     modelClass: 'coding',
-    // SuperGrok primary; free/local before dead GLM (glm kept last for ALLOW_GLM opt-in).
-    preferredModels: ['grok-4.5', 'kimi-code', 'deepseek-v4-flash', 'hermes-local', 'glm-coding'],
+    // SuperGrok then glm-coding quality primary (never free flash as agent primary).
+    preferredModels: ['grok-4.5', 'glm-coding', 'kimi-code', 'hermes-local'],
     match: ['fix', 'implement', 'refactor', 'write test', 'patch', 'debug', 'bug'],
     businessKpi: 'ship_cycle_time_hours',
   },
@@ -95,7 +95,7 @@ const TASKS = Object.freeze([
     concurrency: 'steady',
     modelClass: 'fast',
     // Never SuperGrok for smoke — save plan quota (ROI 2026-08-05).
-    preferredModels: ['kimi-code-fast', 'deepseek-v4-flash-free', 'hermes-local', 'deepseek-v4-flash'],
+    preferredModels: ['kimi-code-fast', 'hermes-local', 'glm-coding'],
     match: ['smoke', 'ping', 'hermes-yolo-ready', 'reply with exactly', 'quick check'],
     businessKpi: 'fleet_uptime',
   },
@@ -108,8 +108,8 @@ const TASKS = Object.freeze([
     qualityMin: 0.8,
     concurrency: 'batch',
     modelClass: 'coding',
-    // Batch drafts: free/local first; SuperGrok last (workload split ROI).
-    preferredModels: ['deepseek-v4-flash', 'hermes-local', 'kimi-code-fast', 'kimi-code', 'grok-4.5'],
+    // Batch drafts: glm-coding quality first (free flash demoted 2026-08-13 gibberish).
+    preferredModels: ['glm-coding', 'hermes-local', 'kimi-code-fast', 'kimi-code', 'grok-4.5'],
     match: ['draft', 'write post', 'newsletter', 'outreach email', 'landing copy'],
     businessKpi: 'content_publish_throughput',
   },
@@ -122,7 +122,7 @@ const TASKS = Object.freeze([
     qualityMin: 0.85,
     concurrency: 'bursty',
     modelClass: 'fast',
-    preferredModels: ['deepseek-v4-flash-free', 'hermes-local', 'kimi-code-fast'],
+    preferredModels: ['hermes-local', 'kimi-code-fast', 'glm-coding'],
     match: ['classify', 'qualify lead', 'funnel stage', 'spam', 'intent'],
     businessKpi: 'lead_qualify_precision',
   },
@@ -135,8 +135,7 @@ const TASKS = Object.freeze([
     qualityMin: 0.9,
     concurrency: 'batch',
     modelClass: 'coding',
-    // Dead GLM demoted (toolCompliance~0); free/local coding rungs first for batch eval.
-    preferredModels: ['kimi-code', 'deepseek-v4-flash', 'hermes-local', 'glm-coding'],
+    preferredModels: ['kimi-code', 'glm-coding', 'hermes-local'],
     match: ['judge', 'eval', 'groundedness', 'score answer', 'grade'],
     businessKpi: 'eval_suite_pass_rate',
   },
