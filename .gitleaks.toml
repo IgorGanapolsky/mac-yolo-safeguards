@@ -58,6 +58,7 @@ description = "Known dummy fixtures and template placeholders — not real secre
 regexTarget = "line"
 regexes = [
   '''Bearer abcdefghijklmnopqrstuvwxyz''',
+  '''sk-TESTONLY-not-a-credential''',
   '''very-sensitive-value-12345''',
   '''paired-mobile-token''',
   '''\$\{[A-Za-z_][A-Za-z0-9_]*\}''',      # ${TS_AUTHKEY}, ${apiKey} style templates

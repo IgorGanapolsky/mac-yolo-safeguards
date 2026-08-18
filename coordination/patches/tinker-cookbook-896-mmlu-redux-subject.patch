@@ -1,0 +1,111 @@
+From 7f23f61b5799efa10c27f0b5ec938f3c61585600 Mon Sep 17 00:00:00 2001
+From: Igor Ganapolsky <iganapolsky@gmail.com>
+Date: Tue, 18 Aug 2026 00:30:53 +0000
+Subject: [PATCH] fix(eval): mmlu_redux per-subject accuracy always buckets
+ into "unknown"
+
+MMLUReduxMessageEnv.step() puts "subject" only in `logs`, never in
+`metrics`, so aggregate()'s `m.get("subject", "unknown")` never finds
+it and every example falls into a single mmlu_redux/unknown/accuracy
+bucket instead of a real per-subject breakdown.
+
+`Metrics` is typed `dict[str, float | int]` (no strings allowed), so
+the subject is encoded as a numeric index into the module's existing
+_SUBJECTS list in metrics ("subject_idx") and decoded back to the
+subject name in aggregate(), mirroring how other benchmarks in this
+package keep metrics numeric.
+
+Regression tests for thinking-machines-lab/tinker-cookbook#896
+---
+ .../eval/benchmarks/benchmark_test.py         | 41 +++++++++++++++++++
+ tinker_cookbook/eval/benchmarks/mmlu_redux.py | 15 +++++--
+ 2 files changed, 52 insertions(+), 4 deletions(-)
+
+diff --git a/tinker_cookbook/eval/benchmarks/benchmark_test.py b/tinker_cookbook/eval/benchmarks/benchmark_test.py
+index 8b0f6c4..53a9576 100644
+--- a/tinker_cookbook/eval/benchmarks/benchmark_test.py
++++ b/tinker_cookbook/eval/benchmarks/benchmark_test.py
+@@ -343,6 +343,47 @@ class TestMCQExtraction:
+         assert metrics["actions_matched"] == 2
+ 
+ 
++class TestMMLUReduxAggregate:
++    """Regression test for per-subject accuracy breakdown (issue #896).
++
++    `aggregate()` used to read `m.get("subject", "unknown")`, but `step()`
++    never put a "subject" key in `metrics` (only in `logs`), so every
++    example fell into a single "unknown" bucket instead of being broken
++    down by subject.
++    """
++
++    def test_per_subject_breakdown(self):
++        from tinker_cookbook.eval.benchmarks.mmlu_redux import (
++            _SUBJECTS,
++            MMLUReduxBenchmarkBuilder,
++        )
++
++        builder = MMLUReduxBenchmarkBuilder()
++        anatomy_idx = float(_SUBJECTS.index("anatomy"))
++        astronomy_idx = float(_SUBJECTS.index("astronomy"))
++        rewards = [1.0, 0.0, 1.0, 1.0]
++        metrics_list = [
++            {"correct": 1.0, "subject_idx": anatomy_idx},
++            {"correct": 0.0, "subject_idx": anatomy_idx},
++            {"correct": 1.0, "subject_idx": astronomy_idx},
++            {"correct": 1.0, "subject_idx": astronomy_idx},
++        ]
++
++        result = builder.aggregate(rewards, metrics_list)
++
++        assert result.metrics["mmlu_redux/anatomy/accuracy"] == 0.5
++        assert result.metrics["mmlu_redux/astronomy/accuracy"] == 1.0
++        assert "mmlu_redux/unknown/accuracy" not in result.metrics
++
++    def test_missing_subject_idx_is_skipped(self):
++        from tinker_cookbook.eval.benchmarks.mmlu_redux import MMLUReduxBenchmarkBuilder
++
++        builder = MMLUReduxBenchmarkBuilder()
++        result = builder.aggregate([1.0], [{"correct": 1.0}])
++
++        assert result.metrics == {"mmlu_redux/accuracy": 1.0}
++
++
+ class TestGradingConsistency:
+     """Validate that new framework grading matches recipe implementation."""
+ 
+diff --git a/tinker_cookbook/eval/benchmarks/mmlu_redux.py b/tinker_cookbook/eval/benchmarks/mmlu_redux.py
+index 9b9c755..a252bb8 100644
+--- a/tinker_cookbook/eval/benchmarks/mmlu_redux.py
++++ b/tinker_cookbook/eval/benchmarks/mmlu_redux.py
+@@ -132,7 +132,12 @@ class MMLUReduxMessageEnv(MessageEnv):
+             reward=1.0 if correct else 0.0,
+             episode_done=True,
+             next_messages=[],
+-            metrics={"correct": float(correct)},
++            metrics={
++                "correct": float(correct),
++                # `Metrics` values must be numeric, so the subject is encoded as an
++                # index into `_SUBJECTS` here and decoded back in `aggregate()`.
++                "subject_idx": float(_SUBJECTS.index(self.subject)),
++            },
+             logs={
+                 "example_id": self.example_id,
+                 "input": self.prompt[:200],
+@@ -197,9 +202,11 @@ class MMLUReduxBenchmarkBuilder(BenchmarkBuilder):
+ 
+         subject_results: dict[str, list[bool]] = {}
+         for r, m in zip(rewards, metrics_list):
+-            subj = m.get("subject", "unknown")
+-            if isinstance(subj, str):
+-                subject_results.setdefault(subj, []).append(r > 0)
++            subject_idx = m.get("subject_idx")
++            if subject_idx is None:
++                continue
++            subj = _SUBJECTS[int(subject_idx)]
++            subject_results.setdefault(subj, []).append(r > 0)
+ 
+         metrics: dict[str, float] = {"mmlu_redux/accuracy": accuracy}
+         for subj, subj_res in sorted(subject_results.items()):
+-- 
+2.43.0
+
