@@ -422,16 +422,19 @@ def promote_config(
 
 
 def _public_sim_result(result: Dict[str, Any]) -> Dict[str, Any]:
-    """JSON-safe sim result without prompt/greeting snippets (CodeQL clear-text)."""
+    """JSON-safe sim result without prompt-derived fields (CodeQL clear-text).
+
+    CodeQL taints booleans derived from the agent system prompt
+    (e.g. billing-escalation checks) as sensitive/private. Emit only
+    aggregate counts + test names — never prompt-derived pass flags.
+    """
+    names = [str(tc.get("name") or "") for tc in result.get("test_cases", [])]
     return {
-        "status": result.get("status"),
-        "agent_id": result.get("agent_id"),
-        "tests_run": result.get("tests_run"),
-        "tests_passed": result.get("tests_passed"),
-        "test_cases": [
-            {"name": tc.get("name"), "passed": tc.get("passed")}
-            for tc in result.get("test_cases", [])
-        ],
+        "status": str(result.get("status") or ""),
+        "agent_id": str(result.get("agent_id") or ""),
+        "tests_run": int(result.get("tests_run") or 0),
+        "tests_passed": int(result.get("tests_passed") or 0),
+        "test_names": names,
     }
 
 
@@ -621,7 +624,9 @@ def main() -> int:
             )
             for tc in result["test_cases"]:
                 status_icon = "✓" if tc["passed"] else "✗"
-                print(f"  [{status_icon}] {tc['name']}: {tc['details']}")
+                # Do not print details — may contain billing/payment wording that
+                # CodeQL classifies as sensitive clear-text logging.
+                print(f"  [{status_icon}] {tc['name']}")
         return 0 if result["status"] == "PASS" else 1
 
     if args.command == "gate-check":
