@@ -69,47 +69,38 @@ test("a task submitted through the real composer round-trips through the real co
   await expect(completedCard.locator("pre")).toContainText("fake-gateway E2E reply");
 });
 
-test("the device picker lets a real user target a specific paired Mac, and the task actually runs there", async ({ page }) => {
+test("composer has no RUN ON picker and shows Output after send", async ({ page }) => {
   await page.goto("/dashboard");
 
-  // Unified "Run on" select (local:<deviceId> values).
-  const picker = page.locator('[data-testid="composer-target-select"]');
-  await expect(picker).toBeVisible();
-  // auto + 2 paired devices + Continuity + pair + manage
-  await expect(picker.locator("option")).toHaveCount(6, { timeout: 5_000 });
-  await picker.selectOption(`local:${state.deviceB.deviceId}`);
+  const output = page.locator('[data-testid="run-output"]');
+  await expect(output).toBeVisible();
+  await expect(output.locator(".eyebrow")).toContainText(/Output/i);
+  await expect(page.locator('[data-testid="composer-target-select"]')).toHaveCount(0);
+  await expect(page.locator("select.composer-target-select")).toHaveCount(0);
+  await expect(page.getByText("Which Mac?")).toHaveCount(0);
 
+  const prompt = "prove Continuity output pane after send";
   const textarea = page.getByLabel("Message for Hermes");
-  await textarea.fill("run this on the MacBook Pro specifically");
+  await textarea.fill(prompt);
   await page.locator(".composer-run").click();
 
-  const taskCard = page.locator(".dashboard-task", { hasText: "run this on the MacBook Pro specifically" });
+  const taskCard = page.locator(".dashboard-task", { hasText: prompt });
   await expect(taskCard).toBeVisible({ timeout: 10_000 });
+  await expect(output).toBeVisible();
+  await expect(output).toContainText(/Output|Continuity|Results show here|Sent|Running/i);
 
-  // Only device B's connector should be able to claim it -- device A polling should
-  // find nothing (204/no task), proving the pinned deviceId was actually honored server-side.
-  const wrongDeviceCycle = runConnector({
+  // Continuity-only composer: any online connector can claim. Do not pin a Mac.
+  const cycle = runConnector({
     device: state.deviceA,
     controlPlaneUrl: state.baseURL,
     gatewayUrl: state.gatewayUrl,
     mode: "--once",
   });
-  expect(wrongDeviceCycle.status).toBe(0);
+  expect(cycle.status, `connector --once failed:\n${cycle.stderr}`).toBe(0);
 
   await page.reload();
-  const stillPendingCard = page.locator(".dashboard-task", { hasText: "run this on the MacBook Pro specifically" });
-  await expect(stillPendingCard.locator(".status-completed")).toHaveCount(0);
-
-  const correctDeviceCycle = runConnector({
-    device: state.deviceB,
-    controlPlaneUrl: state.baseURL,
-    gatewayUrl: state.gatewayUrl,
-    mode: "--once",
-  });
-  expect(correctDeviceCycle.status, `connector --once failed:\n${correctDeviceCycle.stderr}`).toBe(0);
-
-  await page.reload();
-  const completedCard = page.locator(".dashboard-task", { hasText: "run this on the MacBook Pro specifically" });
+  const completedCard = page.locator(".dashboard-task", { hasText: prompt });
   await expect(completedCard.locator(".status-completed")).toBeVisible({ timeout: 10_000 });
-  await expect(completedCard).toContainText(state.deviceB.deviceName);
+  await expect(page.locator('[data-testid="run-output"]')).toBeVisible();
+  await expect(page.locator('[data-testid="run-output"] .eyebrow')).toContainText(/Output/i);
 });

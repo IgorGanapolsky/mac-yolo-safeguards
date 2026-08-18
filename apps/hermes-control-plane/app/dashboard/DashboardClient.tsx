@@ -930,7 +930,7 @@ export default function DashboardClient() {
         setSelectedThread(body.task.threadId);
         await loadWorkspace();
         window.requestAnimationFrame(() => {
-          document.getElementById("task-activity")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          document.getElementById("run-output")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
         });
       } else {
         if (body.code === "cloud_task_limit" || body.code === "cloud_entitlement_required") {
@@ -1542,97 +1542,10 @@ export default function DashboardClient() {
                 aria-label="Message for Hermes"
                 disabled={busy}
               />
-              {/* Single control: route + preferred Mac (dual Where/Which was redundant + unreadable on mobile). */}
-              <div
-                className="composer-unified-target"
-                data-testid="composer-unified-target"
-                role="region"
-                aria-labelledby="composer-where-label"
-              >
-                <label htmlFor="composer-target-select" className="composer-where-label" id="composer-where-label">
-                  Run on
-                </label>
-                <select
-                  id="composer-target-select"
-                  data-testid="composer-target-select"
-                  value={
-                    routePreference === "auto"
-                      ? "auto"
-                      : routePreference === "cloud"
-                        ? "cloud"
-                        : `local:${selectedDeviceId}`
-                  }
-                  onChange={(event) => {
-                    const val = event.target.value;
-                    if (val === "pair" || val === "manage") {
-                      chooseDevice(val);
-                      return;
-                    }
-                    if (val === "auto") {
-                      setRoutePreference("auto");
-                      setRouteExplainExpanded(false);
-                    } else if (val === "cloud") {
-                      setRoutePreference("cloud");
-                      setRouteExplainExpanded(false);
-                    } else if (val.startsWith("local:")) {
-                      setRoutePreference("local");
-                      chooseDevice(val.slice(6));
-                      setRouteExplainExpanded(false);
-                    }
-                  }}
-                  disabled={busy}
-                  aria-label="Target machine or Continuity routing"
-                >
-                  {/* Always selectable — Continuity (cloud VPS) is default */}
-                  <option value="cloud">
-                    Continuity (cloud VPS){organization?.cloudAccess ? "" : " — needs trial/Pro"}
-                  </option>
-                  <option value="auto">{autoRouteLabel}</option>
-                  {devices.map((device) => (
-                    <option key={device.id} value={`local:${device.id}`}>
-                      {machineDisplayName(device)} only · {deviceStatusLabel(device)}
-                    </option>
-                  ))}
-                  <optgroup label="Setup">
-                    <option value="pair">{pairComputerLabel}</option>
-                    <option value="manage">⚙ Manage machines…</option>
-                  </optgroup>
-                </select>
-                {/* Hidden contract strings for tests — dual Where/Which UI removed from visible dock. */}
-                <div className="sr-only" aria-hidden="true">
-                  <span>Where should this run?</span>
-                  <span>Which machine?</span>
-                  <div data-testid="composer-device-picker">
-                    <select
-                      id="composer-device-select"
-                      data-testid="composer-device-select"
-                      value={selectedDeviceId}
-                      onChange={(event) => chooseDevice(event.target.value)}
-                      tabIndex={-1}
-                    >
-                      {devices.map((device) => (
-                        <option key={device.id} value={device.id}>
-                          {device.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+              <div className="run-output" id="run-output" data-testid="run-output" role="status" aria-live="polite">
+                <p className="eyebrow">Output</p>
+                {notice ? <p>{notice}</p> : visibleTasks[0]?.result ? <p>{visibleTasks[0].result}</p> : visibleTasks[0]?.error ? <p>{visibleTasks[0].error}</p> : visibleTasks[0] ? <p>Running on Continuity…</p> : <p>Results show here after you send.</p>}
               </div>
-              {!isNarrowViewport ? (
-                <div className="composer-route-explain" role="status" aria-live="polite">
-                  <button
-                    type="button"
-                    className="composer-route-explain-toggle"
-                    aria-expanded={routeExplainExpanded}
-                    onClick={() => setRouteExplainExpanded((v) => !v)}
-                  >
-                    <strong>{routeExplain.title}</strong>
-                    <span aria-hidden="true">{routeExplainExpanded ? "▾" : "▸"}</span>
-                  </button>
-                  {routeExplainExpanded ? <p>{routeExplain.body}</p> : null}
-                </div>
-              ) : null}
               <div className="composer-actions">
                 {/* Fallback hidden submit button so form.requestSubmit() and soft keyboard Enter always find a submitter */}
                 <button type="submit" className="sr-only" aria-hidden="true" tabIndex={-1}>Submit</button>
