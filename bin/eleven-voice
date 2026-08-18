@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Wrapper for ElevenLabs Voice Agent & ThumbGate Governance Engine
+set -euo pipefail
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHON_EXEC="python3"
+if [ -f "$DIR/.venv/bin/python3" ]; then
+  PYTHON_EXEC="$DIR/.venv/bin/python3"
+fi
+exec "$PYTHON_EXEC" "$DIR/.agents/skills/elevenlabs-voice-agents/scripts/elevenlabs_voice_engine.py" "$@"
