@@ -14,7 +14,7 @@ const path = require('path');
 
 function sendRolandBergerPitch() {
   const recipient = 'info@rolandberger.com';
-  const sender = 'iganapolsky@gmail.com';
+  const sender = 'igor@igorganapolsky.com';
   const subject = 'Partnership Proposal: Turnkey ISO/IEC 42001 Pre-Action Governance Mesh for Roland Berger act.AI Suite';
 
   const content = `To: Roland Berger Global AI & Transformation Leadership Practice
@@ -41,7 +41,7 @@ Best regards,
 
 Igor Ganapolsky
 Founder, ThumbGate.app & Mac-YOLO Safeguards
-iganapolsky@gmail.com | https://linkedin.com/in/igorganapolsky
+igor@igorganapolsky.com | https://linkedin.com/in/igorganapolsky
 `;
 
   // AppleScript to create and send message

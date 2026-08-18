@@ -67,4 +67,4 @@ While Roland Berger provides the world-class **"AI-First Organization"** advisor
 
 We invite the Roland Berger AI Practice team to an interactive demonstration of the **act.AI Governance Mesh**:
 * **Live Demo URL**: [https://thumbgate.app/dashboard](https://thumbgate.app/dashboard)
-* **Direct Partner Contact**: `igor@thumbgate.app` | [linkedin.com/in/igorganapolsky](https://linkedin.com/in/igorganapolsky)
+* **Direct Partner Contact**: `igor@igorganapolsky.com` | `igor@thumbgate.app` | [linkedin.com/in/igorganapolsky](https://linkedin.com/in/igorganapolsky)
