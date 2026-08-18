@@ -12,7 +12,7 @@ describe("resolveComposerRunCta", () => {
       hasCloudAccess: true,
     });
     expect(cta.kind).toBe("run");
-    expect(cta.label).toMatch(/Continuity/i);
+    expect(cta.label).toMatch(/Run/i);
     expect(cta.label).not.toMatch(/pair/i);
     expect(cta.isContinuity).toBe(true);
     expect(cta.disabled).toBe(false);
