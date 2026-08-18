@@ -3002,3 +3002,5 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 | SKILLS.md (append rows only) | grok-marketplace-skills-20260817 | 2026-08-17T22:06:00Z |
 | plan.md (append only) | grok-marketplace-skills-20260817 | 2026-08-17T22:06:00Z |
 
+
+- `tools/hermes-mobile-pair.js`, `tests/test-hermes-pair-lan-route.js` → **grok-pair-lan-alternates** (USB primary must still publish LAN/TS routes; Wi-Fi phone never gets 127.0.0.1) (2026-08-18)
