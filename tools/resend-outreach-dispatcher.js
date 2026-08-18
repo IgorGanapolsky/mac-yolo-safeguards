@@ -46,7 +46,7 @@ function loadOutreachPackets() {
 /**
  * Dispatches an email via Resend API.
  */
-async function sendEmailViaResend(apiKey, { to, subject, textBody, from = 'Igor Ganapolsky <igor@igorganapolsky.com>' }) {
+async function sendEmailViaResend(apiKey, { to, subject, textBody, from = process.env.RESEND_FROM_EMAIL || 'ThumbGate <onboarding@resend.dev>' }) {
   const url = 'https://api.resend.com/emails';
   const payload = {
     from,
@@ -106,6 +106,41 @@ if (require.main === module) {
         console.log(`    Subject: ${p.subject}`);
         console.log(`    Offer: ${p.offer} ($${p.valueUsd})`);
       });
+      process.exit(0);
+    }
+
+    if (args.includes('--send')) {
+      const key = getResendApiKey();
+      if (!key) {
+        console.error('[resend-dispatcher] Error: RESEND_API_KEY not found in Keychain or environment.');
+        process.exit(1);
+      }
+      const packets = loadOutreachPackets();
+      if (!packets.length) {
+        console.log('[resend-dispatcher] No pending outreach packets found.');
+        process.exit(0);
+      }
+      console.log(`\n=== Dispatching ${packets.length} Outreach Packets via Resend ===`);
+      const results = [];
+      for (const p of packets) {
+        const targetEmail = p.recipientEmail || 'iganapolsky@gmail.com';
+        console.log(`▶ Sending to ${p.company} [${targetEmail}]...`);
+        try {
+          const res = await sendEmailViaResend(key, {
+            to: targetEmail,
+            subject: p.subject,
+            textBody: p.body,
+          });
+          console.log(`  ✓ Sent successfully (Resend ID: ${res.id})`);
+          results.push({ id: p.id, company: p.company, resendId: res.id, status: 'SENT', sentAt: new Date().toISOString() });
+        } catch (err) {
+          console.error(`  ✗ Failed to send to ${p.company}: ${err.message}`);
+          results.push({ id: p.id, company: p.company, error: err.message, status: 'FAILED', failedAt: new Date().toISOString() });
+        }
+      }
+      fs.mkdirSync(path.dirname(DISPATCH_LOG_FILE), { recursive: true });
+      fs.writeFileSync(DISPATCH_LOG_FILE, JSON.stringify(results, null, 2));
+      console.log(`\n[resend-dispatcher] Dispatch log written to: ${DISPATCH_LOG_FILE}`);
       process.exit(0);
     }
 
