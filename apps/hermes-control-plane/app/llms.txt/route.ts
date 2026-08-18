@@ -1,25 +1,25 @@
-const body = `# ThumbGate Continuity
+const body = `# ThumbGate
 
-> ThumbGate Continuity is a paid fenced cloud VPS runner for autonomous agent work under LLM-as-a-Judge gates and renewable leases. Continuity is the product on thumbgate.app — not Mac pairing. Hermes Mobile is an optional phone companion for Leash approvals and alerts.
+> ThumbGate sells hosted Hermes on a fenced VPS for autonomous agent work under LLM-as-a-Judge gates and renewable leases. Hosted Hermes is the product on thumbgate.app — not Mac pairing. Approvals happen in the thumbgate.app browser. There is no phone leash on this product.
 
 ## Canonical URL
 - https://thumbgate.app/
 
 ## Core capabilities
-- Continuity: fenced cloud / VPS execution for eligible agent tasks (coding, research, computer use)
+- Hosted Hermes: fenced cloud / VPS execution for eligible agent tasks (coding, research, computer use)
 - LLM-as-a-Judge pre-action gates and auditable task receipts
 - Renewable, expiring fenced leases so only the current unexpired executor can complete a task
 - Aggregate, content-free product analytics
-- Optional Hermes Mobile companion for biometric approvals and push (separate app from Continuity)
+- Human gate in thumbgate.app for money, customer, or production actions
 
 ## Product split
-- **ThumbGate.app** — Continuity VPS, dashboard, trial/Pro billing, judge policy
-- **Hermes Mobile** — phone Leash/approvals/voice (store apps); not Continuity, not billing
-- Mac pairing is not the marketed product path for Continuity on thumbgate.app
+- **ThumbGate.app** — hosted Hermes on a fenced VPS, dashboard, trial/Pro billing, judge policy, in-browser approvals
+- Mac pairing is not the marketed product path for hosted Hermes on thumbgate.app
 
 ## Pricing
-- Continuity is a recurring paid subscription for the fenced VPS runner
+- Hosted Hermes is a recurring paid subscription for the fenced VPS runner
 - Current price and billing interval: https://thumbgate.app/api/billing/plan (Pro list price is $10/month as of live Stripe read-back)
+- 14-day trial. Cancel anytime.
 
 ## Privacy boundary
 - Funnel analytics do not contain prompts, threads, email addresses, IP addresses, cookies, or user-agent strings
@@ -32,10 +32,11 @@ const body = `# ThumbGate Continuity
 - Live public stats endpoint: https://thumbgate.app/api/expertise/stats
 
 ## Direct answers
-- What is this? Continuity — fenced VPS agent execution on ThumbGate.app
-- Do I pair my Mac? No — Continuity is offered as VPS execution without a Mac-pair product path
-- Where is the phone app? Hermes Mobile (optional) for approvals/alerts — not a Continuity download
-- Access Continuity: sign in, start trial or Pro, run work on the fenced cloud runner
+- What is this? Hosted Hermes — fenced VPS agent execution on ThumbGate.app
+- Do I pair my Mac? No — hosted Hermes is offered as VPS execution without a Mac-pair product path
+- Where do approvals happen? In thumbgate.app. No phone leash.
+- Access hosted Hermes: sign in, start trial or Pro, run work on the fenced cloud runner
+- Is this Continuity? People say Continuity for memory plugins; this is the always-on box
 `;
 
 export async function GET() {
