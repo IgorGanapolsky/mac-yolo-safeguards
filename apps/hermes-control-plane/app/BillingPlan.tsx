@@ -40,7 +40,7 @@ export function BillingPlan() {
   }, []);
 
   if (!plan) {
-    return <strong aria-live="polite">{unavailable ? "See checkout" : "Live price"}</strong>;
+    return <strong aria-live="polite">$10<small>/month</small></strong>;
   }
 
   return <strong aria-live="polite">{formatAmount(plan)}<small>/{plan.interval}</small></strong>;

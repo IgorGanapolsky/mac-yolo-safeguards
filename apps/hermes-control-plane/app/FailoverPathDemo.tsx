@@ -5,42 +5,11 @@ import styles from "./failover-demo.module.css";
 
 type Phase = "pending" | "denied" | "running" | "offline_choice" | "paused" | "ask" | "cloud";
 type OfflinePolicy = "disabled" | "manual" | "auto";
-type ScenarioKey = "deploy" | "finance" | "branch";
 
-interface Scenario {
-  id: ScenarioKey;
-  label: string;
-  toolName: string;
-  command: string;
-  riskDescription: string;
-  judgeRule: string;
-}
-
-const SCENARIOS: Record<ScenarioKey, Scenario> = {
-  deploy: {
-    id: "deploy",
-    label: "Production Deploy",
-    toolName: "Bash",
-    command: "npm run deploy -- --prod",
-    riskDescription: "Continuity wants to run this on the VPS. You decide in thumbgate.app.",
-    judgeRule: "Rule: Sensitive production deploy requires explicit human gate.",
-  },
-  finance: {
-    id: "finance",
-    label: "Stripe Charge Gate",
-    toolName: "StripeAPI",
-    command: "stripe charges create --amount 50000 --currency usd",
-    riskDescription: "Agent requested outbound $500.00 charge transaction.",
-    judgeRule: "Rule: Outbound financial movement capped at $10.00 without interactive sign-off.",
-  },
-  branch: {
-    id: "branch",
-    label: "Git Force-Push Firewall",
-    toolName: "Git",
-    command: "git push origin main --force --no-verify",
-    riskDescription: "Agent attempted destructive force-push to protected main branch.",
-    judgeRule: "Rule: Protected branch history overwrite strictly blocked by LLM-as-a-Judge.",
-  },
+const TOOL_CALL = {
+  name: "Bash",
+  summary: "npm run deploy -- --prod",
+  detail: "Hosted Hermes wants to run this on the VPS. You decide in thumbgate.app.",
 };
 
 const OFFLINE_COPY: Record<OfflinePolicy, { label: string; blurb: string }> = {
@@ -53,7 +22,7 @@ const OFFLINE_COPY: Record<OfflinePolicy, { label: string; blurb: string }> = {
     blurb: "Task sits at needs_failover until you explicitly continue on cloud.",
   },
   auto: {
-    label: "Auto cloud continuity",
+    label: "Auto-continue on VPS",
     blurb: "A fenced cloud runner claims the 90s lease and keeps the same thread.",
   },
 };
@@ -65,7 +34,7 @@ function phaseLabel(phase: Phase): string {
     case "denied":
       return "thumbgate.app · denied";
     case "running":
-      return "Running on Continuity VPS";
+      return "Running on hosted VPS";
     case "offline_choice":
       return "Runner dropped · pick policy";
     case "paused":
@@ -73,7 +42,7 @@ function phaseLabel(phase: Phase): string {
     case "ask":
       return "Needs failover · waiting on you";
     case "cloud":
-      return "Cloud continuity · fenced lease";
+      return "Hosted VPS · fenced lease";
     default:
       return "Demo";
   }
@@ -82,12 +51,9 @@ function phaseLabel(phase: Phase): string {
 export function FailoverPathDemo() {
   const titleId = useId();
   const liveId = useId();
-  const [scenarioKey, setScenarioKey] = useState<ScenarioKey>("deploy");
   const [phase, setPhase] = useState<Phase>("pending");
   const [policy, setPolicy] = useState<OfflinePolicy>("manual");
   const [autoplay, setAutoplay] = useState(false);
-
-  const scenario = SCENARIOS[scenarioKey];
 
   const liveMessage = useMemo(() => {
     switch (phase) {
@@ -96,11 +62,11 @@ export function FailoverPathDemo() {
       case "denied":
         return "Call denied in thumbgate.app. The command never runs.";
       case "running":
-        return "Call approved in thumbgate.app. Continuity is executing on a fenced VPS under a 90-second lease.";
+        return "Call approved in thumbgate.app. Hosted Hermes is executing on a fenced VPS under a 90-second lease.";
       case "offline_choice":
-        return "The VPS runner dropped. Choose how Continuity should handle the unfinished work.";
+        return "The VPS runner dropped. Choose how hosted Hermes should handle the unfinished work.";
       case "paused":
-        return "Work paused until a Continuity runner claims the next lease. No extra spend.";
+        return "Work paused until a hosted runner claims the next lease. No extra spend.";
       case "ask":
         return "You are asked before cloud. Approve failover only when you want it.";
       case "cloud":
@@ -113,9 +79,11 @@ export function FailoverPathDemo() {
   useEffect(() => {
     if (!autoplay) return;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const delay = reduceMotion ? 1900 : 1500;
+    const delay = reduceMotion ? 1800 : 1400;
     const steps: Phase[] = ["pending", "running", "offline_choice", "ask", "cloud"];
     let index = 0;
+    // Only advance from the interval callback — never setState at effect body start
+    // (eslint react-hooks/set-state-in-effect).
     const timer = window.setInterval(() => {
       index = (index + 1) % steps.length;
       const next = steps[index];
@@ -141,12 +109,6 @@ export function FailoverPathDemo() {
     setAutoplay(true);
   }
 
-  function selectScenario(key: ScenarioKey) {
-    setAutoplay(false);
-    setScenarioKey(key);
-    setPhase("pending");
-  }
-
   function approveCall() {
     setAutoplay(false);
     setPhase("running");
@@ -157,7 +119,7 @@ export function FailoverPathDemo() {
     setPhase("denied");
   }
 
-  function dropRunner() {
+  function closeLid() {
     setAutoplay(false);
     setPhase("offline_choice");
   }
@@ -182,7 +144,7 @@ export function FailoverPathDemo() {
           <p className={styles.eyebrow}>Interactive demo · no real tools run</p>
           <h3 id={titleId}>Watch ThumbGate approve, deny, and fail over</h3>
           <p className={styles.lede}>
-            Explore real agentic safety interdictions. Approve or deny in thumbgate.app, then Continuity decides how the VPS finishes the work.
+            Click the buttons. Approve or deny in thumbgate.app, then the VPS finishes the work under the policy you picked.
           </p>
         </div>
         <div className={styles.headerActions}>
@@ -192,7 +154,7 @@ export function FailoverPathDemo() {
             aria-pressed={autoplay}
             onClick={toggleAutoplay}
           >
-            {autoplay ? "Stop autoplay" : "Autoplay simulation"}
+            {autoplay ? "Stop autoplay" : "Autoplay path"}
           </button>
           <button type="button" className={styles.ghostButton} onClick={reset}>
             Reset demo
@@ -200,61 +162,28 @@ export function FailoverPathDemo() {
         </div>
       </div>
 
-      {/* Scenario Selector Tabs */}
-      <div className={styles.scenarioBar} role="tablist" aria-label="Simulation Scenarios">
-        {(Object.keys(SCENARIOS) as ScenarioKey[]).map((key) => (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={scenarioKey === key}
-            className={`${styles.scenarioTab} ${scenarioKey === key ? styles.scenarioTabActive : ""}`}
-            onClick={() => selectScenario(key)}
-          >
-            {SCENARIOS[key].label}
-          </button>
-        ))}
-      </div>
-
       <div className={styles.stage}>
-        {/* Terminal Sandbox Window */}
-        <div className={styles.terminal} aria-hidden="true">
-          <div className={styles.terminalHeader}>
-            <div className={styles.windowControls}>
-              <span className={styles.controlClose} />
-              <span className={styles.controlMin} />
-              <span className={styles.controlMax} />
-            </div>
-            <span className={styles.terminalTitle}>vps-runner@thumbgate-cloud-01: ~</span>
-            <div className={styles.terminalBadge}>
-              <span className={`${styles.dot} ${phase === "denied" || phase === "paused" ? styles.dotWarn : styles.dotLive}`} />
-              <span>{phaseLabel(phase)}</span>
-            </div>
+        <div className={styles.phone} aria-hidden="true">
+          <div className={styles.phoneChrome}>
+            <span />
+            <span>thumbgate.app</span>
+            <span />
           </div>
-
-          <div className={styles.terminalBody}>
-            {/* LLM-as-a-Judge Banner */}
-            <div className={styles.judgeBanner}>
-              <div className={styles.judgeHeader}>
-                <span className={styles.shieldIcon}>🛡️</span>
-                <strong>LLM-as-a-Judge Pre-Action Guardrail</strong>
-                <span className={styles.judgeLatency}>&lt;45ms decision</span>
-              </div>
-              <p className={styles.judgeRuleText}>{scenario.judgeRule}</p>
+          <div className={styles.phoneBody}>
+            <div className={styles.statusRow}>
+              <span className={`${styles.dot} ${phase === "denied" || phase === "paused" ? styles.dotWarn : styles.dotLive}`} />
+              <strong>{phaseLabel(phase)}</strong>
             </div>
 
             <article className={styles.callCard}>
               <header>
-                <span className={styles.toolPill}>{scenario.toolName}</span>
+                <span className={styles.toolPill}>{TOOL_CALL.name}</span>
                 <span className={styles.leasePill}>
-                  {phase === "cloud" ? "VPS lease · 90s" : phase === "running" || phase === "ask" || phase === "paused" || phase === "offline_choice" ? "VPS lease · 90s" : "awaiting approval"}
+                  {phase === "cloud" ? "VPS lease · 90s" : phase === "running" || phase === "ask" || phase === "paused" || phase === "offline_choice" ? "VPS lease · 90s" : "awaiting you"}
                 </span>
               </header>
-              <code>
-                <span className={styles.promptPrefix}>$ </span>
-                {scenario.command}
-              </code>
-              <p>{scenario.riskDescription}</p>
+              <code>{TOOL_CALL.summary}</code>
+              <p>{TOOL_CALL.detail}</p>
 
               {phase === "pending" ? (
                 <div className={styles.actionRow}>
@@ -269,8 +198,8 @@ export function FailoverPathDemo() {
 
               {phase === "denied" ? (
                 <div className={`${styles.outcome} ${styles.denied}`}>
-                  <strong>Denied · Safety Interdiction Fired</strong>
-                  <p>Command blocked before execution. Zero damage, zero exfiltration. Denied in thumbgate.app.</p>
+                  <strong>Denied</strong>
+                  <p>Command never runs. The deny happened in thumbgate.app.</p>
                   <button type="button" className={styles.ghostButton} onClick={reset}>
                     Try approve instead
                   </button>
@@ -279,9 +208,9 @@ export function FailoverPathDemo() {
 
               {phase === "running" ? (
                 <div className={`${styles.outcome} ${styles.approved}`}>
-                  <strong>Approved · Fenced Continuity VPS Executing</strong>
-                  <p>Isolated cloud container holding 90s renewable lease generation 1. Drop runner to test failover.</p>
-                  <button type="button" className={styles.approveButton} onClick={dropRunner}>
+                  <strong>Approved · hosted VPS is running it</strong>
+                  <p>One fenced VPS runner holds the lease. Drop the runner to see hosted failover.</p>
+                  <button type="button" className={styles.approveButton} onClick={closeLid}>
                     Drop VPS runner →
                   </button>
                 </div>
@@ -289,7 +218,7 @@ export function FailoverPathDemo() {
 
               {phase === "offline_choice" || phase === "paused" || phase === "ask" || phase === "cloud" ? (
                 <div className={styles.offlineBlock}>
-                  <p className={styles.offlineBanner}>VPS runner dropped. Continuity failover policy decides next.</p>
+                  <p className={styles.offlineBanner}>VPS runner lost. The offline policy decides next.</p>
                   <div className={styles.policyRow} role="group" aria-label="Offline policy">
                     {(Object.keys(OFFLINE_COPY) as OfflinePolicy[]).map((key) => (
                       <button
@@ -308,14 +237,14 @@ export function FailoverPathDemo() {
                   {phase === "paused" ? (
                     <div className={`${styles.outcome} ${styles.paused}`}>
                       <strong>offline_blocked</strong>
-                      <p>Execution paused cleanly. No replacement runner starts. Zero runaway compute spend.</p>
+                      <p>No replacement runner starts. Work waits for the next hosted lease.</p>
                     </div>
                   ) : null}
 
                   {phase === "ask" ? (
                     <div className={`${styles.outcome} ${styles.ask}`}>
                       <strong>needs_failover</strong>
-                      <p>ThumbGate holds thread state at safe checkpoint. Awaiting explicit confirmation before cloud failover.</p>
+                      <p>ThumbGate waits for an explicit continue. Nothing spends until you approve.</p>
                       <button type="button" className={styles.approveButton} onClick={continueInCloud} aria-label="Continue this task in cloud">
                         Continue in cloud →
                       </button>
@@ -325,9 +254,9 @@ export function FailoverPathDemo() {
                   {phase === "cloud" ? (
                     <div className={`${styles.outcome} ${styles.cloud}`}>
                       <strong>cloud_pending → completed</strong>
-                      <p>Fenced cloud runner claimed lease generation 2. Zero state loss, deterministic receipt logged.</p>
+                      <p>Fenced VPS runner claimed generation N+1. Stale receipts cannot overwrite it.</p>
                       <button type="button" className={styles.ghostButton} onClick={reset}>
-                        Run another scenario
+                        Run the demo again
                       </button>
                     </div>
                   ) : null}
@@ -337,34 +266,33 @@ export function FailoverPathDemo() {
           </div>
         </div>
 
-        {/* Legend / Workflow Stages */}
         <ol className={styles.legend} aria-label="Failover path legend">
           <li className={phase === "pending" || phase === "denied" || phase === "running" ? styles.legendActive : ""}>
             <span>01</span>
             <div>
               <strong>Approve in thumbgate.app</strong>
-              <p>Sensitive tool calls pause in the browser. You decide: Approve executes on the VPS, Deny blocks it cold.</p>
+              <p>Approve runs the call on the VPS. Deny stops it cold.</p>
             </div>
           </li>
           <li className={phase === "running" ? styles.legendActive : ""}>
             <span>02</span>
             <div>
-              <strong>Fenced VPS execution</strong>
-              <p>Isolated Cloud Sandbox runner executes with a 90-second renewable lease and audit receipts.</p>
+              <strong>VPS execution</strong>
+              <p>One fenced VPS runner holds a 90-second lease.</p>
             </div>
           </li>
           <li className={phase === "offline_choice" || phase === "paused" || phase === "ask" || phase === "cloud" ? styles.legendActive : ""}>
             <span>03</span>
             <div>
-              <strong>Failover policy</strong>
-              <p>Pause, ask, or auto-continue. Cloud execution activates only under your configured organization policy.</p>
+              <strong>Offline policy</strong>
+              <p>Pause, ask, or auto-continue. Cloud only when you enabled it.</p>
             </div>
           </li>
           <li className={phase === "cloud" ? styles.legendActive : ""}>
             <span>04</span>
             <div>
               <strong>Fenced failover</strong>
-              <p>Cloud runner takes generation N+1 lease. Same conversation thread, zero duplicate side-effects.</p>
+              <p>A cloud runner takes the next lease. No double-write, same thread.</p>
             </div>
           </li>
         </ol>

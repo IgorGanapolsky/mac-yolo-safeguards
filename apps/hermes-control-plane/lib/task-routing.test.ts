@@ -4,12 +4,12 @@ import { decideTaskRoute, parseRoutePreference } from "./task-routing";
 const now = 1_000_000;
 
 describe("parseRoutePreference", () => {
-  it("accepts local cloud auto and defaults unknown to auto", () => {
+  it("accepts local cloud auto and defaults unknown to cloud", () => {
     expect(parseRoutePreference("local")).toBe("local");
     expect(parseRoutePreference("cloud")).toBe("cloud");
     expect(parseRoutePreference("auto")).toBe("auto");
-    expect(parseRoutePreference("nope")).toBe("auto");
-    expect(parseRoutePreference(undefined)).toBe("auto");
+    expect(parseRoutePreference("nope")).toBe("cloud");
+    expect(parseRoutePreference(undefined)).toBe("cloud");
   });
 });
 

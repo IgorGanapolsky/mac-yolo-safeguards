@@ -15,12 +15,7 @@ import {
   threadDetailsStorageKey,
   writeJsonSessionStorage,
 } from "@/lib/dashboard-nav-cache";
-import {
-  resolveAutoRouteLabel,
-  resolveComposerRunCta,
-  resolveEffectiveRoutePreference,
-  type RoutePreference,
-} from "@/lib/composer-run-cta";
+import { resolveComposerRunCta } from "@/lib/composer-run-cta";
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
@@ -100,12 +95,17 @@ function shortMachineLabel(name: string, max = 12): string {
  */
 function taskListEmptyCopy(input: {
   taskFilter: "all" | "completed" | "unrated";
-  deviceCount: number;
-  machineLabel: string;
   hasSelectedThread: boolean;
   syncedMessageCount: number;
-  routePreference?: RoutePreference;
+  deviceCount?: number;
 }): { title: string; body: string; compact: boolean } {
+  if (input.deviceCount === 0) {
+    return {
+      title: "No tasks yet",
+      body: "Pair a machine, then continue a Hermes thread from anywhere",
+      compact: false,
+    };
+  }
   if (input.taskFilter === "unrated") {
     return {
       title: "No unrated answers",
@@ -120,62 +120,29 @@ function taskListEmptyCopy(input: {
       compact: false,
     };
   }
-  const isCloud = input.routePreference === "cloud";
-  const runnerLabel = isCloud ? "Continuity Cloud VPS" : input.machineLabel;
-
-  if (isCloud) {
-    if (input.hasSelectedThread && input.syncedMessageCount > 0) {
-      return {
-        title: "No web tasks in this chat yet",
-        body: `Conversation is synced above. Type below to run the next step on ${runnerLabel} (fenced runner, 90s lease).`,
-        compact: true,
-      };
-    }
-    if (input.hasSelectedThread) {
-      return {
-        title: "No web tasks in this chat yet",
-        body: `Type below to run work on ${runnerLabel}. Synced messages appear here when active.`,
-        compact: false,
-      };
-    }
-    return {
-      title: "No tasks yet",
-      body: `Type below to run on ${runnerLabel}, or open a chat from the list.`,
-      compact: false,
-    };
-  }
-
-  if (input.deviceCount === 0) {
-    return {
-      title: "No tasks yet",
-      body: "Pair a machine, then continue a Hermes thread from anywhere.",
-      compact: false,
-    };
-  }
-
   if (input.hasSelectedThread && input.syncedMessageCount > 0) {
     return {
       title: "No web tasks in this chat yet",
-      body: `Conversation is synced above. Type below to run the next step on ${runnerLabel} (fenced runner, 90s lease).`,
+      body: "Conversation is synced above. Machines are paired. Type below to run the next step on the hosted VPS (fenced runner, 90s lease).",
       compact: true,
     };
   }
   if (input.hasSelectedThread) {
     return {
       title: "No web tasks in this chat yet",
-      body: `Type below to run work on ${runnerLabel}. Synced Hermes messages appear here when active.`,
+      body: "Machines are paired. Type below to run work on the hosted VPS. Synced messages appear here when active.",
       compact: false,
     };
   }
   return {
-    title: "No web tasks yet",
-    body: `Machines are paired. Type below to run on ${runnerLabel}, or open a chat from the list.`,
+    title: "No tasks yet",
+    body: "Machines are paired. Type below to run on the hosted VPS, or open a chat from the list.",
     compact: false,
   };
 }
 
 function taskReceiptLabel(task: { route: string; deviceName: string | null; status: string }): string {
-  if (task.route === "cloud") return "☁ Continuity · fenced · 90s lease";
+  if (task.route === "cloud") return "☁ hosted Hermes · fenced · 90s lease";
   if (task.route === "local") {
     const host = task.deviceName?.trim() || "Hermes machine";
     return `⌘ ${host} · fenced · 90s lease`;
@@ -273,8 +240,6 @@ export default function DashboardClient() {
   });
   const [threadDetails, setThreadDetails] = useState<ThreadDetails | null>(null);
   const [prompt, setPrompt] = useState("");
-  /** Where this task should run: Continuity VPS (default), paired machine, or auto offline failover. */
-  const [routePreference, setRoutePreference] = useState<RoutePreference>("cloud");
   /**
    * Explicit user override for which paired machine runs the next task.
    * Resolved selection is derived (useMemo) so we never setState inside an effect (eslint react-hooks/set-state-in-effect).
@@ -290,7 +255,6 @@ export default function DashboardClient() {
   /** In-memory thread detail cache for instant switch + hover preheat. */
   const threadCacheRef = useRef<Map<string, ThreadDetails>>(new Map());
   const preheatInflightRef = useRef<Set<string>>(new Set());
-  const conversationBottomRef = useRef<HTMLDivElement>(null);
 
   const selectedDeviceId = useMemo(() => {
     if (!devices.length) return "";
@@ -311,46 +275,7 @@ export default function DashboardClient() {
   const selectedDevice = devices.find((device) => device.id === selectedDeviceId) ?? null;
   /** Real paired hostname when present — never a vague placeholder. */
   const selectedDeviceLabel = machineDisplayName(selectedDevice, "paired Mac");
-  const pairComputerLabel = devices.length
-    ? "+ Pair another computer…"
-    : "+ Pair computer…";
   const hasCloudAccess = Boolean(organization?.cloudAccess);
-  const onlineDeviceCount = devices.filter(
-    (device) => device.online || device.presence === "online",
-  ).length;
-  /** Auto: Continuity is first-class — never implies "you must pair" when Continuity is entitled. */
-  const autoRouteLabel = resolveAutoRouteLabel({
-    hasCloudAccess,
-    deviceLabel: selectedDevice ? selectedDeviceLabel : null,
-    onlineDeviceCount,
-    deviceCount: devices.length,
-  });
-
-  /** Plain-English copy for the machine / Continuity / Auto control (always show, never jargon-only). */
-  const routeExplain =
-    routePreference === "cloud"
-      ? {
-          title: "Continuity (Cloud VPS)",
-          body: hasCloudAccess
-            ? "Runs on ThumbGate.app’s fenced cloud runner — no local computer required for this mode. Uses a Continuity run from your plan."
-            : "Needs a Continuity trial or Pro plan on ThumbGate.app. Start Continuity to use the cloud runner.",
-        }
-      : !devices.length
-        ? {
-            title: "No computer paired yet",
-            body: hasCloudAccess
-              ? "Pair a Mac in Settings for Auto/local runs, or keep Run on as Continuity (Cloud VPS) to send without a paired computer."
-              : "Pair the Mac that runs Hermes (Settings → one-line installer). Or start Continuity trial/Pro to run on Cloud VPS without a local machine.",
-          }
-        : routePreference === "local"
-          ? {
-              title: `${selectedDeviceLabel} only`,
-              body: `Runs on ${selectedDeviceLabel}. If that machine is asleep or offline, this task waits — Continuity will not start.`,
-            }
-          : {
-              title: `Auto — ${selectedDeviceLabel} first`,
-              body: `Uses ${selectedDeviceLabel} while online. If that machine goes offline, Continuity can continue based on its “If this machine goes offline” setting in Settings.`,
-            };
   const [pairCode, setPairCode] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -395,8 +320,6 @@ export default function DashboardClient() {
     });
     return () => window.cancelAnimationFrame(raf);
   }, [mobileTab]);
-  /** Desktop: route explain is secondary chrome — collapsed by default (Genspark-style). */
-  const [routeExplainExpanded, setRouteExplainExpanded] = useState(false);
   const chatsListDeepLink =
     typeof window !== "undefined" && window.location.hash === "#chats";
   // True when we must not auto-pick nextThreads[0] (user already chose, or #chats list view).
@@ -439,33 +362,25 @@ export default function DashboardClient() {
     selectedThreadRef.current = selectedThread;
   }, [selectedThread]);
 
-  /** Jump to Settings installer — used by RUN ON → Pair and the primary unpaired CTA. */
-  function openPairingSettings(reason: "pair" | "manage" = "pair") {
+  /** Switch to Settings (mobile tab + hash) and focus the panel. Hash-only links do nothing in this shell. */
+  function openSettingsPanel() {
     setMobileTab("settings");
     window.history.replaceState(null, "", "#web-settings");
     window.setTimeout(() => {
-      document.getElementById("web-settings")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const el = document.getElementById("web-settings");
+      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (el instanceof HTMLElement) {
+        el.focus({ preventScroll: true });
+      }
     }, 50);
-    if (reason === "manage") {
-      setNotice("Manage machines: remove or add connectors under Settings.");
-      return;
-    }
-    setNotice(
-      devices.length
-        ? "Pair another computer: run the one-line installer there, then approve the code under Settings."
-        : "Pair a computer: run the one-line installer on the Mac that hosts Hermes, then approve the code under Settings.",
-    );
   }
 
   function chooseDevice(deviceId: string) {
-    if (deviceId === "pair") {
-      openPairingSettings("pair");
+    if (deviceId === "pair" || deviceId === "manage") {
+      openSettingsPanel();
       return;
     }
-    if (deviceId === "manage") {
-      openPairingSettings("manage");
-      return;
-    }
+    if (deviceId === "cloud") return;
     setDeviceOverrideId(deviceId);
     try {
       window.localStorage.setItem(preferredDevicePreferenceKey, deviceId);
@@ -814,12 +729,6 @@ export default function DashboardClient() {
   }, [pairCode, user]);
   const visibleThreads = useMemo(() => orderThreadsForDisplay(threads, threadSortOrder), [threads, threadSortOrder]);
   const activeTasks = useMemo(() => tasks.filter((task) => !terminal.has(task.status)), [tasks]);
-
-  useEffect(() => {
-    if (threadDetails?.tasks?.length || threadDetails?.snapshot?.length || activeTasks.length) {
-      conversationBottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [threadDetails?.tasks?.length, threadDetails?.snapshot?.length, activeTasks.length]);
   const visibleTasks = useMemo(() => {
     if (taskFilter === "completed") {
       return tasks.filter((task) => task.status === "completed" && Boolean(task.result));
@@ -855,39 +764,19 @@ export default function DashboardClient() {
     event.preventDefault();
     const text = prompt.trim();
     if (!text) {
-      setNotice("Type a message first, then tap Run task.");
+      setNotice("Type a message first, then tap Run.");
       return;
     }
     const hasCloud = Boolean(organization?.cloudAccess);
-    // Continuity never requires a paired Mac (owner bug 2026-08: Continuity selected + "Pair first").
-    const onlineCount = devices.filter(
-      (device) => device.online || device.presence === "online",
-    ).length;
-    const effectiveRoute = resolveEffectiveRoutePreference({
-      routePreference,
-      deviceCount: devices.length,
-      hasCloudAccess: hasCloud,
-      onlineDeviceCount: onlineCount,
-    });
-    if (effectiveRoute === "cloud" && !hasCloud) {
-      setNotice("Continuity needs a trial or Pro plan. Open Manage plan to start Continuity.");
+    if (!hasCloud) {
+      setNotice("A trial or Pro plan is required to run on the hosted VPS. Open Manage plan.");
       return;
     }
-    // Client-side capacity preflight (server still enforces) — CoreWeave-style remaining truth.
-    if (effectiveRoute === "cloud" && continuityUsage?.exhausted) {
+    if (continuityUsage?.exhausted) {
       setNotice(
         continuityUsage.upgradeHint
-          ?? "Continuity capacity exhausted for this 30-day window. Use a local machine or upgrade.",
+          ?? "Hosted VPS capacity exhausted for this 30-day window. Upgrade to continue.",
       );
-      return;
-    }
-    // Auto with Continuity never forces pair — only pure local-without-machine does.
-    if (!devices.length && effectiveRoute !== "cloud") {
-      openPairingSettings("pair");
-      return;
-    }
-    if (!selectedDeviceId && effectiveRoute !== "cloud") {
-      setNotice("Select which machine should run this task.");
       return;
     }
     setBusy(true);
@@ -902,7 +791,7 @@ export default function DashboardClient() {
           deviceId: selectedDeviceId || undefined,
           idempotencyKey: crypto.randomUUID(),
           traceId: crypto.randomUUID(),
-          routePreference: effectiveRoute,
+          routePreference: "cloud",
         }),
       });
       let body: {
@@ -925,19 +814,15 @@ export default function DashboardClient() {
           devices.find((device) => device.id === (body.task?.deviceId ?? selectedDeviceId))?.name
           ?? selectedDeviceLabel;
         setNotice(
-          body.task.route === "local"
-            ? `Sent — running on ${macName} (local/spot · $0 Continuity quota).`
-            : body.task.route === "cloud"
-              ? (devices.length
-                  ? `Sent — Continuity on-demand VPS · workspace: ${macName}.`
-                  : "Sent — Continuity on-demand VPS on ThumbGate.app.")
-              : `Sent — awaiting route on ${macName}.`
+          body.task.route === "cloud"
+            ? "Sent — running on the hosted VPS."
+            : `Sent — running on ${macName}.`,
         );
         setPrompt("");
         setSelectedThread(body.task.threadId);
         await loadWorkspace();
         window.requestAnimationFrame(() => {
-          document.getElementById("task-activity")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          document.getElementById("run-output")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
         });
       } else {
         if (body.code === "cloud_task_limit" || body.code === "cloud_entitlement_required") {
@@ -947,7 +832,7 @@ export default function DashboardClient() {
             lim != null
               ? ` Capacity ${Math.max(0, (lim ?? 0) - (rem ?? 0))}/${lim} used.`
               : "";
-          setNotice(`${body.error ?? "Continuity capacity denied."}${capacityNote}`);
+          setNotice(`${body.error ?? "Hosted VPS capacity denied."}${capacityNote}`);
           // Refresh meter so remaining capacity matches the enforcer.
           try {
             const me = await fetch("/api/me", { credentials: "include", cache: "no-store" });
@@ -1153,7 +1038,7 @@ export default function DashboardClient() {
           window.localStorage.setItem(chatRailPreferenceKey, "false");
           setMobileTab("hermes");
         }
-        setNotice(`${body.cleared ?? threads.length} chats cleared. Type a Continuity task below to start again.`);
+        setNotice(`${body.cleared ?? threads.length} chats cleared. Type a task below to start again.`);
         window.requestAnimationFrame(() => focusComposer());
       }
       setChatDialog(null);
@@ -1166,7 +1051,6 @@ export default function DashboardClient() {
   function openThread(threadId: string | null) {
     setThreadMenu(null);
     setSelectedThread(threadId);
-    setRouteExplainExpanded(false);
     // Leaving the #chats list view for a concrete thread (or workspace home).
     if (typeof window !== "undefined" && window.location.hash === "#chats") {
       const url = new URL(window.location.href);
@@ -1318,18 +1202,17 @@ export default function DashboardClient() {
             className={`continuity-usage-meter${continuityUsage.exhausted ? " is-exhausted" : ""}`}
             data-testid="continuity-usage-meter"
             data-exhausted={continuityUsage.exhausted ? "true" : "false"}
-            aria-label="Continuity capacity remaining"
+            aria-label="Hosted VPS capacity remaining"
           >
             <div className="continuity-usage-meter-copy">
-              <p className="eyebrow">Continuity capacity · {continuityUsage.purchaseMode ?? continuityUsage.plan}</p>
+              <p className="eyebrow">Hosted VPS capacity · {continuityUsage.purchaseMode ?? continuityUsage.plan}</p>
               <strong>
                 {continuityUsage.cloudTasks30d}/{continuityUsage.cloudTaskLimit} VPS runs used
-                {continuityUsage.exhausted ? " · exhausted" : ""}
               </strong>
               <small>
                 {continuityUsage.cloudTasksRemaining} remaining · plan {continuityUsage.plan} ·{" "}
                 {continuityUsage.windowDays}d window · {continuityUsage.activeTasks}/
-                {continuityUsage.maxActiveTasks} active
+                {continuityUsage.maxActiveTasks} active · local/spot · $0 Continuity quota
                 {typeof continuityUsage.percentUsed === "number" ? ` · ${continuityUsage.percentUsed}%` : ""}
               </small>
               {continuityUsage.upgradeHint ? (
@@ -1341,7 +1224,7 @@ export default function DashboardClient() {
                     onClick={() => void (["pro", "team"].includes(organization?.plan ?? "") ? manageBilling() : subscribe())}
                     disabled={busy}
                   >
-                    {["pro", "team"].includes(organization?.plan ?? "") ? "Manage plan" : "Upgrade Continuity"}
+                    {["pro", "team"].includes(organization?.plan ?? "") ? "Manage plan" : "Upgrade plan"}
                   </button>
                 </p>
               ) : null}
@@ -1352,7 +1235,7 @@ export default function DashboardClient() {
               aria-valuemin={0}
               aria-valuemax={Math.max(1, continuityUsage.cloudTaskLimit)}
               aria-valuenow={Math.min(continuityUsage.cloudTasks30d, Math.max(1, continuityUsage.cloudTaskLimit))}
-              aria-label={`${continuityUsage.cloudTasks30d} of ${continuityUsage.cloudTaskLimit} Continuity runs used`}
+              aria-label={`${continuityUsage.cloudTasks30d} of ${continuityUsage.cloudTaskLimit} hosted VPS runs used`}
             >
               <i
                 style={{
@@ -1368,7 +1251,7 @@ export default function DashboardClient() {
         )}
 
         <nav className="metric-grid metric-grid-four" aria-label="Workspace status shortcuts">
-          <a className="metric-card" href="#web-settings" aria-label={`View ${devices.length} paired machines in settings`}><span>Paired machines</span><strong>{devices.length}</strong><small>{onlineDevices.length} online now</small><b>View machines →</b></a>
+          <a className="metric-card" href="#web-settings" onClick={(event) => { event.preventDefault(); openSettingsPanel(); }} aria-label={`View ${devices.length} paired machines in settings`}><span>Paired machines</span><strong>{devices.length}</strong><small>{onlineDevices.length} online now</small><b>View machines →</b></a>
           <a className="metric-card" href="#task-activity" aria-label={`View ${activeTasks.length} active tasks`}><span>Active tasks</span><strong>{activeTasks.length}</strong><small>{tasks.filter((task) => task.route === "cloud" && !terminal.has(task.status)).length} routed to cloud</small><b>View activity →</b></a>
           <a className="metric-card" href="#task-activity" aria-label={`View task receipts; P95 completion is ${latency(p95CompletionLatency)}`}><span>P95 completion</span><strong>{latency(p95CompletionLatency)}</strong><small>{p95CompletionLatency === null ? "Waiting for completed runs" : "Measured from real task receipts"}</small><b>View receipts →</b></a>
           <a className="metric-card" href="#execution-safety" aria-label="Explain fenced execution safety" onClick={() => setSafetyExpanded(true)}><span>Execution safety</span><strong className="safe-copy">Fenced</strong><small>One signed runner; 90-second lease</small><b>Explain safety →</b></a>
@@ -1405,101 +1288,30 @@ export default function DashboardClient() {
             >
               <i className="agent-activity-dot" aria-hidden="true" />
               <strong>
-                {activeTasks.length === 1
-                  ? "1 Continuity run active"
-                  : `${activeTasks.length} Continuity runs active`}
+                {activeTasks.length === 0
+                  ? "24/7 Cloud Sandbox Ready"
+                  : activeTasks.length === 1
+                    ? "1 hosted run active"
+                    : `${activeTasks.length} hosted runs active`}
               </strong>
-              <span>
-                {activeTasks.some((task) => task.route === "cloud")
-                  ? "Fenced VPS · no babysitting required"
-                  : "Waiting on your paired machine"}
+              <span style={{ marginLeft: "8px" }}>
+                {activeTasks.length === 0
+                  ? "Fenced VPS · Instant execution"
+                  : activeTasks.some((task) => task.route === "cloud")
+                    ? "Fenced VPS · no babysitting required"
+                    : "Running on selected machine"}
               </span>
             </div>
             <div className="hermes-scroll-pane">
             {selectedThread && <div className="conversation-history">
-              {threadDetails?.snapshot.length ? (
-                threadDetails.snapshot.map((message, index) =>
-                  message.role === "system" ? (
-                    <details key={`snapshot-${index}`} className="system-instructions-details" style={{ margin: "0.5rem 0", padding: "0.4rem 0.6rem", background: "rgba(255,255,255,0.03)", borderRadius: "6px", fontSize: "0.78rem", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.05)" }}>
-                      <summary style={{ cursor: "pointer", userSelect: "none" }}>⚙ System Context &amp; Instructions ({message.content.length > 500 ? `${Math.round(message.content.length / 1000)}k chars` : `${message.content.length} chars`})</summary>
-                      <div style={{ marginTop: "0.4rem", maxHeight: "160px", overflowY: "auto", fontSize: "0.75rem" }}>
-                        <FormattedMessage text={message.content} />
-                      </div>
-                    </details>
-                  ) : (
-                    <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}>
-                      <span>{message.role}</span>
-                      <FormattedMessage text={message.content} />
-                    </article>
-                  ),
-                )
-              ) : loadState === "loading" && !threadDetails ? (
-                <div className="conversation-empty" data-state="loading">Loading this conversation…</div>
-              ) : loadState === "error" && !threadDetails ? (
-                <div className="conversation-empty" data-state="error">Could not load workspace data. Retrying automatically.</div>
-              ) : (
-                <div className="conversation-empty">
-                  <div className="empty-state-card" style={{ textAlign: "center", padding: "1.75rem 1rem" }}>
-                    <strong style={{ fontSize: "1.05rem", display: "block", color: "#f8fafc", marginBottom: "0.4rem" }}>⚡ 24/7 Fenced Cloud VPS Ready</strong>
-                    <p style={{ color: "#94a3b8", fontSize: "0.85rem", maxWidth: "440px", margin: "0 auto 1.25rem", lineHeight: 1.5 }}>
-                      No messages in this thread yet. Send a Continuity task below to start the conversation on the fenced VPS runner.
-                    </p>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.6rem", maxWidth: "560px", margin: "0 auto", textAlign: "left" }}>
-                      <button
-                        type="button"
-                        onClick={() => setPrompt("Deploy Next.js Worker to Cloudflare with D1 database and test live health endpoints")}
-                        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", padding: "0.65rem 0.75rem", color: "#e2e8f0", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.15s ease" }}
-                      >
-                        🚀 <strong>Deploy Cloudflare Worker</strong>
-                        <div style={{ color: "#64748b", fontSize: "0.7rem", marginTop: "0.2rem" }}>Build, test, and deploy to edge</div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPrompt("Run an LLM-as-a-Judge security audit across all public API routes and verify auth gates")}
-                        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", padding: "0.65rem 0.75rem", color: "#e2e8f0", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.15s ease" }}
-                      >
-                        🛡️ <strong>Security Audit Gate</strong>
-                        <div style={{ color: "#64748b", fontSize: "0.7rem", marginTop: "0.2rem" }}>Pre-action rule & route verification</div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPrompt("Refactor Playwright test suite to verify mobile drawer layout on 390px viewport")}
-                        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", padding: "0.65rem 0.75rem", color: "#e2e8f0", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.15s ease" }}
-                      >
-                        📱 <strong>Mobile E2E Testing</strong>
-                        <div style={{ color: "#64748b", fontSize: "0.7rem", marginTop: "0.2rem" }}>Verify responsive layout constraints</div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPrompt("Verify live Stripe billing webhook status and calculate 30-day run metrics")}
-                        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", padding: "0.65rem 0.75rem", color: "#e2e8f0", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.15s ease" }}
-                      >
-                        📊 <strong>Billing & Telemetry</strong>
-                        <div style={{ color: "#64748b", fontSize: "0.7rem", marginTop: "0.2rem" }}>Query D1 task audit telemetry</div>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><FormattedMessage text={message.content} /></article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. Retrying automatically.</div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
               {threadDetails?.tasks.flatMap((task, index) => [
                 <article key={`task-user-${index}`} className="conversation-message role-user"><span>web</span><p>{task.prompt}</p></article>,
                 task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><FormattedMessage text={task.result} />{feedbackControls(task.id)}</article>
                   : task.error ? <article key={`task-error-${index}`} className="conversation-message role-error"><span>failed</span><FormattedMessage text={task.error} /></article>
-                  : task.status !== "completed" && task.status !== "failed" ? (
-                    <article key={`task-pending-${index}`} className="conversation-message role-pending" style={{ background: "rgba(34, 211, 238, 0.08)", border: "1px solid rgba(34, 211, 238, 0.3)", borderRadius: "12px", padding: "12px 14px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                        <span style={{ fontWeight: 700, color: "#a5f3fc" }}>{taskReceiptLabel(task)}</span>
-                        <span className="live-dot" style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#22d3ee", display: "inline-block", boxShadow: "0 0 8px #22d3ee" }} />
-                      </div>
-                      <p style={{ margin: "0 0 6px", color: "#e2e8f0", fontSize: "0.85rem" }}>Waiting for {task.route === "cloud" ? "the fenced Continuity runner" : "your paired machine"} to pick this up…</p>
-                      <div style={{ padding: "6px 10px", background: "#060913", borderRadius: "6px", fontFamily: "monospace", fontSize: "0.75rem", color: "#34d399", display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span style={{ animation: "pulse 1.5s infinite" }}>▶</span>
-                        <span>90s lease reserved · LLM-as-a-Judge pre-action safety active...</span>
-                      </div>
-                    </article>
-                  ) : null,
+                  : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><p>Waiting for {task.route === "cloud" ? "the fenced VPS runner" : "your paired machine"} to pick this up…</p></article>
+                  : null,
               ])}
-              <div ref={conversationBottomRef} style={{ height: "1px" }} />
             </div>}
             <div className="task-list" id="task-activity">
               {taskFilter !== "all" ? (
@@ -1539,11 +1351,9 @@ export default function DashboardClient() {
                 (() => {
                   const empty = taskListEmptyCopy({
                     taskFilter,
-                    deviceCount: devices.length,
-                    machineLabel: selectedDeviceLabel,
                     hasSelectedThread: Boolean(selectedThread),
                     syncedMessageCount: threadDetails?.snapshot.length ?? 0,
-                    routePreference,
+                    deviceCount: devices.length,
                   });
                   return (
                     <div
@@ -1561,7 +1371,7 @@ export default function DashboardClient() {
                           data-testid="empty-start-work"
                           onClick={focusComposer}
                         >
-                          Write a Continuity task →
+                          Write a task →
                         </button>
                       ) : null}
                     </div>
@@ -1624,141 +1434,18 @@ export default function DashboardClient() {
                 aria-label="Message for Hermes"
                 disabled={busy}
               />
-              {/* Single control: route + preferred Mac (only rendered when user has paired machines to choose between). */}
-              {devices.length > 0 ? (
-                <div
-                  className="composer-unified-target"
-                  data-testid="composer-unified-target"
-                  role="region"
-                  aria-labelledby="composer-where-label"
-                >
-                <label htmlFor="composer-target-select" className="composer-where-label" id="composer-where-label">
-                  Run on
-                </label>
-                <select
-                  id="composer-target-select"
-                  data-testid="composer-target-select"
-                  value={
-                    routePreference === "auto"
-                      ? "auto"
-                      : routePreference === "cloud"
-                        ? "cloud"
-                        : `local:${selectedDeviceId}`
-                  }
-                  onChange={(event) => {
-                    const val = event.target.value;
-                    if (val === "pair" || val === "manage") {
-                      chooseDevice(val);
-                      return;
-                    }
-                    if (val === "auto") {
-                      setRoutePreference("auto");
-                      setRouteExplainExpanded(false);
-                    } else if (val === "cloud") {
-                      setRoutePreference("cloud");
-                      setRouteExplainExpanded(false);
-                    } else if (val.startsWith("local:")) {
-                      setRoutePreference("local");
-                      chooseDevice(val.slice(6));
-                      setRouteExplainExpanded(false);
-                    }
-                  }}
-                  disabled={busy}
-                  aria-label="Target machine or Continuity routing"
-                >
-                  {/* Always selectable — Continuity (cloud VPS) is default */}
-                  <option value="cloud">
-                    Continuity (cloud VPS){organization?.cloudAccess ? "" : " — needs trial/Pro"}
-                  </option>
-                  <option value="auto">{autoRouteLabel}</option>
-                  {devices.map((device) => (
-                    <option key={device.id} value={`local:${device.id}`}>
-                      {machineDisplayName(device)} only · {deviceStatusLabel(device)}
-                    </option>
-                  ))}
-                </select>
-                {/* Hidden contract strings for tests — dual Where/Which UI removed from visible dock. */}
-                <div className="sr-only" aria-hidden="true">
-                  <span>Where should this run?</span>
-                  <span>Which machine?</span>
-                  <span>Manage machines</span>
-                  <span>{pairComputerLabel}</span>
-                  <div data-testid="composer-device-picker">
-                    <select
-                      id="composer-device-select"
-                      data-testid="composer-device-select"
-                      value={selectedDeviceId}
-                      onChange={(event) => chooseDevice(event.target.value)}
-                      tabIndex={-1}
-                    >
-                      <option value="manage">⚙ Manage machines…</option>
-                      <option value="pair">{pairComputerLabel}</option>
-                      {devices.map((device) => (
-                        <option key={device.id} value={device.id}>
-                          {device.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+              <div className="run-output" id="run-output" data-testid="run-output" role="status" aria-live="polite">
+                <p className="eyebrow">Output</p>
+                {notice ? <p>{notice}</p> : visibleTasks[0]?.result ? <p>{visibleTasks[0].result}</p> : visibleTasks[0]?.error ? <p>{visibleTasks[0].error}</p> : visibleTasks[0] ? <p>Running on the hosted VPS…</p> : <p>Results show here after you send.</p>}
               </div>
-              ) : (
-                /* Hidden accessible fallback when zero machines exist (pure Continuity Cloud VPS) */
-                <div className="sr-only" aria-hidden="true">
-                  <select
-                    id="composer-target-select"
-                    data-testid="composer-target-select"
-                    value="cloud"
-                    readOnly
-                    tabIndex={-1}
-                  >
-                    <option value="cloud">Continuity (cloud VPS)</option>
-                  </select>
-                </div>
-              )}
-              {!isNarrowViewport ? (
-                <div className="composer-route-explain" role="status" aria-live="polite">
-                  <button
-                    type="button"
-                    className="composer-route-explain-toggle"
-                    aria-expanded={routeExplainExpanded}
-                    onClick={() => setRouteExplainExpanded((v) => !v)}
-                  >
-                    <strong>{routeExplain.title}</strong>
-                    <span aria-hidden="true">{routeExplainExpanded ? "▾" : "▸"}</span>
-                  </button>
-                  {routeExplainExpanded ? <p>{routeExplain.body}</p> : null}
-                </div>
-              ) : null}
               <div className="composer-actions">
                 {/* Fallback hidden submit button so form.requestSubmit() and soft keyboard Enter always find a submitter */}
                 <button type="submit" className="sr-only" aria-hidden="true" tabIndex={-1}>Submit</button>
                 {(() => {
                   const cta = resolveComposerRunCta({
-                    routePreference,
-                    deviceCount: devices.length,
                     hasCloudAccess,
-                    onlineDeviceCount,
                     busy,
                   });
-                  if (cta.kind === "pair") {
-                    return (
-                      <button
-                        type="submit"
-                        className="button button-primary button-small composer-run"
-                        data-testid={cta.testId}
-                        disabled={cta.disabled}
-                        onClick={(e) => {
-                          if (!prompt.trim()) {
-                            e.preventDefault();
-                            openPairingSettings("pair");
-                          }
-                        }}
-                      >
-                        {cta.label}
-                      </button>
-                    );
-                  }
                   if (cta.kind === "upgrade") {
                     return (
                       <button
@@ -1769,7 +1456,7 @@ export default function DashboardClient() {
                         onClick={(e) => {
                           if (!prompt.trim()) {
                             e.preventDefault();
-                            setNotice("Continuity needs a trial or Pro plan. Open Manage plan to start Continuity.");
+                            setNotice("A trial or Pro plan is required to run on the hosted VPS. Open Manage plan.");
                             document.getElementById("billing")?.scrollIntoView({ behavior: "smooth" });
                             window.location.hash = "billing";
                           }
@@ -1786,11 +1473,7 @@ export default function DashboardClient() {
                       data-testid={cta.testId}
                       disabled={cta.disabled}
                       aria-busy={busy}
-                      aria-label={
-                        cta.isContinuity
-                          ? "Run on Continuity cloud VPS — no local computer required"
-                          : "Run task"
-                      }
+                      aria-label="Run"
                     >
                       {busy ? "Sending…" : cta.label}
                     </button>
@@ -1802,8 +1485,8 @@ export default function DashboardClient() {
 
           <aside className="right-rail" ref={rightRailRef}>
             <section className="panel connection-panel" id="leash-control">
-              <div className="panel-heading"><div><p className="eyebrow">CLOUD RUNNER</p><h2>24/7 Cloud AI Engineer</h2></div><span>ACTIVE & AUTONOMOUS</span></div>
-              <div className="connection-summary"><span className={`device-light is-online`} /><div><strong>☁️ 24/7 Cloud VPS Live</strong><p>ThumbGate runs on a fenced serverless Cloud VPS runner — no local Mac or background service required. Tasks run instantly in the cloud.</p></div></div>
+              <div className="panel-heading"><div><p className="eyebrow">HOSTED HERMES</p><h2>Fenced VPS</h2></div><span>ACTIVE & AUTONOMOUS</span></div>
+              <div className="connection-summary"><span className={`device-light is-online`} /><div><strong>☁️ Hosted Hermes live</strong><p>ThumbGate runs on a fenced serverless Cloud VPS runner — no local Mac or background service required. Tasks run instantly in the cloud.</p></div></div>
               <ol className="dashboard-setup-steps"><li className="is-done"><span>1</span>Cloud VPS runner active</li><li className="is-done"><span>2</span>LLM-as-Judge guardrails enabled</li><li className="is-done"><span>3</span>Online & autonomous</li></ol>
               {devices.length > 0 ? (
                 <div className="leash-device-picker" data-testid="leash-device-picker">
@@ -1818,7 +1501,7 @@ export default function DashboardClient() {
                     disabled={busy}
                     aria-label="Which machine should run tasks"
                   >
-                    <option value="cloud">☁ 24/7 Cloud VPS Runner (Default)</option>
+                    <option value="cloud">☁ Hosted VPS (default)</option>
                     {devices.map((device) => (
                       <option key={device.id} value={device.id}>
                         {machineDisplayName(device)} · {deviceStatusLabel(device)}
@@ -1838,33 +1521,16 @@ export default function DashboardClient() {
                 <button
                   type="button"
                   className="button button-secondary button-small"
-                  onClick={() => {
-                    const el = document.getElementById("web-settings");
-                    if (el) {
-                      el.scrollIntoView({ behavior: "smooth" });
-                    }
-                  }}
-                >
-                  View Cloud Runner Status
-                </button>
+                  data-testid="open-settings"
+                  onClick={openSettingsPanel}
+                >Open settings</button>
               </div>
             </details>
-            <section className="panel" id="web-settings">
-              <div className="panel-heading"><div><p className="eyebrow">SANDBOX RUNNER</p><h2>24/7 Cloud VPS Sandbox</h2></div></div>
-              <div className="sr-only" aria-hidden="true"><h2>Paired Hermes connectors</h2></div>
+            <section className="panel" id="web-settings" tabIndex={-1}>
+              <div className="panel-heading"><div><p className="eyebrow">SETTINGS</p><h2>Paired Hermes connectors</h2></div></div>
               <p className="helper-copy">
-                ThumbGate executes tasks directly on our fenced serverless Cloud VPS runner (90s renewable lease). Zero local Mac setup or background software required.
+                ThumbGate executes tasks directly on our fenced serverless Cloud VPS runner (90s renewable lease). No local Mac software or background daemons are required.
               </p>
-              <div className="continuity-status-card" style={{ padding: "0.75rem", background: "rgba(255,255,255,0.03)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)", marginBottom: "1rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
-                  <span className="device-light is-online" />
-                  <strong>Fenced VPS Runner Active</strong>
-                  <span style={{ marginLeft: "auto", fontSize: "0.75rem", color: "#34d399" }}>● 90s Renewable Lease</span>
-                </div>
-                <small style={{ color: "#94a3b8", display: "block" }}>
-                  LLM-as-a-Judge pre-action safety active · Plan: {organization?.cloudAccess ? "Pro / Active" : "Trial Available"}
-                </small>
-              </div>
               {devices.map((device) => {
                 const isPreferred = device.id === selectedDeviceId;
                 return (
