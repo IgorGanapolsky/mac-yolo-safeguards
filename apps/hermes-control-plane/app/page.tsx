@@ -30,32 +30,32 @@ const FAQ_ITEMS = [
   {
     question: "What is ThumbGate?",
     answer:
-      "ThumbGate Continuity is a fenced cloud VPS runner for autonomous agent work: coding, research, and computer-use tasks under LLM-as-a-Judge gates, 90-second renewable leases, and plan caps. You run and approve from the browser.",
+      "ThumbGate is a 24/7 cloud runner for autonomous AI agent work: coding, research, and computer-use tasks under LLM-as-a-Judge gates, 90-second renewable leases, and plan caps. You run and approve directly from the browser.",
   },
   {
     question: "Where do approvals happen?",
     answer:
-      "In thumbgate.app. Approve or deny a tool call in the web workspace. There is no phone leash on this product.",
+      "In thumbgate.app. Approve or deny any tool call in the web workspace with 1 click. Zero phone tethering required.",
   },
   {
-    question: "Do I need a phone app?",
+    question: "Do I need a phone app or background daemon?",
     answer:
-      "No. Continuity, billing, and approvals all live on thumbgate.app.",
+      "No. Workspace execution, billing, and safety approvals all live directly on thumbgate.app in your browser.",
   },
   {
-    question: "Do I need to pair a Mac?",
+    question: "Do I need to pair a local computer?",
     answer:
-      "No. Continuity is fenced VPS execution. Sign in, start a trial or Pro plan, and run work on the cloud runner.",
+      "No. ThumbGate runs in fenced cloud VPS sandboxes. Sign in, start a trial or Pro plan, and dispatch autonomous work immediately.",
   },
   {
-    question: "How much does Continuity cost?",
+    question: "How much does it cost?",
     answer:
-      "Pro Continuity is a flat $10/month for the fenced VPS runner, with a 14-day trial. Not per-token. Live list price is https://thumbgate.app/api/billing/plan.",
+      "Pro plan is a flat $10/month with 100 cloud runs and a 14-day free trial. Not billed per-token. Live pricing endpoint is https://thumbgate.app/api/billing/plan.",
   },
   {
     question: "Is this a closed system?",
     answer:
-      "Yes. Approvals, billing, and Continuity runs stay in thumbgate.app. Your org controls access. There is no phone leash on this product.",
+      "Yes. Tool calls, audit receipts, and sessions remain strictly isolated in your workspace. Zero data exfiltration.",
   },
 ] as const;
 
@@ -70,9 +70,9 @@ export default function Home() {
         applicationCategory: "DeveloperApplication",
         operatingSystem: "Web",
         description:
-          "Fenced cloud VPS Continuity for autonomous agents. Approvals happen in thumbgate.app.",
+          "24/7 Fenced cloud VPS runner for autonomous agents with in-browser LLM-as-a-Judge safety gates.",
         offers: [
-          { "@type": "Offer", name: "Pro Continuity", price: "10", priceCurrency: "USD" },
+          { "@type": "Offer", name: "Pro Plan", price: "10", priceCurrency: "USD" },
         ],
       },
       {
@@ -98,19 +98,19 @@ export default function Home() {
       />
       <FunnelSignals />
       <nav className="topbar landing-nav" aria-label="Primary navigation">
-        <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate <small>Continuity</small></span></Link>
+        <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate <small>Cloud Runner</small></span></Link>
         <LandingAuthNav />
       </nav>
 
       <section id="main-content" className="hero" tabIndex={-1}>
         <div className="hero-copy">
-          <p className="eyebrow"><span className="live-dot" /> Continuity · Fenced VPS</p>
-          <h1>Agent work on a<br /><span>fenced Continuity VPS.</span></h1>
+          <p className="eyebrow"><span className="live-dot" /> 24/7 Cloud AI Engineer · Fenced VPS</p>
+          <h1>Autonomous agents on an<br /><span>isolated Cloud VPS sandbox.</span></h1>
           <p className="hero-lede">
-            Your agents keep running on a fenced VPS. Approve or deny tool calls in thumbgate.app. Flat $10/month. Not per-token. 14 days free.
+            Your AI agents work 24/7 in fenced cloud sandboxes. Approve or deny sensitive tool calls in thumbgate.app with 1 click. Flat $10/month. 14 days free.
           </p>
           <LandingAuthHero />
-          <p className="signin-note">Continuity by ThumbGate. Continue with Google today — more providers activate once configured.</p>
+          <p className="signin-note">Continuity by ThumbGate. Continue with Google today — get instant sandbox access.</p>
           <div className="trust-row">
             <span>Fenced VPS runner</span>
             <span>Closed-system · zero leaks</span>
@@ -130,25 +130,25 @@ export default function Home() {
           <h2>Sign in. Run on VPS. Stay gated.</h2>
         </div>
         <ol className="setup-steps">
-          <li><span>01</span><div><h3>Sign in</h3><p>Google via AuthKit. Open the Continuity dashboard from any browser.</p></div></li>
-          <li><span>02</span><div><h3>Start trial or Pro</h3><p>Continuity entitlement unlocks the fenced cloud VPS runner under your plan caps.</p></div></li>
-          <li><span>03</span><div><h3>Dispatch work</h3><p>Agents run on Continuity VPS with pre-action gates — not on a paired laptop product path.</p></div></li>
+          <li><span>01</span><div><h3>Sign in</h3><p>Google via AuthKit. Open your private workspace from any browser.</p></div></li>
+          <li><span>02</span><div><h3>Start 14-day trial</h3><p>Unlocks the 24/7 Cloud VPS runner with isolated sandboxes under your plan caps.</p></div></li>
+          <li><span>03</span><div><h3>Dispatch &amp; Approve</h3><p>Agents execute autonomously with LLM-as-a-Judge pre-action gates on sensitive actions.</p></div></li>
         </ol>
       </section>
 
       <section id="how-it-works" className="section-block">
         <div className="section-heading">
-          <p className="eyebrow">How Continuity runs</p>
+          <p className="eyebrow">How it works</p>
           <h2>Fenced VPS execution with renewable leases.</h2>
           <p>
-            Tasks execute in isolated Continuity sandboxes with 90-second renewable leases, receipt audit trails, and LLM-as-a-Judge interdiction before sensitive tool calls.
+            Tasks execute in isolated cloud sandboxes with 90-second renewable leases, cryptographic receipt logs, and LLM-as-a-Judge interdiction before sensitive actions.
           </p>
         </div>
         <FailoverPathDemo />
         <div className="steps-grid steps-grid-after-demo">
-          <article><span>01</span><h3>Approve in thumbgate.app</h3><p>Sensitive tool calls pause in the browser. You retain complete execution authority with one-click approvals.</p></article>
+          <article><span>01</span><h3>In-browser approvals</h3><p>Sensitive tool calls pause in the browser. You retain complete execution authority with one-click approvals.</p></article>
           <article><span>02</span><h3>LLM-as-a-Judge safety</h3><p>Pre-action checks block destructive commands, secret leaks, and unauthorized spend.</p></article>
-          <article><span>03</span><h3>Fenced Cloud VPS runner</h3><p>Serverless Continuity execution with isolated sandboxes and 90s renewable leases.</p></article>
+          <article><span>03</span><h3>Fenced Cloud VPS runner</h3><p>Serverless cloud execution with isolated sandboxes and 90s renewable leases.</p></article>
         </div>
       </section>
 
@@ -158,7 +158,7 @@ export default function Home() {
           <h2>Your data stays in your workspace.</h2>
           <p>
             Tool calls, audit receipts, and agent sessions remain strictly isolated within your organization.
-            Zero external data exfiltration, zero dependency on hardware tethering.
+            Zero external data exfiltration, zero hardware dependency.
           </p>
         </div>
         <div className="steps-grid">
@@ -170,37 +170,37 @@ export default function Home() {
           <article>
             <span>02</span>
             <h3>Fenced VPS Sandboxes</h3>
-            <p>Tasks run on isolated Continuity runners with deterministic 90-second renewable leases.</p>
+            <p>Tasks run on isolated cloud runners with deterministic 90-second renewable leases.</p>
           </article>
           <article>
             <span>03</span>
             <h3>Flat $10, not metered tokens</h3>
-            <p>Pro Continuity is a flat monthly list price. Live pricing endpoint: /api/billing/plan.</p>
+            <p>Pro plan is a flat monthly list price. Live pricing endpoint: /api/billing/plan.</p>
           </article>
         </div>
         <div className="hero-actions" style={{ marginTop: "32px" }}>
           <a href="#pricing" className="button button-primary" data-funnel-event="cloud_continuity_click">
-            Start Continuity — $10/mo <span aria-hidden="true">→</span>
+            Start Cloud Runner — $10/mo <span aria-hidden="true">→</span>
           </a>
         </div>
       </section>
 
       <section id="pricing" className="pricing-section">
         <div className="pricing-copy">
-          <p className="eyebrow">Pro Continuity · live list price</p>
+          <p className="eyebrow">Pro Plan · live list price</p>
           <h2>Transparent Continuity capacity.</h2>
           <p>
-            CoreWeave-style public specs: on-demand monthly Pro, short trial capacity, and reserved Team options.
-            Caps match the control-plane enforcer — not marketing fiction. Egress, idle, and NAT-style fees:{" "}
+            Public specs: on-demand monthly Pro, 14-day free trial, and reserved Team options.
+            Caps match the control-plane enforcer — not marketing fiction. Egress, idle, and NAT fees:{" "}
             <strong>{CONTINUITY_ZERO_EGRESS.surpriseEgress}</strong>.
           </p>
         </div>
         <div className="price-grid">
           <article className="price-card">
-            <div><span>Sign-in workspace</span><strong>$0<small>/start</small></strong></div>
-            <p className="price-mode">Free · no Continuity runs</p>
+            <div><span>Starter</span><strong>$0<small>/start</small></strong></div>
+            <p className="price-mode">Free · explore workspace</p>
             <ul>
-              <li>Account + Continuity dashboard shell</li>
+              <li>Account + Cloud dashboard shell</li>
               <li>LLM-as-a-Judge policy surface</li>
               <li><strong>{CONTINUITY_PRICE_TIERS[0].cloudRunsDisplay}</strong> fenced VPS runs / 30 days</li>
               <li>No Mac pair required to explore</li>
@@ -211,7 +211,7 @@ export default function Home() {
             <div><span>Pro Continuity</span><BillingPlan /></div>
             <p className="price-mode">On-demand monthly · live Stripe list price</p>
             <ul>
-              <li><strong>{CONTINUITY_PRICE_TIERS[2].cloudRunsDisplay}</strong> Continuity VPS runs / 30 days</li>
+              <li><strong>{CONTINUITY_PRICE_TIERS[2].cloudRunsDisplay}</strong> Cloud VPS runs / 30 days</li>
               <li>14-day trial: <strong>{CONTINUITY_PRICE_TIERS[1].cloudRunsDisplay}</strong> runs / 30 days</li>
               <li>90s renewable leases + receipts</li>
               <li>LLM-as-a-Judge pre-action gates</li>
@@ -223,11 +223,11 @@ export default function Home() {
             <div><span>Team &amp; Enterprise</span><strong>$49<small>/month</small></strong></div>
             <p className="price-mode">Reserved capacity · contact for custom caps</p>
             <ul>
-              <li>Everything in Pro Continuity</li>
+              <li>Everything in Pro Plan</li>
               <li>Custom judge rubrics</li>
-              <li>Higher Continuity run caps (contract)</li>
+              <li>Higher Cloud VPS run caps (contract)</li>
               <li>BYO API keys &amp; custom endpoints</li>
-              <li>Priority Continuity leases</li>
+              <li>Priority runner sandboxes</li>
             </ul>
             <LandingPricingCtaPaid />
           </article>

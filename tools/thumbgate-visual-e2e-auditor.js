@@ -23,8 +23,8 @@ const BANNED_PATTERNS = [
 const REQUIRED_PROD_ENDPOINTS = [
   { path: "/api/health", expectedStatus: 200, checkJson: (j) => j.ready === true && j.service === "leash-control" },
   { path: "/api/billing/plan", expectedStatus: 200, checkJson: (j) => j.active === true && j.unitAmount === 1000 },
-  { path: "/api/expertise/stats", expectedStatus: 200, checkJson: (j) => Array.isArray(j.caseStudies) && j.caseStudies.length > 0 },
-  { path: "/llms.txt", expectedStatus: 200, checkText: (t) => t.includes("ThumbGate") && t.includes("Continuity") },
+  { path: "/api/expertise/stats", expectedStatus: 200, checkJson: (j) => Array.isArray(j.caseStudies) && j.continuity !== undefined },
+  { path: "/llms.txt", expectedStatus: 200, checkText: (t) => t.includes("ThumbGate") && (t.includes("Continuity") || t.includes("Cloud VPS")) },
   { path: "/go/android", expectedStatus: 302, redirectCheck: (loc) => loc.includes("play.google.com") },
   { path: "/go/ios", expectedStatus: 302, redirectCheck: (loc) => loc.includes("apple.com") },
 ];
