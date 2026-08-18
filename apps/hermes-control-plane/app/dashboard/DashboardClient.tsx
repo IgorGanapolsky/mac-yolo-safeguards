@@ -21,6 +21,7 @@ import {
   resolveEffectiveRoutePreference,
   type RoutePreference,
 } from "@/lib/composer-run-cta";
+import { formatTaskError, isZaiWeeklyQuotaError } from "@/lib/task-error-display";
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
@@ -952,7 +953,7 @@ export default function DashboardClient() {
             /* ignore meter refresh failure */
           }
         } else {
-          setNotice(body.error ?? "Task routing failed");
+          setNotice(formatTaskError(body.error ?? "Task routing failed"));
         }
       }
     } catch (error) {
@@ -1414,7 +1415,7 @@ export default function DashboardClient() {
               {threadDetails?.tasks.flatMap((task, index) => [
                 <article key={`task-user-${index}`} className="conversation-message role-user"><span>web</span><p>{task.prompt}</p></article>,
                 task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><FormattedMessage text={task.result} />{feedbackControls(task.id)}</article>
-                  : task.error ? <article key={`task-error-${index}`} className="conversation-message role-error"><span>failed</span><FormattedMessage text={task.error} /></article>
+                  : task.error ? <article key={`task-error-${index}`} className="conversation-message role-error"><span>{isZaiWeeklyQuotaError(task.error) ? "retried" : "failed"}</span><FormattedMessage text={formatTaskError(task.error)} /></article>
                   : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><p>Waiting for {task.route === "cloud" ? "the fenced Continuity runner" : "your paired machine"} to pick this up…</p></article>
                   : null,
               ])}
@@ -1506,7 +1507,7 @@ export default function DashboardClient() {
                         {feedbackControls(task.id)}
                       </>
                     )}
-                    {task.error && <div className="task-error">{task.error}</div>}
+                    {task.error && <div className="task-error">{formatTaskError(task.error)}</div>}
                   </article>
                 ))
               )}
@@ -1540,11 +1541,11 @@ export default function DashboardClient() {
                 rows={isNarrowViewport ? 2 : 3}
                 enterKeyHint="send"
                 aria-label="Message for Hermes"
-                disabled={busy}
+                aria-busy={busy}
               />
               <div className="run-output" id="run-output" data-testid="run-output" role="status" aria-live="polite">
                 <p className="eyebrow">Output</p>
-                {notice ? <p>{notice}</p> : visibleTasks[0]?.result ? <p>{visibleTasks[0].result}</p> : visibleTasks[0]?.error ? <p>{visibleTasks[0].error}</p> : visibleTasks[0] ? <p>Running on Continuity…</p> : <p>Results show here after you send.</p>}
+                {notice ? <p>{notice}</p> : visibleTasks[0]?.result ? <p>{visibleTasks[0].result}</p> : visibleTasks[0]?.error ? <p>{formatTaskError(visibleTasks[0].error)}</p> : visibleTasks[0] ? <p>Running on Continuity…</p> : <p>Results show here after you send.</p>}
               </div>
               <div className="composer-actions">
                 {/* Fallback hidden submit button so form.requestSubmit() and soft keyboard Enter always find a submitter */}

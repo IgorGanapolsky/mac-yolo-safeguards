@@ -6,7 +6,16 @@ const fs = require('fs');
 
 const { classifyTask, listTasks, getTask } = require('../tools/inference-eng/task-registry');
 const { enrichRecord, summarize, loadTraffic } = require('../tools/inference-eng/metrics');
-const { selectModelChain, inferMode, POLICY_VERSION } = require('../tools/inference-eng/degradation');
+const {
+  selectModelChain,
+  inferMode,
+  POLICY_VERSION,
+  shouldDropDeadGlm,
+  isZaiWeeklyQuotaError,
+  composerPolicyForError,
+  applyQuotaFailover,
+  UPSTREAM_QUOTA_RETRY_MESSAGE,
+} = require('../tools/inference-eng/degradation');
 const { expandPipeline, listPipelines } = require('../tools/inference-eng/pipeline');
 const { runOptimizer, propose } = require('../tools/inference-eng/optimizer');
 const { runScorecard } = require('../tools/inference-eng/scorecard');
@@ -109,6 +118,26 @@ const codeNoGlm = selectModelChain({
 });
 assert.strictEqual(codeNoGlm.primary, 'grok-4.5');
 assert.ok(!codeNoGlm.chain.includes('glm-coding'), 'dead GLM should be demoted off auto code chain');
+assert.strictEqual(shouldDropDeadGlm({}), true, 'shouldDropDeadGlm stays true by default');
+const quotaErr = 'Weekly/Monthly Limit Exhausted. Your limit will reset at 2026-08-22 21:07:02';
+assert.strictEqual(isZaiWeeklyQuotaError(quotaErr), true);
+const quotaChain = selectModelChain({
+  taskText: 'implement the auth fix',
+  mode: 'normal',
+  env: { HERMES_YOLO_BACKEND: 'auto' },
+  lastError: quotaErr,
+  probeFailures: ['glm-coding'],
+});
+assert.strictEqual(quotaChain.primary, 'grok-4.5', `429 must failover to SuperGrok, got ${quotaChain.primary}`);
+assert.ok(quotaChain.chain.includes('deepseek-v4-flash'), '429 failover must retry DeepSeek');
+assert.ok(!quotaChain.chain.includes('glm-coding'), '429 must demote glm immediately');
+const policy = composerPolicyForError(quotaErr);
+assert.strictEqual(policy.lockComposer, false, '429 must not lock composer');
+assert.strictEqual(policy.display, UPSTREAM_QUOTA_RETRY_MESSAGE);
+assert.deepStrictEqual(
+  applyQuotaFailover(['glm-coding'], '429 code 1310', {}).slice(0, 2),
+  ['grok-4.5', 'deepseek-v4-flash'],
+);
 console.log('  degradation: PASS');
 
 // Pipelines

@@ -304,13 +304,13 @@ assert.deepStrictEqual(defaultModelRoute({}, {
   provider: 'custom:ollama-local-64k',
   model: 'qwen3:8b-agent-64k',
 });
-// No config override: key present → LiteLLM glm-coding (agent class)
+// hasZaiKey alone must NOT pin glm-coding. Default coding model is SuperGrok.
 assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
   configuredDefault: null,
   configuredProviderIds: ['zai-coding-glm'],
 }), {
-  provider: 'custom:litellm-gateway',
-  model: 'glm-coding',
+  provider: 'grok-yolo',
+  model: 'grok-4.5',
 });
 // Explicit config default beats a still-present but quota-dead z.ai key
 assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
@@ -323,8 +323,8 @@ assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
   configuredDefault: null,
   configuredProviderIds: [],
 }), {
-  provider: 'custom:litellm-gateway',
-  model: 'glm-coding',
+  provider: 'grok-yolo',
+  model: 'grok-4.5',
 });
 assert.deepStrictEqual(defaultModelRoute({
   OPENROUTER_API_KEY: 'openrouter-key',
@@ -332,8 +332,34 @@ assert.deepStrictEqual(defaultModelRoute({
   availableModels: ['qwen3:8b-agent-64k'],
   configuredDefault: null,
 }), {
+  provider: 'grok-yolo',
+  model: 'grok-4.5',
+});
+assert.deepStrictEqual(defaultModelRoute({
+  Z_AI_API_KEY: 'zai-key',
+}, {
+  configuredDefault: null,
+  grokReady: false,
+}), {
+  provider: 'custom:litellm-gateway',
+  model: 'deepseek-v4-flash',
+});
+assert.deepStrictEqual(defaultModelRoute({
+  HERMES_ALLOW_GLM: '1',
+  HERMES_YOLO_MODEL: 'glm-coding',
+  Z_AI_API_KEY: 'zai-key',
+}), {
   provider: 'custom:litellm-gateway',
   model: 'glm-coding',
+});
+assert.deepStrictEqual(defaultModelRoute({
+  HERMES_YOLO_MODEL: 'glm-coding',
+  Z_AI_API_KEY: 'zai-key',
+}, {
+  configuredDefault: null,
+}), {
+  provider: 'grok-yolo',
+  model: 'grok-4.5',
 });
 assert.deepStrictEqual(defaultModelRoute({
   Z_AI_API_KEY: 'zai-key',

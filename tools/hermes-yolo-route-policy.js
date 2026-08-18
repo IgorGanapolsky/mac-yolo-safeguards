@@ -24,6 +24,8 @@ const {
   wantsSuperGrok,
   taskWantsSuperGrok,
   shouldDropDeadGlm,
+  isZaiWeeklyQuotaError,
+  applyQuotaFailover,
 } = require('./inference-eng/degradation');
 
 const LITELLM_BASE = process.env.HERMES_LITELLM_BASE || 'http://127.0.0.1:4010/v1';
@@ -366,7 +368,12 @@ async function selectRouteWithProbe(opts = {}) {
   if (probePrimary.ok) {
     return { ...primary, probe: probePrimary, fallbackUsed: false };
   }
-  const chain = [ROUTES.quality_kimi, ROUTES.fast, ROUTES.free_flash, ROUTES.local, ROUTES.grok]
+  const probeText = `${probePrimary.status || ''} ${probePrimary.snippet || ''} ${probePrimary.error || ''}`;
+  const quotaHit = isZaiWeeklyQuotaError(probeText) || /glm/i.test(String(primary.model || ''));
+  // 429 / z.ai 1310 / dead glm: SuperGrok then DeepSeek immediately — never surface quota as the only result.
+  const chain = (quotaHit
+    ? [ROUTES.grok, ROUTES.free_flash, ROUTES.quality_kimi, ROUTES.fast, ROUTES.local]
+    : [ROUTES.quality_kimi, ROUTES.fast, ROUTES.free_flash, ROUTES.local, ROUTES.grok])
     .filter((r) => r.model !== primary.model);
   for (const candidate of chain) {
     const p = await probeModel(candidate.model);
@@ -447,6 +454,8 @@ module.exports = {
   selectRouteWithProbe,
   probeModel,
   commandEnv,
+  isZaiWeeklyQuotaError,
+  applyQuotaFailover,
 };
 
 if (require.main === module) {

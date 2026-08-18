@@ -84,6 +84,56 @@ function shouldDropDeadGlm(env = process.env) {
   return true; // default: demote/drop from auto agent primary
 }
 
+const UPSTREAM_QUOTA_RETRY_MESSAGE = 'Upstream coding quota hit — retried on SuperGrok';
+
+/**
+ * z.ai Coding Plan 429 code 1310 — weekly/monthly quota, NOT the $10 Pro VPS cap.
+ * @param {unknown} error
+ */
+function isZaiWeeklyQuotaError(error) {
+  const text = String(error || '');
+  if (!text) return false;
+  if (/Weekly\/Monthly Limit Exhausted/i.test(text)) return true;
+  if (/\bcode["\s:]*1310\b/i.test(text)) return true;
+  if (/\b429\b/.test(text) && /limit exhausted|weekly\/monthly|z\.?ai|glm-coding/i.test(text)) return true;
+  return false;
+}
+
+/**
+ * Composer must stay typable. A z.ai 429 is a route failover, never a hard lock.
+ * @param {unknown} error
+ */
+function composerPolicyForError(error) {
+  if (isZaiWeeklyQuotaError(error)) {
+    return {
+      display: UPSTREAM_QUOTA_RETRY_MESSAGE,
+      lockComposer: false,
+      failover: ['grok-4.5', 'deepseek-v4-flash'],
+      retry: true,
+    };
+  }
+  return {
+    display: String(error || ''),
+    lockComposer: false,
+    failover: null,
+    retry: false,
+  };
+}
+
+/**
+ * Demote glm immediately and retry SuperGrok then DeepSeek.
+ * @param {string[]} chain
+ * @param {unknown} error
+ * @param {NodeJS.ProcessEnv} env
+ */
+function applyQuotaFailover(chain, error, env = process.env) {
+  if (!isZaiWeeklyQuotaError(error)) return [...chain];
+  const dropped = applyDeadModelPolicy(chain, { ...env, HERMES_ALLOW_GLM: undefined, HERMES_DROP_DEAD_GLM: '1' })
+    .filter((m) => !isStaleGlmPin(m));
+  const preferred = ['grok-4.5', 'deepseek-v4-flash'];
+  return [...preferred, ...dropped.filter((m) => !preferred.includes(m))];
+}
+
 /** Default dead agent models (tool noncompliance / dropped by fleet-health). */
 const DEAD_AGENT_MODELS = Object.freeze(['glm-coding', 'glm-5.2', 'glm-5', 'glm-47', 'glm-turbo']);
 
@@ -126,6 +176,10 @@ function selectModelChain(opts = {}) {
 
   const failures = new Set((opts.probeFailures || []).map(String));
   let chain = [...task.preferredModels];
+  if (opts.lastError && isZaiWeeklyQuotaError(opts.lastError)) {
+    failures.add('glm-coding');
+    for (const dead of DEAD_AGENT_MODELS) failures.add(dead);
+  }
   const preferGrok =
     wantsSuperGrok(env) &&
     taskWantsSuperGrok(task) &&
@@ -133,6 +187,9 @@ function selectModelChain(opts = {}) {
     !failures.has('grok-4.5');
 
   chain = applyDeadModelPolicy(chain, env);
+  if (opts.lastError && isZaiWeeklyQuotaError(opts.lastError)) {
+    chain = applyQuotaFailover(chain, opts.lastError, env);
+  }
 
   if (mode === 'degraded') {
     // Drop thrash/metered burn models; KEEP SuperGrok + coding flat + free + local.
@@ -191,6 +248,9 @@ function selectModelChain(opts = {}) {
   if (shouldDropDeadGlm(env)) {
     reason += '; dead-GLM demoted';
   }
+  if (opts.lastError && isZaiWeeklyQuotaError(opts.lastError)) {
+    reason += '; z.ai 429 quota failed over to SuperGrok';
+  }
 
   return {
     taskId: task.id,
@@ -248,10 +308,14 @@ module.exports = {
   MODES,
   DEGRADED_DROP,
   DEAD_AGENT_MODELS,
+  UPSTREAM_QUOTA_RETRY_MESSAGE,
   wantsSuperGrok,
   taskWantsSuperGrok,
   isStaleGlmPin,
   shouldDropDeadGlm,
+  isZaiWeeklyQuotaError,
+  composerPolicyForError,
+  applyQuotaFailover,
   deadModelSet,
   applyDeadModelPolicy,
   selectModelChain,
