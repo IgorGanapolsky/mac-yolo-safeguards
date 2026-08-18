@@ -1126,3 +1126,49 @@ Twelfth consecutive run (Runs 1, 3-11) with zero write access to `block/buzz` fr
 5. Comment drafts still unposted: #4860 (Run 3), #5557 (Run 5), #5555 (Run 6), #5611 (Run 7, partial), #5667 (Run 8), #5759 (Run 10, partial).
 
 PR #4624 (Run 2, against `block/buzz` directly) still awaits its first human review, 11 days.
+
+## 2026-08-18 (later) — no new fix opened; stray unlogged WF-08 branch investigated and found stale, not rescuable in scope; two candidate issues fully self-diagnosed, one genuinely in-domain issue found unreachable from source
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+- **Canonical repo:** [`github.com/block/buzz`](https://github.com/block/buzz) — unchanged identity/maintainer/architecture from all prior runs. `buzz-wf08-pr-plan.md` and `feat/buzz-nostr-acp-bridge` still do not exist anywhere in this repo, reconfirmed again.
+- **Access:** `add_repo(owner:"block", repo:"buzz", access:"push")` → same cross-tier rejection as every prior run (`"cross-tier adds are not supported ... session already has repos from owner(s) [igorganapolsky]"`). `add_repo(owner:"igorganapolsky", repo:"buzz", access:"push")` → accepted, fork cloned and `upstream` = `block/buzz` fetched (`upstream/main` at `978e585`, 2026-08-18, i.e. *newer* than the `f8692fa9` tip the earlier run today fetched — upstream moved again within the same day). This confirms the block is unchanged: 14th consecutive run with fork read/write but no `block/buzz` write path.
+- Earlier run today already logged its own findings (`#6175` fix, pileup finding) above this entry — that work is not repeated here.
+
+### Stray branch investigated: `fix/wf08-approval-gate-2026-08-17`
+
+`git ls-remote` on the fork this run turned up a branch not named anywhere in this log: `fix/wf08-approval-gate-2026-08-17` (commit `6568243`, same title as the WF-08 fix from Run 11's `fix/wf08-approval-gate-finalize-run-rebased`). Given Run 11's own precedent (rescuing an unlogged fork branch from #buzz-wf08-pr-plan.md's likely origin), this looked like it might be a fresher rebase worth surfacing. Diffed directly against current `upstream/main`: **59 files changed, 1093 insertions, 3774 deletions**, including entire desktop e2e test files and `team_membership.rs`/`team_membership_tests.rs` (625 lines) appearing as deletions relative to upstream — i.e. this branch is missing work upstream has *added* since. Despite the 2026-08-17 name, its actual base predates a large amount of upstream desktop/agent work; it is not a fresher rebase, it's a stale one. Not pursued further — reconciling it would be a rebase job comparable in size to Run 11's WF-08 rescue, and this run's read of the diff found no evidence it contains anything the already-logged `fix/wf08-approval-gate-finalize-run-rebased` (Run 11, rebased 2026-08-14, still the newest verified WF-08 state) doesn't. Recorded so a future run doesn't re-investigate the same branch from zero.
+
+### What was surveyed (last ~72h, as of 2026-08-18 later)
+
+Newest issues beyond what the earlier run today already covered (#6179 down to #6146): #6200, #6199, #6197, #6192, #6190, all filed 2026-08-18.
+
+| Issue | Topic | Action |
+|-------|-------|--------|
+| [#6199](https://github.com/block/buzz/issues/6199) | Mobile: DM auto-mention silently skipped in thread replies when the channel provider is still null on cold start — message transmits with zero recipient `p` tags | Read in full — squarely in-domain (silent no-op, self-report vs. actual delivery), but the reporter (`shawnhank`) already root-caused it precisely to `send_message_provider.dart:62-72` and `ThreadDetailPage`'s nullable channel provider, with a complete proposed fix (pass `Channel` in directly instead of re-deriving it). A comment adds no new signal. Logged as another data point in the recurring pattern (thirteenth: joins #4565, #4860, #5492, #5557, #5555, #5611, #5665, #5667, #5708, #5734, #5759, #5800, #6160, #6149). |
+| [#6200](https://github.com/block/buzz/issues/6200) | Mobile: agent presence shows offline after relay reconnect — subscribe-only `kind:20001` query with `limit:0` never fetches current state, unlike desktop's snapshot+stream merge | Read in full — same shape (stale self-reported state after a transition), same standard: reporter's diagnosis and both a short-term and long-term fix are already fully specified. Logged as a pattern data point, not drafted. |
+| [#6190](https://github.com/block/buzz/issues/6190) | "Unable to auth new community" — pairing a new Buzz identity loops, web UI shows `"The signed proof does not match this challenge"` with a correlation ID | Read in full, zero comments, genuinely in Igor's domain (challenge/proof verification correctness) and genuinely undiagnosed — unlike #6199/#6200 this one had no existing analysis to defer to. Investigated at source before deciding whether to comment: `grep`ed this repo for the exact error string and for `challenge`/`proof` handling across every crate and the desktop pairing flow (`desktop/src-tauri/src/commands/pairing.rs`, `crates/buzz-agent/src/auth.rs`, `buzz-relay/src/handlers/auth.rs`, `buzz-push-gateway/src/app_attest.rs`). The exact error string does not appear anywhere in this repo, and the pairing/auth code present here (NIP-42 relay auth, `parse_auth_challenge`) doesn't match the reported flow (community creation → "connect buzz identity" pairing → correlation-ID-bearing verification failure), which reads as hosted-backend-side (the correlation ID is characteristic of a server-side request-tracing system, and #6171 this week independently confirms a "hosted relay" component exists that isn't in this public repo). Concluded I cannot root-cause this from available source — same standard as Run 11's #5784 (real but underspecified for source-level investigation), except here the reason is architectural (the failing logic isn't in the public repo) rather than missing repro detail. Not commented on, to avoid guessing at closed-source behavior. |
+| #6197, #6192 | Feature requests (agent channel invites by permitted members; Pulse timeline reading NIP-23 in addition to kind 1) | Skipped — feature requests, outside stated domain |
+
+### What was opened / answered this run
+
+Nothing. No fix met the "genuinely fixable from available source, with a fail-before/pass-after test" bar this run — the one clearly in-domain, undiagnosed issue (#6190) turned out to be unreachable from the public repo, and the other in-domain candidates (#6199, #6200) were already fully diagnosed by their reporters with no gap for Igor's input to fill. Consistent with the hard rule against fabricating verification: no PR opened, no comment posted, no fix branch pushed this run.
+
+### Positioning read: **neither** (unchanged, reconfirmed a thirteenth time)
+
+- Not a competitor — unchanged shape on both sides.
+- Not a partner — no relationship exists.
+- #6190 adds a data point to the same recurring theme from a new angle: it's a *verification* failure (a cryptographic challenge/proof mismatch, not silent data loss), but it now also shows the theme's boundary — Buzz's *hosted* backend (the piece a pre-action write-gate would sit in front of, if it sat anywhere) is not visible in the public repo at all, so no amount of source review from this vantage point can confirm or rule out whether that hosted layer already does write-gating equivalent to ThumbGate's, or has the same gap the open-source client/relay code keeps exhibiting. Recorded as an honest limit of this engagement's visibility, not resolved into a position either way.
+
+### What was skipped and why
+
+- **#6199, #6200** — already fully diagnosed by their reporters; a comment adds nothing (same standard as every prior instance of this pattern).
+- **#6190** — genuinely undiagnosed and in-domain, but unreachable from this repo's source; commenting without being able to verify anything would risk exactly the "self-report vs. verified state" failure mode this log keeps flagging in *other* people's code. Not commented on.
+- **#6197, #6192** — outside stated domain.
+- **`fix/wf08-approval-gate-2026-08-17`** — investigated, found to be a stale (not fresher) branch relative to the already-logged, already-verified `fix/wf08-approval-gate-finalize-run-rebased`; not rescued, reasoning recorded above so it isn't re-investigated from zero.
+- **A fix/PR this run** — no candidate cleared the bar; opening one on a weaker basis than #6175 (this morning's fix) would only add to the pileup the earlier run today already flagged, with no functioning submission path to relieve it.
+- **Reconciling the open log-only PR pileup in this repo** (#1689, #1777, #1776 and prior) — still not this run's unilateral call, unchanged from every prior run's position.
+
+### Blocker status (report only — no action requested)
+
+Fourteenth consecutive run (Runs 1, 3-11, plus the untitled 2026-08-13/14/18 runs) with zero write access to `block/buzz` from this environment tier, reconfirmed again via the fork-add/upstream-fetch route (see Access above). No new information on the blocker itself this run beyond upstream having moved again (`978e585`) within the same day as the earlier run's `f8692fa9` fetch — Buzz's own development pace continues to outrun any backlog item that isn't actively rebased. Nothing escalated to a human this run; the pileup was already flagged in the entry directly above.
