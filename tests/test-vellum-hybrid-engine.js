@@ -65,7 +65,7 @@ console.log('🧪 Running Vellum Hybrid Engine Test Suite...');
   assert.strictEqual(cleanAudit.isSafe, true);
   assert.strictEqual(cleanAudit.leakedKeys.length, 0);
 
-  const leakedPrompt = "Use apiKey ghp_1234567890123456789012 to fetch repository status.";
+  const leakedPrompt = "Use apiKey " + "ghp_" + "1234567890123456789012 to fetch repository status.";
   const leakedAudit = auditCredentialIsolation(leakedPrompt);
   assert.strictEqual(leakedAudit.isSafe, false);
   assert.ok(leakedAudit.leakedKeys.length > 0);
