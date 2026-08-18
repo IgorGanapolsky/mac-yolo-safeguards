@@ -77,6 +77,7 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 | `anti-babysitting-mandate` | HARD: never park waiting for continue / want-me-to on pre-authorized work. Residual picker + wrap-up lint. Own PRs only. Slash: /anti-babysitting-mandate. | `.agents/skills/anti-babysitting-mandate/SKILL.md` | local |
 | `aspire-fleet-apphost` | .NET Aspire-Style Code-First AppHost & Service Discovery Engine. Orchestrates distributed fleet services (ControlPlane, CloudRunner, LiteLLM, OTel, Zoekt) with topological startup DAGs, automated health discovery, and standardized resilience defaults. | `.agents/skills/aspire-fleet-apphost/SKILL.md` | local |
 | `wright-sdlc-engine` | Wrights-Style Phased Work Order & Agentic SDLC Gate Engine. Manages structured work order progression through 5 deterministic stage gates (SPEC -> BUILD -> TEST -> CI_CD -> OBSERVABILITY) with immutable audit receipts. | `.agents/skills/wright-sdlc-engine/SKILL.md` | local |
+| `nex-playbook-engine` | Nex.ai / WUPHF-Style Autonomous Playbook Engine & Team Knowledge Graph. Converts ad-hoc agent prompts into deterministic multi-step playbooks executed by specialized digital workers. | `.agents/skills/nex-playbook-engine/SKILL.md` | local |
 | `git-hooks-no-husky` | Husky process steal without the npm package. Keep relative core.hooksPath=.githooks so each worktree runs its own hook. Slash: /git-hooks-no-husky. | `.agents/skills/git-hooks-no-husky/SKILL.md` | local |
 
 ---
