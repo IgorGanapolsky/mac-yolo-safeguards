@@ -267,10 +267,9 @@ try {
   }
   assert.ok(clientJs.length > 1000, "DashboardClient bundle not served — cannot assert UI contract");
   // Minified bundles keep user-facing string literals; symbol identifiers may be renamed.
-  assert.match(clientJs, /Which machine\?/);
-  // Live may lag deploy; accept new pair-copy strings when present.
-  assert.match(clientJs, /My computer|needs a paired Mac first|Pair computer|paired Mac/);
-  assert.match(clientJs, /thumbgate\.preferredDeviceId|composer-device-select/);
+  assert.match(clientJs, /run-output/);
+  assert.doesNotMatch(clientJs, /composer-target-select/);
+  assert.match(clientJs, /thumbgate\.preferredDeviceId/);
   assert.doesNotMatch(clientJs, /Which Mac\?/);
   assert.doesNotMatch(clientJs, /My Mac only/);
   assert.doesNotMatch(clientJs, /Pair a Mac first/);
@@ -309,28 +308,29 @@ try {
       ]);
       const page = await context.newPage();
       await page.goto(`${base}/dashboard`, { waitUntil: "networkidle", timeout: 60_000 });
-      // Unified "Run on" select (dual Where/Which dock removed). Hydrates from /api/devices.
-      await page.waitForSelector('[data-testid="composer-target-select"]', { timeout: 30_000 });
-      const select = page.locator('[data-testid="composer-target-select"]');
-      const label = await page.locator("#composer-where-label, label[for='composer-target-select']").first().textContent();
-      assert.match(label || "", /Run on/i);
+      // Continuity-only composer: visible Output pane, no RUN ON dual picker.
+      await page.waitForSelector('[data-testid="run-output"]', { timeout: 30_000 });
+      const output = page.locator('[data-testid="run-output"]');
+      assert.equal(await output.count(), 1, "Output pane must be visible");
+      const label = await output.locator(".eyebrow").first().textContent();
+      assert.match(label || "", /Output/i);
       assert.doesNotMatch(label || "", /Which Mac\?/);
-      const options = await select.locator("option").allTextContents();
-      assert.ok(options.some((t) => t.includes(DEVICE_LINUX.name)), `missing ${DEVICE_LINUX.name} in ${options}`);
-      assert.ok(options.some((t) => t.includes(DEVICE_MINI.name)), `missing ${DEVICE_MINI.name} in ${options}`);
-      // Select mini via local:<id> value and run a task through the real form
-      await select.selectOption(`local:${DEVICE_MINI.id}`);
-      await page.fill('textarea[aria-label="Message for Hermes"]', "browser e2e on mini");
-      await page.click('button.composer-run, button:has-text("Run task")');
-      // Notice or task list should name the machine
+      assert.equal(await page.locator('[data-testid="composer-target-select"]').count(), 0);
+      assert.equal(await page.locator('[data-testid="composer-device-select"]').count(), 0);
+      assert.equal(await page.locator("select.composer-target-select").count(), 0);
+      const chromeText = await page.locator("body").innerText();
+      assert.doesNotMatch(chromeText, /Which Mac\?/);
+      assert.doesNotMatch(chromeText, /\bMy Mac\b/);
+      // Submit through Continuity-only composer (no machine picker).
+      await page.fill('textarea[aria-label="Message for Hermes"]', "browser e2e on Continuity");
+      await page.click("button.composer-run");
       await page.waitForTimeout(1500);
       const bodyText = await page.locator("body").innerText();
-      assert.match(bodyText, /Igors-Mac-mini|browser e2e on mini/);
+      assert.match(bodyText, /browser e2e on Continuity|Running on Continuity|Continuity/);
       assert.doesNotMatch(bodyText, /Which Mac\?/);
       assert.doesNotMatch(bodyText, /\bMy Mac\b/);
-      // Contract aliases still present for unit tests (sr-only), not as dual visible chips
-      const hiddenDeviceSelect = page.locator('[data-testid="composer-device-select"]');
-      assert.equal(await hiddenDeviceSelect.count(), 1, "legacy device select kept as sr-only contract");
+      const outputText = await output.innerText();
+      assert.match(outputText, /Output/i);
       return true;
     } finally {
       await browser.close();
