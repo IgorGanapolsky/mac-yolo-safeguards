@@ -234,4 +234,22 @@ describe("fenced task leases", () => {
     }));
     expect(JSON.stringify(mocks.audit.mock.calls)).not.toContain("private result");
   });
+
+  it("maps raw z.ai quota text before storing task.error", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(4_000);
+    mocks.state.existing = { organizationId: "org-1", route: "cloud", leaseGeneration: 3, createdAt: 1_500 };
+    const raw = "Weekly/Monthly Limit Exhausted. Your limit will reset at 2026-08-22 21:07:02";
+    expect(await completeTask({
+      owner: "cloud:runner-1",
+      taskId: "task-1",
+      leaseToken: "current-token",
+      error: raw,
+      actorType: "runner",
+    })).toBe(true);
+    const update = mocks.state.runs[0];
+    expect(update.args[2]).toBe(
+      "Hosted model quota is exhausted until 2026-08-22 21:07:02 UTC. The runner is up; the model is not ready.",
+    );
+    expect(update.args[2]).not.toBe(raw);
+  });
 });

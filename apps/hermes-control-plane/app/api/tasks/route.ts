@@ -7,6 +7,13 @@ import {
 } from "@/lib/agent-governance";
 import { db } from "@/lib/runtime";
 import { evaluateCloudPromptToolPolicy } from "@/lib/cloud-tool-policy";
+import {
+  admitCloudSend,
+  lastCachedModelError,
+  MODEL_ERROR_LOOKBACK_MS,
+  probeRunnerHealth,
+  waitForHostedReady,
+} from "@/lib/hosted-apphost";
 import { jsonError } from "@/lib/security";
 import { decideTaskRoute, parseRoutePreference } from "@/lib/task-routing";
 // A+ imports: runtime schema validation + rate limiting
@@ -117,6 +124,29 @@ export async function POST(request: Request) {
     const toolPolicy = evaluateCloudPromptToolPolicy(prompt);
     if (!toolPolicy.allowed) {
       return jsonError(toolPolicy.message, 409);
+    }
+    const probeNow = Date.now();
+    const runner = await probeRunnerHealth({ now: probeNow, timeoutMs: 8_000, force: true });
+    let modelError = lastCachedModelError();
+    try {
+      const lastFailed = await db().prepare(
+        `SELECT error FROM tasks
+          WHERE organization_id = ? AND route = 'cloud' AND status = 'failed'
+            AND error IS NOT NULL AND updated_at >= ?
+          ORDER BY updated_at DESC LIMIT 1`,
+      ).bind(session.organizationId, probeNow - MODEL_ERROR_LOOKBACK_MS).first<{ error: string | null }>();
+      if (lastFailed?.error) modelError = lastFailed.error;
+    } catch {
+      // D1 miss: fail-closed on runner; model uses isolate cache if present.
+    }
+    const hostedReady = waitForHostedReady({
+      runner: { ok: runner.ok, lastPollAt: runner.lastPollAt ?? null },
+      modelError,
+      now: probeNow,
+    });
+    const hostedAdmit = admitCloudSend(hostedReady);
+    if (!hostedAdmit.allowed) {
+      return jsonError(hostedAdmit.message, 409);
     }
   }
 

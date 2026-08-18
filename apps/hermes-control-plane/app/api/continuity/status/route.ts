@@ -1,3 +1,8 @@
+import {
+  describeHostedResources,
+  lastCachedModelError,
+  MODEL_ERROR_LOOKBACK_MS,
+} from "@/lib/hosted-apphost";
 import { db } from "@/lib/runtime";
 
 const RUNNER_HEALTH_URL =
@@ -74,10 +79,24 @@ export async function GET() {
   const lastTaskAt = Number(runner?.lastTaskAt ?? 0);
   const hasRecentRunnerWork = lastTaskAt > 0 && now - lastTaskAt < 7 * 24 * 60 * 60 * 1000;
 
+  const lastModelError = await db().prepare(
+    `SELECT error FROM tasks
+      WHERE route = 'cloud' AND status = 'failed' AND error IS NOT NULL AND updated_at >= ?
+      ORDER BY updated_at DESC LIMIT 1`,
+  ).bind(now - MODEL_ERROR_LOOKBACK_MS).first<{ error: string | null }>().catch(() => null);
+  const hosted = describeHostedResources({
+    runner: { ok: runner?.ok, lastPollAt: runner?.lastPollAt ?? null },
+    modelError: lastModelError?.error ?? lastCachedModelError(),
+    now,
+    runnerKnown: true,
+  });
+
   return Response.json({
     ok: runnerOk,
     service: "thumbgate-continuity",
     checkedAt: now,
+    hostedRunner: hosted.hostedRunner,
+    hostedModel: hosted.hostedModel,
     claims: {
       model: "queued_prompt_handoff",
       not: "process_migration",
