@@ -4,6 +4,266 @@ Dated entries from the autonomous OSS-engagement routine (Thinking Machines Lab 
 
 ---
 
+## 2026-08-17 — PR #3775 MERGED upstream (first landed contribution); new LanceDB #3950 fix built + verified end-to-end; PR-creation block unchanged
+
+### Headline
+
+**`lancedb/lancedb` PR [#3775](https://github.com/lancedb/lancedb/pull/3775) was merged today**
+(2026-08-17) — "fix(python): treat naive `lit(datetime)` as UTC wall clock (#3262)", opened
+2026-08-03, labeled `bug` + `Python`. This is the routine's **first contribution to actually land
+upstream**. Current upstream `main` HEAD is that merge commit (`a075aa6`). Tinker PR
+[#54](https://github.com/thinking-machines-lab/tinker/pull/54) (opened 08-03) remains open, no
+maintainer response yet.
+
+### Repos surveyed
+
+| Org | Repos |
+|-----|-------|
+| Thinking Machines Lab | `thinking-machines-lab/tinker` (full open-issue list) |
+| Poolside AI | `poolsideai/` org listing (61 repos); open-issue check on `bridge-sdk`, `acp-go-sdk`, `n8n-poolside-node`, `pooleval`, `reference_architectures`, `vllm-metal`, `flash-msa` |
+| LanceDB | `lancedb/lancedb` (open issues, newest first) |
+
+### Session-scope check
+
+Unchanged from every run since 08-03. `add_repo` succeeded for `igorganapolsky/lancedb` and
+`igorganapolsky/tinker` (same-owner forks) and push works; `add_repo` for `lancedb/lancedb` failed
+again with `cross-tier adds are not supported`. `mcp__github__create_pull_request` against
+`lancedb/lancedb` was attempted this run with the real finished branch and failed with
+`Access denied: repository "lancedb/lancedb" is not configured for this session.` Issue survey was
+therefore done via public web pages (WebFetch), not the GitHub API.
+
+### Issues considered
+
+**LanceDB [#3950](https://github.com/lancedb/lancedb/issues/3950)** (opened 08-16, reporter
+`tobocop2`, no assignee, no linked PR) — "lancedb-compat cannot be imported when installed
+standalone: version lookup uses the 'lancedb' dist name". **Acted — fix built, verified
+end-to-end, pushed.** `lancedb/__init__.py` resolved `__version__` via a hardcoded
+`importlib.metadata.version("lancedb")`, but the same import package is also published to PyPI as
+the `lancedb-compat` distribution (confirmed via PyPI JSON API: `lancedb-compat` 0.36.0 and 0.37.1
+exist, `Repository: github.com/lancedb/lancedb`), whose wheel registers metadata under that name
+only. Installing it standalone makes `import lancedb` crash on first import.
+
+- **Fix:** moved the lookup into a new `python/python/lancedb/_version.py` with a fallback to the
+  `lancedb-compat` dist name. 3-file diff, 87 insertions.
+- **Verified against the real published wheel, not just unit tests:** `pip install lancedb==0.37.1`
+  into a clean venv, renamed its `.dist-info` to `lancedb_compat-0.37.1.dist-info` with
+  `Name: lancedb-compat` (the exact metadata layout a standalone `lancedb-compat` install
+  produces). Before the patch: `PackageNotFoundError: No package metadata was found for lancedb` —
+  the reported symptom reproduced exactly. After: `import lancedb` succeeds, `__version__ ==
+  0.37.1`, and a real `connect` → `create_table` → `count_rows` round-trip returns 3.
+- **No-regression check:** dist-info restored to `Name: lancedb`, patched code still reports
+  `0.37.1` and the same round-trip passes.
+- **Unit tests:** new `python/python/tests/test_version.py`, 3 cases — `3 passed`. They load
+  `_version.py` by file path rather than `import lancedb`, so they run without the compiled
+  `_lancedb` extension.
+- **Lint:** `ruff check` + `ruff format --check` clean. First draft used a loop-over-dist-names and
+  tripped the repo's own `PERF203` rule (this repo selects `PERF` in `[tool.ruff.lint]`); rewritten
+  as a plain two-branch try/except, which is simpler anyway.
+- **Honest limitation, stated in the PR body:** the Rust extension could not be built in this
+  environment, so the broader Python suite was not run locally. The change is confined to
+  Python-level version resolution and touches no extension code.
+- Branch based on **fresh upstream `main` @ `a075aa6`** (not the stale fork `main`, which is ~3
+  months behind at `87b831b`).
+
+**LanceDB [#3926](https://github.com/lancedb/lancedb/issues/3926)** (Namespace QueryTable pushdown
+truncates to 10 rows) — real and well-specified, but **already has open PR #3927**. Skipped to
+avoid pile-on.
+
+**LanceDB [#3951](https://github.com/lancedb/lancedb/issues/3951)** (no macOS x86_64 wheels) —
+real and unclaimed, but the fix is a release-infrastructure change (adding `x86_64-apple-darwin` to
+the `pypi-publish.yml` build matrix, which uses org-specific Warp macOS runners and Fury upload
+tokens). Not verifiable by an external contributor — I cannot run the wheel build, so any PR would
+be an unverified CI edit, which the routine's own rules forbid. Skipped.
+
+**LanceDB #3915** (pagination boundary, parked since 08-11/08-12) — still open, still no linked PR,
+still no assignee. Not re-touched; branch `fix/list-tables-pagination-boundary-v2` confirmed still
+present on the fork.
+
+**Tinker** — no new issues since #51 (Jul 20); newest open issues are all pre-existing (#50, #45,
+#44, #43, #41, #38, #28, #25, #24, #19, #17), all previously triaged in earlier entries. Nothing
+new to act on. Parked branch `fix/sync-only-async-method-name-v2` confirmed still present.
+
+**Poolside AI** — surveyed the full 61-repo org listing this run rather than the usual short list.
+Every repo with any public issue tracker activity was checked: `bridge-sdk`, `acp-go-sdk`,
+`n8n-poolside-node`, `pooleval`, `reference_architectures`, `vllm-metal`, `flash-msa` — **all zero
+open issues**. `pool` (403★) remains a docs/packaging shell for a closed-source binary. Most of the
+remaining repos are vendored forks of unrelated upstreams (`llama.cpp`, `cutlass`, `sentencepiece`,
+`parquet-go`, `kargo`, `glamour`, …) where contributing would not build Poolside-specific
+credibility. No action possible — fourth consecutive run with this finding.
+
+### What was opened
+
+Nothing upstream — PR creation is still blocked (see Session-scope check). What exists instead:
+
+| Artifact | Where |
+|----------|-------|
+| LanceDB #3950 fix, verified end-to-end, pushed | `igorganapolsky/lancedb@fix/compat-dist-version-lookup` — compare: https://github.com/lancedb/lancedb/compare/main...IgorGanapolsky:fix/compat-dist-version-lookup?expand=1 |
+| Full PR body, ready to paste verbatim | `coordination/ready-to-post/lancedb-3950-compat-dist-version-pr.md` |
+
+### What was answered
+
+Nothing. Comment-posting requires the same blocked GitHub API access to non-`igorganapolsky`-owned
+repos.
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| LanceDB #3926 | Already has open PR #3927 — pile-on |
+| LanceDB #3951 (macOS x86_64 wheels) | Release-infra change requiring org runners/tokens; cannot be verified by an external contributor, and an unverified CI edit violates the routine's own rules |
+| LanceDB #3923 (JSON merge_insert, 08-13's inconclusive candidate) | Not re-attempted — 08-13 established it needs a working repro before any fix is defensible, and Rust builds here take 8–70 min/cycle; #3950 was a better use of the run |
+| LanceDB #3915, Tinker #38 parked branches | Unchanged upstream, still blocked only on PR creation — no new work needed |
+| Poolside (all 61 repos) | Zero open issues across every SDK repo; `pool` closed-source; rest are vendored forks |
+| New manufactured question | No real unknown hit this run |
+
+### ThumbGate mentions
+
+**None** this run — nothing surveyed asked about agent write-gating, and comment-posting is blocked
+regardless.
+
+### Action needed from Igor
+
+Three verified fixes now sit on your forks, each blocked only on the upstream-PR step this session
+cannot perform. #3950 is the freshest and most self-contained:
+- https://github.com/lancedb/lancedb/compare/main...IgorGanapolsky:fix/compat-dist-version-lookup?expand=1 (new this run)
+- https://github.com/lancedb/lancedb/compare/main...IgorGanapolsky:fix/list-tables-pagination-boundary-v2?expand=1
+- https://github.com/thinking-machines-lab/tinker/compare/main...IgorGanapolsky:fix/sync-only-async-method-name-v2?expand=1
+
+---
+
+## 2026-08-18 — tinker-cookbook#896 fixed + parked (no fork exists, patch route); poolside#38 answer drafted; LanceDB#2900 fix in progress
+
+`main`'s merged log last shows 08-13, but two coordination PRs from 2026-08-17 (`#1768`, `#1778`)
+are still open/unmerged with real work in them — see the #3950 correction below. Cross-owner wall re-tested silently per
+`docs/agents/anti-babysitting.md` — unchanged: `add_repo` cross-tier refusal on
+`thinking-machines-lab/tinker-cookbook` and `poolsideai/pool`; `mcp__github__fork_repository`,
+`list_issues`, `get_file_contents`, `add_issue_comment`, and `pull_request_read` all denied
+against any repo outside `igorganapolsky/*` (confirmed against `lancedb/lancedb` directly, even
+with the `igorganapolsky/lancedb` fork attached). `igorganapolsky/lancedb` fork exists and is
+push-capable (used below); no `igorganapolsky/tinker-cookbook` or `igorganapolsky/pool` fork
+exists and none could be created — patch-file route used instead, per the ladder.
+
+### Repos surveyed
+
+| Org | Repos |
+|-----|-------|
+| Thinking Machines Lab | `thinking-machines-lab/tinker` (18 open issues), `tinker-cookbook` (12 open issues + 25 open PRs cross-checked) |
+| Poolside AI | `poolsideai/pool` (21 open issues; re-confirmed closed-source — README/LICENSE/CHANGELOG/third_party only) |
+| LanceDB | `lancedb/lancedb` (49 open `bug`-labeled issues surveyed, cross-checked against open PRs; 2 new issues in the last 48h: #3950, #3951) |
+
+Used three parallel read-only research agents (one per org) to survey issues and check for
+already-open PRs before investing fix effort, then did the actual fix/build/test/verify work
+directly.
+
+### tinker-cookbook#896 — fixed, tested, parked
+
+**Bug:** `MMLUReduxBenchmarkBuilder.aggregate()` (`tinker_cookbook/eval/benchmarks/mmlu_redux.py`)
+reads `m.get("subject", "unknown")` from each example's `metrics` dict to build the per-subject
+accuracy breakdown, but `MMLUReduxMessageEnv.step()` only ever puts `"subject"` into `logs`, never
+into `metrics`. Every example falls into `mmlu_redux/unknown/accuracy` instead of a real
+per-subject breakdown — broken since the benchmark was added, no test ever caught it.
+
+**Fix:** `Metrics` is typed `dict[str, float | int]` (no strings), so `step()` now also encodes
+the subject as a numeric index into the module's existing `_SUBJECTS` list (`"subject_idx"`);
+`aggregate()` decodes it back. Self-contained to `mmlu_redux.py`.
+
+**Verified** (`uv sync --extra dev`, repo @ `f46eddd`, 2026-08-18):
+- New tests in `benchmark_test.py::TestMMLUReduxAggregate` **fail** on unpatched code
+  (`KeyError: 'mmlu_redux/anatomy/accuracy'`), **pass** after the fix (confirmed via `git stash`
+  round-trip, not just reasoning about it).
+- Full `pytest tinker_cookbook/eval/benchmarks/benchmark_test.py`: 74 passed, 4 pre-existing
+  unrelated skips, no regressions.
+- `ruff format --check`, `ruff check`: clean. `pyright tinker_cookbook/eval/benchmarks/mmlu_redux.py`:
+  0 errors.
+- Checked all 25 open PRs against `tinker-cookbook` first — #896 unclaimed.
+
+**Parked** (no `igorganapolsky/tinker-cookbook` fork exists — `fork_repository` against the
+upstream org is scope-blocked, same as every prior attempt):
+`coordination/patches/tinker-cookbook-896-mmlu-redux-subject.patch` (git-am-able single commit) +
+`coordination/ready-to-post/tinker-cookbook-896-mmlu-redux-subject-pr.md` (PR title/body,
+posting needs a fork created first).
+
+Also looked at #895 (`extract_boxed` first-vs-last conflict) — real, reproducible, but the
+reporter explicitly asked maintainers which behavior is authoritative before patching; a
+unilateral fix risks being reverted mid-discussion, so left alone rather than forced. #889-#894,
+#897-#899 all already have open PRs. #551/#857/#796/#847/#281 are feature requests or stale,
+out of scope.
+
+### poolsideai/pool#38 — answer drafted, not posted
+
+`pool` remains closed-source (re-confirmed: repo is README/LICENSE/CHANGELOG/third_party only).
+Surveyed the recurring "Error during ACP method session/prompt" cluster (#38, #33, #32, #27, #25,
+#22, #17, #15) — all but #38 are unverifiable from public info (no pasted error body, just a
+session ID and a `logs.zip` no one transcribed). #38 pasted the actual 400 response body: a
+tool_call missing its `function` object, failing vLLM's `ChatCompletionMessageToolCallParam`
+discriminated-union validation. Cross-checked against `pool`'s own `CHANGELOG.md`: the 1.0.15
+release (the version the reporter upgraded to right before hitting this) added "support for
+encrypted reasoning tokens" — plausible correlation, stated as a hypothesis, not a certainty.
+Issue still open, zero replies. Parked at
+`coordination/ready-to-post/poolside-38-tool-call-schema-answer.md`.
+
+### LanceDB#2900 — fixed, tested, parked
+
+**Bug:** `RemoteDBConnection.create_table` (`python/python/lancedb/remote/db.py`) omits
+`storage_options` from its signature entirely (unlike the abstract `DBConnection.create_table`
+and the local connection, both of which accept it), so passing it raises `TypeError`. The
+underlying Rust binding already supports it (`_lancedb.pyi`). `open_table` in the same file
+already has the exact precedent for this: accept the kwarg, log that it's ignored on Cloud
+(storage is managed), don't forward it. `create_table` now follows the same pattern.
+
+Fork `igorganapolsky/lancedb` was 3.5 months stale (last synced May 2026, pure fork with no
+divergent commits) — reset to current upstream `main` (`d742b174`) and pushed before branching,
+so the diff is clean. First `maturin develop` attempt hit a real environment limit: `ld
+terminated with signal 7 [Bus error]` at the final link step, caused by this session's disk
+allowance running out mid-build (`df` showed 1.2G free after ~29G of Rust build artifacts +
+uv/pip caches from the earlier tinker-cookbook `.venv`). Freed ~15G by deleting the no-longer-
+needed tinker-cookbook venv and `~/.cache/{uv,pip}`, then a clean rebuild succeeded.
+
+**Verified:** new `test_create_table_storage_options` in `python/tests/test_remote_db.py` fails
+on unpatched `main` (`TypeError: ... unexpected keyword argument 'storage_options'`), passes
+after the fix (confirmed both directions via `git stash`). Full `pytest
+python/tests/test_remote_db.py`: 59 passed. One run showed `test_remote_connection_after_fork`
+failing (a `tokio` runtime panic after `os.fork()`) — reproduced with the fix *reverted* too and
+passed in isolation both ways, so it's a pre-existing fork/threading flake in that test, not
+something this change touches or caused. `ruff format --check` / `ruff check`: clean.
+
+**Parked:** pushed to `igorganapolsky/lancedb@fix/remote-create-table-storage-options` — compare:
+https://github.com/lancedb/lancedb/compare/main...IgorGanapolsky:fix/remote-create-table-storage-options?expand=1
+PR body at `coordination/ready-to-post/lancedb-2900-remote-create-table-storage-options-pr.md`.
+Also noted: the original issue additionally names `exist_ok`/`on_bad_vectors` as missing from
+`RemoteDBConnection.create_table` — both are already present on current `main`, so the issue is
+partially stale; the PR body says so and scopes itself to the one still-real gap.
+
+`#3915` (the already-parked pagination fix from 08-11/08-12/08-13) re-checked: still open,
+unclaimed, unchanged — not re-touched.
+
+**Correction while writing this entry:** initially flagged `#3950` as an unstarted candidate for
+"next run" — wrong. `main`'s merged log only goes up to 08-13 because two coordination PRs from
+2026-08-17 (`#1768`, `#1778`) are still open/unmerged; `#1768` already fixed and parked #3950
+(`IgorGanapolsky/lancedb@fix/compat-dist-version-lookup`, verified via a real installed-wheel
+repro, before/after). `git ls-remote` against the fork confirms the branch exists untouched.
+Not redone here. `#3951` (no macOS x86_64 wheels) is a packaging/CI issue, not a code PR — skipped.
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| tinker-cookbook#895 | Reporter asked maintainers to settle first/last-boxed semantics before a fix lands |
+| tinker-cookbook#889-894, #897-899 | Already have open PRs |
+| tinker-cookbook#551/#857/#796/#847/#281 | Feature requests / stale, out of scope |
+| poolside "Error during ACP" cluster minus #38 | No pasted error content, unverifiable from public info |
+| poolside#13, #24 | Video-only bug / plain feature request, nothing to add |
+| lancedb#3889, #3781, #3530, #3559, #2899 | Already have open PRs |
+| lancedb#3515 | No PR, but deep Rust-core index/merge_insert internals — too risky to verify without the full Rust suite |
+| lancedb#3951 | Packaging/CI (wheel matrix), not a mechanical code fix |
+| lancedb#3950 | Real, fresh, unclaimed — flagged above for next run rather than splitting effort |
+
+### ThumbGate mentions
+
+**None** this run — no one asked about agent write-gating in anything surveyed.
+
+---
+
 ## 2026-08-13 — New LanceDB bug investigated (inconclusive, no fix); upstream PR-creation block re-confirmed unchanged; nothing opened
 
 ### Repos surveyed
@@ -544,5 +804,82 @@ answer is parked as above, ready to post as-is.
 ### ThumbGate mentions
 
 **None** this run — no one asked about agent write-gating in anything surveyed.
+
+---
+
+## 2026-08-11 (PM) — same-day follow-up: no new action, cross-owner wall re-confirmed
+
+Second firing today. Re-surveyed all three orgs for anything new since the morning run
+rather than re-doing the same work.
+
+### Repos surveyed
+
+| Org | Repos |
+|-----|-------|
+| Thinking Machines Lab | `thinking-machines-lab/tinker`, `tinker-cookbook` |
+| Poolside AI | `poolsideai/pool`, `bridge-sdk` |
+| LanceDB | `lancedb/lancedb`, `lancedb/lance`, unanswered Q&A discussions |
+
+### Cross-owner wall
+
+Re-tested silently, once. Unchanged from every prior run back to 2026-08-04.
+
+### Issues considered
+
+**LanceDB** — [#3915](https://github.com/lancedb/lancedb/issues/3915) is still open, still
+unfixed upstream (no linked PR), confirming the parked fix from this morning
+(`igorganapolsky/lancedb@fix/list-tables-pagination-boundary`) is still the live, correct,
+unclaimed artifact — nothing to redo. Noticed the fork also carries a stale first-attempt
+branch, `fix/list-tables-pagination-off-by-one` (dated Aug 10, same fix, built on an
+~600-commits-stale base) — superseded by the clean rebuild on current `main`; left in place,
+not destructive, not touched. New issues since this morning: `#3917` (feature: drop hard
+`aws-lc-rs` dependency) and `#3916` (feature: StreamingDataset placeholder option) — both
+feature requests, not bugs, opened same day as the morning survey; skipped, out of scope
+for this routine's bug/test/docs-gap preference.
+
+**LanceDB (Rust core, `lancedb/lance`)** — two *new* `bug`-labeled issues opened today by
+`dentiny`: [#8466](https://github.com/lancedb/lance/issues/8466) (stable row-id reuse after
+`restore()`) and [#8460](https://github.com/lancedb/lance/issues/8460) (tag creation not
+atomic). Checked before touching: `dentiny` is a multi-year core maintainer (8+ visible
+commits spanning docs/dataset/SQL/index/JSON subsystems) and both issues reference their
+own just-landed PR #8459 — i.e. self-discovered mid-development, near-certain to be
+self-fixed. Skipped to avoid pile-on, same policy as the 2026-08-11 AM #3889 skip.
+`#8472`/`#8468`/`#8461` are perf/proposal work, not first-PR-sized bug fixes; skipped.
+
+**Tinker** — `tinker`, `tinker-cookbook` issue lists unchanged from this morning; no new
+issues in either. Nothing new to act on or answer.
+
+**Poolside AI** — `pool` issues unchanged (still dominated by the recurring "Error during
+ACP method session/prompt" cluster — needs user-side logs/maintainer triage, not
+externally fixable); `bridge-sdk` has zero open issues. No public source still, confirmed
+same as every prior run.
+
+**LanceDB discussions** — skimmed unanswered Q&A for a genuinely answerable question, e.g.
+"How to verify whether namespace and table exist?" is answerable from `list_tables()`/
+`open_table()` semantics — but posting a discussion comment hits the identical cross-owner
+wall (and no discussion-comment tool is exposed by this session's GitHub MCP regardless),
+so no answer was drafted this run; the morning run's ready-to-post artifacts already cover
+the two items that *are* answerable within this session's reach.
+
+### What was opened
+
+Nothing new. The one live, verified, unclaimed fix (LanceDB #3915) remains parked exactly
+as documented in the AM entry above: pushed branch + compare link, ready for any
+properly cross-owner-scoped session to open the PR verbatim.
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| lance#8466, #8460 | Self-filed by an active core maintainer mid-development; near-certain self-fix, avoid pile-on |
+| lance#8472, #8468, #8461 | Perf/design proposals, not first-PR-sized bug fixes |
+| lancedb#3916, #3917 | Feature requests, not bugs/test/docs gaps |
+| LanceDB Q&A discussion answers | No comment path reachable from this session (same cross-owner wall; no discussion-comment tool exposed) |
+| Poolside ACP disconnect cluster | Needs user-side logs; maintainers already own it; core agent still closed-source |
+| Re-attempting the LanceDB #3915 PR | Structurally blocked, re-verified once (not re-hammered) |
+
+### ThumbGate mentions
+
+**None** this run.
 
 ---

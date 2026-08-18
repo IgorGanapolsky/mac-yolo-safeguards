@@ -101,6 +101,7 @@ function taskSignals(task) {
     longContext: /long[- ]?context|large[- ]?repo|whole[- ]?repo|full.?codebase|multi[- ]?file|entire.?project/.test(text),
     hard: /are you sure|architecture|root cause|cross[- ]file|refactor|design|debug|why (is|does)|broken|regression/.test(text),
     routine: /lint|format|rename|typo|small fix|unit test only/.test(text),
+    cyber: /\b(cyber|cybergym|mythos|vulnerability|cve|exploitbench|security audit|code audit|pentest)\b/.test(text),
   };
 }
 
@@ -167,6 +168,21 @@ function selectRoute(opts = {}) {
     return {
       ...ROUTES.glm,
       reason: 'task asked for GLM + ALLOW/FORCE',
+      signals,
+      inferenceTask: inferenceTask.id,
+      mode,
+      chain: chainPlan.chain,
+      latencyBudgetMs: inferenceTask.latencyBudgetMs,
+      businessKpi: inferenceTask.businessKpi,
+      policyVersion: POLICY_VERSION,
+    };
+  }
+
+  // GLM-5.3 CyberGym (SCMP 2026-08-14): cyber/audit stays on Coding Plan ($0), never metered.
+  if (signals.cyber && env.HERMES_PREFER_GLM53_CYBER === '1') {
+    return {
+      ...ROUTES.glm,
+      reason: 'cyber/audit → GLM-5.3 Coding Plan (HERMES_PREFER_GLM53_CYBER)',
       signals,
       inferenceTask: inferenceTask.id,
       mode,

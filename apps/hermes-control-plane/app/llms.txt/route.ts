@@ -1,24 +1,27 @@
-const body = `# ThumbGate Continuity
+const body = `# ThumbGate
 
-> ThumbGate Continuity is paid VPS failover for Hermes agents on real machines: when your Mac goes offline, eligible work continues on a fenced cloud runner under the policy you set. Hermes (desktop + Mobile) owns chatting with those machines. Pair/status scaffolding is free. Leash is ThumbGate's approval-control feature for supervised agent actions.
+> ThumbGate sells hosted Hermes on a fenced VPS for autonomous agent work under LLM-as-a-Judge gates and renewable leases. Hosted Hermes is the product on thumbgate.app — not Mac pairing. Approvals happen in the thumbgate.app browser. There is no phone leash on this product.
 
 ## Canonical URL
 - https://thumbgate.app/
 
 ## Core capabilities
-- Continuity: managed cloud / VPS continuation when a paired Hermes machine is offline
-- Signed pairing to a user's Hermes machine without inbound ports (free scaffolding)
+- Hosted Hermes: fenced cloud / VPS execution for eligible agent tasks (coding, research, computer use)
+- LLM-as-a-Judge pre-action gates and auditable task receipts
 - Renewable, expiring fenced leases so only the current unexpired executor can complete a task
-- Aggregate, content-free product analytics and an auditable task trail
-- Chat and day-to-day remote control of machines live in Hermes / Hermes Mobile—not as ThumbGate's primary product
+- Aggregate, content-free product analytics
+- Human gate in thumbgate.app for money, customer, or production actions
+
+## Product split
+- **ThumbGate.app** — hosted Hermes on a fenced VPS, dashboard, trial/Pro billing, judge policy, in-browser approvals
+- Mac pairing is not the marketed product path for hosted Hermes on thumbgate.app
 
 ## Pricing
-- Pair & status: $0/month (pairing + offline policy scaffolding)
-- Continuity is a recurring paid subscription (VPS failover when offline)
-- Current price and billing interval: https://thumbgate.app/api/billing/plan
+- Hosted Hermes is a recurring paid subscription for the fenced VPS runner
+- Current price and billing interval: https://thumbgate.app/api/billing/plan (Pro list price is $10/month as of live Stripe read-back)
+- 14-day trial. Cancel anytime.
 
 ## Privacy boundary
-- Device private keys and local gateway credentials stay on the paired machine
 - Funnel analytics do not contain prompts, threads, email addresses, IP addresses, cookies, or user-agent strings
 - Optional first-party campaign tokens only (utm_source/medium/campaign + cta_id); free-form query strings are dropped
 - Chats, task receipts, response feedback, and lessons require an authenticated workspace session
@@ -28,24 +31,13 @@ const body = `# ThumbGate Continuity
 - Engineering expertise: https://thumbgate.app/expertise
 - Live public stats endpoint: https://thumbgate.app/api/expertise/stats
 
-## Expertise
-- \`/expertise\` surfaces live production telemetry, pairing/availability/scale metrics, and case studies authored by the ThumbGate engineering team.
-- All numbers are computed from the production control plane (D1) and refresh at most every 5 minutes; synthetic canary runs are excluded.
-- No customer names, machine identifiers, prompts, or conversation contents are exposed.
-
 ## Direct answers
-- What is this? Continuity — VPS failover for Hermes agents on real machines so work can keep running when the Mac is offline.
-- Where do I chat with my machines? Hermes desktop and Hermes Mobile. ThumbGate is Continuity + pair/status, not a second chat product.
-- Access Continuity: sign in, approve the outbound-only connector on the Mac that runs Hermes, then enable Continuity / trial.
-- Mac offline behavior: free pair/status pauses or asks; eligible trial or paid Continuity tasks can use a fenced cloud runner.
-- Credential boundary: the local gateway credential stays on the paired Mac; ThumbGate receives a separate device identity and requires no inbound port.
-
-## Relationship to other products
-- Hermes is the agent runtime and chat surface for real machines
-- Hermes Mobile is the phone client for that same machine chat + Leash approvals
-- ThumbGate supplies Continuity (VPS failover), pairing, and Leash policy surfaces
-- CloudCLI is a separate cloud development environment and session UI
-- Hermes is the only execution runtime; ThumbGate does not substitute a bare model completion for a paired Hermes session
+- What is this? Hosted Hermes — fenced VPS agent execution on ThumbGate.app
+- Do I pair my Mac? No — hosted Hermes is offered as VPS execution without a Mac-pair product path
+- Where do approvals happen? In thumbgate.app. No phone leash.
+- Access hosted Hermes: sign in, start trial or Pro, run work on the fenced cloud runner
+- Is this Continuity? People say Continuity for memory plugins; this is the always-on box
+- Why not another laptop pilot? Pilots die when the machine sleeps. Hosted Hermes is one always-on VPS agent with in-browser approvals.
 `;
 
 export async function GET() {

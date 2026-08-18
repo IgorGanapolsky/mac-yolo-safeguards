@@ -333,8 +333,11 @@ function buildHermesExtraArgs(toolsets = DEFAULT_TOOLSETS, env = process.env) {
 const MODEL_CAPABILITY_REGISTRY = Object.freeze({
   'glm-coding': { agentCapable: true, class: 'coding' },
   'glm-5.2': { agentCapable: true, class: 'coding' },
+  'glm-5.3': { agentCapable: true, class: 'coding' },
+  'glm-5.3[1m]': { agentCapable: true, class: 'coding' },
   'glm-turbo': { agentCapable: true, class: 'coding' },
   'z-ai/glm-5.2': { agentCapable: true, class: 'coding' },
+  'z-ai/glm-5.3': { agentCapable: true, class: 'coding' },
   'kimi-code': { agentCapable: true, class: 'coding' },
   'kimi-for-coding': { agentCapable: true, class: 'coding' },
   'kimi-code-k3': { agentCapable: true, class: 'coding' },

@@ -22,7 +22,7 @@ export type TaskRouteDecision = {
 
 export function parseRoutePreference(value: unknown): RoutePreference {
   if (value === "local" || value === "cloud" || value === "auto") return value;
-  return "auto";
+  return "cloud";
 }
 
 /**

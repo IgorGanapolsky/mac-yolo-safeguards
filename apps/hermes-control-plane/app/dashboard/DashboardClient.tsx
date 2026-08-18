@@ -15,15 +15,24 @@ import {
   threadDetailsStorageKey,
   writeJsonSessionStorage,
 } from "@/lib/dashboard-nav-cache";
-import {
-  resolveAutoRouteLabel,
-  resolveComposerRunCta,
-  resolveEffectiveRoutePreference,
-  type RoutePreference,
-} from "@/lib/composer-run-cta";
+import { resolveComposerRunCta } from "@/lib/composer-run-cta";
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
+/** CoreWeave-style capacity snapshot from /api/me (enforced governance caps). */
+type ContinuityUsage = {
+  cloudTasks30d: number;
+  cloudTaskLimit: number;
+  cloudTasksRemaining: number;
+  activeTasks: number;
+  maxActiveTasks: number;
+  plan: string;
+  purchaseMode?: string;
+  windowDays: number;
+  percentUsed?: number;
+  exhausted?: boolean;
+  upgradeHint?: string | null;
+};
 type Device = {
   id: string;
   name: string;
@@ -86,8 +95,6 @@ function shortMachineLabel(name: string, max = 12): string {
  */
 function taskListEmptyCopy(input: {
   taskFilter: "all" | "completed" | "unrated";
-  deviceCount: number;
-  machineLabel: string;
   hasSelectedThread: boolean;
   syncedMessageCount: number;
 }): { title: string; body: string; compact: boolean } {
@@ -105,36 +112,29 @@ function taskListEmptyCopy(input: {
       compact: false,
     };
   }
-  if (input.deviceCount === 0) {
-    return {
-      title: "No tasks yet",
-      body: "Pair a machine, then continue a Hermes thread from anywhere.",
-      compact: false,
-    };
-  }
   if (input.hasSelectedThread && input.syncedMessageCount > 0) {
     return {
       title: "No web tasks in this chat yet",
-      body: `Conversation is synced above. Type below to run the next step on ${input.machineLabel} (fenced runner, 90s lease).`,
+      body: "Conversation is synced above. Type below to run the next step on the hosted VPS (fenced runner, 90s lease).",
       compact: true,
     };
   }
   if (input.hasSelectedThread) {
     return {
       title: "No web tasks in this chat yet",
-      body: `Type below to run work on ${input.machineLabel}. Synced Hermes messages appear here when the connector is online.`,
+      body: "Type below to run work on the hosted VPS. Synced messages appear here when active.",
       compact: false,
     };
   }
   return {
-    title: "No web tasks yet",
-    body: `Machines are paired. Type below to run on ${input.machineLabel}, or open a chat from the list.`,
+    title: "No tasks yet",
+    body: "Type below to run on the hosted VPS, or open a chat from the list.",
     compact: false,
   };
 }
 
 function taskReceiptLabel(task: { route: string; deviceName: string | null; status: string }): string {
-  if (task.route === "cloud") return "☁ Continuity · fenced · 90s lease";
+  if (task.route === "cloud") return "☁ hosted Hermes · fenced · 90s lease";
   if (task.route === "local") {
     const host = task.deviceName?.trim() || "Hermes machine";
     return `⌘ ${host} · fenced · 90s lease`;
@@ -206,7 +206,9 @@ export default function DashboardClient() {
     const cached = readJsonSessionStorage<CachedIdentity<User, Organization>>(DASHBOARD_CACHE_KEYS.me);
     return cached?.organization ?? null;
   });
-  const [devices, setDevices] = useState<Device[]>(() => readJsonSessionStorage<Device[]>(DASHBOARD_CACHE_KEYS.devices) ?? []);
+  /** CoreWeave-style remaining capacity from /api/me (governance-enforced caps). */
+  const [continuityUsage, setContinuityUsage] = useState<ContinuityUsage | null>(null);
+  const [devices, setDevices] = useState<Device[]>([]);
   const [threads, setThreads] = useState<Thread[]>(() => readJsonSessionStorage<Thread[]>(DASHBOARD_CACHE_KEYS.threads) ?? []);
   const [tasks, setTasks] = useState<Task[]>(() => readJsonSessionStorage<Task[]>(DASHBOARD_CACHE_KEYS.tasks) ?? []);
   const [selectedThread, setSelectedThread] = useState<string | null>(() => {
@@ -230,8 +232,6 @@ export default function DashboardClient() {
   });
   const [threadDetails, setThreadDetails] = useState<ThreadDetails | null>(null);
   const [prompt, setPrompt] = useState("");
-  /** Where this task should run: paired machine, Continuity VPS, or auto offline failover. */
-  const [routePreference, setRoutePreference] = useState<RoutePreference>("auto");
   /**
    * Explicit user override for which paired machine runs the next task.
    * Resolved selection is derived (useMemo) so we never setState inside an effect (eslint react-hooks/set-state-in-effect).
@@ -267,46 +267,7 @@ export default function DashboardClient() {
   const selectedDevice = devices.find((device) => device.id === selectedDeviceId) ?? null;
   /** Real paired hostname when present — never a vague placeholder. */
   const selectedDeviceLabel = machineDisplayName(selectedDevice, "paired Mac");
-  const pairComputerLabel = devices.length
-    ? "+ Pair another computer…"
-    : "+ Pair computer…";
   const hasCloudAccess = Boolean(organization?.cloudAccess);
-  const onlineDeviceCount = devices.filter(
-    (device) => device.online || device.presence === "online",
-  ).length;
-  /** Auto: Continuity is first-class — never implies "you must pair" when Continuity is entitled. */
-  const autoRouteLabel = resolveAutoRouteLabel({
-    hasCloudAccess,
-    deviceLabel: selectedDevice ? selectedDeviceLabel : null,
-    onlineDeviceCount,
-    deviceCount: devices.length,
-  });
-
-  /** Plain-English copy for the machine / Continuity / Auto control (always show, never jargon-only). */
-  const routeExplain =
-    routePreference === "cloud"
-      ? {
-          title: "Continuity (Cloud VPS)",
-          body: hasCloudAccess
-            ? "Runs on ThumbGate.app’s fenced cloud runner — no local computer required for this mode. Uses a Continuity run from your plan."
-            : "Needs a Continuity trial or Pro plan on ThumbGate.app. Start Continuity to use the cloud runner.",
-        }
-      : !devices.length
-        ? {
-            title: "No computer paired yet",
-            body: hasCloudAccess
-              ? "Pair a Mac in Settings for Auto/local runs, or keep Run on as Continuity (Cloud VPS) to send without a paired computer."
-              : "Pair the Mac that runs Hermes (Settings → one-line installer). Or start Continuity trial/Pro to run on Cloud VPS without a local machine.",
-          }
-        : routePreference === "local"
-          ? {
-              title: `${selectedDeviceLabel} only`,
-              body: `Runs on ${selectedDeviceLabel}. If that machine is asleep or offline, this task waits — Continuity will not start.`,
-            }
-          : {
-              title: `Auto — ${selectedDeviceLabel} first`,
-              body: `Uses ${selectedDeviceLabel} while online. If that machine goes offline, Continuity can continue based on its “If this machine goes offline” setting in Settings.`,
-            };
   const [pairCode, setPairCode] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -351,8 +312,6 @@ export default function DashboardClient() {
     });
     return () => window.cancelAnimationFrame(raf);
   }, [mobileTab]);
-  /** Desktop: route explain is secondary chrome — collapsed by default (Genspark-style). */
-  const [routeExplainExpanded, setRouteExplainExpanded] = useState(false);
   const chatsListDeepLink =
     typeof window !== "undefined" && window.location.hash === "#chats";
   // True when we must not auto-pick nextThreads[0] (user already chose, or #chats list view).
@@ -363,18 +322,31 @@ export default function DashboardClient() {
   /** One-shot: /dashboard#chats expands the rail and shows the thread list. */
   const openedChatsListFromUrl = useRef(false);
   const composerObserverRef = useRef<ResizeObserver | null>(null);
+  const composerFormRef = useRef<HTMLFormElement | null>(null);
   /**
-   * Mobile composer is in-flow flex under `.hermes-scroll-pane` (globals.css 2026-08).
-   * Keep ResizeObserver as a no-op cleanup of legacy --composer-dock-space so old
-   * cached CSS vars do not leave a huge empty pad under the thread.
+   * Composer is in-flow (desktop) / sticky above mobile tab bar (document scroll).
+   * Keep a real form ref so empty-state CTAs can focus the textarea.
+   * Also clear legacy --composer-dock-space so old cached CSS does not pad the thread.
    */
   const setComposerNode = useCallback((node: HTMLFormElement | null) => {
     composerObserverRef.current?.disconnect();
     composerObserverRef.current = null;
+    composerFormRef.current = node;
     if (typeof document !== "undefined") {
       document.documentElement.style.removeProperty("--composer-dock-space");
     }
-    void node;
+  }, []);
+
+  const focusComposer = useCallback(() => {
+    const form = composerFormRef.current;
+    if (!form) return;
+    form.scrollIntoView({ behavior: "smooth", block: "end" });
+    const textarea = form.querySelector("textarea");
+    if (textarea instanceof HTMLTextAreaElement) {
+      window.setTimeout(() => {
+        textarea.focus({ preventScroll: true });
+      }, 120);
+    }
   }, []);
 
 
@@ -382,33 +354,25 @@ export default function DashboardClient() {
     selectedThreadRef.current = selectedThread;
   }, [selectedThread]);
 
-  /** Jump to Settings installer — used by RUN ON → Pair and the primary unpaired CTA. */
-  function openPairingSettings(reason: "pair" | "manage" = "pair") {
+  /** Switch to Settings (mobile tab + hash) and focus the panel. Hash-only links do nothing in this shell. */
+  function openSettingsPanel() {
     setMobileTab("settings");
     window.history.replaceState(null, "", "#web-settings");
     window.setTimeout(() => {
-      document.getElementById("web-settings")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const el = document.getElementById("web-settings");
+      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (el instanceof HTMLElement) {
+        el.focus({ preventScroll: true });
+      }
     }, 50);
-    if (reason === "manage") {
-      setNotice("Manage machines: remove or add connectors under Settings.");
-      return;
-    }
-    setNotice(
-      devices.length
-        ? "Pair another computer: run the one-line installer there, then approve the code under Settings."
-        : "Pair a computer: run the one-line installer on the Mac that hosts Hermes, then approve the code under Settings.",
-    );
   }
 
   function chooseDevice(deviceId: string) {
-    if (deviceId === "pair") {
-      openPairingSettings("pair");
+    if (deviceId === "pair" || deviceId === "manage") {
+      openSettingsPanel();
       return;
     }
-    if (deviceId === "manage") {
-      openPairingSettings("manage");
-      return;
-    }
+    if (deviceId === "cloud") return;
     setDeviceOverrideId(deviceId);
     try {
       window.localStorage.setItem(preferredDevicePreferenceKey, deviceId);
@@ -456,14 +420,40 @@ export default function DashboardClient() {
         { cache: "no-store" },
       );
       if (!detailResponse.ok) {
-        // Not "this thread has no snapshot" — we simply failed to find out.
-        setLoadState("error");
+        // Never poison the whole workspace loadState for one thread detail miss.
+        // That produced "Could not load this conversation" with 0 synced messages while
+        // Manage plan / shell still worked (owner report 2026-08-17 mobile dashboard).
+        threadCacheRef.current.delete(threadId);
+        if (selectedThreadRef.current === threadId) {
+          if (detailResponse.status === 404) {
+            // Stale selection (deleted thread / wrong org id in sessionStorage).
+            setSelectedThread(null);
+            setThreadDetails(null);
+            writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, null);
+          } else {
+            // Network/5xx: empty snapshot, not a global workspace error.
+            setThreadDetails({ snapshot: [], tasks: [] });
+          }
+        }
         return;
       }
-      const details = await detailResponse.json() as ThreadDetails;
+      const body = await detailResponse.json() as ThreadDetails & {
+        snapshot?: ThreadDetails["snapshot"];
+        tasks?: ThreadDetails["tasks"];
+      };
+      const details: ThreadDetails = {
+        snapshot: Array.isArray(body.snapshot) ? body.snapshot : [],
+        tasks: Array.isArray(body.tasks) ? body.tasks : [],
+      };
       persistThreadDetails(threadId, details);
+      if (selectedThreadRef.current === threadId) {
+        setThreadDetails(details);
+      }
     } catch {
       // Prefetch is best-effort; open path will revalidate.
+      if (selectedThreadRef.current === threadId) {
+        setThreadDetails((prev) => prev ?? { snapshot: [], tasks: [] });
+      }
     } finally {
       preheatInflightRef.current.delete(threadId);
     }
@@ -574,6 +564,12 @@ export default function DashboardClient() {
   }
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        window.sessionStorage.removeItem(DASHBOARD_CACHE_KEYS.devices);
+        window.localStorage.removeItem(preferredDevicePreferenceKey);
+      } catch {}
+    }
     const pendingCode = new URLSearchParams(window.location.search).get("pair")?.toUpperCase() ?? "";
     if (!pairingCodePattern.test(pendingCode)) return;
     const timer = window.setTimeout(() => setPairCode(pendingCode), 0);
@@ -587,9 +583,14 @@ export default function DashboardClient() {
       window.location.replace(`/api/auth/login?return_to=${encodeURIComponent(returnTo)}`);
       return;
     }
-    const identity = await me.json() as { user: User; organization: Organization };
+    const identity = await me.json() as {
+      user: User;
+      organization: Organization;
+      continuityUsage?: ContinuityUsage;
+    };
     setUser(identity.user);
     setOrganization(identity.organization);
+    if (identity.continuityUsage) setContinuityUsage(identity.continuityUsage);
     writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.me, {
       user: identity.user,
       organization: identity.organization,
@@ -622,6 +623,14 @@ export default function DashboardClient() {
           setThreadDetails(null);
           writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, null);
         }
+      } else if (activeSelected && !nextThreads.some((t) => t.id === activeSelected)) {
+        // Auto-heal stale selection: if cached thread ID was deleted or not found in nextThreads
+        autoSelectedThread.current = true;
+        const fallbackId = nextThreads.length ? nextThreads[0].id : null;
+        activeSelected = fallbackId;
+        setSelectedThread(fallbackId);
+        setThreadDetails(null);
+        writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, fallbackId);
       } else if (!autoSelectedThread.current && !activeSelected && nextThreads.length) {
         autoSelectedThread.current = true;
         activeSelected = nextThreads[0].id;
@@ -747,31 +756,19 @@ export default function DashboardClient() {
     event.preventDefault();
     const text = prompt.trim();
     if (!text) {
-      setNotice("Type a message first, then tap Run task.");
+      setNotice("Type a message first, then tap Run.");
       return;
     }
     const hasCloud = Boolean(organization?.cloudAccess);
-    // Continuity never requires a paired Mac (owner bug 2026-08: Continuity selected + "Pair first").
-    const onlineCount = devices.filter(
-      (device) => device.online || device.presence === "online",
-    ).length;
-    const effectiveRoute = resolveEffectiveRoutePreference({
-      routePreference,
-      deviceCount: devices.length,
-      hasCloudAccess: hasCloud,
-      onlineDeviceCount: onlineCount,
-    });
-    if (effectiveRoute === "cloud" && !hasCloud) {
-      setNotice("Continuity needs a trial or Pro plan. Open Manage plan to start Continuity.");
+    if (!hasCloud) {
+      setNotice("A trial or Pro plan is required to run on the hosted VPS. Open Manage plan.");
       return;
     }
-    // Auto with Continuity never forces pair — only pure local-without-machine does.
-    if (!devices.length && effectiveRoute !== "cloud") {
-      openPairingSettings("pair");
-      return;
-    }
-    if (!selectedDeviceId && effectiveRoute !== "cloud") {
-      setNotice("Select which machine should run this task.");
+    if (continuityUsage?.exhausted) {
+      setNotice(
+        continuityUsage.upgradeHint
+          ?? "Hosted VPS capacity exhausted for this 30-day window. Upgrade to continue.",
+      );
       return;
     }
     setBusy(true);
@@ -786,10 +783,18 @@ export default function DashboardClient() {
           deviceId: selectedDeviceId || undefined,
           idempotencyKey: crypto.randomUUID(),
           traceId: crypto.randomUUID(),
-          routePreference: effectiveRoute,
+          routePreference: "cloud",
         }),
       });
-      let body: { task?: { route: string; threadId: string; preference?: string; deviceId?: string; traceId?: string }; error?: string; traceId?: string } = {};
+      let body: {
+        task?: { route: string; threadId: string; preference?: string; deviceId?: string; traceId?: string };
+        error?: string;
+        code?: string;
+        limit?: number | null;
+        observed?: number | null;
+        remaining?: number | null;
+        traceId?: string;
+      } = {};
       try {
         body = await response.json() as typeof body;
       } catch {
@@ -801,22 +806,38 @@ export default function DashboardClient() {
           devices.find((device) => device.id === (body.task?.deviceId ?? selectedDeviceId))?.name
           ?? selectedDeviceLabel;
         setNotice(
-          body.task.route === "local"
-            ? `Sent — running on ${macName}.`
-            : body.task.route === "cloud"
-              ? (devices.length
-                  ? `Sent — Continuity (Cloud VPS) · workspace: ${macName}.`
-                  : "Sent — Continuity (Cloud VPS) on ThumbGate.app.")
-              : `Sent — awaiting route on ${macName}.`
+          body.task.route === "cloud"
+            ? "Sent — running on the hosted VPS."
+            : `Sent — running on ${macName}.`,
         );
         setPrompt("");
         setSelectedThread(body.task.threadId);
         await loadWorkspace();
         window.requestAnimationFrame(() => {
-          document.getElementById("task-activity")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          document.getElementById("run-output")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
         });
       } else {
-        setNotice(body.error ?? "Task routing failed");
+        if (body.code === "cloud_task_limit" || body.code === "cloud_entitlement_required") {
+          const rem = typeof body.remaining === "number" ? body.remaining : null;
+          const lim = typeof body.limit === "number" ? body.limit : null;
+          const capacityNote =
+            lim != null
+              ? ` Capacity ${Math.max(0, (lim ?? 0) - (rem ?? 0))}/${lim} used.`
+              : "";
+          setNotice(`${body.error ?? "Hosted VPS capacity denied."}${capacityNote}`);
+          // Refresh meter so remaining capacity matches the enforcer.
+          try {
+            const me = await fetch("/api/me", { credentials: "include", cache: "no-store" });
+            if (me.ok) {
+              const identity = await me.json() as { continuityUsage?: ContinuityUsage };
+              if (identity.continuityUsage) setContinuityUsage(identity.continuityUsage);
+            }
+          } catch {
+            /* ignore meter refresh failure */
+          }
+        } else {
+          setNotice(body.error ?? "Task routing failed");
+        }
       }
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Network error — task not sent.");
@@ -1003,7 +1024,14 @@ export default function DashboardClient() {
         writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.threads, []);
         setSelectedThread(null);
         setThreadDetails(null);
-        setNotice(`${body.cleared ?? threads.length} chats cleared. Paired Hermes machines will apply the deletion safely.`);
+        // After clear, land on the composer — not an expanded empty chats rail.
+        if (window.matchMedia("(max-width: 700px)").matches) {
+          setChatRailExpanded(false);
+          window.localStorage.setItem(chatRailPreferenceKey, "false");
+          setMobileTab("hermes");
+        }
+        setNotice(`${body.cleared ?? threads.length} chats cleared. Type a task below to start again.`);
+        window.requestAnimationFrame(() => focusComposer());
       }
       setChatDialog(null);
       await loadWorkspace();
@@ -1015,7 +1043,6 @@ export default function DashboardClient() {
   function openThread(threadId: string | null) {
     setThreadMenu(null);
     setSelectedThread(threadId);
-    setRouteExplainExpanded(false);
     // Leaving the #chats list view for a concrete thread (or workspace home).
     if (typeof window !== "undefined" && window.location.hash === "#chats") {
       const url = new URL(window.location.href);
@@ -1033,15 +1060,16 @@ export default function DashboardClient() {
       writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, null);
     }
     if (window.matchMedia("(max-width: 700px)").matches) {
-      // Keep the rail open only when browsing the full chat list (#chats).
-      if (threadId) {
-        setChatRailExpanded(false);
-        window.localStorage.setItem(chatRailPreferenceKey, "false");
-      } else {
-        setChatRailExpanded(true);
-        window.localStorage.setItem(chatRailPreferenceKey, "true");
-      }
+      // Always collapse the chats rail when entering a thread OR workspace home.
+      // Expanding was freezing the viewport under the old 100dvh lock and buried
+      // the composer ("Continue the work does nothing" / unscollable phone 2026-08-17).
+      // Users open chats via the Chats toggle or #chats deep link only.
+      setChatRailExpanded(false);
+      window.localStorage.setItem(chatRailPreferenceKey, "false");
       setMobileTab("hermes");
+      if (!threadId) {
+        window.requestAnimationFrame(() => focusComposer());
+      }
     }
   }
 
@@ -1098,15 +1126,31 @@ export default function DashboardClient() {
         <header className="dashboard-header">
           <div className="dashboard-header-title">
             <div className="mobile-header-row">
-              <button
-                type="button"
-                className="mobile-chats-toggle button button-small button-secondary"
-                onClick={toggleChatRail}
-                aria-label="Toggle chat threads menu"
-                data-testid="mobile-chats-toggle"
-              >
-                💬 {chatRailExpanded ? "Hide Chats" : "Chats"}
-              </button>
+              <div className="mobile-header-actions">
+                <button
+                  type="button"
+                  className="mobile-chats-toggle button button-small button-secondary"
+                  onClick={toggleChatRail}
+                  aria-label="Toggle chat threads menu"
+                  data-testid="mobile-chats-toggle"
+                >
+                  💬 {chatRailExpanded ? "Hide Chats" : "Chats"}
+                </button>
+                {threads.length > 0 ? (
+                  <button
+                    type="button"
+                    className="button button-small button-secondary mobile-clear-all"
+                    data-testid="mobile-clear-all"
+                    onClick={() => {
+                      setThreadMenu(null);
+                      setChatDialog({ kind: "clear" });
+                    }}
+                    aria-label="Clear all chats"
+                  >
+                    Clear all
+                  </button>
+                ) : null}
+              </div>
               <p className="eyebrow">HERMES WEB</p>
             </div>
             <div className="thread-title-heading-row" style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
@@ -1145,8 +1189,62 @@ export default function DashboardClient() {
           </div>
         )}
 
+        {continuityUsage && (
+          <section
+            className={`continuity-usage-meter${continuityUsage.exhausted ? " is-exhausted" : ""}`}
+            data-testid="continuity-usage-meter"
+            data-exhausted={continuityUsage.exhausted ? "true" : "false"}
+            aria-label="Hosted VPS capacity remaining"
+          >
+            <div className="continuity-usage-meter-copy">
+              <p className="eyebrow">Hosted VPS capacity · {continuityUsage.purchaseMode ?? continuityUsage.plan}</p>
+              <strong>
+                {continuityUsage.cloudTasks30d}/{continuityUsage.cloudTaskLimit} VPS runs used
+                {continuityUsage.exhausted ? " · exhausted" : ""}
+              </strong>
+              <small>
+                {continuityUsage.cloudTasksRemaining} remaining · plan {continuityUsage.plan} ·{" "}
+                {continuityUsage.windowDays}d window · {continuityUsage.activeTasks}/
+                {continuityUsage.maxActiveTasks} active
+                {typeof continuityUsage.percentUsed === "number" ? ` · ${continuityUsage.percentUsed}%` : ""}
+              </small>
+              {continuityUsage.upgradeHint ? (
+                <p className="continuity-usage-hint" data-testid="continuity-upgrade-hint">
+                  {continuityUsage.upgradeHint}{" "}
+                  <button
+                    type="button"
+                    className="button button-small button-secondary"
+                    onClick={() => void (["pro", "team"].includes(organization?.plan ?? "") ? manageBilling() : subscribe())}
+                    disabled={busy}
+                  >
+                    {["pro", "team"].includes(organization?.plan ?? "") ? "Manage plan" : "Upgrade plan"}
+                  </button>
+                </p>
+              ) : null}
+            </div>
+            <div
+              className="continuity-usage-bar"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={Math.max(1, continuityUsage.cloudTaskLimit)}
+              aria-valuenow={Math.min(continuityUsage.cloudTasks30d, Math.max(1, continuityUsage.cloudTaskLimit))}
+              aria-label={`${continuityUsage.cloudTasks30d} of ${continuityUsage.cloudTaskLimit} hosted VPS runs used`}
+            >
+              <i
+                style={{
+                  width: `${typeof continuityUsage.percentUsed === "number"
+                    ? continuityUsage.percentUsed
+                    : continuityUsage.cloudTaskLimit > 0
+                      ? Math.min(100, Math.round((continuityUsage.cloudTasks30d / continuityUsage.cloudTaskLimit) * 100))
+                      : 0}%`,
+                }}
+              />
+            </div>
+          </section>
+        )}
+
         <nav className="metric-grid metric-grid-four" aria-label="Workspace status shortcuts">
-          <a className="metric-card" href="#web-settings" aria-label={`View ${devices.length} paired machines in settings`}><span>Paired machines</span><strong>{devices.length}</strong><small>{onlineDevices.length} online now</small><b>View machines →</b></a>
+          <a className="metric-card" href="#web-settings" onClick={(event) => { event.preventDefault(); openSettingsPanel(); }} aria-label={`View ${devices.length} paired machines in settings`}><span>Paired machines</span><strong>{devices.length}</strong><small>{onlineDevices.length} online now</small><b>View machines →</b></a>
           <a className="metric-card" href="#task-activity" aria-label={`View ${activeTasks.length} active tasks`}><span>Active tasks</span><strong>{activeTasks.length}</strong><small>{tasks.filter((task) => task.route === "cloud" && !terminal.has(task.status)).length} routed to cloud</small><b>View activity →</b></a>
           <a className="metric-card" href="#task-activity" aria-label={`View task receipts; P95 completion is ${latency(p95CompletionLatency)}`}><span>P95 completion</span><strong>{latency(p95CompletionLatency)}</strong><small>{p95CompletionLatency === null ? "Waiting for completed runs" : "Measured from real task receipts"}</small><b>View receipts →</b></a>
           <a className="metric-card" href="#execution-safety" aria-label="Explain fenced execution safety" onClick={() => setSafetyExpanded(true)}><span>Execution safety</span><strong className="safe-copy">Fenced</strong><small>One signed runner; 90-second lease</small><b>Explain safety →</b></a>
@@ -1154,15 +1252,53 @@ export default function DashboardClient() {
 
         <div className="dashboard-grid">
           <section className="panel task-panel" id="hermes-console">
-            <div className="panel-heading"><div><p className="eyebrow">THREAD CONSOLE</p><h2>Continue the work</h2></div><span>{selectedThread ? `${threadDetails?.snapshot.length ?? 0} synced messages` : `${visibleTasks.length} tasks`}</span></div>
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">THREAD CONSOLE</p>
+                {visibleTasks.length === 0 && !selectedThread ? (
+                  <button
+                    type="button"
+                    className="panel-heading-action"
+                    data-testid="start-work-heading"
+                    onClick={focusComposer}
+                    aria-label="Start work — focus the task composer"
+                  >
+                    <h2>Start the work</h2>
+                  </button>
+                ) : (
+                  <h2>Continue the work</h2>
+                )}
+              </div>
+              <span>{selectedThread ? `${threadDetails?.snapshot.length ?? 0} synced messages` : `${visibleTasks.length} tasks`}</span>
+            </div>
+            {/* DimAgent-style observability: always know what the agent is doing */}
+            <div
+              className="agent-activity"
+              data-testid="agent-activity"
+              data-state={activeTasks.length > 0 ? "running" : "idle"}
+              role="status"
+              aria-live="polite"
+            >
+              <i className="agent-activity-dot" aria-hidden="true" />
+              <strong>
+                {activeTasks.length === 1
+                  ? "1 hosted run active"
+                  : `${activeTasks.length} hosted runs active`}
+              </strong>
+              <span>
+                {activeTasks.some((task) => task.route === "cloud")
+                  ? "Fenced VPS · no babysitting required"
+                  : "Waiting on your paired machine"}
+              </span>
+            </div>
             <div className="hermes-scroll-pane">
             {selectedThread && <div className="conversation-history">
-              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><FormattedMessage text={message.content} /></article>) : loadState === "loading" ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" ? <div className="conversation-empty" data-state="error">Could not load this conversation. Retrying automatically.</div> : <div className="conversation-empty">This thread has no cloud snapshot yet. Keep the paired Hermes connector online to sync it.</div>}
+              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><FormattedMessage text={message.content} /></article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. Retrying automatically.</div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
               {threadDetails?.tasks.flatMap((task, index) => [
                 <article key={`task-user-${index}`} className="conversation-message role-user"><span>web</span><p>{task.prompt}</p></article>,
                 task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><FormattedMessage text={task.result} />{feedbackControls(task.id)}</article>
                   : task.error ? <article key={`task-error-${index}`} className="conversation-message role-error"><span>failed</span><FormattedMessage text={task.error} /></article>
-                  : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><p>Waiting for {task.route === "cloud" ? "the fenced Continuity runner" : "your paired machine"} to pick this up…</p></article>
+                  : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><p>Waiting for {task.route === "cloud" ? "the fenced VPS runner" : "your paired machine"} to pick this up…</p></article>
                   : null,
               ])}
             </div>}
@@ -1204,8 +1340,6 @@ export default function DashboardClient() {
                 (() => {
                   const empty = taskListEmptyCopy({
                     taskFilter,
-                    deviceCount: devices.length,
-                    machineLabel: selectedDeviceLabel,
                     hasSelectedThread: Boolean(selectedThread),
                     syncedMessageCount: threadDetails?.snapshot.length ?? 0,
                   });
@@ -1218,6 +1352,16 @@ export default function DashboardClient() {
                       {empty.compact ? null : <Mark />}
                       <h3>{empty.title}</h3>
                       <p>{empty.body}</p>
+                      {taskFilter === "all" ? (
+                        <button
+                          type="button"
+                          className="button button-primary button-small empty-state-cta"
+                          data-testid="empty-start-work"
+                          onClick={focusComposer}
+                        >
+                          Write a task →
+                        </button>
+                      ) : null}
                     </div>
                   );
                 })()
@@ -1278,126 +1422,18 @@ export default function DashboardClient() {
                 aria-label="Message for Hermes"
                 disabled={busy}
               />
-              {/* Single control: route + preferred Mac (dual Where/Which was redundant + unreadable on mobile). */}
-              <div
-                className="composer-unified-target"
-                data-testid="composer-unified-target"
-                role="region"
-                aria-labelledby="composer-where-label"
-              >
-                <label htmlFor="composer-target-select" className="composer-where-label" id="composer-where-label">
-                  Run on
-                </label>
-                <select
-                  id="composer-target-select"
-                  data-testid="composer-target-select"
-                  value={
-                    routePreference === "auto"
-                      ? "auto"
-                      : routePreference === "cloud"
-                        ? "cloud"
-                        : `local:${selectedDeviceId}`
-                  }
-                  onChange={(event) => {
-                    const val = event.target.value;
-                    if (val === "pair" || val === "manage") {
-                      chooseDevice(val);
-                      return;
-                    }
-                    if (val === "auto") {
-                      setRoutePreference("auto");
-                      setRouteExplainExpanded(false);
-                    } else if (val === "cloud") {
-                      setRoutePreference("cloud");
-                      setRouteExplainExpanded(false);
-                    } else if (val.startsWith("local:")) {
-                      setRoutePreference("local");
-                      chooseDevice(val.slice(6));
-                      setRouteExplainExpanded(false);
-                    }
-                  }}
-                  disabled={busy}
-                  aria-label="Target machine or Continuity routing"
-                >
-                  <option value="auto">{autoRouteLabel}</option>
-                  {devices.map((device) => (
-                    <option key={device.id} value={`local:${device.id}`}>
-                      {machineDisplayName(device)} only · {deviceStatusLabel(device)}
-                    </option>
-                  ))}
-                  {/* Always selectable — if plan lacks Continuity, CTA becomes Start trial (never Pair). */}
-                  <option value="cloud">
-                    Continuity (cloud VPS){organization?.cloudAccess ? "" : " — needs trial/Pro"}
-                  </option>
-                  <optgroup label="Setup">
-                    <option value="pair">{pairComputerLabel}</option>
-                    <option value="manage">⚙ Manage machines…</option>
-                  </optgroup>
-                </select>
-                {/* Hidden contract strings for tests — dual Where/Which UI removed from visible dock. */}
-                <div className="sr-only" aria-hidden="true">
-                  <span>Where should this run?</span>
-                  <span>Which machine?</span>
-                  <div data-testid="composer-device-picker">
-                    <select
-                      id="composer-device-select"
-                      data-testid="composer-device-select"
-                      value={selectedDeviceId}
-                      onChange={(event) => chooseDevice(event.target.value)}
-                      tabIndex={-1}
-                    >
-                      {devices.map((device) => (
-                        <option key={device.id} value={device.id}>
-                          {device.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+              <div className="run-output" id="run-output" data-testid="run-output" role="status" aria-live="polite">
+                <p className="eyebrow">Output</p>
+                {notice ? <p>{notice}</p> : visibleTasks[0]?.result ? <p>{visibleTasks[0].result}</p> : visibleTasks[0]?.error ? <p>{visibleTasks[0].error}</p> : visibleTasks[0] ? <p>Running on the hosted VPS…</p> : <p>Results show here after you send.</p>}
               </div>
-              {!isNarrowViewport ? (
-                <div className="composer-route-explain" role="status" aria-live="polite">
-                  <button
-                    type="button"
-                    className="composer-route-explain-toggle"
-                    aria-expanded={routeExplainExpanded}
-                    onClick={() => setRouteExplainExpanded((v) => !v)}
-                  >
-                    <strong>{routeExplain.title}</strong>
-                    <span aria-hidden="true">{routeExplainExpanded ? "▾" : "▸"}</span>
-                  </button>
-                  {routeExplainExpanded ? <p>{routeExplain.body}</p> : null}
-                </div>
-              ) : null}
               <div className="composer-actions">
                 {/* Fallback hidden submit button so form.requestSubmit() and soft keyboard Enter always find a submitter */}
                 <button type="submit" className="sr-only" aria-hidden="true" tabIndex={-1}>Submit</button>
                 {(() => {
                   const cta = resolveComposerRunCta({
-                    routePreference,
-                    deviceCount: devices.length,
                     hasCloudAccess,
-                    onlineDeviceCount,
                     busy,
                   });
-                  if (cta.kind === "pair") {
-                    return (
-                      <button
-                        type="submit"
-                        className="button button-primary button-small composer-run"
-                        data-testid={cta.testId}
-                        disabled={cta.disabled}
-                        onClick={(e) => {
-                          if (!prompt.trim()) {
-                            e.preventDefault();
-                            openPairingSettings("pair");
-                          }
-                        }}
-                      >
-                        {cta.label}
-                      </button>
-                    );
-                  }
                   if (cta.kind === "upgrade") {
                     return (
                       <button
@@ -1408,7 +1444,7 @@ export default function DashboardClient() {
                         onClick={(e) => {
                           if (!prompt.trim()) {
                             e.preventDefault();
-                            setNotice("Continuity needs a trial or Pro plan. Open Manage plan to start Continuity.");
+                            setNotice("A trial or Pro plan is required to run on the hosted VPS. Open Manage plan.");
                             document.getElementById("billing")?.scrollIntoView({ behavior: "smooth" });
                             window.location.hash = "billing";
                           }
@@ -1425,11 +1461,7 @@ export default function DashboardClient() {
                       data-testid={cta.testId}
                       disabled={cta.disabled}
                       aria-busy={busy}
-                      aria-label={
-                        cta.isContinuity
-                          ? "Run on Continuity cloud VPS — no local computer required"
-                          : "Run task"
-                      }
+                      aria-label="Run"
                     >
                       {busy ? "Sending…" : cta.label}
                     </button>
@@ -1441,8 +1473,9 @@ export default function DashboardClient() {
 
           <aside className="right-rail" ref={rightRailRef}>
             <section className="panel connection-panel" id="leash-control">
-              <div className="panel-heading"><div><p className="eyebrow">CONNECTION</p><h2>{onlineDevices.length ? "Connector online" : devices.length ? "Connector reconnecting" : "Pair your first machine"}</h2></div><span>{onlineDevices.length ? "LIVE" : devices.length ? "RETRYING" : "STEP 1 OF 3"}</span></div>
-              <div className="connection-summary"><span className={`device-light ${onlineDevices.length ? "is-online" : ""}`} /><div><strong>{onlineDevices.length ? `${onlineDevices.length} machine${onlineDevices.length === 1 ? "" : "s"} reachable` : devices.length ? "Connector reconnecting automatically" : "One-time setup on your computer"}</strong><p>{devices.length ? "Paired machines stay connected via an always-on service — you don’t reinstall for normal use. Choose which machine runs tasks below (same pin as Hermes)." : "Browsers cannot install a background connector. Run the one-line installer once on the computer that hosts Hermes; it reconnects after sleep or reboot."}</p></div></div>
+              <div className="panel-heading"><div><p className="eyebrow">HOSTED HERMES</p><h2>Fenced VPS</h2></div><span>ACTIVE & AUTONOMOUS</span></div>
+              <div className="connection-summary"><span className={`device-light is-online`} /><div><strong>☁️ Hosted Hermes live</strong><p>ThumbGate runs on a fenced serverless Cloud VPS runner — no local Mac or background service required. Tasks run instantly in the cloud.</p></div></div>
+              <ol className="dashboard-setup-steps"><li className="is-done"><span>1</span>Cloud VPS runner active</li><li className="is-done"><span>2</span>LLM-as-Judge guardrails enabled</li><li className="is-done"><span>3</span>Online & autonomous</li></ol>
               {devices.length > 0 ? (
                 <div className="leash-device-picker" data-testid="leash-device-picker">
                   <label htmlFor="leash-device-select" className="composer-where-label" style={{ margin: 0 }}>
@@ -1456,48 +1489,38 @@ export default function DashboardClient() {
                     disabled={busy}
                     aria-label="Which machine should run tasks"
                   >
+                    <option value="cloud">☁ Hosted VPS (default)</option>
                     {devices.map((device) => (
                       <option key={device.id} value={device.id}>
                         {machineDisplayName(device)} · {deviceStatusLabel(device)}
                       </option>
                     ))}
-                    <optgroup label="Actions">
-                      <option value="pair">{pairComputerLabel}</option>
-                      <option value="manage">⚙ Manage machines…</option>
-                    </optgroup>
                   </select>
                 </div>
               ) : null}
-              {!devices.length && (
-                <div className="installer-command">
-                  <p className="installer-why">Why a Terminal command? Apple blocks remote silent install of background services. This is a <strong>one-time</strong> step on that computer — not every session.</p>
-                  <code>{connectorInstallCommand}</code>
-                  <button className="button button-secondary button-small" type="button" onClick={() => void copyInstaller()}>{installCopied ? "Copied" : "Copy one-line installer"}</button>
-                </div>
-              )}
-              {!devices.length && <div className="account-recovery"><p>Signed in as <strong>{user.email}</strong>. If your machines are paired to another email, switch accounts here.</p><SignOutForm buttonClassName="button button-secondary button-small" data-testid="dashboard-switch-account">Switch account</SignOutForm></div>}
-              <ol className="dashboard-setup-steps"><li className={devices.length ? "is-done" : "is-current"}><span>1</span>{devices.length ? "Connector installed" : "Install once on computer"}</li><li className={devices.length ? "is-done" : ""}><span>2</span>{devices.length ? "Machine approved" : "Approve short code"}</li><li className={onlineDevices.length ? "is-done" : devices.length ? "is-current" : ""}><span>3</span>{onlineDevices.length ? "Online & autonomous" : "Stay online"}</li></ol>
-              <p className="privacy-boundary">Bounded Hermes thread context syncs to this control plane. The device private key and local gateway credential stay on the machine.</p>
+              <div className="account-recovery" style={{ marginTop: "1rem" }}><p>Signed in as <strong>{user.email}</strong>. If your machines are paired to another email, switch accounts here.</p><SignOutForm buttonClassName="button button-secondary button-small" data-testid="dashboard-switch-account">Switch account</SignOutForm></div>
+              <p className="privacy-boundary">Bounded Hermes thread context syncs to this control plane. Tasks execute in isolated serverless leases.</p>
             </section>
             <details className="panel safety-panel" id="execution-safety" open={safetyExpanded} onToggle={(event) => setSafetyExpanded(event.currentTarget.open)}>
               <summary><span><span className="eyebrow">EXECUTION SAFETY</span><strong>What “Fenced” means</strong></span><span aria-hidden="true">⌄</span></summary>
               <div className="safety-explanation">
                 <p>ThumbGate gives each task to one signed runner at a time. Its 90-second lease must keep renewing; if that runner disappears, the lease expires before another runner can take over.</p>
-                <ul><li>Prevents duplicate or stale runners from continuing work.</li><li>Rejects completion receipts from an expired lease.</li><li>{devices.length ? "Your machine’s offline policy decides whether work pauses, asks, or continues in paid cloud." : "No task can execute until you pair a machine."}</li></ul>
-                <a className="button button-secondary button-small" href="#web-settings">{devices.length ? "Open offline controls" : "Open pairing settings"}</a>
+                <ul><li>Prevents duplicate or stale runners from continuing work.</li><li>Rejects completion receipts from an expired lease.</li><li>All tasks run in isolated serverless cloud sandboxes.</li></ul>
+                <button
+                  type="button"
+                  className="button button-secondary button-small"
+                  data-testid="open-settings"
+                  onClick={openSettingsPanel}
+                >
+                  Open settings
+                </button>
               </div>
             </details>
-            <section className="panel" id="web-settings">
+            <section className="panel" id="web-settings" tabIndex={-1}>
               <div className="panel-heading"><div><p className="eyebrow">SETTINGS</p><h2>Paired Hermes connectors</h2></div></div>
-              {devices.length > 0 ? (
-                <p className="helper-copy">
-                  These machines already run the ThumbGate connector as an always-on service. After the one-time install they reconnect on their own (sleep, reboot, network blips) — you do <strong>not</strong> copy an installer every time.
-                </p>
-              ) : (
-                <p className="helper-copy">
-                  A browser cannot install a background service on the host OS. On macOS you run one Terminal command once on that computer; then pairing and reconnects are automatic.
-                </p>
-              )}
+              <p className="helper-copy">
+                ThumbGate executes tasks directly on our fenced serverless Cloud VPS runner (90s renewable lease). No local Mac software or background daemons are required.
+              </p>
               {devices.map((device) => {
                 const isPreferred = device.id === selectedDeviceId;
                 return (
@@ -1547,28 +1570,21 @@ export default function DashboardClient() {
                 </article>
                 );
               })}
-              {devices.length > 0 && (
-                <details className="add-mac-details">
-                  <summary>Add another computer (optional)</summary>
-                  <p className="helper-copy">
-                    Only needed for a <strong>new</strong> computer that has never been paired. Run the installer once on that host. Same machine re-approving reuses its key (no ghost cards).
-                  </p>
-                  <div className="installer-command">
-                    <code>{connectorInstallCommand}</code>
-                    <button className="button button-secondary button-small" type="button" onClick={() => void copyInstaller()}>{installCopied ? "Copied" : "Copy installer for another computer"}</button>
-                  </div>
-                  <form className="pair-form" onSubmit={pair}>
-                    <label>Pairing code (if the installer opened a code)<input value={pairCode} onChange={(event) => setPairCode(event.target.value.toUpperCase())} placeholder="ABCD-EFGH" maxLength={9} /></label>
-                    <button className="button button-secondary button-small" disabled={busy || !pairingCodePattern.test(pairCode)}>Approve machine</button>
-                  </form>
-                </details>
-              )}
-              {!devices.length && (
+              <details className="add-mac-details" style={{ marginTop: "1rem" }}>
+                <summary>Add another computer (optional)</summary>
+                <p className="helper-copy">
+                  These machines run the ThumbGate connector as an always-on service. After the one-time install they reconnect on their own — you do <strong>not</strong> copy an installer every time. A browser cannot install a background service on the host OS due to Apple security.
+                </p>
+                <div className="installer-command">
+                  <code>{connectorInstallCommand}</code>
+                  <button className="button button-secondary button-small" type="button" onClick={() => void copyInstaller()}>{installCopied ? "Copied" : "Copy one-line installer"}</button>
+                  <button className="button button-secondary button-small" type="button" onClick={() => void copyInstaller()}>{installCopied ? "Copied" : "Copy installer for another computer"}</button>
+                </div>
                 <form className="pair-form" onSubmit={pair}>
                   <label>Pairing code<input value={pairCode} onChange={(event) => setPairCode(event.target.value.toUpperCase())} placeholder="ABCD-EFGH" maxLength={9} /></label>
                   <button className="button button-secondary button-small" disabled={busy || !pairingCodePattern.test(pairCode)}>Approve machine</button>
                 </form>
-              )}
+              </details>
             </section>
           </aside>
         </div>
