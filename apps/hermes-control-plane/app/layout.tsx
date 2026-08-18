@@ -17,21 +17,20 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL("https://thumbgate.app"),
   title: {
-    default: "ThumbGate Continuity — VPS failover for Hermes agents",
+    default: "ThumbGate Continuity — agent keeps running on a fenced VPS",
     template: "%s | ThumbGate Continuity",
   },
   description:
-    "Continuity keeps Hermes work running on a fenced VPS when your Mac is offline—synced with the same agents on your real machines. Hermes owns chat; ThumbGate owns offline failover.",
+    "Your coding agent dies when the laptop sleeps. Continuity keeps it running on a fenced VPS. Approve money, customer, or production actions in thumbgate.app. $10/mo, 14 days free, cancel anytime.",
   alternates: { canonical: "/" },
   applicationName: "ThumbGate Continuity",
   category: "developer tools",
   keywords: [
     "ThumbGate Continuity",
-    "Hermes agent",
-    "VPS failover",
-    "agent failover",
+    "fenced VPS",
     "cloud continuity",
-    "Hermes offline",
+    "agent continuity",
+    "in-browser approvals",
     "agent observability",
   ],
   robots: {
@@ -43,20 +42,20 @@ export const metadata: Metadata = {
     type: "website",
     url: "https://thumbgate.app/",
     siteName: "ThumbGate Continuity",
-    title: "ThumbGate Continuity — VPS failover for Hermes agents",
+    title: "ThumbGate Continuity — agent keeps running on a fenced VPS",
     description:
-      "When the Mac closes, eligible Hermes work continues on a fenced VPS—synced with agents on your real machines.",
+      "Your coding agent dies when the laptop sleeps. It keeps running on a fenced VPS. Approvals stay in thumbgate.app. $10/mo, 14 days free, cancel anytime.",
     images: [{
       url: "/og.png",
       width: 1200,
       height: 630,
-      alt: "ThumbGate Continuity — VPS failover for Hermes",
+      alt: "ThumbGate Continuity — fenced VPS runner",
     }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "ThumbGate Continuity — VPS failover for Hermes agents",
-    description: "Fenced VPS Continuity when your machine is offline. Hermes owns chat with real machines.",
+    title: "ThumbGate Continuity — agent keeps running on a fenced VPS",
+    description: "Fenced VPS Continuity. Approvals in thumbgate.app. $10/mo, 14 days free, cancel anytime.",
     images: ["/og.png"],
   },
   icons: {

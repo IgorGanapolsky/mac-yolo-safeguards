@@ -127,7 +127,7 @@ export function LandingAuthHero() {
             className="button button-primary"
             data-funnel-event="cloud_continuity_click"
           >
-            Try Continuity — 14 days free <span aria-hidden="true">→</span>
+            Try Continuity — 14 days free, cancel anytime <span aria-hidden="true">→</span>
           </a>
           <a
             href="/api/auth/login"
@@ -203,7 +203,16 @@ export function LandingPricingCtaPaid() {
   const href = useSessionHref();
   return (
     <a href={href} className="button button-primary" data-funnel-event="cloud_continuity_click">
-      Start Continuity — $10/mo →
+      Start Continuity — $10/mo, 14 days free, cancel anytime →
+    </a>
+  );
+}
+
+export function LandingPricingCtaTeam() {
+  const href = useSessionHref();
+  return (
+    <a href={href} className="button button-secondary" data-funnel-event="team_continuity_click">
+      Team Continuity — $49/mo →
     </a>
   );
 }

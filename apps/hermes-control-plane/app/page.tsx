@@ -9,11 +9,11 @@ import {
   LandingAuthPanel,
   LandingPricingCtaFree,
   LandingPricingCtaPaid,
+  LandingPricingCtaTeam,
 } from "./LandingAuthChrome";
 import { BrandMark } from "./BrandMark";
 import styles from "./landing.module.css";
 import {
-  CONTINUITY_EXECUTION_MODES,
   CONTINUITY_PRICE_TIERS,
   CONTINUITY_ZERO_EGRESS,
   judgeGatesLabel,
@@ -30,12 +30,17 @@ const FAQ_ITEMS = [
   {
     question: "What is ThumbGate?",
     answer:
-      "ThumbGate Continuity is a fenced cloud VPS runner for autonomous agent work: coding, research, and computer-use tasks under LLM-as-a-Judge gates, 90-second renewable leases, and plan caps. You run and approve from the browser.",
+      "Your coding agent dies when the laptop sleeps. Continuity keeps it running on a fenced VPS. You approve money, customer, or production actions in thumbgate.app.",
   },
   {
     question: "Where do approvals happen?",
     answer:
       "In thumbgate.app. Approve or deny a tool call in the web workspace. There is no phone leash on this product.",
+  },
+  {
+    question: "Who approves money, customer, or production actions?",
+    answer:
+      "You do, in thumbgate.app. Automations can draft and run. Actions with financial, customer-facing, or production consequences pause for a human gate.",
   },
   {
     question: "Do I need a phone app?",
@@ -50,7 +55,17 @@ const FAQ_ITEMS = [
   {
     question: "How much does Continuity cost?",
     answer:
-      "Pro Continuity is a flat $10/month for the fenced VPS runner, with a 14-day trial. Not per-token. Live list price is https://thumbgate.app/api/billing/plan.",
+      "Pro Continuity is a flat $10/month for the fenced VPS runner, with a 14-day trial. Cancel anytime. Not per-token. Live list price is https://thumbgate.app/api/billing/plan.",
+  },
+  {
+    question: "What happens after the 14-day trial?",
+    answer:
+      "If you do not cancel, you are billed $10/month for Pro Continuity. Cancel anytime during the trial and you owe nothing.",
+  },
+  {
+    question: "Can I cancel anytime?",
+    answer:
+      "Yes. Cancel anytime from billing in thumbgate.app. The 14-day trial is the whole offer — a recovered Continuity run or you cancel. No annual bonus stack.",
   },
   {
     question: "Is this a closed system?",
@@ -63,6 +78,8 @@ const FAQ_ITEMS = [
       "It pauses. You approve or deny in thumbgate.app. Conflicting goals without a human gate is how agents ship malware. Continuity does not auto-run that.",
   },
 ] as const;
+
+const PRO_CTA = "Start Continuity — $10/mo, 14 days free, cancel anytime";
 
 export default function Home() {
   const structuredData = {
@@ -110,16 +127,19 @@ export default function Home() {
       <section id="main-content" className="hero" tabIndex={-1}>
         <div className="hero-copy">
           <p className="eyebrow"><span className="live-dot" /> Continuity · Fenced VPS</p>
-          <h1>Your agent keeps running when the machine sleeps.</h1>
+          <h1>Your coding agent dies when the laptop sleeps.</h1>
           <p className="hero-lede">
-            ThumbGate Continuity is a fenced Continuity VPS. Approve or deny in this browser. Flat $10/month. Not per-token. 14 days free.
+            It keeps running on a fenced VPS. You approve money, customer, or production actions in thumbgate.app.
+          </p>
+          <p className="signin-note">
+            Automations can draft and run. Money, customer-facing, or production actions require your approval in this browser. 14 days free. Cancel anytime.
           </p>
           <LandingAuthHero />
           <p className="signin-note">Sign in with email, Google, or Apple. Approvals stay in this browser.</p>
           <div className="trust-row">
-            <span>Fenced VPS runner</span>
-            <span>Closed-system · zero leaks</span>
+            <span>14 days free · cancel anytime</span>
             <span>Flat $10/month</span>
+            <span>Approvals in thumbgate.app</span>
           </div>
         </div>
 
@@ -129,6 +149,24 @@ export default function Home() {
         </nav>
       </section>
 
+      <section id="qualifier" className="section-block" data-testid="qualifier">
+        <div className="section-heading">
+          <p className="eyebrow">Two-minute qualifier</p>
+          <h2>Does your coding agent die when the laptop sleeps?</h2>
+          <p>Yes — Continuity is for you. No — this is not for you. We measure recovered runs after you start. No invented stranger stats.</p>
+        </div>
+        <div className="steps-grid">
+          <article>
+            <h3>Yes</h3>
+            <p>Start Continuity. In 14 days you get a recovered Continuity run or you cancel. Flat $10/mo after the trial. Cancel anytime.</p>
+            <p><a href="#pricing" className="button button-primary" data-funnel-event="cloud_continuity_click">{PRO_CTA}</a></p>
+          </article>
+          <article>
+            <h3>No</h3>
+            <p>This product is not for you. We do not sell restaurant call capture, home-services agency work, or a vault of workflows.</p>
+          </article>
+        </div>
+      </section>
 
       <section id="when-it-stops" className="section-block" data-testid="sleep-vs-vps">
         <div className="section-heading">
@@ -198,28 +236,28 @@ export default function Home() {
           <article>
             <span>03</span>
             <h3>Flat $10, not metered tokens</h3>
-            <p>Pro Continuity is a monthly list price. Live amount is /api/billing/plan.</p>
+            <p>Pro Continuity is a monthly list price. Live amount is /api/billing/plan. Cancel anytime.</p>
           </article>
         </div>
         <div className="hero-actions" style={{ marginTop: "32px" }}>
           <a href="#pricing" className="button button-primary" data-funnel-event="cloud_continuity_click">
-            Start Continuity — $10/mo <span aria-hidden="true">→</span>
+            {PRO_CTA} <span aria-hidden="true">→</span>
           </a>
         </div>
       </section>
 
       <section id="pricing" className="pricing-section">
         <div className="pricing-copy">
-          <p className="eyebrow">Pro Continuity · live list price</p>
+          <p className="eyebrow">Pro Continuity · $10/mo · 14 days free · cancel anytime</p>
           <h2>Transparent Continuity capacity.</h2>
           <p>
-            CoreWeave-style public specs: on-demand monthly Pro, short trial capacity, and reserved Team options.
-            Caps match the control-plane enforcer — not marketing fiction. Egress, idle, and NAT-style fees:{" "}
+            Public plan caps only. We measure recovered runs, approvals completed, and VPS capacity after you start — not invented stranger stats.
+            Caps match the control-plane enforcer. Egress, idle, and NAT-style fees:{" "}
             <strong>{CONTINUITY_ZERO_EGRESS.surpriseEgress}</strong>.
           </p>
         </div>
         <div className="price-grid">
-          <article className="price-card">
+          <article className="price-card" data-testid="price-card-free">
             <div><span>Sign-in workspace</span><strong>$0<small>/start</small></strong></div>
             <p className="price-mode">Free · no Continuity runs</p>
             <ul>
@@ -230,9 +268,9 @@ export default function Home() {
             </ul>
             <LandingPricingCtaFree />
           </article>
-          <article className="price-card featured">
+          <article className="price-card featured" data-testid="price-card-pro">
             <div><span>Pro Continuity</span><BillingPlan /></div>
-            <p className="price-mode">On-demand monthly · live Stripe list price</p>
+            <p className="price-mode">On-demand monthly · $10 · 14 days free · cancel anytime</p>
             <ul>
               <li><strong>{CONTINUITY_PRICE_TIERS[2].cloudRunsDisplay}</strong> Continuity VPS runs / 30 days</li>
               <li>14-day trial: <strong>{CONTINUITY_PRICE_TIERS[1].cloudRunsDisplay}</strong> runs / 30 days</li>
@@ -242,7 +280,7 @@ export default function Home() {
             </ul>
             <LandingPricingCtaPaid />
           </article>
-          <article className="price-card">
+          <article className="price-card" data-testid="price-card-team">
             <div><span>Team &amp; Enterprise</span><strong>$49<small>/month</small></strong></div>
             <p className="price-mode">Reserved capacity · contact for custom caps</p>
             <ul>
@@ -252,11 +290,10 @@ export default function Home() {
               <li>BYO API keys &amp; custom endpoints</li>
               <li>Priority Continuity leases</li>
             </ul>
-            <LandingPricingCtaPaid />
+            <LandingPricingCtaTeam />
           </article>
         </div>
 
-        {/* CoreWeave-inspired capacity matrix — numbers from CONTINUITY_PRICE_TIERS only */}
         <div className="capacity-matrix" data-testid="continuity-capacity-matrix" aria-label="Continuity capacity comparison">
           <h3>Capacity matrix</h3>
           <div className="capacity-table-wrap">
@@ -301,12 +338,6 @@ export default function Home() {
                   ))}
                 </tr>
                 <tr>
-                  <th scope="row">Mac pair required</th>
-                  {CONTINUITY_PRICE_TIERS.map((tier) => (
-                    <td key={`${tier.id}-mac`}>{tier.macPairRequired ? "Yes" : "No"}</td>
-                  ))}
-                </tr>
-                <tr>
                   <th scope="row">Surprise egress / idle fees</th>
                   <td colSpan={4}>{CONTINUITY_ZERO_EGRESS.billingModel}</td>
                 </tr>
@@ -317,23 +348,6 @@ export default function Home() {
             Live Pro list price from Stripe (<code>/api/billing/plan</code>). Run caps match{" "}
             <code>agent-governance</code> hard limits — dashboard shows remaining capacity after sign-in.
           </p>
-        </div>
-
-        <div className="execution-modes" data-testid="continuity-execution-modes" aria-label="Continuity execution modes">
-          <h3>Execution modes</h3>
-          <p className="capacity-footnote" style={{ marginTop: 0, marginBottom: 12 }}>
-            Same idea as on-demand vs spot vs reserved capacity — mapped to Continuity product rails (no invented GPU SKUs).
-          </p>
-          <div className="execution-mode-grid">
-            {CONTINUITY_EXECUTION_MODES.map((mode) => (
-              <article key={mode.id} className="execution-mode-card" data-mode={mode.id}>
-                <span className="price-mode">{mode.priority}</span>
-                <strong>{mode.label}</strong>
-                <small>{mode.priceHint}</small>
-                <p>{mode.bestFor}</p>
-              </article>
-            ))}
-          </div>
           <p className="capacity-footnote" data-testid="continuity-zero-egress">
             Networking trust: data transfer {CONTINUITY_ZERO_EGRESS.dataTransfer.toLowerCase()}, idle fees{" "}
             {CONTINUITY_ZERO_EGRESS.idleFees.toLowerCase()}. {CONTINUITY_ZERO_EGRESS.footnote}
@@ -344,7 +358,7 @@ export default function Home() {
 
       <section id="expertise" className="section-block">
         <div className="section-heading">
-          <p className="eyebrow">Engineering expertise</p>
+          <p className="eyebrow">Operator telemetry</p>
           <h2>Public Continuity telemetry, no invented customers.</h2>
           <p>
             Raw JSON at /api/expertise/stats. No founder case studies. No implied paying teams.
@@ -389,9 +403,9 @@ export default function Home() {
 
       <footer>
         <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate <small>Continuity</small></span></Link>
-        <p>Fenced VPS Continuity · closed-system · flat $10/month.</p>
+        <p>Fenced VPS Continuity · closed-system · flat $10/month · cancel anytime.</p>
         <p><Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link></p>
-        <p><a href="#pricing" className="button button-primary" data-funnel-event="cloud_continuity_click">Start Continuity — $10/mo</a></p>
+        <p><a href="#pricing" className="button button-primary" data-funnel-event="cloud_continuity_click">{PRO_CTA}</a></p>
       </footer>
     </main>
   );
