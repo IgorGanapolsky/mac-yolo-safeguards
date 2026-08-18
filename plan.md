@@ -19,6 +19,12 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 ## 1. Task Board
 
+| T-RUBRIK-MYTHOS-ROI-20260815 | Implement and test high-ROI Rubrik Mythos lessons: file-hash checkpoints, trust-boundary prune, tightly-scoped Track A, Track B for secrets/eval/chains | in_progress | grok-rubrik-mythos-roi-20260815 | `tools/rubrik-mythos-triage-harness.js`, `tests/test-rubrik-mythos-triage.js`, `tests/fixtures/rubrik-mythos/`, `bin/rubrik-triage`, `.agents/skills/rubrik-mythos-triage/SKILL.md`, `plan.md` | 9/9 fixture tests; doctor $10 fail-closed |
+| T-ZAI-GLM53-SYSTEMWIDE-20260815 | Persist GLM-5.3 + $10/mo cap system-wide (launchd, zsh, OpenCode, cyber rail) | done | grok-glm53-fleet |
+| T-ZAI-GLM53-FLEET-20260815 | Wire GLM-5.3 across all harnesses on the Coding Plan ($0 marginal) with a hard $10/mo metered API token budget | done | grok-glm53-fleet | `tools/zai-api-budget-guard.js`, `tools/zai-glm53-fleet.js`, `bin/zai-glm53`, `tests/test-zai-glm53-fleet.js`, `.agents/skills/zai-glm53-fleet/SKILL.md`, `docs/ZAI-GLM53-FLEET.md`, `plan.md` | PASS: 15/15 tests; live probe model=glm-5.3 preview=GLM53_OK; gateway glm-coding GLM53_OK; $10 metered fail-closed; zai-coding-glm53 moved off /api/paas/v4 |
+
+| T-SEED-YOLO-REAL-AGENT-20260811 | Replace contextless direct Seed chat facade with the zero-cost Hermes agent runtime, real repository context/skills/toolsets, honest model identity, and regression/live tool proof | done | released (codex-seed-yolo-real-agent-20260811) | released | PASS: focused regression, 1,105-file CodeQL pattern gate, local verification suite, interactive startup (14 tools, 138 skills, 2 MCP servers), live file-tool proof `SEED_AGENT_WRAPPER_PROOF:mac-yolo-safeguards` in 7.16s, and Hermes usage receipt `estimated_cost_usd=0.0`; commit `1e8d39b76` |
+
 | T-OSS-ENGAGE-LANCEDB-TINKER-20260811 | Scheduled OSS-engagement routine (Thinking Machines Lab / Poolside AI / LanceDB): lancedb#3915 pagination bug root-caused, fixed, fail-first-then-green verified (56/56 database:: module tests), pushed to fork; tinker#24 confirmed already fixed on main via test suite run; poolside re-confirmed closed-source; log entry | done | released (claude-oss-engage-20260811) | released | PASS: PR #1641; lancedb#3915 fix on `igorganapolsky/lancedb@fix/list-tables-pagination-boundary` — test fails pre-fix (missing t05/t11, matching issue repro), passes post-fix, 56/56 `cargo test --lib database::` green, no regressions; upstream PR blocked by the recurring cross-owner session wall (see docs/agents/anti-babysitting.md) — compare link parked in coordination/oss-engagement-log.md; tinker#24 answer parked in coordination/ready-to-post/ after running tinker's own test_checkpoint_delete.py (21/21 passed) to confirm the reported bug no longer reproduces on 0.25.0 |
 | T-JCODE-ENGAGE-20260810 | Igor-directed jcode engagement: #869 fix verified (44/44 usage tests), git-am patch + forensic comment parked; #866 code-grounded answer; #803 ThumbGate-relevant comment (the one permitted mention); log entry | done | released (claude-scorecard-20260810) | released | PASS: PR #1609 merged as `829fdee`; #869 fix fail-first verified on jcode master 5ae2385 (weekly-only regression FAILS pre-fix, 44/44 usage tests post-fix); Codex P2 addressed pre-merge (full git-am patch embedded in the postable body); merge required manually resolving the addressed review thread — conversation resolution gates merges here. Next actor: Mac-side fleet posts the 3 coordination/ready-to-post/jcode-*.md drafts via gh (freshness checks inside each draft) |
 | T-AGENT-RISK-SCORECARD-20260810 | Synaptiq-AIQ-style free self-assessment lead magnet: 12-question Agent Risk Scorecard (md + offline interactive html twins) wired into funnel safety scan; converts to existing $499/$1,500 ladder via live Stripe/Cal links | done | released (claude-scorecard-20260810) | released | PASS: PR #1600 merged as `382d242`; contract test 8/8; headless Chromium smoke (12 groups; 0/24 Exposed / 24/24 Hardened / 18/24 Guarded; weakest-category focus; share text; live CTA links; zero network egress); public-funnel-safety-scan PASS with both twins; Codex P2 (non-executable html link) addressed with download-and-open flow — fleet-side deploy of the html to a real URL remains a follow-up, then swap the md link; README cross-link still deferred (README.md owned by cursor-sif-pitch) |
@@ -172,6 +178,10 @@ Actions:
 
 Agents own this file. Capture **surprises** that shorten the next trajectory.
 Prune stale lines when over budget. Weights are frozen — only written surprises transfer.
+
+| T-WIFI-LABEL-NEUTRAL-20260812 | Replace location-assuming `Home Wi-Fi` active-route copy with neutral `Wi-Fi` in the Hermes Mobile chat header and empty greeting | in_progress | codex-wifi-label-neutral-20260812 | `hermes-mobile/src/utils/chatMachineHeader.ts`, `hermes-mobile/src/__tests__/chatMachineHeader.test.ts`, `hermes-mobile/src/components/ChatEmptyGreeting.tsx`, `hermes-mobile/src/__tests__/ChatEmptyGreeting.test.tsx`, `plan.md` | Private-LAN active route renders `Wi-Fi`; focused/full Jest and typecheck green; physical-device header proof or exact blocker |
+
+| T-WIFI-LABEL-NEUTRAL-20260812 | Replace location-assuming `Home Wi-Fi` active-route copy with neutral `Wi-Fi` in the Hermes Mobile chat header and empty greeting | blocked | codex-wifi-label-neutral-20260812 | same claimed files | Code/test gates pass; continuous E2E blocked by safe-load guard (`load=25.27`, max `10`), process stopped without device mutation; draft PR only, no merge/OTA claim |
 
 ## Coordination (never skip)
 
@@ -798,9 +808,21 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 | T-GENERATED-ARTIFACT-LOAD-TIMEOUT-20260728 | Remove the reproduced 30-second generated-artifact routing false negative under concurrent guard load | done | released (codex-incident-evals) | `tests/test-generated-artifact-routing.js` (timeout/error evidence only), `plan.md` | PASS: the real behavioral subprocess retains a 90-second outer timeout for cumulative bounded probes, reports spawn errors, passes 3/3 repeated runs in 14s / 18s / 8s, and the complete current-main 114/114 root sweep stays green |
 | T-HERMES-RELIABILITY-JULY-2026 | Deep-research the July 2026 Hermes Mobile incident set, map every observed gap to deterministic prevention/proof, and implement only unclaimed reliability controls | done | released (codex-hermes-reliability-research) | `docs/RESEARCH-HERMES-MOBILE-RELIABILITY-JULY-2026.md`, `parallel-research/hermes-mobile-reliability-july-2026.md`, `parallel-research/hermes-mobile-reliability-july-2026.json`, `docs/HERMES-RELIABILITY-TRACEABILITY.md`, `evals/incidents/hermes-mobile-july-2026.json`, `tools/hermes-reliability-traceability.js`, `tests/test-hermes-reliability-traceability.js`, `plan.md` | PASS on draft PR #1193 head `ea0fd66e5a6a37d19853a36095784a99c684b4fa`: Parallel run `trun_468ec6a2702a4592865d87f871c6a704` ingested and corrected against current main/live PRs; all nine incidents mandatory; audit mode passes; release mode honestly blocks 7 runtime gaps and claim mode blocks all 9; 8 false-green/privacy/path mutations caught; existing incident eval 11/11 with 9 mutations; exact local root Node sweep 115/115; hosted mobile/typecheck, macOS guard, funnel, ownership, security, and routing checks green; mobile/iPad E2E correctly skipped because no mobile files changed; no runtime/store/OTA/device claim |
 
+| T-PROLO-ANDROID-PODCASTS-ONLY-20260815 | Fix ring double-tap+hold macro: open YouTube Music podcasts on the ANDROID phone (never Mac Apple Music), rewire legacy Mac launcher, stage F13 phone-native binding, add Android-only regression test | in_progress | jcode-prolo-android-podcasts-20260815 | `tools/prolo-play-latest-podcasts.sh`, `tools/prolo-podcast-macro.js`, `tests/test-prolo-android-podcasts-only.js`, `scripts/verify.sh`, `.agents/skills/prolo-ring-moodstrip/SKILL.md`, `plan.md` | 16/16 Android-only regression green; pattern gate clean on touched files; F13 staged in profile draft; remaining: wearer Flash-to-Ring + APK install when phone on adb |
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
 - `hermes-mobile/src/screens/ChatScreen.tsx` (activeReachable/activeProfileReachable → effectiveMacHttpOk only), `hermes-mobile/src/components/GatewayProfilePicker.tsx` (empty footer only), `hermes-mobile/src/utils/tailscalePasteIpCopy.ts` (PICKER_EMPTY_FOOTER only), `hermes-mobile/src/screens/SettingsScreen.tsx` (effectiveMacHttpOk picker only), `hermes-mobile/src/__tests__/preventRecurrenceContract.test.ts` (picker/header SSOT contract only), `plan.md` → **grok-connect-status-ssot-20260805** (T-CONNECT-STATUS-SSOT-20260805: picker never green Connected while header Not connected; pair skip 8642 on mini-TS) (2026-08-05T19:30Z)
+- `tools/rubrik-mythos-triage-harness.js`, `tests/test-rubrik-mythos-triage.js`, `tests/fixtures/rubrik-mythos/`, `bin/rubrik-triage`, `.agents/skills/rubrik-mythos-triage/SKILL.md`, `.gitleaks.toml` (one TESTONLY allowlist line), `plan.md` → **grok-rubrik-mythos-roi-20260815** (T-RUBRIK-MYTHOS-ROI-20260815: Mythos high-ROI steal — checkpoints, trust boundaries, what-not-to-automate) (2026-08-15T14:20:00Z)
+- `tools/zai-glm53-systemwide.js`, `tests/test-zai-glm53-systemwide.js`, `tools/hermes-yolo-route-policy.js` (cyber signal + HERMES_PREFER_GLM53_CYBER branch only), `tests/test-hermes-yolo-route-policy.js` (two cyber cases), `bin/zai-glm53`, `plan.md` → **grok-glm53-fleet** (T-ZAI-GLM53-SYSTEMWIDE-20260815: persist $10 cap + cyber Coding Plan across launchd/zsh/OpenCode; does not steal SuperGrok default or rubrik-mythos-triage) (2026-08-15T16:10:00Z)
+- `tools/zai-api-budget-guard.js`, `tools/zai-glm53-fleet.js`, `bin/zai-glm53`, `tests/test-zai-glm53-fleet.js`, `.agents/skills/zai-glm53-fleet/SKILL.md`, `docs/ZAI-GLM53-FLEET.md`, `tools/lib/glm53-yolo-hook.js`, `tools/agent-session-start.js` (GLM-5.3 doctor line only), `hermes-yolo-wrapper.js` (MODEL_CAPABILITY_REGISTRY glm-5.3 aliases only), `SKILLS.md` (one registry row), `plan.md` → **grok-glm53-fleet** (T-ZAI-GLM53-FLEET-20260815: GLM-5.3 fleet + $10/mo API cap; does not edit dirty hermes-eval litellm/config.yaml or uncommitted glm53-hermes-config.js) (2026-08-15T15:20:00Z)
+
+- `bin/agent-loop`, `plan.md` → **ali-yolo** (T-ALI-YOLO-AGENT-LOOP-DOCTOR-20260812: fix `bin/agent-loop --doctor --json` JSON escaping/validity and run verification) (2026-08-12T20:10:00Z)
+- `tools/seed-yolo-wrapper.js`, `tests/test-seed-yolo.js`, `plan.md` → **codex-seed-yolo-real-agent-20260811** (T-SEED-YOLO-REAL-AGENT-20260811: replace the direct chat facade with a real zero-cost Hermes agent launch path; add context/skills/toolset/model-truth regressions and live file-tool proof.) (2026-08-12T00:56:00Z)
+
+- `tools/seed-yolo-wrapper.js`, `tests/test-seed-yolo.js`, `plan.md` → **released by codex-seed-yolo-real-agent-20260811** after focused regression, 1,105-file CodeQL pattern gate, local verification suite, interactive startup (14 tools, 138 skills, 2 MCP servers), live file-tool proof, and a zero-cost usage receipt passed on commit `1e8d39b76`. (2026-08-12T01:15:00Z)
+
+- 2026-08-12T01:32:00Z `codex-seed-yolo-real-agent-20260811` review remediation: empty non-TTY stdin now exits 1 instead of launching an unbounded interactive chat, and `doctor` now fails closed when no reachable `AGENTS.md` can be injected. Focused regression, direct `/dev/null`/outside-repo probes, and the full local verification suite pass.
+
 - `poolside-yolo`, `tests/test-poolside-yolo.sh`, `plan.md` → **codex-agent-50** (T-AGENT-50-POOLSIDE-SPEED-20260808 / Linear AGENT-50: Pool v1.0.15 fast-model defaults, ACP mode correction, latency diagnostics, regression tests, and live benchmark evidence.) (2026-08-08T19:10:00Z)
 - `tests/test-harness-verifier-integrity.sh`, `plan.md` → **codex-agent-50** (T-AGENT-50-POOLSIDE-SPEED-20260808 / Linear AGENT-50: CI remediation for the Pool v1.0.15 mutation anchor after `plan` moved out of approval modes.) (2026-08-08T19:24:00Z)
 - `poolside-acp-imageguard`, `tests/test-poolside-acp-imageguard.sh`, `poolside-yolo`, `tests/test-poolside-yolo.sh`, `plan.md` → **codex-agent-50** (T-AGENT-50-POOLSIDE-SPEED-20260808 / Linear AGENT-50: Codex review remediation for session-scoped thought defaults, preserved user settings, and explicit custom-agent-server isolation.) (2026-08-08T19:27:00Z)
@@ -1913,7 +1935,15 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `coordination/oss-engagement-log.md` (append at tail only), `coordination/ready-to-post/tinker-24-checkpoint-delete-fixed-answer.md` (new), `plan.md` → **claude-oss-engage-20260811** (T-OSS-ENGAGE-LANCEDB-TINKER-20260811: scheduled OSS-engagement routine — lancedb#3915 fix pushed to `igorganapolsky/lancedb` fork, not to this repo's code; log/coordination files only) (2026-08-11T12:40:00Z)
 - `coordination/oss-engagement-log.md`, `coordination/ready-to-post/tinker-24-checkpoint-delete-fixed-answer.md`, `plan.md` → **released by claude-oss-engage-20260811** after PR #1641; no application code in this repo touched. (2026-08-11T13:05:00Z)
 
+- `hermes-mobile/src/utils/chatMachineHeader.ts`, `hermes-mobile/src/__tests__/chatMachineHeader.test.ts`, `hermes-mobile/src/components/ChatEmptyGreeting.tsx`, `hermes-mobile/src/__tests__/ChatEmptyGreeting.test.tsx`, `plan.md` → **codex-wifi-label-neutral-20260812** (T-WIFI-LABEL-NEUTRAL-20260812: user screenshot at 2026-08-12T12:50-04:00 proved an arbitrary office LAN was labeled `Home Wi-Fi`; change active private-LAN transport copy to location-neutral `Wi-Fi` only. Reclaimed stale header ownership after PR #994 merged, duplicate #995 closed, and no matching branch, worktree, open PR, or live process remained. PR #1455/#1472/#1481 do not touch `chatMachineHeader.ts` or `ChatEmptyGreeting.tsx`; do not edit their connection-stack files.) (2026-08-12T12:54:00-04:00)
+
+- `hermes-mobile/src/__tests__/tailscaleOnlyCopyAndPromo.test.tsx`, `hermes-mobile/src/__tests__/computerPickerStatus.test.ts`, `plan.md` → **codex-wifi-label-neutral-20260812** (T-WIFI-LABEL-NEUTRAL-20260812 downstream contract extension: full Jest proved both tests directly consume the owned transport-label functions and still require `Home Wi-Fi`. Reclaimed stale `cursor-transport-ssot` test ownership after PR #647 merged and no matching branch, worktree, open PR, or live process remained. Test-expectation updates only; do not edit `computerPickerStatus.ts` or concurrent connection-stack files.) (2026-08-12T12:57:00-04:00)
+
+- `tools/prolo-play-latest-podcasts.sh`, `tools/prolo-android-podcast-macro.js`, `tools/prolo-podcast-macro.js`, `bin/prolo-android-podcasts`, `tests/test-prolo-android-podcasts-only.js`, `.agents/skills/prolo-ring-moodstrip/SKILL.md`, `plan.md` → **jcode-prolo-android-podcasts-20260815** (T-PROLO-ANDROID-PODCASTS-ONLY-20260815: Igor correction ×4 — double-tap+hold must open YouTube Music podcasts on the ANDROID phone, never Apple Music on the Mac.) (2026-08-15T13:05:00-04:00)
 ## 3. Decisions Log
+
+### D-2026-08-15-rubrik-mythos-roi
+TNS https://thenewstack.io/rubrik-mythos-learnings/: AI discovery outruns human review; build a harness with checkpoints + context; automate only a tight subset. Implemented local 3-pass triage: file-hash checkpoints, UNTRUSTED vs INTERNAL prune, Track A = cmd/SQLi/CORS only, Track B = secrets/eval/path + cross-file taint chains. $10/mo fail-closed (no paid API). 9/9 isolated fixture tests. Does not clone Mythos; does not hire-reviewer theater.
 
 ### D-2026-08-10-jcode-engagement-and-scorecard-run
 Igor-directed run (live orders: engage 1jehuang/jcode; steal Synaptiq high-ROI items; anti-babysitting directive). **Shipped & merged same-day:** PR #1600 `382d242` Agent Risk Scorecard lead magnet (Synaptiq AIQ pattern; contract test 8/8; headless-Chromium smoke incl. zero-egress proof); PR #1608 `0eed2fa` anti-babysitting protocol (`.agents/skills/anti-babysitting/` + SKILLS.md registry; Codex P1s fixed pre-merge: Never-list vs consent-gated separation, discovery-path registration); PR #1609 `829fdee` jcode forensic packet — #869 root-caused + fail-first verified on jcode master `5ae2385` (weekly-only regression FAILS pre-fix; 44/44 `cargo test -p jcode-base usage::` post-fix), full git-am patch embedded in the postable body per Codex P2; PR #1613 claim releases. **Key findings:** jcode PR creation is collaborator-only — forensic issue packets are the accepted contribution format there; unresolved PR review threads gate merges in THIS repo (a fully-green #1609 sat blocked ~1h until its addressed thread was resolved — resolve threads after replying, before expecting auto-merge). **Fleet handoff (next actor: Mac-side gh):** post the 3 `coordination/ready-to-post/jcode-*.md` drafts (freshness checks inside; #803 draft carries the run's single permitted ThumbGate mention); deploy `docs/funnel/agent-risk-scorecard.html` to a real URL then swap the md link (session Vercel token cannot create projects). **Still parked:** lancedb#3759 fix, tested, on `igorganapolsky/lancedb@fix/blob-coerce-null-column` (cross-owner PR wall; relay session GC'd unapproved — do not rebuild relay machinery). Evidence: merge SHAs above; oss-engagement-log 2026-08-10 entry.
@@ -2307,6 +2337,10 @@ Source: MLM stateful vs stateless agent design (2026-07). Fleet rule: inference 
 - 2026-07-29T16:25:00Z `codex-hermes-reliability-research`: **D-2026-07-29-research-hypotheses-need-repo-proof.** The completed external report correctly prioritizes idempotency, fresh-state E2E, proof-boundary separation, privacy-safe telemetry, and degraded-network testing, but its generic gap matrix is not current-repo evidence. Direct main readback disproved four proposed missing controls: `app.json` already declares Apple privacy-manifest data and required-reason APIs; CI/mobile workflows already use branch/ref concurrency; fresh-user and stranger flows already clear app state and their tests enforce it; and a signed non-interactive OTA rollback workflow already exists. `appVersion` runtime policy and the July OTA billing freeze are deliberate local release controls, not accidental omissions. The confirmed cross-incident gap is instead a machine-readable ledger that distinguishes merged proof, open-PR proof, device proof, store publication, and search visibility. Add a zero-network registry validator with separate audit and release modes; root CI must validate the ledger without pretending unresolved PRs pass, while release mode must remain red until product blockers have current pass evidence.
 - 2026-07-29T16:44:00Z `codex-hermes-reliability-research`: **D-2026-07-29-nine-incident-gate-verified.** Draft PR #1193 head `ea0fd66e5a6a37d19853a36095784a99c684b4fa` proves the new cross-incident control on hosted CI without paying for unrelated mobile E2E: the root macOS guard ran all Node tools including the new traceability mutation suite, mobile typecheck/coverage and release-safety passed, funnel/ownership/routing/security checks passed, and Android/iPad device flows correctly skipped because this branch changes no mobile source. Audit mode reports 9 incidents, 0 falsely verified, 7 release blockers, and 9 claim blockers; release and claim modes exit nonzero. This task closes the traceability/regression-prevention gap only. The user-visible incidents remain owned by #1128, #1171, #1174, #1176, stacked #1180, current-main discovery plus physical proof, and related pair-code #1173/#1175; their registry states must change only after exact merged, installed/device, or store-search evidence exists.
 - 2026-08-11T12:45:00Z `claude-oss-engage-20260811`: **D-2026-08-11-lancedb-pagination-boundary-token.** `ListingDatabase::list_tables` (`rust/lancedb/src/database/listing.rs`) sets `next_page_token` to the name of the first table *excluded* from the current page — i.e. the name the next page must start at — but filtered the next page with a strict `name > page_token`, which also excludes a name equal to the token. That silently dropped exactly one table at every page boundary (lancedb#3915). Fix is `>` → `>=` in that one comparison; the unrelated `start_after` cursor on the deprecated `table_names()` path is exclusive by design (S3 `start-after` convention) and was left untouched. Fail-first verified (test asserts the full paginated walk equals the full unpaginated set; fails pre-fix missing the exact boundary tables, passes post-fix) plus a 56/56 `cargo test --lib database::` regression pass on a branch rebased onto current upstream `main` (the `igorganapolsky/lancedb` fork's `main` was ~600 commits stale). Cross-owner PR creation against `lancedb/lancedb` remains blocked for this session type (same wall as 2026-08-04/08-06/08-10); branch + compare URL parked per the anti-babysitting ladder instead of re-reporting the wall.
+
+- 2026-08-12T12:54:00-04:00 `codex-wifi-label-neutral-20260812`: **D-2026-08-12-location-neutral-wifi-label.** Private-LAN reachability proves only that the phone can reach the Mac on a local network; it does not prove the user is at home. The active transport label must be `Wi-Fi`, not `Home Wi-Fi`. Scope is the chat header and its empty-state transport echo only; routing behavior, discovery copy, store metadata, settings guidance, and the concurrent USB-removal/connection PRs remain untouched.
+
+- 2026-08-12T13:00:00-04:00 `codex-wifi-label-neutral-20260812`: **T-WIFI-LABEL-NEUTRAL-20260812 blocked at device gate.** Fail-first focused Jest produced 5 expected failures against `Home Wi-Fi`; implementation plus legacy normalization then passed 88/88 focused tests. Full Hermes Mobile Jest passed 267/267 suites (2,400 passed, 1 intentional skip), TypeScript passed, release-safety passed 7/7 suites (135 passed, 1 intentional skip), and `git diff --check` passed. One-shot continuous E2E refused to start because system load `25.27` exceeded the safe maximum `10`; after one bounded wait it was interrupted with exit 130 rather than bypassing the protection. No phone/app route, OTA, store binary, or production surface was changed or claimed.
 
 ## 4. Discovered Tasks (append-only inbox → promote into §1)
 
@@ -2881,3 +2915,106 @@ CEO requested a July 2026 decision-grade assessment of Hermes/ThumbGate RAG, too
 - 2026-08-06T00:00:00Z hermes-meme-content: added dev-humor "load average 307" meme block to README.md hero (cooperative detail toggle after paid-help line; separate section from cursor-sif-pitch SIF text) + rights-safe Instagram/memes draft hermes-mobile/docs/social/week-2026-07-10/07-instagram-memes.md (Meme A static + Memo B 15s Reel, own-product footage only) + one content-log row (Status=Drafted, publish-gated). No live publish; social-publish-gate untouched. IG/memes channel previously had zero assets.
 
 - `hermes-mobile/docs/social/week-2026-07-10/07-instagram-memes.md` → **hermes-meme-content** (ownership claim for PR #1561; publish-gated draft only, no live social-publish-gate touch, rights-safe own-product footage)
+
+
+<!-- grok-continuity-first-20260812 -->
+## Continuity-first landing (grok-continuity-first-20260812)
+
+| T-CONTINUITY-FIRST-LANDING-20260812 | ThumbGate.app Continuity/VPS-first product story (Hermes owns machine chat) | in_progress | grok-continuity-first-20260812 | `apps/hermes-control-plane/app/page.tsx`, `layout.tsx`, `LandingAuthChrome.tsx`, `llms.txt/route.ts`, `RemoteControlDiagram.tsx`, related tests | Continuity primary CTAs; tests green; deploy Cloudflare |
+
+- 2026-08-13T13:06:07Z `grok-seed-yolo-full-setup-20260813`: **T-SEED-YOLO-FULL-SETUP-20260813** — deep research + fix. Diagnosis: Herdr seed tab looked tool-less because (1) Seed 2.1 is a model not a harness, (2) Hermes config `bytedance/seed-2.1-pro:free` is a dead OpenRouter id (token economics 6 spin/0 tokens), (3) seed-yolo `-z`/`--doctor` CLI mis-parse broke oneshot. Shipped seed-yolo 3.1.0 with parseCliArgs, FULL_TOOLS, research doc `docs/SEED-YOLO-FULL-SETUP-AUG-2026.md`. Doctor ready=YES (149 skills). Installed to `~/.local/lib/seed-yolo/`.
+- 2026-08-13T16:17:59Z `grok-seed-yolo-openrouter-20260813`: **T-SEED-YOLO-OPENROUTER-20260813** — pin seed-yolo to OpenRouter `bytedance-seed/seed-2-1-turbo` with full tools/MCP/YOLO; fix dead free model id in Hermes config; live proof SEED_OR_PROOF + model id; doctor ready YES.
+
+
+## AMD skills high-ROI (append 2026-08-13T19:21:08Z) — agent `grok-amd-skills-roi-20260813`
+
+### Task
+| T-AMD-SKILLS-ROI-20260813 | Implement AMD skills high-ROI: skill cards, sources.yml, hybrid route policy (real ROUTES), local media lane; tests green | in_progress | grok-amd-skills-roi-20260813 | `.agents/skills/skill-catalog-governance/`, `.agents/skills/hybrid-route-policy/`, `.agents/skills/local-media-lane/`, `.agents/skills/sources.yml`, `plugin-metadata.json`, `tools/skill-card-validate.js`, `tools/hybrid-route-policy.js`, `tools/local-media-route.js`, `tests/test-skill-card-validate.js`, `tests/test-hybrid-route-policy.js`, `tests/test-local-media-route.js`, `docs/AMD-SKILLS-ROI-20260813.md`, skill-card.md for in-repo skills, `SKILLS.md` | local tests PASS; PR pending |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/skill-card-validate.js | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| tools/hybrid-route-policy.js | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| tools/local-media-route.js | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| tests/test-skill-card-validate.js | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| tests/test-hybrid-route-policy.js | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| tests/test-local-media-route.js | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| .agents/skills/skill-catalog-governance/** | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| .agents/skills/hybrid-route-policy/** | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| .agents/skills/local-media-lane/** | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| .agents/skills/sources.yml | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| .agents/skills/*/skill-card.md (in-repo cards) | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| plugin-metadata.json | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| docs/AMD-SKILLS-ROI-20260813.md | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+| SKILLS.md (append rows only) | grok-amd-skills-roi-20260813 | 2026-08-13T19:21:08Z |
+
+### Decision
+- Hybrid default paid route = `glm52_reasoning` (not fictional cloud_general); candidates must match hermes-economic-router ROUTES.
+- Skip ROCm/Instinct bulk install on Apple Silicon.
+
+
+## Ona last-mile placement (append 2026-08-15T15:55:00Z) — agent `grok-ona-last-mile-20260815`
+
+Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices, customer-controlled env, reviewable work. Implement as **local-first last-mile placement** for our Mac+phone fleet. Do **not** edit untracked Antigravity `tools/ona-cloud-agent-*.js` theater. Do **not** add net-new ThumbGate governance product.
+
+### Task
+| T-ONA-LAST-MILE-20260815 | Place workloads local-vs-cloud for the Mac+phone fleet using Ona's persist/control/review primitives; default local under $10/mo | in_progress | grok-ona-last-mile-20260815 | `tools/ona-last-mile-placement.js`, `tests/test-ona-last-mile-placement.js`, `bin/ona-last-mile`, `.agents/skills/ona-last-mile/**`, `coordination/ona-design-partner-draft.md`, `plan.md`, `SKILLS.md` (append row) | tests green; secrets stay local; cloud only explicit+budget; design-partner draft staged |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/ona-last-mile-placement.js | grok-ona-last-mile-20260815 | 2026-08-15T15:55:00Z |
+| tests/test-ona-last-mile-placement.js | grok-ona-last-mile-20260815 | 2026-08-15T15:55:00Z |
+| bin/ona-last-mile | grok-ona-last-mile-20260815 | 2026-08-15T15:55:00Z |
+| .agents/skills/ona-last-mile/** | grok-ona-last-mile-20260815 | 2026-08-15T15:55:00Z |
+| coordination/ona-design-partner-draft.md | grok-ona-last-mile-20260815 | 2026-08-15T15:55:00Z |
+| SKILLS.md (append row only) | grok-ona-last-mile-20260815 | 2026-08-15T15:55:00Z |
+| plan.md (this append) | grok-ona-last-mile-20260815 | 2026-08-15T15:55:00Z |
+## OTA freeze clock (append 2026-08-15T17:20:00Z) — agent `grok-ota-freeze-clock-20260815`
+
+### Task
+| T-OTA-FREEZE-CLOCK-20260815 | Pin Expo billing-freeze Jest to an injected clock so required mobile CI does not expire with `OTA_BILLING_FREEZE_UNTIL_MS` | in_progress | grok-ota-freeze-clock-20260815 | `hermes-mobile/src/__tests__/useOtaUpdateBanner.test.ts` (freeze-clock only), `hermes-mobile/src/__tests__/appOtaUpdate.test.ts` (freeze-clock only), `docs/agents/shipping-and-hygiene.md`, `plan.md` | Fail-then-pass the 3 calendar-expired freeze tests; do not bump the floor date; no Expo OTA |
+
+### Stale-lock reclaim (evidence, then claim)
+- `cursor-ota-banner-safe-area` claimed these freeze tests on 2026-07-23T19:50:57Z. Age ~23d. No `origin` branch matching `ota-banner`/`billing-freeze`. No open PR. No OTA worktree. Vault `cursor.md` last_verified 2026-07-23. Issue #1751 is the live outage.
+- Reclaim **only** the two failing test files + this hygiene note. Do **not** take banner UI, `otaClientPromptPolicy.ts`, `app.config.js`, `mobile-ota.yml`, or the shared-tree uncommitted date-kick to 2026-09-01.
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| hermes-mobile/src/__tests__/useOtaUpdateBanner.test.ts (freeze Date.now pin only) | grok-ota-freeze-clock-20260815 | 2026-08-15T17:20:00Z |
+| hermes-mobile/src/__tests__/appOtaUpdate.test.ts (freeze Date.now pin only) | grok-ota-freeze-clock-20260815 | 2026-08-15T17:20:00Z |
+| docs/agents/shipping-and-hygiene.md | grok-ota-freeze-clock-20260815 | 2026-08-15T17:20:00Z |
+| plan.md | grok-ota-freeze-clock-20260815 | 2026-08-15T17:20:00Z |
+
+### Decision
+- D-2026-08-15-ota-freeze-clock: required CI must not depend on wall-clock vs `OTA_BILLING_FREEZE_UNTIL_MS`. Freeze-path tests pin `Date.now` to `OTA_BILLING_FREEZE_UNTIL_MS - 1`. Production floor date stays `2026-08-15T00:00Z` (documented thaw). Publishing remains gated by `require-expo-billing-thaw.sh`.
+
+- `hermes-mobile/src/__tests__/appOtaUpdate.test.ts` → **released by cursor-ota-banner-safe-area** (stale 23d; no origin branch/PR/worktree; vault cursor.md 2026-07-23; issue #1751) (2026-08-15T17:20:00Z)
+- `hermes-mobile/src/__tests__/appOtaUpdate.test.ts` → **released by cursor-ota-isenabled** (task done via #519; leftover lock) (2026-08-15T17:20:00Z)
+- `hermes-mobile/src/__tests__/appOtaUpdate.test.ts` → **released by cursor** (stale leftover) (2026-08-15T17:20:00Z)
+- `hermes-mobile/src/__tests__/appOtaUpdate.test.ts` → **released by codex** (stale leftover) (2026-08-15T17:20:00Z)
+- `hermes-mobile/src/__tests__/useOtaUpdateBanner.test.ts` → **released by cursor-ota-banner-safe-area** (stale 23d; no origin branch/PR/worktree; issue #1751) (2026-08-15T17:20:00Z)
+- `hermes-mobile/src/__tests__/useOtaUpdateBanner.test.ts` → **released by codex** (stale leftover) (2026-08-15T17:20:00Z)
+- `hermes-mobile/src/__tests__/appOtaUpdate.test.ts` → **grok-ota-freeze-clock-20260815** (T-OTA-FREEZE-CLOCK-20260815: pin Date.now in freeze-path tests only) (2026-08-15T17:20:00Z)
+- `hermes-mobile/src/__tests__/useOtaUpdateBanner.test.ts` → **grok-ota-freeze-clock-20260815** (T-OTA-FREEZE-CLOCK-20260815: pin Date.now in freeze-path tests only) (2026-08-15T17:20:00Z)
+
+| T-PR-HYGIENE-MAC-YOLO-20260817 | CTO PR/branch hygiene: inventory 86 open PRs, merge green, close stale drafts, prune worktrees | done | grok | `plan.md` (log only; no code ownership thrash) | MERGED #1661@48072ea75715; closed 29 stale draft/content PRs; worktrees 26→18; remotes 179→~155; open ~60; auto-merge armed #1592/#1593/#1612/#1736/#1737/#1747; ~36 CONFLICTING feature PRs left for rebase |
+- 2026-08-17T21:12Z grok: PR hygiene session — merged #1661 (48072ea75715); closed 29 stale draft/content PRs; deleted their remotes; pruned 4 merged worktrees; auto-merge on mergeable candidates; left CONFLICTING feature PRs open for rebase (no force-close). Main CI green on pre-merge tip 1f0ab6215 (run 32067839937). Remaining: ~36 conflicts, #1747 CodeQL highs, strict:true BEHIND thrash.
+
+| T-MARKETPLACE-SKILLS-20260817 | Repeatable Grok skills for GitHub Marketplace Action publish / verify / free-cite | in_progress | grok-marketplace-skills-20260817 | `.agents/skills/github-marketplace-action-publish/**`, `.agents/skills/verify-github-marketplace-listing/**`, `.agents/skills/advertise-thumbgate-github-marketplace/**`, `bin/verify-github-marketplace`, `tests/test-github-marketplace-verify.js`, `SKILLS.md` (append rows), `plan.md` | live listing HTTP 200; offline+live tests; skill-cards PASS |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| .agents/skills/github-marketplace-action-publish/** | grok-marketplace-skills-20260817 | 2026-08-17T22:06:00Z |
+| .agents/skills/verify-github-marketplace-listing/** | grok-marketplace-skills-20260817 | 2026-08-17T22:06:00Z |
+| .agents/skills/advertise-thumbgate-github-marketplace/** | grok-marketplace-skills-20260817 | 2026-08-17T22:06:00Z |
+| bin/verify-github-marketplace | grok-marketplace-skills-20260817 | 2026-08-17T22:06:00Z |
+| tests/test-github-marketplace-verify.js | grok-marketplace-skills-20260817 | 2026-08-17T22:06:00Z |
+| SKILLS.md (append rows only) | grok-marketplace-skills-20260817 | 2026-08-17T22:06:00Z |
+| plan.md (append only) | grok-marketplace-skills-20260817 | 2026-08-17T22:06:00Z |
+
+
+- `tools/hermes-mobile-pair.js`, `tests/test-hermes-pair-lan-route.js` → **grok-pair-lan-alternates** (USB primary must still publish LAN/TS routes; Wi-Fi phone never gets 127.0.0.1) (2026-08-18)

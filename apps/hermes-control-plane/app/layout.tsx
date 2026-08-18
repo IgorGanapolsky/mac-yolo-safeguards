@@ -17,19 +17,20 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL("https://thumbgate.app"),
   title: {
-    default: "ThumbGate — Hermes dashboard & continuity",
-    template: "%s | ThumbGate for Hermes",
+    default: "ThumbGate — Hermes that stays on",
+    template: "%s | ThumbGate",
   },
-  description: "Web remote control for Hermes agents. Free dashboard while your Mac is online; paid Continuity keeps work running on a VPS when it is offline.",
+  description:
+    "Hosted on a fenced VPS. Not a laptop process. Approve money, customer, or production actions in this browser. Flat $10/month. 14 days free. Cancel anytime.",
   alternates: { canonical: "/" },
-  applicationName: "ThumbGate for Hermes",
+  applicationName: "ThumbGate",
   category: "developer tools",
   keywords: [
-    "Hermes agent",
-    "Hermes web dashboard",
-    "AI agent remote control",
-    "agent failover",
-    "cloud continuity",
+    "ThumbGate",
+    "hosted Hermes",
+    "fenced VPS",
+    "always-on VPS",
+    "in-browser approvals",
     "agent observability",
   ],
   robots: {
@@ -40,20 +41,21 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     url: "https://thumbgate.app/",
-    siteName: "ThumbGate for Hermes",
-    title: "ThumbGate — Hermes dashboard & continuity",
-    description: "Remote control Hermes from any browser. Continuity keeps eligible work on a VPS when your Mac is offline.",
+    siteName: "ThumbGate",
+    title: "ThumbGate — Hermes that stays on",
+    description:
+      "Hosted on a fenced VPS. Not a laptop process. Approvals stay in thumbgate.app. The agent keeps running on a fenced VPS. $10/mo, 14 days free, cancel anytime.",
     images: [{
       url: "/og.png",
       width: 1200,
       height: 630,
-      alt: "ThumbGate Hermes web dashboard and continuity",
+      alt: "ThumbGate — hosted Hermes on a fenced VPS",
     }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "ThumbGate — Hermes dashboard & continuity",
-    description: "Web remote control for Hermes. Paid Continuity when your machine is offline.",
+    title: "ThumbGate — Hermes that stays on",
+    description: "Hosted Hermes on a fenced VPS. Approvals in thumbgate.app. $10/mo, 14 days free, cancel anytime.",
     images: ["/og.png"],
   },
   icons: {

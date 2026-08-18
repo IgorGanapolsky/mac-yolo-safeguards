@@ -37,7 +37,7 @@ vi.mock("./runtime", () => ({
   }),
 }));
 
-import { requireDevice } from "./device-auth";
+import { requireDevice, shouldRefreshLastSeen } from "./device-auth";
 
 async function makeDevice() {
   const { publicKey, privateKey } = await crypto.subtle.generateKey(
@@ -104,7 +104,9 @@ describe("requireDevice", () => {
     const { privateKey } = await makeDevice();
     const request = await signedRequest(privateKey, "{}");
     state.device = null;
-    expect(((await requireDevice(request, "{}")) as Response).status).toBe(401);
+    const response = (await requireDevice(request, "{}")) as Response;
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: "unknown or revoked device" });
   });
 
   it("accepts a correctly signed request and returns the device identity", async () => {
@@ -129,3 +131,13 @@ describe("requireDevice", () => {
     expect((response as Response).status).toBe(401);
   });
 });
+
+describe("shouldRefreshLastSeen", () => {
+  const now = 1_000_000;
+  it("refreshes a never-seen or stale row and throttles hot polls", () => {
+    expect(shouldRefreshLastSeen(null, now)).toBe(true);
+    expect(shouldRefreshLastSeen(now - 15_000, now)).toBe(true);
+    expect(shouldRefreshLastSeen(now - 1_000, now)).toBe(false);
+  });
+});
+

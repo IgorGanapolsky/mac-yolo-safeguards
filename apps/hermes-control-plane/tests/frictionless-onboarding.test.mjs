@@ -148,7 +148,8 @@ test("keeps the deployed web host DOM-native instead of adding a React Native We
   assert.match(globals, /safe-area-inset-bottom/);
   assert.match(globals, /\.mobile-web-tabs a\.is-active/);
   assert.doesNotMatch(globals, /\.mobile-web-tabs a:first-child\{color/);
-  assert.match(dashboard, /composer-unified-target/);
+  assert.doesNotMatch(dashboard, /composer-target-select/);
+  assert.match(dashboard, /data-testid="run-output"/);
   assert.match(dashboard, /composer-actions/);
   assert.match(dashboard, /composer-run/);
   assert.match(dashboard, /isNarrowViewport/);
@@ -157,13 +158,22 @@ test("keeps the deployed web host DOM-native instead of adding a React Native We
   // Phone must not re-show the route explain card after base CSS (CEO overlap 2026-07-25).
   assert.match(globals, /\.composer-route-explain\{[\s\S]*display:none !important/);
   assert.match(globals, /\.dashboard-header\{[\s\S]*grid-template-columns:1fr/);
-  // In-flow composer + bounded .hermes-scroll-pane (CEO 2026-08: vertical scroll + Run CTA clip).
-  // Absolute dock was removed — thread scrolls; composer stays fully visible above tabs.
-  assert.match(globals, /hermes-scroll-pane\{[\s\S]*overflow-y:scroll !important/);
-  assert.match(globals, /position:relative !important/);
+  // Chat-first workbench (DimAgent visual workbench steal, 2026-08-18):
+  // messages fill remaining height; thin composer dock; not half-screen input.
+  assert.match(globals, /data-mobile-tab="hermes"\]\{[\s\S]*height:100dvh/);
   assert.match(globals, /data-mobile-tab="hermes"\] \.task-panel\{[\s\S]*overflow:hidden !important/);
+  assert.match(globals, /hermes-scroll-pane\{[\s\S]*overflow-y:scroll !important/);
+  assert.match(globals, /task-panel \.composer[\s\S]*position:relative !important/);
+  assert.match(globals, /composer textarea\{[\s\S]*min-height:40px/);
+  assert.match(globals, /\.agent-activity/);
   assert.match(dashboard, /hermes-scroll-pane/);
   assert.match(dashboard, /className="composer"/);
+  assert.match(dashboard, /data-testid="empty-start-work"/);
+  assert.match(dashboard, /data-testid="start-work-heading"/);
+  assert.match(dashboard, /data-testid="agent-activity"/);
+  assert.match(dashboard, /data-testid="mobile-clear-all"/);
+  assert.match(dashboard, /focusComposer/);
+  assert.match(dashboard, /Start the work/);
 });
 
 test("renders the configured Stripe price instead of duplicating marketing price copy", () => {
@@ -180,11 +190,12 @@ test("routes paid accounts to billing management without opening a duplicate che
   assert.match(dashboard, /"Keep cloud after trial"/);
 });
 
-test("uses ThumbGate for Hermes identity and production URLs", () => {
-  assert.match(layout, /ThumbGate — Hermes dashboard & continuity/);
+test("uses ThumbGate hosted Hermes identity and production URLs", () => {
+  assert.match(layout, /ThumbGate — Hermes that stays on/);
+  assert.doesNotMatch(layout, /VPS failover for Hermes/);
   assert.match(layout, /metadataBase: new URL\("https:\/\/thumbgate\.app"\)/);
   assert.match(dashboardPage, /title: "Hermes Web"/);
-  assert.match(landing, /name: "ThumbGate for Hermes"/);
+  assert.match(landing, /name: "ThumbGate"/);
   assert.match(landing, /url: "https:\/\/thumbgate\.app\/"/);
   assert.doesNotMatch(layout + landing + dashboardPage, /leash\.dev|Leash by ThumbGate/);
 });
@@ -197,12 +208,16 @@ test("preserves web accessibility contracts while adopting the mobile feel", () 
   assert.match(dashboard, /aria-label="Hermes workspace"/);
 });
 
-test("mobile Settings/Leash scroll on .right-rail and machine pick from both tabs", () => {
+test("mobile Settings/Leash use document scroll on .right-rail and machine pick from both tabs", () => {
   // Scrollport must be the real DOM node — never a missing wrapper class.
   assert.equal(/\.dashboard-sub-panels\s*\{/.test(globals), false);
   assert.match(globals, /data-mobile-tab="settings"\] \.right-rail/);
-  assert.match(globals, /overflow-y:\s*scroll\s*!important/);
-  assert.match(globals, /flex:\s*1 1 0\s*!important/);
+  // Same document-scroll model as Hermes tab (2026-08-17) — no nested frozen pane.
+  // Shared rule: [leash] .right-rail, [settings] .right-rail { overflow:visible }
+  assert.match(
+    globals,
+    /data-mobile-tab="leash"\] \.right-rail,[\s\S]*data-mobile-tab="settings"\] \.right-rail\{[\s\S]*overflow:visible !important/,
+  );
   // Machine pin: Leash select + Settings "Use for tasks"
   assert.match(dashboard, /data-testid="leash-device-select"/);
   assert.match(dashboard, /device-use-for-tasks/);
@@ -227,7 +242,8 @@ test("dashboard uses shell-first SWR navigation cache (Issues-style instant nav)
   assert.match(dashboard, /onPointerEnter/);
   assert.match(dashboard, /readCachedThreadDetails|threadCacheRef/);
   assert.match(dashboard, /selectPreheatThreadIds/);
-  assert.match(dashboard, /composer-route-explain-toggle|routeExplainExpanded/);
+  assert.doesNotMatch(dashboard, /composer-route-explain-toggle/);
+  assert.doesNotMatch(dashboard, /routeExplainExpanded/);
   const signOut = readFileSync(new URL("../app/SignOutForm.tsx", import.meta.url), "utf8");
   assert.match(signOut, /clearDashboardNavCache/);
 });
@@ -247,8 +263,11 @@ test("lessons workspace activity stats and lesson cards deep-link into Hermes", 
   assert.match(dashboard, /id=\{`task-\$\{task\.id\}`\}/);
   assert.match(dashboard, /taskFilter/);
   assert.match(dashboard, /filter === "unrated"/);
-  assert.match(dashboard, /pairComputerLabel|Pair another computer|Pair a computer|Pair computer|resolveComposerRunCta/);
-  assert.match(dashboard, /Manage machines/);
+  assert.match(dashboard, /resolveComposerRunCta/);
+  assert.doesNotMatch(dashboard, /pairComputerLabel/);
+  assert.doesNotMatch(dashboard, /⚙ Manage machines/);
+  assert.doesNotMatch(dashboard, /Open Continuity settings/);
+  assert.match(dashboard, />Open settings</);
   assert.match(globals, /\.lesson-activity li a\{/);
   assert.match(globals, /\.lesson-card-actions\{/);
   assert.match(globals, /\.task-filter-banner\{/);
@@ -275,48 +294,60 @@ test("Improve/Helpful metric clicks navigate to Hermes when count is 1, else fil
   assert.match(lessonsUi, /#lesson-list/);
 });
 
-test("lets users choose local machine vs Continuity VPS on every task not only offline failover", () => {
+test("hosted VPS is the only composer target — no RUN ON selector", () => {
   const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
   const taskRouting = readFileSync(new URL("../lib/task-routing.ts", import.meta.url), "utf8");
   const runCta = readFileSync(new URL("../lib/composer-run-cta.ts", import.meta.url), "utf8");
-  assert.match(dashboard, /routePreference/);
-  // Unified "Run on" select — honest host names, active pair CTA when unpaired.
-  assert.match(dashboard, /autoRouteLabel/);
-  assert.match(dashboard, /needs a paired Mac|Continuity \(no Mac required\)|resolveAutoRouteLabel/);
-  assert.match(dashboard, /composer-unified-target/);
-  assert.match(dashboard, /composer-target-select/);
-  assert.match(dashboard, /Run on/);
-  assert.match(dashboard, /resolveComposerRunCta|openPairingSettings/);
-  assert.match(runCta, /composer-pair-cta/);
-  assert.match(runCta, /Pair a computer →/);
-  // Continuity selected → never pair kind
-  assert.match(runCta, /routePreference === "cloud"/);
+  assert.doesNotMatch(dashboard, /composer-target-select/);
+  assert.doesNotMatch(dashboard, /composer-unified-target/);
+  assert.doesNotMatch(dashboard, /htmlFor="composer-target-select"/);
+  assert.doesNotMatch(dashboard, /id="composer-where-label"/);
+  assert.doesNotMatch(dashboard, /Auto — Continuity \(no Mac required\)/);
+  assert.doesNotMatch(dashboard, /pairComputerLabel/);
+  assert.doesNotMatch(dashboard, /\+ Pair computer/);
+  assert.doesNotMatch(dashboard, /⚙ Manage machines/);
+  assert.doesNotMatch(dashboard, /optgroup label="Setup"/);
+  assert.doesNotMatch(dashboard, /setRoutePreference/);
+  assert.doesNotMatch(dashboard, /resolveAutoRouteLabel/);
+  assert.doesNotMatch(dashboard, />Run on</);
+  assert.doesNotMatch(dashboard, /["']RUN ON["']/);
+  assert.doesNotMatch(dashboard, /getByLabel\(["']RUN ON["']\)/);
+  assert.doesNotMatch(dashboard, /Run on Continuity/);
+  assert.doesNotMatch(dashboard, /Continuity Cloud VPS/);
+  assert.match(dashboard, /routePreference: "cloud"/);
+  assert.match(dashboard, /data-testid="run-output"/);
+  assert.match(dashboard, /Results show here after you send/);
+  assert.match(dashboard, /resolveComposerRunCta/);
   assert.match(runCta, /kind: "run"/);
-  assert.match(dashboard, /Continuity \(cloud VPS\)/);
-  assert.match(dashboard, /aria-labelledby="composer-where-label"/);
-  assert.doesNotMatch(dashboard, /composer-route-label/);
-  assert.doesNotMatch(dashboard, /My computer/);
-  assert.doesNotMatch(dashboard, /My Mac only|Which Mac\?|>My Mac</);
+  assert.match(runCta, /label: "Run →"/);
+  assert.doesNotMatch(runCta, /kind: "pair"/);
+  assert.doesNotMatch(runCta, /resolveAutoRouteLabel/);
   assert.match(tasksRoute, /routePreference/);
-  assert.match(tasksRoute, /decideTaskRoute/);
   assert.match(taskRouting, /preference === "cloud"/);
-  assert.match(taskRouting, /preference === "local"/);
 });
 
-test("always shows which paired machine will run a task and pins deviceId", () => {
+test("Open settings is a real control, not a dead Continuity hash link", () => {
+  assert.doesNotMatch(dashboard, /Open Continuity settings/);
+  assert.match(dashboard, />Open settings</);
+  assert.match(dashboard, /data-testid="open-settings"/);
+  assert.match(dashboard, /openSettingsPanel/);
+  assert.match(dashboard, /setMobileTab\("settings"\)/);
+  assert.match(dashboard, /el\.focus/);
+  assert.match(dashboard, /scrollIntoView/);
+  assert.doesNotMatch(dashboard, /href="#web-settings">Open settings</);
+  assert.match(dashboard, /<button[\s\S]*data-testid="open-settings"[\s\S]*>\s*Open settings/);
+});
+
+test("composer send always uses hosted VPS and never a RUN ON picker", () => {
   const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
-  // Unified select always POSTs deviceId; hostname via machineDisplayName (not hard-coded "Mac").
+  assert.match(dashboard, /routePreference: "cloud"/);
   assert.match(dashboard, /selectedDeviceId/);
-  assert.match(dashboard, /composer-device-picker/);
-  assert.match(dashboard, /Which machine\?/); // sr-only contract alias
   assert.match(dashboard, /machineDisplayName/);
-  assert.match(dashboard, /deviceId: selectedDeviceId/);
   assert.match(dashboard, /pickDefaultDeviceId/);
   assert.match(dashboard, /preferredDevicePreferenceKey|thumbgate\.preferredDeviceId/);
   assert.doesNotMatch(dashboard, /Most recently active/);
-  assert.doesNotMatch(dashboard, /devices\.length > 1 && routePreference !== "cloud"/);
-  assert.match(globals, /\.composer-unified-target\{/);
-  // After schema validation, payload is typed — optional chain no longer required.
+  assert.doesNotMatch(dashboard, /composer-target-select/);
+  assert.doesNotMatch(dashboard, /composer-unified-target/);
   assert.match(tasksRoute, /payload(?:\?)?\.deviceId/);
 });
 
@@ -399,21 +430,35 @@ test("keeps every workspace telemetry value behind authentication", () => {
   assert.equal((chrome.match(/"sign_in_click"/g) ?? []).length, 1);
   assert.equal((chrome.match(/fetch\("\/api\/me"/g) ?? []).length, 1);
   assert.match(chrome, /landingAuthRequest/);
-  assert.doesNotMatch(chrome, /After you sign in|Sign in to private dashboard|Open private dashboard|Open dashboard/);
-  assert.match(chrome, /className="landing-action" href="#pair"/);
+  assert.doesNotMatch(chrome, /After you sign in|Sign in to private dashboard|Open private dashboard|Sign in to Hermes Web|Open Hermes on the web/);
+  // Continuity is fenced VPS only — no #pair Mac product path on the public landing.
+  assert.doesNotMatch(chrome, /href="#pair"/);
   assert.match(chrome, /className="landing-action" href="#pricing"/);
+  assert.match(chrome, /className="landing-action" href="#closed-system"/);
+  assert.doesNotMatch(chrome, /href="#mobile"|Phone Leash/);
   assert.match(chrome, /No workspace telemetry is fetched or rendered on this public page/);
   assert.doesNotMatch(chrome, /getPublicTelemetry|Live production telemetry|Machines online now/);
   assert.doesNotMatch(landing, /getPublicTelemetry|Live production telemetry|Machines online now|P95 task completion|LAST CLOUD CONTINUATION|cloudRunsCompleted|machinesOnlineNow/);
+  // Public pricing shows CoreWeave-style capacity matrix; live usage stays behind auth.
+  assert.match(landing, /data-testid="continuity-capacity-matrix"/);
+  assert.match(landing, /Transparent hosted capacity/);
+  assert.doesNotMatch(landing, /data-testid="continuity-execution-modes"/);
+  assert.match(landing, /data-testid="continuity-zero-egress"/);
+  assert.match(dashboard, /data-testid="continuity-usage-meter"/);
+  assert.match(dashboard, /continuityUsage/);
+  assert.match(dashboard, /data-testid="continuity-upgrade-hint"/);
 });
 
 test("explains the failover path with an interactive approve/deny demo", () => {
   const failoverDemo = readFileSync(new URL("../app/FailoverPathDemo.tsx", import.meta.url), "utf8");
   assert.match(landing, /<FailoverPathDemo \/>/);
-  assert.match(landing, /Remote control\. Keep going offline\./);
+  // Landing markets Continuity as fenced VPS (not Mac-pair chat continuity).
+  assert.match(landing, /Fenced VPS execution with renewable leases/);
   assert.match(failoverDemo, /Deny call/);
   assert.match(failoverDemo, /Approve call/);
-  assert.match(failoverDemo, /Close Mac lid/);
+  assert.match(failoverDemo, /Drop VPS runner/);
+  assert.doesNotMatch(failoverDemo, /Close Mac lid/);
+  assert.doesNotMatch(failoverDemo, /Leash decides the call|Approve runs the call on your Mac/);
   assert.match(failoverDemo, /Continue in cloud/);
   assert.match(failoverDemo, /aria-live="polite"/);
   assert.match(failoverDemo, /no real tools run/);
