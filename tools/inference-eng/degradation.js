@@ -44,7 +44,9 @@ function wantsSuperGrok(env = process.env) {
   if (env.HERMES_PREFER_SUPERGROK === '0') return false;
   if (env.HERMES_PREFER_SUPERGROK === '1') return true;
   const backend = String(env.HERMES_YOLO_BACKEND || 'auto').toLowerCase();
-  return backend === 'grok' || backend === 'auto' || backend === 'grok-4.5';
+  // hermes backend + auto quality lock (2026-08-13): SuperGrok is opt-in only.
+  if (backend === 'hermes') return false;
+  return backend === 'grok' || backend === 'grok-4.5';
 }
 
 /**
@@ -74,17 +76,22 @@ function isStaleGlmPin(pin) {
 }
 
 /**
- * GLM agent-primary is measured dead for tool use (fleet-health dropDeadModels).
- * Keep available only when operator opts in.
+ * Historical note (2026-08-05): glm was demoted for tool noncompliance.
+ * Quality lock (2026-08-13): free deepseek-v4-flash under YOLO produces
+ * gibberish/slop after context compression; glm-coding is the clean primary.
+ * Default is KEEP glm. Opt out with HERMES_DROP_DEAD_GLM=1 only if fleet-health
+ * proves toolCompliance=0 again.
  * @param {NodeJS.ProcessEnv} env
  */
 function shouldDropDeadGlm(env = process.env) {
   if (env.HERMES_ALLOW_GLM === '1') return false;
   if (env.HERMES_DROP_DEAD_GLM === '0') return false;
-  return true; // default: demote/drop from auto agent primary
+  // Quality lock: do not demote glm by default (anti-deepseek-gibberish).
+  if (env.HERMES_DROP_DEAD_GLM === '1') return true;
+  return false;
 }
 
-/** Default dead agent models (tool noncompliance / dropped by fleet-health). */
+/** Models demoted only when HERMES_DROP_DEAD_GLM=1 (historical tool-noncompliance set). */
 const DEAD_AGENT_MODELS = Object.freeze(['glm-coding', 'glm-5.2', 'glm-5', 'glm-47', 'glm-turbo']);
 
 /**
@@ -135,17 +142,18 @@ function selectModelChain(opts = {}) {
   chain = applyDeadModelPolicy(chain, env);
 
   if (mode === 'degraded') {
-    // Drop thrash/metered burn models; KEEP SuperGrok + coding flat + free + local.
+    // Drop thrash/metered burn models; KEEP SuperGrok + glm-coding + local.
+    // deepseek-v4-flash is NOT a quality fallback (gibberish under YOLO, 2026-08-13).
     chain = chain.filter((m) => !DEGRADED_DROP.some((re) => re.test(m)));
-    if (!chain.includes('deepseek-v4-flash')) chain.push('deepseek-v4-flash');
+    if (!chain.includes('glm-coding')) chain.push('glm-coding');
     if (!chain.includes('hermes-local')) chain.push('hermes-local');
     // Ensure SuperGrok stays available for coding/plan even if registry order shifts.
     if (preferGrok && !chain.includes('grok-4.5')) {
       chain = ['grok-4.5', ...chain];
     }
   } else if (mode === 'emergency') {
-    // hermes-local-fast removed (LiteLLM alias hang debt 2026-08-05) — one offline name only
-    chain = ['hermes-local', 'deepseek-v4-flash-free', 'deepseek-v4-flash'].filter(Boolean);
+    // Offline/local only — never free flash as emergency primary (slop class).
+    chain = ['hermes-local', 'glm-coding'].filter(Boolean);
   }
 
   // Operator env pin wins as head of chain except:
@@ -170,12 +178,21 @@ function selectModelChain(opts = {}) {
 
   if (preferGrok) {
     chain = ['grok-4.5', ...chain.filter((m) => m !== 'grok-4.5')];
+  } else {
+    // Hermes quality path: glm-coding primary, SuperGrok not auto-selected.
+    chain = chain.filter((m) => m !== 'grok-4.5' && !/^grok/i.test(m));
+    if (!chain.includes('glm-coding')) chain = ['glm-coding', ...chain];
+    else chain = ['glm-coding', ...chain.filter((m) => m !== 'glm-coding')];
   }
 
   // Drop known probe failures
   chain = chain.filter((m) => !failures.has(m));
+  // Strip free flash from auto chains unless operator opts into free primary.
+  if (env.HERMES_YOLO_ALLOW_FREE_PRIMARY !== '1') {
+    chain = chain.filter((m) => !/deepseek-v4-flash|deepseek-v4-flash-free|opencode-free/i.test(m));
+  }
   if (chain.length === 0) {
-    chain = mode === 'emergency' ? ['hermes-local'] : ['deepseek-v4-flash', 'hermes-local'];
+    chain = mode === 'emergency' ? ['hermes-local'] : ['glm-coding', 'hermes-local'];
   }
 
   let reason;
