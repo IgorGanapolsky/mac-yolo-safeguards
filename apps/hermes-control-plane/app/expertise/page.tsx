@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import ExpertiseClient from "./ExpertiseClient";
 
 export const metadata: Metadata = {
-  title: "Expertise — ThumbGate for Hermes",
+  title: "Operator telemetry — ThumbGate Continuity",
   description:
-    "Named-author engineering case studies with original, D1-backed data on running Hermes Agents in production: cloud continuity reliability, pairing latency, and control-plane uptime.",
+    "Internal control-plane telemetry for ThumbGate Continuity. No stranger case studies. No implied paying customers.",
   alternates: {
     canonical: "/expertise",
   },

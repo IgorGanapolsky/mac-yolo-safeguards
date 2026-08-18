@@ -43,10 +43,12 @@ if [ -z "$health_body" ]; then
 fi
 
 billing_events_24h="$(json_number_or_null "$health_body" billingEventsLast24h)"
+# paidOrganizationsTotal is no longer on public /api/health (user/org census leak).
+# Churn watch is skipped unless an authenticated admin metric is added later.
 paid_orgs="$(json_number_or_null "$health_body" paidOrganizationsTotal)"
 
-if [ -z "$billing_events_24h" ] || [ "$billing_events_24h" = null ] || [ -z "$paid_orgs" ] || [ "$paid_orgs" = null ]; then
-  echo "revenue-anomaly-watchdog: health payload missing telemetry fields — skipping this check"
+if [ -z "$billing_events_24h" ] || [ "$billing_events_24h" = null ]; then
+  echo "revenue-anomaly-watchdog: health payload missing billingEventsLast24h — skipping this check"
   exit 0
 fi
 
