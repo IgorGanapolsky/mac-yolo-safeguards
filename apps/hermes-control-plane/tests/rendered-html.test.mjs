@@ -32,7 +32,8 @@ test("builds the public hosted Hermes landing page", async () => {
   assert.doesNotMatch(page, /Self-Improving Firewall|self-improving firewall/);
   // Product truth: hosted Hermes on a fenced VPS — not Mac pairing as the marketed path.
   assert.doesNotMatch(page, /Sign in to pair free|Pair free →|Pair your Mac|when the Mac closes/);
-  assert.match(page, /No Mac pair required|no Mac pairing/i);
+  assert.doesNotMatch(page, /Do I need to pair a Mac\?/);
+  assert.match(page, /No laptop required/i);
   assert.match(page, /Hosted Hermes/);
   assert.match(page, /Sign in with email, Google, or Apple\. Approvals stay in this browser/);
   assert.doesNotMatch(page, /Continue with Google today/);
