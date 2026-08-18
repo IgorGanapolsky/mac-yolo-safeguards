@@ -40,7 +40,7 @@ function phaseLabel(phase: Phase): string {
     case "paused":
       return "Paused · waiting for a runner";
     case "ask":
-      return "Needs failover · waiting on you";
+      return "Needs a runner · waiting on you";
     case "cloud":
       return "Hosted VPS · fenced lease";
     default:
@@ -68,7 +68,7 @@ export function FailoverPathDemo() {
       case "paused":
         return "Work paused until a hosted runner claims the next lease. No extra spend.";
       case "ask":
-        return "You are asked before cloud. Approve failover only when you want it.";
+        return "You are asked before another runner starts. Approve only when you want it.";
       case "cloud":
         return "Cloud runner took over with a fresh fenced lease. Same chat thread.";
       default:
@@ -142,9 +142,9 @@ export function FailoverPathDemo() {
       <div className={styles.header}>
         <div>
           <p className={styles.eyebrow}>Interactive demo · no real tools run</p>
-          <h3 id={titleId}>Watch ThumbGate approve, deny, and fail over</h3>
+          <h3 id={titleId}>Watch ThumbGate approve and deny on a VPS</h3>
           <p className={styles.lede}>
-            Click the buttons. Approve or deny in thumbgate.app, then the VPS finishes the work under the policy you picked.
+            Click the buttons. Approve or deny in thumbgate.app, then the hosted VPS runs the work.
           </p>
         </div>
         <div className={styles.headerActions}>
@@ -209,7 +209,7 @@ export function FailoverPathDemo() {
               {phase === "running" ? (
                 <div className={`${styles.outcome} ${styles.approved}`}>
                   <strong>Approved · hosted VPS is running it</strong>
-                  <p>One fenced VPS runner holds the lease. Drop the runner to see hosted failover.</p>
+                  <p>One fenced VPS runner holds the lease. Drop the runner to see the next hosted lease.</p>
                   <button type="button" className={styles.approveButton} onClick={closeLid}>
                     Drop VPS runner →
                   </button>
@@ -291,8 +291,8 @@ export function FailoverPathDemo() {
           <li className={phase === "cloud" ? styles.legendActive : ""}>
             <span>04</span>
             <div>
-              <strong>Fenced failover</strong>
-              <p>A cloud runner takes the next lease. No double-write, same thread.</p>
+              <strong>Next VPS lease</strong>
+              <p>A hosted runner takes the next lease. No double-write, same thread.</p>
             </div>
           </li>
         </ol>

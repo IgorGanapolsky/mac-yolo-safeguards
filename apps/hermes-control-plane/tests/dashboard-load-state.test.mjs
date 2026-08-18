@@ -16,7 +16,7 @@ test("tracks whether a load has actually completed", () => {
   );
 });
 
-test("shows CoreWeave-style Continuity capacity meter from /api/me", () => {
+test("shows hosted VPS capacity meter from /api/me", () => {
   assert.match(dashboard, /continuityUsage\?: ContinuityUsage/);
   assert.match(dashboard, /setContinuityUsage\(identity\.continuityUsage\)/);
   assert.match(dashboard, /data-testid="continuity-usage-meter"/);
@@ -25,7 +25,9 @@ test("shows CoreWeave-style Continuity capacity meter from /api/me", () => {
   assert.match(dashboard, /data-testid="continuity-upgrade-hint"/);
   assert.match(dashboard, /continuityUsage\?\.exhausted/);
   assert.match(dashboard, /code === "cloud_task_limit"/);
-  assert.match(dashboard, /local\/spot · \$0 Continuity quota/);
+  assert.match(dashboard, /Hosted VPS capacity/);
+  assert.match(dashboard, /VPS runs used/);
+  assert.doesNotMatch(dashboard, /local\/spot · \$0 Continuity quota/);
 });
 
 test("does not claim 'No tasks yet' before a successful load", () => {
@@ -106,19 +108,16 @@ test("load errors are caught rather than left as unhandled rejections", () => {
   );
 });
 
-test("does not blame pairing when machines exist (Buzz shared-room honesty)", () => {
+test("empty task copy is hosted VPS, not Mac-pair blame", () => {
   assert.match(dashboard, /function taskListEmptyCopy/);
-  assert.match(dashboard, /if \(input\.deviceCount === 0\)/);
-  assert.match(
-    dashboard,
-    /Pair a machine, then continue a Hermes thread from anywhere/,
-    "zero-device onboarding copy retained for unpaired workspaces",
-  );
+  assert.doesNotMatch(dashboard, /if \(input\.deviceCount === 0\)/);
+  assert.doesNotMatch(dashboard, /Pair a machine, then continue a Hermes thread from anywhere/);
+  assert.doesNotMatch(dashboard, /Machines are paired/);
   assert.match(dashboard, /No web tasks in this chat yet/);
-  assert.match(dashboard, /Machines are paired/);
+  assert.match(dashboard, /run on the hosted VPS/);
   assert.match(dashboard, /data-pair-blame=\{devices\.length === 0 && taskFilter === "all" \? "1" : "0"\}/);
   assert.match(dashboard, /function taskReceiptLabel/);
-  assert.match(dashboard, /fenced · 90s lease/);
+  assert.match(dashboard, /hosted Hermes · fenced · 90s lease/);
   assert.match(dashboard, /data-testid="task-receipt"/);
 });
 
