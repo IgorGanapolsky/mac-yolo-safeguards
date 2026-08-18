@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 import { BrandMark } from "../BrandMark";
 
 export const metadata: Metadata = {
-  title: "Privacy — ThumbGate Continuity",
+  title: "Privacy — ThumbGate hosted Hermes",
   description:
-    "What ThumbGate Continuity collects: sign-in, billing, and workspace receipts. Approvals stay in thumbgate.app.",
+    "What hosted Hermes collects: sign-in, billing, and workspace receipts. Approvals stay in thumbgate.app.",
   alternates: { canonical: "/privacy" },
 };
 
@@ -13,7 +13,7 @@ export default function Privacy() {
   return (
     <main className="landing-shell">
       <nav className="topbar landing-nav" aria-label="Primary navigation">
-        <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate <small>Continuity</small></span></Link>
+        <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate <small>Hosted Hermes</small></span></Link>
         <div className="nav-actions">
           <Link href="/#pricing" className="nav-link">Pricing</Link>
           <Link href="/terms" className="nav-link">Terms</Link>
@@ -23,12 +23,12 @@ export default function Privacy() {
         <div className="section-heading">
           <p className="eyebrow">Privacy</p>
           <h1>Closed-system. Your workspace stays yours.</h1>
-          <p>ThumbGate Continuity runs on thumbgate.app. Approvals happen in the browser, not on a phone leash.</p>
+          <p>Hosted Hermes runs on thumbgate.app. Approvals happen in the browser, not on a phone leash.</p>
         </div>
         <div className="steps-grid">
           <article>
             <h2>What we collect</h2>
-            <p>WorkOS sign-in (email), Stripe billing events for Continuity, and Continuity run receipts inside your signed-in org.</p>
+            <p>WorkOS sign-in (email), Stripe billing events for hosted Hermes, and hosted run receipts inside your signed-in org.</p>
           </article>
           <article>
             <h2>What we do not do</h2>
@@ -41,8 +41,8 @@ export default function Privacy() {
         </div>
       </section>
       <footer>
-        <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate <small>Continuity</small></span></Link>
-        <p><Link href="/terms">Terms</Link> · <Link href="/#pricing">Start Continuity</Link></p>
+        <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate <small>Hosted Hermes</small></span></Link>
+        <p><Link href="/terms">Terms</Link> · <Link href="/#pricing">Start hosted Hermes</Link></p>
       </footer>
     </main>
   );
