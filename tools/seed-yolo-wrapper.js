@@ -15,6 +15,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawn, spawnSync } = require('child_process');
+const { printSeedanceResult, runSeedanceCommand } = require('./seedance-video-engine');
 
 const HOME = os.homedir();
 const DEFAULT_HERMES_BIN = path.join(HOME, '.local', 'bin', 'hermes');
@@ -207,7 +208,7 @@ class SeedYoloAgent {
   }
 
   printVersion() {
-    console.log('seed-yolo 3.2.0 — OpenRouter Seed 2.1 Turbo via Hermes (tools + memory + MCP + YOLO)');
+    console.log('seed-yolo 3.3.0 — Seed 2.1 Turbo + Seedance 2.5 video (30s / 50 refs / precision edit)');
   }
 
   printBanner() {
@@ -230,9 +231,11 @@ class SeedYoloAgent {
       report = { ...inspectHermes(this.config, this.doctorRunner), ready: false, error: error.message };
     }
     if (json) {
+      const video = runSeedanceCommand(['doctor']).payload;
       console.log(JSON.stringify({
         ...report,
         openrouterKey: report.openrouterKeyPresent ? 'present' : 'missing',
+        videoEngine: video,
       }, null, 2));
     } else {
       console.log(`seed-yolo ready: ${report.ready ? 'YES' : 'NO'}`);
@@ -243,6 +246,8 @@ class SeedYoloAgent {
       console.log(`context: ${report.contextFile || 'no AGENTS.md found from current directory'}`);
       console.log(`tools: ${report.toolsets.join(', ')}`);
       console.log(`skills: ${report.enabledSkills === null ? 'probe unavailable' : `${report.enabledSkills} enabled`}`);
+      const video = runSeedanceCommand(['doctor']).payload;
+      console.log(`seedance: ${video.status} max=${video.capabilities.maxOutputSeconds}s refs≤${video.capabilities.maxMultimodalReferences} (stage-only)`);
       if (report.error) console.error(`error: ${report.error}`);
       if (report.missingToolsets && report.missingToolsets.length) {
         console.error(`missing toolsets: ${report.missingToolsets.join(', ')}`);
@@ -259,12 +264,20 @@ class SeedYoloAgent {
     if (args[0] === 'doctor' || args[0] === '--doctor') {
       return this.runDoctor(args.includes('--json'));
     }
+    if (['video', 'starter', 'revise', 'lumina', 'dance', 'seedance'].includes(args[0])) {
+      const routed = args[0] === 'seedance' ? args.slice(1) : args;
+      const result = runSeedanceCommand(routed.length ? routed : ['video']);
+      return { exitCode: printSeedanceResult(result) };
+    }
     if (args[0] === '--help' || args[0] === '-h' || args[0] === 'help') {
       console.log(`seed-yolo — OpenRouter ByteDance Seed 2.1 Turbo via Hermes
 
   seed-yolo                  interactive YOLO chat
   seed-yolo -z "prompt"      oneshot
   seed-yolo doctor [--json]  health check
+  seed-yolo video [prompt]   Seedance 2.5: stage 30s job (official Broadway prompt if empty)
+  seed-yolo starter          official BytePlus starter prompt
+  seed-yolo revise <job> --time 12s-18s --prompt "…"   precision edit, no full re-render
 
 Defaults:
   provider  openrouter
