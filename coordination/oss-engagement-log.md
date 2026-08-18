@@ -4,6 +4,119 @@ Dated entries from the autonomous OSS-engagement routine (Thinking Machines Lab 
 
 ---
 
+## 2026-08-18 — tinker-cookbook#896 fixed + parked (no fork exists, patch route); poolside#38 answer drafted; LanceDB#2900 fix in progress
+
+First run since 08-13 (5-day gap). Cross-owner wall re-tested silently per
+`docs/agents/anti-babysitting.md` — unchanged: `add_repo` cross-tier refusal on
+`thinking-machines-lab/tinker-cookbook` and `poolsideai/pool`; `mcp__github__fork_repository`,
+`list_issues`, `get_file_contents`, `add_issue_comment`, and `pull_request_read` all denied
+against any repo outside `igorganapolsky/*` (confirmed against `lancedb/lancedb` directly, even
+with the `igorganapolsky/lancedb` fork attached). `igorganapolsky/lancedb` fork exists and is
+push-capable (used below); no `igorganapolsky/tinker-cookbook` or `igorganapolsky/pool` fork
+exists and none could be created — patch-file route used instead, per the ladder.
+
+### Repos surveyed
+
+| Org | Repos |
+|-----|-------|
+| Thinking Machines Lab | `thinking-machines-lab/tinker` (18 open issues), `tinker-cookbook` (12 open issues + 25 open PRs cross-checked) |
+| Poolside AI | `poolsideai/pool` (21 open issues; re-confirmed closed-source — README/LICENSE/CHANGELOG/third_party only) |
+| LanceDB | `lancedb/lancedb` (49 open `bug`-labeled issues surveyed, cross-checked against open PRs; 2 new issues in the last 48h: #3950, #3951) |
+
+Used three parallel read-only research agents (one per org) to survey issues and check for
+already-open PRs before investing fix effort, then did the actual fix/build/test/verify work
+directly.
+
+### tinker-cookbook#896 — fixed, tested, parked
+
+**Bug:** `MMLUReduxBenchmarkBuilder.aggregate()` (`tinker_cookbook/eval/benchmarks/mmlu_redux.py`)
+reads `m.get("subject", "unknown")` from each example's `metrics` dict to build the per-subject
+accuracy breakdown, but `MMLUReduxMessageEnv.step()` only ever puts `"subject"` into `logs`, never
+into `metrics`. Every example falls into `mmlu_redux/unknown/accuracy` instead of a real
+per-subject breakdown — broken since the benchmark was added, no test ever caught it.
+
+**Fix:** `Metrics` is typed `dict[str, float | int]` (no strings), so `step()` now also encodes
+the subject as a numeric index into the module's existing `_SUBJECTS` list (`"subject_idx"`);
+`aggregate()` decodes it back. Self-contained to `mmlu_redux.py`.
+
+**Verified** (`uv sync --extra dev`, repo @ `f46eddd`, 2026-08-18):
+- New tests in `benchmark_test.py::TestMMLUReduxAggregate` **fail** on unpatched code
+  (`KeyError: 'mmlu_redux/anatomy/accuracy'`), **pass** after the fix (confirmed via `git stash`
+  round-trip, not just reasoning about it).
+- Full `pytest tinker_cookbook/eval/benchmarks/benchmark_test.py`: 74 passed, 4 pre-existing
+  unrelated skips, no regressions.
+- `ruff format --check`, `ruff check`: clean. `pyright tinker_cookbook/eval/benchmarks/mmlu_redux.py`:
+  0 errors.
+- Checked all 25 open PRs against `tinker-cookbook` first — #896 unclaimed.
+
+**Parked** (no `igorganapolsky/tinker-cookbook` fork exists — `fork_repository` against the
+upstream org is scope-blocked, same as every prior attempt):
+`coordination/patches/tinker-cookbook-896-mmlu-redux-subject.patch` (git-am-able single commit) +
+`coordination/ready-to-post/tinker-cookbook-896-mmlu-redux-subject-pr.md` (PR title/body,
+posting needs a fork created first).
+
+Also looked at #895 (`extract_boxed` first-vs-last conflict) — real, reproducible, but the
+reporter explicitly asked maintainers which behavior is authoritative before patching; a
+unilateral fix risks being reverted mid-discussion, so left alone rather than forced. #889-#894,
+#897-#899 all already have open PRs. #551/#857/#796/#847/#281 are feature requests or stale,
+out of scope.
+
+### poolsideai/pool#38 — answer drafted, not posted
+
+`pool` remains closed-source (re-confirmed: repo is README/LICENSE/CHANGELOG/third_party only).
+Surveyed the recurring "Error during ACP method session/prompt" cluster (#38, #33, #32, #27, #25,
+#22, #17, #15) — all but #38 are unverifiable from public info (no pasted error body, just a
+session ID and a `logs.zip` no one transcribed). #38 pasted the actual 400 response body: a
+tool_call missing its `function` object, failing vLLM's `ChatCompletionMessageToolCallParam`
+discriminated-union validation. Cross-checked against `pool`'s own `CHANGELOG.md`: the 1.0.15
+release (the version the reporter upgraded to right before hitting this) added "support for
+encrypted reasoning tokens" — plausible correlation, stated as a hypothesis, not a certainty.
+Issue still open, zero replies. Parked at
+`coordination/ready-to-post/poolside-38-tool-call-schema-answer.md`.
+
+### LanceDB#2900 — fix written, build/verification in progress at time of this commit
+
+**Bug:** `RemoteDBConnection.create_table` (`python/python/lancedb/remote/db.py`) omits
+`storage_options` from its signature entirely (unlike the abstract `DBConnection.create_table`
+and the local connection, both of which accept it), so passing it raises `TypeError`. The
+underlying Rust binding already supports it (`_lancedb.pyi`). `open_table` in the same file
+already has the exact precedent for this: accept the kwarg, log that it's ignored on Cloud
+(storage is managed), don't forward it. `create_table` now follows the same pattern.
+
+Fork `igorganapolsky/lancedb` was 3.5 months stale (last synced May 2026, pure fork with no
+divergent commits) — reset to current upstream `main` (`d742b174`) and pushed before branching,
+so the eventual diff is clean. Full Rust build (`maturin develop`) was still running when this
+commit was made — this entry will get a follow-up commit with the pushed fix branch + compare
+link, or a note if verification fails and the fix is dropped, per the no-fabricated-verification
+rule. `#3915` (the already-parked pagination fix from 08-11/08-12/08-13) re-checked: still open,
+unclaimed, unchanged — not re-touched.
+
+Also noted for a future run: `#3950` (`lancedb-compat` version lookup uses the wrong dist name,
+opened 2026-08-16, no PR, reporter already verified a fix locally) — fresher and simpler than
+#2900, deliberately not started this run to avoid splitting effort across two LanceDB fixes in
+one sitting; a strong first candidate for next time. `#3951` (no macOS x86_64 wheels) is a
+packaging/CI issue, not a code PR — skipped.
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| tinker-cookbook#895 | Reporter asked maintainers to settle first/last-boxed semantics before a fix lands |
+| tinker-cookbook#889-894, #897-899 | Already have open PRs |
+| tinker-cookbook#551/#857/#796/#847/#281 | Feature requests / stale, out of scope |
+| poolside "Error during ACP" cluster minus #38 | No pasted error content, unverifiable from public info |
+| poolside#13, #24 | Video-only bug / plain feature request, nothing to add |
+| lancedb#3889, #3781, #3530, #3559, #2899 | Already have open PRs |
+| lancedb#3515 | No PR, but deep Rust-core index/merge_insert internals — too risky to verify without the full Rust suite |
+| lancedb#3951 | Packaging/CI (wheel matrix), not a mechanical code fix |
+| lancedb#3950 | Real, fresh, unclaimed — flagged above for next run rather than splitting effort |
+
+### ThumbGate mentions
+
+**None** this run — no one asked about agent write-gating in anything surveyed.
+
+---
+
 ## 2026-08-13 — New LanceDB bug investigated (inconclusive, no fix); upstream PR-creation block re-confirmed unchanged; nothing opened
 
 ### Repos surveyed
