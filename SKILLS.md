@@ -15,6 +15,7 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 | `skill-catalog-governance` | AMD-skills-style catalog governance: skill-card.md (Description/Owner/License), federated sources.yml pins, fail-closed validation. Slash: /skill-catalog-governance. | `~/workspace/git/igor/mac-yolo-safeguards/.agents/skills/skill-catalog-governance/SKILL.md` | local |
 | `hybrid-route-policy` | Lemonade-router-inspired hybrid routing for Hermes economic routes: keyword rules, sensitive→local, coding→local_coder_candidate, paid→glm52_reasoning with paid-ok. Slash: /hybrid-route-policy. | `~/workspace/git/igor/mac-yolo-safeguards/.agents/skills/hybrid-route-policy/SKILL.md` | local |
 | `local-media-lane` | AMD local-ai-use adapted for Apple Silicon: route image/TTS/STT to local Lemonade or Ollama when healthy; never claim local media without probe. Slash: /local-media-lane. | `~/workspace/git/igor/mac-yolo-safeguards/.agents/skills/local-media-lane/SKILL.md` | local |
+| `zai-glm53-fleet` | GLM-5.3 across Hermes / yolo / LiteLLM / Claude-compatible tools. Coding Plan default ($0). Metered API + OpenRouter fail-closed at $10/mo. Slash: /zai-glm53. | `~/workspace/git/igor/mac-yolo-safeguards/.agents/skills/zai-glm53-fleet/SKILL.md` | local |
 | `accidental-data-loss-prevention` | | | `~/.gemini/config/skills/accidental-data-loss-prevention/SKILL.md` | global |
 | `Agent Memory` | Give your agent persistent cross-session memory — recall what went wrong on similar tasks before starting, then capture whether the work succeeded or failed so repeated mistakes auto-promote into prevention rules. Runs locally via the ThumbGate MCP server (recall, capture_feedback, prevention_rules, feedback_stats) — no API key needed. Use when the user says "recall", "what went wrong last time", "remember this for next time", "capture feedback", "thumbs up/down on that", or at the start of a new task or session. Do NOT use when the user wants to force one specific mistake into an enforced block gate (use the thumbgate-guard skill), to list rules that already exist (thumbgate-rules), or to check ThumbGate wiring (thumbgate-doctor). | `~/.gemini/config/skills/agent-memory/SKILL.md` | global |
 | `bigquery-ai-ml` | Leverages BigQuery's built-in machine learning and GenAI capabilities | `~/.gemini/config/skills/bigquery-ai-ml/SKILL.md` | global |
@@ -47,7 +48,10 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 | `notebook-guidance` | Skill instructions and usage guide. | `~/.gemini/config/skills/notebook-guidance/SKILL.md` | global |
 | `skill-repair` | | | `~/.gemini/config/skills/skill-repair/SKILL.md` | global |
 | `tinker-brain` | Skill instructions and usage guide. | `~/.gemini/config/skills/tinker-brain/SKILL.md` | global |
+| `github-marketplace-action-publish` | Publish or update a GitHub Actions Marketplace listing (free only for ThumbGate until counsel clearance). Never claim LIVE without verify. Slash: /github-marketplace-action-publish. | `.agents/skills/github-marketplace-action-publish/SKILL.md` | local |
+| `verify-github-marketplace-listing` | Evidence-only check that a GitHub Actions Marketplace listing is LIVE (HTTP 200 + real title). Never infer from a release banner. Slash: /verify-github-marketplace-listing. | `.agents/skills/verify-github-marketplace-listing/SKILL.md` | local |
+| `advertise-thumbgate-github-marketplace` | Cite the live ThumbGate Marketplace listing (free only). Verify first. No paid plans or buyer outreach without ECI clearance. Slash: /advertise-thumbgate-github-marketplace. | `.agents/skills/advertise-thumbgate-github-marketplace/SKILL.md` | local |
 
 ---
 
-*Last synchronized: 2026-08-06T14:45:44.805Z*
+*Last synchronized: 2026-08-17T22:06:00.000Z*
