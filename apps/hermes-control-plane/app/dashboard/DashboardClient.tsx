@@ -1624,13 +1624,14 @@ export default function DashboardClient() {
                 aria-label="Message for Hermes"
                 disabled={busy}
               />
-              {/* Single control: route + preferred Mac (hidden when 0 machines since Continuity Cloud VPS is the default product). */}
-              <div
-                className={`composer-unified-target${!devices.length ? " is-cloud-only" : ""}`}
-                data-testid="composer-unified-target"
-                role="region"
-                aria-labelledby="composer-where-label"
-              >
+              {/* Single control: route + preferred Mac (only rendered when user has paired machines to choose between). */}
+              {devices.length > 0 ? (
+                <div
+                  className="composer-unified-target"
+                  data-testid="composer-unified-target"
+                  role="region"
+                  aria-labelledby="composer-where-label"
+                >
                 <label htmlFor="composer-target-select" className="composer-where-label" id="composer-where-label">
                   Run on
                 </label>
@@ -1701,6 +1702,20 @@ export default function DashboardClient() {
                   </div>
                 </div>
               </div>
+              ) : (
+                /* Hidden accessible fallback when zero machines exist (pure Continuity Cloud VPS) */
+                <div className="sr-only" aria-hidden="true">
+                  <select
+                    id="composer-target-select"
+                    data-testid="composer-target-select"
+                    value="cloud"
+                    readOnly
+                    tabIndex={-1}
+                  >
+                    <option value="cloud">Continuity (cloud VPS)</option>
+                  </select>
+                </div>
+              )}
               {!isNarrowViewport ? (
                 <div className="composer-route-explain" role="status" aria-live="polite">
                   <button
