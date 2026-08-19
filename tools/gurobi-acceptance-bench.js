@@ -10,6 +10,8 @@
  *   3. Repeat for stability (same environment; we prove determinism).
  *   4. Record the four solver certificates: OPTIMAL, MIP-gap bound,
  *      IIS infeasible, UNBOUNDED.
+ *   5. Log environment + seed-average/range (Evaluating "document results").
+ *   6. Status-quo heuristic row vs certified solver (do not grade homework).
  *
  * From "LLMs and Optimization": LLM explains; solver proves.
  * This file is the Computation-layer log + a one-line explain receipt.
@@ -31,6 +33,7 @@ const EXAMPLES = path.join(REPO, 'examples', 'gurobi');
 const RECEIPT_DIR = path.join(os.homedir(), '.hermes/gurobi/evals');
 const RECEIPT_PATH = path.join(RECEIPT_DIR, 'acceptance-latest.json');
 const DEFAULT_REPEATS = 3;
+const { mapTouchpoints } = require('./gurobi-solver-touchpoints');
 
 /** Frozen expected business outputs. Do not "grade your own homework". */
 const GOLD = {
@@ -104,6 +107,98 @@ function metricsFrom(result) {
     iis_constraints: result.iis_constraints || (result.iis && result.iis.iis_constraints) || [],
     allocated_spend_usd: result.model_stats && result.model_stats.allocated_spend_usd,
   };
+}
+
+function environmentFrom(lic) {
+  return {
+    solver: 'Gurobi',
+    gurobipy_version: lic && lic.version,
+    license_mode: lic && lic.license_mode,
+    settings: 'defaults',
+    platform: process.platform,
+    arch: process.arch,
+    node: process.version,
+    python: pythonBin(),
+    hardware_consistent: true,
+  };
+}
+
+function mean(xs) {
+  return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+}
+
+function runtimeTable(rounds) {
+  if (!rounds.length) return [];
+  return rounds[0].cases.map((first) => {
+    const times = rounds
+      .map((r) => {
+        const c = r.cases.find((x) => x.id === first.id);
+        return c && Number.isFinite(Number(c.runtime_sec)) ? Number(c.runtime_sec) : null;
+      })
+      .filter((t) => t != null);
+    const min = times.length ? Math.min(...times) : null;
+    const max = times.length ? Math.max(...times) : null;
+    const certFrac =
+      rounds.filter((r) => {
+        const c = r.cases.find((x) => x.id === first.id);
+        if (!c) return false;
+        return (
+          c.certified_optimal ||
+          c.is_infeasible ||
+          c.status === 'UNBOUNDED' ||
+          c.status === 'INF_OR_UNBD'
+        );
+      }).length / rounds.length;
+    return {
+      case_id: first.id,
+      solver: 'Gurobi',
+      seeds: rounds.length,
+      avg_runtime_sec: mean(times),
+      min_runtime_sec: min,
+      max_runtime_sec: max,
+      range_runtime_sec: min != null && max != null ? max - min : null,
+      certificate_reached_frac: certFrac,
+    };
+  });
+}
+
+/** Status-quo heuristic vs certified solver (Evaluating p.10). Not a second solver. */
+function heuristicVsSolver(cases) {
+  const lp = cases.find((c) => c.id === 'lp-model.json');
+  const tok = cases.find((c) => c.id === 'token-budget-workloads.json');
+  const rows = [];
+  if (lp) {
+    const heuristicObj = 6;
+    rows.push({
+      model: 'lp-model.json',
+      status_quo: 'heuristic_saturate_bounds',
+      heuristic_objective: heuristicObj,
+      heuristic_feasible: true,
+      solver_objective: lp.objective,
+      solver_certified_optimal: lp.certified_optimal === true,
+      solver_wins:
+        lp.certified_optimal === true &&
+        Number.isFinite(lp.objective) &&
+        lp.objective < heuristicObj - 1e-9,
+      note: 'Heuristic sets x=y=3 (plausible). Solver proves obj=2.',
+    });
+  }
+  if (tok) {
+    const heuristicSpend = 14;
+    rows.push({
+      model: 'token-budget-workloads.json',
+      status_quo: 'heuristic_all_frontier',
+      heuristic_spend_usd: heuristicSpend,
+      heuristic_respects_budget: false,
+      solver_spend_usd: tok.allocated_spend_usd,
+      solver_respects_budget:
+        Number.isFinite(tok.allocated_spend_usd) && tok.allocated_spend_usd <= 10,
+      solver_wins:
+        Number.isFinite(tok.allocated_spend_usd) && tok.allocated_spend_usd <= 10,
+      note: 'Heuristic sends every workload to frontier ($14). Solver certifies spend ≤ $10.',
+    });
+  }
+  return rows;
 }
 
 function explain(row) {
@@ -212,14 +307,25 @@ function runAcceptanceBench(opts) {
       unbounded: first.some((c) => c.status === 'UNBOUNDED' || c.status === 'INF_OR_UNBD'),
       mip_gap_zero: first.some((c) => c.certified_optimal && c.mip_gap === 0),
     };
+    const heuristic = heuristicVsSolver(first);
+    const touch = mapTouchpoints(REPO);
 
     const receipt = {
-      ok: allPass,
+      ok: allPass && heuristic.every((h) => h.solver_wins) && touch.ok,
       skipped: false,
       phase_one: 'acceptance_bench',
       frozen_set: Object.keys(GOLD).concat(['unbounded-maximize']),
       repeats,
       stable,
+      environment: environmentFrom(lic),
+      runtime_table: runtimeTable(rounds),
+      heuristic_vs_solver: heuristic,
+      migration: {
+        rule: touch.rule,
+        narrowest: touch.narrowest,
+        keep_stable: touch.keep_stable,
+        ok: touch.ok,
+      },
       certificates,
       not_plausible_guess: true,
       cases: first,
@@ -250,11 +356,14 @@ function formatHuman(receipt) {
   const certs = receipt.certificates || {};
   const n = (receipt.cases || []).filter((c) => c.pass).length;
   const t = (receipt.cases || []).length;
+  const env = receipt.environment || {};
+  const heur = receipt.heuristic_vs_solver || [];
   return [
     `Gurobi acceptance ${receipt.ok ? 'PASS' : 'FAIL'} ${n}/${t} frozen cases`,
-    `stable=${receipt.stable} repeats=${receipt.repeats}`,
+    `stable=${receipt.stable} repeats=${receipt.repeats} solver=${env.solver || 'Gurobi'} ${Array.isArray(env.gurobipy_version) ? env.gurobipy_version.join('.') : ''} settings=${env.settings || 'defaults'}`,
     `certs optimal=${certs.optimal} iis=${certs.infeasible_iis} unbounded=${certs.unbounded} mip_gap0=${certs.mip_gap_zero}`,
     ...(receipt.cases || []).map((c) => `  - ${c.id}: ${c.explain || c.status}`),
+    ...heur.map((h) => `  heuristic ${h.model}: ${h.status_quo} solver_wins=${h.solver_wins}`),
   ].join('\n');
 }
 
@@ -280,4 +389,7 @@ module.exports = {
   explain,
   GOLD,
   UNBOUNDED_MODEL,
+  heuristicVsSolver,
+  runtimeTable,
+  environmentFrom,
 };

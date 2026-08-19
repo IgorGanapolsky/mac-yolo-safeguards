@@ -21,6 +21,8 @@ node tools/gurobi-harness-gate.js --session-start
 node tests/test-gurobi-harness-gate.js
 node tools/gurobi-acceptance-bench.js --json
 node tests/test-gurobi-acceptance-bench.js
+node tools/gurobi-solver-touchpoints.js --json
+node tests/test-gurobi-solver-touchpoints.js
 bin/agent-loop --health --json   # observe.gurobi_proof
 ```
 
@@ -44,11 +46,11 @@ Steal the **process**, not the sales kit. Do not copy Gurobi PDFs / Wiley book i
 | Kit piece | What we took | What we did not |
 |---|---|---|
 | LLMs and Optimization | Four certificates: OPTIMAL, MIP gap, IIS, UNBOUNDED. LLM explains; solver proves. | Intelligence Hub product |
-| Evaluating and Benchmarking | Frozen acceptance set + logged metrics + stability repeats | Commercial solver bake-off / paid trial pitch |
-| Quick Migration | Swap at the narrowest interface; freeze business outputs first | Rewrite the fleet around AMPL/GAMS |
+| Evaluating and Benchmarking | Frozen set + metrics + 3-seed mean/range + env log + heuristic vs solver | Commercial bake-off / paid trial / CPLEX bake |
+| Quick Migration | Map touchpoints; swap only CLI/lib; keep models + session-start | AMPL/GAMS rewrite |
 | Business case | Quantify one decision (token $10, exclusive ADB) | C-suite dollar theater / ThumbGate paid knapsack |
 
-Frozen models live in `examples/gurobi/` (#1869). Bench: `tools/gurobi-acceptance-bench.js`.
+Frozen models live in `examples/gurobi/` (#1869). Bench: `tools/gurobi-acceptance-bench.js`. Touchpoints: `tools/gurobi-solver-touchpoints.js`.
 
 ## Not this skill
 

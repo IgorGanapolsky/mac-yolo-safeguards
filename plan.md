@@ -3238,3 +3238,17 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 
 - 2026-08-19T17:05Z `grok-gurobi-harness-gate`: Phase One Champion Kit (`~/Downloads/PhaseOneKit2`). Steal: frozen acceptance set + four solver certificates + explain receipts. Did not copy Gurobi PDFs/Wiley book. Did not edit `examples/gurobi/` (#1869). No commercial trial pitch, no Gurobi SKU, no ThumbGate paid knapsack. AGENT-423 / PR #1872.
 - 2026-08-19T12:30Z `claude-code` T-GUROBI-EXAMPLE-FILES-20260819: Origin/main already has PR #1866 merged (grok-gurobi-pulse-proof-20260819) with `iis` + `token-budget` CLI subcommands, certified proof receipts, exclusive adb/git_lock constraints, and 6-case evaluate suite. CLI changes redundant — reverted to main's version. Remaining high-ROI gap: NO example model files on main (examples/gurobi/ directory empty). Added 5 example JSON files covering solve/dispatch/outreach/iis/token-budget + dedicated test file `tests/test-gurobi-examples.js` (5/5 verified). SKILL.md math formulations deferred — owned by grok-gurobi-pulse-proof-20260819 per §2.
+
+| T-GUROBI-PHASEONE-TOUCHPOINTS-20260819 | Phase One Kit remaining steal: map solver touchpoints (swap only CLI/lib); log bench environment + 3-seed runtime mean/range; status-quo heuristic vs certified solver. | in_progress | grok-gurobi-harness-gate-20260819 | `tools/gurobi-solver-touchpoints.js` (new), `tests/test-gurobi-solver-touchpoints.js` (new), `tools/gurobi-acceptance-bench.js` (env/runtime/heuristic), `tests/test-gurobi-acceptance-bench.js`, `.agents/skills/gurobi-harness-gate/SKILL.md`, `plan.md` | AGENT-423 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/gurobi-solver-touchpoints.js | grok-gurobi-harness-gate-20260819 | 2026-08-19T17:20:00Z |
+| tests/test-gurobi-solver-touchpoints.js | grok-gurobi-harness-gate-20260819 | 2026-08-19T17:20:00Z |
+| tools/gurobi-acceptance-bench.js | grok-gurobi-harness-gate-20260819 | 2026-08-19T17:20:00Z |
+| tests/test-gurobi-acceptance-bench.js | grok-gurobi-harness-gate-20260819 | 2026-08-19T17:20:00Z |
+| .agents/skills/gurobi-harness-gate/SKILL.md | grok-gurobi-harness-gate-20260819 | 2026-08-19T17:20:00Z |
+| plan.md (append only) | grok-gurobi-harness-gate-20260819 | 2026-08-19T17:20:00Z |
+
+- 2026-08-19T17:20Z `grok-gurobi-harness-gate`: PhaseOneKit2 remaining process. Steal: touchpoint map (swap CLI/lib only) + env/seed-variance log + heuristic saturate/all-frontier vs certified. Did not copy PDFs/Wiley. Did not edit `examples/gurobi/` or `tools/gurobi-fleet-optimize.py`. No Gurobi SKU, no ThumbGate paid knapsack (ECI). AGENT-423 / PR #1872.

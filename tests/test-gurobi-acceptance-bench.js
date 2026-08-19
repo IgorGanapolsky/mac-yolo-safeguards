@@ -45,6 +45,15 @@ function main() {
   assert.strictEqual(receipt.certificates.unbounded, true);
   assert.strictEqual(receipt.certificates.mip_gap_zero, true);
   assert.strictEqual(receipt.not_plausible_guess, true);
+  assert.ok(receipt.environment && receipt.environment.solver === 'Gurobi');
+  assert.ok(receipt.environment.settings === 'defaults');
+  assert.ok(Array.isArray(receipt.runtime_table) && receipt.runtime_table.length === receipt.cases.length);
+  const lpRt = receipt.runtime_table.find((r) => r.case_id === 'lp-model.json');
+  assert.ok(lpRt && lpRt.seeds === 3 && lpRt.certificate_reached_frac === 1);
+  const heur = receipt.heuristic_vs_solver || [];
+  assert.ok(heur.every((h) => h.solver_wins === true), JSON.stringify(heur));
+  assert.ok(receipt.migration && receipt.migration.ok);
+  assert.ok(receipt.migration.narrowest.includes('tools/gurobi-fleet-optimize.py'));
 
   const lp = receipt.cases.find((c) => c.id === 'lp-model.json');
   assert.ok(lp && Math.abs(lp.objective - 2.0) < 1e-6);
