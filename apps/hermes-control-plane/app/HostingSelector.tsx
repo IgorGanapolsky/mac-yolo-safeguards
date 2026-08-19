@@ -73,7 +73,7 @@ export function HostingSelector() {
         <a
           href="#pricing"
           className={`button button-primary ${styles.continue}`}
-          data-funnel-event="cloud_continuity_click"
+          data-funnel-event="hosted_checkout_click"
           data-testid="hosting-continue-cloud"
         >
           Continue

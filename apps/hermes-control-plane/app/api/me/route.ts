@@ -2,11 +2,10 @@ import { currentSession, workosConfigured } from "@/lib/auth";
 import { hasCloudContinuationAccess } from "@/lib/entitlements";
 import { buildContinuityUsageSnapshot } from "@/lib/continuity-pricing";
 import {
+  cachedRunnerHealth,
   describeHostedResources,
   lastCachedModelError,
   MODEL_ERROR_LOOKBACK_MS,
-  probeBrowserHealth,
-  probeRunnerHealth,
 } from "@/lib/hosted-apphost";
 import { db } from "@/lib/runtime";
 
@@ -43,7 +42,9 @@ export async function GET() {
   try {
     const now = Date.now();
     const windowStart = now - 30 * DAY_MS;
-    const [usageRow, lastFailed, runner, browser] = await Promise.all([
+    // Cache-only hosted health: never await Fly probes here. /api/me must
+    // return user+org immediately so /d can leave "Opening the control plane…".
+    const [usageRow, lastFailed] = await Promise.all([
       db()
         .prepare(
           `SELECT
@@ -63,8 +64,6 @@ export async function GET() {
         )
         .bind(session.organizationId, now - MODEL_ERROR_LOOKBACK_MS)
         .first<{ error: string | null }>(),
-      probeRunnerHealth({ now, timeoutMs: 8_000 }),
-      probeBrowserHealth({ now, timeoutMs: 8_000 }),
     ]);
 
     usage = buildContinuityUsageSnapshot({
@@ -72,13 +71,14 @@ export async function GET() {
       cloudTasks30d: usageRow?.cloudTasks30d,
       activeTasks: usageRow?.activeTasks,
     });
+    const cachedRunner = cachedRunnerHealth();
     const hosted = describeHostedResources({
-      runner: { ok: runner.ok, lastPollAt: runner.lastPollAt ?? null },
+      runner: cachedRunner.health ?? { ok: false, lastPollAt: null },
       modelError: lastFailed?.error ?? lastCachedModelError(),
-      browser: { ok: browser.ok, lastPollAt: browser.lastPollAt ?? null },
+      browser: null,
       now,
-      runnerKnown: true,
-      browserKnown: true,
+      runnerKnown: cachedRunner.known,
+      browserKnown: false,
     });
     hostedRunner = hosted.hostedRunner;
     hostedModel = hosted.hostedModel;

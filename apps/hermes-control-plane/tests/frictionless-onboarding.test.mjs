@@ -25,12 +25,13 @@ const webPackage = JSON.parse(readFileSync(new URL("../package.json", import.met
 const connector = readFileSync(new URL("../../../tools/hermes-cloud-connector.js", import.meta.url), "utf8");
 const installer = readFileSync(new URL("../../../saas/install-connector.sh", import.meta.url), "utf8");
 
-test("preserves a prefilled pairing code through hosted sign-in", () => {
+test("strips leftover pairing query without toasting machine-found", () => {
   assert.match(dashboard, /searchParams\.get\("pair"\)/);
   assert.match(dashboard, /\/api\/auth\/login\?return_to=/);
   assert.match(dashboard, /window\.location\.replace/);
   assert.match(dashboard, /searchParams\.delete\("pair"\)/);
-  assert.match(dashboard, /Verify its name, then approve the prefilled code/);
+  assert.doesNotMatch(dashboard, /Verify its name, then approve the prefilled code/);
+  assert.doesNotMatch(dashboard, /Machine found/);
 });
 
 test("offers one command and opens ThumbGate instead of making users copy a code", () => {

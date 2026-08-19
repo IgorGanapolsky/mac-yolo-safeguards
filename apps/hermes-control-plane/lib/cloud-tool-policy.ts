@@ -15,6 +15,7 @@ export const LOCAL_ONLY_PROMPT_PATTERNS: ReadonlyArray<{ id: string; re: RegExp;
   { id: "local_usb", re: /\b(adb\s+(?:devices|reverse|shell)|ideviceinstaller|ios-deploy)\b/i, hint: "USB / local device tooling" },
   { id: "private_lan", re: /\b(192\.168\.|10\.\d+\.|172\.(1[6-9]|2\d|3[0-1])\.)\b/, hint: "private LAN address" },
   { id: "localhost_gateway", re: /\b(127\.0\.0\.1:8642|localhost:8642)\b/i, hint: "local Hermes gateway" },
+  { id: "vscode_extension", re: /\b(code\s+--install-extension|vsce\s+package)\b/i, hint: "VS Code extension install" },
 ]);
 
 export function evaluateCloudPromptToolPolicy(prompt: string): CloudToolDecision {

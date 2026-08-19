@@ -19,10 +19,16 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 ## 1. Task Board
 
+| T-PERPLEXITY-COMPUTER-STEAL-20260819 | Steal Perplexity Computer FORMAT (task-first jobs, Give/Works/Approve, put-to-work closer, allowlisted funnel events) onto existing $10 hosted Hermes landing. Not their product. | in_progress | grok-perplexity-computer-steal-20260819 | `apps/hermes-control-plane/app/GiveWorkLoop.tsx`, `apps/hermes-control-plane/app/give-work.module.css`, `apps/hermes-control-plane/app/page.tsx` (mount + FAQ), `apps/hermes-control-plane/app/FunnelSignals.tsx` (cta-id), `apps/hermes-control-plane/app/api/analytics/event/route.ts`, `apps/hermes-control-plane/app/llms.txt/route.ts`, `apps/hermes-control-plane/tests/perplexity-computer-steal.test.mjs`, `.intent/contract.yaml` (OFFER-004), `plan.md` | AGENT-413 |
 | T-JCODE-YOLO-SOL-UNSTICK-20260815 | Stop jcode-yolo from pinning GPT-5.6 Sol: quarantine inherited JCODE_DEFAULT_PROVIDER=openai, force child env + CLI --provider/--model, default TUI to GLM-5.3, switch specialists by prompt under $10/mo | in_progress | grok-jcode-yolo-sol-unstick-20260815 | `tools/jcode-yolo-wrapper.js`, `tests/test-jcode-intelligent-routing.js`, `tests/test-jcode-yolo-wrapper.js`, `plan.md` | Live doctor READY; inherited openai quarantined; empty TUI = zai/glm-5.3; Sol only on explicit GPT request |
 | T-OPENAI-ULTRAFAST-POLICY-20260815 | Install a truthful fleet-wide GPT-5.6 Sol Ultrafast policy and CLI with access detection, exact server-tier proof, prompt-safe receipts, and a shared $10/month API ceiling | done | codex-openai-ultrafast-policy-20260815 | `tools/openai-ultrafast-policy.js`, `tests/test-openai-ultrafast-policy.js`, `bin/ultrafast-yolo`, `.agents/skills/openai-ultrafast-policy/**`, `plan.md` | PASS: 11/11 isolated checks including secret-value detection, ambiguous-charge accounting, and post-response lock retry; skill validator, CodeQL pattern gate, context suite 19/19, agent-loop 4/4, exact installed hashes; live doctor truthfully reports `API_KEY_MISSING`, Codex advertises only `priority`, and the no-spend probe blocks at exit 78 before creating a ledger |
 | T-SKILL-YAML-PREFLIGHT-20260815 | Repair the three startup-rejected skill manifests and make every `codex-yolo` launch fail fast on syntactically invalid YAML frontmatter | done | codex-openai-ultrafast-policy-20260815 | `.agents/skills/local-ai-use-adapt/SKILL.md`, `.agents/skills/startup-application-helper/SKILL.md`, `tools/validate-agent-skills.js`, `tests/test-validate-agent-skills.js`, `plan.md` | PASS: all 82 live global/project manifests parse as real YAML; both repaired manifests pass the canonical skill validator; malformed YAML/missing delimiters/empty descriptions fail the regression; installed preflight SHA-256 matches tracked source |
 | T-RUBRIK-MYTHOS-ROI-20260815 | Implement and test high-ROI Rubrik Mythos lessons: file-hash checkpoints, trust-boundary prune, tightly-scoped Track A, Track B for secrets/eval/chains | in_progress | grok-rubrik-mythos-roi-20260815 | `tools/rubrik-mythos-triage-harness.js`, `tests/test-rubrik-mythos-triage.js`, `tests/fixtures/rubrik-mythos/`, `bin/rubrik-triage`, `.agents/skills/rubrik-mythos-triage/SKILL.md`, `plan.md` | 9/9 fixture tests; doctor $10 fail-closed |
+| T-GIT-AT-SCALE-ROI-20260819 | Implement high-ROI items from Cursor "Git at any scale" blog (WAL-as-truth, CAS consensus, gossip heartbeats, compaction, stale-claim GC) as tested thumbgate.app agent-fleet coordination tooling | done | claude-code | `tools/agent-claim-ledger.js`, `tests/test-agent-claim-ledger.js`, `.gitignore` (coordination/claims/), `plan.md` | 36/36 tests pass (node tests/test-agent-claim-ledger.js → `# pass 36 # fail 0`); CLI round-trip verified claim→check→release; test-discovery-audit OK (0 orphaned); CI auto-globs tests/test-*.js |
+| T-OTEL-OBSERVABILITY-20260819 | Add OpenTelemetry distributed tracing to hermes-control-plane + OTel collector config for trace/log/metric aggregation → observability 5/5 | done | claude-code | `apps/hermes-control-plane/lib/tracing.ts` (new), `apps/hermes-control-plane/lib/tracing.test.ts` (new, 20 tests), `apps/hermes-control-plane/app/api/health/route.ts` (trace context in success+error responses), `tools/otel-collector-config.yaml` (new), `plan.md` | 20/20 tracing tests pass; tsc 0 errors; OTel collector config with tail-based sampling + SLOs + Prometheus; health route emits traceparent/x-trace-id headers |
+| T-AB-TESTING-DS-20260819 | Add minimal A/B testing framework (feature flags + experiment tracking) to hermes-control-plane → DS 5/5 | done | claude-code | `apps/hermes-control-plane/db/schema.ts` (experiments tables), `apps/hermes-control-plane/drizzle/0006_ab_testing_framework.sql` (new), `apps/hermes-control-plane/lib/experiments.ts` (new), `apps/hermes-control-plane/lib/experiments.test.ts` (new, 17 tests), `apps/hermes-control-plane/app/api/admin/experiments/route.ts` (new), `plan.md` | 17/17 experiments tests pass; tsc 0 errors; FNV-1a deterministic hashing; DB-backed via D1 |
+| T-RAG-EVAL-ML-20260819 | Add model evaluation harness for RAG/retrieval quality (recall@k, MRR@k, nDCG@k) → ML 5/5 | done | claude-code | `tools/rag-eval-harness.js` (new), `tests/test-rag-eval-harness.js` (new, 31 tests), `plan.md` | 31/31 tests pass; CLI E2E verified with 4-query dataset (recall@3=0.75, MRR@3=0.625, nDCG@3=0.653); CI auto-globs tests/test-*.js |
+| T-AGENT-SKILLS-20260819 | Create repeatable agent skills for CI/PR monitoring, live dashboard verification, and revenue gap tracking | done | claude-code | `.agents/skills/ci-pr-monitor/**`, `.agents/skills/live-dashboard-verify/**`, `.agents/skills/revenue-gap-tracker/**`, `.agents/skills/sources.yml`, `SKILLS.md`, `plan.md` | All 3 skill cards validated (PASS); BrowserOS harness active (18 tools); live health endpoint rate-limited by Cloudflare (429 — expected on public endpoint) |
 | T-ZAI-GLM53-SYSTEMWIDE-20260815 | Persist GLM-5.3 + $10/mo cap system-wide (launchd, zsh, OpenCode, cyber rail) | done | grok-glm53-fleet |
 | T-ZAI-GLM53-FLEET-20260815 | Wire GLM-5.3 across all harnesses on the Coding Plan ($0 marginal) with a hard $10/mo metered API token budget | done | grok-glm53-fleet | `tools/zai-api-budget-guard.js`, `tools/zai-glm53-fleet.js`, `bin/zai-glm53`, `tests/test-zai-glm53-fleet.js`, `.agents/skills/zai-glm53-fleet/SKILL.md`, `docs/ZAI-GLM53-FLEET.md`, `plan.md` | PASS: 15/15 tests; live probe model=glm-5.3 preview=GLM53_OK; gateway glm-coding GLM53_OK; $10 metered fail-closed; zai-coding-glm53 moved off /api/paas/v4 |
 
@@ -814,9 +820,21 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 | T-HERMES-RELIABILITY-JULY-2026 | Deep-research the July 2026 Hermes Mobile incident set, map every observed gap to deterministic prevention/proof, and implement only unclaimed reliability controls | done | released (codex-hermes-reliability-research) | `docs/RESEARCH-HERMES-MOBILE-RELIABILITY-JULY-2026.md`, `parallel-research/hermes-mobile-reliability-july-2026.md`, `parallel-research/hermes-mobile-reliability-july-2026.json`, `docs/HERMES-RELIABILITY-TRACEABILITY.md`, `evals/incidents/hermes-mobile-july-2026.json`, `tools/hermes-reliability-traceability.js`, `tests/test-hermes-reliability-traceability.js`, `plan.md` | PASS on draft PR #1193 head `ea0fd66e5a6a37d19853a36095784a99c684b4fa`: Parallel run `trun_468ec6a2702a4592865d87f871c6a704` ingested and corrected against current main/live PRs; all nine incidents mandatory; audit mode passes; release mode honestly blocks 7 runtime gaps and claim mode blocks all 9; 8 false-green/privacy/path mutations caught; existing incident eval 11/11 with 9 mutations; exact local root Node sweep 115/115; hosted mobile/typecheck, macOS guard, funnel, ownership, security, and routing checks green; mobile/iPad E2E correctly skipped because no mobile files changed; no runtime/store/OTA/device claim |
 
 | T-PROLO-ANDROID-PODCASTS-ONLY-20260815 | Fix ring double-tap+hold macro: open YouTube Music podcasts on the ANDROID phone (never Mac Apple Music), rewire legacy Mac launcher, stage F13 phone-native binding, add Android-only regression test | done | jcode-prolo-android-podcasts-20260815 | `tools/prolo-play-latest-podcasts.sh`, `tools/prolo-podcast-macro.js`, `tests/test-prolo-android-podcasts-only.js`, `scripts/verify.sh`, `.agents/skills/prolo-ring-moodstrip/SKILL.md`, `plan.md` | 16/16 Android-only regression green; pattern gate clean on touched files; F13 staged in profile draft; remaining: wearer Flash-to-Ring + APK install when phone on adb |
+| T-GUROBI-EXAMPLE-FILES-20260819 | Add example model files (examples/gurobi/) for all 4 optimization types + dedicated test file → closes CLI usability gap | done | claude-code | `examples/gurobi/*.json` (5 files), `tests/test-gurobi-examples.js`, `plan.md` | 5/5 example files verified (LP obj=2.0, dispatch obj=36.0, outreach 4/8 selected, IIS conflicts=['must_be_large'], token-budget spend=9.0/10.0); test-gurobi-examples.js PASS; PR #1869 merged at 2026-08-19T16:41:26Z (commit 00b7819b2); all CI green |
+| T-LOCAL-CODING-MODEL-SELECTOR-20260819 | Hardware-aware local coding model selector from KDnuggets Qwen3 article; probes Ollama, recommends Qwen3-8B/27B/GLM-5.3 based on Apple Silicon vs Intel | done | claude-code | `tools/local-coding-model-selector.js`, `tests/test-local-coding-model-selector.js`, `plan.md` | 20/20 tests pass; CodeQL pattern gate 0 findings; CI all green; PR #1875 merged at 2026-08-19T17:08:01Z (commit 8b15978bb); all 23 checks green |
+| T-LOCAL-DOCUMENT-INDEX-20260819 | pdf-brain pattern: extend local-coding-model-selector with embedding model detection (mxbai-embed-large/nomic-embed-text) + create local-document-index.js (PDF/MD text extraction, Ollama /api/embeddings, JSONL vector store, cosine similarity search) | done | claude-code | `tools/local-coding-model-selector.js` (extended), `tools/local-document-index.js` (new), `tests/test-local-coding-model-selector.js` (extended), `tests/test-local-document-index.js` (new), `plan.md` | 61/61 tests pass (29 + 32); CodeQL pattern gate 0 findings; CI all green; PR #1879 merged at 2026-08-19T17:56:10Z (commit b5f9e6c); strict:true merge squash onto origin/main
+| T-MCP-CONNECTOR-GOVERNANCE-20260819 | NewStack Mistral MCP connector migration article: build MCP connector governance checker with server risk assessment + prompt injection scanner (no auto-migration, operator trust, caching/perms unclear) | in_progress | claude-code | `tools/mcp-connector-gate.js` (new), `tests/test-mcp-connector-gate.js` (new), `plan.md` | Implementing from origin/main at 548e33710 |
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
 - `tools/agent-swarm-harness.js` (stale-board contention filter + where-is-state only), `tests/test-agent-swarm-harness.js`, `tools/plan-stale-board-hygiene.js` (new), `plan.md` → **grok-plan-contention-hygiene** (T-PLAN-CONTENTION-STALE-HYGIENE-20260818: false STOP from 800+ stale in_progress rows) (2026-08-18T20:47:33Z)
+- `tools/agent-claim-ledger.js`, `tests/test-agent-claim-ledger.js`, `.gitignore`, `plan.md` → **claude-code** (T-GIT-AT-SCALE-ROI-20260819: WAL-backed CAS file-claim ledger + 36-test suite) (2026-08-19T13:30:00Z)
+- `tools/agent-claim-ledger.js`, `tests/test-agent-claim-ledger.js`, `.gitignore`, `plan.md` → **released by claude-code** (done, 36/36 green) (2026-08-19T13:30:00Z)
+- `apps/hermes-control-plane/lib/tracing.ts`, `apps/hermes-control-plane/lib/tracing.test.ts`, `tools/otel-collector-config.yaml`, `apps/hermes-control-plane/app/api/health/route.ts`, `plan.md` → **claude-code** (T-OTEL-OBSERVABILITY-20260819: OTel distributed tracing infrastructure + collector config) (2026-08-19T14:30:00Z)
+- `apps/hermes-control-plane/lib/tracing.ts`, `apps/hermes-control-plane/lib/tracing.test.ts`, `tools/otel-collector-config.yaml`, `apps/hermes-control-plane/app/api/health/route.ts`, `plan.md` → **released by claude-code** (done, 20/20 green) (2026-08-19T14:45:00Z)
+- `apps/hermes-control-plane/db/schema.ts`, `apps/hermes-control-plane/drizzle/0006_ab_testing_framework.sql`, `apps/hermes-control-plane/lib/experiments.ts`, `apps/hermes-control-plane/lib/experiments.test.ts`, `apps/hermes-control-plane/app/api/admin/experiments/route.ts`, `plan.md` → **claude-code** (T-AB-TESTING-DS-20260819: A/B testing framework) (2026-08-19T14:30:00Z)
+- `apps/hermes-control-plane/db/schema.ts`, `apps/hermes-control-plane/drizzle/0006_ab_testing_framework.sql`, `apps/hermes-control-plane/lib/experiments.ts`, `apps/hermes-control-plane/lib/experiments.test.ts`, `apps/hermes-control-plane/app/api/admin/experiments/route.ts`, `plan.md` → **released by claude-code** (done, 17/17 green) (2026-08-19T14:45:00Z)
+- `tools/rag-eval-harness.js`, `tests/test-rag-eval-harness.js`, `plan.md` → **claude-code** (T-RAG-EVAL-ML-20260819: RAG model evaluation harness) (2026-08-19T14:30:00Z)
+- `tools/rag-eval-harness.js`, `tests/test-rag-eval-harness.js`, `plan.md` → **released by claude-code** (done, 31/31 green) (2026-08-19T14:45:00Z)
 
 - `hermes-mobile/package.json` (overrides.js-yaml + overrides.brace-expansion only), `hermes-mobile/package-lock.json`, `plan.md` → **grok-dependabot-autopilot** (T-DEPENDABOT-NESTED-OVERRIDES-20260818: clear Dependabot #50/#42; keep minimatch@3.1.5 scoped brace pin) (2026-08-18T19:44:22Z)
 
@@ -1952,6 +1970,11 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `.agents/skills/local-ai-use-adapt/SKILL.md`, `.agents/skills/startup-application-helper/SKILL.md`, `tools/validate-agent-skills.js`, `tests/test-validate-agent-skills.js`, `plan.md` → **codex-openai-ultrafast-policy-20260815** (T-SKILL-YAML-PREFLIGHT-20260815: reproduce and repair the two invalid repo YAML manifests from the 2026-08-15 `codex-yolo` startup warning; replace the installed superficial preflight with real YAML parsing and a CI regression.) (2026-08-15T10:27:00-04:00)
 
 - `tools/prolo-play-latest-podcasts.sh`, `tools/prolo-android-podcast-macro.js`, `tools/prolo-podcast-macro.js`, `bin/prolo-android-podcasts`, `tests/test-prolo-android-podcasts-only.js`, `.agents/skills/prolo-ring-moodstrip/SKILL.md`, `plan.md` → **jcode-prolo-android-podcasts-20260815** (T-PROLO-ANDROID-PODCASTS-ONLY-20260815: Igor correction ×4 — double-tap+hold must open YouTube Music podcasts on the ANDROID phone, never Apple Music on the Mac.) (2026-08-15T13:05:00-04:00)
+
+- `examples/gurobi/*.json`, `tests/test-gurobi-examples.js`, `plan.md` → **claude-code** (T-GUROBI-EXAMPLE-FILES-20260819: example model files for all 5 CLI subcommands + dedicated end-to-end test file; does NOT touch grok-gurobi-pulse-proof-20260819's claimed files) (2026-08-19T12:30:00-04:00)
+- `tools/local-coding-model-selector.js`, `tests/test-local-coding-model-selector.js`, `plan.md` → **claude-code** (T-LOCAL-CODING-MODEL-SELECTOR-20260819: hardware-aware local coding model selector; detects VRAM/RAM/disk, probes Ollama, recommends Qwen3-8B/27B/GLM-5.3) (2026-08-19T12:30:00-04:00) — **RELEASED** after PR #1875 merge at 2026-08-19T17:08:01Z (commit 8b15978bb)
+- `tools/local-coding-model-selector.js`, `tools/local-document-index.js`, `tests/test-local-coding-model-selector.js`, `tests/test-local-document-index.js`, `plan.md` → **claude-code** (T-LOCAL-DOCUMENT-INDEX-20260819: extend model selector with embedding model detection + create document indexing pipeline with PDF/MD extraction, Ollama embeddings, JSONL vector store, semantic search) (2026-08-19T12:30:00-04:00) — **RELEASED** after PR #1879 merge at 2026-08-19T17:56:10Z (commit b5f9e6c)
+- `tools/mcp-connector-gate.js`, `tests/test-mcp-connector-gate.js`, `plan.md` → **claude-code** (T-MCP-CONNECTOR-GOVERNANCE-20260819: MCP connector governance checker with server risk assessment + prompt injection scanner, based on NewStack Mistral migration article) (2026-08-19T14:00:00-04:00)
 ## 3. Decisions Log
 
 - **D-PLAN-CONTENTION-STALE-HYGIENE-20260818** (2026-08-18): `where-is-state` STOP on 800+ multi-owner hits was false — almost all from stale §1 `in_progress` rows + shared `plan.md`/`SKILLS.md` append claims. Fix: ignore board rows >14d / undated for live contention; skip merge=union board files; `tools/plan-stale-board-hygiene.js` marks ancient rows done.
@@ -2369,6 +2392,7 @@ Source: MLM stateful vs stateless agent design (2026-07). Fleet rule: inference 
 - 2026-07-23T23:57:00Z `cursor` (read-only device-proof attempt for PR #940, no code edits): **#940 "Open ThumbGate CTA" is merged to `origin/main` (`e1382d97`, ancestor of tip `df06b48c`) but neither device-proven nor OTA-delivered yet.** No physical phone/emulator attached (4 independent `adb`/USB-tree checks, ~23:52-23:55Z) — `R3CY90QPM7E` connected earlier today (19:43Z phone-install proof for #907) and disconnected again by 21:31Z per `docs/proofs/usb-missing-diagnosis-20260723/STATUS.md`; still gone now. Separately: the latest production OTA group (`f95b24fd-…`, commit `45111e27`, 17:38:49-04:00) predates `e1382d97` (18:59:40-04:00) by ~81 min, so it does **not** contain the fix, and no newer OTA has published since — did not publish one myself because `docs/proofs/continuous/latest.json.e2e` is `skipped` (169 sim processes > max 80), which fails the OTA gate (AGENTS.md #13). Full findings: `hermes-mobile/docs/proofs/open-thumbgate-940-device-proof-20260723/STATUS.md`. Promote: whenever `adb devices` next shows a phone, sideload current `main` tip and screenshot the Open-ThumbGate → browser/Custom-Tab-to-thumbgate.app flow; or once continuous E2E clears the process backlog to `pass`, the OTA gate opens and #940 (plus everything else on tip) can ship without a cable.
 - 2026-07-22T17:15:00Z `cursor` (read-only investigation, no code edits — feeds T-STUCK-WAIT-HARD-TIMEOUT + T-TRANSPORT-LABEL-SSOT/T-MINI-STICKY-PROFILE owners): **Live-caught reproduction of "Connected+Waiting forever" + phantom-session 404 + Mac-mini mislabeled as MacBook-Pro, thread "Why we made zero dollars."** (1) **Client hard-timeout not firing in production**: 12:59 PM send "make money today" (session `mobile_1784665204206_b230283b`) showed "Waiting 3m 05s" then "Waiting 6m 11s" on-device (screenshots), blowing through `promptReplyElapsed.ts` `PROMPT_REPLY_HARD_TIMEOUT_MS=2min` with zero recovery/error — confirms T-STUCK-WAIT-HARD-TIMEOUT's target bug is real and currently unfixed on the installed build. (2) **Server-side root cause of that stall** (mini `~/.hermes/logs/agent.log`, `100.94.135.78`, ssh-verified): every turn on this session first calls an "NVIDIA NIM" auxiliary-compression provider that 401s (`resolve_provider_client: named custom provider 'NVIDIA NIM' has no resolvable api_key`), then falls through to the real generation on a local Ollama model (`qwen3.5:9b-hermes-64k`, NOT the "GLM Coding" label the header shows) against a ~65-73K-token context — one stream attempt took 12:59:46→13:05:32 (5m46s) before erroring/retrying (attempt 2/3 logged). Compounding 3x retries × ~6min each = 15-20min "Waiting" with no cap. (3) **Session/transport identity bugs**: `mobile_1784665204206_b230283b` does not exist in the MacBook Pro's `state.db` (0 rows) — it only exists on the Mac mini's `state.db` — yet the MacBook Pro gateway logged repeated 404s for `/api/sessions/mobile_1784665204206_b230283b/messages` from the phone (`~/.hermes/logs/agent.log` 12:51-12:52), i.e. the phone/relay polled the wrong host for a real session that lives elsewhere. Separately, `curl http://100.94.135.78:8642/health` (the mini) returns `"hostname": "Igors-MacBook-Pro.local"` — a real mislabel bug for T-TRANSPORT-LABEL-SSOT/T-MINI-STICKY-PROFILE to fix at the gateway/health-payload layer, not just the client label. (4) **Earlier 12:13 PM incident (same thread, MacBook Pro gateway) was a different flavor of the same class**: assistant bubble ended on "Let me activate processing on viable leads and show what's actually happening now:" with no tool call and no follow-up; full-text search of `state.db` (`content`, `api_content` columns) found **zero** rows containing that text anywhere — the visible bubble was never persisted server-side, consistent with a stream that partially rendered client-side then errored (litellm `proxy.err.log` shows repeated `opencode-go-glm` "Weekly usage limit reached" + "No fallback model group found for original model_group=opencode-go-glm" around the same window) before the write-to-transcript step. Client-side, `promptReplyElapsed.ts` `findSubstantiveAssistantReplyAfter` treats ANY non-empty assistant text as a completed turn (`mode: 'frozen'`) — so once partial text streamed, the live/stall watch permanently stood down and thumbs-up/down rendered, with no mechanism to detect "assistant announced further action via trailing colon but never delivered it." Recommend: (a) cap total NVIDIA-NIM-then-local retry loop wall-clock, not just per-attempt; (b) treat a `finish_reason` other than a real tool-call/stop-with-content, or any turn whose rendered text ends in an unresolved "let me do X:" with no subsequent tool_calls, as non-terminal for stall-detection purposes; (c) gateway `/health` hostname must reflect the actual machine, not a copied config value. No files edited (avoided all owners' claimed slices above); revenue funnel state (independent verification, `node tools/revenue-autonomous-loop.js --auto-send --json`, 2026-07-22T17:08Z): 21 sent / 2 lost / $15,481 open gross; 1 of 3 Stripe links live (`Agent Reliability Diagnostic` 200; `Partner Pilot` + `Hardening Sprint` both 403); Gmail API broken (traceback); `auto_send=blocked_by_safety_gate`, `sentCount=0` — real, separate contributor to "why we made zero dollars" beyond the stuck chat bubble.
 - 2026-07-22T06:18:02Z `codex-usb-transport-preserve`: **`--mini-tailscale` silently falls back to the first non-phone host when the Mac mini is offline.** `resolveMiniTailscaleDiscovery()` returns `discoveries.find((item) => !isPhoneDiscovery(item))` after its mini-name/IP searches fail, so the supposedly explicit mini command emitted a redacted deep link for `Igors-MacBook-Pro` / `100.87.85.85` and could create false Mac mini evidence. Do not edit yet: `tools/hermes-mobile-pair.js` is actively claimed by T-146. Promote after that owner releases; acceptance: `--mini-tailscale` fail-closes unless hostname or the canonical mini IP matches, output names the resolved host class, shell tests cover mini-online and only-MacBook-discovered cases, and no adb intent is sent on mismatch.
+- 2026-08-19 `claude-code` (discovered during T-GIT-AT-SCALE-ROI-20260819): **`tools/agent-claim-ledger.js` ready for production integration but not yet wired into CI or launchd.** Two follow-ups: (1) the pre-commit hook `.githooks/pre-commit` currently runs `node tools/plan-coordination-snapshot.js check-staged-ownership` (advisory markdown-based ownership check); replace/augment with `node tools/agent-claim-ledger.js check` for true CAS-based lock verification on staged files — blocked on defining the hook → claim-ledger interface and ensuring O_EXCL locks work under CI's `git` user. (2) A `com.igor.claim-ledger-gc.plist` LaunchAgent running `node tools/agent-claim-ledger.js gc --stale-minutes=120` hourly would auto-clean stale claims left by crashed agents — not started because no AGENTS-governed LaunchAgent template exists in this repo yet and the GC semantics (release locks held by agents that crashed with active WAL events) need a final-state proof before automating.
 - 2026-07-22T06:18:03Z `codex-usb-transport-preserve`: **Continuous E2E amplifies a composer-reset failure into nine physical launches.** The protected run performed three outer cycles and three inner Maestro retries; every setup/recovery/input targeting step passed, but Android `eraseText` left `Make money todayodayyy`, so the literal `make money today` assertion failed. Promote as harness-only work; acceptance: composer reset uses a deterministic testID/select-all-clear strategy, assertion normalizes case without accepting duplicated suffixes, total launch attempts are capped at three per flow, and failure artifacts report one causal attempt instead of retry noise.
 - 2026-07-22T06:18:04Z `codex-usb-transport-preserve`: **Pairing foreground acknowledgement misreads Samsung activity output.** The app was visibly foreground and setup applied, but the tool reported `setup ack timed out after 8011ms` because the parser looks for `mResumedActivity` while this Samsung emits `topResumedActivity`. Promote after the active pairing-tool owner releases; acceptance: both activity formats pass, non-Hermes foreground still fails, focused tests cover both formats, and a physical pair no longer sends the secondary intent under a false timeout.
 - 2026-07-22T03:02:00Z `codex-usb-transport-preserve`: **Continuous E2E ignores an explicitly requested emulator when any physical USB phone is attached.** `scripts/run-e2e.sh` assigns `ANDROID_ID` from `first_usb_android_id` before honoring `HERMES_E2E_ANDROID_UDID`, so `npm run e2e:continuous:once` can seize a busy phone or fail on a stale phone lease instead of running the requested isolated emulator. Promote as a harness-only task; acceptance: an explicit UDID always wins, default selection behavior remains unchanged, device/lease choice is printed before Maestro, and focused shell tests cover physical-present plus emulator-requested selection.
@@ -3108,3 +3132,174 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 | plan.md (append only) | grok-husky-hooks-path-20260818 | 2026-08-18T20:05:00Z |
 
 - 2026-08-18T20:05Z `grok-husky-hooks-path`: typicode/husky does **not** transfer as a package. We already have `.githooks` + installer. Steal: keep `core.hooksPath` the relative token `.githooks` so worktrees do not run the primary dirty hook. Doctor refuses `--add-husky`. Did not edit `.githooks/pre-commit` (T-WORKTREE historical).
+
+## Discovered / Decisions (append-only)
+
+| T-GIT-AT-SCALE-CURSOR-20260819 | Steal Cursor Continuity client mechanics: multi-pack-index, geometric maintenance, safe agent-worktree GC, tip-consistency scorecard (NOT Origin hosting) | done | grok-git-at-scale-20260819 | `tools/git-at-scale-engine.js`, `tests/test-git-at-scale-engine.js`, `bin/git-at-scale`, `.agents/skills/git-at-scale/SKILL.md`, `plan.md` | unit tests PASS; live midx on mac-yolo+ThumbGate |
+
+| T-PERPLEXITY-COMPUTER-STEAL-20260819 | Steal Perplexity Computer FORMAT not product for thumbgate.app | in_progress | grok-perplexity-computer-steal-20260819 | GiveWorkLoop + funnel events + OFFER-004 | AGENT-413 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| apps/hermes-control-plane/app/GiveWorkLoop.tsx | grok-perplexity-computer-steal-20260819 | 2026-08-19T13:50:00Z |
+| apps/hermes-control-plane/app/give-work.module.css | grok-perplexity-computer-steal-20260819 | 2026-08-19T13:50:00Z |
+| apps/hermes-control-plane/app/page.tsx (mount + FAQ only) | grok-perplexity-computer-steal-20260819 | 2026-08-19T13:50:00Z |
+| apps/hermes-control-plane/app/FunnelSignals.tsx | grok-perplexity-computer-steal-20260819 | 2026-08-19T13:50:00Z |
+| apps/hermes-control-plane/app/api/analytics/event/route.ts | grok-perplexity-computer-steal-20260819 | 2026-08-19T13:50:00Z |
+| apps/hermes-control-plane/app/llms.txt/route.ts | grok-perplexity-computer-steal-20260819 | 2026-08-19T13:50:00Z |
+| apps/hermes-control-plane/tests/perplexity-computer-steal.test.mjs | grok-perplexity-computer-steal-20260819 | 2026-08-19T13:50:00Z |
+| apps/hermes-control-plane/tests/rendered-html.test.mjs (GiveWorkLoop assertions only) | grok-perplexity-computer-steal-20260819 | 2026-08-19T13:50:00Z |
+| .intent/contract.yaml (OFFER-004 only) | grok-perplexity-computer-steal-20260819 | 2026-08-19T13:50:00Z |
+| plan.md (append only) | grok-perplexity-computer-steal-20260819 | 2026-08-19T13:50:00Z |
+
+- 2026-08-19T13:50Z `grok-perplexity-computer-steal`: https://www.perplexity.ai/products/computer. Steal FORMAT: example jobs, Give→Works→Approve, closer, funnel cta_id. Do NOT steal connectors, Pro/Max, industry footer, or months-long workflows. ECI: copy-only on existing $10 offer; no paid outreach; no net-new governance R&D. Backlog: dashboard composer prefill from cta_id (dashboard blast); no-auth playground (hosted-app expansion, counsel pause).
+
+| T-HOSTED-COMPUTER-STACK-HONESTY-20260819 | Doctor/route CLI that falsifies OpenClaw/E2B/Cua mapping onto hosted Hermes | in_progress | grok-hosted-computer-stack-honesty-20260819 | `tools/hosted-computer-stack.js`, `tests/test-hosted-computer-stack.js`, `bin/hosted-computer`, `.agents/skills/hosted-computer-stack/**`, `SKILLS.md` (append row), `plan.md` | AGENT-415 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/hosted-computer-stack.js | grok-hosted-computer-stack-honesty-20260819 | 2026-08-19T15:00:00Z |
+| tests/test-hosted-computer-stack.js | grok-hosted-computer-stack-honesty-20260819 | 2026-08-19T15:00:00Z |
+| bin/hosted-computer | grok-hosted-computer-stack-honesty-20260819 | 2026-08-19T15:00:00Z |
+| .agents/skills/hosted-computer-stack/** | grok-hosted-computer-stack-honesty-20260819 | 2026-08-19T15:00:00Z |
+| SKILLS.md (append row only) | grok-hosted-computer-stack-honesty-20260819 | 2026-08-19T15:00:00Z |
+| plan.md (append only) | grok-hosted-computer-stack-honesty-20260819 | 2026-08-19T15:00:00Z |
+
+- 2026-08-19T15:00Z `grok-hosted-computer-stack-honesty`: OSS Computer blueprint does **not** transfer as OpenClaw/E2B/Cua. Falsifier: `hermes-cloud-runner` `execute()` is POST `/chat/completions` only; Hands is `HOSTED_BROWSER_CUE_RES` + `browserHealthUrl()` (`POLICY_CUE_NOT_DRIVER`); economic-router is not imported by the runner. Doctor refuses clone installs. Did not vendor those products. ECI: no hosted-app expansion.
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| `.agents/skills/ci-pr-monitor/**` | claude-code | 2026-08-19T15:30:00Z |
+| `.agents/skills/live-dashboard-verify/**` | claude-code | 2026-08-19T15:30:00Z |
+| `.agents/skills/revenue-gap-tracker/**` | claude-code | 2026-08-19T15:30:00Z |
+| `.agents/skills/sources.yml` (append only) | claude-code | 2026-08-19T15:30:00Z |
+| `SKILLS.md` (append rows only) | claude-code | 2026-08-19T15:30:00Z |
+| `plan.md` (append only) | claude-code | 2026-08-19T15:30:00Z |
+
+- 2026-08-19T15:30Z `claude-code` (T-AGENT-SKILLS-20260819): Created three repeatable agent skills based on the OTel/DS/ML improvement workflow:
+  - `ci-pr-monitor`: Uses `gh pr checks`, `gh pr view --json`, `gh pr merge --auto --squash` to track CI status, PR merge-readiness, and auto-merge success. Health check: all required status contexts pass. Created `.agents/skills/ci-pr-monitor/{SKILL.md,skill-card.md}`.
+  - `live-dashboard-verify`: Uses `curl -sI` + BrowserOS (`node tools/browseros-agent-harness.js`) to verify live ThumbGate.app health endpoint, trace header propagation, and production deployment status. Health check: HTTP 200 + traceparent header. Created `.agents/skills/live-dashboard-verify/{SKILL.md,skill-card.md}`.
+  - `revenue-gap-tracker`: Tracks revenue monitoring gaps (gitignored `business_os/`, Stripe env vars, admin auth) with unblock checklist: BrowserOS → Stripe dashboard → re-audit. Health check: `node tools/revenue-goal-audit.js` reports "Target status: MET". Created `.agents/skills/revenue-gap-tracker/{SKILL.md,skill-card.md}`.
+  All 3 skill cards validated via `tools/skill-card-validate.js` (PASS). BrowserOS harness confirmed active (18 MCP tools). Registered in `.agents/skills/sources.yml` (in_repo list) + `SKILLS.md` (local skill table).
+- 2026-08-19T15:25Z `claude-code` production-deploy: PR #1855 auto-merged to main at 15:23:59Z (commit 1a4805f71, squash merge). Push-to-main CI runs showed `skipped` (expected: concurrency groups + merge queue). Live health endpoint returned Cloudflare 429 — rate-limited, not an application error. Production deploy pending via `hermes-control-plane.yml` push trigger.
+| T-THUMBGATE-APP-BLOG-CHIEF-COPY-20260819 | After #1856 merged Cursor-format /blog onto thumbgate.app: ThumbGate byline, Give hosted Hermes a job post, landing Blog link | in_progress | grok-thumbgate-app-blog-chief-copy-20260819 | `apps/hermes-control-plane/lib/blog-posts.ts`, `apps/hermes-control-plane/app/blog/page.tsx`, `apps/hermes-control-plane/app/blog/[slug]/page.tsx`, `apps/hermes-control-plane/app/page.tsx` (footer Blog link), `apps/hermes-control-plane/tests/blog.test.mjs`, `.intent/contract.yaml` (OFFER-005), `plan.md` | AGENT-417 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| apps/hermes-control-plane/lib/blog-posts.ts | grok-thumbgate-app-blog-chief-copy-20260819 | 2026-08-19T15:50:00Z |
+| apps/hermes-control-plane/app/blog/page.tsx | grok-thumbgate-app-blog-chief-copy-20260819 | 2026-08-19T15:50:00Z |
+| apps/hermes-control-plane/app/blog/[slug]/page.tsx | grok-thumbgate-app-blog-chief-copy-20260819 | 2026-08-19T15:50:00Z |
+| apps/hermes-control-plane/app/page.tsx (footer Blog link only) | grok-thumbgate-app-blog-chief-copy-20260819 | 2026-08-19T15:50:00Z |
+| apps/hermes-control-plane/tests/blog.test.mjs | grok-thumbgate-app-blog-chief-copy-20260819 | 2026-08-19T15:50:00Z |
+| .intent/contract.yaml (OFFER-005 only) | grok-thumbgate-app-blog-chief-copy-20260819 | 2026-08-19T15:50:00Z |
+| plan.md (append only) | grok-thumbgate-app-blog-chief-copy-20260819 | 2026-08-19T15:50:00Z |
+
+- 2026-08-19T15:50Z `grok-thumbgate-app-blog-chief-copy`: CEO correction — Cursor blog is **thumbgate.app**, not thumbgate.ai. #1856 already merged /blog. Follow-up: author ThumbGate (no founder byline), product post Give hosted Hermes a job, landing footer Blog link, OFFER-005. Closed duplicate #1860. Did not re-post the LIVE dev.to Computer-falsifier hook.
+
+| T-GUROBI-PULSE-PROOF-20260819 | Pulse steal: certified proof receipts (ObjVal/ObjBound/MIPGap), auto-IIS, $10 token-budget LP, exclusive adb/git_lock dispatch, bounce+vertical outreach knapsack | in_progress | grok-gurobi-pulse-proof-20260819 | `tools/gurobi_fleet_lib.py`, `tools/gurobi-mcp-server.py`, `tools/gurobi-fleet-optimize.py`, `tests/test-gurobi-fleet-optimize.js`, `.agents/skills/gurobi-optimizer-integrator/SKILL.md`, `SKILLS.md` (append row), `plan.md` | AGENT-419 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/gurobi_fleet_lib.py | grok-gurobi-pulse-proof-20260819 | 2026-08-19T18:30:00Z |
+| tools/gurobi-mcp-server.py | grok-gurobi-pulse-proof-20260819 | 2026-08-19T18:30:00Z |
+| tools/gurobi-fleet-optimize.py | grok-gurobi-pulse-proof-20260819 | 2026-08-19T18:30:00Z |
+| tests/test-gurobi-fleet-optimize.js | grok-gurobi-pulse-proof-20260819 | 2026-08-19T18:30:00Z |
+| .agents/skills/gurobi-optimizer-integrator/SKILL.md | grok-gurobi-pulse-proof-20260819 | 2026-08-19T18:30:00Z |
+| SKILLS.md (append row only) | grok-gurobi-pulse-proof-20260819 | 2026-08-19T18:30:00Z |
+| plan.md (append only) | grok-gurobi-pulse-proof-20260819 | 2026-08-19T18:30:00Z |
+
+- 2026-08-19T18:30Z `grok-gurobi-pulse-proof`: Pulse Issue #9 / AI-guided optimization. Steal: proof receipts + IIS + $10 token LP + exclusive adb/git_lock. Do **not** invent a Gurobi SKU, Intelligence Hub, or ThumbGate paid knapsack (ECI). LLM translates; Gurobi proves. AGENT-419.
+
+| T-GUROBI-HARNESS-GATE-20260819 | Wire Gurobi proof into the process: session-start + agent-loop health run certified $10 token-budget LP and exclusive adb/git_lock dispatch (does not edit CLI/examples owned by claude-code T-GUROBI-CLI-HARNESS) | in_progress | grok-gurobi-harness-gate-20260819 | `tools/gurobi-harness-gate.js` (new), `tests/test-gurobi-harness-gate.js` (new), `.agents/skills/gurobi-harness-gate/` (new), `tools/agent-session-start.js` (Gurobi proof line only), `bin/agent-loop` (observe.gurobi_proof only), `SKILLS.md` (append row), `plan.md` | AGENT-423 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/gurobi-harness-gate.js | grok-gurobi-harness-gate-20260819 | 2026-08-19T16:40:00Z |
+| tests/test-gurobi-harness-gate.js | grok-gurobi-harness-gate-20260819 | 2026-08-19T16:40:00Z |
+| .agents/skills/gurobi-harness-gate/SKILL.md | grok-gurobi-harness-gate-20260819 | 2026-08-19T16:40:00Z |
+| .agents/skills/gurobi-harness-gate/skill-card.md | grok-gurobi-harness-gate-20260819 | 2026-08-19T16:40:00Z |
+| tools/agent-session-start.js (Gurobi proof line only) | grok-gurobi-harness-gate-20260819 | 2026-08-19T16:40:00Z |
+| bin/agent-loop (observe.gurobi_proof only) | grok-gurobi-harness-gate-20260819 | 2026-08-19T16:40:00Z |
+| SKILLS.md (append row only) | grok-gurobi-harness-gate-20260819 | 2026-08-19T16:40:00Z |
+| plan.md (append only) | grok-gurobi-harness-gate-20260819 | 2026-08-19T16:40:00Z |
+
+- 2026-08-19T16:40Z `grok-gurobi-harness-gate`: Process steal after Pulse #1866. Solver existed; session-start did not call it. New gate certifies $10 cap + exclusive ADB. Did not touch `tools/gurobi-fleet-optimize.py` / `examples/gurobi/` (claude-code T-GUROBI-CLI-HARNESS). No Gurobi SKU, no ThumbGate paid knapsack (ECI). AGENT-423.
+
+| T-GUROBI-PHASEONE-BENCH-20260819 | Phase One Kit steal: freeze acceptance set, log solver metrics, prove 4 certificates (OPTIMAL / MIP gap / IIS / UNBOUNDED), stability repeats. Uses #1869 examples as frozen models. | in_progress | grok-gurobi-harness-gate-20260819 | `tools/gurobi-acceptance-bench.js` (new), `tests/test-gurobi-acceptance-bench.js` (new), `.agents/skills/gurobi-harness-gate/SKILL.md` (Phase One table), `plan.md` | AGENT-423 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/gurobi-acceptance-bench.js | grok-gurobi-harness-gate-20260819 | 2026-08-19T17:05:00Z |
+| tests/test-gurobi-acceptance-bench.js | grok-gurobi-harness-gate-20260819 | 2026-08-19T17:05:00Z |
+| .agents/skills/gurobi-harness-gate/SKILL.md | grok-gurobi-harness-gate-20260819 | 2026-08-19T17:05:00Z |
+| SKILLS.md (append/row tweak only) | grok-gurobi-harness-gate-20260819 | 2026-08-19T17:05:00Z |
+| plan.md (append only) | grok-gurobi-harness-gate-20260819 | 2026-08-19T17:05:00Z |
+
+- 2026-08-19T17:05Z `grok-gurobi-harness-gate`: Phase One Champion Kit (`~/Downloads/PhaseOneKit2`). Steal: frozen acceptance set + four solver certificates + explain receipts. Did not copy Gurobi PDFs/Wiley book. Did not edit `examples/gurobi/` (#1869). No commercial trial pitch, no Gurobi SKU, no ThumbGate paid knapsack. AGENT-423 / PR #1872.
+- 2026-08-19T12:30Z `claude-code` T-GUROBI-EXAMPLE-FILES-20260819: Origin/main already has PR #1866 merged (grok-gurobi-pulse-proof-20260819) with `iis` + `token-budget` CLI subcommands, certified proof receipts, exclusive adb/git_lock constraints, and 6-case evaluate suite. CLI changes redundant — reverted to main's version. Remaining high-ROI gap: NO example model files on main (examples/gurobi/ directory empty). Added 5 example JSON files covering solve/dispatch/outreach/iis/token-budget + dedicated test file `tests/test-gurobi-examples.js` (5/5 verified). SKILL.md math formulations deferred — owned by grok-gurobi-pulse-proof-20260819 per §2.
+
+| T-GUROBI-PHASEONE-TOUCHPOINTS-20260819 | Phase One Kit remaining steal: map solver touchpoints (swap only CLI/lib); log bench environment + 3-seed runtime mean/range; status-quo heuristic vs certified solver. | in_progress | grok-gurobi-harness-gate-20260819 | `tools/gurobi-solver-touchpoints.js` (new), `tests/test-gurobi-solver-touchpoints.js` (new), `tools/gurobi-acceptance-bench.js` (env/runtime/heuristic), `tests/test-gurobi-acceptance-bench.js`, `.agents/skills/gurobi-harness-gate/SKILL.md`, `plan.md` | AGENT-423 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/gurobi-solver-touchpoints.js | grok-gurobi-harness-gate-20260819 | 2026-08-19T17:20:00Z |
+| tests/test-gurobi-solver-touchpoints.js | grok-gurobi-harness-gate-20260819 | 2026-08-19T17:20:00Z |
+| tools/gurobi-acceptance-bench.js | grok-gurobi-harness-gate-20260819 | 2026-08-19T17:20:00Z |
+| tests/test-gurobi-acceptance-bench.js | grok-gurobi-harness-gate-20260819 | 2026-08-19T17:20:00Z |
+| .agents/skills/gurobi-harness-gate/SKILL.md | grok-gurobi-harness-gate-20260819 | 2026-08-19T17:20:00Z |
+| plan.md (append only) | grok-gurobi-harness-gate-20260819 | 2026-08-19T17:20:00Z |
+
+- 2026-08-19T17:20Z `grok-gurobi-harness-gate`: PhaseOneKit2 remaining process. Steal: touchpoint map (swap CLI/lib only) + env/seed-variance log + heuristic saturate/all-frontier vs certified. Did not copy PDFs/Wiley. Did not edit `examples/gurobi/` or `tools/gurobi-fleet-optimize.py`. No Gurobi SKU, no ThumbGate paid knapsack (ECI). AGENT-423 / PR #1872.
+
+| T-GUROBI-BEYOND-LLMS-20260819 | Beyond LLMs podcast steal: certified allocation is not execute license; append-only decision audit + repeatability fingerprint; human oversight for ADB/spend/send. | in_progress | grok-gurobi-beyond-llms-20260819 | `tools/gurobi-decision-audit.js` (new), `tests/test-gurobi-decision-audit.js` (new), `.agents/skills/gurobi-decision-audit/` (new), `tools/gurobi-harness-gate.js` (record hook), `SKILLS.md` (append row), `plan.md` | AGENT-428 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/gurobi-decision-audit.js | grok-gurobi-beyond-llms-20260819 | 2026-08-19T17:15:00Z |
+| tests/test-gurobi-decision-audit.js | grok-gurobi-beyond-llms-20260819 | 2026-08-19T17:15:00Z |
+| .agents/skills/gurobi-decision-audit/SKILL.md | grok-gurobi-beyond-llms-20260819 | 2026-08-19T17:15:00Z |
+| .agents/skills/gurobi-decision-audit/skill-card.md | grok-gurobi-beyond-llms-20260819 | 2026-08-19T17:15:00Z |
+| tools/gurobi-harness-gate.js (record hook) | grok-gurobi-beyond-llms-20260819 | 2026-08-19T17:15:00Z |
+| SKILLS.md (append row only) | grok-gurobi-beyond-llms-20260819 | 2026-08-19T17:15:00Z |
+| plan.md (append only) | grok-gurobi-beyond-llms-20260819 | 2026-08-19T17:15:00Z |
+
+- 2026-08-19T17:15Z `grok-gurobi-beyond-llms`: Podcast https://www.gurobi.com/resources/podcasts/beyond-llms (Adam Dejans Jr / David O'Keefe). Steal: governance — certified $10/ADB proof is observe-only; append-only JSONL audit; fingerprint for repeatability. Did not copy audio/transcript. No Intelligence Hub, no trial SKU, no ThumbGate paid knapsack (ECI). AGENT-428.
+
+| T-RULE-SPRAWL-NOT-OPENSEARCH-20260819 | New Stack email steal: alert-on-everything vs eval budget; concurrent retrieval latency stacking; human review vs verified pipelines. Knapsack + singleflight/TTL retrieve + review-volume-is-not-control. Do not clone OpenSearch/PPL/UAM (PR #1868). | in_progress | grok-rule-sprawl-20260819 | `tools/rule-sprawl.js` (new), `tests/test-rule-sprawl.js` (new), `tests/lesson-retrieval.test.js` (new), `.agents/skills/rule-sprawl-not-opensearch/`, `SKILLS.md` (append row), `plan.md` | AGENT-429 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/rule-sprawl.js | grok-rule-sprawl-20260819 | 2026-08-19T17:30:00Z |
+| tests/test-rule-sprawl.js | grok-rule-sprawl-20260819 | 2026-08-19T17:30:00Z |
+| tests/lesson-retrieval.test.js | grok-rule-sprawl-20260819 | 2026-08-19T17:30:00Z |
+| .agents/skills/rule-sprawl-not-opensearch/SKILL.md | grok-rule-sprawl-20260819 | 2026-08-19T17:30:00Z |
+| .agents/skills/rule-sprawl-not-opensearch/skill-card.md | grok-rule-sprawl-20260819 | 2026-08-19T17:30:00Z |
+| SKILLS.md (append row only) | grok-rule-sprawl-20260819 | 2026-08-19T17:30:00Z |
+| plan.md (append only) | grok-rule-sprawl-20260819 | 2026-08-19T17:30:00Z |
+
+- 2026-08-19T17:30Z `grok-rule-sprawl`: TNS webinar email `~/Downloads/newstack.pdf` (2026-08-19). Steal: load-all vs knapsack under eval/token budget; retrieveWithLatencyBudget (singleflight + stale TTL); review volume is not the control. Did not clone OpenSearch/PPL/UAM (sibling PR #1868). No observability SKU, no ThumbGate paid outreach (ECI). `capturedRevenueUsd=0`. AGENT-429.
+
+| T-HIDDEN-ENTRY-NOT-BRIGHTTALK-20260819 | BrightTALK weekly-rec steal: interest-ranked digest of hidden agent-tool-call entry points (PreToolUse unwired, dynamic tools, missing identity). Drop vendor theater. Do not clone BrightTALK/SailPoint/Strike48/ISO 42001 (PR #1868). | in_progress | grok-hidden-entry-20260819 | `tools/hidden-entry.js` (new), `tests/test-hidden-entry.js` (new), `.agents/skills/hidden-entry-not-brighttalk/`, `SKILLS.md` (append row), `plan.md` | AGENT-430 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/hidden-entry.js | grok-hidden-entry-20260819 | 2026-08-19T17:50:00Z |
+| tests/test-hidden-entry.js | grok-hidden-entry-20260819 | 2026-08-19T17:50:00Z |
+| .agents/skills/hidden-entry-not-brighttalk/SKILL.md | grok-hidden-entry-20260819 | 2026-08-19T17:50:00Z |
+| .agents/skills/hidden-entry-not-brighttalk/skill-card.md | grok-hidden-entry-20260819 | 2026-08-19T17:50:00Z |
+| SKILLS.md (append row only) | grok-hidden-entry-20260819 | 2026-08-19T17:50:00Z |
+| plan.md (append only) | grok-hidden-entry-20260819 | 2026-08-19T17:50:00Z |
+
+- 2026-08-19T17:50Z `grok-hidden-entry`: BrightTALK weekly rec (`~/Downloads/brighttalk.pdf` referenced 2026-08-19; Downloads was empty this turn — steal from existing `/hidden-entry-not-brighttalk` skill). Digest not webinar product. Did not clone ISO/SailPoint (PR #1868). Did not extend `brighttalk-feed-cron-ingestor.js` 10/10 theater. No SOC SKU (ECI). `iso42001Certified=false` `capturedRevenueUsd=0`. AGENT-430.
+- 2026-08-19T17:30Z `claude-code` local-document-index: Extending local-coding-model-selector with embedding model detection (mxbai-embed-large 1024d, nomic-embed-text 768d, all-minilm 384d) and creating local-document-index.js (PDF/MD text extraction via pdftotext, Ollama /api/embeddings, JSONL vector store, cosine similarity search) based on pdf-brain pattern from Tom Dörr tweet. High-ROI: repo has coding model selection but no embedding model verification or local document indexing — fills gap for ThumbGate.app local knowledge base.

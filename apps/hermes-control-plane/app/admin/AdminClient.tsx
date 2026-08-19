@@ -343,7 +343,7 @@ export function AdminClient(props: {
             </Expandable>
             <Expandable id="runner" label="Cloud Runner Fleet & Fencing Telemetry" fetchDetail={() => fetchDetail("runner")}>
               <article className={`admin-metric ${m.health.runnerOk ? "is-ok" : "is-bad"}`}>
-                <span>VPS Continuity runner</span>
+                <span>Hosted Hermes runner</span>
                 <strong>{m.health.runnerOk ? "OK" : "DEGRADED"}</strong>
                 <small>last task {fmtTime(m.health.runnerLastTaskAt)}</small>
               </article>
@@ -381,6 +381,7 @@ export function AdminClient(props: {
                   <li><span>Tasks created</span><b>{m.activity.tasksCreatedLast24h}</b></li>
                   <li><span>Tasks completed</span><b>{m.activity.tasksCompletedLast24h}</b></li>
                   <li><span>Tasks failed</span><b>{m.activity.tasksFailedLast24h}</b></li>
+                  <li><span>Recovered runs 24h</span><b>{m.activity.recoveredRunsLast24h}</b></li>
                   <li><span>Audit events</span><b>{m.activity.auditEventsLast24h}</b></li>
                   <li><span>Cloud inflight</span><b>{m.activity.cloudInflight}</b></li>
                   <li><span>Local completed 30d</span><b>{m.activity.localCompleted30d}</b></li>
@@ -406,7 +407,7 @@ export function AdminClient(props: {
             <article className="admin-panel admin-panel-static">
               <h2>Hermes Agent System Engine</h2>
               <p className="admin-muted">
-                Cloud Continuity runs the complete multi-model Hermes Agentic Engine — supporting DeepSeek, Claude, and local Qwen with tools, memory recall, and subagent orchestration.
+                Hosted Hermes runs the complete multi-model agent engine — supporting DeepSeek, Claude, and local Qwen with tools, memory recall, and subagent orchestration.
               </p>
               <ul className="admin-kv">
                 <li><span>Fly.io Runner Fleet</span><b>Active (Autostop Billed)</b></li>
@@ -479,8 +480,8 @@ export function AdminClient(props: {
           </section>
 
           <section className="admin-panel admin-panel-static">
-            <h2>VPS Continuity Executions</h2>
-            <p className="admin-muted">Fenced execution log of cloud continuations.</p>
+            <h2>Hosted Hermes runs</h2>
+            <p className="admin-muted">VPS hosted Hermes runs — no prompts/results body.</p>
             <div className="admin-table-wrap">
               <table className="admin-table">
                 <thead>
@@ -494,9 +495,9 @@ export function AdminClient(props: {
                   </tr>
                 </thead>
                 <tbody>
-                  {m.continuityRuns.length === 0 ? (
+                  {m.hostedRuns.length === 0 ? (
                     <tr><td colSpan={6}>No cloud runs recorded</td></tr>
-                  ) : m.continuityRuns.map((run) => (
+                  ) : m.hostedRuns.map((run) => (
                     <ExpandableRow
                       key={run.taskIdPrefix + run.createdAt}
                       colSpan={6}

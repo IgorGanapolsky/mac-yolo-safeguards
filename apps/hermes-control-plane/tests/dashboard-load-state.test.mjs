@@ -137,3 +137,31 @@ test("does not claim live or instantly when hosted resources are unhealthy", () 
   assert.match(dashboard, /fenced VPS/);
   assert.doesNotMatch(dashboard, /Continuity hero|Mac lid|Cloud vs Local/);
 });
+
+test("does not toast leftover Mac-pair machine-found copy", () => {
+  assert.doesNotMatch(dashboard, /Machine found\. Verify its name/);
+  assert.doesNotMatch(dashboard, /approve the prefilled code/);
+  assert.doesNotMatch(dashboard, /Waiting on your paired machine/);
+  assert.match(dashboard, /Hosted on a fenced VPS/);
+});
+
+test("signed-in dashboard markup always includes #hermes-thread-list even with zero tasks", () => {
+  assert.match(dashboard, /id="hermes-thread-list"/);
+  assert.match(dashboard, /data-testid="hermes-thread-list"/);
+  assert.match(dashboard, /thread-list-empty/);
+  assert.match(dashboard, /No chats yet/);
+  const firstList = dashboard.indexOf('id="hermes-thread-list"');
+  const secondList = dashboard.indexOf('id="hermes-thread-list"', firstList + 1);
+  assert.ok(firstList > -1 && secondList > firstList, "identity-loading shell and signed-in shell both render the list");
+  const firstTestid = dashboard.indexOf('data-testid="hermes-thread-list"');
+  const secondTestid = dashboard.indexOf('data-testid="hermes-thread-list"', firstTestid + 1);
+  assert.ok(firstTestid > -1 && secondTestid > firstTestid, "identity-loading shell and signed-in shell both expose data-testid");
+  assert.doesNotMatch(
+    dashboard,
+    /if \(!user \|\| !organization\) return <main className="loading-screen">/,
+    "identity fetch must not replace the dashboard with a list-less loading screen",
+  );
+  const emptyAt = dashboard.indexOf("No chats yet");
+  const signedInList = dashboard.lastIndexOf('id="hermes-thread-list"');
+  assert.ok(emptyAt > signedInList, "empty-state copy lives inside the signed-in thread list");
+});

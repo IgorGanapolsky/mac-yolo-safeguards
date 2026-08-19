@@ -17,6 +17,7 @@ import {
 } from "@/lib/dashboard-nav-cache";
 import { resolveComposerRunCta } from "@/lib/composer-run-cta";
 import {
+  HOSTED_NOT_COMPUTER_HISTORY,
   hostedConnectionCopy,
   hostedResourceLabel,
   type HostedResourceState,
@@ -242,13 +243,13 @@ export default function DashboardClient() {
   const [threadDetails, setThreadDetails] = useState<ThreadDetails | null>(null);
   const [prompt, setPrompt] = useState("");
   /**
-   * Explicit user override for which paired machine runs the next task.
+   * Explicit user override for which hosted runner runs the next task.
    * Resolved selection is derived (useMemo) so we never setState inside an effect (eslint react-hooks/set-state-in-effect).
    */
   const [deviceOverrideId, setDeviceOverrideId] = useState<string | null>(null);
   /** True once first network load finishes (or fails auth). */
   // "loading" until a workspace fetch actually completes. Empty states in this view assert a
-  // FACT about the user's setup ("no tasks — pair a machine"); rendering them from an
+  // FACT about the user's setup ("no tasks — start a hosted run"); rendering them from an
   // unloaded [] turns "we don't know yet" into "your setup is broken". Absence of data is not
   // evidence of absence, so the empty state waits for "loaded" and failures show "error".
   const [loadState, setLoadState] = useState<"loading" | "loaded" | "error">("loading");
@@ -275,7 +276,7 @@ export default function DashboardClient() {
 
   const selectedDevice = devices.find((device) => device.id === selectedDeviceId) ?? null;
   /** Real paired hostname when present — never a vague placeholder. */
-  const selectedDeviceLabel = machineDisplayName(selectedDevice, "paired Mac");
+  const selectedDeviceLabel = machineDisplayName(selectedDevice, "hosted VPS");
   const hasCloudAccess = Boolean(organization?.cloudAccess);
   const [pairCode, setPairCode] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
@@ -593,12 +594,24 @@ export default function DashboardClient() {
       return;
     }
     const identity = await me.json() as {
-      user: User;
-      organization: Organization;
+      authenticated?: boolean;
+      user?: User;
+      organization?: Organization;
       continuityUsage?: ContinuityUsage;
       hostedRunner?: HostedResourceView;
       hostedModel?: HostedResourceView;
     };
+    // /api/me is 200 + authenticated:false (not 401) when the cookie is missing.
+    // Do not stay on "Opening the control plane…" forever.
+    if (identity.authenticated === false) {
+      const returnTo = `${window.location.pathname}${window.location.search}`;
+      window.location.replace(`/api/auth/login?return_to=${encodeURIComponent(returnTo)}`);
+      return;
+    }
+    if (!identity.user || !identity.organization) {
+      setLoadState("error");
+      return;
+    }
     setUser(identity.user);
     setOrganization(identity.organization);
     if (identity.continuityUsage) setContinuityUsage(identity.continuityUsage);
@@ -704,8 +717,21 @@ export default function DashboardClient() {
     // "loading" forever with no error shown and no retry signal.
     const run = () => { void loadWorkspace().catch(() => setLoadState("error")); };
     const initial = window.setTimeout(run, 0);
-    const timer = window.setInterval(run, 5000);
-    return () => { window.clearTimeout(initial); window.clearInterval(timer); };
+    // 15s cadence, foreground-only: the old always-on 5s poll made every open
+    // dashboard tab cost ~17k Workers requests/day against the 100k free-tier
+    // daily cap (2026-08-19 quota incident). Hidden tabs stop polling; a fresh
+    // run fires immediately when the tab returns to the foreground.
+    let timer: number | undefined;
+    const start = () => { if (timer === undefined) timer = window.setInterval(run, 15000); };
+    const stop = () => { if (timer !== undefined) { window.clearInterval(timer); timer = undefined; } };
+    const onVisibility = () => { if (document.hidden) stop(); else { run(); start(); } };
+    if (!document.hidden) start();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.clearTimeout(initial);
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
     // Intentionally not re-binding when selectedThread flips — list poll stays stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- shell-first: one poller, not one-per-thread
   }, []);
@@ -729,8 +755,8 @@ export default function DashboardClient() {
     if (currentUrl.searchParams.get("pair")?.toUpperCase() !== pairCode) return;
     currentUrl.searchParams.delete("pair");
     window.history.replaceState({}, "", `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`);
-    const timer = window.setTimeout(() => setNotice("Machine found. Verify its name, then approve the prefilled code."), 0);
-    return () => window.clearTimeout(timer);
+    // Hosted Hermes does not pair a laptop. Strip leftover ?pair= with no toast.
+    return;
   }, [pairCode, user]);
   const visibleThreads = useMemo(() => orderThreadsForDisplay(threads, threadSortOrder), [threads, threadSortOrder]);
   const runnerStatus: HostedResourceState = hostedRunner?.status ?? "waiting";
@@ -738,6 +764,7 @@ export default function DashboardClient() {
   const hostedCopy = hostedConnectionCopy({
     runnerStatus,
     modelStatus,
+    runnerIdentity: hostedRunner?.identity,
     message: hostedModel?.status === "unhealthy"
       ? hostedModel.message
       : hostedRunner?.status === "unhealthy"
@@ -811,7 +838,7 @@ export default function DashboardClient() {
         }),
       });
       let body: {
-        task?: { route: string; threadId: string; preference?: string; deviceId?: string; traceId?: string };
+        task?: { id?: string; route: string; threadId: string; status?: string; prompt?: string; createdAt?: number; preference?: string; deviceId?: string; traceId?: string };
         error?: string;
         code?: string;
         limit?: number | null;
@@ -826,17 +853,35 @@ export default function DashboardClient() {
         return;
       }
       if (response.ok && body.task) {
+        const created = body.task;
+        const now = Date.now();
+        const optimistic: Task = {
+          id: created.id ?? `pending-${now}`,
+          threadId: created.threadId,
+          threadTitle: text.replace(/\s+/g, " ").slice(0, 72),
+          prompt: created.prompt ?? text,
+          status: created.status ?? "pending",
+          route: created.route ?? "cloud",
+          result: null,
+          error: null,
+          createdAt: created.createdAt ?? now,
+          updatedAt: created.createdAt ?? now,
+          completedAt: null,
+          deviceName: null,
+        };
+        setTasks((prev) => [optimistic, ...prev.filter((task) => task.id !== optimistic.id)]);
         const macName =
-          devices.find((device) => device.id === (body.task?.deviceId ?? selectedDeviceId))?.name
+          devices.find((device) => device.id === (created.deviceId ?? selectedDeviceId))?.name
           ?? selectedDeviceLabel;
         setNotice(
-          body.task.route === "cloud"
+          created.route === "cloud"
             ? "Sent — running on the hosted VPS."
             : `Sent — running on ${macName}.`,
         );
         setPrompt("");
-        setSelectedThread(body.task.threadId);
-        await loadWorkspace();
+        setSelectedThread(created.threadId);
+        // Persist-before-live already wrote the row. Do not block the card on /api/me.
+        void loadWorkspace();
         window.requestAnimationFrame(() => {
           document.getElementById("run-output")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
         });
@@ -861,6 +906,8 @@ export default function DashboardClient() {
           }
         } else {
           setNotice(body.error ?? "Task routing failed");
+          // persist-before-live may have written the row before a 409 ack.
+          void loadWorkspace();
         }
       }
     } catch (error) {
@@ -1097,7 +1144,28 @@ export default function DashboardClient() {
     }
   }
 
-  if (!user || !organization) return <main className="loading-screen"><Mark /><p>Opening the control plane…</p></main>;
+  // Never hide #hermes-thread-list behind the identity fetch. E2E and a real
+  // phone both need the list locator visible (empty state still has the id).
+  if (!user || !organization) {
+    return (
+      <main className="dashboard-shell" data-workspace-hydrated="0">
+        <aside className="sidebar" aria-label="Hermes navigation">
+          <div className="sidebar-header">
+            <a href="/dashboard" className="brand" aria-label="ThumbGate dashboard"><Mark /><span>ThumbGate <small>Hermes Web</small></span></a>
+          </div>
+          <div className="sidebar-content" id="hermes-chat-rail">
+            <div className="workspace-label">CHATS</div>
+            <nav className="thread-list" id="hermes-thread-list" data-testid="hermes-thread-list" aria-label="Chats">
+              <div className="thread-list-empty" data-testid="thread-list-empty">Opening chats…</div>
+            </nav>
+          </div>
+        </aside>
+        <section className="dashboard-main">
+          <p>Opening the control plane…</p>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main
@@ -1125,7 +1193,9 @@ export default function DashboardClient() {
               {threads.length > 0 && <button type="button" className="clear-all-chats" onClick={() => { setThreadMenu(null); setChatDialog({ kind: "clear" }); }}>Clear all</button>}
             </div>
           </div>
-          <nav className="thread-list" id="hermes-thread-list" aria-label={`Chats, ${threadSortOrder} order`}>{visibleThreads.map((thread) => (
+          <nav className="thread-list" id="hermes-thread-list" data-testid="hermes-thread-list" aria-label={`Chats, ${threadSortOrder} order`}>{visibleThreads.length === 0 ? (
+            <div className="thread-list-empty" data-testid="thread-list-empty">{loadState === "loading" ? "Opening chats…" : "No chats yet"}</div>
+          ) : visibleThreads.map((thread) => (
             <div key={thread.id} className="thread-row">
               <button title={`${thread.title} — ${formatDateTime(thread.updatedAt)}`} aria-current={selectedThread === thread.id ? "page" : undefined} className={selectedThread === thread.id ? "side-item thread-item active" : "side-item thread-item"} onClick={() => openThread(thread.id)} onPointerEnter={() => void prefetchThreadDetails(thread.id)} onFocus={() => void prefetchThreadDetails(thread.id)}><span className="thread-icon">{thread.sourceSessionId ? "⌘" : "›_"}</span><span className="thread-copy"><strong>{thread.title}</strong><time dateTime={new Date(thread.updatedAt).toISOString()}>{formatDateTime(thread.updatedAt)}</time></span><em>{thread.messageCount || thread.taskCount}</em></button>
               <button type="button" className="thread-menu-trigger" aria-label={`Actions for ${thread.title}`} aria-haspopup="menu" aria-expanded={threadMenu === thread.id} onClick={() => setThreadMenu((current) => current === thread.id ? null : thread.id)}>•••</button>
@@ -1268,7 +1338,7 @@ export default function DashboardClient() {
         )}
 
         <nav className="metric-grid metric-grid-four" aria-label="Workspace status shortcuts">
-          <a className="metric-card" href="#web-settings" onClick={(event) => { event.preventDefault(); openSettingsPanel(); }} aria-label={`View ${devices.length} paired machines in settings`}><span>Paired machines</span><strong>{devices.length}</strong><small>{onlineDevices.length} online now</small><b>View machines →</b></a>
+          <a className="metric-card" href="#web-settings" onClick={(event) => { event.preventDefault(); openSettingsPanel(); }} aria-label={`View ${devices.length} hosted runners in settings`}><span>Hosted VPS</span><strong>{devices.length}</strong><small>{onlineDevices.length} online now</small><b>View runner →</b></a>
           <a className="metric-card" href="#task-activity" aria-label={`View ${activeTasks.length} active tasks`}><span>Active tasks</span><strong>{activeTasks.length}</strong><small>{tasks.filter((task) => task.route === "cloud" && !terminal.has(task.status)).length} routed to cloud</small><b>View activity →</b></a>
           <a className="metric-card" href="#task-activity" aria-label={`View task receipts; P95 completion is ${latency(p95CompletionLatency)}`}><span>P95 completion</span><strong>{latency(p95CompletionLatency)}</strong><small>{p95CompletionLatency === null ? "Waiting for completed runs" : "Measured from real task receipts"}</small><b>View receipts →</b></a>
           <a className="metric-card" href="#execution-safety" aria-label="Explain fenced execution safety" onClick={() => setSafetyExpanded(true)}><span>Execution safety</span><strong className="safe-copy">Fenced</strong><small>One signed runner; 90-second lease</small><b>Explain safety →</b></a>
@@ -1312,7 +1382,7 @@ export default function DashboardClient() {
               <span>
                 {activeTasks.some((task) => task.route === "cloud")
                   ? "Fenced VPS · no babysitting required"
-                  : "Waiting on your paired machine"}
+                  : "Hosted on a fenced VPS"}
               </span>
             </div>
             <div className="hermes-scroll-pane">
@@ -1322,7 +1392,7 @@ export default function DashboardClient() {
                 <article key={`task-user-${index}`} className="conversation-message role-user"><span>web</span><p>{task.prompt}</p></article>,
                 task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><FormattedMessage text={task.result} />{feedbackControls(task.id)}</article>
                   : task.error ? <article key={`task-error-${index}`} className="conversation-message role-error"><span>failed</span><FormattedMessage text={task.error} /></article>
-                  : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><p>Waiting for {task.route === "cloud" ? "the fenced VPS runner" : "your paired machine"} to pick this up…</p></article>
+                  : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><p>Waiting for the fenced VPS runner to pick this up…</p></article>
                   : null,
               ])}
             </div>}
@@ -1542,12 +1612,13 @@ export default function DashboardClient() {
               ) : null}
               <div className="account-recovery" style={{ marginTop: "1rem" }}><p>Signed in as <strong>{user.email}</strong>. If your machines are paired to another email, switch accounts here.</p><SignOutForm buttonClassName="button button-secondary button-small" data-testid="dashboard-switch-account">Switch account</SignOutForm></div>
               <p className="privacy-boundary">Bounded Hermes thread context syncs to this control plane. Tasks execute in isolated serverless leases.</p>
+              <p className="privacy-boundary" data-testid="hosted-not-computer-history">{HOSTED_NOT_COMPUTER_HISTORY} Least privilege: cannot read secrets. Private/incognito analogue: we do not ingest other people&apos;s Slack or DMs.</p>
             </section>
             <details className="panel safety-panel" id="execution-safety" open={safetyExpanded} onToggle={(event) => setSafetyExpanded(event.currentTarget.open)}>
               <summary><span><span className="eyebrow">EXECUTION SAFETY</span><strong>What “Fenced” means</strong></span><span aria-hidden="true">⌄</span></summary>
               <div className="safety-explanation">
                 <p>ThumbGate gives each task to one signed runner at a time. Its 90-second lease must keep renewing; if that runner disappears, the lease expires before another runner can take over.</p>
-                <ul><li>Prevents duplicate or stale runners from continuing work.</li><li>Rejects completion receipts from an expired lease.</li><li>All tasks run in isolated serverless cloud sandboxes.</li></ul>
+                <ul><li>Prevents duplicate or stale runners from continuing work.</li><li>Rejects completion receipts from an expired lease.</li><li>All tasks run in isolated serverless cloud sandboxes.</li><li>Not ChatGPT Computer History, not Windows Recall, not a Mac keylogger — the isolated fenced VPS does not grab the cursor.</li></ul>
                 <button
                   type="button"
                   className="button button-secondary button-small"

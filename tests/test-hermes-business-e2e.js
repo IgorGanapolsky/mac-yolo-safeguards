@@ -151,7 +151,10 @@ test('first-party funnel analytics are aggregate-only and content-free', () => {
   assert.match(route, /same-origin analytics only/);
   assert.match(route, /LEASH_ANALYTICS_UNAVAILABLE/);
   assert.match(health, /required D1 migrations are missing/);
-  assert.match(health, /LEASH_DATABASE_UNAVAILABLE/);
+  assert.match(health, /currentAdminSession/);
+  assert.doesNotMatch(health, /service: "leash-control"/);
+  assert.doesNotMatch(health, /LEASH_DATABASE_UNAVAILABLE/);
+  assert.match(health, /HOSTED_DATABASE_UNAVAILABLE/);
   assert.doesNotMatch(route, /prompt|thread|email|ip_address|user_agent|cookie/i);
 });
 

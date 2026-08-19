@@ -60,7 +60,7 @@ export function StartSurfaces() {
             <a
               href="/api/auth/login"
               className="button button-primary"
-              data-funnel-event="cloud_continuity_click"
+              data-funnel-event="hosted_checkout_click"
               data-testid="start-browser"
             >
               Start hosted Hermes — $10/mo

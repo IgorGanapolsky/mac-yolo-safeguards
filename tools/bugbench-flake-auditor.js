@@ -30,7 +30,13 @@ function auditSelectorResilience(locators) {
   for (const loc of locators) {
     if (loc.includes('nth-child') || loc.includes('div > div >') || /#[\w-]+ > \.[\w-]+/.test(loc)) {
       fragileLocators++;
-    } else if (loc.includes('data-testid') || loc.includes('aria-label') || loc.includes('role=')) {
+    } else if (
+      loc.includes('data-testid') ||
+      loc.includes('getByTestId') ||
+      loc.includes('aria-label') ||
+      loc.includes('role=') ||
+      loc.includes('getByRole')
+    ) {
       semanticLocators++;
     }
   }
@@ -72,7 +78,9 @@ function auditPassRateTrust(testRun) {
 
 function runBugBenchDiagnostic() {
   const sampleLocators = [
-    '[data-testid="chat-input"]',
+    '[data-testid="hermes-thread-list"]',
+    'getByRole("navigation", { name: /Chats/ })',
+    'getByTestId("hermes-thread-list")',
     '[aria-label="Send message"]',
     '#main-content > div:nth-child(2) > button.btn-primary',
     '[data-testid="vault-project-picker-chip"]'

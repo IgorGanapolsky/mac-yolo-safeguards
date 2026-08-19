@@ -68,6 +68,58 @@ capabilities:
                 pattern: '14-day trial'
               - in: .agents/CHIEF.md
                 pattern: 'Do not hero Continuity'
+      - key: OFFER-004
+        title: Give-work loop on the public landing
+        actor: buyer
+        goal: see how to give hosted Hermes a job without a desktop install
+        benefit: task-first path, not a connector marketplace or second SKU
+        lifecycle: production
+        acceptance_criteria:
+          - key: OFFER-004-AC1
+            criterion: Landing example-tasks include a Give/Works/Approve loop with per-job cta ids.
+            implements:
+              - apps/hermes-control-plane/app/page.tsx
+            tests:
+              - apps/hermes-control-plane/tests/perplexity-computer-steal.test.mjs
+            must_contain:
+              - in: apps/hermes-control-plane/app/page.tsx
+                pattern: 'Give hosted Hermes a job'
+              - in: apps/hermes-control-plane/app/page.tsx
+                pattern: 'id="example-tasks"'
+              - in: apps/hermes-control-plane/app/page.tsx
+                pattern: 'data-cta-id="watch-ci"'
+            must_not_contain:
+              - in: apps/hermes-control-plane/app/page.tsx
+                pattern: 'Gmail, Slack, Notion'
+              - in: apps/hermes-control-plane/app/page.tsx
+                pattern: 'ThumbGate Wake'
+      - key: OFFER-005
+        title: First-party blog on thumbgate.app
+        actor: buyer
+        goal: read Cursor-format engineering notes about hosted Hermes on the product domain
+        benefit: first-party /blog, not a second SKU and not thumbgate.ai
+        lifecycle: production
+        acceptance_criteria:
+          - key: OFFER-005-AC1
+            criterion: thumbgate.app/blog lists a dated product post with author and read time, linking Give hosted Hermes a job.
+            implements:
+              - apps/hermes-control-plane/app/blog/page.tsx
+              - apps/hermes-control-plane/lib/blog-posts.ts
+              - apps/hermes-control-plane/app/blog/[slug]/page.tsx
+            tests:
+              - apps/hermes-control-plane/tests/blog.test.mjs
+            must_contain:
+              - in: apps/hermes-control-plane/lib/blog-posts.ts
+                pattern: 'Give hosted Hermes a job'
+              - in: apps/hermes-control-plane/app/blog/page.tsx
+                pattern: 'min read'
+              - in: apps/hermes-control-plane/app/sitemap.ts
+                pattern: 'thumbgate.app/blog'
+            must_not_contain:
+              - in: apps/hermes-control-plane/lib/blog-posts.ts
+                pattern: 'Gmail, Slack, Notion'
+              - in: apps/hermes-control-plane/lib/blog-posts.ts
+                pattern: '$499'
   - key: HOST
     name: Hosting picker
     description: Cloud is the $10 offer. Local is the machine, not a second SKU.

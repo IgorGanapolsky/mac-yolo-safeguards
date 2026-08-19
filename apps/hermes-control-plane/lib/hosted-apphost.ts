@@ -3,6 +3,17 @@
  * before a cloud send is admitted. Running is not the same as ready.
  */
 
+import { advertiseHostedPaid, trustFromResource } from "./hosted-source-of-truth";
+import { certifyHostedLive } from "./hosted-live-iis.js";
+import {
+  resolveHostedFallback,
+  resolveNamedRunnerIdentity,
+} from "./hosted-model-fallback.js";
+
+/** Futurism 2026-08-19 contrast: we are not ChatGPT Computer History / Windows Recall. */
+export const HOSTED_NOT_COMPUTER_HISTORY =
+  "Hosted Hermes is not ChatGPT Computer History, not Windows Recall, and not a Mac keylogger. The isolated fenced VPS does not grab the cursor or capture keystrokes.";
+
 export const DEFAULT_RUNNER_HEALTH_URL = "https://igor-hermes-cloud-runner.fly.dev/health";
 export const RUNNER_STALE_MS = 60_000;
 export const RUNNER_PROBE_TIMEOUT_MS = 8_000;
@@ -34,6 +45,7 @@ export type HostedAdmitResult = {
 export type HostedResourceStatus = {
   status: HostedResourceState;
   message: string;
+  identity?: string | null;
 };
 
 const QUOTA_EXHAUSTED_RE = /Weekly\/Monthly Limit Exhausted/i;
@@ -140,9 +152,19 @@ export function browserHealthy(
   return runnerHealthy(health, now, staleMs);
 }
 
-export function modelHealthy(input: { lastError?: string | null; now: number }): boolean {
+export function modelHealthy(input: {
+  lastError?: string | null;
+  now: number;
+  failedProviders?: string[];
+}): boolean {
   const lastError = input.lastError ?? modelErrorCache?.errorText ?? null;
   if (!lastError) return true;
+  const route = resolveHostedFallback({
+    lastError,
+    failedProviders: input.failedProviders,
+  });
+  // Quota / FAILED on the first provider is failover, not a dead VPS.
+  if (route.modelAlive) return true;
   if (!isQuotaOrOverloadError(lastError)) return true;
   const reset = parseResetEpoch(lastError) ?? modelErrorCache?.resetEpoch ?? null;
   if (reset != null && input.now >= reset) return true;
@@ -179,6 +201,7 @@ function waitingMessage(waitingOn: HostedResourceName[], modelError?: string | n
 export function waitForHostedReady(input: {
   runner: { ok?: boolean; lastPollAt?: number | null };
   modelError?: string | null;
+  failedProviders?: string[];
   browser?: { ok?: boolean; lastPollAt?: number | null } | null;
   required?: HostedResourceName[];
   now: number;
@@ -186,7 +209,11 @@ export function waitForHostedReady(input: {
   const required = input.required ?? ["runner", "model"];
   const waitingOn: HostedResourceName[] = [];
   if (required.includes("runner") && !runnerHealthy(input.runner, input.now)) waitingOn.push("runner");
-  if (required.includes("model") && !modelHealthy({ lastError: input.modelError, now: input.now })) waitingOn.push("model");
+  if (required.includes("model") && !modelHealthy({
+    lastError: input.modelError,
+    now: input.now,
+    failedProviders: input.failedProviders,
+  })) waitingOn.push("model");
   if (required.includes("browser") && !browserHealthy(input.browser, input.now)) waitingOn.push("browser");
   const ready = waitingOn.length === 0;
   let message = waitingMessage(waitingOn, input.modelError);
@@ -224,6 +251,59 @@ export function lastCachedModelError(): string | null {
   return modelErrorCache?.errorText ?? null;
 }
 
+export function cachedRunnerHealth(): {
+  known: boolean;
+  health: RunnerHealthInput | null;
+  at: number | null;
+} {
+  if (!runnerProbeCache) {
+    return { known: false, health: null, at: null };
+  }
+  return { known: true, health: runnerProbeCache.health, at: runnerProbeCache.at };
+}
+
+export function publicHealthFromCache(input: {
+  now?: number;
+  stripeConfigured?: boolean;
+} = {}): {
+  known: boolean;
+  turningOn: boolean;
+  advertisePaid: boolean;
+  trust: { runner: "verified" | "reachable" | "failed"; model: "verified" | "reachable" | "failed" };
+} {
+  const now = input.now ?? Date.now();
+  const cached = cachedRunnerHealth();
+  if (!cached.known || !cached.health) {
+    return {
+      known: false,
+      turningOn: true,
+      advertisePaid: false,
+      trust: { runner: "reachable", model: "reachable" },
+    };
+  }
+  const described = describeHostedResources({
+    runner: cached.health,
+    modelError: lastCachedModelError(),
+    now,
+    runnerKnown: true,
+  });
+  const runnerTrust = trustFromResource(described.hostedRunner.status);
+  const modelTrust = trustFromResource(described.hostedModel.status);
+  const advertisePaid = advertiseHostedPaid({
+    runnerTrust,
+    modelTrust,
+    stripeConfigured: input.stripeConfigured,
+    cacheKnown: true,
+  });
+  return {
+    known: true,
+    turningOn: runnerTrust !== "verified" || modelTrust !== "verified",
+    advertisePaid,
+    trust: { runner: runnerTrust, model: modelTrust },
+  };
+}
+
+
 export function clearHostedAppHostCaches(): void {
   modelErrorCache = null;
   runnerProbeCache = null;
@@ -241,37 +321,60 @@ export function hostedConnectionCopy(input: {
   modelStatus: HostedResourceState;
   browserStatus?: HostedResourceState;
   message?: string | null;
+  spendUsd?: number;
+  spendApproved?: boolean;
+  runnerIdentity?: string | null;
 }): {
   headline: string;
   body: string;
   badge: string;
   live: boolean;
+  advertisePaid: boolean;
+  trust: { runner: "verified" | "reachable" | "failed"; model: "verified" | "reachable" | "failed" };
 } {
-  const live = input.runnerStatus === "healthy"
-    && input.modelStatus === "healthy"
-    && (input.browserStatus == null || input.browserStatus === "healthy");
+  // Exact IIS: live only when WaitFor-healthy + spend=0 unless approved.
+  // Persist-before-live is unchanged — this does not probe Fly.
+  const cert = certifyHostedLive({
+    runnerHealthy: input.runnerStatus === "healthy",
+    modelAlive: input.modelStatus === "healthy",
+    browserHealthy: input.browserStatus == null ? undefined : input.browserStatus === "healthy",
+    spendUsd: input.spendUsd ?? 0,
+    spendApproved: input.spendApproved === true,
+    runnerIdentity: input.runnerIdentity,
+  });
+  const live = cert.live;
+  const runnerTrust = trustFromResource(input.runnerStatus);
+  const modelTrust = trustFromResource(input.modelStatus);
+  const advertisePaid = advertiseHostedPaid({ runnerTrust, modelTrust });
+  const trust = { runner: runnerTrust, model: modelTrust };
   if (live) {
     return {
       headline: "Hosted Hermes live",
-      body: "ThumbGate runs on a fenced VPS — $10/mo. Approvals in thumbgate.app. The runner and model are healthy.",
-      badge: "READY",
+      body: `ThumbGate runs on a fenced VPS — $10/mo. Approvals in thumbgate.app. The runner and model are healthy. ${HOSTED_NOT_COMPUTER_HISTORY}`,
+      badge: "verified",
       live: true,
+      trust,
+      advertisePaid,
     };
   }
   const anyUnhealthy = input.runnerStatus === "unhealthy" || input.modelStatus === "unhealthy";
-  const product = "Hosted Hermes is on a fenced VPS ($10/mo). Approvals in thumbgate.app.";
+  const product = `Hosted Hermes is on a fenced VPS ($10/mo). Approvals in thumbgate.app. ${HOSTED_NOT_COMPUTER_HISTORY}`;
   const detail = input.message?.trim();
   return {
     headline: anyUnhealthy ? "Hosted Hermes not ready" : "Hosted Hermes waiting",
     body: detail ? `${detail} ${product}` : `${product} The runner being up is not enough — runner and model must both be healthy before a cloud send.`,
-    badge: "WAITING",
+    badge: anyUnhealthy ? "failed" : "reachable",
     live: false,
+    trust,
+    advertisePaid,
   };
 }
 
 export function describeHostedResources(input: {
   runner: { ok?: boolean; lastPollAt?: number | null };
   modelError?: string | null;
+  failedProviders?: string[];
+  runnerIdentity?: string | null;
   browser?: { ok?: boolean; lastPollAt?: number | null } | null;
   now: number;
   runnerKnown?: boolean;
@@ -287,10 +390,18 @@ export function describeHostedResources(input: {
   const wait = waitForHostedReady({
     runner: input.runner,
     modelError: input.modelError,
+    failedProviders: input.failedProviders,
     now: input.now,
   });
   const runnerOk = runnerHealthy(input.runner, input.now);
-  const modelOk = modelHealthy({ lastError: input.modelError, now: input.now });
+  const modelOk = modelHealthy({
+    lastError: input.modelError,
+    now: input.now,
+    failedProviders: input.failedProviders,
+  });
+  const runnerIdentity = resolveNamedRunnerIdentity({
+    runnerIdentity: input.runnerIdentity,
+  });
   const browserUrl = browserHealthUrl();
   const browserOk = browserHealthy(input.browser, input.now);
   const browserKnown = input.browserKnown === true;
@@ -319,11 +430,17 @@ export function describeHostedResources(input: {
       message: runnerOk
         ? "Hosted runner is healthy."
         : "Hosted runner is not ready (health ok and a fresh lastPollAt are required).",
+      identity: runnerIdentity,
     },
     hostedModel: {
       status: modelOk ? "healthy" : "unhealthy",
       message: modelOk
-        ? "Hosted model is ready."
+        ? (resolveHostedFallback({
+            lastError: input.modelError,
+            failedProviders: input.failedProviders,
+          }).failover
+          ? "Hosted model failed over to the next provider. A quota miss is not a dead VPS."
+          : "Hosted model is ready.")
         : (input.modelError ? mapProviderError(input.modelError) : "Hosted model is not ready."),
     },
     hostedBrowser,

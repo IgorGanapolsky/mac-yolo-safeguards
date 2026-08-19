@@ -1,0 +1,7 @@
+A Claude Code user's 10 background tasks sat stuck on "Running" for 34+ hours and burned ~1M tokens before they came back to check (github.com/anthropics/claude-code issue #75314, still open).
+
+Nothing dangerous happened. The tasks just ran quiet, and nobody was watching.
+
+I check mine from my phone now instead of guessing. Free approve/deny gating, forever, on web + mobile.
+
+https://thumbgate.app/?utm_source=threads&utm_medium=social&utm_campaign=2026-08-19-am&cta_id=2026-08-19-am_threads_home
