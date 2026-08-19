@@ -716,8 +716,21 @@ export default function DashboardClient() {
     // "loading" forever with no error shown and no retry signal.
     const run = () => { void loadWorkspace().catch(() => setLoadState("error")); };
     const initial = window.setTimeout(run, 0);
-    const timer = window.setInterval(run, 5000);
-    return () => { window.clearTimeout(initial); window.clearInterval(timer); };
+    // 15s cadence, foreground-only: the old always-on 5s poll made every open
+    // dashboard tab cost ~17k Workers requests/day against the 100k free-tier
+    // daily cap (2026-08-19 quota incident). Hidden tabs stop polling; a fresh
+    // run fires immediately when the tab returns to the foreground.
+    let timer: number | undefined;
+    const start = () => { if (timer === undefined) timer = window.setInterval(run, 15000); };
+    const stop = () => { if (timer !== undefined) { window.clearInterval(timer); timer = undefined; } };
+    const onVisibility = () => { if (document.hidden) stop(); else { run(); start(); } };
+    if (!document.hidden) start();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.clearTimeout(initial);
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
     // Intentionally not re-binding when selectedThread flips — list poll stays stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- shell-first: one poller, not one-per-thread
   }, []);
