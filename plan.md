@@ -3269,3 +3269,18 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 | plan.md (append only) | grok-gurobi-beyond-llms-20260819 | 2026-08-19T17:15:00Z |
 
 - 2026-08-19T17:15Z `grok-gurobi-beyond-llms`: Podcast https://www.gurobi.com/resources/podcasts/beyond-llms (Adam Dejans Jr / David O'Keefe). Steal: governance — certified $10/ADB proof is observe-only; append-only JSONL audit; fingerprint for repeatability. Did not copy audio/transcript. No Intelligence Hub, no trial SKU, no ThumbGate paid knapsack (ECI). AGENT-428.
+
+| T-RULE-SPRAWL-NOT-OPENSEARCH-20260819 | New Stack email steal: alert-on-everything vs eval budget; concurrent retrieval latency stacking; human review vs verified pipelines. Knapsack + singleflight/TTL retrieve + review-volume-is-not-control. Do not clone OpenSearch/PPL/UAM (PR #1868). | in_progress | grok-rule-sprawl-20260819 | `tools/rule-sprawl.js` (new), `tests/test-rule-sprawl.js` (new), `tests/lesson-retrieval.test.js` (new), `.agents/skills/rule-sprawl-not-opensearch/`, `SKILLS.md` (append row), `plan.md` | AGENT-429 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/rule-sprawl.js | grok-rule-sprawl-20260819 | 2026-08-19T17:30:00Z |
+| tests/test-rule-sprawl.js | grok-rule-sprawl-20260819 | 2026-08-19T17:30:00Z |
+| tests/lesson-retrieval.test.js | grok-rule-sprawl-20260819 | 2026-08-19T17:30:00Z |
+| .agents/skills/rule-sprawl-not-opensearch/SKILL.md | grok-rule-sprawl-20260819 | 2026-08-19T17:30:00Z |
+| .agents/skills/rule-sprawl-not-opensearch/skill-card.md | grok-rule-sprawl-20260819 | 2026-08-19T17:30:00Z |
+| SKILLS.md (append row only) | grok-rule-sprawl-20260819 | 2026-08-19T17:30:00Z |
+| plan.md (append only) | grok-rule-sprawl-20260819 | 2026-08-19T17:30:00Z |
+
+- 2026-08-19T17:30Z `grok-rule-sprawl`: TNS webinar email `~/Downloads/newstack.pdf` (2026-08-19). Steal: load-all vs knapsack under eval/token budget; retrieveWithLatencyBudget (singleflight + stale TTL); review volume is not the control. Did not clone OpenSearch/PPL/UAM (sibling PR #1868). No observability SKU, no ThumbGate paid outreach (ECI). `capturedRevenueUsd=0`. AGENT-429.

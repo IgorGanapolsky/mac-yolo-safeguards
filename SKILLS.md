@@ -65,6 +65,7 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 | `ci-pr-monitor` | Repeatable workflow for monitoring CI check status, tracking PR merge-readiness, and verifying auto-merge success using the gh CLI. | `.agents/skills/ci-pr-monitor/SKILL.md` | local |
 | `live-dashboard-verify` | Verify live ThumbGate.app service health, trace header propagation, and production deployment status using curl + BrowserOS. | `.agents/skills/live-dashboard-verify/SKILL.md` | local |
 | `revenue-gap-tracker` | Track revenue monitoring gaps, identify blocked data sources, and determine what's needed to unblock revenue monitoring (3→5). | `.agents/skills/revenue-gap-tracker/SKILL.md` | local |
+| `rule-sprawl-not-opensearch` | New Stack process steal: prevention-rule knapsack vs eval budget, retrieval latency/singleflight, review volume is not the control. Do not clone OpenSearch/PPL/UAM. Slash: /rule-sprawl-not-opensearch. | `.agents/skills/rule-sprawl-not-opensearch/SKILL.md` | local |
 
 ---
 
