@@ -1,6 +1,11 @@
 const body = `# ThumbGate
 
-> ThumbGate sells hosted Hermes on a fenced VPS for autonomous agent work under LLM-as-a-Judge gates and renewable leases. Hosted Hermes is the product on thumbgate.app — not Mac pairing. Approvals happen in the thumbgate.app browser. There is no phone leash on this product.
+> Hosted Hermes is $10/mo with a 14-day trial. Checkout: https://thumbgate.app/. ThumbGate sells hosted Hermes on a fenced VPS for autonomous agent work under LLM-as-a-Judge gates and renewable leases. Hosted Hermes is the product on thumbgate.app — not Mac pairing. Approvals happen in the thumbgate.app browser. There is no phone leash on this product.
+
+## Offer
+- Price: $10/month. 14-day trial. Cancel anytime.
+- Checkout: https://thumbgate.app/
+- Execution: fenced VPS. Not a Mac-pair product. No phone leash.
 
 ## Canonical URL
 - https://thumbgate.app/
