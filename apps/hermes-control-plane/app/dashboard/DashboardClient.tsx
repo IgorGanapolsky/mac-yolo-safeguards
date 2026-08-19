@@ -1140,7 +1140,7 @@ export default function DashboardClient() {
           </div>
           <div className="sidebar-content" id="hermes-chat-rail">
             <div className="workspace-label">CHATS</div>
-            <nav className="thread-list" id="hermes-thread-list" aria-label="Chats">
+            <nav className="thread-list" id="hermes-thread-list" data-testid="hermes-thread-list" aria-label="Chats">
               <div className="thread-list-empty" data-testid="thread-list-empty">Opening chats…</div>
             </nav>
           </div>
@@ -1178,7 +1178,7 @@ export default function DashboardClient() {
               {threads.length > 0 && <button type="button" className="clear-all-chats" onClick={() => { setThreadMenu(null); setChatDialog({ kind: "clear" }); }}>Clear all</button>}
             </div>
           </div>
-          <nav className="thread-list" id="hermes-thread-list" aria-label={`Chats, ${threadSortOrder} order`}>{visibleThreads.length === 0 ? (
+          <nav className="thread-list" id="hermes-thread-list" data-testid="hermes-thread-list" aria-label={`Chats, ${threadSortOrder} order`}>{visibleThreads.length === 0 ? (
             <div className="thread-list-empty" data-testid="thread-list-empty">{loadState === "loading" ? "Opening chats…" : "No chats yet"}</div>
           ) : visibleThreads.map((thread) => (
             <div key={thread.id} className="thread-row">
