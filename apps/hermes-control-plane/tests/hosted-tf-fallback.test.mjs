@@ -5,7 +5,10 @@ import { GATED_ACTION_KINDS } from "../lib/hosted-primitives.mjs";
 import {
   GATEWAY_BUDGET,
   HOSTED_PROVIDER_FALLBACK,
+  NAMED_FREE_FALLBACK,
+  paidMetersForJob,
   resolveHostedFallback,
+  shouldFirePaidMeter,
   shouldKeepCallingRoute,
 } from "../lib/hosted-model-fallback.js";
 import { HOSTED_GATE_LINES, trimHostedPrompt } from "../lib/hosted-prompt-trim.js";
@@ -79,4 +82,14 @@ test("does not weaken persist-before-live or the money/customer/production gate"
   assert.doesNotMatch(tasksRoute, /probeBrowserHealth/);
   assert.match(apphost, /certifyHostedLive/);
   assert.deepEqual([...GATED_ACTION_KINDS], ["money", "customer", "production"]);
+});
+
+test("named fallback covering a job does not fire two paid meters", () => {
+  assert.equal(NAMED_FREE_FALLBACK, "deepseek-free");
+  const hop = resolveHostedFallback({ lastError: "status=FAILED quota Weekly/Monthly Limit Exhausted" });
+  assert.equal(hop.selected.id, "deepseek-free");
+  assert.deepEqual(paidMetersForJob({ lastError: "status=FAILED quota Weekly/Monthly Limit Exhausted" }), []);
+  assert.equal(shouldFirePaidMeter({ lastError: hop.failedProviders.join(","), meters: ["supergrok", "poolside"] }), false);
+  assert.equal(shouldKeepCallingRoute({ meters: ["supergrok", "poolside"] }), false);
+  assert.equal(shouldFirePaidMeter({ meter: "chatgpt-plus" }), false);
 });

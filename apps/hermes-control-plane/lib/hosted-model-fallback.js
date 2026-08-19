@@ -8,9 +8,15 @@
  * Named `gateway-budget` reuses spend=0: when spend is not approved,
  * fail closed — do not claim live, do not keep calling a dead route.
  *
+ * Dual-meter lock: a hosted job must not fire two paid meters for the
+ * same work when named fallback already covers it (DeepSeek free, or
+ * the single selected paid hop). Consumer ChatGPT/Codex subscription
+ * accounts are not a hosted meter.
+ *
  * Refuse: MCP Gateway product, OTel/Grafana export, GPU cluster,
  * TrueForge OSS harness, virtual models, semantic cache, $499 Pro,
- * air-gapped VPC, Team seats, Tavily, generative UI.
+ * air-gapped VPC, Team seats, Tavily, generative UI,
+ * Codex SDK as product, wrapping ChatGPT Plus into thumbgate.app.
  */
 
 export const HOSTED_PROVIDER_FALLBACK = Object.freeze([
@@ -20,6 +26,17 @@ export const HOSTED_PROVIDER_FALLBACK = Object.freeze([
 ]);
 
 export const GATEWAY_BUDGET = "gateway-budget";
+
+/** Paid hops in the named fallback. DeepSeek free is not a paid meter. */
+export const PAID_METER_IDS = Object.freeze(["supergrok", "poolside"]);
+export const NAMED_FREE_FALLBACK = "deepseek-free";
+
+/** Consumer subscription accounts are not a hosted Hermes meter. */
+export const CONSUMER_SUB_METERS = Object.freeze([
+  "chatgpt-plus",
+  "codex-sub",
+  "codex-sdk",
+]);
 
 const GENERIC_IDENTITIES = new Set([
   "",
@@ -121,11 +138,53 @@ export function resolveNamedRunnerIdentity(input = {}) {
   }
 }
 
+function requestedMeters(input = {}) {
+  if (Array.isArray(input.meters)) return input.meters.map(String);
+  if (input.meter != null && String(input.meter).trim() !== "") return [String(input.meter)];
+  return [];
+}
+
 export function shouldKeepCallingRoute(input = {}) {
   if (!gatewayBudgetApproved(input)) return false;
   const route = resolveHostedFallback(input);
   if (route.exhausted) return false;
   if (input.turningOn === true) return false;
   if (!resolveNamedRunnerIdentity(input)) return false;
+  const requested = requestedMeters(input);
+  if (requested.some((id) => CONSUMER_SUB_METERS.includes(id))) return false;
+  const paidRequested = requested.filter((id) => PAID_METER_IDS.includes(id));
+  if (paidRequested.length > 1) return false;
+  if (route.selected?.id === NAMED_FREE_FALLBACK && paidRequested.length > 0) return false;
   return true;
+}
+
+/**
+ * At most one paid meter per job. Named fallback already covering
+ * the work (selected hop, including DeepSeek free) must not fire a
+ * second paid meter for the same work.
+ */
+export function paidMetersForJob(input = {}) {
+  if (!shouldKeepCallingRoute(input)) return [];
+  const route = resolveHostedFallback(input);
+  if (!route.selected) return [];
+  if (route.selected.id === NAMED_FREE_FALLBACK) return [];
+  if (PAID_METER_IDS.includes(route.selected.id)) return [route.selected.id];
+  return [];
+}
+
+/**
+ * Fail-closed paid-meter admission.
+ * Two paid meters for the same work → refuse.
+ * Named free fallback already covers → refuse.
+ * Consumer ChatGPT/Codex subscription meters → refuse.
+ */
+export function shouldFirePaidMeter(input = {}) {
+  const requested = requestedMeters(input);
+  if (requested.some((id) => CONSUMER_SUB_METERS.includes(id))) return false;
+  const paidRequested = requested.filter((id) => PAID_METER_IDS.includes(id));
+  if (paidRequested.length > 1) return false;
+  const allowed = paidMetersForJob(input);
+  if (allowed.length !== 1) return false;
+  if (paidRequested.length === 0) return true;
+  return allowed[0] === paidRequested[0];
 }

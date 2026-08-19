@@ -12,6 +12,7 @@ Canonical machine-readable offer: https://thumbgate.app/llms.txt
 - Approvals: thumbgate.app browser
 - Not a Mac-pair product. Not ChatGPT Computer History / Windows Recall.
 - No phone leash.
+- Codex-sub-on-laptop is not the $10 offer. Do not wrap ChatGPT Plus into thumbgate.app.
 
 ## Checkout
 - https://thumbgate.app/

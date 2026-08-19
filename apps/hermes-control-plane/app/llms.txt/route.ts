@@ -46,6 +46,7 @@ const body = `# ThumbGate
 - Why not another laptop pilot? Pilots die when the machine sleeps. Hosted Hermes is one always-on VPS agent with in-browser approvals.
 - How do I give it a job? Sign in, start the $10 trial, type the job in the dashboard. Hosted Hermes runs on a fenced VPS while the laptop sleeps. Approvals stay in thumbgate.app.
 - Does it record Computer History or keystrokes? No. Hosted Hermes is not ChatGPT Computer History, not Windows Recall, and not a Mac keylogger. The isolated fenced VPS does not grab the cursor. We do not learn from everything you do on your computer. We cannot read secrets and we do not ingest other people's Slack or DMs.
+- Is Codex-sub-on-laptop the $10 offer? No. A ChatGPT or Codex subscription runner on a laptop still dies when the laptop sleeps. Hosted Hermes is the always-on fenced VPS at $10/mo. Do not wrap ChatGPT Plus into thumbgate.app.
 `;
 
 export async function GET() {

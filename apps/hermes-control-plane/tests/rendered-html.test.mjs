@@ -154,6 +154,9 @@ test("builds the public hosted Hermes landing page", async () => {
   assert.match(page, /How do I give it a job\?/);
   assert.match(page, /What is ThumbGate\?/);
   assert.match(page, /Why not just run another agent pilot/);
+  assert.match(page, /Can I use the AI plan I already pay for instead\?/);
+  assert.match(page, /use the plan you already pay for/);
+  assert.match(page, /Codex-sub-on-laptop path is not this product/);
   assert.match(page, /Where do approvals happen\?/);
   assert.match(page, /What if the agent wants to kill a process or copy itself\?/);
   assert.match(page, /does not auto-run that/);
@@ -212,6 +215,8 @@ test("builds the public hosted Hermes landing page", async () => {
   assert.match(llms, /fenced VPS agent execution|fenced cloud VPS/i);
   assert.match(llms, /Do I pair my Mac\? No/);
   assert.match(llms, /Why not another laptop pilot/);
+  assert.match(llms, /Is Codex-sub-on-laptop the \$10 offer\? No/);
+  assert.match(llms, /Do not wrap ChatGPT Plus into thumbgate\.app/);
   assert.doesNotMatch(page, /Igor|Ganapolsky/i);
   assert.doesNotMatch(`${layout}\n${robots}\n${sitemap}\n${llms}`, /Igor|Ganapolsky/i);
   assert.doesNotMatch(page, /codex-preview|react-loading-skeleton/);
