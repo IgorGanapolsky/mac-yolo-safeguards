@@ -66,6 +66,7 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 | `live-dashboard-verify` | Verify live ThumbGate.app service health, trace header propagation, and production deployment status using curl + BrowserOS. | `.agents/skills/live-dashboard-verify/SKILL.md` | local |
 | `revenue-gap-tracker` | Track revenue monitoring gaps, identify blocked data sources, and determine what's needed to unblock revenue monitoring (3→5). | `.agents/skills/revenue-gap-tracker/SKILL.md` | local |
 | `rule-sprawl-not-opensearch` | New Stack process steal: prevention-rule knapsack vs eval budget, retrieval latency/singleflight, review volume is not the control. Do not clone OpenSearch/PPL/UAM. Slash: /rule-sprawl-not-opensearch. | `.agents/skills/rule-sprawl-not-opensearch/SKILL.md` | local |
+| `hidden-entry-not-brighttalk` | BrightTALK process steal: interest-ranked digest of hidden tool-call entry points (PreToolUse unwired, dynamic tools, missing identity). Do not clone BrightTALK/SailPoint/ISO 42001. Slash: /hidden-entry-not-brighttalk. | `.agents/skills/hidden-entry-not-brighttalk/SKILL.md` | local |
 
 ---
 
