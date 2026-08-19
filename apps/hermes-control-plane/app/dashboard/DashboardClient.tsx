@@ -593,12 +593,24 @@ export default function DashboardClient() {
       return;
     }
     const identity = await me.json() as {
-      user: User;
-      organization: Organization;
+      authenticated?: boolean;
+      user?: User;
+      organization?: Organization;
       continuityUsage?: ContinuityUsage;
       hostedRunner?: HostedResourceView;
       hostedModel?: HostedResourceView;
     };
+    // /api/me is 200 + authenticated:false (not 401) when the cookie is missing.
+    // Do not stay on "Opening the control plane…" forever.
+    if (identity.authenticated === false) {
+      const returnTo = `${window.location.pathname}${window.location.search}`;
+      window.location.replace(`/api/auth/login?return_to=${encodeURIComponent(returnTo)}`);
+      return;
+    }
+    if (!identity.user || !identity.organization) {
+      setLoadState("error");
+      return;
+    }
     setUser(identity.user);
     setOrganization(identity.organization);
     if (identity.continuityUsage) setContinuityUsage(identity.continuityUsage);
@@ -811,7 +823,7 @@ export default function DashboardClient() {
         }),
       });
       let body: {
-        task?: { route: string; threadId: string; preference?: string; deviceId?: string; traceId?: string };
+        task?: { id?: string; route: string; threadId: string; status?: string; prompt?: string; createdAt?: number; preference?: string; deviceId?: string; traceId?: string };
         error?: string;
         code?: string;
         limit?: number | null;
@@ -826,17 +838,35 @@ export default function DashboardClient() {
         return;
       }
       if (response.ok && body.task) {
+        const created = body.task;
+        const now = Date.now();
+        const optimistic: Task = {
+          id: created.id ?? `pending-${now}`,
+          threadId: created.threadId,
+          threadTitle: text.replace(/\s+/g, " ").slice(0, 72),
+          prompt: created.prompt ?? text,
+          status: created.status ?? "pending",
+          route: created.route ?? "cloud",
+          result: null,
+          error: null,
+          createdAt: created.createdAt ?? now,
+          updatedAt: created.createdAt ?? now,
+          completedAt: null,
+          deviceName: null,
+        };
+        setTasks((prev) => [optimistic, ...prev.filter((task) => task.id !== optimistic.id)]);
         const macName =
-          devices.find((device) => device.id === (body.task?.deviceId ?? selectedDeviceId))?.name
+          devices.find((device) => device.id === (created.deviceId ?? selectedDeviceId))?.name
           ?? selectedDeviceLabel;
         setNotice(
-          body.task.route === "cloud"
+          created.route === "cloud"
             ? "Sent — running on the hosted VPS."
             : `Sent — running on ${macName}.`,
         );
         setPrompt("");
-        setSelectedThread(body.task.threadId);
-        await loadWorkspace();
+        setSelectedThread(created.threadId);
+        // Persist-before-live already wrote the row. Do not block the card on /api/me.
+        void loadWorkspace();
         window.requestAnimationFrame(() => {
           document.getElementById("run-output")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
         });
@@ -861,6 +891,8 @@ export default function DashboardClient() {
           }
         } else {
           setNotice(body.error ?? "Task routing failed");
+          // persist-before-live may have written the row before a 409 ack.
+          void loadWorkspace();
         }
       }
     } catch (error) {
@@ -1097,7 +1129,28 @@ export default function DashboardClient() {
     }
   }
 
-  if (!user || !organization) return <main className="loading-screen"><Mark /><p>Opening the control plane…</p></main>;
+  // Never hide #hermes-thread-list behind the identity fetch. E2E and a real
+  // phone both need the list locator visible (empty state still has the id).
+  if (!user || !organization) {
+    return (
+      <main className="dashboard-shell" data-workspace-hydrated="0">
+        <aside className="sidebar" aria-label="Hermes navigation">
+          <div className="sidebar-header">
+            <a href="/dashboard" className="brand" aria-label="ThumbGate dashboard"><Mark /><span>ThumbGate <small>Hermes Web</small></span></a>
+          </div>
+          <div className="sidebar-content" id="hermes-chat-rail">
+            <div className="workspace-label">CHATS</div>
+            <nav className="thread-list" id="hermes-thread-list" aria-label="Chats">
+              <div className="thread-list-empty" data-testid="thread-list-empty">Opening chats…</div>
+            </nav>
+          </div>
+        </aside>
+        <section className="dashboard-main">
+          <p>Opening the control plane…</p>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main
@@ -1125,7 +1178,9 @@ export default function DashboardClient() {
               {threads.length > 0 && <button type="button" className="clear-all-chats" onClick={() => { setThreadMenu(null); setChatDialog({ kind: "clear" }); }}>Clear all</button>}
             </div>
           </div>
-          <nav className="thread-list" id="hermes-thread-list" aria-label={`Chats, ${threadSortOrder} order`}>{visibleThreads.map((thread) => (
+          <nav className="thread-list" id="hermes-thread-list" aria-label={`Chats, ${threadSortOrder} order`}>{visibleThreads.length === 0 ? (
+            <div className="thread-list-empty" data-testid="thread-list-empty">{loadState === "loading" ? "Opening chats…" : "No chats yet"}</div>
+          ) : visibleThreads.map((thread) => (
             <div key={thread.id} className="thread-row">
               <button title={`${thread.title} — ${formatDateTime(thread.updatedAt)}`} aria-current={selectedThread === thread.id ? "page" : undefined} className={selectedThread === thread.id ? "side-item thread-item active" : "side-item thread-item"} onClick={() => openThread(thread.id)} onPointerEnter={() => void prefetchThreadDetails(thread.id)} onFocus={() => void prefetchThreadDetails(thread.id)}><span className="thread-icon">{thread.sourceSessionId ? "⌘" : "›_"}</span><span className="thread-copy"><strong>{thread.title}</strong><time dateTime={new Date(thread.updatedAt).toISOString()}>{formatDateTime(thread.updatedAt)}</time></span><em>{thread.messageCount || thread.taskCount}</em></button>
               <button type="button" className="thread-menu-trigger" aria-label={`Actions for ${thread.title}`} aria-haspopup="menu" aria-expanded={threadMenu === thread.id} onClick={() => setThreadMenu((current) => current === thread.id ? null : thread.id)}>•••</button>
