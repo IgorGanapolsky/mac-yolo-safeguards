@@ -1,4 +1,9 @@
 appId: com.iganapolsky.hermesmobile
+env:
+  # Supplied at run time: maestro test -e GATEWAY_API_KEY=...
+  # NEVER commit a real key here (2026-08-19: a live gateway key sat in this
+  # PUBLIC repo for ~25 days and had to be rotated).
+  GATEWAY_API_KEY: REPLACE_ME
 ---
 - launchApp
 - runFlow: e2e-bootstrap.yaml
@@ -14,7 +19,7 @@ appId: com.iganapolsky.hermesmobile
     speed: 35
 - tapOn:
     id: "gateway-api-key-input"
-- inputText: "sk-hermes-api-server-key-2026-06-15"
+- inputText: "${GATEWAY_API_KEY}"
 - runFlow:
     when:
       platform: android
