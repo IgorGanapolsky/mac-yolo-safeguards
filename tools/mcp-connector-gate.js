@@ -126,7 +126,7 @@ const INJECTION_PATTERNS = [
   {
     id: 'environment_manipulation',
     name: 'Hidden instruction via encoding',
-    re: /<script[^>]*>.*?<\/script[^>]*>|\bbase64\s+--decode|eval\s*\(|atob\s*\(|String\.fromCharCode/gi,
+    re: /\b(?:<script\b|<\/script\b)|\bbase64\s+--decode|eval\s*\(|atob\s*\(|String\.fromCharCode/gi,
     severity: 'medium',
   },
 ];
@@ -358,10 +358,10 @@ function assessServerRisk(server, opts) {
           break;
         }
       }
-      if (residency === 'unknown' && parsed.hostname.endsWith('googleapis.com')) {
+      if (residency === 'unknown' && matchesDomain(parsed.hostname, 'googleapis.com')) {
         residency = 'us';
       }
-      if (residency === 'unknown' && (parsed.hostname.endsWith('sharepoint.com') || parsed.hostname.endsWith('microsoft.com') || parsed.hostname.endsWith('microsoftonline.com'))) {
+      if (residency === 'unknown' && (matchesDomain(parsed.hostname, 'sharepoint.com') || matchesDomain(parsed.hostname, 'microsoft.com') || matchesDomain(parsed.hostname, 'microsoftonline.com'))) {
         residency = 'us';
       }
     } catch (e) {
