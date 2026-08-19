@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Thin wrapper for tools/git-at-scale-engine.js
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+exec node "$ROOT/tools/git-at-scale-engine.js" "$@"
