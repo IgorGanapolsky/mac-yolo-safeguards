@@ -94,14 +94,21 @@ describe("runnerHealthy", () => {
 });
 
 describe("modelHealthy", () => {
-  it("stays unhealthy until the reset epoch, then recovers", () => {
-    expect(modelHealthy({ lastError: QUOTA, now: RESET_EPOCH - 1 })).toBe(false);
+  it("fails over on a first-provider quota miss instead of painting the model dead", () => {
+    expect(modelHealthy({ lastError: QUOTA, now: RESET_EPOCH - 1 })).toBe(true);
     expect(modelHealthy({ lastError: QUOTA, now: RESET_EPOCH })).toBe(true);
     expect(modelHealthy({ lastError: QUOTA, now: RESET_EPOCH + 1 })).toBe(true);
   });
 
-  it("treats overload as unhealthy and missing errors as healthy", () => {
-    expect(modelHealthy({ lastError: OVERLOAD, now: RESET_EPOCH })).toBe(false);
+  it("is unhealthy only after every fallback is exhausted", () => {
+    const exhausted = ["supergrok", "deepseek-free", "poolside"];
+    expect(modelHealthy({ lastError: QUOTA, now: RESET_EPOCH - 1, failedProviders: exhausted })).toBe(false);
+    expect(modelHealthy({ lastError: QUOTA, now: RESET_EPOCH, failedProviders: exhausted })).toBe(true);
+    expect(modelHealthy({ lastError: OVERLOAD, now: RESET_EPOCH, failedProviders: exhausted })).toBe(false);
+  });
+
+  it("treats missing and unknown errors as healthy", () => {
+    expect(modelHealthy({ lastError: OVERLOAD, now: RESET_EPOCH })).toBe(true);
     expect(modelHealthy({ lastError: null, now: RESET_EPOCH })).toBe(true);
     expect(modelHealthy({ lastError: "disk full", now: RESET_EPOCH })).toBe(true);
   });
@@ -129,10 +136,21 @@ describe("waitForHostedReady", () => {
     expect(result.waitingOn).toEqual(["runner"]);
   });
 
-  it("waits on the model when quota is exhausted", () => {
+  it("does not wait on the model for a first-provider quota miss (failover)", () => {
     const result = waitForHostedReady({
       runner: healthyRunner,
       modelError: QUOTA,
+      now,
+    });
+    expect(result.ready).toBe(true);
+    expect(result.waitingOn).toEqual([]);
+  });
+
+  it("waits on the model when every fallback is exhausted", () => {
+    const result = waitForHostedReady({
+      runner: healthyRunner,
+      modelError: QUOTA,
+      failedProviders: ["supergrok", "deepseek-free", "poolside"],
       now,
     });
     expect(result.ready).toBe(false);
@@ -140,14 +158,14 @@ describe("waitForHostedReady", () => {
     expect(result.message).toContain("quota is exhausted until 2026-08-22 21:07:02 UTC");
   });
 
-  it("waits on both resources when neither is ready", () => {
+  it("waits on the runner when the runner is down even if the model can fail over", () => {
     const result = waitForHostedReady({
       runner: { ok: false, lastPollAt: null },
       modelError: OVERLOAD,
       now,
     });
     expect(result.ready).toBe(false);
-    expect(result.waitingOn).toEqual(["runner", "model"]);
+    expect(result.waitingOn).toEqual(["runner"]);
   });
 });
 
@@ -278,9 +296,13 @@ describe("describeHostedResources", () => {
 });
 
 describe("rememberProviderError", () => {
-  it("lets admission see a mapped quota after complete without D1", () => {
+  it("lets admission fail over a mapped quota instead of painting FAILED as dead", () => {
     rememberProviderError(mapProviderError(QUOTA), RESET_EPOCH - 1);
-    expect(modelHealthy({ now: RESET_EPOCH - 1 })).toBe(false);
+    expect(modelHealthy({ now: RESET_EPOCH - 1 })).toBe(true);
+    expect(modelHealthy({
+      now: RESET_EPOCH - 1,
+      failedProviders: ["supergrok", "deepseek-free", "poolside"],
+    })).toBe(false);
     expect(modelHealthy({ now: RESET_EPOCH })).toBe(true);
   });
 });

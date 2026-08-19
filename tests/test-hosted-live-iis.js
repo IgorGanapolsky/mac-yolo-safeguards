@@ -89,4 +89,48 @@ describe('hosted Hermes exact IIS live certificate', async () => {
     assert.equal(approvedSpend.live, true);
   });
 
+  it('names gateway-budget and fail-closes when spend is not approved', () => {
+    const cert = certifyHostedLive({
+      runnerHealthy: true,
+      modelAlive: true,
+      spendUsd: 8,
+      spendApproved: false,
+    });
+    assert.equal(cert.live, false);
+    assert.equal(cert.IISConstr[CONSTR.gateway_budget], 1);
+    assert.ok(cert.IISConstrName.includes('gateway-budget'));
+  });
+
+  it('fail-closes live when named runner identity is missing or generic', () => {
+    const missing = certifyHostedLive({
+      runnerHealthy: true,
+      modelAlive: true,
+      spendUsd: 0,
+      runnerIdentity: '',
+    });
+    assert.equal(missing.live, false);
+    assert.equal(missing.IISConstr[CONSTR.runner_identity], 1);
+
+    const shared = certifyHostedLive({
+      runnerHealthy: true,
+      modelAlive: true,
+      spendUsd: 0,
+      runnerIdentity: 'shared',
+    });
+    assert.equal(shared.live, false);
+
+    const named = certifyHostedLive({
+      runnerHealthy: true,
+      modelAlive: true,
+      spendUsd: 0,
+      runnerIdentity: 'igor-hermes-cloud-runner',
+    });
+    assert.equal(named.live, true);
+  });
+
+  it('claims live false when runner or model is down', () => {
+    assert.equal(certifyHostedLive({ runnerHealthy: false, modelAlive: true, spendUsd: 0 }).live, false);
+    assert.equal(certifyHostedLive({ runnerHealthy: true, modelAlive: false, spendUsd: 0 }).live, false);
+  });
+
 });
