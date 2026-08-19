@@ -137,7 +137,7 @@ try {
   assert.match(html, /Start hosted Hermes — \$10\/mo/);
   assert.match(html, />Sign in</);
   assert.equal((html.match(/data-funnel-event="sign_in_click"/g) ?? []).length, 1);
-  assert.equal((html.match(/data-funnel-event="cloud_continuity_click"/g) ?? []).length >= 1, true);
+  assert.equal((html.match(/data-funnel-event="hosted_checkout_click"/g) ?? []).length >= 1, true);
   assert.doesNotMatch(html, /After you sign in/);
   assert.doesNotMatch(html, /Sign in to private dashboard/);
   assert.doesNotMatch(html, />Sign out</);
@@ -197,7 +197,7 @@ try {
     realBillingEventLatestAt: null,
     landingViewsToday: 0,
     signInClicksToday: 0,
-    cloudContinuityClicksToday: 0,
+    hostedCheckoutClicksToday: 0,
     clientErrorsToday: 0,
     loginsLast24h: 0,
     pairingsLast24h: 0,

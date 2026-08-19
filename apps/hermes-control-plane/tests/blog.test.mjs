@@ -11,8 +11,8 @@ import {
 const root = path.join(import.meta.dirname, "..");
 const indexPage = fs.readFileSync(path.join(root, "app/blog/page.tsx"), "utf8");
 const postPage = fs.readFileSync(path.join(root, "app/blog/[slug]/page.tsx"), "utf8");
-const analyticsRoute = fs.readFileSync(
-  path.join(root, "app/api/analytics/event/route.ts"),
+const analyticsEvents = fs.readFileSync(
+  path.join(root, "lib/analytics-events.ts"),
   "utf8",
 );
 const sitemapSource = fs.readFileSync(path.join(root, "app/sitemap.ts"), "utf8");
@@ -50,7 +50,7 @@ test("posts sort newest-first with valid ISO dates", () => {
 test("blog CTA uses the allowlisted blog_cta_click funnel event", () => {
   assert.match(indexPage, /data-funnel-event="blog_cta_click"/);
   assert.match(postPage, /data-funnel-event="blog_cta_click"/);
-  assert.match(analyticsRoute, /"blog_cta_click"/);
+  assert.match(analyticsEvents, /"blog_cta_click"/);
 });
 
 test("blog is discoverable: sitemap, llms.txt, RSS", () => {

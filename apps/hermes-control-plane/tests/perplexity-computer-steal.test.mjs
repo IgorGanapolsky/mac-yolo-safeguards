@@ -34,7 +34,7 @@ test("example jobs are clickable logins with per-job cta ids", () => {
   assert.match(signals, /sanitizeAttributionToken/);
   assert.match(signals, /dataset\.ctaId/);
   assert.equal(
-    (page.match(/href="\/api\/auth\/login" className="button button-primary" data-funnel-event="cloud_continuity_click"/g) ?? []).length,
+    (page.match(/href="\/api\/auth\/login" className="button button-primary" data-funnel-event="hosted_checkout_click"/g) ?? []).length,
     3,
   );
 });

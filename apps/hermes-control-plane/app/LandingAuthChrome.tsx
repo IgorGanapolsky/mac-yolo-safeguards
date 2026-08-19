@@ -125,7 +125,7 @@ export function LandingAuthHero() {
           <a
             href="/api/auth/login"
             className="button button-primary"
-            data-funnel-event="cloud_continuity_click"
+            data-funnel-event="hosted_checkout_click"
           >
             Start hosted Hermes — $10/mo <span aria-hidden="true">→</span>
           </a>
@@ -202,7 +202,7 @@ export function LandingPricingCtaFree() {
 export function LandingPricingCtaPaid() {
   const href = useSessionHref();
   return (
-    <a href={href} className="button button-primary" data-funnel-event="cloud_continuity_click">
+    <a href={href} className="button button-primary" data-funnel-event="hosted_checkout_click">
       Start hosted Hermes — $10/mo →
     </a>
   );

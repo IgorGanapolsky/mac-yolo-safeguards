@@ -1,0 +1,164 @@
+# =====================================================================
+# OpenTelemetry Collector — ThumbGate.app signal aggregation
+# =====================================================================
+# Deploys alongside hermes-control-plane on traditional infra (Fly.io,
+# bare metal). Cloudflare Workers emit OTLP over HTTP to the collector
+# edge endpoint, which forwards to console + OTLP backend.
+#
+# On Cloudflare Workers, set in wrangler.json:
+#   "observability": { "enabled": true }  # native Workers Observability
+# and point trace/event logs here:
+#   OTEL_EXPORTER_OTLP_ENDPOINT=https://collector.thumbgate.app:4317
+#
+# Local dev:
+#   otelcol --config tools/otel-collector-config.yaml
+# =====================================================================
+
+receivers:
+  # OTLP over HTTP (from CF Workers / app instances)
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+  # Prometheus scrape (for the control-plane /metrics endpoint)
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: "hermes-control-plane"
+          scrape_interval: 15s
+          static_configs:
+            - targets: ["localhost:8787"]
+              labels:
+                service.name: "hermes-control-plane"
+
+  # Filelog receiver (for local debug logs)
+  filelog:
+    include: /var/log/thumbgate/*.log
+    start_at: beginning
+
+exporters:
+  # Console (dev / debugging)
+  console:
+    loglevel: debug
+
+  # OTLP to a backend (configure via env)
+  otlp/tempo:
+    endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:tempo:4317}
+    tls:
+      insecure: ${OTEL_EXPORTER_OTLP_TLS_INSECURE:true}
+
+  # Prometheus for metric queries
+  prometheusremotewrite:
+    endpoint: ${PROMETHEUS_REMOTE_WRITE_URL:http://localhost:9090/api/v1/write}
+
+  # Logging exporter (structured JSON for log aggregation)
+  logging:
+    loglevel: info
+
+  # AlertManager / SLO alerting via OTel SLO plugin
+  # (requires otelcol-contrib with the SLO exporter)
+
+processors:
+  # Batch — standard batch processor for all signals
+  batch:
+    send_batch_size: 1000
+    timeout: 5s
+
+  # Memory limiter — prevents OOM under high load
+  memory_limiter:
+    limit_mib: 400
+    spike_limit_mib: 100
+    check_interval: 1s
+
+  # Attributes processor — enrich traces with service metadata
+  attributes:
+    actions:
+      - key: service.name
+        value: "thumbgate-app"
+        action: upsert
+      - key: environment
+        value: ${ENVIRONMENT:development}
+        action: upsert
+      - key: version
+        value: ${GIT_SHA:dev}
+        action: upsert
+
+  # Span metrics — derive RED metrics from traces
+  spanmetrics:
+    metrics_exporter: [prometheusremotewrite]
+    dimensions:
+      - http.status_code
+      - http.method
+      - error
+
+  # Tail-based sampling — keep error traces + 10% of success
+  tail_sampling:
+    policies:
+      - name: error
+        type: numeric_attribute
+        numeric_attribute:
+          key: error
+          min_value: 1
+          max_value: 1
+      - name: probabilistic
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: 10
+
+  # Filter — drop health-check traces (noise)
+  filter:
+    traces:
+      exclude:
+        match_type: regexp
+        resource_labels:
+          http.target: "/api/health|/_next/|/_vercel"
+
+  # Log-to-metrics — derive counters from structured logs
+  # (e.g., client_error events → error rate metric)
+  logstransform:
+    error:
+      logs:
+        - include: "request_log"
+          match_type: strict
+          operators:
+            - type: trace_parser
+              sources: ["body"]
+            - type: add
+              field: "severity"
+              value: "ERROR"
+
+service:
+  telemetry:
+    logs:
+      level: "info"
+    metrics:
+      address: "0.0.0.0:8889"
+    traces:
+      level: "basic"
+
+  pipelines:
+    traces:
+      receivers: [otlp, spanmetrics]
+      processors: [memory_limiter, attributes, filter, tail_sampling, spanmetrics, batch]
+      exporters: [otlp_tempo, console]
+
+    metrics:
+      receivers: [prometheus, otlp, spanmetrics]
+      processors: [memory_limiter, attributes, batch]
+      exporters: [prometheusremotewrite, console]
+
+    logs:
+      receivers: [otlp, filelog]
+      processors: [memory_limiter, attributes, batch]
+      exporters: [logging, console, otlp_tempo]
+
+  # SLO definitions (error budget, latency burn rate)
+  # These feed the admin dashboard's "SLO health" panel.
+  #
+  # SLOs:
+  # - p95 latency < 200ms for API routes (99% of requests)
+  # - error rate < 1% for non-deprecation 4xx + all 5xx (99.9%)
+  # - trace coverage: 100% of API routes carry traceId from tracing.ts

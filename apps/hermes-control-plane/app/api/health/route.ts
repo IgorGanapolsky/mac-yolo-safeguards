@@ -1,7 +1,14 @@
 import { db, runtimeEnv } from "@/lib/runtime";
 import { publicHealthFromCache } from "@/lib/hosted-apphost";
+import { startSpan, endSpan, extractTraceContext, setAttribute, setError, traceparentFor } from "@/lib/tracing";
 
-export async function GET() {
+export async function GET(request?: Request) {
+  const parentCtx = request ? extractTraceContext(request.headers) : undefined;
+  const span = startSpan("GET /api/health", parentCtx, {
+    "http.route": "/api/health",
+    "http.method": "GET",
+  }, "server");
+
   try {
     const now = Date.now();
     const day = new Date(now).toISOString().slice(0, 10);
@@ -22,7 +29,7 @@ export async function GET() {
          (SELECT MAX(processed_at) FROM billing_events WHERE event_type NOT LIKE '%.canary') AS real_billing_event_latest_at,
          (SELECT COALESCE(SUM(count), 0) FROM funnel_counters WHERE day = ? AND event = 'landing_view') AS landing_views_today,
          (SELECT COALESCE(SUM(count), 0) FROM funnel_counters WHERE day = ? AND event = 'sign_in_click') AS sign_in_clicks_today,
-         (SELECT COALESCE(SUM(count), 0) FROM funnel_counters WHERE day = ? AND event = 'cloud_continuity_click') AS cloud_continuity_clicks_today,
+         (SELECT COALESCE(SUM(count), 0) FROM funnel_counters WHERE day = ? AND event IN ('hosted_checkout_click', 'cloud_continuity_click')) AS hosted_checkout_clicks_today,
          (SELECT COALESCE(SUM(count), 0) FROM funnel_counters WHERE day = ? AND event = 'client_error') AS client_errors_today,
          (SELECT COUNT(*) FROM audit_events WHERE created_at >= ? AND action = 'auth.login') AS logins_last_24h,
          (SELECT COUNT(*) FROM audit_events WHERE created_at >= ? AND action IN ('device.pair', 'device.pair.reuse')) AS pairings_last_24h,
@@ -31,7 +38,7 @@ export async function GET() {
          (SELECT COUNT(*) FROM audit_events WHERE created_at >= ? AND action = 'billing.portal.created') AS portal_created_last_24h,
          (SELECT COUNT(*) FROM audit_events WHERE created_at >= ? AND action = 'billing.portal.failed') AS portal_failed_last_24h,
          (SELECT COUNT(*) FROM billing_events WHERE processed_at >= ? AND event_type NOT LIKE '%.canary') AS billing_events_last_24h,
-         (SELECT COUNT(*) FROM organizations WHERE plan IN ('pro', 'team')) AS paid_organizations_total`,
+         (SELECT COUNT(*) FROM organizations WHERE plan IN ('pro', 'team', 'hosted', 'starter', 'continuity')) AS paid_organizations_total`,
     ).bind(now, day, day, day, day, dayAgo, dayAgo, dayAgo, dayAgo, dayAgo, dayAgo, dayAgo).first<{
       table_count: number;
       users_total: number;
@@ -45,7 +52,7 @@ export async function GET() {
       real_billing_event_latest_at: number | null;
       landing_views_today: number;
       sign_in_clicks_today: number;
-      cloud_continuity_clicks_today: number;
+      hosted_checkout_clicks_today: number;
       client_errors_today: number;
       logins_last_24h: number;
       pairings_last_24h: number;
@@ -73,6 +80,17 @@ export async function GET() {
       now,
       stripeConfigured: config.stripeCheckoutConfigured,
     });
+
+    setAttribute(span, "db.query.count", 1);
+    setAttribute(span, "health.ok", true);
+
+    const ended = endSpan(span, "ok");
+    const headers: Record<string, string> = {
+      "cache-control": "no-store, max-age=0",
+      "traceparent": traceparentFor(ended),
+      "x-trace-id": ended.traceId,
+    };
+
     return Response.json({
       ok: true,
       ready: concerns.length === 0,
@@ -99,7 +117,7 @@ export async function GET() {
         realBillingEventLatestAt: health?.real_billing_event_latest_at ?? null,
         landingViewsToday: Number(health?.landing_views_today ?? 0),
         signInClicksToday: Number(health?.sign_in_clicks_today ?? 0),
-        cloudContinuityClicksToday: Number(health?.cloud_continuity_clicks_today ?? 0),
+        hostedCheckoutClicksToday: Number(health?.hosted_checkout_clicks_today ?? 0),
         clientErrorsToday: Number(health?.client_errors_today ?? 0),
         loginsLast24h: Number(health?.logins_last_24h ?? 0),
         pairingsLast24h: Number(health?.pairings_last_24h ?? 0),
@@ -110,9 +128,12 @@ export async function GET() {
         billingEventsLast24h: Number(health?.billing_events_last_24h ?? 0),
         paidOrganizationsTotal: Number(health?.paid_organizations_total ?? 0),
       },
-    });
+    }, { headers });
   } catch (error) {
+    setError(span, error instanceof Error ? error : new Error(String(error)));
+    const ended = endSpan(span, "error", error instanceof Error ? error.message : "unknown");
     console.error("control_plane_health_failed", {
+      traceId: ended.traceId,
       error: error instanceof Error ? error.message : "unknown",
     });
     return Response.json(
@@ -123,9 +144,10 @@ export async function GET() {
         schema: "unknown",
         code: "LEASH_DATABASE_UNAVAILABLE",
         retryAfterMs: 60_000,
+        traceId: ended.traceId,
         remediation: "Apply the control-plane D1 migrations before serving traffic.",
       },
-      { status: 503, headers: { "retry-after": "60" } },
+      { status: 503, headers: { "retry-after": "60", "traceparent": traceparentFor(ended), "x-trace-id": ended.traceId } },
     );
   }
 }
