@@ -4,22 +4,6 @@ set -euo pipefail
 
 HERMES_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APK_OUT="$HERMES_DIR/android/app/build/outputs/apk/release/app-release.apk"
-TARGET_ANDROID_PACKAGE="${HERMES_MOBILE_ANDROID_PACKAGE:-com.iganapolsky.hermesmobile.paid}"
-case "$TARGET_ANDROID_PACKAGE" in
-  com.iganapolsky.hermesmobile.paid)
-    export HERMES_ANDROID_STORE_SKU=paid
-    export EXPO_PUBLIC_ANDROID_PAID_DOWNLOAD=1
-    ;;
-  com.iganapolsky.hermesmobile)
-    export HERMES_ANDROID_STORE_SKU=free
-    unset EXPO_PUBLIC_ANDROID_PAID_DOWNLOAD
-    ;;
-  *)
-    echo "Unsupported Hermes Mobile Android package: $TARGET_ANDROID_PACKAGE" >&2
-    exit 2
-    ;;
-esac
-export HERMES_MOBILE_ANDROID_PACKAGE="$TARGET_ANDROID_PACKAGE"
 JAVA_HOME="${JAVA_HOME:-$(brew --prefix openjdk@17 2>/dev/null)/libexec/openjdk.jdk/Contents/Home}"
 export JAVA_HOME
 export PATH="$JAVA_HOME/bin:$PATH"
@@ -44,9 +28,7 @@ fi
 echo "=== Hermes Mobile device E2E (device=$DEVICE) ==="
 
 cd "$HERMES_DIR"
-if [[ ! -f android/app/build.gradle ]] \
-  || ! grep -q "applicationId '$TARGET_ANDROID_PACKAGE'" android/app/build.gradle; then
-  echo "Regenerating Android project for $TARGET_ANDROID_PACKAGE..."
+if [[ ! -d android ]]; then
   npx expo prebuild --platform android --clean
 fi
 
@@ -55,19 +37,32 @@ echo "Building release APK (arm64, embedded JS bundle)..."
   cd android
   export EXPO_PUBLIC_HERMES_DEV_UNLOCK=1
   export EXPO_PUBLIC_E2E_AUTOMATION=1
-  ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a \
+  export SENTRY_DISABLE_AUTO_UPLOAD=true
+  ./gradlew :app:createBundleReleaseJsAndAssets :app:assembleRelease \
+    -PreactNativeArchitectures=arm64-v8a --rerun-tasks \
     -Dorg.gradle.jvmargs="-Xmx8192m -XX:MaxMetaspaceSize=4096m" --no-daemon
 )
 
 bash "$HERMES_DIR/scripts/verify-apk-package.sh" "$APK_OUT"
 
 echo "Installing on $DEVICE..."
-adb -s "$DEVICE" uninstall "$TARGET_ANDROID_PACKAGE" 2>/dev/null || true
+adb -s "$DEVICE" uninstall com.iganapolsky.hermesmobile 2>/dev/null || true
 adb -s "$DEVICE" install -r "$APK_OUT"
-adb -s "$DEVICE" shell pm path "$TARGET_ANDROID_PACKAGE" >/dev/null
 
-echo "Running Maestro full suite against $TARGET_ANDROID_PACKAGE (sequential)..."
-bash "$HERMES_DIR/scripts/run-maestro-for-app.sh" ".maestro/full-suite.yaml" \
-  -p android --udid "$DEVICE"
+echo "Running Maestro full suite (sequential)..."
+adb -s "$DEVICE" shell svc power stayon true >/dev/null 2>&1 || true
+adb -s "$DEVICE" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
+adb -s "$DEVICE" shell wm dismiss-keyguard >/dev/null 2>&1 || true
+# save_key.yaml needs the real gateway key. It used to be committed inside the flow, which
+# is how it ended up readable in a public repo; it is supplied at run time now.
+if [ -z "${GATEWAY_API_KEY:-}" ]; then
+  echo "ERROR: GATEWAY_API_KEY is not set — the suite would type a placeholder into the" >&2
+  echo "       gateway key field and report a pass over coverage that never ran." >&2
+  echo "       Supply it from your local secret store, e.g.:" >&2
+  echo "         export GATEWAY_API_KEY=\$(grep '^API_SERVER_KEY=' ~/.hermes/.env | cut -d= -f2-)" >&2
+  exit 1
+fi
+maestro test --device "$DEVICE" -e "GATEWAY_API_KEY=$GATEWAY_API_KEY" \
+  "$HERMES_DIR/.maestro/full-suite.yaml"
 
 echo "=== Device E2E: PASS ==="
