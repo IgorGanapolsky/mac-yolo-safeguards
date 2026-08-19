@@ -3135,3 +3135,17 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 | plan.md (append only) | grok-perplexity-computer-steal-20260819 | 2026-08-19T13:50:00Z |
 
 - 2026-08-19T13:50Z `grok-perplexity-computer-steal`: https://www.perplexity.ai/products/computer. Steal FORMAT: example jobs, Give→Works→Approve, closer, funnel cta_id. Do NOT steal connectors, Pro/Max, industry footer, or months-long workflows. ECI: copy-only on existing $10 offer; no paid outreach; no net-new governance R&D. Backlog: dashboard composer prefill from cta_id (dashboard blast); no-auth playground (hosted-app expansion, counsel pause).
+
+| T-HOSTED-COMPUTER-STACK-HONESTY-20260819 | Doctor/route CLI that falsifies OpenClaw/E2B/Cua mapping onto hosted Hermes | in_progress | grok-hosted-computer-stack-honesty-20260819 | `tools/hosted-computer-stack.js`, `tests/test-hosted-computer-stack.js`, `bin/hosted-computer`, `.agents/skills/hosted-computer-stack/**`, `SKILLS.md` (append row), `plan.md` | AGENT-415 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/hosted-computer-stack.js | grok-hosted-computer-stack-honesty-20260819 | 2026-08-19T15:00:00Z |
+| tests/test-hosted-computer-stack.js | grok-hosted-computer-stack-honesty-20260819 | 2026-08-19T15:00:00Z |
+| bin/hosted-computer | grok-hosted-computer-stack-honesty-20260819 | 2026-08-19T15:00:00Z |
+| .agents/skills/hosted-computer-stack/** | grok-hosted-computer-stack-honesty-20260819 | 2026-08-19T15:00:00Z |
+| SKILLS.md (append row only) | grok-hosted-computer-stack-honesty-20260819 | 2026-08-19T15:00:00Z |
+| plan.md (append only) | grok-hosted-computer-stack-honesty-20260819 | 2026-08-19T15:00:00Z |
+
+- 2026-08-19T15:00Z `grok-hosted-computer-stack-honesty`: OSS Computer blueprint does **not** transfer as OpenClaw/E2B/Cua. Falsifier: `hermes-cloud-runner` `execute()` is POST `/chat/completions` only; Hands is `HOSTED_BROWSER_CUE_RES` + `browserHealthUrl()` (`POLICY_CUE_NOT_DRIVER`); economic-router is not imported by the runner. Doctor refuses clone installs. Did not vendor those products. ECI: no hosted-app expansion.
