@@ -11,7 +11,6 @@ import {
   LandingPricingCtaPaid,
 } from "./LandingAuthChrome";
 import { BrandMark } from "./BrandMark";
-import { GiveWorkLoop } from "./GiveWorkLoop";
 import { StartSurfaces } from "./StartSurfaces";
 import styles from "./landing.module.css";
 import {
@@ -121,6 +120,16 @@ const FAQ_ITEMS = [
     answer:
       "No. Hosted Hermes is the always-on box: a fenced VPS. Approvals happen in thumbgate.app.",
   },
+  {
+    question: "How is this different from Perplexity Computer or other computer-use agents?",
+    answer:
+      "Perplexity Computer is a general-purpose digital worker inside Perplexity's cloud. Hosted Hermes is your own always-on coding agent on a fenced VPS, steered from thumbgate.app, with human approval gates on money, customer, and production actions. If you want an agent that keeps working after your laptop sleeps and pauses before dangerous actions, that is this product. $10/mo.",
+  },
+  {
+    question: "Can hosted Hermes run background and recurring tasks?",
+    answer:
+      "Yes. Scheduled work and watchers keep firing because the fenced VPS never sleeps. Long runs hold a 90-second renewable lease with receipts. Risky steps pause for your approval in thumbgate.app.",
+  },
 ] as const;
 
 const PRO_CTA = "Start hosted Hermes — $10/mo";
@@ -173,7 +182,7 @@ export default function Home() {
           <p className="eyebrow"><span className="live-dot" /> Hosted Hermes · Fenced VPS</p>
           <h1>Hermes that stays on.</h1>
           <p className="hero-lede">
-            Always on, even when your computer is off. Always awake. Always working. Hosted on a fenced VPS. Not a laptop process. You own the work. We own the machine. Approve money, customer, or production actions in this browser. Flat $10/month. 14 days free. Cancel anytime.
+            Chatbots answer. Laptop agents sleep. Hosted Hermes keeps working — for hours, days, or months. Always on, even when your computer is off. Always awake. Always working. Hosted on a fenced VPS. Not a laptop process. You own the work. We own the machine. Approve money, customer, or production actions in this browser. Flat $10/month. 14 days free. Cancel anytime.
           </p>
           <p className="signin-note">
             Automations can draft and run. Money, customer-facing, or production actions require your approval in this browser.
@@ -185,7 +194,7 @@ export default function Home() {
             <span>One clock · 14-day trial</span>
             <span>Approvals in thumbgate.app</span>
           </div>
-          <p className="signin-note"><a href="#give-work">See example jobs</a> — then start the $10 trial.</p>
+          <p className="signin-note"><a href="#example-tasks">See example jobs</a> — then start the $10 trial.</p>
         </div>
 
         <nav className="hero-console hero-actions-panel" aria-label="Private workspace actions">
@@ -195,7 +204,98 @@ export default function Home() {
       </section>
 
       <StartSurfaces />
-      <GiveWorkLoop />
+
+      <section id="example-tasks" className="section-block" data-testid="example-tasks">
+        <div className="section-heading">
+          <p className="eyebrow">Hand it real work</p>
+          <h2>Tasks you can give hosted Hermes today.</h2>
+          <p>
+            Prompt in natural language. The run keeps working on the fenced VPS after you close the laptop.
+            Money, customer, and production actions pause for your approval.
+          </p>
+        </div>
+        <div className="steps-grid">
+          <article>
+            <a
+              href="/api/auth/login"
+              data-funnel-event="example_task_click"
+              data-cta-id="watch-ci"
+              data-testid="example-task-watch-ci"
+            >
+              <span>01</span>
+              <h3>Watch CI overnight</h3>
+              <p>
+                &ldquo;Watch my repo&rsquo;s CI. When a run goes red, open a fix branch and draft the PR.
+                Pause before anything merges.&rdquo; The watcher keeps firing while your machine sleeps.
+              </p>
+            </a>
+          </article>
+          <article>
+            <a
+              href="/api/auth/login"
+              data-funnel-event="example_task_click"
+              data-cta-id="morning-digest"
+              data-testid="example-task-morning-digest"
+            >
+              <span>02</span>
+              <h3>Run the morning digest</h3>
+              <p>
+                &ldquo;Every morning at 6, pull the numbers, build the report, and draft the email.
+                Pause before anything sends.&rdquo; Recurring background tasks are the point of an always-on box.
+              </p>
+            </a>
+          </article>
+          <article>
+            <a
+              href="/api/auth/login"
+              data-funnel-event="example_task_click"
+              data-cta-id="long-migration"
+              data-testid="example-task-long-migration"
+            >
+              <span>03</span>
+              <h3>Finish the long migration</h3>
+              <p>
+                &ldquo;Keep the data migration going until it&rsquo;s done. Pause before touching
+                production.&rdquo; Long runs hold a renewable lease; destructive steps wait for your approval.
+              </p>
+            </a>
+          </article>
+        </div>
+        <div className="steps-grid" data-testid="give-work-loop" style={{ marginTop: "32px" }}>
+          <article>
+            <span>01</span>
+            <h3>Give hosted Hermes a job</h3>
+            <p>Sign in and type the work in the dashboard. Natural language. No desktop install.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>Hosted Hermes works</h3>
+            <p>
+              The agent keeps a lease on a fenced VPS. The laptop can sleep. The run does not die
+              with the lid.
+            </p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Iterate and approve</h3>
+            <p>
+              Guide the run in this tab. Money, customer, or production actions pause in
+              thumbgate.app.
+            </p>
+          </article>
+        </div>
+        <div className="hero-actions" style={{ marginTop: "32px" }}>
+          <a
+            href="/api/auth/login"
+            className="button button-primary"
+            data-funnel-event="give_work_click"
+            data-cta-id="put-hosted-hermes-to-work"
+            data-testid="give-work-cta"
+          >
+            {PRO_CTA} <span aria-hidden="true">→</span>
+          </a>
+        </div>
+      </section>
 
       <section id="qualifier" className="section-block" data-testid="qualifier">
         <div className="section-heading">

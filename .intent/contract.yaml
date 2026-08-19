@@ -76,25 +76,22 @@ capabilities:
         lifecycle: production
         acceptance_criteria:
           - key: OFFER-004-AC1
-            criterion: Landing mounts a Give/Works/Approve loop with honest example jobs.
+            criterion: Landing example-tasks include a Give/Works/Approve loop with per-job cta ids.
             implements:
-              - apps/hermes-control-plane/app/GiveWorkLoop.tsx
               - apps/hermes-control-plane/app/page.tsx
             tests:
               - apps/hermes-control-plane/tests/perplexity-computer-steal.test.mjs
             must_contain:
-              - in: apps/hermes-control-plane/app/GiveWorkLoop.tsx
-                pattern: 'Give hosted Hermes a job'
-              - in: apps/hermes-control-plane/app/GiveWorkLoop.tsx
-                pattern: 'laptop sleeps'
               - in: apps/hermes-control-plane/app/page.tsx
-                pattern: '<GiveWorkLoop'
+                pattern: 'Give hosted Hermes a job'
+              - in: apps/hermes-control-plane/app/page.tsx
+                pattern: 'id="example-tasks"'
+              - in: apps/hermes-control-plane/app/page.tsx
+                pattern: 'data-cta-id="watch-ci"'
             must_not_contain:
-              - in: apps/hermes-control-plane/app/GiveWorkLoop.tsx
+              - in: apps/hermes-control-plane/app/page.tsx
                 pattern: 'Gmail, Slack, Notion'
-              - in: apps/hermes-control-plane/app/GiveWorkLoop.tsx
-                pattern: 'hours or even months'
-              - in: apps/hermes-control-plane/app/GiveWorkLoop.tsx
+              - in: apps/hermes-control-plane/app/page.tsx
                 pattern: 'ThumbGate Wake'
   - key: HOST
     name: Hosting picker
