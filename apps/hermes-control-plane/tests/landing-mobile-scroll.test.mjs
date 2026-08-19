@@ -83,7 +83,7 @@ test("390-wide landing keeps overflow-y scroll (hero is not a 685px trap)", () =
   assert.match(css, /@media\(max-width:700px\)[\s\S]{0,1200}?\.hero\{[^}]*min-height:\s*0/);
 
   // PR 1833 money path stays: $10 CTAs still start WorkOS login.
-  assert.match(page, /href="\/api\/auth\/login" className="button button-primary" data-funnel-event="cloud_continuity_click"/);
+  assert.match(page, /href="\/api\/auth\/login" className="button button-primary" data-funnel-event="hosted_checkout_click"/);
   assert.match(page, /Start hosted Hermes — \$10\/mo/);
   assert.match(page, /<StartSurfaces \/>/);
 });

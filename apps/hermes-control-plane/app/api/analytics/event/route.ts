@@ -5,24 +5,12 @@ import {
   parseAttributionFromPayload,
   type FunnelAttribution,
 } from "@/lib/funnel-attribution";
+import { captureFirstError } from "@/lib/sentry";
+import { resolveAnalyticsEvent } from "@/lib/analytics-events";
+
+// Allowlist (lib/analytics-events.ts): "example_task_click" "give_work_click" "hosted_checkout_click" "landing_view"
 
 const FUNNEL_SCHEMA_VERSION = 1;
-const EVENTS = new Set([
-  "landing_view",
-  "sign_in_click",
-  "free_control_click",
-  "cloud_continuity_click",
-  // Landing example-tasks: per-job cta_id + closer.
-  "example_task_click",
-  "give_work_click",
-  "watchdog_probe",
-  "play_store_click",
-  "app_store_click",
-  // Aggregate browser exceptions (ClientErrorBeacon) — counter only, no stack/PII.
-  "client_error",
-  // Dashboard chrome (existing clients may emit).
-  "dashboard_open_click",
-]);
 
 const ALLOWED_ERROR_CLASSES = new Set([
   "Error",
@@ -108,11 +96,11 @@ export async function POST(request: Request) {
   }
 
   const payload = (await request.json().catch(() => null)) as AnalyticsPayload | null;
-  if (payload?.schemaVersion !== FUNNEL_SCHEMA_VERSION || !EVENTS.has(payload.event ?? "")) {
+  const event = resolveAnalyticsEvent(payload?.event);
+  if (payload?.schemaVersion !== FUNNEL_SCHEMA_VERSION || !event) {
     return jsonError("unsupported analytics event");
   }
 
-  const event = payload.event as string;
   const attr = parseAttributionFromPayload(payload);
   const errorClass = event === "client_error" ? sanitizeErrorClass(payload.errorClass) : null;
   const now = Date.now();
@@ -129,6 +117,7 @@ export async function POST(request: Request) {
       await bumpAttribution(day, event, attr, now);
     }
   } catch (error) {
+    void captureFirstError(error);
     console.error("funnel_counter_write_failed", {
       error: error instanceof Error ? error.message : "unknown",
     });
