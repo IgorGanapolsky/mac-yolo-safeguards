@@ -1,5 +1,8 @@
-import { PLAY_STORE_URL } from "@/app/storeLinks";
-
-export async function GET() {
-  return Response.redirect(PLAY_STORE_URL, 302);
+export function GET() {
+  return new Response(null, {
+    status: 301,
+    headers: { Location: "/" },
+  });
 }
+
+export const HEAD = GET;
