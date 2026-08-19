@@ -164,6 +164,28 @@ print(d.get('e2e', 'unknown'))
   fi
   results+=("\"gh_token_shadowed\": $gh_token_shadow")
 
+  # Gurobi proof (token-budget LP + exclusive dispatch). Skip, never fail health.
+  local gurobi_proof="skip"
+  if [ "${CI:-}" = "true" ] || [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+    gurobi_proof="skip"
+  elif [ -f "$ROOT/tools/gurobi-harness-gate.js" ]; then
+    gurobi_proof=$(node "$ROOT/tools/gurobi-harness-gate.js" --health --json 2>/dev/null | python3 -c "
+import json, sys
+raw = sys.stdin.read().strip()
+if not raw:
+    print('skip')
+    raise SystemExit
+d = json.loads(raw)
+if d.get('skipped'):
+    print('skip')
+elif d.get('ok') and d.get('certified_optimal'):
+    print('optimal')
+else:
+    print('fail')
+" 2>/dev/null || echo "skip")
+  fi
+  results+=("\"gurobi_proof\": \"$gurobi_proof\"")
+
   local joined json
   joined=$(IFS=,; echo "${results[*]}")
   json="{$joined}"
