@@ -20,9 +20,10 @@ describe('store listing metadata contract (stellar live)', () => {
     // Preserve both exact product-name intents in the indexed title. The live iOS
     // App Info name is locked until the next approved version; this combined name
     // is staged for 1.4 and must remain aligned with the paid Play listing.
-    expect(playTitle).toBe('Hermes Agent Client: AI Leash');
-    expect(paidTitle).toBe('Hermes Agent Client: AI Leash');
-    expect(iosName).toBe('Hermes Agent Client: AI Leash');
+    expect(playTitle).toBe('Hermes Mobile: Leash');
+    expect(paidTitle).toBe('Hermes Mobile: Leash');
+    expect(iosName).toBe('Hermes Mobile: Leash');
+    expect(playTitle).not.toMatch(/Agent Client/i);
     expect(playTitle).toBe(paidTitle);
     expect(playTitle).toBe(iosName);
     expect(playTitle).not.toMatch(/ThumbGate/i);
