@@ -3205,3 +3205,19 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 | plan.md (append only) | grok-gurobi-pulse-proof-20260819 | 2026-08-19T18:30:00Z |
 
 - 2026-08-19T18:30Z `grok-gurobi-pulse-proof`: Pulse Issue #9 / AI-guided optimization. Steal: proof receipts + IIS + $10 token LP + exclusive adb/git_lock. Do **not** invent a Gurobi SKU, Intelligence Hub, or ThumbGate paid knapsack (ECI). LLM translates; Gurobi proves. AGENT-419.
+
+| T-GUROBI-HARNESS-GATE-20260819 | Wire Gurobi proof into the process: session-start + agent-loop health run certified $10 token-budget LP and exclusive adb/git_lock dispatch (does not edit CLI/examples owned by claude-code T-GUROBI-CLI-HARNESS) | in_progress | grok-gurobi-harness-gate-20260819 | `tools/gurobi-harness-gate.js` (new), `tests/test-gurobi-harness-gate.js` (new), `.agents/skills/gurobi-harness-gate/` (new), `tools/agent-session-start.js` (Gurobi proof line only), `bin/agent-loop` (observe.gurobi_proof only), `SKILLS.md` (append row), `plan.md` | AGENT-423 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/gurobi-harness-gate.js | grok-gurobi-harness-gate-20260819 | 2026-08-19T16:40:00Z |
+| tests/test-gurobi-harness-gate.js | grok-gurobi-harness-gate-20260819 | 2026-08-19T16:40:00Z |
+| .agents/skills/gurobi-harness-gate/SKILL.md | grok-gurobi-harness-gate-20260819 | 2026-08-19T16:40:00Z |
+| .agents/skills/gurobi-harness-gate/skill-card.md | grok-gurobi-harness-gate-20260819 | 2026-08-19T16:40:00Z |
+| tools/agent-session-start.js (Gurobi proof line only) | grok-gurobi-harness-gate-20260819 | 2026-08-19T16:40:00Z |
+| bin/agent-loop (observe.gurobi_proof only) | grok-gurobi-harness-gate-20260819 | 2026-08-19T16:40:00Z |
+| SKILLS.md (append row only) | grok-gurobi-harness-gate-20260819 | 2026-08-19T16:40:00Z |
+| plan.md (append only) | grok-gurobi-harness-gate-20260819 | 2026-08-19T16:40:00Z |
+
+- 2026-08-19T16:40Z `grok-gurobi-harness-gate`: Process steal after Pulse #1866. Solver existed; session-start did not call it. New gate certifies $10 cap + exclusive ADB. Did not touch `tools/gurobi-fleet-optimize.py` / `examples/gurobi/` (claude-code T-GUROBI-CLI-HARNESS). No Gurobi SKU, no ThumbGate paid knapsack (ECI). AGENT-423.
