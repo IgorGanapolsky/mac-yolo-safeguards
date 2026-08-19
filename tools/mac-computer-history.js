@@ -22,8 +22,23 @@
  * every app, Chrome extension that watches typing, OTel of keystrokes.
  */
 
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
 const PRODUCT = 'hosted-hermes-chat-on-fenced-vps';
-const SCHEMA = 'mac-computer-history/fail-closed/v1';
+const SCHEMA = 'mac-computer-history/fail-closed/v2';
+
+/** OpenAI ChatGPT desktop support roots (macOS). Probe-only — never enable capture. */
+const OPENAI_SUPPORT_DIR_NAMES = Object.freeze([
+  'com.openai.chat',
+  'com.openai.chat.desktop',
+  'ChatGPT',
+  'openai.chatgpt',
+]);
+
+const OPENAI_HISTORY_NAME_RE =
+  /computer[-_ ]?history|interaction[-_ ]?events?|activity[-_ ]?timeline|input[-_ ]?events?|keystroke|event[-_ ]?log/i;
 
 const DEFAULT_EXCLUSIONS = Object.freeze([
   '*.env*',
@@ -65,7 +80,138 @@ const INPUT_CAPTURE_RE =
   /\b(keystroke|keystrokes|click tracker|clicks?|input events?|eventtap|cgeventtap|hid tap|accessibility api|macos input capture|screenshot recall|windows recall|computer history|otel of keystrokes|chrome extension that watches typing|pulse memory)\b/i;
 const LEARN_EVERYTHING_RE = /learn from everything you do on your computer/i;
 
-function doctorHonesty() {
+/**
+ * Probe whether OpenAI ChatGPT Computer History artifacts appear on this Mac.
+ * Futurism 2026-08-19: those files can hold sensitive info and are not encrypted.
+ * This never enables capture, never ships content off-box, never reads payloads —
+ * only path / size / mode metadata for operator warning.
+ *
+ * @param {{ homeDir?: string, maxFiles?: number }} [opts]
+ */
+function probeOpenAiComputerHistory(opts = {}) {
+  const homeDir = opts.homeDir || os.homedir();
+  const maxFiles = Number.isFinite(opts.maxFiles) ? opts.maxFiles : 40;
+  const supportRoot = path.join(homeDir, 'Library', 'Application Support');
+  const findings = [];
+  const supportRootsFound = [];
+
+  if (!fs.existsSync(supportRoot)) {
+    return {
+      schema: 'openai-computer-history-probe/v1',
+      status: 'ABSENT',
+      openaiSupportRootsFound: [],
+      historyLikeFiles: [],
+      unencryptedLikely: false,
+      counsel:
+        'No OpenAI ChatGPT Application Support tree found. Hermes stays fail-closed (no keystroke capture).',
+      product: PRODUCT,
+      weEnableCapture: false,
+    };
+  }
+
+  for (const name of OPENAI_SUPPORT_DIR_NAMES) {
+    const dir = path.join(supportRoot, name);
+    if (!fs.existsSync(dir)) continue;
+    supportRootsFound.push(dir);
+    walkHistoryCandidates(dir, findings, maxFiles, 0);
+  }
+
+  // Also scan one shallow level for oddly named OpenAI folders
+  try {
+    for (const ent of fs.readdirSync(supportRoot, { withFileTypes: true })) {
+      if (!ent.isDirectory()) continue;
+      if (!/openai|chatgpt/i.test(ent.name)) continue;
+      const dir = path.join(supportRoot, ent.name);
+      if (supportRootsFound.includes(dir)) continue;
+      supportRootsFound.push(dir);
+      walkHistoryCandidates(dir, findings, maxFiles, 0);
+    }
+  } catch {
+    // ignore permission errors
+  }
+
+  const historyLike = findings.filter((f) => f.historyLike);
+  const unencryptedLikely = historyLike.some((f) => f.unencryptedLikely);
+  let status = 'ABSENT';
+  if (historyLike.length > 0) {
+    status = unencryptedLikely ? 'PRESENT_UNENCRYPTED_WARN' : 'PRESENT_WARN';
+  } else if (supportRootsFound.length > 0) {
+    status = 'OPENAI_PRESENT_NO_HISTORY_FILES';
+  }
+
+  const counsel =
+    status === 'ABSENT'
+      ? 'No OpenAI Computer History artifacts detected. Hermes remains fail-closed.'
+      : status === 'OPENAI_PRESENT_NO_HISTORY_FILES'
+        ? 'ChatGPT desktop support dir present; no Computer History–named files found. Hermes still will not capture keystrokes.'
+        : unencryptedLikely
+          ? 'WARN: OpenAI Computer History–like files present and look unencrypted (Futurism 2026-08-19). Other programs running as your macOS user may read them. Hermes does NOT enable or copy this — disable Computer History in ChatGPT settings if unintended.'
+          : 'WARN: OpenAI Computer History–like files present. Hermes does NOT enable or copy this capture surface.';
+
+  return {
+    schema: 'openai-computer-history-probe/v1',
+    status,
+    openaiSupportRootsFound: supportRootsFound,
+    historyLikeFiles: historyLike.map((f) => ({
+      path: f.path,
+      bytes: f.bytes,
+      mode: f.mode,
+      unencryptedLikely: f.unencryptedLikely,
+    })),
+    unencryptedLikely,
+    counsel,
+    product: PRODUCT,
+    weEnableCapture: false,
+    weAreChatGPTComputerHistory: false,
+  };
+}
+
+function walkHistoryCandidates(dir, out, maxFiles, depth) {
+  if (out.length >= maxFiles || depth > 4) return;
+  let entries;
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const ent of entries) {
+    if (out.length >= maxFiles) return;
+    const full = path.join(dir, ent.name);
+    if (ent.isDirectory()) {
+      if (/^(Cache|Code Cache|GPUCache|ShaderCache|Crashpad)$/i.test(ent.name)) continue;
+      walkHistoryCandidates(full, out, maxFiles, depth + 1);
+      continue;
+    }
+    if (!ent.isFile()) continue;
+    const historyLike = OPENAI_HISTORY_NAME_RE.test(ent.name) || OPENAI_HISTORY_NAME_RE.test(dir);
+    let st;
+    try {
+      st = fs.statSync(full);
+    } catch {
+      continue;
+    }
+    const mode = (st.mode & 0o777).toString(8).padStart(3, '0');
+    const looksBinaryEncrypted =
+      /\.(enc|sealed|age|gpg)$/i.test(ent.name) || /encrypt/i.test(ent.name);
+    // Plain JSON/SQLite/plist/log without encrypt marker → treat as unencrypted-likely
+    const plain =
+      /\.(json|jsonl|sqlite|db|plist|log|txt|ndjson)$/i.test(ent.name) || historyLike;
+    // OpenAI's own docs (Futurism 2026-08-19): Computer History files are not encrypted.
+    const unencryptedLikely = historyLike && plain && !looksBinaryEncrypted;
+    if (historyLike || (plain && OPENAI_HISTORY_NAME_RE.test(dir))) {
+      out.push({
+        path: full,
+        bytes: st.size,
+        mode,
+        historyLike: true,
+        unencryptedLikely,
+      });
+    }
+  }
+}
+
+function doctorHonesty(opts = {}) {
+  const openaiProbe = probeOpenAiComputerHistory(opts);
   return {
     schema: SCHEMA,
     product: PRODUCT,
@@ -84,6 +230,7 @@ function doctorHonesty() {
     status: 'FAIL_CLOSED',
     counsel:
       'Isolated fenced VPS does not grab the cursor. We are not ChatGPT Computer History, not Windows Recall, not a Mac keylogger.',
+    openaiComputerHistoryOnThisMac: openaiProbe,
   };
 }
 
@@ -242,10 +389,20 @@ function main(argv = process.argv.slice(2)) {
     return res;
   }
 
+  if (cmd === 'probe-openai' || cmd === 'probe-chatgpt-computer-history') {
+    const probe = probeOpenAiComputerHistory();
+    console.log(JSON.stringify(probe, null, 2));
+    if (probe.status === 'PRESENT_UNENCRYPTED_WARN' || probe.status === 'PRESENT_WARN') {
+      process.exitCode = 3;
+    }
+    return probe;
+  }
+
   const doc = doctorHonesty();
   if (json) {
     console.log(JSON.stringify(doc, null, 2));
   } else {
+    const probe = doc.openaiComputerHistoryOnThisMac || {};
     console.log(
       [
         `Mac Computer History: ${doc.status} (we are not ChatGPT Computer History / Windows Recall / a Mac keylogger)`,
@@ -253,8 +410,12 @@ function main(argv = process.argv.slice(2)) {
         `  storesUnencryptedHistory=${doc.storesUnencryptedHistory}`,
         `  canReadSecrets=${doc.canReadSecrets}`,
         `  ingestForeignSlackOrDms=${doc.ingestForeignSlackOrDms}`,
+        `  openaiOnThisMac=${probe.status || 'unknown'} historyFiles=${(probe.historyLikeFiles || []).length} unencryptedLikely=${Boolean(probe.unencryptedLikely)}`,
         `  ${doc.counsel}`,
-      ].join('\n'),
+        probe.counsel ? `  openaiProbe: ${probe.counsel}` : null,
+      ]
+        .filter(Boolean)
+        .join('\n'),
     );
   }
   return doc;
@@ -268,6 +429,7 @@ module.exports = {
   SCHEMA,
   PRODUCT,
   DEFAULT_EXCLUSIONS,
+  OPENAI_SUPPORT_DIR_NAMES,
   canReadSecrets,
   denialReason,
   doctorHonesty,
@@ -278,6 +440,7 @@ module.exports = {
   ingestForeignSlackOrDms,
   isExcluded,
   main,
+  probeOpenAiComputerHistory,
   queryWorkHistory,
   recordEvent,
 };

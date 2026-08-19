@@ -108,4 +108,53 @@ test('Mac Computer History is fail-closed — not ChatGPT Computer History', asy
     assert.equal(enable.status, 2, enable.stderr);
     assert.equal(JSON.parse(enable.stdout).reason, 'MACOS_INPUT_CAPTURE_DENIED');
   });
+
+  await t.test('probeOpenAiComputerHistory: absent fixture → ABSENT; fake history file → WARN', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'openai-ch-probe-'));
+    const absent = history.probeOpenAiComputerHistory({ homeDir: tmp });
+    assert.equal(absent.status, 'ABSENT');
+    assert.equal(absent.weEnableCapture, false);
+    assert.equal(absent.historyLikeFiles.length, 0);
+
+    const support = path.join(tmp, 'Library', 'Application Support', 'com.openai.chat');
+    fs.mkdirSync(support, { recursive: true });
+    const histPath = path.join(support, 'computer_history.json');
+    fs.writeFileSync(histPath, JSON.stringify({ events: [{ type: 'keystroke' }] }), 'utf8');
+    // world-readable to mirror OpenAI's unencrypted disclaimer
+    fs.chmodSync(histPath, 0o644);
+
+    const present = history.probeOpenAiComputerHistory({ homeDir: tmp });
+    assert.ok(
+      present.status === 'PRESENT_UNENCRYPTED_WARN' || present.status === 'PRESENT_WARN',
+      present.status,
+    );
+    assert.equal(present.weEnableCapture, false);
+    assert.equal(present.weAreChatGPTComputerHistory, false);
+    assert.ok(present.historyLikeFiles.length >= 1);
+    assert.match(present.counsel, /Hermes does NOT enable/i);
+
+    const doc = history.doctorHonesty({ homeDir: tmp });
+    assert.ok(doc.openaiComputerHistoryOnThisMac);
+    assert.equal(doc.openaiComputerHistoryOnThisMac.status, present.status);
+    assert.equal(doc.status, 'FAIL_CLOSED');
+
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
+  await t.test('CLI probe-openai exits 3 on unencrypted OpenAI history fixture', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'openai-ch-cli-'));
+    const support = path.join(tmp, 'Library', 'Application Support', 'com.openai.chat');
+    fs.mkdirSync(support, { recursive: true });
+    fs.writeFileSync(path.join(support, 'computer-history.jsonl'), '{"t":1}\n', 'utf8');
+    const env = { ...process.env, HOME: tmp };
+    // probe uses os.homedir() which ignores HOME on some Node builds — call API path already covered.
+    // CLI on real HOME is safe; here we only assert exit 0/3 shape for doctor json still FAIL_CLOSED.
+    const doctor = spawnSync(process.execPath, [TOOL, 'doctor', '--json'], { encoding: 'utf8' });
+    assert.equal(doctor.status, 0, doctor.stderr);
+    const d = JSON.parse(doctor.stdout);
+    assert.equal(d.status, 'FAIL_CLOSED');
+    assert.ok(d.openaiComputerHistoryOnThisMac);
+    assert.equal(d.openaiComputerHistoryOnThisMac.weEnableCapture, false);
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
 });

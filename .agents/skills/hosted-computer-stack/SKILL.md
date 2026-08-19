@@ -23,6 +23,9 @@ hosted-computer route "use playwright to click Gmail"
 hosted-computer route "Give hosted Hermes a job: watch CI overnight"
 hosted-computer route "enable ChatGPT Computer History"
 hosted-computer route "enable macOS input capture"
+# Probe whether OpenAI Computer History artifacts exist on this Mac (warn only; never enable):
+node tools/mac-computer-history.js probe-openai
+node tools/mac-computer-history.js doctor --json
 ```
 
 ## Hard rules
