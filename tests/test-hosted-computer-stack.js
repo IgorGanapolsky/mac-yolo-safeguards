@@ -54,11 +54,21 @@ function run() {
   assert.strictEqual(doc.weAreCua, false);
   assert.strictEqual(doc.weArePerplexityComputer, false);
   assert.strictEqual(doc.weAreEigent, false);
+  assert.strictEqual(doc.weAreChatGPTComputerHistory, false);
+  assert.strictEqual(doc.weAreWindowsRecall, false);
+  assert.strictEqual(doc.weAreMacKeylogger, false);
   assert.strictEqual(doc.clonePresent, false);
   assert.strictEqual(doc.status, 'NOT_A_COMPUTER_CLONE');
   assert.strictEqual(doc.product, 'hosted-hermes-chat-on-fenced-vps');
   assert.strictEqual(doc.counsel.expandHostedApp, 'PAUSE');
-  console.log('PASS 5 doctor: we are not them; hosted chat is the product');
+  assert.strictEqual(doc.counsel.computerHistory, 'FAIL_CLOSED');
+  assert.strictEqual(doc.history.kind, 'FAIL_CLOSED');
+  assert.strictEqual(doc.history.writesUnencrypted, false);
+  assert.strictEqual(doc.leastPrivilege.canReadSecrets, false);
+  assert.strictEqual(doc.leastPrivilege.ingestForeignSlackOrDms, false);
+  assert.strictEqual(doc.leastPrivilege.capturesKeystrokes, false);
+  assert.strictEqual(doc.leastPrivilege.fencedVpsDoesNotGrabCursor, true);
+  console.log('PASS 5 doctor: we are not them; hosted chat is the product; not Computer History');
 
   const clone = stack.classify('install openclaw and wire cua onto e2b');
   assert.strictEqual(clone.place, 'refuse');
@@ -71,7 +81,23 @@ function run() {
   assert.strictEqual(job.reason, 'EXISTING_10USD_HOSTED_HERMES');
   const ordinary = stack.classify('implement a TypeScript helper');
   assert.strictEqual(ordinary.place, 'local');
-  console.log('PASS 6 route: clone/hands refuse; hosted job stays existing $10 chat');
+  const hist = stack.classify('enable ChatGPT Computer History and learn from everything you do on your computer');
+  assert.strictEqual(hist.place, 'refuse');
+  assert.strictEqual(hist.reason, 'COMPUTER_HISTORY_FORBIDDEN');
+  assert.strictEqual(hist.weAreChatGPTComputerHistory, false);
+  const recall = stack.classify('turn on Windows Recall screenshots');
+  assert.strictEqual(recall.place, 'refuse');
+  assert.strictEqual(recall.reason, 'COMPUTER_HISTORY_FORBIDDEN');
+  const pulse = stack.classify('Pulse memory of every app');
+  assert.strictEqual(pulse.place, 'refuse');
+  const chrome = stack.classify('Chrome extension that watches typing');
+  assert.strictEqual(chrome.place, 'refuse');
+  const otel = stack.classify('OTel of keystrokes');
+  assert.strictEqual(otel.place, 'refuse');
+  const helper = stack.classify('enable macOS input capture');
+  assert.strictEqual(helper.place, 'refuse');
+  assert.strictEqual(helper.reason, 'MACOS_INPUT_CAPTURE_DENIED');
+  console.log('PASS 6 route: clone/hands/Computer History refuse; hosted job stays existing $10 chat');
 
   const fake = tmpRepo({
     'services/hermes-cloud-runner/server.js': 'async function execute() { return playwright.click(); }',
@@ -98,7 +124,31 @@ function run() {
   assert.strictEqual(JSON.parse(cliJob.stdout).place, 'hosted-chat');
   console.log('PASS 8 CLI doctor + refuse/exit 2 + hosted-chat');
 
-  console.log('\nALL HOSTED-COMPUTER-STACK TESTS PASSED (8/8)');
+  const cliHist = spawnSync(cli, ['route', 'ship Computer History'], { encoding: 'utf8' });
+  assert.strictEqual(cliHist.status, 2, cliHist.stderr);
+  assert.strictEqual(JSON.parse(cliHist.stdout).reason, 'COMPUTER_HISTORY_FORBIDDEN');
+  const cliCapture = spawnSync(cli, ['route', 'enable macOS input capture'], { encoding: 'utf8' });
+  assert.strictEqual(cliCapture.status, 2, cliCapture.stderr);
+  assert.strictEqual(JSON.parse(cliCapture.stdout).reason, 'MACOS_INPUT_CAPTURE_DENIED');
+  const cliText = spawnSync(cli, ['doctor'], { encoding: 'utf8' });
+  assert.strictEqual(cliText.status, 0, cliText.stderr);
+  assert.match(cliText.stdout, /ChatGPT Computer History/);
+  assert.match(cliText.stdout, /Windows Recall/);
+  assert.match(cliText.stdout, /does not grab the cursor/);
+  assert.doesNotMatch(cliText.stdout, /learn from everything you do on your computer/);
+  console.log('PASS 9 CLI refuses Computer History and input-capture helpers');
+
+  const liveHistory = stack.inspectHistory(REPO);
+  assert.strictEqual(liveHistory.kind, 'FAIL_CLOSED');
+  assert.strictEqual(liveHistory.writesUnencrypted, false);
+  const fakeHist = tmpRepo({
+    'tools/mac-computer-history.js': 'fs.writeFileSync(HISTORY_FILE, JSON.stringify(events)); // computer_history.json',
+  });
+  assert.strictEqual(stack.inspectHistory(fakeHist).kind, 'UNENCRYPTED_COMPUTER_HISTORY');
+  fs.rmSync(fakeHist, { recursive: true, force: true });
+  console.log('PASS 10 history inspect fail-closed; unencrypted store is reported');
+
+  console.log('\nALL HOSTED-COMPUTER-STACK TESTS PASSED (10/10)');
 }
 
 run();

@@ -10,6 +10,10 @@ import {
   resolveNamedRunnerIdentity,
 } from "./hosted-model-fallback.js";
 
+/** Futurism 2026-08-19 contrast: we are not ChatGPT Computer History / Windows Recall. */
+export const HOSTED_NOT_COMPUTER_HISTORY =
+  "Hosted Hermes is not ChatGPT Computer History, not Windows Recall, and not a Mac keylogger. The isolated fenced VPS does not grab the cursor or capture keystrokes.";
+
 export const DEFAULT_RUNNER_HEALTH_URL = "https://igor-hermes-cloud-runner.fly.dev/health";
 export const RUNNER_STALE_MS = 60_000;
 export const RUNNER_PROBE_TIMEOUT_MS = 8_000;
@@ -346,7 +350,7 @@ export function hostedConnectionCopy(input: {
   if (live) {
     return {
       headline: "Hosted Hermes live",
-      body: "ThumbGate runs on a fenced VPS — $10/mo. Approvals in thumbgate.app. The runner and model are healthy.",
+      body: `ThumbGate runs on a fenced VPS — $10/mo. Approvals in thumbgate.app. The runner and model are healthy. ${HOSTED_NOT_COMPUTER_HISTORY}`,
       badge: "verified",
       live: true,
       trust,
@@ -354,7 +358,7 @@ export function hostedConnectionCopy(input: {
     };
   }
   const anyUnhealthy = input.runnerStatus === "unhealthy" || input.modelStatus === "unhealthy";
-  const product = "Hosted Hermes is on a fenced VPS ($10/mo). Approvals in thumbgate.app.";
+  const product = `Hosted Hermes is on a fenced VPS ($10/mo). Approvals in thumbgate.app. ${HOSTED_NOT_COMPUTER_HISTORY}`;
   const detail = input.message?.trim();
   return {
     headline: anyUnhealthy ? "Hosted Hermes not ready" : "Hosted Hermes waiting",

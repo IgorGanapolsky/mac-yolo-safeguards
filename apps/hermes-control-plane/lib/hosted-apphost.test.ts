@@ -208,6 +208,10 @@ describe("hostedConnectionCopy", () => {
     expect(copy.body).toContain("fenced VPS");
     expect(copy.body).toContain("$10");
     expect(copy.body.toLowerCase()).not.toContain("instantly");
+    expect(copy.body).toContain("not ChatGPT Computer History");
+    expect(copy.body).toContain("not Windows Recall");
+    expect(copy.body).toContain("not a Mac keylogger");
+    expect(copy.body).not.toMatch(/learn from everything you do on your computer/i);
   });
 
   it("labels resources Waiting / Healthy / Unhealthy", () => {

@@ -40,6 +40,7 @@ const body = `# ThumbGate
 - Is this a memory plugin? No. Hosted Hermes is the always-on VPS box.
 - Why not another laptop pilot? Pilots die when the machine sleeps. Hosted Hermes is one always-on VPS agent with in-browser approvals.
 - How do I give it a job? Sign in, start the $10 trial, type the job in the dashboard. Hosted Hermes runs on a fenced VPS while the laptop sleeps. Approvals stay in thumbgate.app.
+- Does it record Computer History or keystrokes? No. Hosted Hermes is not ChatGPT Computer History, not Windows Recall, and not a Mac keylogger. The isolated fenced VPS does not grab the cursor. We do not learn from everything you do on your computer. We cannot read secrets and we do not ingest other people's Slack or DMs.
 `;
 
 export async function GET() {

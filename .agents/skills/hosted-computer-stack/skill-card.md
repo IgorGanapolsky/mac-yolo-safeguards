@@ -2,7 +2,7 @@
 
 ## Description
 
-Doctor/route CLI that refuses OpenClaw/E2B/Cua clones and reports hosted Hermes as chat-completions plus a browser policy cue, not Computer Hands.
+Doctor/route CLI that refuses OpenClaw/E2B/Cua clones and ChatGPT Computer History / Windows Recall / Mac input capture. Reports hosted Hermes as $10 chat on a fenced VPS that does not grab the cursor.
 
 ## Owner
 

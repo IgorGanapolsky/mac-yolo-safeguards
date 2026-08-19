@@ -126,6 +126,11 @@ const FAQ_ITEMS = [
       "Perplexity Computer is a general-purpose digital worker inside Perplexity's cloud. Hosted Hermes is your own always-on coding agent on a fenced VPS, steered from thumbgate.app, with human approval gates on money, customer, and production actions. If you want an agent that keeps working after your laptop sleeps and pauses before dangerous actions, that is this product. $10/mo.",
   },
   {
+    question: "Does hosted Hermes record Computer History or capture keystrokes?",
+    answer:
+      "No. Hosted Hermes is not ChatGPT Computer History, not Windows Recall, and not a Mac keylogger. The isolated fenced VPS does not grab the cursor, capture keystrokes or clicks, or store an unencrypted timeline of local Mac activity. We do not learn from everything you do on your computer. Least privilege: we cannot read secrets. Private/incognito analogue: we do not ingest other people's Slack or DMs.",
+  },
+  {
     question: "Can hosted Hermes run background and recurring tasks?",
     answer:
       "Yes. Scheduled work and watchers keep firing because the fenced VPS never sleeps. Long runs hold a 90-second renewable lease with receipts. Risky steps pause for your approval in thumbgate.app.",
@@ -387,6 +392,7 @@ export default function Home() {
           <p>
             Tool calls, approvals, and hosted runs stay on thumbgate.app. Access is the signed-in org.
             There is no phone leash and no third-party approval surface on this product.
+            Not ChatGPT Computer History, not Windows Recall, not a Mac keylogger — the fenced VPS does not grab the cursor.
           </p>
         </div>
         <div className="steps-grid">
