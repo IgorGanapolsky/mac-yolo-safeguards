@@ -234,6 +234,14 @@ function classify(prompt = '') {
 }
 
 function formatDoctorText(doc) {
+  let openaiLine = null;
+  try {
+    const { probeOpenAiComputerHistory } = require('./mac-computer-history');
+    const probe = probeOpenAiComputerHistory();
+    openaiLine = `  openaiOnThisMac=${probe.status} historyFiles=${(probe.historyLikeFiles || []).length} (Hermes weEnableCapture=false)`;
+  } catch {
+    openaiLine = null;
+  }
   const lines = [
     `Hosted Computer stack: ${doc.status} (we are not OpenClaw/E2B/Cua/Perplexity Computer/ChatGPT Computer History/Windows Recall/a Mac keylogger)`,
     `  product=${doc.product} cap=$${doc.monthlyCapUsd}/mo`,
@@ -244,6 +252,7 @@ function formatDoctorText(doc) {
     `  leastPrivilege.canReadSecrets=${doc.leastPrivilege.canReadSecrets}`,
     `  fenced VPS does not grab the cursor`,
   ];
+  if (openaiLine) lines.push(openaiLine);
   return lines.join('\n');
 }
 
