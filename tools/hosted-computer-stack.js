@@ -2,13 +2,19 @@
 'use strict';
 
 /**
- * Hosted Computer stack honesty — we are not Perplexity Computer.
+ * Hosted Computer stack honesty — we are not Perplexity Computer,
+ * and we are not ChatGPT Computer History, Windows Recall, or a Mac input logger.
  *
  * Source (public, format only):
  *   https://www.perplexity.ai/products/computer
+ * Contrast (Futurism 2026-08-19): ChatGPT macOS Computer History records
+ * local clicks / typing / "events". Files can contain sensitive info and
+ * are NOT encrypted. Compared to Windows Recall.
  *
  * Transferable mechanic: a doctor that names layers from live files, not labels.
- * What this is NOT: OpenClaw, Eigent, E2B, trycua/Cua, Agent S, or a new hosted SKU.
+ * What this is NOT: OpenClaw, Eigent, E2B, trycua/Cua, Agent S,
+ * ChatGPT Computer History, Windows Recall, a Mac input logger,
+ * or a new hosted SKU.
  */
 
 const fs = require('fs');
@@ -22,6 +28,7 @@ const FACTORY_REL = 'services/hermes-cloud-runner/server.js';
 const HANDS_POLICY_REL = 'apps/hermes-control-plane/lib/cloud-tool-policy.ts';
 const HANDS_HEALTH_REL = 'apps/hermes-control-plane/lib/hosted-apphost.ts';
 const MANAGER_REL = 'tools/hermes-economic-router.js';
+const HISTORY_REL = 'tools/mac-computer-history.js';
 
 const GUI_OR_SANDBOX_RE = /\b(playwright|puppeteer|selenium|trycua|\bcua\b|\be2b\b|openclaw|eigent|agent[\s-]?s)\b/i;
 
@@ -29,6 +36,11 @@ const CLONE_NAME_RE = /\b(openclaw|eigent|\be2b\b|trycua|\bcua\b|agent[\s-]?s)\b
 const CLONE_VERB_RE = /\b(install|deploy|clone|vendor|assemble|self-host|wire onto)\b/i;
 const HANDS_ASK_RE = /\b(playwright|puppeteer|selenium|computer[ -]use|screenshot[ -]and[ -]click|click gmail|drive the desktop|mousemove)\b/i;
 const HOSTED_JOB_RE = /\b(hosted hermes|watch ci|morning digest|long migration|give .{0,40} a job|put hosted hermes to work)\b/i;
+
+const COMPUTER_HISTORY_PRODUCT_RE =
+  /\b(chatgpt computer history|computer history|windows recall|mac keylogger|learn from everything you do on your computer|pulse memory of every app|chrome extension that watches typing|otel of keystrokes|recall screenshots)\b/i;
+const INPUT_CAPTURE_HELPER_RE =
+  /\b(enable macos input capture|capture (clicks|keystrokes)|record (clicks|keystrokes|input events)|input-capture helper)\b/i;
 
 function defaultRepoRoot() {
   return path.resolve(__dirname, '..');
@@ -102,6 +114,30 @@ function inspectManager(repoRoot = defaultRepoRoot()) {
   };
 }
 
+function inspectHistory(repoRoot = defaultRepoRoot()) {
+  const src = readRepoFile(repoRoot, HISTORY_REL);
+  const failClosed =
+    /FAIL-CLOSED|FAIL_CLOSED|COMPUTER_HISTORY_DENIED/.test(src)
+    && /weAreChatGPTComputerHistory:\s*false/.test(src)
+    && /storesUnencryptedHistory:\s*false/.test(src);
+  const writesUnencrypted =
+    /computer_history\.json/.test(src)
+    && /writeFileSync/.test(src)
+    && !failClosed;
+  let kind = 'MISSING_HISTORY_HELPER';
+  if (src && writesUnencrypted) kind = 'UNENCRYPTED_COMPUTER_HISTORY';
+  else if (src && failClosed) kind = 'FAIL_CLOSED';
+  else if (src) kind = 'UNKNOWN_HISTORY_HELPER';
+  return {
+    file: HISTORY_REL,
+    kind,
+    writesUnencrypted,
+    failClosed,
+    canReadSecrets: false,
+    ingestForeignSlackOrDms: false,
+  };
+}
+
 function layersAreComputerClone(factory, hands, manager) {
   return (
     factory.kind === 'HAS_GUI_OR_SANDBOX_HINT'
@@ -115,6 +151,9 @@ function runDoctor(options = {}) {
   const factory = inspectFactory(repoRoot);
   const hands = inspectHands(repoRoot);
   const manager = inspectManager(repoRoot);
+  const history = inspectHistory(repoRoot);
+  const clonePresent = layersAreComputerClone(factory, hands, manager)
+    || history.kind === 'UNENCRYPTED_COMPUTER_HISTORY';
   return {
     schema: SCHEMA,
     source: SOURCE,
@@ -123,17 +162,31 @@ function runDoctor(options = {}) {
     weAreE2B: false,
     weAreCua: false,
     weArePerplexityComputer: false,
+    weAreChatGPTComputerHistory: false,
+    weAreWindowsRecall: false,
+    weAreMacKeylogger: false,
     product: 'hosted-hermes-chat-on-fenced-vps',
     monthlyCapUsd: MONTHLY_CAP_USD,
     manager,
     factory,
     hands,
+    history,
+    leastPrivilege: {
+      canReadSecrets: false,
+      ingestForeignSlackOrDms: false,
+      capturesKeystrokes: false,
+      capturesClicks: false,
+      buildsLocalActivityTimeline: false,
+      learnsFromEverythingYouDo: false,
+      fencedVpsDoesNotGrabCursor: true,
+    },
     counsel: {
       expandHostedApp: 'PAUSE',
       netNewGovernanceRnd: 'PAUSE',
+      computerHistory: 'FAIL_CLOSED',
     },
-    clonePresent: layersAreComputerClone(factory, hands, manager),
-    status: 'NOT_A_COMPUTER_CLONE',
+    clonePresent,
+    status: clonePresent ? 'COMPUTER_CLONE_OR_HISTORY_PRESENT' : 'NOT_A_COMPUTER_CLONE',
   };
 }
 
@@ -144,6 +197,19 @@ function classify(prompt = '') {
       place: 'refuse',
       reason: 'CLONE_FORBIDDEN',
       product: 'hosted-hermes-chat-on-fenced-vps',
+    };
+  }
+  if (COMPUTER_HISTORY_PRODUCT_RE.test(text) || INPUT_CAPTURE_HELPER_RE.test(text)) {
+    const reason = INPUT_CAPTURE_HELPER_RE.test(text)
+      ? 'MACOS_INPUT_CAPTURE_DENIED'
+      : 'COMPUTER_HISTORY_FORBIDDEN';
+    return {
+      place: 'refuse',
+      reason,
+      product: 'hosted-hermes-chat-on-fenced-vps',
+      weAreChatGPTComputerHistory: false,
+      weAreWindowsRecall: false,
+      weAreMacKeylogger: false,
     };
   }
   if (HANDS_ASK_RE.test(text)) {
@@ -169,11 +235,14 @@ function classify(prompt = '') {
 
 function formatDoctorText(doc) {
   const lines = [
-    `Hosted Computer stack: ${doc.status} (we are not OpenClaw/E2B/Cua/Perplexity Computer)`,
+    `Hosted Computer stack: ${doc.status} (we are not OpenClaw/E2B/Cua/Perplexity Computer/ChatGPT Computer History/Windows Recall/a Mac keylogger)`,
     `  product=${doc.product} cap=$${doc.monthlyCapUsd}/mo`,
     `  manager=${doc.manager.kind}`,
     `  factory=${doc.factory.kind}`,
     `  hands=${doc.hands.kind}`,
+    `  history=${doc.history.kind}`,
+    `  leastPrivilege.canReadSecrets=${doc.leastPrivilege.canReadSecrets}`,
+    `  fenced VPS does not grab the cursor`,
   ];
   return lines.join('\n');
 }
@@ -209,6 +278,7 @@ module.exports = {
   classify,
   inspectFactory,
   inspectHands,
+  inspectHistory,
   inspectManager,
   main,
   runDoctor,
