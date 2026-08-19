@@ -1252,3 +1252,74 @@ Commit is DCO-signed as `Igor Ganapolsky <iganapolsky@gmail.com>` with a `Co-Aut
 ### Blocker status (report only — no action requested)
 
 Unchanged in kind, sharper in scope this run: the block covers `block/buzz` writes generally, confirmed now at both `create_pull_request` and `add_issue_comment` specifically (not inferred from one endpoint to the other). Fork clone/build/test/push continue to work without issue from this session tier. Two more ready artifacts added to the backlog for a write-capable session: the #6218 fix (compare URL and PR body above) and the #6211 comment (full text above, ready to paste as-is).
+
+## 2026-08-19 — #6241 fixed, tested, and staged (build_add_member silently dropped self-targeted p tag); 15th consecutive run with zero write access to block/buzz, confirmed again at create_pull_request
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+- **Canonical repo:** [`github.com/block/buzz`](https://github.com/block/buzz) — unchanged maintainer/architecture/community surface from every prior run. `buzz-wf08-pr-plan.md` and `feat/buzz-nostr-acp-bridge` still do not exist anywhere in this repo, reconfirmed again.
+- **Access:** `mcp__github__list_issues(owner:"block", repo:"buzz")` → denied before any repo was even attached this session — `"Allowed repositories: igorganapolsky/mac-yolo-safeguards"`. `add_repo(owner:"block", repo:"buzz", access:"push")` was not attempted (every prior run's identical attempt has failed the same way); went straight to the working route: `add_repo(owner:"igorganapolsky", repo:"buzz", access:"push")` → accepted, forked repo cloned fresh (`git clone --depth 1`), `upstream` = `block/buzz` added and fetched (`upstream/main` at `93114c9c`, 2026-08-18 16:01 PT / 23:01 UTC — newer than the `d2cfd377` tip the last logged run fetched at 16:24 UTC the same day, confirming upstream moved again). `mcp__github__create_pull_request(owner:"block", repo:"buzz", ...)` on the finished fix branch → same denial as every prior run: `"Access denied ... Allowed repositories: igorganapolsky/mac-yolo-safeguards, igorganapolsky/buzz"`. Fifteenth consecutive run (Runs 1, 3–14, plus the untitled 2026-08-13/14/18 runs) with zero write access to `block/buzz` from this session tier.
+- This run's fork clone started from scratch (no prior local clone available in this container), and the fork's own `main` was stale (`ce56e344`, 2026-08-03) relative to `upstream/main` — branched the fix directly off `upstream/main`, not off the stale fork default, so the diff is against current upstream code.
+
+### What was surveyed (last ~72h, since the prior run's #6233 cutoff)
+
+Newest issues via `WebFetch` on the sorted issues list (API list/search on `block/buzz` is blocked the same as everything else, per Access above): #6276, #6272, #6270, #6268, #6262, #6257, #6256, #6249, #6247, #6242, #6241, #6240, all filed 2026-08-18/19.
+
+| Issue | Topic | Action |
+|-------|-------|--------|
+| [#6241](https://github.com/block/buzz/issues/6241) | `buzz_sdk::build_add_member` fails for self-targeted grants — nostr 0.44's `EventBuilder` strips `p` tags matching the signer by default, and this one builder (unlike `build_message`/`build_forum_post`/`build_forum_comment`/the NIP-IA self-attestation paths) never called `allow_self_tagging()` to opt out | **Fixed, tested, staged** (below) — a write silently losing its required tag before signing, surfacing only as a downstream relay rejection with no link back to the real cause, is exactly verification-vs-self-report/write-correctness territory |
+| [#6240](https://github.com/block/buzz/issues/6240) | `emit_group_discovery_events` (`crates/buzz-relay/src/handlers/side_effects.rs`) drops owner-role members from regenerated `kind:39002` NIP-29 discovery events | Read in full — precisely root-caused by the reporter (exact file, function, and query-scope fix), in-domain (audit-trail completeness), but hard cap is one fix/run and #6241 was the stronger, more central match to Igor's stated write-gating expertise. Recorded as the top backlog item for a future run/write-capable session. |
+| [#6270](https://github.com/block/buzz/issues/6270) | `resolve_path` (`crates/buzz-dev-mcp/src/paths.rs`) doesn't expand leading `~`, so agent tool calls resolve under `/app/~` instead of the home directory | Read in full — precisely root-caused (exact file/function, proposed fix scoped and conservative). In-domain-adjacent (agent tool-call path correctness) but a devtool path bug, not a write-gating/idempotency case; second-tier backlog item. |
+| [#6262](https://github.com/block/buzz/issues/6262) | `buzz mem patch` silently truncates stdin/patch input at 65,535 bytes (the NIP-44 plaintext limit), surfacing as a misleading "hunk header does not match hunk" parse error instead of a size-limit error | Read in full — silent-truncation-of-a-write is squarely in-domain, reporter has already isolated the exact byte boundary and proposed both fixes (read full input; return a clear size error). No exact function name given, so more source-diving needed than #6241/#6240 to locate the actual buffer; not pursued this run given the 1-fix cap. |
+| [#6268](https://github.com/block/buzz/issues/6268) | Cross-community agent invocation is correctly rejected by the relay, but the surfaced error text falsely claims "owner and agent keys are identical" — a verification failure misreported as a different failure entirely | Read in full — exactly the self-report-vs-actual-state pattern this log tracks, but the reporter's fix is "improve the error message" (a UX/wording change with judgment calls about phrasing, not a bounded root-cause-and-test fix); no exact code location given either. Logged as a pattern data point (a new angle: not silent data loss or destructive ordering, but a *misdiagnosed* verification failure), not drafted or fixed. |
+| [#6257](https://github.com/block/buzz/issues/6257) | Shared display names let agents bind identity facts (pronouns, bio, role) to the wrong pubkey — `buzz_sdk::mentions::match_names_to_profiles` returns every pubkey sharing a name, and the UI/agent context doesn't disambiguate | Read in full — reporter frames it correctly as a product/UX problem (three proposed fixes: role-suffix disambiguation, collision flags, creation-time warnings) rather than a single bounded code fix; real design-space, not a comment-worthy gap Igor's expertise closes in one reply. Logged as a pattern data point. |
+| [#6247](https://github.com/block/buzz/issues/6247) | Desktop resolves `@Name` against every known profile instead of current channel members, so a removed duplicate identity can still receive the `p` tag (CLI already scopes correctly to members) | Read in full — in-domain (stale/ambiguous target resolution surviving a removal), but reporter's repro and root-cause framing are already complete with no proposed-fix gap for a comment to fill, and no exact fix location given for a same-run PR. Logged as a pattern data point (fifteenth: joins #4565…#6218, #6206, #6232). |
+| #6276, #6272, #6249, #6256, #6242 | Titles only: Pulse @mention notification/badge miss while unfocused, Linux AppImage WebKit memory leak → OOM/SIGBUS, a flaky test (~1/186 runs), a pronouns-as-profile-field feature request, an order-dependent desktop E2E test | Not read in full — none is a write-gating/idempotency/audit-trail candidate on title alone (UI notification gap, memory/perf, CI flakiness, feature request, test ordering); recorded as unread, not triaged, per the hard rule against asserting verification that wasn't done. |
+| [#6221](https://github.com/block/buzz/issues/6221) (surfaced via full-text read, not new) | `BUZZ_PRIVATE_KEY` set in a `hermes` `.env` file isn't picked up by Buzz agents configured to use "hermes" as harness/model provider | Read in full because the name overlap with this repo's own Hermes tooling looked worth checking. Confirmed via `docs/HERMES-BUZZ-INTEGRATION.md` in this repo: the "hermes" in this issue is **Nous Research's separate "Hermes Agent"** project, unrelated to and unaffiliated with this repo's own Hermes control-plane/protocol code (the doc states "No affiliation is claimed with Nous Research or Block"). Not Igor's expertise domain (a third party's env-var loading in their own harness) and not a naming collision worth acting on beyond noting it here so a future run doesn't re-investigate hoping it's related. |
+
+### Fix for #6241 (this run — real engineering, not a draft)
+
+Read `crates/buzz-sdk/src/builders.rs`'s `build_add_member`, its sibling builders, and every existing `allow_self_tagging()` call site (11 across `buzz-sdk`, `desktop/src-tauri`, and the e2e test suite) before touching anything:
+
+- Confirmed on current `upstream/main` (`93114c9c`) — not a stale snapshot — that `build_add_member` (kind:9000) constructs its `p` tag and calls `EventBuilder::new(...).tags(tags)` with no `.allow_self_tagging()`, while `build_message`, `build_forum_post`, `build_forum_comment`, and both NIP-IA self-attestation builders all call it, several with comments explicitly warning that omitting it silently drops the self `p` tag on signing (e.g. `builders.rs:2392`, `desktop/src-tauri/src/events.rs:667`, referencing the same nostr 0.44 default-scrub behavior fixed for `build_message` under #4906).
+- Fix: added `.allow_self_tagging()` to `build_add_member`'s return, matching the existing convention exactly, with a comment citing #6241 the way the #4906 fix's comment cites its own issue.
+- Added a new regression test, `add_member_preserves_self_targeted_p_tag`, mirroring the existing `message_preserves_self_mention_p_tag` test: generates signer keys, builds a self-targeted add-member event using the signer's own pubkey as the target, signs it, and asserts the `p` tag survives.
+
+#### Verification (executed this run — real output, not inferred)
+
+`buzz-sdk` is a plain Rust library crate (no Tauri/GUI toolchain needed, unlike the desktop-crate fixes in prior runs) — built and tested directly with `cargo`:
+
+- **Fail-before, isolated:** temporarily reverted just the `.allow_self_tagging()` call (kept the new test), ran `cargo test --lib add_member_preserves_self_targeted_p_tag` → **FAILED**, `panicked at ...: self-targeted p tag must survive signing`. Restored the fix.
+- **Pass-after, full crate:** `cargo test --lib` → **263 passed, 0 failed, 0 ignored**.
+- `cargo clippy --lib --tests -- -D warnings` → clean, zero warnings.
+- `cargo fmt -- --check` → clean, no reformatting needed.
+
+### What was opened / answered this run
+
+| Action | Status | URL |
+|--------|--------|-----|
+| Fix branch for #6241, DCO-signed, full crate suite green | **Pushed to Igor's fork** | `IgorGanapolsky/buzz@fix/build-add-member-allow-self-tagging` |
+| PR to `block/buzz` | **Staged — one click** (API blocked, confirmed this run) | [compare/open PR](https://github.com/IgorGanapolsky/buzz/pull/new/fix/build-add-member-allow-self-tagging) |
+| Full PR body, ready to paste | Committed to this repo | `coordination/buzz-pr-drafts/6241-build-add-member-allow-self-tagging.md` |
+
+Commit is DCO-signed as `Igor Ganapolsky <iganapolsky@gmail.com>` with a `Co-Authored-By: Claude` trailer. No comment posted this run (no candidate cleared the "real technical gap a comment would close" bar — see survey table above). No second PR opened (hard cap: 1/run). **ThumbGate is not mentioned anywhere in the branch, commit, PR draft, or this log entry's technical content** — the fix is a Buzz-internal SDK tag-stripping bug with no ThumbGate relevance.
+
+### Positioning read: **neither** (unchanged, reconfirmed a fifteenth time)
+
+- Not a competitor — Buzz remains a team workspace (chat + git + workflow automation) on Nostr; ThumbGate remains a cross-tool pre-action governance gate for arbitrary agent actions. No overlap in what either actually ships.
+- Not a partner — no relationship, no contact, no integration exists, and nothing this run changes that.
+- This run's fix is a narrower, more mechanical data point than #6218/#6211 (prior run): a write silently losing required data before signing is the same general shape as ThumbGate's "verify before it happens" concern, but the actual defect here is a one-line library default (a missing opt-out flag), not evidence of a deeper architectural gap — it doesn't move the positioning read either direction, just adds a fifteenth confirmation that this problem class recurs across Buzz's own codebase independent of any external gating layer.
+
+### What was skipped and why
+
+- **#6240** — real, precisely root-caused, in-domain (audit-trail completeness) fix candidate; not pursued this run only because of the 1-fix/run cap and #6241 being the closer match to write-gating specifically. Top backlog item for a future run.
+- **#6270** — real, precisely root-caused fix candidate (agent tool-call path resolution); second-tier backlog item, same reasoning.
+- **#6262** — real silent-truncation bug, reporter has isolated the byte boundary and proposed fixes, but no exact function location given (unlike #6241/#6240/#6270) and the 1-fix cap was already spent; third-tier backlog item.
+- **#6268, #6257, #6247** — genuinely in-domain pattern data points, but each is either a design-space UX question (#6257), a wording/judgment-call fix (#6268), or already fully diagnosed by the reporter with no comment-worthy gap (#6247); none met the bar for a drafted comment this run.
+- **#6276, #6272, #6249, #6256, #6242** — read by title only; not investigated, recorded as unread rather than triaged.
+- **#6221** — investigated once (name collision with this repo's own Hermes tooling looked worth checking), confirmed unrelated (Nous Research's separate "Hermes Agent"), not this run's domain; recorded so a future run doesn't re-investigate from zero.
+- **Backlogged drafts from prior runs** (#4860, #5492, #5555, #5557, #5611, #5665, #5667, #5708, #5734, #5759, #5800, WF-08, #6175, #6218, and the #6211 comment) — not re-verified this run; still parked, unchanged.
+
+### Blocker status (report only — no action requested)
+
+Fifteenth consecutive run with zero write access to `block/buzz` from this environment tier, reconfirmed at `create_pull_request` this run (list/read access is now denied even earlier — before any repo is attached — for `block/buzz` specifically, while the `igorganapolsky/buzz` fork route continues to work without issue for clone/build/test/push). One new ready artifact added to the backlog for a write-capable session: the #6241 fix (compare URL and PR body above). Nothing escalated to a human this run beyond this standing note; the blocker itself is unchanged in kind from every prior run.
