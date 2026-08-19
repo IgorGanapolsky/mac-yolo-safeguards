@@ -207,9 +207,17 @@ function runHarnessGate() {
       dispatch_proof: dispProof,
       runtime_ms: Date.now() - t0,
       solver: 'gurobipy',
+      action_class: 'observe',
     };
-    writeReceipt(receipt);
-    return receipt;
+    try {
+      const { record } = require('./gurobi-decision-audit');
+      const decorated = record(receipt);
+      writeReceipt(decorated);
+      return decorated;
+    } catch {
+      writeReceipt(receipt);
+      return receipt;
+    }
   } finally {
     try {
       fs.rmSync(tmp, { recursive: true, force: true });
