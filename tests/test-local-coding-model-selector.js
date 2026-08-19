@@ -206,6 +206,70 @@ check('CLI: unknown command returns exit 1', () => {
   assert.strictEqual(r.status, 1);
 });
 
+// --- Embedding Model Registry -----------------------------------------------
+
+check('EMBEDDING_MODELS has 4 entries', () => {
+  assert.strictEqual(mod.EMBEDDING_MODELS.length, 4);
+});
+
+check('EMBEDDING_MODELS includes mxbai-embed-large (1024d)', () => {
+  const m = mod.EMBEDDING_MODELS.find((m) => m.id === 'mxbai-embed-large');
+  assert.ok(m);
+  assert.strictEqual(m.dimensions, 1024);
+});
+
+check('EMBEDDING_MODELS includes nomic-embed-text (768d)', () => {
+  const m = mod.EMBEDDING_MODELS.find((m) => m.id === 'nomic-embed-text');
+  assert.ok(m);
+  assert.strictEqual(m.dimensions, 768);
+});
+
+check('EMBEDDING_MODELS includes all-minilm (384d)', () => {
+  const m = mod.EMBEDDING_MODELS.find((m) => m.id === 'all-minilm');
+  assert.ok(m);
+  assert.strictEqual(m.dimensions, 384);
+});
+
+check('EMBEDDING_MODELS includes bge-m3 (1024d, multilingual)', () => {
+  const m = mod.EMBEDDING_MODELS.find((m) => m.id === 'bge-m3');
+  assert.ok(m);
+  assert.strictEqual(m.dimensions, 1024);
+  assert.ok(m.description.includes('Multilingual'));
+});
+
+check('recommendEmbeddingModels: 16GB RAM recommends 3 models', () => {
+  const r = mod.recommendEmbeddingModels({ ram_gb: 16, disk_gb: 100, apple_silicon: true });
+  const ids = r.recommended.map((m) => m.id);
+  assert.ok(ids.includes('all-minilm'));
+  assert.ok(ids.includes('nomic-embed-text'));
+  assert.ok(ids.includes('mxbai-embed-large'));
+  assert.ok(ids.includes('bge-m3'));
+  assert.strictEqual(r.recommended.length, 4);
+});
+
+check('recommendEmbeddingModels: 4GB RAM recommends only all-minilm', () => {
+  const r = mod.recommendEmbeddingModels({ ram_gb: 4, disk_gb: 100, apple_silicon: true });
+  const ids = r.recommended.map((m) => m.id);
+  assert.ok(ids.includes('all-minilm'));
+  assert.ok(!ids.includes('nomic-embed-text'));
+  assert.ok(!ids.includes('mxbai-embed-large'));
+  assert.ok(!ids.includes('bge-m3'));
+});
+
+check('recommendEmbeddingModels: 2GB RAM recommends nothing', () => {
+  const r = mod.recommendEmbeddingModels({ ram_gb: 2, disk_gb: 1, apple_silicon: true });
+  assert.strictEqual(r.recommended.length, 0);
+  assert.ok(r.warnings.length > 0);
+});
+
+check('recommendEmbeddingModels: returns correct hardware info', () => {
+  const r = mod.recommendEmbeddingModels({ ram_gb: 32, disk_gb: 200, apple_silicon: true });
+  assert.strictEqual(r.hardware.ram_gb, 32);
+  assert.strictEqual(r.hardware.disk_gb, 200);
+  assert.strictEqual(r.hardware.apple_silicon, true);
+  assert.strictEqual(r.model_count, 4);
+});
+
 // --- Summary ----------------------------------------------------------------
 
 console.log(`test-local-coding-model-selector: ${pass + fail} tests, ${pass} passed, ${fail} failed`);
