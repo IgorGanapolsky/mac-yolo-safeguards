@@ -3173,3 +3173,4 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 | plan.md (append only) | grok-thumbgate-app-cursor-blog-20260819 | 2026-08-19T15:35:00Z |
 
 - 2026-08-19T15:35Z `grok-thumbgate-app-cursor-blog`: Cursor blog FORMAT on **thumbgate.app** (not thumbgate.ai). Index = date + topic + author + min read. One product post: Give hosted Hermes a job. No Continuity hero, no $499. First-party surface; do not re-post the same hook already LIVE on dev.to.
+- 2026-08-19T15:45Z `grok-thumbgate-app-cursor-blog`: Rebased PR #1857 onto origin/main after #1854/#1855. Footer Blog link kept; checkout event is `hosted_checkout_click` (not Continuity). Added RSS + JSON-LD on thumbgate.app/blog. Sibling PR #1856 (claude) also targets /blog with lid-sleep copy + named founder — do not take over that PR. CEO correction: blog is thumbgate.app, not thumbgate.ai.

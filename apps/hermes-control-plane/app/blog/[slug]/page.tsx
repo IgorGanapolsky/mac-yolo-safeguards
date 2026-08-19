@@ -24,6 +24,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
       title: post.title,
       description: post.dek,
       url: `https://thumbgate.app/blog/${post.slug}`,
+      siteName: "ThumbGate.app",
     },
   };
 }
@@ -33,9 +34,22 @@ export default async function BlogPostPage({ params }: { params: Promise<Params>
   const post = postBySlug(slug);
   if (!post) notFound();
   const related = POSTS.filter((item) => item.slug !== post.slug).slice(0, 3);
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: post.title,
+    datePublished: post.date,
+    author: { "@type": "Organization", name: post.author },
+    url: `https://thumbgate.app/blog/${post.slug}`,
+    description: post.dek,
+  };
 
   return (
     <main className="landing-shell">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       <nav className="topbar landing-nav" aria-label="Primary navigation">
         <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate <small>Hosted Hermes</small></span></Link>
         <div className="nav-actions">
@@ -61,7 +75,7 @@ export default async function BlogPostPage({ params }: { params: Promise<Params>
           </section>
         ))}
         <div className={styles.ctaRow}>
-          <a href="/api/auth/login" className="button button-primary" data-funnel-event="cloud_continuity_click" data-cta-id="thumbgate-app-blog-20260819_home">
+          <a href="/api/auth/login" className="button button-primary" data-funnel-event="hosted_checkout_click" data-cta-id="thumbgate-app-blog-20260819_home">
             Give hosted Hermes a job
           </a>
         </div>

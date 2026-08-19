@@ -8,12 +8,34 @@ export const metadata: Metadata = {
   title: "Blog — hosted Hermes on thumbgate.app",
   description:
     "Engineering notes for hosted Hermes on a fenced VPS. $10/month. Approvals in this browser.",
-  alternates: { canonical: "/blog" },
+  alternates: {
+    canonical: "/blog",
+    types: { "application/rss+xml": "/blog/rss.xml" },
+  },
 };
 
 export default function BlogIndex() {
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "Blog",
+    url: "https://thumbgate.app/blog",
+    name: "ThumbGate.app Blog",
+    description: "Engineering notes for hosted Hermes on a fenced VPS.",
+    blogPost: POSTS.map((post) => ({
+      "@type": "BlogPosting",
+      headline: post.title,
+      datePublished: post.date,
+      author: { "@type": "Organization", name: post.author },
+      url: `https://thumbgate.app/blog/${post.slug}`,
+    })),
+  };
+
   return (
     <main className="landing-shell">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       <nav className="topbar landing-nav" aria-label="Primary navigation">
         <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate <small>Hosted Hermes</small></span></Link>
         <div className="nav-actions">
@@ -25,7 +47,7 @@ export default function BlogIndex() {
         <div className="section-heading">
           <p className="eyebrow">Blog</p>
           <h1>Notes on hosted Hermes.</h1>
-          <p>Date, topic, author, read time — the Cursor blog format, on thumbgate.app. Not affiliated with Cursor. The product here is a $10 fenced VPS.</p>
+          <p>Date, topic, author, read time — the Cursor blog format, on thumbgate.app. Not affiliated with Cursor. The product here is a $10 fenced VPS. <a href="/blog/rss.xml">RSS</a>.</p>
         </div>
         <div className={styles.cards}>
           {POSTS.map((post) => (
