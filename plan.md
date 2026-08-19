@@ -3173,3 +3173,18 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 | plan.md (append only) | grok-thumbgate-app-blog-chief-copy-20260819 | 2026-08-19T15:50:00Z |
 
 - 2026-08-19T15:50Z `grok-thumbgate-app-blog-chief-copy`: CEO correction — Cursor blog is **thumbgate.app**, not thumbgate.ai. #1856 already merged /blog. Follow-up: author ThumbGate (no founder byline), product post Give hosted Hermes a job, landing footer Blog link, OFFER-005. Closed duplicate #1860. Did not re-post the LIVE dev.to Computer-falsifier hook.
+
+| T-GUROBI-PULSE-PROOF-20260819 | Pulse steal: certified proof receipts (ObjVal/ObjBound/MIPGap), auto-IIS, $10 token-budget LP, exclusive adb/git_lock dispatch, bounce+vertical outreach knapsack | in_progress | grok-gurobi-pulse-proof-20260819 | `tools/gurobi_fleet_lib.py`, `tools/gurobi-mcp-server.py`, `tools/gurobi-fleet-optimize.py`, `tests/test-gurobi-fleet-optimize.js`, `.agents/skills/gurobi-optimizer-integrator/SKILL.md`, `SKILLS.md` (append row), `plan.md` | AGENT-419 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/gurobi_fleet_lib.py | grok-gurobi-pulse-proof-20260819 | 2026-08-19T18:30:00Z |
+| tools/gurobi-mcp-server.py | grok-gurobi-pulse-proof-20260819 | 2026-08-19T18:30:00Z |
+| tools/gurobi-fleet-optimize.py | grok-gurobi-pulse-proof-20260819 | 2026-08-19T18:30:00Z |
+| tests/test-gurobi-fleet-optimize.js | grok-gurobi-pulse-proof-20260819 | 2026-08-19T18:30:00Z |
+| .agents/skills/gurobi-optimizer-integrator/SKILL.md | grok-gurobi-pulse-proof-20260819 | 2026-08-19T18:30:00Z |
+| SKILLS.md (append row only) | grok-gurobi-pulse-proof-20260819 | 2026-08-19T18:30:00Z |
+| plan.md (append only) | grok-gurobi-pulse-proof-20260819 | 2026-08-19T18:30:00Z |
+
+- 2026-08-19T18:30Z `grok-gurobi-pulse-proof`: Pulse Issue #9 / AI-guided optimization. Steal: proof receipts + IIS + $10 token LP + exclusive adb/git_lock. Do **not** invent a Gurobi SKU, Intelligence Hub, or ThumbGate paid knapsack (ECI). LLM translates; Gurobi proves. AGENT-419.

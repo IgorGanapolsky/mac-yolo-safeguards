@@ -7,6 +7,8 @@ Usage:
   gurobi-fleet-optimize.py solve --file model.json [--json]
   gurobi-fleet-optimize.py dispatch --file jobs.json [--json]
   gurobi-fleet-optimize.py outreach --file prospects.json [--capacity N] [--json]
+  gurobi-fleet-optimize.py iis --file model.json [--json]
+  gurobi-fleet-optimize.py token-budget --file workloads.json [--budget 10] [--json]
 """
 
 from __future__ import annotations
@@ -20,9 +22,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from gurobi_fleet_lib import (  # noqa: E402
+    diagnose_infeasibility_iis,
     license_info,
     optimize_agent_dispatch,
     optimize_outreach_batch,
+    optimize_token_budget,
     run_evaluation,
     solve_lp,
 )
@@ -33,11 +37,22 @@ def _load(path: str):
         return json.load(f)
 
 
+def _require_file(path: str | None) -> int | None:
+    if not path:
+        print("--file required", file=sys.stderr)
+        return 2
+    return None
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Gurobi fleet optimizer (real gurobipy)")
-    p.add_argument("cmd", choices=["license", "evaluate", "solve", "dispatch", "outreach"])
-    p.add_argument("--file", help="JSON model/jobs/prospects file")
+    p.add_argument(
+        "cmd",
+        choices=["license", "evaluate", "solve", "dispatch", "outreach", "iis", "token-budget"],
+    )
+    p.add_argument("--file", help="JSON model/jobs/prospects/workloads file")
     p.add_argument("--capacity", type=int, default=15)
+    p.add_argument("--budget", type=float, default=10.0, help="Monthly token budget USD (token-budget)")
     p.add_argument("--json", action="store_true")
     args = p.parse_args(argv)
 
@@ -46,9 +61,9 @@ def main(argv: list[str] | None = None) -> int:
     elif args.cmd == "evaluate":
         out = run_evaluation()
     elif args.cmd == "solve":
-        if not args.file:
-            print("--file required", file=sys.stderr)
-            return 2
+        missing = _require_file(args.file)
+        if missing:
+            return missing
         data = _load(args.file)
         r = solve_lp(
             variables=data["variables"],
@@ -59,9 +74,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         out = r.to_dict()
     elif args.cmd == "dispatch":
-        if not args.file:
-            print("--file required", file=sys.stderr)
-            return 2
+        missing = _require_file(args.file)
+        if missing:
+            return missing
         data = _load(args.file)
         r = optimize_agent_dispatch(
             tasks=data["tasks"],
@@ -69,10 +84,10 @@ def main(argv: list[str] | None = None) -> int:
             max_tasks_per_agent=int(data.get("max_tasks_per_agent", 3)),
         )
         out = r.to_dict()
-    else:
-        if not args.file:
-            print("--file required", file=sys.stderr)
-            return 2
+    elif args.cmd == "outreach":
+        missing = _require_file(args.file)
+        if missing:
+            return missing
         data = _load(args.file)
         prospects = data if isinstance(data, list) else data.get("prospects", [])
         r = optimize_outreach_batch(
@@ -81,9 +96,30 @@ def main(argv: list[str] | None = None) -> int:
             min_score=float(data.get("min_score", 0) if isinstance(data, dict) else 0),
         )
         out = r.to_dict()
+    elif args.cmd == "iis":
+        missing = _require_file(args.file)
+        if missing:
+            return missing
+        data = _load(args.file)
+        out = diagnose_infeasibility_iis(
+            variables=data["variables"],
+            constraints=data["constraints"],
+        )
+    else:
+        missing = _require_file(args.file)
+        if missing:
+            return missing
+        data = _load(args.file)
+        workloads = data if isinstance(data, list) else data.get("workloads", [])
+        budget = (
+            float(data.get("monthly_budget_usd", args.budget))
+            if isinstance(data, dict)
+            else float(args.budget)
+        )
+        r = optimize_token_budget(workloads=workloads, monthly_budget_usd=budget)
+        out = r.to_dict()
 
-    if args.json or args.cmd in ("license", "evaluate", "solve", "dispatch", "outreach"):
-        print(json.dumps(out, indent=2, default=str))
+    print(json.dumps(out, indent=2, default=str))
     return 0 if out.get("ok", True) is not False else 1
 
 
