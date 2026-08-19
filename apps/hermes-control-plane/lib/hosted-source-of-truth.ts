@@ -2,9 +2,13 @@
  * Hosted Hermes source of truth is the fenced VPS.
  * A laptop is a cache. Never toast leftover Mac-pair as "machine found".
  * Never acknowledge a cloud send as live until it is persisted on the VPS.
+ * Never advertise $10 checkout as live unless runner and model are verified.
  */
 
 export const HOSTED_SOURCE_OF_TRUTH = "hosted-vps" as const;
+
+export const HOSTED_TRUST_STATES = ["verified", "reachable", "failed"] as const;
+export type HostedTrustState = (typeof HOSTED_TRUST_STATES)[number];
 
 export type HostedAckOk = {
   ok: true;
@@ -62,4 +66,58 @@ export function ackHostedSend(input: {
     };
   }
   return { ok: true, live: true, persistedId };
+}
+
+export function trustFromResource(status: "healthy" | "waiting" | "unhealthy" | null | undefined): HostedTrustState {
+  if (status === "healthy") return "verified";
+  if (status === "unhealthy") return "failed";
+  return "reachable";
+}
+
+/** Fail-closed while HTTPS/runner is not verified. Does not add a fourth badge. */
+export function isTurningOn(input: {
+  runnerTrust?: HostedTrustState | null;
+  modelTrust?: HostedTrustState | null;
+  cacheKnown?: boolean;
+  httpsTrusted?: boolean;
+} = {}): boolean {
+  if (input.cacheKnown === false) return true;
+  if (input.httpsTrusted === false) return true;
+  return input.runnerTrust !== "verified" || input.modelTrust !== "verified";
+}
+
+export function advertiseHostedPaid(input: {
+  runnerTrust?: HostedTrustState | null;
+  modelTrust?: HostedTrustState | null;
+  stripeConfigured?: boolean;
+  cacheKnown?: boolean;
+  httpsTrusted?: boolean;
+} = {}): boolean {
+  if (input.stripeConfigured === false) return false;
+  if (input.cacheKnown === false) return false;
+  if (input.httpsTrusted === false) return false;
+  return input.runnerTrust === "verified" && input.modelTrust === "verified";
+}
+
+export function publicRunReceipt(input: {
+  taskId?: string | null;
+  route?: string | null;
+  status?: string | null;
+  prompt?: string | null;
+} = {}): {
+  ok: true;
+  taskId: string;
+  route: string;
+  status: string;
+  sourceOfTruth: "hosted-vps";
+} | { ok: false; reason: "not_persisted" } {
+  const taskId = String(input.taskId ?? "").trim();
+  if (!taskId) return { ok: false, reason: "not_persisted" };
+  return {
+    ok: true,
+    taskId,
+    route: String(input.route ?? "cloud").trim() || "cloud",
+    status: String(input.status ?? "pending").trim() || "pending",
+    sourceOfTruth: HOSTED_SOURCE_OF_TRUTH,
+  };
 }

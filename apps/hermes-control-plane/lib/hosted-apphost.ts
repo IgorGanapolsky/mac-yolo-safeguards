@@ -3,6 +3,8 @@
  * before a cloud send is admitted. Running is not the same as ready.
  */
 
+import { advertiseHostedPaid, trustFromResource } from "./hosted-source-of-truth";
+
 export const DEFAULT_RUNNER_HEALTH_URL = "https://igor-hermes-cloud-runner.fly.dev/health";
 export const RUNNER_STALE_MS = 60_000;
 export const RUNNER_PROBE_TIMEOUT_MS = 8_000;
@@ -224,6 +226,59 @@ export function lastCachedModelError(): string | null {
   return modelErrorCache?.errorText ?? null;
 }
 
+export function cachedRunnerHealth(): {
+  known: boolean;
+  health: RunnerHealthInput | null;
+  at: number | null;
+} {
+  if (!runnerProbeCache) {
+    return { known: false, health: null, at: null };
+  }
+  return { known: true, health: runnerProbeCache.health, at: runnerProbeCache.at };
+}
+
+export function publicHealthFromCache(input: {
+  now?: number;
+  stripeConfigured?: boolean;
+} = {}): {
+  known: boolean;
+  turningOn: boolean;
+  advertisePaid: boolean;
+  trust: { runner: "verified" | "reachable" | "failed"; model: "verified" | "reachable" | "failed" };
+} {
+  const now = input.now ?? Date.now();
+  const cached = cachedRunnerHealth();
+  if (!cached.known || !cached.health) {
+    return {
+      known: false,
+      turningOn: true,
+      advertisePaid: false,
+      trust: { runner: "reachable", model: "reachable" },
+    };
+  }
+  const described = describeHostedResources({
+    runner: cached.health,
+    modelError: lastCachedModelError(),
+    now,
+    runnerKnown: true,
+  });
+  const runnerTrust = trustFromResource(described.hostedRunner.status);
+  const modelTrust = trustFromResource(described.hostedModel.status);
+  const advertisePaid = advertiseHostedPaid({
+    runnerTrust,
+    modelTrust,
+    stripeConfigured: input.stripeConfigured,
+    cacheKnown: true,
+  });
+  return {
+    known: true,
+    turningOn: runnerTrust !== "verified" || modelTrust !== "verified",
+    advertisePaid,
+    trust: { runner: runnerTrust, model: modelTrust },
+  };
+}
+
+
 export function clearHostedAppHostCaches(): void {
   modelErrorCache = null;
   runnerProbeCache = null;
@@ -246,16 +301,24 @@ export function hostedConnectionCopy(input: {
   body: string;
   badge: string;
   live: boolean;
+  advertisePaid: boolean;
+  trust: { runner: "verified" | "reachable" | "failed"; model: "verified" | "reachable" | "failed" };
 } {
   const live = input.runnerStatus === "healthy"
     && input.modelStatus === "healthy"
     && (input.browserStatus == null || input.browserStatus === "healthy");
+  const runnerTrust = trustFromResource(input.runnerStatus);
+  const modelTrust = trustFromResource(input.modelStatus);
+  const advertisePaid = advertiseHostedPaid({ runnerTrust, modelTrust });
+  const trust = { runner: runnerTrust, model: modelTrust };
   if (live) {
     return {
       headline: "Hosted Hermes live",
       body: "ThumbGate runs on a fenced VPS — $10/mo. Approvals in thumbgate.app. The runner and model are healthy.",
-      badge: "READY",
+      badge: "verified",
       live: true,
+      trust,
+      advertisePaid,
     };
   }
   const anyUnhealthy = input.runnerStatus === "unhealthy" || input.modelStatus === "unhealthy";
@@ -264,8 +327,10 @@ export function hostedConnectionCopy(input: {
   return {
     headline: anyUnhealthy ? "Hosted Hermes not ready" : "Hosted Hermes waiting",
     body: detail ? `${detail} ${product}` : `${product} The runner being up is not enough — runner and model must both be healthy before a cloud send.`,
-    badge: "WAITING",
+    badge: anyUnhealthy ? "failed" : "reachable",
     live: false,
+    trust,
+    advertisePaid,
   };
 }
 

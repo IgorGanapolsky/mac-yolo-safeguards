@@ -1,4 +1,5 @@
 import { db, runtimeEnv } from "@/lib/runtime";
+import { publicHealthFromCache } from "@/lib/hosted-apphost";
 
 export async function GET() {
   try {
@@ -68,10 +69,18 @@ export async function GET() {
     const concerns = Object.entries(config)
       .filter(([, configured]) => !configured)
       .map(([name]) => `${name} is false`);
+    const hosted = publicHealthFromCache({
+      now,
+      stripeConfigured: config.stripeCheckoutConfigured,
+    });
     return Response.json({
       ok: true,
       ready: concerns.length === 0,
       status: concerns.length === 0 ? "ok" : "degraded",
+      scope: "liveness",
+      advertisePaid: hosted.advertisePaid,
+      trust: hosted.trust,
+      turningOn: hosted.turningOn,
       service: "leash-control",
       database: "available",
       schema: "current",
