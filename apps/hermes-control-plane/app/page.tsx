@@ -33,7 +33,22 @@ const FAQ_ITEMS = [
   {
     question: "What is ThumbGate?",
     answer:
-      "Hosted Hermes on a fenced VPS with in-browser approvals.",
+      "Hosted Hermes on an isolated fenced VPS. Not your laptop. Does not grab your mouse or cursor. Approvals stay in this browser.",
+  },
+  {
+    question: "Does it keep going overnight?",
+    answer:
+      "Yes. Hosted runs persist on the VPS for hours while the laptop sleeps — hours, not a chat box. Recurring and scheduled coding work keeps a lease.",
+  },
+  {
+    question: "When does it ask me?",
+    answer:
+      "Asks you only when money, customer, or production is at risk. Chat answers; the hosted run does the work.",
+  },
+  {
+    question: "Why is it $10/mo?",
+    answer:
+      "Overnight coding on a fenced VPS at a flat $10. The wedge is price plus a box that keeps going after you sleep.",
   },
   {
     question: "Why not just run another agent pilot on my laptop?",
@@ -167,7 +182,7 @@ export default function Home() {
           <p className="eyebrow"><span className="live-dot" /> Hosted Hermes · Fenced VPS</p>
           <h1>Hermes that stays on.</h1>
           <p className="hero-lede">
-            Always on, even when your computer is off. Always awake. Always working. Hosted on a fenced VPS. Not a laptop process. You own the work. We own the machine. Approve money, customer, or production actions in this browser. Flat $10/month. 14 days free. Cancel anytime.
+            Always on, even when your computer is off. Always awake. Always working. Isolated fenced VPS. Not your laptop. Does not grab your mouse or cursor. Hosted on a fenced VPS. Not a laptop process. Keeps going overnight while the laptop sleeps — hours, not a chat box. Chat answers; the hosted run does the work. You own the work. We own the machine. Asks you only when money, customer, or production is at risk. Approve money, customer, or production actions in this browser. Flat $10/month. 14 days free. Cancel anytime.
           </p>
           <p className="signin-note">
             Automations can draft and run. Money, customer-facing, or production actions require your approval in this browser.
@@ -212,7 +227,7 @@ export default function Home() {
         <div className="section-heading">
           <p className="eyebrow">One offer · one clock · one number</p>
           <h2>$10/mo. 14 days to keep one agent alive.</h2>
-          <p>Drop the agent on a fenced VPS. Approvals stay at thumbgate.app. Not a vault of n8n templates. Not a second SKU.</p>
+          <p>Drop the agent on a fenced VPS. Hosted runs persist. Approvals stay at thumbgate.app. Not a vault of n8n templates. Not a second SKU.</p>
         </div>
         <div className="steps-grid">
           <article>

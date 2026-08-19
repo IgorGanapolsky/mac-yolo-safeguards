@@ -46,6 +46,13 @@ describe("evaluateCloudPromptToolPolicy", () => {
       expect(gateway.message).not.toContain("Continuity");
     }
   });
+
+  it("blocks host-mouse grabs on the user machine", () => {
+    const xdo = evaluateCloudPromptToolPolicy("Use xdotool to move the user cursor");
+    expect(xdo).toMatchObject({ allowed: false, code: "local_only_tool", matched: "host_mouse" });
+    const click = evaluateCloudPromptToolPolicy("Run cliclick to click the host screen");
+    expect(click).toMatchObject({ allowed: false, matched: "host_mouse" });
+  });
 });
 
 describe("requiredHostedSidecars", () => {
