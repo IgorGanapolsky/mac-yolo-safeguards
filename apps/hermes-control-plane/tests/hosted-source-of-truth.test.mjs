@@ -107,3 +107,11 @@ test("identity /api/me is cache-only and does not await Fly probes", () => {
   assert.doesNotMatch(meRoute, /probeBrowserHealth/);
   assert.match(meRoute, /authenticated: true/);
 });
+
+test("task create persists before live and does not await Fly probes", () => {
+  assert.match(tasksRoute, /ackHostedSend/);
+  assert.match(tasksRoute, /if \(!ack\.ok\) return jsonError\(ack\.message, 409\)/);
+  assert.doesNotMatch(tasksRoute, /probeRunnerHealth/);
+  assert.doesNotMatch(tasksRoute, /probeBrowserHealth/);
+  assert.doesNotMatch(tasksRoute, /force: true/);
+});
