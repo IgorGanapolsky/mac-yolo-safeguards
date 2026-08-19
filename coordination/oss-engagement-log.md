@@ -4,6 +4,73 @@ Dated entries from the autonomous OSS-engagement routine (Thinking Machines Lab 
 
 ---
 
+## 2026-08-19 — nothing new, cross-owner wall unchanged
+
+First firing today. Surveyed all three orgs for activity since the last (2026-08-18
+evening) run and re-checked the four previously-parked reference issues for movement.
+
+### Repos surveyed
+
+| Org | Repos | Method |
+|-----|-------|--------|
+| Thinking Machines Lab | `thinking-machines-lab/tinker`, `tinker-cookbook` | `search_issues` `created:>2026-08-18` |
+| Poolside AI | `poolsideai` org | `search_issues` `org:poolsideai created:>2026-08-18` |
+| LanceDB | `lancedb` org (`lancedb`, `lance`) | `search_issues` `org:lancedb created:>2026-08-18` |
+
+All queries returned **zero** new issues since the prior run.
+
+### Cross-owner wall
+
+Re-tested once, silently, per standing policy: `add_repo` (push access) for `lancedb/lancedb`
+failed again with `cross-tier adds are not supported in v1: requested "lancedb/lancedb" but
+session already has repos from owner(s) [igorganapolsky]` — identical error text to every
+prior run back to 2026-08-04. Direct `issue_read` against `lancedb/lancedb`,
+`thinking-machines-lab/tinker-cookbook`, and `poolsideai/pool` all returned "Access denied
+... not configured for this session," confirming only the repo-unscoped `search_issues` tool
+reaches outside `igorganapolsky/mac-yolo-safeguards` in this session. No change.
+
+### Parked reference issues re-checked
+
+Used `search_issues` (by number) since direct `issue_read` is blocked by the wall above:
+
+- `lancedb/lancedb#3915` (list_tables pagination boundary) — still open, 3 comments, no linked
+  PR upstream. Parked fix branch on the fork remains the live, unclaimed artifact.
+- `lancedb/lancedb#2900` (create_table signature drift, Remote vs local) — still open,
+  1 comment, unchanged.
+- `thinking-machines-lab/tinker-cookbook#896` (MMLU-Redux per-subject bucketing) — still open,
+  1 comment, unchanged; the design question posed in the issue body is still unanswered by
+  a maintainer.
+- `poolsideai/pool#38` (ACP `session/prompt` 400 on `1.0.15`) — still open, 0 comments,
+  unchanged.
+
+Nothing to redo; nothing newly actionable.
+
+### What was opened / answered
+
+Nothing. No new issue surfaced in any of the three orgs, and the parked fixes/answers
+documented in earlier entries are unchanged and still blocked only on cross-owner
+PR-creation access from this session.
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| Re-pushing/re-verifying parked fork branches | State unchanged since the last verification (2026-08-12); no new upstream activity to react to |
+| New manufactured question | No real unknown hit this run |
+
+### ThumbGate mentions
+
+**None** this run — no one asked about agent write-gating in anything surveyed.
+
+### Action needed from Igor
+
+Unchanged: the cross-owner `add_repo`/PR-creation block (session scoped to
+`igorganapolsky/mac-yolo-safeguards` only) is still the only thing standing between the
+parked fixes and real upstream PRs. Not re-escalating — same known gap flagged in every
+entry since 2026-08-04.
+
+---
+
 ## 2026-08-18 (evening) — third same-day firing: nothing new, cross-owner wall unchanged
 
 Third firing today. Both prior 2026-08-18 entries below already did the substantive work
