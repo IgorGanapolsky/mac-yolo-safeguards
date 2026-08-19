@@ -76,6 +76,60 @@ function main() {
   assert.strictEqual(j.ok, true);
   assert.ok(j.objective >= 14);
 
+  // diagnose (IIS) file
+  const infeasible = {
+    variables: [{ name: "x", lb: 0, ub: 2 }],
+    constraints: [
+      { name: "must_be_large", coeffs: { x: 1 }, sense: ">=", rhs: 10 },
+      { name: "must_be_small", coeffs: { x: 1 }, sense: "<=", rhs: 1 },
+    ],
+  };
+  const infeasiblePath = path.join(tmp, "infeasible.json");
+  fs.writeFileSync(infeasiblePath, JSON.stringify(infeasible));
+  r = runCli(["diagnose", "--file", infeasiblePath, "--json"]);
+  assert.strictEqual(r.status, 0, r.stderr || r.stdout);
+  j = JSON.parse(r.stdout);
+  assert.strictEqual(j.ok, true);
+  assert.strictEqual(j.is_infeasible, true);
+  assert.ok(j.iis_constraints.includes("must_be_large"));
+  assert.ok(j.iis_upper_bounds.includes("x"));
+
+  // token-budget file
+  const workloads = {
+    workloads: [
+      { id: "w1", name: "refactor", local_score: 60, frontier_score: 98, frontier_cost_usd: 4.0 },
+      { id: "w2", name: "docs", local_score: 85, frontier_score: 90, frontier_cost_usd: 3.0 },
+      { id: "w3", name: "audit", local_score: 50, frontier_score: 99, frontier_cost_usd: 5.0 },
+      { id: "w4", name: "css", local_score: 80, frontier_score: 85, frontier_cost_usd: 2.0 },
+    ],
+    monthly_budget_usd: 10.0,
+  };
+  const workloadsPath = path.join(tmp, "workloads.json");
+  fs.writeFileSync(workloadsPath, JSON.stringify(workloads));
+  r = runCli(["token-budget", "--file", workloadsPath, "--json"]);
+  assert.strictEqual(r.status, 0, r.stderr || r.stdout);
+  j = JSON.parse(r.stdout);
+  assert.strictEqual(j.ok, true);
+  assert.ok(j.model_stats.allocated_spend_usd <= 10.0);
+  assert.ok(j.model_stats.allocated_spend_usd >= 0);
+  assert.strictEqual(j.model_stats.budget_ceiling_usd, 10.0);
+
+  // example files: end-to-end CLI smoke test
+  const examples = path.join(ROOT, "examples", "gurobi");
+  const exampleFiles = ["lp-model.json", "dispatch-jobs.json", "outreach-prospects.json", "infeasible-model.json", "token-budget-workloads.json"];
+  for (const ef of exampleFiles) {
+    const efPath = path.join(examples, ef);
+    if (!fs.existsSync(efPath)) continue;
+    const cmd = ef === "lp-model.json" ? "solve" :
+                ef === "dispatch-jobs.json" ? "dispatch" :
+                ef === "outreach-prospects.json" ? "outreach" :
+                ef === "infeasible-model.json" ? "diagnose" : "token-budget";
+    r = runCli([cmd, "--file", efPath, "--json"]);
+    assert.strictEqual(r.status, 0, `${ef}: ${r.stderr || r.stdout}`);
+    j = JSON.parse(r.stdout);
+    assert.strictEqual(j.ok, true, `${ef} failed: ${JSON.stringify(j)}`);
+  }
+
   // MCP initialize + tools/list + evaluate via stdio lines
   const mcp = spawnSync(
     PY,
@@ -113,16 +167,21 @@ function main() {
   assert.ok(lines.some((m) => m.id === 1 && m.result?.serverInfo?.name === 'gurobi-optimizer'));
   const tools = lines.find((m) => m.id === 2);
   assert.ok(tools.result.tools.some((t) => t.name === 'gurobi_solve_lp'));
+  assert.ok(tools.result.tools.some((t) => t.name === 'gurobi_diagnose_iis'));
+  assert.ok(tools.result.tools.some((t) => t.name === 'gurobi_token_budget'));
   const evalMsg = lines.find((m) => m.id === 3);
   const evalBody = JSON.parse(evalMsg.result.content[0].text);
   assert.strictEqual(evalBody.ok, true);
+  assert.strictEqual(evalBody.passed, 6);
+  assert.strictEqual(evalBody.total, 6);
 
   // anti-mock: ensure old mock strings not in server
   const serverSrc = fs.readFileSync(MCP, 'utf8');
   assert.ok(!serverSrc.includes('mockSolution'));
   assert.ok(!serverSrc.includes('Math.random'));
 
-  console.log('test-gurobi-fleet-optimize: PASS');
+  console.log('test-gurobi-fleet-optimize: PASS (6/6 evaluated cases + diagnose + token-budget + 5 example files)');
+
 }
 
 main();

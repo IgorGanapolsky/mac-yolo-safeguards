@@ -382,6 +382,158 @@ def optimize_outreach_batch(
         )
 
 
+def diagnose_infeasibility_iis(
+    variables: list[dict[str, Any]],
+    constraints: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Compute Irreducible Inconsistent Subsystem (IIS) for an infeasible model.
+
+    Returns the minimal set of contradictory constraints and bounds causing infeasibility.
+    """
+    if not GUROBIPY_OK:
+        return {"ok": False, "status": "IMPORT_ERROR", "error": globals().get("_IMPORT_ERR")}
+
+    t0 = time.perf_counter()
+    try:
+        with gp.Env(empty=True) as env:
+            env.setParam("OutputFlag", 0)
+            env.start()
+            m = gp.Model(env=env)
+            m.setParam("OutputFlag", 0)
+
+            vtype_map = {"CONTINUOUS": GRB.CONTINUOUS, "INTEGER": GRB.INTEGER, "BINARY": GRB.BINARY}
+            vars_map = {}
+            for v in variables:
+                name = v["name"]
+                vt = vtype_map.get(str(v.get("vtype", "CONTINUOUS")).upper(), GRB.CONTINUOUS)
+                lb = 0.0 if vt == GRB.BINARY else (float(v["lb"]) if "lb" in v else 0.0)
+                ub = 1.0 if vt == GRB.BINARY else (float(v["ub"]) if "ub" in v else GRB.INFINITY)
+                vars_map[name] = m.addVar(lb=lb, ub=ub, vtype=vt, name=name)
+
+            m.update()
+            constrs_map = {}
+            for i, c in enumerate(constraints):
+                coeffs = c.get("coeffs") or {}
+                expr = gp.quicksum(float(coef) * vars_map[n] for n, coef in coeffs.items() if n in vars_map)
+                sense_c = c.get("sense", ">=")
+                rhs = float(c["rhs"])
+                cname = c.get("name") or f"c{i}"
+                if sense_c in (">=", "ge"):
+                    constrs_map[cname] = m.addConstr(expr >= rhs, name=cname)
+                elif sense_c in ("<=", "le"):
+                    constrs_map[cname] = m.addConstr(expr <= rhs, name=cname)
+                else:
+                    constrs_map[cname] = m.addConstr(expr == rhs, name=cname)
+
+            m.update()
+            m.optimize()
+            if m.Status != GRB.INFEASIBLE:
+                return {
+                    "ok": True,
+                    "status": _status_name(int(m.Status)),
+                    "is_infeasible": False,
+                    "message": "Model is feasible; no IIS required.",
+                    "runtime_sec": time.perf_counter() - t0,
+                }
+
+            m.computeIIS()
+            conflicting_constrs = [name for name, constr in constrs_map.items() if constr.IISConstr]
+            conflicting_lb = [name for name, var in vars_map.items() if var.IISLB]
+            conflicting_ub = [name for name, var in vars_map.items() if var.IISUB]
+
+            return {
+                "ok": True,
+                "status": "INFEASIBLE",
+                "is_infeasible": True,
+                "iis_constraints": conflicting_constrs,
+                "iis_lower_bounds": conflicting_lb,
+                "iis_upper_bounds": conflicting_ub,
+                "runtime_sec": time.perf_counter() - t0,
+                "explanation": f"Minimal conflict found in {len(conflicting_constrs)} constraints: {', '.join(conflicting_constrs)}",
+            }
+    except Exception as e:
+        return {"ok": False, "status": "ERROR", "error": str(e), "runtime_sec": time.perf_counter() - t0}
+
+
+def optimize_token_budget(
+    workloads: list[dict[str, Any]],
+    monthly_budget_usd: float = 10.0,
+) -> SolveResult:
+    """Allocate multi-model routing to maximize reasoning capacity under hard monthly spend cap.
+
+    workloads: [{id, name, local_score, frontier_score, frontier_cost_usd}]
+    monthly_budget_usd: float (default 10.0)
+    """
+    if not GUROBIPY_OK:
+        return SolveResult(ok=False, status="IMPORT_ERROR", error=globals().get("_IMPORT_ERR"))
+
+    t0 = time.perf_counter()
+    try:
+        with gp.Env(empty=True) as env:
+            env.setParam("OutputFlag", 0)
+            env.start()
+            m = gp.Model(env=env)
+            m.setParam("OutputFlag", 0)
+
+            # Decision variable: x[i] = 1 if using frontier paid model, 0 if local $0 model
+            x = {i: m.addVar(vtype=GRB.BINARY, name=f"frontier_{i}") for i, _w in enumerate(workloads)}
+
+            # Budget constraint: sum(frontier_cost * x[i]) <= monthly_budget
+            m.addConstr(
+                gp.quicksum(float(workloads[i].get("frontier_cost_usd", 0.05)) * x[i] for i in x) <= float(monthly_budget_usd),
+                name="spend_ceiling",
+            )
+
+            # Objective: Maximize total reasoning score (local_score * (1 - x[i]) + frontier_score * x[i])
+            m.setObjective(
+                gp.quicksum(
+                    float(workloads[i].get("local_score", 50)) +
+                    (float(workloads[i].get("frontier_score", 95)) - float(workloads[i].get("local_score", 50))) * x[i]
+                    for i in x
+                ),
+                GRB.MAXIMIZE,
+            )
+
+            m.optimize()
+            runtime = time.perf_counter() - t0
+            status = _status_name(int(m.Status))
+            decisions = []
+            total_spend = 0.0
+            if m.Status == GRB.OPTIMAL:
+                for i, var in x.items():
+                    w = workloads[i]
+                    wid = str(w.get("id", i))
+                    use_frontier = var.X > 0.5
+                    cost = float(w.get("frontier_cost_usd", 0.05)) if use_frontier else 0.0
+                    total_spend += cost
+                    decisions.append({
+                        "workload_id": wid,
+                        "name": w.get("name", f"task_{i}"),
+                        "routed_tier": "frontier_cloud" if use_frontier else "local_zero_cost",
+                        "cost_usd": cost,
+                        "expected_score": float(w.get("frontier_score", 95)) if use_frontier else float(w.get("local_score", 50)),
+                    })
+
+            return SolveResult(
+                ok=m.Status == GRB.OPTIMAL,
+                status=status,
+                status_code=int(m.Status),
+                objective=float(m.ObjVal) if m.Status == GRB.OPTIMAL else None,
+                values={d["workload_id"]: 1.0 if d["routed_tier"] == "frontier_cloud" else 0.0 for d in decisions},
+                runtime_sec=runtime,
+                model_stats={
+                    "total_workloads": len(workloads),
+                    "budget_ceiling_usd": monthly_budget_usd,
+                    "allocated_spend_usd": round(total_spend, 4),
+                    "decisions": decisions,
+                },
+                license=license_info(),
+                notes=["token_budget: optimal multi-tier routing strictly bound by monthly cap"],
+            )
+    except Exception as e:
+        return SolveResult(ok=False, status="ERROR", error=str(e), runtime_sec=time.perf_counter() - t0)
+
+
 def run_evaluation() -> dict[str, Any]:
     """Hermetic evaluation suite for CI / session claims."""
     cases: list[dict[str, Any]] = []
@@ -446,7 +598,41 @@ def run_evaluation() -> dict[str, Any]:
         }
     )
 
-    # 4) license probe
+    # 4) IIS diagnosis
+    r4 = diagnose_infeasibility_iis(
+        variables=[{"name": "x", "lb": 0, "ub": 2}],
+        constraints=[
+            {"name": "must_be_large", "coeffs": {"x": 1}, "sense": ">=", "rhs": 5},
+            {"name": "must_be_small", "coeffs": {"x": 1}, "sense": "<=", "rhs": 1},
+        ],
+    )
+    cases.append(
+        {
+            "id": "iis_diagnosis",
+            "ok": r4.get("ok") is True and r4.get("is_infeasible") is True and "must_be_large" in r4.get("iis_constraints", []),
+            "result": r4,
+        }
+    )
+
+    # 5) Token budget allocation
+    r5 = optimize_token_budget(
+        workloads=[
+            {"id": "w1", "name": "critical_refactor", "local_score": 60, "frontier_score": 98, "frontier_cost_usd": 4.0},
+            {"id": "w2", "name": "doc_formatting", "local_score": 85, "frontier_score": 90, "frontier_cost_usd": 3.0},
+            {"id": "w3", "name": "security_audit", "local_score": 50, "frontier_score": 99, "frontier_cost_usd": 5.0},
+            {"id": "w4", "name": "css_tweak", "local_score": 80, "frontier_score": 85, "frontier_cost_usd": 2.0},
+        ],
+        monthly_budget_usd=10.0,
+    )
+    cases.append(
+        {
+            "id": "token_budget_allocation",
+            "ok": r5.ok and (r5.model_stats or {}).get("allocated_spend_usd", 0) <= 10.0,
+            "result": r5.to_dict(),
+        }
+    )
+
+    # 6) license probe
     lic = license_info()
     cases.append(
         {
@@ -473,3 +659,4 @@ def run_evaluation() -> dict[str, Any]:
 
 if __name__ == "__main__":
     print(json.dumps(run_evaluation(), indent=2, default=str))
+

@@ -646,10 +646,13 @@ async function main() {
     } catch (error) {
       console.error(`[hermes-cloud-connector] ${error instanceof Error ? error.message : error}`);
       try {
-        if (await recoverDeadPairing(config, configPath, error)) didWork = true;
+        if (await recoverDeadPairing(config, configPath, error)) didWork = false;
       } catch (pairError) {
         console.error(`[hermes-cloud-connector] re-pair failed: ${pairError instanceof Error ? pairError.message : pairError}`);
       }
+      // Fail-safe rate-limiting backoff on errors to protect Cloudflare quotas (minimum 30s)
+      await new Promise((resolve) => setTimeout(resolve, Math.max(30_000, schedule.idlePollMs)));
+      continue;
     }
     await new Promise((resolve) => setTimeout(resolve, nextConnectorPollDelay(didWork, schedule)));
   }

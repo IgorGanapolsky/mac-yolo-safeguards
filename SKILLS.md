@@ -55,9 +55,19 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 | `advertise-thumbgate-github-marketplace` | Cite the live ThumbGate Marketplace listing (free only). Verify first. No paid plans or buyer outreach without ECI clearance. Slash: /advertise-thumbgate-github-marketplace. | `.agents/skills/advertise-thumbgate-github-marketplace/SKILL.md` | local |
 | `intent-contract` | HARD: durable product intent linked to code and tests (Tieline-inspired). Blast radius + graded AC evidence. Slash: /intent-contract. Not affiliated with knoxgraeme/tieline. | `.agents/skills/intent-contract/SKILL.md` | local |
 | `tieline-product-contract` | Tieline process steal: reviewed product behavior + AC blast radius. Not HVAC. No Postgres/npx tieline. Slash: /tieline. | `.agents/skills/tieline-product-contract/SKILL.md` | local |
+| `ci-pr-monitor` | Repeatable workflow for monitoring CI check status, tracking PR merge-readiness, and verifying auto-merge success using the gh CLI. | `.agents/skills/ci-pr-monitor/SKILL.md` | local |
+| `live-dashboard-verify` | Verify live ThumbGate.app service health, trace header propagation, and production deployment status using curl + BrowserOS. | `.agents/skills/live-dashboard-verify/SKILL.md` | local |
+| `revenue-gap-tracker` | Track revenue monitoring gaps, identify blocked data sources, and determine what's needed to unblock revenue monitoring (3→5). | `.agents/skills/revenue-gap-tracker/SKILL.md` | local |
 | `ci-first-fail` | Buildkite-style first-fail CI annotations. Name the failing STEP; never dump logs; do not migrate off GitHub Actions. Slash: /ci-first-fail. | `.agents/skills/ci-first-fail/SKILL.md` | local |
 | `anti-babysitting-mandate` | HARD: never park waiting for continue / want-me-to on pre-authorized work. Residual picker + wrap-up lint. Own PRs only. Slash: /anti-babysitting-mandate. | `.agents/skills/anti-babysitting-mandate/SKILL.md` | local |
 | `git-hooks-no-husky` | Husky process steal without the npm package. Keep relative core.hooksPath=.githooks so each worktree runs its own hook. Slash: /git-hooks-no-husky. | `.agents/skills/git-hooks-no-husky/SKILL.md` | local |
+| `thumbgate-cursor-blog-engine` | Autonomous Cursor-style technical blog generation, systems architecture drafting, and validation engine for ThumbGate.app and Hermes Cloud Continuity. | `.agents/skills/thumbgate-cursor-blog-engine/SKILL.md` | local |
+| `cloudflare-quota-guard` | Autonomous Cloudflare Workers & API quota protection, tight-loop interdiction, and exponential backoff enforcement. Prevents burning the 100k daily request limit. | `.agents/skills/cloudflare-quota-guard/SKILL.md` | local |
+| `newstack-observability-mesh` | Linux Foundation / The New Stack observability mesh: PPL Unix pipeline unified alerting, multi-agent concurrent retrieval singleflight coalescing, and 4-tier automated verification pipeline barriers. | `.agents/skills/newstack-observability-mesh/SKILL.md` | local |
+| `iso42001-secops-mesh` | Threat Intelligence–Driven SecOps & ISO/IEC 42001 AI Risk Governance mesh. Pre-action threat signature scanning, least-privilege role entitlement scoping, and SHA-256 signed audit receipts. | `.agents/skills/iso42001-secops-mesh/SKILL.md` | local |
+| `hermes-timeline-intent-engine` | Privacy-first local semantic timeline tracking, incomplete task auto-continuation, and repetitive workflow skill discovery (stolen and improved from OpenAI macOS Computer History). | `.agents/skills/hermes-timeline-intent-engine/SKILL.md` | local |
+| `hermes-aso-dominance` | Google Play and App Store ASO optimization, high-intent keyword positioning ('hermes agent client', 'AI leash'), and competitive differentiation validator. | `.agents/skills/hermes-aso-dominance/SKILL.md` | local |
+| `pr-hygiene-triage` | Autonomous multi-agent PR queue classification, dirty conflict identification, superseded draft cleanup, and sequential rebase scheduler. | `.agents/skills/pr-hygiene-triage/SKILL.md` | local |
 
 ---
 
@@ -65,3 +75,11 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 *Last synchronized: 2026-08-18T17:45:00.000Z*
 *Last synchronized: 2026-08-18T19:10:00.000Z*
 *Last synchronized: 2026-08-18T20:05:00.000Z*
+*Last synchronized: 2026-08-19T11:10:00.000Z*
+*Last synchronized: 2026-08-19T11:45:00.000Z*
+*Last synchronized: 2026-08-19T11:51:00.000Z*
+*Last synchronized: 2026-08-19T12:16:00.000Z*
+
+
+
+

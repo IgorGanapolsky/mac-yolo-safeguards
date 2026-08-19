@@ -2,7 +2,7 @@
 
 ## Description
 
-Real Gurobi (gurobipy) optimization for fleet scheduling, AHLS outreach batch selection, and LP/MIP. Free pip size-limited license first (AE Fabrizio Ellis 2026-08-12). Trigger: gurobi, optimize sched
+Real Gurobi (gurobipy) optimization for fleet scheduling, AHLS outreach batch selection, token budget allocation, and feasibility audits (IIS). Free pip size-limited license first (AE Fabrizio Ellis 2026-08-12). Trigger: gurobi, optimize schedule, mathematical optimization, dispatch agents, outreach capacity knapsack, token budget, feasibility audit, IIS diagnosis.
 
 ## Owner
 
