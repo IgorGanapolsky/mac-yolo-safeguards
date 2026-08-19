@@ -68,6 +68,34 @@ capabilities:
                 pattern: '14-day trial'
               - in: .agents/CHIEF.md
                 pattern: 'Do not hero Continuity'
+      - key: OFFER-004
+        title: Give-work loop on the public landing
+        actor: buyer
+        goal: see how to give hosted Hermes a job without a desktop install
+        benefit: task-first path, not a connector marketplace or second SKU
+        lifecycle: production
+        acceptance_criteria:
+          - key: OFFER-004-AC1
+            criterion: Landing mounts a Give/Works/Approve loop with honest example jobs.
+            implements:
+              - apps/hermes-control-plane/app/GiveWorkLoop.tsx
+              - apps/hermes-control-plane/app/page.tsx
+            tests:
+              - apps/hermes-control-plane/tests/perplexity-computer-steal.test.mjs
+            must_contain:
+              - in: apps/hermes-control-plane/app/GiveWorkLoop.tsx
+                pattern: 'Give hosted Hermes a job'
+              - in: apps/hermes-control-plane/app/GiveWorkLoop.tsx
+                pattern: 'laptop sleeps'
+              - in: apps/hermes-control-plane/app/page.tsx
+                pattern: '<GiveWorkLoop'
+            must_not_contain:
+              - in: apps/hermes-control-plane/app/GiveWorkLoop.tsx
+                pattern: 'Gmail, Slack, Notion'
+              - in: apps/hermes-control-plane/app/GiveWorkLoop.tsx
+                pattern: 'hours or even months'
+              - in: apps/hermes-control-plane/app/GiveWorkLoop.tsx
+                pattern: 'ThumbGate Wake'
   - key: HOST
     name: Hosting picker
     description: Cloud is the $10 offer. Local is the machine, not a second SKU.

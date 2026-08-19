@@ -19,6 +19,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 ## 1. Task Board
 
+| T-PERPLEXITY-COMPUTER-STEAL-20260819 | Steal Perplexity Computer FORMAT (task-first jobs, Give/Works/Approve, put-to-work closer, allowlisted funnel events) onto existing $10 hosted Hermes landing. Not their product. | in_progress | grok-perplexity-computer-steal-20260819 | `apps/hermes-control-plane/app/GiveWorkLoop.tsx`, `apps/hermes-control-plane/app/give-work.module.css`, `apps/hermes-control-plane/app/page.tsx` (mount + FAQ), `apps/hermes-control-plane/app/FunnelSignals.tsx` (cta-id), `apps/hermes-control-plane/app/api/analytics/event/route.ts`, `apps/hermes-control-plane/app/llms.txt/route.ts`, `apps/hermes-control-plane/tests/perplexity-computer-steal.test.mjs`, `.intent/contract.yaml` (OFFER-004), `plan.md` | AGENT-413 |
 | T-JCODE-YOLO-SOL-UNSTICK-20260815 | Stop jcode-yolo from pinning GPT-5.6 Sol: quarantine inherited JCODE_DEFAULT_PROVIDER=openai, force child env + CLI --provider/--model, default TUI to GLM-5.3, switch specialists by prompt under $10/mo | in_progress | grok-jcode-yolo-sol-unstick-20260815 | `tools/jcode-yolo-wrapper.js`, `tests/test-jcode-intelligent-routing.js`, `tests/test-jcode-yolo-wrapper.js`, `plan.md` | Live doctor READY; inherited openai quarantined; empty TUI = zai/glm-5.3; Sol only on explicit GPT request |
 | T-OPENAI-ULTRAFAST-POLICY-20260815 | Install a truthful fleet-wide GPT-5.6 Sol Ultrafast policy and CLI with access detection, exact server-tier proof, prompt-safe receipts, and a shared $10/month API ceiling | done | codex-openai-ultrafast-policy-20260815 | `tools/openai-ultrafast-policy.js`, `tests/test-openai-ultrafast-policy.js`, `bin/ultrafast-yolo`, `.agents/skills/openai-ultrafast-policy/**`, `plan.md` | PASS: 11/11 isolated checks including secret-value detection, ambiguous-charge accounting, and post-response lock retry; skill validator, CodeQL pattern gate, context suite 19/19, agent-loop 4/4, exact installed hashes; live doctor truthfully reports `API_KEY_MISSING`, Codex advertises only `priority`, and the no-spend probe blocks at exit 78 before creating a ledger |
 | T-SKILL-YAML-PREFLIGHT-20260815 | Repair the three startup-rejected skill manifests and make every `codex-yolo` launch fail fast on syntactically invalid YAML frontmatter | done | codex-openai-ultrafast-policy-20260815 | `.agents/skills/local-ai-use-adapt/SKILL.md`, `.agents/skills/startup-application-helper/SKILL.md`, `tools/validate-agent-skills.js`, `tests/test-validate-agent-skills.js`, `plan.md` | PASS: all 82 live global/project manifests parse as real YAML; both repaired manifests pass the canonical skill validator; malformed YAML/missing delimiters/empty descriptions fail the regression; installed preflight SHA-256 matches tracked source |
@@ -3117,3 +3118,20 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 
 | T-GIT-AT-SCALE-CURSOR-20260819 | Steal Cursor Continuity client mechanics: multi-pack-index, geometric maintenance, safe agent-worktree GC, tip-consistency scorecard (NOT Origin hosting) | done | grok-git-at-scale-20260819 | `tools/git-at-scale-engine.js`, `tests/test-git-at-scale-engine.js`, `bin/git-at-scale`, `.agents/skills/git-at-scale/SKILL.md`, `plan.md` | unit tests PASS; live midx on mac-yolo+ThumbGate |
 
+| T-PERPLEXITY-COMPUTER-STEAL-20260819 | Steal Perplexity Computer FORMAT not product for thumbgate.app | in_progress | grok-perplexity-computer-steal-20260819 | GiveWorkLoop + funnel events + OFFER-004 | AGENT-413 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| apps/hermes-control-plane/app/GiveWorkLoop.tsx | grok-perplexity-computer-steal-20260819 | 2026-08-19T13:50:00Z |
+| apps/hermes-control-plane/app/give-work.module.css | grok-perplexity-computer-steal-20260819 | 2026-08-19T13:50:00Z |
+| apps/hermes-control-plane/app/page.tsx (mount + FAQ only) | grok-perplexity-computer-steal-20260819 | 2026-08-19T13:50:00Z |
+| apps/hermes-control-plane/app/FunnelSignals.tsx | grok-perplexity-computer-steal-20260819 | 2026-08-19T13:50:00Z |
+| apps/hermes-control-plane/app/api/analytics/event/route.ts | grok-perplexity-computer-steal-20260819 | 2026-08-19T13:50:00Z |
+| apps/hermes-control-plane/app/llms.txt/route.ts | grok-perplexity-computer-steal-20260819 | 2026-08-19T13:50:00Z |
+| apps/hermes-control-plane/tests/perplexity-computer-steal.test.mjs | grok-perplexity-computer-steal-20260819 | 2026-08-19T13:50:00Z |
+| apps/hermes-control-plane/tests/rendered-html.test.mjs (GiveWorkLoop assertions only) | grok-perplexity-computer-steal-20260819 | 2026-08-19T13:50:00Z |
+| .intent/contract.yaml (OFFER-004 only) | grok-perplexity-computer-steal-20260819 | 2026-08-19T13:50:00Z |
+| plan.md (append only) | grok-perplexity-computer-steal-20260819 | 2026-08-19T13:50:00Z |
+
+- 2026-08-19T13:50Z `grok-perplexity-computer-steal`: https://www.perplexity.ai/products/computer. Steal FORMAT: example jobs, Give→Works→Approve, closer, funnel cta_id. Do NOT steal connectors, Pro/Max, industry footer, or months-long workflows. ECI: copy-only on existing $10 offer; no paid outreach; no net-new governance R&D. Backlog: dashboard composer prefill from cta_id (dashboard blast); no-auth playground (hosted-app expansion, counsel pause).

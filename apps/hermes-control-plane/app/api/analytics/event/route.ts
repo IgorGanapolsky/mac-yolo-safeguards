@@ -12,6 +12,8 @@ const EVENTS = new Set([
   "sign_in_click",
   "free_control_click",
   "cloud_continuity_click",
+  "task_example_click",
+  "give_work_click",
   "watchdog_probe",
   "play_store_click",
   "app_store_click",

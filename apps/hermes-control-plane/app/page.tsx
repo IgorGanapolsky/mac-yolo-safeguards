@@ -11,6 +11,7 @@ import {
   LandingPricingCtaPaid,
 } from "./LandingAuthChrome";
 import { BrandMark } from "./BrandMark";
+import { GiveWorkLoop } from "./GiveWorkLoop";
 import { StartSurfaces } from "./StartSurfaces";
 import styles from "./landing.module.css";
 import {
@@ -84,6 +85,11 @@ const FAQ_ITEMS = [
     question: "How do I get started?",
     answer:
       "Sign in with email, Google, or Apple in this browser. Start the $10 hosted Hermes trial. There is no Mac, Windows, or Linux download. Approvals stay in thumbgate.app.",
+  },
+  {
+    question: "How do I give it a job?",
+    answer:
+      "Sign in, start the $10 hosted Hermes trial, and type the job in the dashboard. It runs on a fenced VPS while the laptop sleeps. Money, customer, or production actions pause in thumbgate.app.",
   },
   {
     question: "Do I install a desktop app?",
@@ -179,6 +185,7 @@ export default function Home() {
             <span>One clock · 14-day trial</span>
             <span>Approvals in thumbgate.app</span>
           </div>
+          <p className="signin-note"><a href="#give-work">See example jobs</a> — then start the $10 trial.</p>
         </div>
 
         <nav className="hero-console hero-actions-panel" aria-label="Private workspace actions">
@@ -188,6 +195,7 @@ export default function Home() {
       </section>
 
       <StartSurfaces />
+      <GiveWorkLoop />
 
       <section id="qualifier" className="section-block" data-testid="qualifier">
         <div className="section-heading">
