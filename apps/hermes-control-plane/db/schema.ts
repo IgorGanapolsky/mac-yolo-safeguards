@@ -1,4 +1,4 @@
-import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, real as drizzleReal, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
@@ -232,4 +232,58 @@ export const funnelAttributionCounters = sqliteTable("funnel_attribution_counter
       table.ctaId,
     ],
   }),
+]);
+
+/**
+ * A/B testing framework (T-AB-TESTING-DS-20260819).
+ *
+ * Feature flags: simple on/off/toggle per-org.
+ * Experiments: multi-variant, bucketed assignment via deterministic hashing,
+ * conversion events tracked via experiment_events.
+ */
+export const featureFlags = sqliteTable("feature_flags", {
+  key: text("key").primaryKey(),
+  description: text("description").notNull(),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
+  orgId: text("org_id").references(() => organizations.id, { onDelete: "cascade" }),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
+
+export const experiments = sqliteTable("experiments", {
+  id: text("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  description: text("description").notNull(),
+  status: text("status", { enum: ["draft", "running", "paused", "completed"] }).notNull().default("draft"),
+  variants: text("variants").notNull(), // JSON array of {name, weight}
+  seed: integer("seed").notNull().default(0),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+}, (table) => [
+  index("experiments_status_idx").on(table.status),
+]);
+
+export const experimentAssignments = sqliteTable("experiment_assignments", {
+  experimentId: text("experiment_id").notNull().references(() => experiments.id, { onDelete: "cascade" }),
+  subjectType: text("subject_type", { enum: ["user", "organization"] }).notNull(),
+  subjectId: text("subject_id").notNull(),
+  variant: text("variant").notNull(),
+  assignedAt: integer("assigned_at").notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.experimentId, table.subjectType, table.subjectId] }),
+  index("assignment_subject_idx").on(table.subjectType, table.subjectId),
+]);
+
+export const experimentEvents = sqliteTable("experiment_events", {
+  id: text("id").primaryKey(),
+  experimentId: text("experiment_id").notNull().references(() => experiments.id, { onDelete: "cascade" }),
+  subjectType: text("subject_type", { enum: ["user", "organization"] }).notNull(),
+  subjectId: text("subject_id").notNull(),
+  variant: text("variant").notNull(),
+  eventName: text("event_name").notNull(),
+  value: drizzleReal("value"),
+  timestamp: integer("timestamp").notNull(),
+}, (table) => [
+  index("experiment_events_exp_timestamp_idx").on(table.experimentId, table.timestamp),
+  index("experiment_events_subject_idx").on(table.subjectType, table.subjectId),
 ]);
