@@ -4,7 +4,7 @@
  * A remote session never reads secrets or changes settings.
  */
 
-import { evaluateRemoteAction, type RemoteAction } from "./hosted-remote-surface";
+import { evaluateRemoteAction, type RemoteAction } from "./hosted-remote-surface.js";
 
 export const HOSTED_APPROVAL_MODES = ["always-ask", "accept-edits", "always-allow"] as const;
 export type HostedApprovalMode = (typeof HOSTED_APPROVAL_MODES)[number];
