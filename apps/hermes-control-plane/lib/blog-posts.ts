@@ -32,13 +32,45 @@ export function offerClose(): string {
 
 export const BLOG_POSTS: BlogPost[] = [
   {
+    slug: "give-hosted-hermes-a-job",
+    title: "Give hosted Hermes a job",
+    description:
+      "ThumbGate.app is hosted Hermes on a fenced VPS. $10/month. Approvals stay in this browser.",
+    category: "product",
+    publishedAt: "2026-08-19",
+    author: "ThumbGate",
+    readMinutes: 5,
+    sections: [
+      {
+        paragraphs: [
+          "Cursor publishes engineering notes on cursor.com/blog with a date, a topic, a named author, and a read time. We are not affiliated with Cursor. This is that format on thumbgate.app, for the product that actually lives here.",
+          "ThumbGate.app is hosted Hermes on a fenced VPS. Sign in, start a 14-day trial or Pro at $10/month, give it a job, and approve money, customer, or production actions in this browser. Mac pairing is not the marketed path.",
+        ],
+      },
+      {
+        heading: "Give → Works → Approve",
+        paragraphs: [
+          "The landing page already shows example jobs: watch CI overnight, a morning digest, a long migration. You give the job. Hosted Hermes works on the fenced VPS. Sensitive steps wait for an in-browser approval.",
+          "That is the whole offer. It is not Perplexity Computer. It is not a connector marketplace. It is not OpenClaw on your laptop.",
+        ],
+      },
+      {
+        heading: "What this is not",
+        paragraphs: [
+          "Nous Hermes is the agent runtime we host. We are not affiliated with Nous Research.",
+          "Cash is $0 until a stranger pays Stripe. We do not invent traction on this blog.",
+        ],
+      },
+    ],
+  },
+  {
     slug: "chatbots-answer-agents-sleep-hosted-hermes-works",
     title: "Chatbots answer. Laptop agents sleep. Hosted Hermes keeps working.",
     description:
       "Why every laptop agent pilot dies the same death, and what an always-on fenced VPS with human approval gates changes about the work you can hand off.",
     category: "ideas",
     publishedAt: "2026-08-19",
-    author: "Igor Ganapolsky",
+    author: "ThumbGate",
     readMinutes: 4,
     sections: [
       {
@@ -70,7 +102,7 @@ export const BLOG_POSTS: BlogPost[] = [
       "The three mechanisms hosted Hermes uses to let an agent run for hours or months without a human babysitter: renewable leases, receipt audit trails, and LLM-as-a-Judge pre-action gates.",
     category: "engineering",
     publishedAt: "2026-08-19",
-    author: "Igor Ganapolsky",
+    author: "ThumbGate",
     readMinutes: 5,
     sections: [
       {

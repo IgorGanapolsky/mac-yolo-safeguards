@@ -66,7 +66,7 @@ export default function BlogIndex() {
           {posts.map((post) => (
             <article key={post.slug}>
               <p className="eyebrow">
-                {formatDate(post.publishedAt)} · {post.category} · {post.readMinutes} min
+                {formatDate(post.publishedAt)} · {post.category} · {post.author} · {post.readMinutes} min read
               </p>
               <h3><Link href={`/blog/${post.slug}`}>{post.title}</Link></h3>
               <p>{post.description}</p>
@@ -75,7 +75,7 @@ export default function BlogIndex() {
           ))}
         </div>
         <div className="hero-actions" style={{ marginTop: "32px" }}>
-          <a href="/api/auth/login" className="button button-primary" data-funnel-event="blog_cta_click">
+          <a href="/api/auth/login" className="button button-primary" data-funnel-event="blog_cta_click" data-cta-id="thumbgate-app-blog-20260819_home">
             Start {LOCKED_OFFER.product} — {LOCKED_OFFER.price} <span aria-hidden="true">→</span>
           </a>
         </div>
