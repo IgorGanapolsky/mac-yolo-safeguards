@@ -1,0 +1,15 @@
+{
+  "tasks": [
+    {"id": "ahls-batch", "priority": 10, "skill": "outreach"},
+    {"id": "codeql-scan", "priority": 5, "skill": "code"},
+    {"id": "garryslist-engage", "priority": 7, "skill": "browser"},
+    {"id": "mobile-e2e", "priority": 8, "skill": "mobile"},
+    {"id": "ts-build", "priority": 6, "skill": "code"}
+  ],
+  "agents": [
+    {"id": "grok", "capacity": 2, "skills": ["outreach", "browser", "code"]},
+    {"id": "codex", "capacity": 2, "skills": ["code", "mobile"]},
+    {"id": "claude", "capacity": 1, "skills": ["browser", "mobile"]}
+  ],
+  "max_tasks_per_agent": 2
+}
