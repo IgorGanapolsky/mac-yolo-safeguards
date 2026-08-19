@@ -4,8 +4,14 @@ description: Verify live ThumbGate.app service health, trace header propagation,
 version: 1
 owner: claude-code
 license: MIT
-trigger: "live dashboard", "production health", "verify deploy", "trace headers", "production verification", "app.thumbgate.app health"
-health_check: "curl -sI https://app.thumbgate.app/api/health returns HTTP 200 + traceparent header present"
+trigger:
+  - "live dashboard"
+  - "production health"
+  - "verify deploy"
+  - "trace headers"
+  - "production verification"
+  - "app.thumbgate.app health"
+health_check: "curl -sI https://app.thumbgate.app/api/health returns HTTP 200 plus traceparent header present"
 ---
 
 # Live Dashboard Verify Skill

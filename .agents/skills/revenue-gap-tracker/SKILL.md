@@ -1,11 +1,17 @@
 ---
 name: revenue-gap-tracker
-description: Track revenue monitoring gaps on ThumbGate.app — identify blocked data sources (gitignored business_os/, admin auth, Stripe env vars), audit available signals, and determine what's needed to move revenue monitoring from 3→5.
+description: Track revenue monitoring gaps on ThumbGate.app - identify blocked data sources (gitignored business_os/, admin auth, Stripe env vars), audit available signals, and determine what is needed to move revenue monitoring from 3 to 5.
 version: 1
 owner: claude-code
 license: MIT
-trigger: "revenue monitoring", "revenue gap", "business_os", "Stripe env vars", "revenue 3 to 5", "revenue not met"
-health_check: "`node tools/revenue-goal-audit.js` reports Ledgers > 0 and Target status: MET"
+trigger:
+  - "revenue monitoring"
+  - "revenue gap"
+  - "business_os"
+  - "Stripe env vars"
+  - "revenue 3 to 5"
+  - "revenue not met"
+health_check: "node tools/revenue-goal-audit.js reports Target status MET"
 ---
 
 # Revenue Gap Tracker Skill

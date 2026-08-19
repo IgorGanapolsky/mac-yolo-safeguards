@@ -4,8 +4,15 @@ description: Repeatable workflow for monitoring CI check status, tracking PR mer
 version: 1
 owner: claude-code
 license: MIT
-trigger: "CI not green", "PR checks", "PR status", "is the PR ready to merge", "merge check", "CI red", "auto-merge"
-health_check: "`gh pr checks <PR> --json name,state,conclusion | jq '. | length'` returns total count matching expected; all required contexts pass"
+trigger:
+  - "CI not green"
+  - "PR checks"
+  - "PR status"
+  - "is the PR ready to merge"
+  - "merge check"
+  - "CI red"
+  - "auto-merge"
+health_check: "gh pr checks returns all required contexts pass"
 ---
 
 # CI-PR Monitor Skill
