@@ -3,9 +3,9 @@
  * Handoff keeps history, memory, and tool policy; swaps the opaque route id.
  */
 
-import { appendHistory, distillFacts } from "./hosted-memory-tiers.js";
-import { publicRunReceipt } from "./hosted-source-of-truth.js";
-import type { HostedToolPolicy } from "./hosted-tool-approvals.js";
+import { appendHistory, distillFacts } from "./hosted-memory-tiers.ts";
+import { publicRunReceipt } from "./hosted-source-of-truth.ts";
+import type { HostedToolPolicy } from "./hosted-tool-approvals.ts";
 
 export type HostedSession = {
   taskId: string;
