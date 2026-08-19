@@ -30,6 +30,7 @@ const body = `# ThumbGate
 - ARD 1.0 catalog: https://thumbgate.app/.well-known/ai-catalog.json
 - Engineering expertise: https://thumbgate.app/expertise
 - Live public stats endpoint: https://thumbgate.app/api/expertise/stats
+- Blog (engineering notes + RSS): https://thumbgate.app/blog
 
 ## Direct answers
 - What is this? Hosted Hermes — fenced VPS agent execution on ThumbGate.app

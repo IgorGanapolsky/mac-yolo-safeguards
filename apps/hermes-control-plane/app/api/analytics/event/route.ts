@@ -15,6 +15,8 @@ const EVENTS = new Set([
   // Landing example-tasks: per-job cta_id + closer.
   "example_task_click",
   "give_work_click",
+  // Blog index + post CTA.
+  "blog_cta_click",
   "watchdog_probe",
   "play_store_click",
   "app_store_click",
