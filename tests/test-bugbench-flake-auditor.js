@@ -32,4 +32,13 @@ console.log('Running test-bugbench-flake-auditor.js...');
   assert.strictEqual(diag.overallScore, '10/10 (A+)', 'Expected 10/10 (A+) overall score');
 }
 
+
+// Test 4: Playwright getByRole / getByTestId count as semantic (locator heal)
+{
+  const locators = ['getByRole("button", { name: "Run" })', 'getByTestId("hermes-thread-list")'];
+  const res = auditSelectorResilience(locators);
+  assert.strictEqual(res.semanticLocators, 2, 'Expected getByRole/getByTestId to count as semantic');
+  assert.strictEqual(res.resilienceScore, 100, 'Expected 100% resilience for role/testid heal candidates');
+}
+
 console.log('ok tests/test-bugbench-flake-auditor.js');

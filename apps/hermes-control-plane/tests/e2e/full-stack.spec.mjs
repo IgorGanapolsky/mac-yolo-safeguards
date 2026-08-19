@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { STATE_FILE } from "./global-setup.mjs";
 import { runConnector } from "./fixtures/run-connector.mjs";
+import { locateWithHeal, HERMES_THREAD_LIST_CANDIDATES } from "../locate-with-heal.mjs";
 
 /**
  * Real cross-process E2E: a real `wrangler dev --local` Worker (real D1, real routes),
@@ -36,7 +37,11 @@ test("a scheduled cron-automation session never appears as a thread in the real 
   expect(sync.status, `connector --sync-only failed:\n${sync.stderr}`).toBe(0);
 
   await page.goto("/dashboard");
-  await expect(page.locator("#hermes-thread-list")).toBeVisible();
+  const threadList = await locateWithHeal(page, HERMES_THREAD_LIST_CANDIDATES, {
+    step: "dashboard.thread-list",
+    timeout: 10_000,
+  });
+  await expect(threadList.locator).toBeVisible();
   // The real chat session DOES sync through.
   await expect(page.locator(".thread-item", { hasText: "A real chat session" })).toBeVisible();
   // The cron-automation session must NOT -- this is the actual regression.

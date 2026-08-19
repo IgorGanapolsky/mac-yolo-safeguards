@@ -147,11 +147,15 @@ test("does not toast leftover Mac-pair machine-found copy", () => {
 
 test("signed-in dashboard markup always includes #hermes-thread-list even with zero tasks", () => {
   assert.match(dashboard, /id="hermes-thread-list"/);
+  assert.match(dashboard, /data-testid="hermes-thread-list"/);
   assert.match(dashboard, /thread-list-empty/);
   assert.match(dashboard, /No chats yet/);
   const firstList = dashboard.indexOf('id="hermes-thread-list"');
   const secondList = dashboard.indexOf('id="hermes-thread-list"', firstList + 1);
   assert.ok(firstList > -1 && secondList > firstList, "identity-loading shell and signed-in shell both render the list");
+  const firstTestid = dashboard.indexOf('data-testid="hermes-thread-list"');
+  const secondTestid = dashboard.indexOf('data-testid="hermes-thread-list"', firstTestid + 1);
+  assert.ok(firstTestid > -1 && secondTestid > firstTestid, "identity-loading shell and signed-in shell both expose data-testid");
   assert.doesNotMatch(
     dashboard,
     /if \(!user \|\| !organization\) return <main className="loading-screen">/,
