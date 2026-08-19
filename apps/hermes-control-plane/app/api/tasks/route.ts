@@ -15,6 +15,7 @@ import {
   probeRunnerHealth,
   waitForHostedReady,
 } from "@/lib/hosted-apphost";
+import { ackHostedSend } from "@/lib/hosted-source-of-truth";
 import { jsonError } from "@/lib/security";
 import { decideTaskRoute, parseRoutePreference } from "@/lib/task-routing";
 // A+ imports: runtime schema validation + rate limiting
@@ -109,7 +110,7 @@ export async function POST(request: Request) {
           WHERE organization_id = ? AND revoked_at IS NULL ORDER BY last_seen_at DESC NULLS LAST, created_at DESC LIMIT 1`
       ).bind(session.organizationId).first<DeviceRoute>();
 
-  // Continuity (cloud) does not require a paired local computer. Local/auto still do.
+  // Hosted VPS (cloud) does not require a paired local computer. Local/auto still do.
   if (!device && preference !== "cloud") {
     return jsonError(
       "Hosted VPS is required for this workspace. Start a trial or Pro on ThumbGate.app.",
@@ -252,6 +253,14 @@ export async function POST(request: Request) {
       ...governanceAuditMetadata(decision, { stage: "admission", route }),
     },
   });
+  if (route === "cloud") {
+    const ack = ackHostedSend({
+      runtime: "vps",
+      persistedId: taskId,
+      admitted: true,
+    });
+    if (!ack.ok) return jsonError(ack.message, 409);
+  }
   return Response.json({
     task: {
       id: taskId,

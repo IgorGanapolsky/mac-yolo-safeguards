@@ -137,3 +137,10 @@ test("does not claim live or instantly when hosted resources are unhealthy", () 
   assert.match(dashboard, /fenced VPS/);
   assert.doesNotMatch(dashboard, /Continuity hero|Mac lid|Cloud vs Local/);
 });
+
+test("does not toast leftover Mac-pair machine-found copy", () => {
+  assert.doesNotMatch(dashboard, /Machine found\. Verify its name/);
+  assert.doesNotMatch(dashboard, /approve the prefilled code/);
+  assert.doesNotMatch(dashboard, /Waiting on your paired machine/);
+  assert.match(dashboard, /Hosted on a fenced VPS/);
+});
