@@ -28,6 +28,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-OTEL-OBSERVABILITY-20260819 | Add OpenTelemetry distributed tracing to hermes-control-plane + OTel collector config for trace/log/metric aggregation → observability 5/5 | done | claude-code | `apps/hermes-control-plane/lib/tracing.ts` (new), `apps/hermes-control-plane/lib/tracing.test.ts` (new, 20 tests), `apps/hermes-control-plane/app/api/health/route.ts` (trace context in success+error responses), `tools/otel-collector-config.yaml` (new), `plan.md` | 20/20 tracing tests pass; tsc 0 errors; OTel collector config with tail-based sampling + SLOs + Prometheus; health route emits traceparent/x-trace-id headers |
 | T-AB-TESTING-DS-20260819 | Add minimal A/B testing framework (feature flags + experiment tracking) to hermes-control-plane → DS 5/5 | done | claude-code | `apps/hermes-control-plane/db/schema.ts` (experiments tables), `apps/hermes-control-plane/drizzle/0006_ab_testing_framework.sql` (new), `apps/hermes-control-plane/lib/experiments.ts` (new), `apps/hermes-control-plane/lib/experiments.test.ts` (new, 17 tests), `apps/hermes-control-plane/app/api/admin/experiments/route.ts` (new), `plan.md` | 17/17 experiments tests pass; tsc 0 errors; FNV-1a deterministic hashing; DB-backed via D1 |
 | T-RAG-EVAL-ML-20260819 | Add model evaluation harness for RAG/retrieval quality (recall@k, MRR@k, nDCG@k) → ML 5/5 | done | claude-code | `tools/rag-eval-harness.js` (new), `tests/test-rag-eval-harness.js` (new, 31 tests), `plan.md` | 31/31 tests pass; CLI E2E verified with 4-query dataset (recall@3=0.75, MRR@3=0.625, nDCG@3=0.653); CI auto-globs tests/test-*.js |
+| T-AGENT-SKILLS-20260819 | Create repeatable agent skills for CI/PR monitoring, live dashboard verification, and revenue gap tracking | done | claude-code | `.agents/skills/ci-pr-monitor/**`, `.agents/skills/live-dashboard-verify/**`, `.agents/skills/revenue-gap-tracker/**`, `.agents/skills/sources.yml`, `SKILLS.md`, `plan.md` | All 3 skill cards validated (PASS); BrowserOS harness active (18 tools); live health endpoint rate-limited by Cloudflare (429 — expected on public endpoint) |
 | T-ZAI-GLM53-SYSTEMWIDE-20260815 | Persist GLM-5.3 + $10/mo cap system-wide (launchd, zsh, OpenCode, cyber rail) | done | grok-glm53-fleet |
 | T-ZAI-GLM53-FLEET-20260815 | Wire GLM-5.3 across all harnesses on the Coding Plan ($0 marginal) with a hard $10/mo metered API token budget | done | grok-glm53-fleet | `tools/zai-api-budget-guard.js`, `tools/zai-glm53-fleet.js`, `bin/zai-glm53`, `tests/test-zai-glm53-fleet.js`, `.agents/skills/zai-glm53-fleet/SKILL.md`, `docs/ZAI-GLM53-FLEET.md`, `plan.md` | PASS: 15/15 tests; live probe model=glm-5.3 preview=GLM53_OK; gateway glm-coding GLM53_OK; $10 metered fail-closed; zai-coding-glm53 moved off /api/paas/v4 |
 
@@ -3158,3 +3159,20 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 | plan.md (append only) | grok-hosted-computer-stack-honesty-20260819 | 2026-08-19T15:00:00Z |
 
 - 2026-08-19T15:00Z `grok-hosted-computer-stack-honesty`: OSS Computer blueprint does **not** transfer as OpenClaw/E2B/Cua. Falsifier: `hermes-cloud-runner` `execute()` is POST `/chat/completions` only; Hands is `HOSTED_BROWSER_CUE_RES` + `browserHealthUrl()` (`POLICY_CUE_NOT_DRIVER`); economic-router is not imported by the runner. Doctor refuses clone installs. Did not vendor those products. ECI: no hosted-app expansion.
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| `.agents/skills/ci-pr-monitor/**` | claude-code | 2026-08-19T15:30:00Z |
+| `.agents/skills/live-dashboard-verify/**` | claude-code | 2026-08-19T15:30:00Z |
+| `.agents/skills/revenue-gap-tracker/**` | claude-code | 2026-08-19T15:30:00Z |
+| `.agents/skills/sources.yml` (append only) | claude-code | 2026-08-19T15:30:00Z |
+| `SKILLS.md` (append rows only) | claude-code | 2026-08-19T15:30:00Z |
+| `plan.md` (append only) | claude-code | 2026-08-19T15:30:00Z |
+
+- 2026-08-19T15:30Z `claude-code` (T-AGENT-SKILLS-20260819): Created three repeatable agent skills based on the OTel/DS/ML improvement workflow:
+  - `ci-pr-monitor`: Uses `gh pr checks`, `gh pr view --json`, `gh pr merge --auto --squash` to track CI status, PR merge-readiness, and auto-merge success. Health check: all required status contexts pass. Created `.agents/skills/ci-pr-monitor/{SKILL.md,skill-card.md}`.
+  - `live-dashboard-verify`: Uses `curl -sI` + BrowserOS (`node tools/browseros-agent-harness.js`) to verify live ThumbGate.app health endpoint, trace header propagation, and production deployment status. Health check: HTTP 200 + traceparent header. Created `.agents/skills/live-dashboard-verify/{SKILL.md,skill-card.md}`.
+  - `revenue-gap-tracker`: Tracks revenue monitoring gaps (gitignored `business_os/`, Stripe env vars, admin auth) with unblock checklist: BrowserOS → Stripe dashboard → re-audit. Health check: `node tools/revenue-goal-audit.js` reports "Target status: MET". Created `.agents/skills/revenue-gap-tracker/{SKILL.md,skill-card.md}`.
+  All 3 skill cards validated via `tools/skill-card-validate.js` (PASS). BrowserOS harness confirmed active (18 MCP tools). Registered in `.agents/skills/sources.yml` (in_repo list) + `SKILLS.md` (local skill table).
+- 2026-08-19T15:25Z `claude-code` production-deploy: PR #1855 auto-merged to main at 15:23:59Z (commit 1a4805f71, squash merge). Push-to-main CI runs showed `skipped` (expected: concurrency groups + merge queue). Live health endpoint returned Cloudflare 429 — rate-limited, not an application error. Production deploy pending via `hermes-control-plane.yml` push trigger.
