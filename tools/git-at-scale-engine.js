@@ -183,22 +183,32 @@ function spawnWorktree(branchName, options = {}) {
   return { success: true, path: targetDir, branch: branchName, reused: false };
 }
 
+function pathIsUnder(candidate, root) {
+  return candidate === root || candidate.startsWith(root + path.sep);
+}
+
 /**
- * Containment check that does NOT follow symlinks first.
- * Lexical path must sit under base; only then may we realpath for equality.
+ * Containment: lexical under-base check first (no symlink follow), then
+ * realpath must still stay under the resolved base (reject escapes).
+ * Handles macOS /var ↔ /private/var aliasing on the base path.
  * Fixes Copilot "realpath before validate" note on #1844.
  */
 function isUnderBase(wtPath, basePath) {
-  const absWt = path.resolve(wtPath);
   const absBase = path.resolve(basePath);
-  const lexicalOk = absWt === absBase || absWt.startsWith(absBase + path.sep);
+  let realBase = absBase;
+  try {
+    if (fs.existsSync(absBase)) realBase = fs.realpathSync(absBase);
+  } catch {
+    realBase = absBase;
+  }
+
+  const absWt = path.resolve(wtPath);
+  const lexicalOk = pathIsUnder(absWt, absBase) || pathIsUnder(absWt, realBase);
   if (!lexicalOk) return false;
 
-  // Optional realpath: reject if a symlink escapes the base after resolution.
   try {
     const realWt = fs.existsSync(absWt) ? fs.realpathSync(absWt) : absWt;
-    const realBase = fs.existsSync(absBase) ? fs.realpathSync(absBase) : absBase;
-    return realWt === realBase || realWt.startsWith(realBase + path.sep);
+    return pathIsUnder(realWt, realBase);
   } catch {
     return false;
   }
