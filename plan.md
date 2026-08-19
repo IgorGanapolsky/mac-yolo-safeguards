@@ -3224,4 +3224,17 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 | plan.md (append only) | grok-gurobi-harness-gate-20260819 | 2026-08-19T16:40:00Z |
 
 - 2026-08-19T16:40Z `grok-gurobi-harness-gate`: Process steal after Pulse #1866. Solver existed; session-start did not call it. New gate certifies $10 cap + exclusive ADB. Did not touch `tools/gurobi-fleet-optimize.py` / `examples/gurobi/` (claude-code T-GUROBI-CLI-HARNESS). No Gurobi SKU, no ThumbGate paid knapsack (ECI). AGENT-423.
+
+| T-GUROBI-PHASEONE-BENCH-20260819 | Phase One Kit steal: freeze acceptance set, log solver metrics, prove 4 certificates (OPTIMAL / MIP gap / IIS / UNBOUNDED), stability repeats. Uses #1869 examples as frozen models. | in_progress | grok-gurobi-harness-gate-20260819 | `tools/gurobi-acceptance-bench.js` (new), `tests/test-gurobi-acceptance-bench.js` (new), `.agents/skills/gurobi-harness-gate/SKILL.md` (Phase One table), `plan.md` | AGENT-423 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/gurobi-acceptance-bench.js | grok-gurobi-harness-gate-20260819 | 2026-08-19T17:05:00Z |
+| tests/test-gurobi-acceptance-bench.js | grok-gurobi-harness-gate-20260819 | 2026-08-19T17:05:00Z |
+| .agents/skills/gurobi-harness-gate/SKILL.md | grok-gurobi-harness-gate-20260819 | 2026-08-19T17:05:00Z |
+| SKILLS.md (append/row tweak only) | grok-gurobi-harness-gate-20260819 | 2026-08-19T17:05:00Z |
+| plan.md (append only) | grok-gurobi-harness-gate-20260819 | 2026-08-19T17:05:00Z |
+
+- 2026-08-19T17:05Z `grok-gurobi-harness-gate`: Phase One Champion Kit (`~/Downloads/PhaseOneKit2`). Steal: frozen acceptance set + four solver certificates + explain receipts. Did not copy Gurobi PDFs/Wiley book. Did not edit `examples/gurobi/` (#1869). No commercial trial pitch, no Gurobi SKU, no ThumbGate paid knapsack. AGENT-423 / PR #1872.
 - 2026-08-19T12:30Z `claude-code` T-GUROBI-EXAMPLE-FILES-20260819: Origin/main already has PR #1866 merged (grok-gurobi-pulse-proof-20260819) with `iis` + `token-budget` CLI subcommands, certified proof receipts, exclusive adb/git_lock constraints, and 6-case evaluate suite. CLI changes redundant — reverted to main's version. Remaining high-ROI gap: NO example model files on main (examples/gurobi/ directory empty). Added 5 example JSON files covering solve/dispatch/outreach/iis/token-budget + dedicated test file `tests/test-gurobi-examples.js` (5/5 verified). SKILL.md math formulations deferred — owned by grok-gurobi-pulse-proof-20260819 per §2.
