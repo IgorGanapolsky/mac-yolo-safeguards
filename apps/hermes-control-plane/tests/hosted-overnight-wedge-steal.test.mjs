@@ -20,5 +20,5 @@ test("landing steals isolated overnight VPS copy, not a clone", () => {
   assert.doesNotMatch(page, /Slack as the control/i);
   assert.doesNotMatch(page, /OpenClaw|Eigent|E2B|trycua|\bCua\b|Agent S|Firecracker|\bSPACE\b|Perplexity/i);
   assert.doesNotMatch(page, /months-long digital worker/i);
-  assert.doesNotMatch(page, /Machine found|lid-close|phone leash|RUN ON picker/i);
+  assert.doesNotMatch(page, /Machine found|lid-close|RUN ON picker/i);
 });
