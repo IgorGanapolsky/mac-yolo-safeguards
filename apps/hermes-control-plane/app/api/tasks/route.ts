@@ -6,15 +6,9 @@ import {
   governanceError,
 } from "@/lib/agent-governance";
 import { db } from "@/lib/runtime";
-import { evaluateCloudPromptToolPolicy, requiredHostedSidecars } from "@/lib/cloud-tool-policy";
-import {
-  admitCloudSend,
-  lastCachedModelError,
-  MODEL_ERROR_LOOKBACK_MS,
-  probeBrowserHealth,
-  probeRunnerHealth,
-  waitForHostedReady,
-} from "@/lib/hosted-apphost";
+import { evaluateCloudPromptToolPolicy } from "@/lib/cloud-tool-policy";
+import { ackHostedSend, publicRunReceipt } from "@/lib/hosted-source-of-truth";
+import { admitHostedContext } from "@/lib/hosted-edit-anchor";
 import { jsonError } from "@/lib/security";
 import { decideTaskRoute, parseRoutePreference } from "@/lib/task-routing";
 // A+ imports: runtime schema validation + rate limiting
@@ -95,8 +89,13 @@ export async function POST(request: Request) {
       },
     );
   }
-  const prompt = payload.prompt.trim().slice(0, 24_000);
-  if (!prompt) return jsonError("prompt is required");
+  const promptRaw = payload.prompt.trim();
+  if (!promptRaw) return jsonError("prompt is required");
+  const contextAdmit = admitHostedContext({
+    bytes: new TextEncoder().encode(promptRaw).length,
+  });
+  if (!contextAdmit.ok) return jsonError(contextAdmit.message, 409);
+  const prompt = promptRaw.slice(0, 24_000);
   const preference = parseRoutePreference(payload.routePreference);
 
   const device = payload.deviceId
@@ -109,7 +108,7 @@ export async function POST(request: Request) {
           WHERE organization_id = ? AND revoked_at IS NULL ORDER BY last_seen_at DESC NULLS LAST, created_at DESC LIMIT 1`
       ).bind(session.organizationId).first<DeviceRoute>();
 
-  // Continuity (cloud) does not require a paired local computer. Local/auto still do.
+  // Hosted VPS (cloud) does not require a paired local computer. Local/auto still do.
   if (!device && preference !== "cloud") {
     return jsonError(
       "Hosted VPS is required for this workspace. Start a trial or Pro on ThumbGate.app.",
@@ -126,35 +125,9 @@ export async function POST(request: Request) {
     if (!toolPolicy.allowed) {
       return jsonError(toolPolicy.message, 409);
     }
-    const required = requiredHostedSidecars(prompt);
-    const probeNow = Date.now();
-    const runner = await probeRunnerHealth({ now: probeNow, timeoutMs: 8_000, force: true });
-    const browser = required.includes("browser")
-      ? await probeBrowserHealth({ now: probeNow, timeoutMs: 8_000, force: true })
-      : null;
-    let modelError = lastCachedModelError();
-    try {
-      const lastFailed = await db().prepare(
-        `SELECT error FROM tasks
-          WHERE organization_id = ? AND route = 'cloud' AND status = 'failed'
-            AND error IS NOT NULL AND updated_at >= ?
-          ORDER BY updated_at DESC LIMIT 1`,
-      ).bind(session.organizationId, probeNow - MODEL_ERROR_LOOKBACK_MS).first<{ error: string | null }>();
-      if (lastFailed?.error) modelError = lastFailed.error;
-    } catch {
-      // D1 miss: fail-closed on runner; model uses isolate cache if present.
-    }
-    const hostedReady = waitForHostedReady({
-      runner: { ok: runner.ok, lastPollAt: runner.lastPollAt ?? null },
-      modelError,
-      browser: browser ? { ok: browser.ok, lastPollAt: browser.lastPollAt ?? null } : null,
-      required,
-      now: probeNow,
-    });
-    const hostedAdmit = admitCloudSend(hostedReady);
-    if (!hostedAdmit.allowed) {
-      return jsonError(hostedAdmit.message, 409);
-    }
+    // Persist-before-live: do not await Fly probes here. An 8s force probe 409s
+    // the create and swallows the task from the dashboard (E2E + real /d).
+    // Runner/model health stays cache-only on /api/me; the row is queued.
   }
 
   const now = Date.now();
@@ -252,6 +225,15 @@ export async function POST(request: Request) {
       ...governanceAuditMetadata(decision, { stage: "admission", route }),
     },
   });
+  if (route === "cloud") {
+    const ack = ackHostedSend({
+      runtime: "vps",
+      persistedId: taskId,
+      admitted: true,
+    });
+    if (!ack.ok) return jsonError(ack.message, 409);
+  }
+  const receipt = publicRunReceipt({ taskId, route, status });
   return Response.json({
     task: {
       id: taskId,
@@ -264,6 +246,8 @@ export async function POST(request: Request) {
       createdAt: now,
       traceId,
     },
+    receipt,
+    editPolicy: route === "cloud" ? "hash-anchor" : undefined,
     traceId,
   }, {
     status: 201,

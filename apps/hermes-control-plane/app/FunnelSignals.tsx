@@ -5,8 +5,10 @@ import { ClientErrorBeacon } from "./ClientErrorBeacon";
 import {
   hasAttribution,
   parseAttributionFromSearch,
+  sanitizeAttributionToken,
   type FunnelAttribution,
 } from "@/lib/funnel-attribution";
+import { captureLandingEvent } from "@/lib/posthog-browser";
 
 const endpoint = "/api/analytics/event";
 
@@ -34,13 +36,17 @@ export function FunnelSignals() {
       typeof window !== "undefined" ? window.location.search : "",
     );
     signal("landing_view", attr);
+    captureLandingEvent("landing_view");
     const trackClick = (event: MouseEvent) => {
       const target =
         event.target instanceof Element
           ? event.target.closest<HTMLElement>("[data-funnel-event]")
           : null;
       const funnelEvent = target?.dataset.funnelEvent;
-      if (funnelEvent) signal(funnelEvent, attr);
+      if (!target || !funnelEvent) return;
+      const clickCta = sanitizeAttributionToken(target.dataset.ctaId);
+      signal(funnelEvent, clickCta ? { ...attr, ctaId: clickCta } : attr);
+      captureLandingEvent(funnelEvent);
     };
     document.addEventListener("click", trackClick);
     return () => document.removeEventListener("click", trackClick);

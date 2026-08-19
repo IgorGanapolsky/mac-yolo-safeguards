@@ -484,6 +484,18 @@ if (!json) {
   }
 }
 
+{
+  const gurobiGate = path.join(REPO, 'tools/gurobi-harness-gate.js');
+  if (fs.existsSync(gurobiGate)) {
+    const gArgs = json ? ['--json'] : ['--session-start'];
+    const g = runNode('tools/gurobi-harness-gate.js', gArgs, 20_000);
+    if (!json && g.stdout) {
+      const out = g.stdout;
+      process.stdout.write(`\n${out}${out.endsWith('\n') ? '' : '\n'}`);
+    }
+  }
+}
+
 const briefArgs = ['tools/ceo-operating-brief.js'];
 if (json) briefArgs.push('--json');
 if (full) briefArgs.push('--full');

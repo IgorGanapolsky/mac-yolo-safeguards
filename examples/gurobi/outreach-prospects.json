@@ -1,0 +1,14 @@
+{
+  "prospects": [
+    {"id": "shop_a", "name": "Shopify", "score": 90, "cost_units": 1, "industry": "e-commerce"},
+    {"id": "shop_b", "name": "BigCommerce", "score": 70, "cost_units": 1, "industry": "e-commerce"},
+    {"id": "shop_c", "name": "WooCommerce", "score": 40, "cost_units": 1, "industry": "e-commerce"},
+    {"id": "aws_a", "name": "AWS Marketplace", "score": 85, "cost_units": 2, "industry": "cloud"},
+    {"id": "aws_b", "name": "GCP Marketplace", "score": 20, "cost_units": 1, "industry": "cloud"},
+    {"id": "vercel_a", "name": "Vercel", "score": 88, "cost_units": 1, "industry": "cloud"},
+    {"id": "datadog", "name": "Datadog", "score": 75, "cost_units": 2, "industry": "observability"},
+    {"id": "new_relic", "name": "New Relic", "score": 65, "cost_units": 1, "industry": "observability"}
+  ],
+  "capacity": 5,
+  "min_score": 50
+}

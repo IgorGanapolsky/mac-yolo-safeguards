@@ -13,11 +13,14 @@ notes: >
 in_repo:
   - anti-babysitting
   - browseros-agent-harness
+  - ci-pr-monitor
   - garryslist-opportunity-tracker
   - gurobi-optimizer-integrator
   - hybrid-route-policy
   - linear-agent-skills
   - local-media-lane
+  - live-dashboard-verify
+  - revenue-gap-tracker
   - skill-catalog-governance
 
 external:

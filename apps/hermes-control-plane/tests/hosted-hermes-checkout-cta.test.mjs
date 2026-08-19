@@ -16,17 +16,17 @@ test("primary $10 hosted Hermes CTAs start WorkOS login, not #pricing", () => {
   const surfaces = read("app/StartSurfaces.tsx");
 
   assert.equal(
-    (page.match(/href="#pricing" className="button button-primary" data-funnel-event="cloud_continuity_click"/g) ?? []).length,
+    (page.match(/href="#pricing" className="button button-primary" data-funnel-event="hosted_checkout_click"/g) ?? []).length,
     0,
   );
   assert.equal(
-    (page.match(/href="\/api\/auth\/login" className="button button-primary" data-funnel-event="cloud_continuity_click"/g) ?? []).length,
+    (page.match(/href="\/api\/auth\/login" className="button button-primary" data-funnel-event="hosted_checkout_click"/g) ?? []).length,
     3,
   );
 
   assert.match(
     chrome,
-    /href="\/api\/auth\/login"\s+className="button button-primary"\s+data-funnel-event="cloud_continuity_click"/,
+    /href="\/api\/auth\/login"\s+className="button button-primary"\s+data-funnel-event="hosted_checkout_click"/,
   );
   assert.doesNotMatch(chrome, /href="#pricing"\s+className="button button-primary"/);
   assert.match(chrome, /mode === "session" \? "\/dashboard" : "\/api\/auth\/login"/);
@@ -53,13 +53,13 @@ test("signin, login, and checkout aliases 307 to WorkOS login (not 404)", () => 
   assert.match(checkout, /Location: "\/dashboard"/);
 });
 
-test("Hermes Mobile /go/ios and /go/android stay store 302s", () => {
+test("Hermes Mobile /go/ios and /go/android 301 to / (no store 302 on this host)", () => {
   const ios = read("app/go/ios/route.ts");
   const android = read("app/go/android/route.ts");
-  assert.match(ios, /APP_STORE_URL/);
-  assert.match(ios, /302/);
-  assert.doesNotMatch(ios, /Location:\s*"\/"/);
-  assert.match(android, /PLAY_STORE_URL/);
-  assert.match(android, /302/);
-  assert.doesNotMatch(android, /Location:\s*"\/"/);
+  assert.match(ios, /status:\s*301/);
+  assert.match(ios, /Location:\s*"\/"/);
+  assert.doesNotMatch(ios, /APP_STORE_URL|Response\.redirect/);
+  assert.match(android, /status:\s*301/);
+  assert.match(android, /Location:\s*"\/"/);
+  assert.doesNotMatch(android, /PLAY_STORE_URL|Response\.redirect/);
 });

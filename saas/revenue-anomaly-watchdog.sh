@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Revenue anomaly watchdog for ThumbGate/Leash.
 #
-# Reads ONLY the public, unauthenticated /api/health endpoint (same source
-# the AdminClient revenue panel and saas-watchdog.sh already read) — never
+# Reads /api/health. Public health is liveness-only (ok/ready, no users/paid/
+# funnel). When telemetry is absent this check skips. Admin sessions still
+# receive the telemetry envelope. Never
 # touches D1 directly, never writes/mutates billing state. Purely read + alert.
 #
 # Fires an ntfy.sh alert (same topic/curl/header conventions as

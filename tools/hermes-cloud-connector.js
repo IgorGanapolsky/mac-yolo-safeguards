@@ -194,8 +194,10 @@ function signedHeaders(config, method, pathname, bodyText, now = Date.now(), non
 async function jsonRequest(url, options = {}) {
   const response = await fetch(url, { ...options, signal: options.signal || AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   const text = await response.text();
-  const body = text ? JSON.parse(text) : null;
+  let body = null;
+  try { body = text ? JSON.parse(text) : null; } catch { body = null; }
   if (!response.ok) throw new Error(body?.error || `HTTP ${response.status}`);
+  if (body === null && text) throw new Error(`non-JSON response (HTTP ${response.status})`);
   return { response, body };
 }
 
@@ -553,8 +555,11 @@ async function claimAndExecuteThreadOperation(config) {
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   if (response.status === 204) return false;
-  const claim = await response.json();
-  if (!response.ok) throw new Error(claim.error || `Chat operation claim failed (${response.status})`);
+  const claimText = await response.text();
+  let claim = null;
+  try { claim = claimText ? JSON.parse(claimText) : null; } catch { claim = null; }
+  if (!response.ok) throw new Error(claim?.error || `Chat operation claim failed (${response.status})`);
+  if (!claim) throw new Error(`Chat operation claim: non-JSON response (HTTP ${response.status})`);
   try {
     await executeThreadOperation(config, claim.operation);
     await signedPost(config, '/api/device/thread-operations/complete', {
@@ -584,8 +589,11 @@ async function cycle(config, options = {}) {
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   if (response.status === 204) return false;
-  const claim = await response.json();
-  if (!response.ok) throw new Error(claim.error || `Claim failed (${response.status})`);
+  const claimText = await response.text();
+  let claim = null;
+  try { claim = claimText ? JSON.parse(claimText) : null; } catch { claim = null; }
+  if (!response.ok) throw new Error(claim?.error || `Claim failed (${response.status})`);
+  if (!claim) throw new Error(`Task claim: non-JSON response (HTTP ${response.status})`);
   try {
     const result = await withLeaseRenewal(
       () => executeLocal(config, claim.task),
@@ -596,6 +604,18 @@ async function cycle(config, options = {}) {
     await signedPost(config, '/api/device/tasks/complete', { taskId: claim.task.id, leaseToken: claim.task.leaseToken, error: error instanceof Error ? error.message : String(error) });
   }
   return true;
+}
+
+async function retryWithBackoff(fn, { initialMs = 30_000, maxMs = 600_000, label = 'pairing' } = {}) {
+  let delayMs = initialMs;
+  for (;;) {
+    try { return await fn(); }
+    catch (error) {
+      console.error(`[hermes-cloud-connector] ${label} failed: ${error instanceof Error ? error.message : error}; retrying in ${Math.round(delayMs / 1000)}s`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      delayMs = Math.min(delayMs * 2, maxMs);
+    }
+  }
 }
 
 async function main() {
@@ -619,7 +639,7 @@ async function main() {
     delete config.deviceId;
   }
   saveConfig(configPath, config);
-  if (!config.deviceId || process.argv.includes('--pair')) await startPairing(config, configPath);
+  if (!config.deviceId || process.argv.includes('--pair')) await retryWithBackoff(() => startPairing(config, configPath));
   if (process.argv.includes('--pair-only')) return;
   if (process.argv.includes('--sync-only')) { await syncGatewaySessions(config, { configPath }); return; }
   if (process.argv.includes('--once')) { await cycle(config, { heartbeat: true, syncSessions: true, configPath }); return; }
@@ -655,5 +675,5 @@ async function main() {
   }
 }
 
-module.exports = { adoptDiskPairing, boundContextMessages, buildWebSessionSystemPrompt, canonicalRequest, claimAndExecuteThreadOperation, collectGatewaySessions, connectorPollingSchedule, contentText, createIdentity, executeLocal, executeThreadOperation, forgetDeadPairing, gatewayHeaders, isDeadDeviceAuthError, loadConfig, nextConnectorPollDelay, pairingDashboardUrl, pairingMatchesControlPlane, parseDotEnvValue, parseTerminalCwd, recoverDeadPairing, resolveGatewayApiKey, resolveWorkspacePath, saveConfig, selectContextSessionIds, signedHeaders, sha256, syncGatewaySessions, timestampMillis, withLeaseRenewal };
+module.exports = { adoptDiskPairing, retryWithBackoff, boundContextMessages, buildWebSessionSystemPrompt, canonicalRequest, claimAndExecuteThreadOperation, collectGatewaySessions, connectorPollingSchedule, contentText, createIdentity, executeLocal, executeThreadOperation, forgetDeadPairing, gatewayHeaders, isDeadDeviceAuthError, loadConfig, nextConnectorPollDelay, pairingDashboardUrl, pairingMatchesControlPlane, parseDotEnvValue, parseTerminalCwd, recoverDeadPairing, resolveGatewayApiKey, resolveWorkspacePath, saveConfig, selectContextSessionIds, signedHeaders, sha256, syncGatewaySessions, timestampMillis, withLeaseRenewal };
 if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });

@@ -35,6 +35,12 @@ LIMITS = {
 }
 
 
+_LICENSE_CACHE: dict[str, Any] | None = None
+BOUNCE_RISK_HARD_MAX = 0.05
+VERTICAL_CAP = 2
+LICENSE_STAMP = {"mode": "size_limited_pip", "non_production_only": True}
+
+
 @dataclass
 class SolveResult:
     ok: bool
@@ -47,12 +53,18 @@ class SolveResult:
     license: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
     notes: list[str] = field(default_factory=list)
+    proof: dict[str, Any] = field(default_factory=dict)
+    iis: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
-def license_info() -> dict[str, Any]:
+def license_info(*, force: bool = False) -> dict[str, Any]:
+    global _LICENSE_CACHE
+    if _LICENSE_CACHE is not None and not force:
+        return dict(_LICENSE_CACHE)
+
     info: dict[str, Any] = {
         "gurobipy_import_ok": GUROBIPY_OK,
         "version": GUROBI_VERSION,
@@ -73,7 +85,8 @@ def license_info() -> dict[str, Any]:
     }
     if not GUROBIPY_OK:
         info["error"] = globals().get("_IMPORT_ERR", "gurobipy missing")
-        return info
+        _LICENSE_CACHE = info
+        return dict(info)
 
     # Probe with a tiny model to surface license banner / expiry path
     try:
@@ -93,7 +106,8 @@ def license_info() -> dict[str, Any]:
     except Exception as e:
         info["probe_ok"] = False
         info["error"] = str(e)
-    return info
+    _LICENSE_CACHE = info
+    return dict(info)
 
 
 def _status_name(code: int) -> str:
@@ -106,6 +120,44 @@ def _status_name(code: int) -> str:
         GRB.NUMERIC: "NUMERIC",
     }
     return mapping.get(code, f"STATUS_{code}")
+
+
+def _certified_proof(m: Any) -> dict[str, Any]:
+    """Pulse steal: receipts carry dual bounds, not a plausible guess."""
+    status = _status_name(int(m.Status))
+    proof: dict[str, Any] = {
+        "solver": "gurobipy",
+        "status": status,
+        "certified_optimal": bool(m.Status == GRB.OPTIMAL),
+        "not_plausible_guess": True,
+    }
+    try:
+        proof["runtime_sec"] = float(m.Runtime)
+    except Exception:
+        pass
+    if m.Status == GRB.OPTIMAL or m.Status == GRB.TIME_LIMIT:
+        try:
+            proof["obj_val"] = float(m.ObjVal)
+        except Exception:
+            pass
+        try:
+            proof["obj_bound"] = float(m.ObjBound)
+        except Exception:
+            pass
+        try:
+            proof["mip_gap"] = float(m.MIPGap)
+        except Exception:
+            pass
+    return proof
+
+
+def _iis_payload(m: Any, constrs_map: dict[str, Any], vars_map: dict[str, Any]) -> dict[str, Any]:
+    m.computeIIS()
+    return {
+        "iis_constraints": [name for name, constr in constrs_map.items() if constr.IISConstr],
+        "iis_lower_bounds": [name for name, var in vars_map.items() if var.IISLB],
+        "iis_upper_bounds": [name for name, var in vars_map.items() if var.IISUB],
+    }
 
 
 def solve_lp(
@@ -158,6 +210,7 @@ def solve_lp(
             lin = gp.quicksum(float(coef) * vars_map[name] for name, coef in obj.items())
             m.setObjective(lin, GRB.MINIMIZE if sense.lower().startswith("min") else GRB.MAXIMIZE)
 
+            constrs_map: dict[str, Any] = {}
             for i, c in enumerate(constraints):
                 coeffs = c.get("coeffs") or {}
                 expr = gp.quicksum(float(coef) * vars_map[n] for n, coef in coeffs.items())
@@ -165,11 +218,11 @@ def solve_lp(
                 rhs = float(c["rhs"])
                 cname = c.get("name") or f"c{i}"
                 if sense_c in (">=", "ge"):
-                    m.addConstr(expr >= rhs, name=cname)
+                    constrs_map[cname] = m.addConstr(expr >= rhs, name=cname)
                 elif sense_c in ("<=", "le"):
-                    m.addConstr(expr <= rhs, name=cname)
+                    constrs_map[cname] = m.addConstr(expr <= rhs, name=cname)
                 else:
-                    m.addConstr(expr == rhs, name=cname)
+                    constrs_map[cname] = m.addConstr(expr == rhs, name=cname)
 
             m.update()
             nvars = int(m.NumVars)
@@ -185,9 +238,13 @@ def solve_lp(
             status = _status_name(int(m.Status))
             values = {}
             obj_val = None
+            iis = None
             if m.Status == GRB.OPTIMAL:
                 values = {n: float(var.X) for n, var in vars_map.items()}
                 obj_val = float(m.ObjVal)
+            elif m.Status == GRB.INFEASIBLE:
+                notes.append("INFEASIBLE — IIS attached (exact conflicting constraints, not a guess).")
+                iis = _iis_payload(m, constrs_map, vars_map)
             return SolveResult(
                 ok=m.Status == GRB.OPTIMAL,
                 status=status,
@@ -196,8 +253,10 @@ def solve_lp(
                 values=values,
                 runtime_sec=runtime,
                 model_stats={"num_vars": nvars, "num_constrs": ncons},
-                license=license_info(),
+                license=dict(LICENSE_STAMP),
                 notes=notes,
+                proof=_certified_proof(m),
+                iis=iis,
             )
     except Exception as e:
         msg = str(e)
@@ -208,7 +267,7 @@ def solve_lp(
             status="ERROR",
             error=msg,
             runtime_sec=time.perf_counter() - t0,
-            license=license_info(),
+            license=dict(LICENSE_STAMP),
             notes=notes,
         )
 
@@ -260,6 +319,34 @@ def optimize_agent_dispatch(
                     gp.quicksum(x[ti, ai] for ti in range(len(tasks)) if (ti, ai) in x) <= cap,
                     name=f"cap_{ai}",
                 )
+                ram_cap = agent.get("ram_gb")
+                if ram_cap is not None:
+                    m.addConstr(
+                        gp.quicksum(
+                            float(tasks[ti].get("ram_gb", 0)) * x[ti, ai]
+                            for ti in range(len(tasks))
+                            if (ti, ai) in x
+                        )
+                        <= float(ram_cap),
+                        name=f"ram_{ai}",
+                    )
+
+            # exclusive tokens (adb / git_lock): at most one assigned holder
+            exclusive_groups: dict[str, list[int]] = {}
+            for ti, task in enumerate(tasks):
+                for res in task.get("exclusive") or []:
+                    exclusive_groups.setdefault(str(res), []).append(ti)
+            for res, tis in exclusive_groups.items():
+                m.addConstr(
+                    gp.quicksum(
+                        x[ti, ai]
+                        for ti in tis
+                        for ai in range(len(agents))
+                        if (ti, ai) in x
+                    )
+                    <= 1,
+                    name=f"excl_{res}",
+                )
 
             m.setObjective(
                 gp.quicksum(
@@ -291,9 +378,11 @@ def optimize_agent_dispatch(
                     "num_agents": len(agents),
                     "num_assign_vars": len(x),
                     "assignments": pairs,
+                    "exclusive_resources": sorted(exclusive_groups),
                 },
-                license=license_info(),
-                notes=["agent_dispatch: maximize priority under capacity/skills"],
+                license=dict(LICENSE_STAMP),
+                notes=["agent_dispatch: maximize priority under capacity/skills/exclusive tokens"],
+                proof=_certified_proof(m),
             )
     except Exception as e:
         return SolveResult(
@@ -301,7 +390,7 @@ def optimize_agent_dispatch(
             status="ERROR",
             error=str(e),
             runtime_sec=time.perf_counter() - t0,
-            license=license_info(),
+            license=dict(LICENSE_STAMP),
         )
 
 
@@ -317,7 +406,12 @@ def optimize_outreach_batch(
     if not GUROBIPY_OK:
         return SolveResult(ok=False, status="IMPORT_ERROR", error=globals().get("_IMPORT_ERR"))
 
-    filtered = [p for p in prospects if float(p.get("score", 0)) >= min_score]
+    filtered = [
+        p
+        for p in prospects
+        if float(p.get("score", 0)) >= min_score
+        and float(p.get("bounce_risk", 0) or 0) <= BOUNCE_RISK_HARD_MAX
+    ]
     t0 = time.perf_counter()
     try:
         with gp.Env(empty=True) as env:
@@ -336,6 +430,16 @@ def optimize_outreach_batch(
                 <= int(daily_capacity),
                 name="capacity",
             )
+            by_vertical: dict[str, list[int]] = {}
+            for i, p in enumerate(filtered):
+                vert = p.get("vertical")
+                if vert:
+                    by_vertical.setdefault(str(vert), []).append(i)
+            for vert, idxs in by_vertical.items():
+                m.addConstr(
+                    gp.quicksum(y[i] for i in idxs) <= VERTICAL_CAP,
+                    name=f"vert_{vert}",
+                )
             m.setObjective(
                 gp.quicksum(float(filtered[i].get("score", 0)) * y[i] for i in y),
                 GRB.MAXIMIZE,
@@ -368,9 +472,15 @@ def optimize_outreach_batch(
                     "daily_capacity": daily_capacity,
                     "selected": selected,
                     "selected_count": len(selected),
+                    "bounce_risk_hard_max": BOUNCE_RISK_HARD_MAX,
+                    "vertical_cap": VERTICAL_CAP,
                 },
-                license=license_info(),
-                notes=["outreach_batch: max score under capacity — pair with DRAFT-only send policy"],
+                license=dict(LICENSE_STAMP),
+                notes=[
+                    "outreach_batch: max score under capacity/vertical/bounce — DRAFT-only send policy",
+                    "not ThumbGate paid-pilot outreach (ECI pause)",
+                ],
+                proof=_certified_proof(m),
             )
     except Exception as e:
         return SolveResult(
@@ -378,7 +488,120 @@ def optimize_outreach_batch(
             status="ERROR",
             error=str(e),
             runtime_sec=time.perf_counter() - t0,
-            license=license_info(),
+            license=dict(LICENSE_STAMP),
+        )
+
+
+def diagnose_infeasibility_iis(
+    variables: list[dict[str, Any]],
+    constraints: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Exact conflicting constraints via Gurobi IIS — not 'looks infeasible'."""
+    r = solve_lp(variables=variables, constraints=constraints, objective={}, sense="minimize")
+    payload = {
+        "ok": True if r.status != "ERROR" else False,
+        "status": r.status,
+        "is_infeasible": r.status == "INFEASIBLE",
+        "runtime_sec": r.runtime_sec,
+        "proof": r.proof,
+    }
+    if r.error:
+        payload["ok"] = False
+        payload["error"] = r.error
+    if r.iis:
+        payload.update(r.iis)
+        payload["explanation"] = (
+            f"Minimal conflict found in {len(r.iis.get('iis_constraints') or [])} constraints: "
+            + ", ".join(r.iis.get("iis_constraints") or [])
+        )
+    elif r.status != "INFEASIBLE":
+        payload["message"] = "Model is feasible; no IIS required."
+    return payload
+
+
+def optimize_token_budget(
+    workloads: list[dict[str, Any]],
+    monthly_budget_usd: float = 10.0,
+) -> SolveResult:
+    """Binary routing: local $0 vs frontier, hard monthly spend ceiling."""
+    if not GUROBIPY_OK:
+        return SolveResult(ok=False, status="IMPORT_ERROR", error=globals().get("_IMPORT_ERR"))
+
+    t0 = time.perf_counter()
+    try:
+        with gp.Env(empty=True) as env:
+            env.setParam("OutputFlag", 0)
+            env.start()
+            m = gp.Model(env=env)
+            m.setParam("OutputFlag", 0)
+
+            x = {i: m.addVar(vtype=GRB.BINARY, name=f"frontier_{i}") for i, _w in enumerate(workloads)}
+            m.addConstr(
+                gp.quicksum(float(workloads[i].get("frontier_cost_usd", 0.05)) * x[i] for i in x)
+                <= float(monthly_budget_usd),
+                name="spend_ceiling",
+            )
+            m.setObjective(
+                gp.quicksum(
+                    float(workloads[i].get("local_score", 50))
+                    + (
+                        float(workloads[i].get("frontier_score", 95))
+                        - float(workloads[i].get("local_score", 50))
+                    )
+                    * x[i]
+                    for i in x
+                ),
+                GRB.MAXIMIZE,
+            )
+            m.optimize()
+            runtime = time.perf_counter() - t0
+            decisions = []
+            total_spend = 0.0
+            if m.Status == GRB.OPTIMAL:
+                for i, var in x.items():
+                    w = workloads[i]
+                    wid = str(w.get("id", i))
+                    use_frontier = var.X > 0.5
+                    cost = float(w.get("frontier_cost_usd", 0.05)) if use_frontier else 0.0
+                    total_spend += cost
+                    decisions.append(
+                        {
+                            "workload_id": wid,
+                            "name": w.get("name", f"task_{i}"),
+                            "routed_tier": "frontier_cloud" if use_frontier else "local_zero_cost",
+                            "cost_usd": cost,
+                            "expected_score": float(w.get("frontier_score", 95))
+                            if use_frontier
+                            else float(w.get("local_score", 50)),
+                        }
+                    )
+            return SolveResult(
+                ok=m.Status == GRB.OPTIMAL,
+                status=_status_name(int(m.Status)),
+                status_code=int(m.Status),
+                objective=float(m.ObjVal) if m.Status == GRB.OPTIMAL else None,
+                values={
+                    d["workload_id"]: 1.0 if d["routed_tier"] == "frontier_cloud" else 0.0
+                    for d in decisions
+                },
+                runtime_sec=runtime,
+                model_stats={
+                    "total_workloads": len(workloads),
+                    "budget_ceiling_usd": monthly_budget_usd,
+                    "allocated_spend_usd": round(total_spend, 4),
+                    "decisions": decisions,
+                },
+                license=dict(LICENSE_STAMP),
+                notes=["token_budget: certified routing under monthly cap (not vibe-routing)"],
+                proof=_certified_proof(m),
+            )
+    except Exception as e:
+        return SolveResult(
+            ok=False,
+            status="ERROR",
+            error=str(e),
+            runtime_sec=time.perf_counter() - t0,
+            license=dict(LICENSE_STAMP),
         )
 
 
@@ -399,7 +622,9 @@ def run_evaluation() -> dict[str, Any]:
     cases.append(
         {
             "id": "lp_diet_style",
-            "ok": r1.ok and abs((r1.objective or 0) - 2.0) < 1e-6,
+            "ok": r1.ok
+            and abs((r1.objective or 0) - 2.0) < 1e-6
+            and bool((r1.proof or {}).get("certified_optimal")),
             "result": r1.to_dict(),
         }
     )
@@ -456,6 +681,68 @@ def run_evaluation() -> dict[str, Any]:
         }
     )
 
+    # 5) IIS — exact conflicting constraints (Pulse: proof, not "looks infeasible")
+    r5 = diagnose_infeasibility_iis(
+        variables=[{"name": "x", "lb": 0.0, "ub": 1.0}],
+        constraints=[
+            {"name": "need_one", "coeffs": {"x": 1}, "sense": ">=", "rhs": 1},
+            {"name": "forbid_one", "coeffs": {"x": 1}, "sense": "<=", "rhs": 0},
+        ],
+    )
+    iis_names = set(r5.get("iis_constraints") or [])
+    cases.append(
+        {
+            "id": "iis_conflict",
+            "ok": bool(
+                r5.get("is_infeasible")
+                and "need_one" in iis_names
+                and "forbid_one" in iis_names
+            ),
+            "result": r5,
+        }
+    )
+
+    # 6) token-budget LP under $10/mo (never vibe-route past the ceiling)
+    r6 = optimize_token_budget(
+        workloads=[
+            {
+                "id": "local_ok",
+                "name": "summarize",
+                "frontier_cost_usd": 3.0,
+                "local_score": 80,
+                "frontier_score": 82,
+            },
+            {
+                "id": "needs_frontier",
+                "name": "hard_debug",
+                "frontier_cost_usd": 4.0,
+                "local_score": 20,
+                "frontier_score": 95,
+            },
+            {
+                "id": "too_expensive",
+                "name": "video",
+                "frontier_cost_usd": 12.0,
+                "local_score": 40,
+                "frontier_score": 99,
+            },
+        ],
+        monthly_budget_usd=10.0,
+    )
+    spend = float((r6.model_stats or {}).get("allocated_spend_usd") or 99)
+    cases.append(
+        {
+            "id": "token_budget",
+            "ok": bool(
+                r6.ok
+                and spend <= 10.0 + 1e-6
+                and (r6.proof or {}).get("certified_optimal") is True
+                and r6.values.get("too_expensive", 1.0) < 0.5
+            ),
+            "result": r6.to_dict(),
+        }
+    )
+
     passed = sum(1 for c in cases if c["ok"])
     return {
         "ok": passed == len(cases),
@@ -467,6 +754,8 @@ def run_evaluation() -> dict[str, Any]:
             "license": "size-limited free pip / non-production",
             "limits": LIMITS,
             "not_mock": True,
+            "certified_proof": True,
+            "not_thumbgate_paid_outreach": True,
         },
     }
 

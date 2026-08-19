@@ -7,8 +7,10 @@ Tools:
   gurobi_agent_dispatch
   gurobi_outreach_batch
   gurobi_evaluate
+  gurobi_diagnose_iis
+  gurobi_token_budget
 
-Uses real gurobipy — never mock solutions.
+Uses real gurobipy — never mock solutions. Pulse receipts: ObjVal/ObjBound/MIPGap + IIS.
 """
 
 from __future__ import annotations
@@ -21,15 +23,17 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from gurobi_fleet_lib import (  # noqa: E402
+    diagnose_infeasibility_iis,
     license_info,
     optimize_agent_dispatch,
     optimize_outreach_batch,
+    optimize_token_budget,
     run_evaluation,
     solve_lp,
 )
 
 SERVER_NAME = "gurobi-optimizer"
-SERVER_VERSION = "1.0.0"
+SERVER_VERSION = "1.1.0"
 
 
 def _tool_list() -> list[dict[str, Any]]:
@@ -82,8 +86,32 @@ def _tool_list() -> list[dict[str, Any]]:
         },
         {
             "name": "gurobi_evaluate",
-            "description": "Run hermetic evaluation suite (license + LP + dispatch + outreach)",
+            "description": "Run hermetic evaluation suite (license + LP + dispatch + outreach + IIS + token budget)",
             "inputSchema": {"type": "object", "properties": {}},
+        },
+        {
+            "name": "gurobi_diagnose_iis",
+            "description": "Irreducible Inconsistent Subsystem: exact conflicting constraints (not a plausibility guess)",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "variables": {"type": "array"},
+                    "constraints": {"type": "array"},
+                },
+                "required": ["variables", "constraints"],
+            },
+        },
+        {
+            "name": "gurobi_token_budget",
+            "description": "Binary local-vs-frontier routing under a hard monthly USD ceiling (default $10)",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "workloads": {"type": "array"},
+                    "monthly_budget_usd": {"type": "number", "default": 10},
+                },
+                "required": ["workloads"],
+            },
         },
     ]
 
@@ -114,6 +142,16 @@ def _call_tool(name: str, arguments: dict[str, Any] | None) -> dict[str, Any]:
         ).to_dict()
     if name == "gurobi_evaluate":
         return run_evaluation()
+    if name == "gurobi_diagnose_iis":
+        return diagnose_infeasibility_iis(
+            variables=args.get("variables") or [],
+            constraints=args.get("constraints") or [],
+        )
+    if name == "gurobi_token_budget":
+        return optimize_token_budget(
+            workloads=args.get("workloads") or [],
+            monthly_budget_usd=float(args.get("monthly_budget_usd") or 10),
+        ).to_dict()
     raise ValueError(f"Unknown tool: {name}")
 
 
