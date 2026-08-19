@@ -12,6 +12,8 @@ export const CONSTR: {
   readonly runner_healthy: "runner_healthy";
   readonly model_alive: "model_alive";
   readonly spend_zero_or_approved: "spend_zero_or_approved";
+  readonly gateway_budget: "gateway-budget";
+  readonly runner_identity: "runner_identity";
   readonly browser_healthy: "browser_healthy";
 };
 
@@ -20,6 +22,8 @@ export type HostedLiveFacts = {
   modelAlive?: boolean;
   spendUsd?: number;
   spendApproved?: boolean;
+  runnerIdentity?: string | null;
+  runnerHealthUrl?: string | null;
   browserHealthy?: boolean | null;
 };
 

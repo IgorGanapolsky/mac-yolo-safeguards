@@ -5,11 +5,18 @@
  * live=1 is feasible only when:
  *   runner_healthy = 1   (WaitFor-healthy; running ≠ ready)
  *   model_alive    = 1
- *   spend_usd = 0  OR  spend_approved = 1
+ *   gateway-budget: spend_usd = 0  OR  spend_approved = 1
+ *   runner_identity is a named actor (never a generic shared account)
  *
  * Persist-before-live is unchanged: this module never probes Fly and
  * never blocks task persist. Facts are caller-supplied (cache-only).
  */
+
+import {
+  GATEWAY_BUDGET,
+  gatewayBudgetApproved,
+  resolveNamedRunnerIdentity,
+} from "./hosted-model-fallback.js";
 
 /** @see Gurobi Status codes */
 export const GRB = Object.freeze({
@@ -27,6 +34,8 @@ export const CONSTR = Object.freeze({
   runner_healthy: "runner_healthy",
   model_alive: "model_alive",
   spend_zero_or_approved: "spend_zero_or_approved",
+  gateway_budget: GATEWAY_BUDGET,
+  runner_identity: "runner_identity",
   browser_healthy: "browser_healthy",
 });
 
@@ -40,7 +49,9 @@ function violatedConstraints(input = {}) {
   const modelAlive = input.modelAlive === true;
   const spendUsd = asFiniteNumber(input.spendUsd, 0);
   const spendApproved = input.spendApproved === true;
-  const spendOk = spendUsd === 0 || spendApproved;
+  const spendOk = gatewayBudgetApproved({ spendUsd, spendApproved });
+  const runnerIdentity = resolveNamedRunnerIdentity(input);
+  const identityOk = Boolean(runnerIdentity);
   const checkBrowser = Object.prototype.hasOwnProperty.call(input, "browserHealthy")
     && input.browserHealthy != null;
   const browserOk = !checkBrowser || input.browserHealthy === true;
@@ -48,9 +59,23 @@ function violatedConstraints(input = {}) {
   const violated = [];
   if (!runnerHealthy) violated.push(CONSTR.runner_healthy);
   if (!modelAlive) violated.push(CONSTR.model_alive);
-  if (!spendOk) violated.push(CONSTR.spend_zero_or_approved);
+  if (!spendOk) {
+    violated.push(CONSTR.spend_zero_or_approved);
+    violated.push(CONSTR.gateway_budget);
+  }
+  if (!identityOk) violated.push(CONSTR.runner_identity);
   if (checkBrowser && !browserOk) violated.push(CONSTR.browser_healthy);
-  return { runnerHealthy, modelAlive, spendUsd, spendApproved, spendOk, browserOk, violated };
+  return {
+    runnerHealthy,
+    modelAlive,
+    spendUsd,
+    spendApproved,
+    spendOk,
+    runnerIdentity,
+    identityOk,
+    browserOk,
+    violated,
+  };
 }
 
 /**

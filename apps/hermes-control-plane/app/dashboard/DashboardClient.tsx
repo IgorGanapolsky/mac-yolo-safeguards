@@ -750,6 +750,7 @@ export default function DashboardClient() {
   const hostedCopy = hostedConnectionCopy({
     runnerStatus,
     modelStatus,
+    runnerIdentity: hostedRunner?.identity,
     message: hostedModel?.status === "unhealthy"
       ? hostedModel.message
       : hostedRunner?.status === "unhealthy"
