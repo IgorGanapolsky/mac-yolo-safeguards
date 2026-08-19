@@ -242,13 +242,13 @@ export default function DashboardClient() {
   const [threadDetails, setThreadDetails] = useState<ThreadDetails | null>(null);
   const [prompt, setPrompt] = useState("");
   /**
-   * Explicit user override for which paired machine runs the next task.
+   * Explicit user override for which hosted runner runs the next task.
    * Resolved selection is derived (useMemo) so we never setState inside an effect (eslint react-hooks/set-state-in-effect).
    */
   const [deviceOverrideId, setDeviceOverrideId] = useState<string | null>(null);
   /** True once first network load finishes (or fails auth). */
   // "loading" until a workspace fetch actually completes. Empty states in this view assert a
-  // FACT about the user's setup ("no tasks — pair a machine"); rendering them from an
+  // FACT about the user's setup ("no tasks — start a hosted run"); rendering them from an
   // unloaded [] turns "we don't know yet" into "your setup is broken". Absence of data is not
   // evidence of absence, so the empty state waits for "loaded" and failures show "error".
   const [loadState, setLoadState] = useState<"loading" | "loaded" | "error">("loading");
@@ -275,7 +275,7 @@ export default function DashboardClient() {
 
   const selectedDevice = devices.find((device) => device.id === selectedDeviceId) ?? null;
   /** Real paired hostname when present — never a vague placeholder. */
-  const selectedDeviceLabel = machineDisplayName(selectedDevice, "paired Mac");
+  const selectedDeviceLabel = machineDisplayName(selectedDevice, "hosted VPS");
   const hasCloudAccess = Boolean(organization?.cloudAccess);
   const [pairCode, setPairCode] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
@@ -729,8 +729,8 @@ export default function DashboardClient() {
     if (currentUrl.searchParams.get("pair")?.toUpperCase() !== pairCode) return;
     currentUrl.searchParams.delete("pair");
     window.history.replaceState({}, "", `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`);
-    const timer = window.setTimeout(() => setNotice("Machine found. Verify its name, then approve the prefilled code."), 0);
-    return () => window.clearTimeout(timer);
+    // Hosted Hermes does not pair a laptop. Strip leftover ?pair= with no toast.
+    return;
   }, [pairCode, user]);
   const visibleThreads = useMemo(() => orderThreadsForDisplay(threads, threadSortOrder), [threads, threadSortOrder]);
   const runnerStatus: HostedResourceState = hostedRunner?.status ?? "waiting";
@@ -1268,7 +1268,7 @@ export default function DashboardClient() {
         )}
 
         <nav className="metric-grid metric-grid-four" aria-label="Workspace status shortcuts">
-          <a className="metric-card" href="#web-settings" onClick={(event) => { event.preventDefault(); openSettingsPanel(); }} aria-label={`View ${devices.length} paired machines in settings`}><span>Paired machines</span><strong>{devices.length}</strong><small>{onlineDevices.length} online now</small><b>View machines →</b></a>
+          <a className="metric-card" href="#web-settings" onClick={(event) => { event.preventDefault(); openSettingsPanel(); }} aria-label={`View ${devices.length} hosted runners in settings`}><span>Hosted VPS</span><strong>{devices.length}</strong><small>{onlineDevices.length} online now</small><b>View runner →</b></a>
           <a className="metric-card" href="#task-activity" aria-label={`View ${activeTasks.length} active tasks`}><span>Active tasks</span><strong>{activeTasks.length}</strong><small>{tasks.filter((task) => task.route === "cloud" && !terminal.has(task.status)).length} routed to cloud</small><b>View activity →</b></a>
           <a className="metric-card" href="#task-activity" aria-label={`View task receipts; P95 completion is ${latency(p95CompletionLatency)}`}><span>P95 completion</span><strong>{latency(p95CompletionLatency)}</strong><small>{p95CompletionLatency === null ? "Waiting for completed runs" : "Measured from real task receipts"}</small><b>View receipts →</b></a>
           <a className="metric-card" href="#execution-safety" aria-label="Explain fenced execution safety" onClick={() => setSafetyExpanded(true)}><span>Execution safety</span><strong className="safe-copy">Fenced</strong><small>One signed runner; 90-second lease</small><b>Explain safety →</b></a>
@@ -1312,7 +1312,7 @@ export default function DashboardClient() {
               <span>
                 {activeTasks.some((task) => task.route === "cloud")
                   ? "Fenced VPS · no babysitting required"
-                  : "Waiting on your paired machine"}
+                  : "Hosted on a fenced VPS"}
               </span>
             </div>
             <div className="hermes-scroll-pane">
@@ -1322,7 +1322,7 @@ export default function DashboardClient() {
                 <article key={`task-user-${index}`} className="conversation-message role-user"><span>web</span><p>{task.prompt}</p></article>,
                 task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><FormattedMessage text={task.result} />{feedbackControls(task.id)}</article>
                   : task.error ? <article key={`task-error-${index}`} className="conversation-message role-error"><span>failed</span><FormattedMessage text={task.error} /></article>
-                  : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><p>Waiting for {task.route === "cloud" ? "the fenced VPS runner" : "your paired machine"} to pick this up…</p></article>
+                  : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><p>Waiting for the fenced VPS runner to pick this up…</p></article>
                   : null,
               ])}
             </div>}
