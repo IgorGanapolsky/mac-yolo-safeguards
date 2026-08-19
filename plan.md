@@ -3158,3 +3158,18 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 | plan.md (append only) | grok-hosted-computer-stack-honesty-20260819 | 2026-08-19T15:00:00Z |
 
 - 2026-08-19T15:00Z `grok-hosted-computer-stack-honesty`: OSS Computer blueprint does **not** transfer as OpenClaw/E2B/Cua. Falsifier: `hermes-cloud-runner` `execute()` is POST `/chat/completions` only; Hands is `HOSTED_BROWSER_CUE_RES` + `browserHealthUrl()` (`POLICY_CUE_NOT_DRIVER`); economic-router is not imported by the runner. Doctor refuses clone installs. Did not vendor those products. ECI: no hosted-app expansion.
+
+| T-THUMBGATE-APP-BLOG-CHIEF-COPY-20260819 | After #1856 merged Cursor-format /blog onto thumbgate.app: ThumbGate byline, Give hosted Hermes a job post, landing Blog link | in_progress | grok-thumbgate-app-blog-chief-copy-20260819 | `apps/hermes-control-plane/lib/blog-posts.ts`, `apps/hermes-control-plane/app/blog/page.tsx`, `apps/hermes-control-plane/app/blog/[slug]/page.tsx`, `apps/hermes-control-plane/app/page.tsx` (footer Blog link), `apps/hermes-control-plane/tests/blog.test.mjs`, `.intent/contract.yaml` (OFFER-005), `plan.md` | AGENT-417 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| apps/hermes-control-plane/lib/blog-posts.ts | grok-thumbgate-app-blog-chief-copy-20260819 | 2026-08-19T15:50:00Z |
+| apps/hermes-control-plane/app/blog/page.tsx | grok-thumbgate-app-blog-chief-copy-20260819 | 2026-08-19T15:50:00Z |
+| apps/hermes-control-plane/app/blog/[slug]/page.tsx | grok-thumbgate-app-blog-chief-copy-20260819 | 2026-08-19T15:50:00Z |
+| apps/hermes-control-plane/app/page.tsx (footer Blog link only) | grok-thumbgate-app-blog-chief-copy-20260819 | 2026-08-19T15:50:00Z |
+| apps/hermes-control-plane/tests/blog.test.mjs | grok-thumbgate-app-blog-chief-copy-20260819 | 2026-08-19T15:50:00Z |
+| .intent/contract.yaml (OFFER-005 only) | grok-thumbgate-app-blog-chief-copy-20260819 | 2026-08-19T15:50:00Z |
+| plan.md (append only) | grok-thumbgate-app-blog-chief-copy-20260819 | 2026-08-19T15:50:00Z |
+
+- 2026-08-19T15:50Z `grok-thumbgate-app-blog-chief-copy`: CEO correction — Cursor blog is **thumbgate.app**, not thumbgate.ai. #1856 already merged /blog. Follow-up: author ThumbGate (no founder byline), product post Give hosted Hermes a job, landing footer Blog link, OFFER-005. Closed duplicate #1860. Did not re-post the LIVE dev.to Computer-falsifier hook.

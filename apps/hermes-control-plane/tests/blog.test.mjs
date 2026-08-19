@@ -66,3 +66,20 @@ test("blog pages keep the honest-marketing bans", () => {
     assert.doesNotMatch(source, /Cloud vs Local/);
   }
 });
+
+test("thumbgate.app/blog uses Cursor format for hosted Hermes", () => {
+  const posts = fs.readFileSync(path.join(root, "lib/blog-posts.ts"), "utf8");
+  const landing = fs.readFileSync(path.join(root, "app/page.tsx"), "utf8");
+  assert.match(indexPage, /min read/);
+  assert.match(posts, /Give hosted Hermes a job/);
+  assert.match(posts, /slug: "give-hosted-hermes-a-job"/);
+  assert.match(posts, /author: "ThumbGate"/);
+  assert.match(postPage, /data-cta-id="thumbgate-app-blog-20260819_home"/);
+  assert.match(indexPage, /data-cta-id="thumbgate-app-blog-20260819_home"/);
+  assert.match(landing, /href="\/blog">Blog</);
+  assert.doesNotMatch(posts, /\$499/);
+  assert.doesNotMatch(posts, /Continuity/);
+  assert.doesNotMatch(posts, /Igor Ganapolsky/);
+  assert.doesNotMatch(indexPage, /Igor Ganapolsky/);
+  assert.doesNotMatch(postPage, /Igor Ganapolsky/);
+});
