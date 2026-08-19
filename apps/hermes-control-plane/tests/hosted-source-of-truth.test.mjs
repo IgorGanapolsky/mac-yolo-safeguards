@@ -16,6 +16,7 @@ import {
 const dashboard = readFileSync(new URL("../app/dashboard/DashboardClient.tsx", import.meta.url), "utf8");
 const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
 const healthRoute = readFileSync(new URL("../app/api/health/route.ts", import.meta.url), "utf8");
+const meRoute = readFileSync(new URL("../app/api/me/route.ts", import.meta.url), "utf8");
 const apphost = readFileSync(new URL("../lib/hosted-apphost.ts", import.meta.url), "utf8");
 const truth = readFileSync(new URL("../lib/hosted-source-of-truth.ts", import.meta.url), "utf8");
 const stolen = `${dashboard}\n${tasksRoute}\n${healthRoute}\n${apphost}\n${truth}`;
@@ -98,4 +99,11 @@ test("does not steal a crypto marketplace or invent traction", () => {
   assert.doesNotMatch(stolen, /x402|USDC|managed-wallet|Triptych|agent marketplace/i);
   assert.doesNotMatch(stolen, /Chrome Web Store|lid-close|Team \$49/);
   assert.doesNotMatch(stolen, /poolside|tailscale|acp|laguna|\bmlx\b/i);
+});
+
+test("identity /api/me is cache-only and does not await Fly probes", () => {
+  assert.match(meRoute, /cachedRunnerHealth/);
+  assert.doesNotMatch(meRoute, /probeRunnerHealth/);
+  assert.doesNotMatch(meRoute, /probeBrowserHealth/);
+  assert.match(meRoute, /authenticated: true/);
 });
