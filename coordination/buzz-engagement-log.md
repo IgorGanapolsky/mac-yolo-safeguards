@@ -1293,6 +1293,44 @@ Read `crates/buzz-sdk/src/builders.rs`'s `build_add_member`, its sibling builder
 - **Pass-after, full crate:** `cargo test --lib` → **263 passed, 0 failed, 0 ignored**.
 - `cargo clippy --lib --tests -- -D warnings` → clean, zero warnings.
 - `cargo fmt -- --check` → clean, no reformatting needed.
+## 2026-08-19 — duplicate work discovered and abandoned for #6241; pivoted to #6262 (fixed, tested, staged); access block reconfirmed
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+- **Canonical repo:** [`github.com/block/buzz`](https://github.com/block/buzz) — unchanged maintainer/architecture/community surface from every prior run.
+- **Access:** `add_repo(owner:"block", repo:"buzz", access:"push")` → same cross-tier rejection as every prior run. `add_repo(owner:"igorganapolsky", repo:"buzz", access:"push")` → accepted; forked repo cloned fresh, `upstream` = `block/buzz` fetched (`upstream/main` at `08eb46e`, 2026-08-19 15:28 UTC — the fork's own `origin/main` was stale at `ce56e34`, 2026-08-03, so both fix branches in this entry are branched directly off `upstream/main`, not the stale fork default). `mcp__github__create_pull_request(owner:"block", repo:"buzz", ...)` on two separate finished fix branches this run → same denial as every prior run: `"Access denied: repository 'block/buzz' is not configured for this session. Allowed repositories: igorganapolsky/mac-yolo-safeguards, igorganapolsky/buzz"`.
+
+### Duplicate work discovered: #6241 already fixed by a concurrent run this same day
+
+Before committing anything, checked this repo's own open-PR queue (`mcp__github__list_pull_requests`) and found an unusually large number of same-day `buzz-engagement` PRs already open — including [#1837](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1837), titled "log 2026-08-19 run — #6241 self-tagging fix staged, 15th access-wall confirmation", and [#1839](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1839), "Buzz run 16 — #6291 fixed and staged". This run had independently surveyed, investigated, and fixed **the exact same issue** as #1837 — [#6241](https://github.com/block/buzz/issues/6241) (`build_add_member` missing `.allow_self_tagging()`) — before checking that PR's diff. Read #1837's full diff via `pull_request_read(method:"get_diff")` and confirmed it is a complete, already-tested, functionally equivalent fix (same one-line `.allow_self_tagging()` addition, same regression-test pattern, same verification), pushed to the fork as `fix/build-add-member-allow-self-tagging` and staged as a PR draft in this repo, just under a different branch name than this run's `fix/sdk-add-member-self-tagging`.
+
+Per the hard rule against redundant/spam-shaped contributions, **this run's #6241 work is abandoned as a duplicate** — no PR opened against `block/buzz` (blocked anyway) and no new PR opened against this repo for it. The branch (`IgorGanapolsky/buzz@fix/sdk-add-member-self-tagging`) was already pushed to the fork before the duplicate was discovered; it is harmless sitting there (identical net effect to the already-staged `fix/build-add-member-allow-self-tagging`) but is **not** a new artifact this run is claiming credit for — #1837 already covers it. No draft file was added to `coordination/buzz-pr-drafts/` for it, to avoid a second entry for the same fix.
+
+This is a direct instance of the concurrent-multi-agent pileup problem this log has flagged before (Run 8's "pileup finding"), now observed from the inside rather than after the fact: multiple scheduled firings of this same task, running independently the same day, converged on the same highest-signal issue in the survey window. Recorded here so a future run checks the open-PR queue for `#6241`/`build_add_member` before re-investigating it a third time.
+
+### Investigation of #6240 (surveyed, inconclusive — not fixed, not force-guessed)
+
+[#6240](https://github.com/block/buzz/issues/6240) ("kind:39002 NIP-29 discovery event drops owner-role members," flagged as the top backlog candidate in #1837's own survey) was investigated at source before picking #6262 instead. Read `emit_group_discovery_events`, `group_members_tags`, `create_channel`/`create_channel_with_id` (both correctly insert the creator as `role='owner'` in `channel_members`), `get_members`/`get_members_bulk` (no role filter), `handle_create_group`, and every call site building a member roster for kind:39002, in `crates/buzz-relay/src/handlers/side_effects.rs`, `crates/buzz-db/src/channel.rs`, and `crates/buzz-cli/src/commands/channels.rs`. On current `upstream/main` (`08eb46e`), **none of these paths filter by role** — `group_members_tags` iterates every member regardless of role and the CLI's `extract_p_tags` reads every `p` tag back unfiltered. The reported symptom (owner absent from the kind:39002 roster, even after a manual kind:9000 owner-role resubmission) does not reproduce from static review of any code path this run could find. Two explanations are equally plausible from source alone — the bug may already be fixed upstream since the issue was filed, or it may require a live-DB repro (a race in `emit_addressable_discovery_event`'s replace/dedup logic, or something in the desktop client's own roster caching, neither ruled out) — and this run could not tell which without spinning up Postgres and reproducing the exact repro steps, which the time budget didn't allow after the #6241 duplicate detour. Not fixed, no comment posted (would risk asserting a diagnosis this run couldn't verify — exactly the "self-report vs. verified state" failure mode this log tracks in *other* people's code). Recorded in full so a future run doesn't re-walk the same four files from zero; the next step, if picked up, is a live-DB repro of the issue's exact 5-step sequence, not more static reading.
+
+### Fix for #6262 (this run — real engineering, not a draft)
+
+[#6262](https://github.com/block/buzz/issues/6262) — `buzz mem patch` silently truncates stdin at 65,535 bytes (the NIP-44 plaintext limit), surfacing as a misleading "hunk header does not match hunk" diffy parse error instead of a size error. Flagged as a strong in-domain candidate in both #1837's and #1839's surveys (silent truncation of a write, verification-vs-self-report) but not picked up by either, and no PR/comment exists for it yet (checked via `WebFetch` before starting).
+
+Read `crates/buzz-cli/src/commands/mem.rs`'s `cmd_patch` and `cmd_set` before touching anything:
+
+- Confirmed on current `upstream/main` that `cmd_patch`'s stdin read reused `cmd_set`'s bound verbatim: `let limit = engram::NIP44_PLAINTEXT_MAX + 1;` (65,536 bytes) with a plain `.take(limit).read_to_string()` and no truncation check. `cmd_set`'s bound is correct for `set` — the value it writes genuinely can't exceed the plaintext cap — but `cmd_patch`'s stdin input is a *unified diff*, not the value: it carries both old and new content plus hunk headers, so it can legitimately be larger than the cap even when the patched *result* (already separately checked at `new_value.len() > engram::NIP44_PLAINTEXT_MAX` further down) stays well under it. `.take()` silently truncates on read, which is exactly the issue's evidence: a 64,777-byte patch succeeds, a ~71.9KB one fails, and splitting the same content into two ~<64KB patches succeeds — the read was cutting the diff off mid-hunk.
+- Fix: extracted the stdin read into `read_bounded_patch_input()`, bounded by a new `PATCH_INPUT_MAX = 4 * NIP44_PLAINTEXT_MAX` (generous for a full-content diff between two near-cap-sized values, still bounded against a wildly oversized input) and returns an explicit `"patch input exceeds N-byte limit"` error on truncation instead of proceeding silently. The result-size check further down `cmd_patch` is untouched.
+- Extracting the read into a standalone generic-`Read` function (rather than testing `cmd_patch` end-to-end, which needs a live `BuzzClient`/network) made the bug directly unit-testable without new test infrastructure.
+
+#### Verification (executed this run — real output, not inferred)
+
+`buzz-cli` is a plain Rust binary crate (no Tauri/GUI toolchain, no Postgres needed):
+
+- **Fail-before, isolated:** temporarily reverted `PATCH_INPUT_MAX` to the old `NIP44_PLAINTEXT_MAX` value (kept the two new tests) → `cargo test -p buzz-cli --lib read_bounded_patch_input` → **1 passed, 1 failed** — `read_bounded_patch_input_accepts_diff_larger_than_nip44_plaintext_max` panicked with `Usage("patch input exceeds 65535-byte limit")`, exactly reproducing the issue's symptom for a diff in the exact size range it reports failing. Restored the fix.
+- **Pass-after, module:** `cargo test -p buzz-cli --lib commands::mem::` → **18 passed, 0 failed**.
+- **Pass-after, full crate:** `cargo test -p buzz-cli --lib` → **352 passed, 0 failed, 0 ignored**.
+- `cargo clippy -p buzz-cli --lib --tests -- -D warnings` → clean, zero warnings.
+- `cargo fmt -p buzz-cli -- --check` → clean (one `cargo fmt` pass needed on the new test's multi-line `assert_eq!`, applied and reverified).
 
 ### What was opened / answered this run
 
@@ -1323,3 +1361,26 @@ Commit is DCO-signed as `Igor Ganapolsky <iganapolsky@gmail.com>` with a `Co-Aut
 ### Blocker status (report only — no action requested)
 
 Fifteenth consecutive run with zero write access to `block/buzz` from this environment tier, reconfirmed at `create_pull_request` this run (list/read access is now denied even earlier — before any repo is attached — for `block/buzz` specifically, while the `igorganapolsky/buzz` fork route continues to work without issue for clone/build/test/push). One new ready artifact added to the backlog for a write-capable session: the #6241 fix (compare URL and PR body above). Nothing escalated to a human this run beyond this standing note; the blocker itself is unchanged in kind from every prior run.
+| Fix branch for #6241 (duplicate of #1837's #6241 fix) | Pushed to fork, **abandoned as redundant** — not claimed, no PR staged | `IgorGanapolsky/buzz@fix/sdk-add-member-self-tagging` (superseded by `fix/build-add-member-allow-self-tagging` from #1837) |
+| Fix branch for #6262, DCO-signed, full crate suite green | **Pushed to Igor's fork** | `IgorGanapolsky/buzz@fix/mem-patch-input-size-limit` |
+| PR to `block/buzz` | **Staged — one click** (API blocked, confirmed this run) | [compare/open PR](https://github.com/block/buzz/compare/main...IgorGanapolsky:buzz:fix/mem-patch-input-size-limit?expand=1) |
+| Full PR body, ready to paste | Committed to this repo | `coordination/buzz-pr-drafts/6262-mem-patch-input-size-limit.md` |
+
+Commit is DCO-signed as `Igor Ganapolsky <iganapolsky@gmail.com>` with a `Co-Authored-By: Claude` trailer. Only one fix counted against the hard 1/run cap (#6262) — the #6241 duplicate was abandoned, not counted as this run's pick. **ThumbGate is not mentioned anywhere in either branch, either commit, the PR draft, or this log entry's technical content** — #6262 is a Buzz-internal CLI size-limit bug with no ThumbGate relevance.
+
+### Positioning read: **neither** (unchanged, reconfirmed)
+
+- Not a competitor — Buzz remains a team workspace/chat+git+workflow fabric on Nostr; ThumbGate remains a cross-tool pre-action governance gate for arbitrary agent writes. No change in either product's shape.
+- Not a partner — no relationship exists; nothing this run changes that.
+- #6262 is a milder data point on the same recurring theme (silent truncation misreported as a different failure — same shape as #4565, #5492, #6268) but the fix is a plain input-bound bug inside a CLI tool, not evidence of an architectural gap. The more notable finding this run is procedural, not technical: the duplicate-#6241 discovery is the clearest evidence yet, from direct experience rather than inference, that this task's own concurrency (multiple scheduled firings surveying and fixing the same 72h window independently) is now the binding constraint on this engagement's throughput — not the `block/buzz` access wall, which every run already works around identically via the fork. Positioning itself is unaffected either way.
+
+### What was skipped and why
+
+- **#6241** — genuinely fixed this run, then discovered to be a duplicate of already-staged work from #1837 (same day, different session); abandoned per the hard rule against redundant contributions. See "Duplicate work discovered" above.
+- **#6240** — investigated at source in full; inconclusive from static review (see "Investigation of #6240" above). Not fixed, not commented on, to avoid asserting an unverified diagnosis. Next step for a future run: live-DB repro of the issue's exact steps, not more source reading.
+- **A second fix/PR** — hard max 1/run; #6262 is this run's one counted fix.
+- **Re-checking the rest of #1837's/#1839's backlog** (#6270, #6268, #6257, #6247, and the standing backlog from earlier runs: #4860, #5492, #5555, #5557, #5611, #5665, #5667, #5708, #5734, #5759, #5800, WF-08, #6175, #6211, #6218, #6291) — not re-verified this run; time went to the #6241 duplicate check, the #6240 investigation, and the #6262 fix.
+
+### Blocker status (report only — no action requested)
+
+Unchanged in kind: `block/buzz` write access remains denied at `create_pull_request`, reconfirmed this run against two separate branches. Fork clone/build/test/push continue to work without issue. New and more consequential than the access wall itself this run: **this task's own concurrency is now producing measurable waste** — a full, independently-verified fix (#6241) had to be thrown away this run purely because another same-day firing had already done the identical work. A future run — or a change to how this task is scheduled — should check this repo's own open-PR queue for an existing `buzz-engagement`/fix-branch entry matching the issue under consideration *before* starting an investigation, not just before opening a PR at the end, to avoid spending fix-and-test effort on work that's already done. One new ready artifact added to the backlog for a write-capable session: the #6262 fix (compare URL and PR body above).

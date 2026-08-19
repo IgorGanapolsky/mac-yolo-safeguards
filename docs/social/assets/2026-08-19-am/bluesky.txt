@@ -1,0 +1,3 @@
+10 background Claude Code tasks sat "Running" 34+ hrs, burned ~1M tokens before anyone checked (still-open GH issue #75314). Nothing broke — nobody was watching. I check mine from my phone now, free, forever.
+
+https://thumbgate.app/?utm_source=bluesky&utm_medium=social&utm_campaign=2026-08-19-am&cta_id=2026-08-19-am_bluesky_home

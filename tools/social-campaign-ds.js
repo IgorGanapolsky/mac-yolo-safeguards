@@ -147,7 +147,7 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
         playStoreClicks: 0,
         appStoreClicks: 0,
         freeControlClicks: 0,
-        cloudContinuityClicks: 0,
+        hostedCheckoutClicks: 0,
         otherAttributed: 0,
         attributedTotal: 0,
         ctaIds: new Set(),
@@ -226,8 +226,9 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
       case 'free_control_click':
         bucket.freeControlClicks += count;
         break;
-      case 'cloud_continuity_click':
-        bucket.cloudContinuityClicks += count;
+      case 'hosted_checkout_click':
+      case 'cloud_continuity_click': // legacy alias — same $10 hosted checkout counter
+        bucket.hostedCheckoutClicks += count;
         break;
       default:
         bucket.otherAttributed += count;
@@ -236,7 +237,7 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
 
   const rows = [...byCampaign.values()].map((b) => {
     const conversionProxy =
-      b.signInClicks + b.playStoreClicks + b.appStoreClicks + b.cloudContinuityClicks;
+      b.signInClicks + b.playStoreClicks + b.appStoreClicks + b.hostedCheckoutClicks;
     const ctrProxy =
       b.landingViews > 0 ? conversionProxy / b.landingViews : conversionProxy > 0 ? 1 : 0;
     return {
@@ -253,7 +254,7 @@ function buildScoreboard({ contentRows, attributionRows, lookbackDays, minEvents
       playStoreClicks: b.playStoreClicks,
       appStoreClicks: b.appStoreClicks,
       freeControlClicks: b.freeControlClicks,
-      cloudContinuityClicks: b.cloudContinuityClicks,
+      hostedCheckoutClicks: b.hostedCheckoutClicks,
       otherAttributed: b.otherAttributed,
       attributedTotal: b.attributedTotal,
       conversionProxy,
@@ -371,7 +372,7 @@ function renderMarkdown(report) {
   ];
   for (const c of report.campaigns) {
     lines.push(
-      `| ${c.campaign} | ${c.postsLive} | ${c.attributedTotal} | ${c.landingViews} | ${c.signInClicks} | ${c.playStoreClicks} | ${c.appStoreClicks} | ${c.cloudContinuityClicks} | ${c.ctrProxy} |`,
+      `| ${c.campaign} | ${c.postsLive} | ${c.attributedTotal} | ${c.landingViews} | ${c.signInClicks} | ${c.playStoreClicks} | ${c.appStoreClicks} | ${c.hostedCheckoutClicks} | ${c.ctrProxy} |`,
     );
   }
   lines.push('', '## Lessons', '');

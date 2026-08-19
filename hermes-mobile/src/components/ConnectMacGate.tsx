@@ -18,6 +18,7 @@ import MacScanProgressCard from './MacScanProgressCard';
 import GatewayProfilePicker from './GatewayProfilePicker';
 import ManualComputerAddressForm from './ManualComputerAddressForm';
 import LoadingButton from './ui/LoadingButton';
+import RelayWorkerList from './RelayWorkerList';
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import {
   profilesForDevicePicker,
@@ -88,6 +89,8 @@ export default function ConnectMacGate() {
     addGatewayProfile,
     patchSettings,
     wifiConnected,
+    relayWorkers = [],
+    isPaired = false,
   } = useGateway();
 
   const [isSearching, setIsSearching] = useState(false);
@@ -329,6 +332,7 @@ export default function ConnectMacGate() {
                   result={profileScanResult}
                   connectableProfileCount={pickerProfiles.length}
                   testID="connect-mac-scan-progress"
+                  autoDismiss={false}
                 />
               ) : null}
 
@@ -352,6 +356,21 @@ export default function ConnectMacGate() {
                       Searches for your Mac or PC running Hermes on Tailscale (not this phone). Ensure Tailscale is ON on your Mac.
                     </Text>
                   )}
+                </View>
+              ) : null}
+
+              {/* Show Cloud/VPS/Continuity options when no local machines found */}
+              {!hasTailscaleCandidates && pickerProfiles.length === 0 && relayWorkers.length > 0 && isPaired ? (
+                <View style={styles.cloudOptionsBlock}>
+                  <Text style={styles.cloudHeading}>Connect via cloud</Text>
+                  <Text style={styles.cloudHint}>
+                    These computers are on your Hermes account. Direct chat still needs Wi-Fi or a tunnel.
+                  </Text>
+                  <RelayWorkerList
+                    workers={relayWorkers}
+                    activeWorkerId={null}
+                    testID="connect-cloud-workers"
+                  />
                 </View>
               ) : null}
 
@@ -460,5 +479,22 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
+  },
+  cloudOptionsBlock: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+    gap: 8,
+  },
+  cloudHeading: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.textSecondary,
+  },
+  cloudHint: {
+    fontSize: 12,
+    color: colors.textMuted,
+    lineHeight: 16,
   },
 });

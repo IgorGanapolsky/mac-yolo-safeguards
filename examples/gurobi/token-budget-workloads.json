@@ -1,0 +1,9 @@
+{
+  "workloads": [
+    {"id": "w1", "name": "critical_refactor", "local_score": 60, "frontier_score": 98, "frontier_cost_usd": 4.0},
+    {"id": "w2", "name": "doc_formatting", "local_score": 85, "frontier_score": 90, "frontier_cost_usd": 3.0},
+    {"id": "w3", "name": "security_audit", "local_score": 50, "frontier_score": 99, "frontier_cost_usd": 5.0},
+    {"id": "w4", "name": "css_tweak", "local_score": 80, "frontier_score": 85, "frontier_cost_usd": 2.0}
+  ],
+  "monthly_budget_usd": 10.0
+}

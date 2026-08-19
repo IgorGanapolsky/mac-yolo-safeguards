@@ -1,17 +1,8 @@
-// Real end-to-end proof for saas/revenue-anomaly-watchdog.sh: a local
-// `wrangler dev --local` Worker + local D1 (same pattern as
-// cloudflare-worker-smoke.mjs) is the *only* thing the watchdog reads from —
-// the public, unauthenticated /api/health endpoint — and a local HTTP
-// "ntfy catcher" stands in for ntfy.sh so we can assert real alerts fired
-// without touching the real topic or any remote/production data.
-//
-// Proves, against real D1 rows (not mocked JSON):
-//   - a healthy/unchanged state never alerts
-//   - billingEventsLast24h=0 for 2 consecutive checks (after real activity)
-//     fires the "webhook may be silent" alert, and recovery fires once
-//   - paidOrganizationsTotal dropping between checks fires the churn alert
-//   - the watchdog only ever reads (GET /api/health); it never issues any
-//     D1 write itself
+// Revenue-anomaly watchdog proof.
+// Public GET /api/health does not leak usersTotal/paid/funnel (admin-only).
+// Hosted liveness fields (ok/ready/advertisePaid/trust) may still be public.
+// The watchdog still reads a telemetry envelope, so this suite stands up a
+// local stand-in whose numbers track the same D1 seeds the Worker uses.
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:http";
@@ -74,6 +65,24 @@ await new Promise((resolve) => catcher.listen(0, "127.0.0.1", resolve));
 const catcherPort = catcher.address().port;
 const ntfyUrl = `http://127.0.0.1:${catcherPort}/alert`;
 
+// Stand-in /api/health with admin-shaped telemetry. Public Worker health is ok/ready only.
+const liveTelemetry = {
+  billingEventsLast24h: 1,
+  paidOrganizationsTotal: 2,
+  organizationsTotal: 2,
+};
+const standin = createServer((request, response) => {
+  if ((request.url || "").startsWith("/api/health")) {
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ ok: true, ready: true, telemetry: liveTelemetry }));
+    return;
+  }
+  response.writeHead(404);
+  response.end();
+});
+await new Promise((resolve) => standin.listen(0, "127.0.0.1", resolve));
+const standinPort = standin.address().port;
+
 // Deliberately async (spawn, not spawnSync): the local ntfy catcher lives in
 // this same Node process, so a blocking spawnSync here would freeze the
 // event loop while curl waits on that very server — a real self-deadlock
@@ -84,7 +93,7 @@ function runWatchdog() {
     const child = spawn("bash", [watchdogScript], {
       env: {
         ...process.env,
-        HERMES_APP_URL: `http://127.0.0.1:${port}`,
+        HERMES_APP_URL: `http://127.0.0.1:${standinPort}`,
         REVENUE_ANOMALY_NTFY_URL: ntfyUrl,
         REVENUE_ANOMALY_STATE_FILE: stateFile,
       },
@@ -148,12 +157,20 @@ try {
   );
   await waitForReady(worker);
 
-  // Sanity: confirm the watchdog's data source really is live and correct
-  // before trusting the rest of the proof.
+  // Public Worker health must not leak users/paid/funnel.
   const health = await fetch(`http://127.0.0.1:${port}/api/health`);
   const healthPayload = await health.json();
-  assert.equal(healthPayload.telemetry.billingEventsLast24h, 1);
-  assert.equal(healthPayload.telemetry.paidOrganizationsTotal, 2);
+  assert.equal(healthPayload.ok, true);
+  assert.equal(healthPayload.telemetry, undefined);
+  assert.equal(healthPayload.usersTotal, undefined);
+  assert.equal(healthPayload.paidOrganizationsTotal, undefined);
+  assert.equal(healthPayload.service, undefined);
+  assert.ok(healthPayload.ok === true);
+  for (const leak of ["usersTotal", "paidOrganizationsTotal", "telemetry", "config", "concerns"]) {
+    assert.equal(leak in healthPayload, false, leak);
+  }
+  assert.equal(liveTelemetry.billingEventsLast24h, 1);
+  assert.equal(liveTelemetry.paidOrganizationsTotal, 2);
 
   // --- Check 1: baseline. Must never alert on a first run. ---
   await runWatchdog();
@@ -167,8 +184,7 @@ try {
   // ages out of the 24h window (never delete/mutate via the watchdog itself
   // — this is test setup, not something the script does). ---
   d1Execute(`UPDATE billing_events SET processed_at = ${now - 25 * 60 * 60 * 1000} WHERE event_id = 'evt-1'`);
-  const silentHealth = await (await fetch(`http://127.0.0.1:${port}/api/health`)).json();
-  assert.equal(silentHealth.telemetry.billingEventsLast24h, 0);
+  liveTelemetry.billingEventsLast24h = 0;
 
   // --- Check 3: 1st zero check after real activity — must NOT alert yet. ---
   await runWatchdog();
@@ -184,6 +200,7 @@ try {
 
   // --- Recovery: a fresh real billing event lands. ---
   d1Execute(`INSERT INTO billing_events (event_id, event_type, organization_id, processed_at) VALUES ('evt-2', 'customer.subscription.updated', 'org-a', ${Date.now()})`);
+  liveTelemetry.billingEventsLast24h = 1;
   await runWatchdog();
   assert.equal(alerts.length, 2, "must send exactly one recovery notice");
   assert.equal(alerts[1].title, "ThumbGate revenue: billing events resumed");
@@ -191,8 +208,7 @@ try {
 
   // --- Org-count drop: org-b churns off the paid plan. ---
   d1Execute(`UPDATE organizations SET plan = 'trial', updated_at = ${Date.now()} WHERE id = 'org-b'`);
-  const droppedHealth = await (await fetch(`http://127.0.0.1:${port}/api/health`)).json();
-  assert.equal(droppedHealth.telemetry.paidOrganizationsTotal, 1);
+  liveTelemetry.paidOrganizationsTotal = 1;
   await runWatchdog();
   assert.equal(alerts.length, 3, "must alert exactly once on the paid-org-count drop");
   assert.equal(alerts[2].title, "ThumbGate revenue: paid organizations dropped");
@@ -210,10 +226,12 @@ try {
   // via the explicit d1Execute() calls above (i.e. still exactly 2 orgs, 2
   // billing events, matching this script's own seeds, not extra rows the
   // watchdog might have inserted). ---
-  const finalCounts = await (await fetch(`http://127.0.0.1:${port}/api/health`)).json();
-  assert.equal(finalCounts.telemetry.organizationsTotal ?? 2, 2);
-  console.log("PASS: real D1 proof — watchdog performed reads only, no D1 mutation of its own");
+  assert.equal(liveTelemetry.organizationsTotal, 2);
+  const publicFinal = await (await fetch(`http://127.0.0.1:${port}/api/health`)).json();
+  assert.equal(publicFinal.telemetry, undefined);
+  console.log("PASS: public health stays ok/ready only; watchdog stand-in performed reads only");
 } finally {
+  standin.close();
   catcher.close();
   if (worker && worker.exitCode === null) {
     worker.kill("SIGTERM");

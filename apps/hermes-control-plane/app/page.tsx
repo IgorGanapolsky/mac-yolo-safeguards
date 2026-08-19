@@ -41,6 +41,11 @@ const FAQ_ITEMS = [
       "Pilots die when the machine sleeps. Scheduled work and watchers do not fire if the computer is off. Hosted Hermes is one always-on agent on a fenced VPS. You approve money, customer, or production actions in this browser. If it dies when the laptop sleeps, the trial failed.",
   },
   {
+    question: "Can I use the AI plan I already pay for instead?",
+    answer:
+      "A laptop subscription runner — use the plan you already pay for — still dies when the laptop sleeps. That Codex-sub-on-laptop path is not this product. Hosted Hermes is the always-on fenced VPS at $10/mo (14-day trial). Approvals in thumbgate.app.",
+  },
+  {
     question: "Where do approvals happen?",
     answer:
       "In thumbgate.app. Approve or deny a tool call in the web workspace. There is no phone leash on this product.",
@@ -86,6 +91,11 @@ const FAQ_ITEMS = [
       "Sign in with email, Google, or Apple in this browser. Start the $10 hosted Hermes trial. There is no Mac, Windows, or Linux download. Approvals stay in thumbgate.app.",
   },
   {
+    question: "How do I give it a job?",
+    answer:
+      "Sign in, start the $10 hosted Hermes trial, and type the job in the dashboard. It runs on a fenced VPS while the laptop sleeps. Money, customer, or production actions pause in thumbgate.app.",
+  },
+  {
     question: "Do I install a desktop app?",
     answer:
       "No. Hosted Hermes is one always-on agent on a fenced VPS. Local desktop employees die when the laptop sleeps. Approvals stay in thumbgate.app.",
@@ -115,6 +125,21 @@ const FAQ_ITEMS = [
     answer:
       "No. Hosted Hermes is the always-on box: a fenced VPS. Approvals happen in thumbgate.app.",
   },
+  {
+    question: "How is this different from Perplexity Computer or other computer-use agents?",
+    answer:
+      "Perplexity Computer is a general-purpose digital worker inside Perplexity's cloud. Hosted Hermes is your own always-on coding agent on a fenced VPS, steered from thumbgate.app, with human approval gates on money, customer, and production actions. If you want an agent that keeps working after your laptop sleeps and pauses before dangerous actions, that is this product. $10/mo.",
+  },
+  {
+    question: "Does hosted Hermes record Computer History or capture keystrokes?",
+    answer:
+      "No. Hosted Hermes is not ChatGPT Computer History, not Windows Recall, and not a Mac keylogger. The isolated fenced VPS does not grab the cursor, capture keystrokes or clicks, or store an unencrypted timeline of local Mac activity. We do not learn from everything you do on your computer. Least privilege: we cannot read secrets. Private/incognito analogue: we do not ingest other people's Slack or DMs.",
+  },
+  {
+    question: "Can hosted Hermes run background and recurring tasks?",
+    answer:
+      "Yes. Scheduled work and watchers keep firing because the fenced VPS never sleeps. Long runs hold a 90-second renewable lease with receipts. Risky steps pause for your approval in thumbgate.app.",
+  },
 ] as const;
 
 const PRO_CTA = "Start hosted Hermes — $10/mo";
@@ -125,14 +150,30 @@ export default function Home() {
     "@graph": [
       {
         "@type": "SoftwareApplication",
-        name: "ThumbGate",
+        name: "Hosted Hermes",
+        brand: { "@type": "Brand", name: "ThumbGate" },
         url: "https://thumbgate.app/",
         applicationCategory: "DeveloperApplication",
         operatingSystem: "Web",
         description:
-          "Hosted Hermes on a fenced VPS. Approvals happen in thumbgate.app.",
+          "Hosted Hermes on a fenced VPS. $10/mo. 14-day trial. Approvals in thumbgate.app. Not a Mac-pair product. Not ChatGPT Computer History / Windows Recall.",
         offers: [
-          { "@type": "Offer", name: "Hosted Hermes", price: "10", priceCurrency: "USD" },
+          {
+            "@type": "Offer",
+            name: "Hosted Hermes",
+            price: "10",
+            priceCurrency: "USD",
+            url: "https://thumbgate.app/",
+            availability: "https://schema.org/InStock",
+            description: "14-day trial. Cancel anytime.",
+            priceSpecification: {
+              "@type": "UnitPriceSpecification",
+              price: "10",
+              priceCurrency: "USD",
+              unitCode: "MON",
+              billingDuration: "P1M",
+            },
+          },
         ],
       },
       {
@@ -167,7 +208,7 @@ export default function Home() {
           <p className="eyebrow"><span className="live-dot" /> Hosted Hermes · Fenced VPS</p>
           <h1>Hermes that stays on.</h1>
           <p className="hero-lede">
-            Always on, even when your computer is off. Always awake. Always working. Hosted on a fenced VPS. Not a laptop process. You own the work. We own the machine. Approve money, customer, or production actions in this browser. Flat $10/month. 14 days free. Cancel anytime.
+            Chatbots answer. Laptop agents sleep. Hosted Hermes keeps working — for hours, days, or months. Always on, even when your computer is off. Always awake. Always working. Hosted on a fenced VPS. Not a laptop process. You own the work. We own the machine. Approve money, customer, or production actions in this browser. Flat $10/month. 14 days free. Cancel anytime.
           </p>
           <p className="signin-note">
             Automations can draft and run. Money, customer-facing, or production actions require your approval in this browser.
@@ -179,6 +220,7 @@ export default function Home() {
             <span>One clock · 14-day trial</span>
             <span>Approvals in thumbgate.app</span>
           </div>
+          <p className="signin-note"><a href="#example-tasks">See example jobs</a> — then start the $10 trial.</p>
         </div>
 
         <nav className="hero-console hero-actions-panel" aria-label="Private workspace actions">
@@ -188,6 +230,98 @@ export default function Home() {
       </section>
 
       <StartSurfaces />
+
+      <section id="example-tasks" className="section-block" data-testid="example-tasks">
+        <div className="section-heading">
+          <p className="eyebrow">Hand it real work</p>
+          <h2>Tasks you can give hosted Hermes today.</h2>
+          <p>
+            Prompt in natural language. The run keeps working on the fenced VPS after you close the laptop.
+            Money, customer, and production actions pause for your approval.
+          </p>
+        </div>
+        <div className="steps-grid">
+          <article>
+            <a
+              href="/api/auth/login"
+              data-funnel-event="example_task_click"
+              data-cta-id="watch-ci"
+              data-testid="example-task-watch-ci"
+            >
+              <span>01</span>
+              <h3>Watch CI overnight</h3>
+              <p>
+                &ldquo;Watch my repo&rsquo;s CI. When a run goes red, open a fix branch and draft the PR.
+                Pause before anything merges.&rdquo; The watcher keeps firing while your machine sleeps.
+              </p>
+            </a>
+          </article>
+          <article>
+            <a
+              href="/api/auth/login"
+              data-funnel-event="example_task_click"
+              data-cta-id="morning-digest"
+              data-testid="example-task-morning-digest"
+            >
+              <span>02</span>
+              <h3>Run the morning digest</h3>
+              <p>
+                &ldquo;Every morning at 6, pull the numbers, build the report, and draft the email.
+                Pause before anything sends.&rdquo; Recurring background tasks are the point of an always-on box.
+              </p>
+            </a>
+          </article>
+          <article>
+            <a
+              href="/api/auth/login"
+              data-funnel-event="example_task_click"
+              data-cta-id="long-migration"
+              data-testid="example-task-long-migration"
+            >
+              <span>03</span>
+              <h3>Finish the long migration</h3>
+              <p>
+                &ldquo;Keep the data migration going until it&rsquo;s done. Pause before touching
+                production.&rdquo; Long runs hold a renewable lease; destructive steps wait for your approval.
+              </p>
+            </a>
+          </article>
+        </div>
+        <div className="steps-grid" data-testid="give-work-loop" style={{ marginTop: "32px" }}>
+          <article>
+            <span>01</span>
+            <h3>Give hosted Hermes a job</h3>
+            <p>Sign in and type the work in the dashboard. Natural language. No desktop install.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>Hosted Hermes works</h3>
+            <p>
+              The agent keeps a lease on a fenced VPS. The laptop can sleep. The run does not die
+              with the lid.
+            </p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Iterate and approve</h3>
+            <p>
+              Guide the run in this tab. Money, customer, or production actions pause in
+              thumbgate.app.
+            </p>
+          </article>
+        </div>
+        <div className="hero-actions" style={{ marginTop: "32px" }}>
+          <a
+            href="/api/auth/login"
+            className="button button-primary"
+            data-funnel-event="give_work_click"
+            data-cta-id="put-hosted-hermes-to-work"
+            data-testid="give-work-cta"
+          >
+            {PRO_CTA} <span aria-hidden="true">→</span>
+          </a>
+        </div>
+      </section>
 
       <section id="qualifier" className="section-block" data-testid="qualifier">
         <div className="section-heading">
@@ -199,7 +333,7 @@ export default function Home() {
           <article>
             <h3>Yes</h3>
             <p>Keep one agent alive 14 days on a VPS. Approve in the browser. If it dies when the laptop sleeps, the trial failed. Cancel anytime. No cash-ROI refund theater.</p>
-            <p><a href="/api/auth/login" className="button button-primary" data-funnel-event="cloud_continuity_click">{PRO_CTA}</a></p>
+            <p><a href="/api/auth/login" className="button button-primary" data-funnel-event="hosted_checkout_click">{PRO_CTA}</a></p>
           </article>
           <article>
             <h3>No</h3>
@@ -235,7 +369,7 @@ export default function Home() {
         <div className="steps-grid">
           <article>
             <h3>Laptop / local session</h3>
-            <p>The laptop sleeps. The process is gone. Nothing reports it. Work stops until you sit down again.</p>
+            <p>The laptop sleeps. The process is gone. A subscription runner — use the plan you already pay for — still dies with the lid. Work stops until you sit down again.</p>
           </article>
           <article>
             <h3>Fenced VPS</h3>
@@ -279,6 +413,7 @@ export default function Home() {
           <p>
             Tool calls, approvals, and hosted runs stay on thumbgate.app. Access is the signed-in org.
             There is no phone leash and no third-party approval surface on this product.
+            Not ChatGPT Computer History, not Windows Recall, not a Mac keylogger — the fenced VPS does not grab the cursor.
           </p>
         </div>
         <div className="steps-grid">
@@ -299,7 +434,7 @@ export default function Home() {
           </article>
         </div>
         <div className="hero-actions" style={{ marginTop: "32px" }}>
-          <a href="/api/auth/login" className="button button-primary" data-funnel-event="cloud_continuity_click">
+          <a href="/api/auth/login" className="button button-primary" data-funnel-event="hosted_checkout_click">
             {PRO_CTA} <span aria-hidden="true">→</span>
           </a>
         </div>
@@ -451,8 +586,8 @@ export default function Home() {
       <footer>
         <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate <small>Hosted Hermes</small></span></Link>
         <p>Hosted Hermes on a fenced VPS · closed-system · flat $10/month · cancel anytime.</p>
-        <p><Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link></p>
-        <p><a href="/api/auth/login" className="button button-primary" data-funnel-event="cloud_continuity_click">{PRO_CTA}</a></p>
+        <p><Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link> · <Link href="/blog">Blog</Link></p>
+        <p><a href="/api/auth/login" className="button button-primary" data-funnel-event="hosted_checkout_click">{PRO_CTA}</a></p>
       </footer>
     </main>
   );

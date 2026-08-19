@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { STATE_FILE } from "./global-setup.mjs";
 import { runConnector } from "./fixtures/run-connector.mjs";
+import { locateWithHeal, HERMES_THREAD_LIST_CANDIDATES, DASHBOARD_TASK_CANDIDATES_FOR } from "../locate-with-heal.mjs";
 
 /**
  * Real cross-process E2E: a real `wrangler dev --local` Worker (real D1, real routes),
@@ -36,7 +37,11 @@ test("a scheduled cron-automation session never appears as a thread in the real 
   expect(sync.status, `connector --sync-only failed:\n${sync.stderr}`).toBe(0);
 
   await page.goto("/dashboard");
-  await expect(page.locator("#hermes-thread-list")).toBeVisible();
+  const threadList = await locateWithHeal(page, HERMES_THREAD_LIST_CANDIDATES, {
+    step: "dashboard.thread-list",
+    timeout: 10_000,
+  });
+  await expect(threadList.locator).toBeVisible();
   // The real chat session DOES sync through.
   await expect(page.locator(".thread-item", { hasText: "A real chat session" })).toBeVisible();
   // The cron-automation session must NOT -- this is the actual regression.
@@ -46,12 +51,17 @@ test("a scheduled cron-automation session never appears as a thread in the real 
 test("a task submitted through the real composer round-trips through the real connector to a real result", async ({ page }) => {
   await page.goto("/dashboard");
   const textarea = page.getByLabel("Message for Hermes");
-  await textarea.fill("prove the full stack works end to end");
+  const prompt = "prove the full stack works end to end";
+  await textarea.fill(prompt);
   await page.locator(".composer-run").click();
 
   // Task should appear immediately in a pending-ish state.
-  const taskCard = page.locator(".dashboard-task", { hasText: "prove the full stack works end to end" });
-  await expect(taskCard).toBeVisible({ timeout: 10_000 });
+  const taskHit = await locateWithHeal(page, DASHBOARD_TASK_CANDIDATES_FOR(prompt), {
+    step: "dashboard.task-card",
+    timeout: 10_000,
+  });
+  const taskCard = taskHit.locator;
+  await expect(taskCard).toBeVisible();
 
   // Simulate the real Mac connector polling and claiming this exact task -- a real
   // spawned process, real signed HTTP calls, real gateway round trip.
@@ -64,7 +74,11 @@ test("a task submitted through the real composer round-trips through the real co
   expect(cycle.status, `connector --once failed:\n${cycle.stderr}`).toBe(0);
 
   await page.reload();
-  const completedCard = page.locator(".dashboard-task", { hasText: "prove the full stack works end to end" });
+  const completedHit = await locateWithHeal(page, DASHBOARD_TASK_CANDIDATES_FOR(prompt), {
+    step: "dashboard.task-card.completed",
+    timeout: 10_000,
+  });
+  const completedCard = completedHit.locator;
   await expect(completedCard.locator(".status-completed")).toBeVisible({ timeout: 10_000 });
   await expect(completedCard.locator("pre")).toContainText("fake-gateway E2E reply");
 });
@@ -90,8 +104,12 @@ test("composer has no RUN ON picker and shows Output after send", async ({ page 
   await textarea.fill(prompt);
   await page.locator(".composer-run").click();
 
-  const taskCard = page.locator(".dashboard-task", { hasText: prompt });
-  await expect(taskCard).toBeVisible({ timeout: 10_000 });
+  const taskHit = await locateWithHeal(page, DASHBOARD_TASK_CANDIDATES_FOR(prompt), {
+    step: "dashboard.task-card",
+    timeout: 10_000,
+  });
+  const taskCard = taskHit.locator;
+  await expect(taskCard).toBeVisible();
   await expect(output).toBeVisible();
   await expect(output).toContainText(/Output|hosted Hermes|Results show here|Sent|Running/i);
 
@@ -105,7 +123,11 @@ test("composer has no RUN ON picker and shows Output after send", async ({ page 
   expect(cycle.status, `connector --once failed:\n${cycle.stderr}`).toBe(0);
 
   await page.reload();
-  const completedCard = page.locator(".dashboard-task", { hasText: prompt });
+  const completedHit = await locateWithHeal(page, DASHBOARD_TASK_CANDIDATES_FOR(prompt), {
+    step: "dashboard.task-card.completed",
+    timeout: 10_000,
+  });
+  const completedCard = completedHit.locator;
   await expect(completedCard.locator(".status-completed")).toBeVisible({ timeout: 10_000 });
   await expect(page.locator('[data-testid="run-output"]')).toBeVisible();
   await expect(page.locator('[data-testid="run-output"] .eyebrow')).toContainText(/Output/i);

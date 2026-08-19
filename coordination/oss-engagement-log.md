@@ -4,6 +4,148 @@ Dated entries from the autonomous OSS-engagement routine (Thinking Machines Lab 
 
 ---
 
+## 2026-08-19 (PM) — one new issue considered and skipped (server-side), cross-owner wall unchanged
+
+Second firing today. Re-surveyed all three orgs for activity since the AM run and re-tested
+the cross-owner block once, per standing policy.
+
+### Repos surveyed
+
+| Org | Repos | Method |
+|-----|-------|--------|
+| LanceDB | `lancedb` org (`lancedb`, `lance`) | `search_issues` `org:lancedb created:>2026-08-19` |
+| Thinking Machines Lab | `thinking-machines-lab` org | `search_issues` `org:thinking-machines-lab created:>2026-08-17` |
+| Poolside AI | `poolsideai` org | `search_issues` `org:poolsideai created:>2026-08-17` |
+
+LanceDB and Poolside AI returned zero new issues. One new Thinking Machines Lab issue,
+missed by the AM entry's narrower `created:>2026-08-18` window: `tinker-cookbook`
+[#907](https://github.com/thinking-machines-lab/tinker-cookbook/issues/907) (opened
+2026-08-18T21:16 UTC by `huikang-lab`) — "`dro` loss cannot mask positions: quadratic
+penalty applies at advantage-0 tokens, `weights` input rejected."
+
+### Issue considered
+
+**tinker-cookbook#907** — reporter identifies two problems with DRO training: (1) the loss
+formula's quadratic penalty term applies even where `advantage == 0`, so placeholder
+`0.0`-logprob observation positions the cookbook's data pipeline emits become real training
+signal instead of being excludable; (2) passing a `weights` tensor (which the client accepts)
+fails server-side with `DROLossExtraArgs.__init__() got an unexpected keyword argument
+'weights'`.
+
+Checked before attempting a fix: `search_code DROLossExtraArgs repo:thinking-machines-lab/tinker-cookbook`
+→ 0 results, and a follow-up search for the `dro` loss implementation itself turned up no
+matching loss-function code in the cookbook (only unrelated fuzzy matches on "drop"/"dropped").
+Both the loss computation (problem 1) and the rejected keyword argument (problem 2) live in
+the hosted training server / closed-source `tinker` client library, not in the open-source
+`tinker-cookbook` repo — same category as issue #25, skipped in every prior entry back to
+2026-08-11 for the identical reason. **Skipped**, not fixed: no open-source file to patch.
+A client-side guard in the cookbook's data-assembly code that warns when placeholder logprobs
+would reach a DRO-selected loss was considered as a middle-ground contribution, but it would
+paper over a server-side correctness bug rather than fix it, and risks reading as scope creep
+on an issue whose real fix is server-side — not something a first PR should do unilaterally.
+
+### Cross-owner wall
+
+Re-tested once, silently, per standing policy: `add_repo` succeeded for `igorganapolsky/lancedb`
+(same-owner fork, as in every prior run) but failed identically for `lancedb/lancedb` with
+`cross-tier adds are not supported in v1: requested "lancedb/lancedb" but session already has
+repos from owner(s) [igorganapolsky]` — same error text as every run since 2026-08-04, 15 days
+running. `list_pull_requests` against `lancedb/lancedb` and `thinking-machines-lab/tinker`
+(to check whether Igor had opened any of the three parked PRs manually) both returned
+`Access denied ... Allowed repositories: igorganapolsky/mac-yolo-safeguards`. No change.
+
+### What was opened / answered
+
+Nothing. No newly actionable issue in any of the three orgs this run.
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| tinker-cookbook#907 | Root cause (loss formula + rejected kwarg) is server-side/closed-source; no fixable file in the open-source repo |
+| Re-pushing/re-verifying parked fork branches | State unchanged since last verification; no new upstream activity to react to |
+| New manufactured question | No real unknown hit this run |
+
+### ThumbGate mentions
+
+**None** this run.
+
+### Action needed from Igor
+
+Unchanged: three verified, unclaimed fixes remain parked on your forks, blocked only on the
+same cross-owner PR-creation gap flagged in every entry since 2026-08-04 (see 2026-08-17 entry
+for the compare links). Not re-escalating with a notification — no new information since the
+last report.
+
+---
+
+## 2026-08-19 — nothing new, cross-owner wall unchanged
+
+First firing today. Surveyed all three orgs for activity since the last (2026-08-18
+evening) run and re-checked the four previously-parked reference issues for movement.
+
+### Repos surveyed
+
+| Org | Repos | Method |
+|-----|-------|--------|
+| Thinking Machines Lab | `thinking-machines-lab/tinker`, `tinker-cookbook` | `search_issues` `created:>2026-08-18` |
+| Poolside AI | `poolsideai` org | `search_issues` `org:poolsideai created:>2026-08-18` |
+| LanceDB | `lancedb` org (`lancedb`, `lance`) | `search_issues` `org:lancedb created:>2026-08-18` |
+
+All queries returned **zero** new issues since the prior run.
+
+### Cross-owner wall
+
+Re-tested once, silently, per standing policy: `add_repo` (push access) for `lancedb/lancedb`
+failed again with `cross-tier adds are not supported in v1: requested "lancedb/lancedb" but
+session already has repos from owner(s) [igorganapolsky]` — identical error text to every
+prior run back to 2026-08-04. Direct `issue_read` against `lancedb/lancedb`,
+`thinking-machines-lab/tinker-cookbook`, and `poolsideai/pool` all returned "Access denied
+... not configured for this session," confirming only the repo-unscoped `search_issues` tool
+reaches outside `igorganapolsky/mac-yolo-safeguards` in this session. No change.
+
+### Parked reference issues re-checked
+
+Used `search_issues` (by number) since direct `issue_read` is blocked by the wall above:
+
+- `lancedb/lancedb#3915` (list_tables pagination boundary) — still open, 3 comments, no linked
+  PR upstream. Parked fix branch on the fork remains the live, unclaimed artifact.
+- `lancedb/lancedb#2900` (create_table signature drift, Remote vs local) — still open,
+  1 comment, unchanged.
+- `thinking-machines-lab/tinker-cookbook#896` (MMLU-Redux per-subject bucketing) — still open,
+  1 comment, unchanged; the design question posed in the issue body is still unanswered by
+  a maintainer.
+- `poolsideai/pool#38` (ACP `session/prompt` 400 on `1.0.15`) — still open, 0 comments,
+  unchanged.
+
+Nothing to redo; nothing newly actionable.
+
+### What was opened / answered
+
+Nothing. No new issue surfaced in any of the three orgs, and the parked fixes/answers
+documented in earlier entries are unchanged and still blocked only on cross-owner
+PR-creation access from this session.
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| Re-pushing/re-verifying parked fork branches | State unchanged since the last verification (2026-08-12); no new upstream activity to react to |
+| New manufactured question | No real unknown hit this run |
+
+### ThumbGate mentions
+
+**None** this run — no one asked about agent write-gating in anything surveyed.
+
+### Action needed from Igor
+
+Unchanged: the cross-owner `add_repo`/PR-creation block (session scoped to
+`igorganapolsky/mac-yolo-safeguards` only) is still the only thing standing between the
+parked fixes and real upstream PRs. Not re-escalating — same known gap flagged in every
+entry since 2026-08-04.
+
+---
+
 ## 2026-08-18 (evening) — third same-day firing: nothing new, cross-owner wall unchanged
 
 Third firing today. Both prior 2026-08-18 entries below already did the substantive work
