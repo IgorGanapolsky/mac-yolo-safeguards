@@ -1,17 +1,17 @@
-# ThumbGate — Machine Safety Guardrails & AI Agent Control Plane
-> Web & API documentation for LLMs, AI search engines, and autonomous coding agents.
+# ThumbGate
 
-## Overview
-ThumbGate provides pre-action safety gates, feedback-to-prevention auto-promotion, and multi-agent coordination for Claude Code, Cursor, Gemini CLI, Antigravity, and Codex.
+> Hosted Hermes on a fenced VPS. $10/mo. 14-day trial. Checkout: https://thumbgate.app/. Approvals in thumbgate.app. Not a Mac-pair product. No phone leash.
 
-## Core API & Integration Points
-- Public Web Dashboard: https://thumbgate.app/dashboard
-- OpenAPI Schema: https://thumbgate.app/api/openapi.json
-- MCP Tool Server: npx thumbgate
-- AI Search Catalog: https://thumbgate.app/ai-catalog.json
+Canonical machine-readable offer: https://thumbgate.app/llms.txt
 
-## Primary Capabilities
-1. PreToolUse Action Interception & Safety Gates
-2. Feedback Promotion to Hard Prevention Rules
-3. Autonomous Multi-Agent Worktree Isolation & Handoffs
-4. Real-time Telemetry & Cost per Accepted Task Tracking
+## Offer
+- Product: Hosted Hermes (ThumbGate)
+- Price: $10/month
+- Trial: 14-day trial. Cancel anytime.
+- Execution: fenced VPS
+- Approvals: thumbgate.app browser
+- Not a Mac-pair product. Not ChatGPT Computer History / Windows Recall.
+- No phone leash.
+
+## Checkout
+- https://thumbgate.app/

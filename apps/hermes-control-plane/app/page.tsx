@@ -145,14 +145,30 @@ export default function Home() {
     "@graph": [
       {
         "@type": "SoftwareApplication",
-        name: "ThumbGate",
+        name: "Hosted Hermes",
+        brand: { "@type": "Brand", name: "ThumbGate" },
         url: "https://thumbgate.app/",
         applicationCategory: "DeveloperApplication",
         operatingSystem: "Web",
         description:
-          "Hosted Hermes on a fenced VPS. Approvals happen in thumbgate.app.",
+          "Hosted Hermes on a fenced VPS. $10/mo. 14-day trial. Approvals in thumbgate.app. Not a Mac-pair product. Not ChatGPT Computer History / Windows Recall.",
         offers: [
-          { "@type": "Offer", name: "Hosted Hermes", price: "10", priceCurrency: "USD" },
+          {
+            "@type": "Offer",
+            name: "Hosted Hermes",
+            price: "10",
+            priceCurrency: "USD",
+            url: "https://thumbgate.app/",
+            availability: "https://schema.org/InStock",
+            description: "14-day trial. Cancel anytime.",
+            priceSpecification: {
+              "@type": "UnitPriceSpecification",
+              price: "10",
+              priceCurrency: "USD",
+              unitCode: "MON",
+              billingDuration: "P1M",
+            },
+          },
         ],
       },
       {
