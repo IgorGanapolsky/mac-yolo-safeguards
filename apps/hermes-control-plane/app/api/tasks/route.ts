@@ -15,7 +15,8 @@ import {
   probeRunnerHealth,
   waitForHostedReady,
 } from "@/lib/hosted-apphost";
-import { ackHostedSend } from "@/lib/hosted-source-of-truth";
+import { ackHostedSend, publicRunReceipt } from "@/lib/hosted-source-of-truth";
+import { admitHostedContext } from "@/lib/hosted-edit-anchor";
 import { jsonError } from "@/lib/security";
 import { decideTaskRoute, parseRoutePreference } from "@/lib/task-routing";
 // A+ imports: runtime schema validation + rate limiting
@@ -96,8 +97,13 @@ export async function POST(request: Request) {
       },
     );
   }
-  const prompt = payload.prompt.trim().slice(0, 24_000);
-  if (!prompt) return jsonError("prompt is required");
+  const promptRaw = payload.prompt.trim();
+  if (!promptRaw) return jsonError("prompt is required");
+  const contextAdmit = admitHostedContext({
+    bytes: new TextEncoder().encode(promptRaw).length,
+  });
+  if (!contextAdmit.ok) return jsonError(contextAdmit.message, 409);
+  const prompt = promptRaw.slice(0, 24_000);
   const preference = parseRoutePreference(payload.routePreference);
 
   const device = payload.deviceId
@@ -261,6 +267,7 @@ export async function POST(request: Request) {
     });
     if (!ack.ok) return jsonError(ack.message, 409);
   }
+  const receipt = publicRunReceipt({ taskId, route, status });
   return Response.json({
     task: {
       id: taskId,
@@ -273,6 +280,8 @@ export async function POST(request: Request) {
       createdAt: now,
       traceId,
     },
+    receipt,
+    editPolicy: route === "cloud" ? "hash-anchor" : undefined,
     traceId,
   }, {
     status: 201,

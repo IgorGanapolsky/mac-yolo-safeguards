@@ -11,6 +11,9 @@ import {
   modelHealthy,
   parseResetEpoch,
   probeBrowserHealth,
+  probeRunnerHealth,
+  publicHealthFromCache,
+  cachedRunnerHealth,
   rememberProviderError,
   runnerHealthy,
   waitForHostedReady,
@@ -286,5 +289,29 @@ describe("probeBrowserHealth", () => {
       if (prev === undefined) delete process.env.HERMES_HOSTED_BROWSER_HEALTH_URL;
       else process.env.HERMES_HOSTED_BROWSER_HEALTH_URL = prev;
     }
+  });
+});
+
+describe("cachedRunnerHealth", () => {
+  it("is unknown until a probe has been cached and does not advertise paid", async () => {
+    expect(cachedRunnerHealth().known).toBe(false);
+    const unknown = publicHealthFromCache({ now: RESET_EPOCH, stripeConfigured: true });
+    expect(unknown.trust).toEqual({ runner: "reachable", model: "reachable" });
+    expect(unknown.advertisePaid).toBe(false);
+    expect(unknown.turningOn).toBe(true);
+
+    await probeRunnerHealth({
+      now: RESET_EPOCH,
+      force: true,
+      fetchImpl: (async () => ({
+        ok: true,
+        json: async () => ({ ok: true, lastPollAt: RESET_EPOCH - 1_000 }),
+      })) as unknown as typeof fetch,
+    });
+    expect(cachedRunnerHealth().known).toBe(true);
+    const known = publicHealthFromCache({ now: RESET_EPOCH, stripeConfigured: true });
+    expect(known.trust.runner).toBe("verified");
+    expect(known.advertisePaid).toBe(true);
+    expect(known.turningOn).toBe(false);
   });
 });
