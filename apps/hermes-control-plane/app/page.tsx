@@ -41,6 +41,11 @@ const FAQ_ITEMS = [
       "Pilots die when the machine sleeps. Scheduled work and watchers do not fire if the computer is off. Hosted Hermes is one always-on agent on a fenced VPS. You approve money, customer, or production actions in this browser. If it dies when the laptop sleeps, the trial failed.",
   },
   {
+    question: "Can I use the AI plan I already pay for instead?",
+    answer:
+      "A laptop subscription runner — use the plan you already pay for — still dies when the laptop sleeps. That Codex-sub-on-laptop path is not this product. Hosted Hermes is the always-on fenced VPS at $10/mo (14-day trial). Approvals in thumbgate.app.",
+  },
+  {
     question: "Where do approvals happen?",
     answer:
       "In thumbgate.app. Approve or deny a tool call in the web workspace. There is no phone leash on this product.",
@@ -364,7 +369,7 @@ export default function Home() {
         <div className="steps-grid">
           <article>
             <h3>Laptop / local session</h3>
-            <p>The laptop sleeps. The process is gone. Nothing reports it. Work stops until you sit down again.</p>
+            <p>The laptop sleeps. The process is gone. A subscription runner — use the plan you already pay for — still dies with the lid. Work stops until you sit down again.</p>
           </article>
           <article>
             <h3>Fenced VPS</h3>

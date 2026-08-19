@@ -25,6 +25,8 @@ console.log('Running test-hosted-hermes-agent-discovery.js...');
   }
   assert.doesNotMatch(llms, /npx thumbgate/);
   assert.doesNotMatch(llms, /Machine Safety Guardrails/);
+  assert.match(llms, /Codex-sub-on-laptop is not the \$10 offer/);
+  assert.match(llms, /Do not wrap ChatGPT Plus into thumbgate\.app/);
 }
 
 {
@@ -44,6 +46,8 @@ console.log('Running test-hosted-hermes-agent-discovery.js...');
   assert.match(route, /\$10/);
   assert.match(route, /14-day trial/);
   assert.match(route, /no phone leash/i);
+  assert.match(route, /Is Codex-sub-on-laptop the \$10 offer\? No/);
+  assert.match(route, /Do not wrap ChatGPT Plus into thumbgate\.app/);
 }
 
 console.log('ok tests/test-hosted-hermes-agent-discovery.js');

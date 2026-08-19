@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
+  CONSUMER_SUB_METERS,
   GATEWAY_BUDGET,
   HOSTED_PROVIDER_FALLBACK,
+  NAMED_FREE_FALLBACK,
+  PAID_METER_IDS,
   gatewayBudgetApproved,
   inferFailedProvider,
   namedRunnerIdentity,
+  paidMetersForJob,
   resolveHostedFallback,
   resolveNamedRunnerIdentity,
+  shouldFirePaidMeter,
   shouldKeepCallingRoute,
 } from "./hosted-model-fallback.js";
 import { HOSTED_GATE_LINES, trimHostedPrompt } from "./hosted-prompt-trim.js";
@@ -161,5 +166,37 @@ describe("hosted prompt trim", () => {
     expect(trimmed.system).toContain("Spend is $0");
     expect(trimmed.system).toContain("approval");
     expect(trimmed.system).toContain("gateway-budget");
+  });
+});
+
+describe("named fallback dual-meter fail-closed", () => {
+  it("does not fire two paid meters when named fallback already covers the work", () => {
+    expect(NAMED_FREE_FALLBACK).toBe("deepseek-free");
+    expect([...PAID_METER_IDS]).toEqual(["supergrok", "poolside"]);
+    expect(paidMetersForJob({ lastError: FAILED_ROW })).toEqual([]);
+    expect(shouldFirePaidMeter({ lastError: FAILED_ROW, meters: ["supergrok"] })).toBe(false);
+    expect(shouldFirePaidMeter({ lastError: FAILED_ROW, meters: ["supergrok", "poolside"] })).toBe(false);
+    expect(shouldKeepCallingRoute({ lastError: FAILED_ROW, meters: ["supergrok", "poolside"] })).toBe(false);
+  });
+
+  it("allows at most one paid hop when that hop is the covering named fallback", () => {
+    expect(paidMetersForJob({})).toEqual(["supergrok"]);
+    expect(shouldFirePaidMeter({ meter: "supergrok" })).toBe(true);
+    expect(shouldFirePaidMeter({ meters: ["supergrok", "poolside"] })).toBe(false);
+    expect(shouldFirePaidMeter({
+      failedProviders: ["supergrok", "deepseek-free"],
+      meter: "poolside",
+    })).toBe(true);
+    expect(shouldFirePaidMeter({
+      failedProviders: ["supergrok", "deepseek-free"],
+      meters: ["supergrok", "poolside"],
+    })).toBe(false);
+  });
+
+  it("refuses consumer ChatGPT/Codex subscription meters", () => {
+    expect([...CONSUMER_SUB_METERS]).toEqual(["chatgpt-plus", "codex-sub", "codex-sdk"]);
+    expect(shouldFirePaidMeter({ meter: "chatgpt-plus" })).toBe(false);
+    expect(shouldFirePaidMeter({ meter: "codex-sub" })).toBe(false);
+    expect(shouldKeepCallingRoute({ meters: ["codex-sdk"] })).toBe(false);
   });
 });

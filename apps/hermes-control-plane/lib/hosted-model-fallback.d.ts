@@ -5,6 +5,9 @@ export const HOSTED_PROVIDER_FALLBACK: ReadonlyArray<{
 }>;
 
 export const GATEWAY_BUDGET: "gateway-budget";
+export const PAID_METER_IDS: ReadonlyArray<"supergrok" | "poolside">;
+export const NAMED_FREE_FALLBACK: "deepseek-free";
+export const CONSUMER_SUB_METERS: ReadonlyArray<"chatgpt-plus" | "codex-sub" | "codex-sdk">;
 
 export type HostedFallbackResult = {
   order: Array<"supergrok" | "deepseek-free" | "poolside">;
@@ -39,4 +42,26 @@ export function shouldKeepCallingRoute(input?: {
   failedProviders?: string[];
   turningOn?: boolean;
   runnerIdentity?: string | null;
+  meter?: string | null;
+  meters?: string[];
+}): boolean;
+export function paidMetersForJob(input?: {
+  spendUsd?: number;
+  spendApproved?: boolean;
+  lastError?: string | null;
+  failedProviders?: string[];
+  turningOn?: boolean;
+  runnerIdentity?: string | null;
+  meter?: string | null;
+  meters?: string[];
+}): string[];
+export function shouldFirePaidMeter(input?: {
+  spendUsd?: number;
+  spendApproved?: boolean;
+  lastError?: string | null;
+  failedProviders?: string[];
+  turningOn?: boolean;
+  runnerIdentity?: string | null;
+  meter?: string | null;
+  meters?: string[];
 }): boolean;
