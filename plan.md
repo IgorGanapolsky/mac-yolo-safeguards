@@ -3176,3 +3176,17 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
   - `revenue-gap-tracker`: Tracks revenue monitoring gaps (gitignored `business_os/`, Stripe env vars, admin auth) with unblock checklist: BrowserOS → Stripe dashboard → re-audit. Health check: `node tools/revenue-goal-audit.js` reports "Target status: MET". Created `.agents/skills/revenue-gap-tracker/{SKILL.md,skill-card.md}`.
   All 3 skill cards validated via `tools/skill-card-validate.js` (PASS). BrowserOS harness confirmed active (18 MCP tools). Registered in `.agents/skills/sources.yml` (in_repo list) + `SKILLS.md` (local skill table).
 - 2026-08-19T15:25Z `claude-code` production-deploy: PR #1855 auto-merged to main at 15:23:59Z (commit 1a4805f71, squash merge). Push-to-main CI runs showed `skipped` (expected: concurrency groups + merge queue). Live health endpoint returned Cloudflare 429 — rate-limited, not an application error. Production deploy pending via `hermes-control-plane.yml` push trigger.
+| T-THUMBGATE-APP-BLOG-CHIEF-COPY-20260819 | After #1856 merged Cursor-format /blog onto thumbgate.app: ThumbGate byline, Give hosted Hermes a job post, landing Blog link | in_progress | grok-thumbgate-app-blog-chief-copy-20260819 | `apps/hermes-control-plane/lib/blog-posts.ts`, `apps/hermes-control-plane/app/blog/page.tsx`, `apps/hermes-control-plane/app/blog/[slug]/page.tsx`, `apps/hermes-control-plane/app/page.tsx` (footer Blog link), `apps/hermes-control-plane/tests/blog.test.mjs`, `.intent/contract.yaml` (OFFER-005), `plan.md` | AGENT-417 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| apps/hermes-control-plane/lib/blog-posts.ts | grok-thumbgate-app-blog-chief-copy-20260819 | 2026-08-19T15:50:00Z |
+| apps/hermes-control-plane/app/blog/page.tsx | grok-thumbgate-app-blog-chief-copy-20260819 | 2026-08-19T15:50:00Z |
+| apps/hermes-control-plane/app/blog/[slug]/page.tsx | grok-thumbgate-app-blog-chief-copy-20260819 | 2026-08-19T15:50:00Z |
+| apps/hermes-control-plane/app/page.tsx (footer Blog link only) | grok-thumbgate-app-blog-chief-copy-20260819 | 2026-08-19T15:50:00Z |
+| apps/hermes-control-plane/tests/blog.test.mjs | grok-thumbgate-app-blog-chief-copy-20260819 | 2026-08-19T15:50:00Z |
+| .intent/contract.yaml (OFFER-005 only) | grok-thumbgate-app-blog-chief-copy-20260819 | 2026-08-19T15:50:00Z |
+| plan.md (append only) | grok-thumbgate-app-blog-chief-copy-20260819 | 2026-08-19T15:50:00Z |
+
+- 2026-08-19T15:50Z `grok-thumbgate-app-blog-chief-copy`: CEO correction — Cursor blog is **thumbgate.app**, not thumbgate.ai. #1856 already merged /blog. Follow-up: author ThumbGate (no founder byline), product post Give hosted Hermes a job, landing footer Blog link, OFFER-005. Closed duplicate #1860. Did not re-post the LIVE dev.to Computer-falsifier hook.

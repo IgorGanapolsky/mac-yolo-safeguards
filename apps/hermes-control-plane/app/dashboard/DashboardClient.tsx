@@ -716,8 +716,21 @@ export default function DashboardClient() {
     // "loading" forever with no error shown and no retry signal.
     const run = () => { void loadWorkspace().catch(() => setLoadState("error")); };
     const initial = window.setTimeout(run, 0);
-    const timer = window.setInterval(run, 5000);
-    return () => { window.clearTimeout(initial); window.clearInterval(timer); };
+    // 15s cadence, foreground-only: the old always-on 5s poll made every open
+    // dashboard tab cost ~17k Workers requests/day against the 100k free-tier
+    // daily cap (2026-08-19 quota incident). Hidden tabs stop polling; a fresh
+    // run fires immediately when the tab returns to the foreground.
+    let timer: number | undefined;
+    const start = () => { if (timer === undefined) timer = window.setInterval(run, 15000); };
+    const stop = () => { if (timer !== undefined) { window.clearInterval(timer); timer = undefined; } };
+    const onVisibility = () => { if (document.hidden) stop(); else { run(); start(); } };
+    if (!document.hidden) start();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.clearTimeout(initial);
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
     // Intentionally not re-binding when selectedThread flips — list poll stays stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- shell-first: one poller, not one-per-thread
   }, []);
@@ -750,6 +763,7 @@ export default function DashboardClient() {
   const hostedCopy = hostedConnectionCopy({
     runnerStatus,
     modelStatus,
+    runnerIdentity: hostedRunner?.identity,
     message: hostedModel?.status === "unhealthy"
       ? hostedModel.message
       : hostedRunner?.status === "unhealthy"
@@ -1140,7 +1154,7 @@ export default function DashboardClient() {
           </div>
           <div className="sidebar-content" id="hermes-chat-rail">
             <div className="workspace-label">CHATS</div>
-            <nav className="thread-list" id="hermes-thread-list" aria-label="Chats">
+            <nav className="thread-list" id="hermes-thread-list" data-testid="hermes-thread-list" aria-label="Chats">
               <div className="thread-list-empty" data-testid="thread-list-empty">Opening chats…</div>
             </nav>
           </div>
@@ -1178,7 +1192,7 @@ export default function DashboardClient() {
               {threads.length > 0 && <button type="button" className="clear-all-chats" onClick={() => { setThreadMenu(null); setChatDialog({ kind: "clear" }); }}>Clear all</button>}
             </div>
           </div>
-          <nav className="thread-list" id="hermes-thread-list" aria-label={`Chats, ${threadSortOrder} order`}>{visibleThreads.length === 0 ? (
+          <nav className="thread-list" id="hermes-thread-list" data-testid="hermes-thread-list" aria-label={`Chats, ${threadSortOrder} order`}>{visibleThreads.length === 0 ? (
             <div className="thread-list-empty" data-testid="thread-list-empty">{loadState === "loading" ? "Opening chats…" : "No chats yet"}</div>
           ) : visibleThreads.map((thread) => (
             <div key={thread.id} className="thread-row">

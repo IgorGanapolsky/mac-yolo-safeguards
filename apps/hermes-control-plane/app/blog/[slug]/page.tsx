@@ -86,7 +86,7 @@ export default async function BlogPostPage(
         <p style={{ maxWidth: "70ch", margin: "24px auto 0" }}>{offerClose()}</p>
         <p style={{ maxWidth: "70ch", margin: "16px auto 0" }}>— {post.author}</p>
         <div className="hero-actions" style={{ marginTop: "32px" }}>
-          <a href="/api/auth/login" className="button button-primary" data-funnel-event="blog_cta_click">
+          <a href="/api/auth/login" className="button button-primary" data-funnel-event="blog_cta_click" data-cta-id="thumbgate-app-blog-20260819_home">
             Start {LOCKED_OFFER.product} — {LOCKED_OFFER.price} <span aria-hidden="true">→</span>
           </a>
         </div>
