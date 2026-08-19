@@ -559,7 +559,7 @@ export default function Home() {
       <footer>
         <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate <small>Hosted Hermes</small></span></Link>
         <p>Hosted Hermes on a fenced VPS · closed-system · flat $10/month · cancel anytime.</p>
-        <p><Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link></p>
+        <p><Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link> · <Link href="/blog">Blog</Link></p>
         <p><a href="/api/auth/login" className="button button-primary" data-funnel-event="cloud_continuity_click">{PRO_CTA}</a></p>
       </footer>
     </main>

@@ -15,6 +15,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     {
+      url: "https://thumbgate.app/blog",
+      lastModified: new Date("2026-08-19T00:00:00.000Z"),
+      changeFrequency: "weekly",
+      priority: 0.7,
+    },
+    {
+      url: "https://thumbgate.app/blog/give-hosted-hermes-a-job",
+      lastModified: new Date("2026-08-19T00:00:00.000Z"),
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
+    {
       url: "https://thumbgate.app/privacy",
       lastModified: new Date("2026-08-17T00:00:00.000Z"),
       changeFrequency: "yearly",
