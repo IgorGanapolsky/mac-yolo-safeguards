@@ -5,6 +5,7 @@ import { ClientErrorBeacon } from "./ClientErrorBeacon";
 import {
   hasAttribution,
   parseAttributionFromSearch,
+  sanitizeAttributionToken,
   type FunnelAttribution,
 } from "@/lib/funnel-attribution";
 
@@ -40,7 +41,9 @@ export function FunnelSignals() {
           ? event.target.closest<HTMLElement>("[data-funnel-event]")
           : null;
       const funnelEvent = target?.dataset.funnelEvent;
-      if (funnelEvent) signal(funnelEvent, attr);
+      if (!target || !funnelEvent) return;
+      const clickCta = sanitizeAttributionToken(target.dataset.ctaId);
+      signal(funnelEvent, clickCta ? { ...attr, ctaId: clickCta } : attr);
     };
     document.addEventListener("click", trackClick);
     return () => document.removeEventListener("click", trackClick);

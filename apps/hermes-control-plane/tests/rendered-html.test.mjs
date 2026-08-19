@@ -149,6 +149,9 @@ test("builds the public hosted Hermes landing page", async () => {
   // visible FAQ + FAQPage JSON-LD so answer engines can cite it.
   assert.match(page, /FAQPage/);
   assert.match(page, /id="faq"/);
+  assert.match(page, /id="example-tasks"/);
+  assert.match(page, /Give hosted Hermes a job/);
+  assert.match(page, /How do I give it a job\?/);
   assert.match(page, /What is ThumbGate\?/);
   assert.match(page, /Why not just run another agent pilot/);
   assert.match(page, /Where do approvals happen\?/);

@@ -38,6 +38,7 @@ const body = `# ThumbGate
 - Access hosted Hermes: sign in, start trial or Pro, run work on the fenced cloud runner
 - Is this a memory plugin? No. Hosted Hermes is the always-on VPS box.
 - Why not another laptop pilot? Pilots die when the machine sleeps. Hosted Hermes is one always-on VPS agent with in-browser approvals.
+- How do I give it a job? Sign in, start the $10 trial, type the job in the dashboard. Hosted Hermes runs on a fenced VPS while the laptop sleeps. Approvals stay in thumbgate.app.
 `;
 
 export async function GET() {

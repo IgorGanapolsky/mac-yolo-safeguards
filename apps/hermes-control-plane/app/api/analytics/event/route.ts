@@ -12,8 +12,9 @@ const EVENTS = new Set([
   "sign_in_click",
   "free_control_click",
   "cloud_continuity_click",
-  // Landing example-tasks section CTA (proof-by-task strip).
+  // Landing example-tasks: per-job cta_id + closer.
   "example_task_click",
+  "give_work_click",
   "watchdog_probe",
   "play_store_click",
   "app_store_click",

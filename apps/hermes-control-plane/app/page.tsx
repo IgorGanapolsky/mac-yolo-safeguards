@@ -86,6 +86,11 @@ const FAQ_ITEMS = [
       "Sign in with email, Google, or Apple in this browser. Start the $10 hosted Hermes trial. There is no Mac, Windows, or Linux download. Approvals stay in thumbgate.app.",
   },
   {
+    question: "How do I give it a job?",
+    answer:
+      "Sign in, start the $10 hosted Hermes trial, and type the job in the dashboard. It runs on a fenced VPS while the laptop sleeps. Money, customer, or production actions pause in thumbgate.app.",
+  },
+  {
     question: "Do I install a desktop app?",
     answer:
       "No. Hosted Hermes is one always-on agent on a fenced VPS. Local desktop employees die when the laptop sleeps. Approvals stay in thumbgate.app.",
@@ -189,6 +194,7 @@ export default function Home() {
             <span>One clock · 14-day trial</span>
             <span>Approvals in thumbgate.app</span>
           </div>
+          <p className="signin-note"><a href="#example-tasks">See example jobs</a> — then start the $10 trial.</p>
         </div>
 
         <nav className="hero-console hero-actions-panel" aria-label="Private workspace actions">
@@ -210,32 +216,82 @@ export default function Home() {
         </div>
         <div className="steps-grid">
           <article>
+            <a
+              href="/api/auth/login"
+              data-funnel-event="example_task_click"
+              data-cta-id="watch-ci"
+              data-testid="example-task-watch-ci"
+            >
+              <span>01</span>
+              <h3>Watch CI overnight</h3>
+              <p>
+                &ldquo;Watch my repo&rsquo;s CI. When a run goes red, open a fix branch and draft the PR.
+                Pause before anything merges.&rdquo; The watcher keeps firing while your machine sleeps.
+              </p>
+            </a>
+          </article>
+          <article>
+            <a
+              href="/api/auth/login"
+              data-funnel-event="example_task_click"
+              data-cta-id="morning-digest"
+              data-testid="example-task-morning-digest"
+            >
+              <span>02</span>
+              <h3>Run the morning digest</h3>
+              <p>
+                &ldquo;Every morning at 6, pull the numbers, build the report, and draft the email.
+                Pause before anything sends.&rdquo; Recurring background tasks are the point of an always-on box.
+              </p>
+            </a>
+          </article>
+          <article>
+            <a
+              href="/api/auth/login"
+              data-funnel-event="example_task_click"
+              data-cta-id="long-migration"
+              data-testid="example-task-long-migration"
+            >
+              <span>03</span>
+              <h3>Finish the long migration</h3>
+              <p>
+                &ldquo;Keep the data migration going until it&rsquo;s done. Pause before touching
+                production.&rdquo; Long runs hold a renewable lease; destructive steps wait for your approval.
+              </p>
+            </a>
+          </article>
+        </div>
+        <div className="steps-grid" data-testid="give-work-loop" style={{ marginTop: "32px" }}>
+          <article>
             <span>01</span>
-            <h3>Watch CI overnight</h3>
-            <p>
-              &ldquo;Watch my repo&rsquo;s CI. When a run goes red, open a fix branch and draft the PR.
-              Pause before anything merges.&rdquo; The watcher keeps firing while your machine sleeps.
-            </p>
+            <h3>Give hosted Hermes a job</h3>
+            <p>Sign in and type the work in the dashboard. Natural language. No desktop install.</p>
           </article>
           <article>
             <span>02</span>
-            <h3>Run the morning digest</h3>
+            <h3>Hosted Hermes works</h3>
             <p>
-              &ldquo;Every morning at 6, pull the numbers, build the report, and draft the email.
-              Pause before anything sends.&rdquo; Recurring background tasks are the point of an always-on box.
+              The agent keeps a lease on a fenced VPS. The laptop can sleep. The run does not die
+              with the lid.
             </p>
           </article>
           <article>
             <span>03</span>
-            <h3>Finish the long migration</h3>
+            <h3>Iterate and approve</h3>
             <p>
-              &ldquo;Keep the data migration going until it&rsquo;s done. Pause before touching
-              production.&rdquo; Long runs hold a renewable lease; destructive steps wait for your approval.
+              Guide the run in this tab. Money, customer, or production actions pause in
+              thumbgate.app.
             </p>
           </article>
         </div>
         <div className="hero-actions" style={{ marginTop: "32px" }}>
-          <a href="/api/auth/login" className="button button-primary" data-funnel-event="example_task_click">
+          <a
+            href="/api/auth/login"
+            className="button button-primary"
+            data-funnel-event="give_work_click"
+            data-cta-id="put-hosted-hermes-to-work"
+            data-testid="give-work-cta"
+          >
             {PRO_CTA} <span aria-hidden="true">→</span>
           </a>
         </div>
