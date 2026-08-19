@@ -4,6 +4,7 @@
  */
 
 import { advertiseHostedPaid, trustFromResource } from "./hosted-source-of-truth";
+import { certifyHostedLive } from "./hosted-live-iis.js";
 
 export const DEFAULT_RUNNER_HEALTH_URL = "https://igor-hermes-cloud-runner.fly.dev/health";
 export const RUNNER_STALE_MS = 60_000;
@@ -296,6 +297,8 @@ export function hostedConnectionCopy(input: {
   modelStatus: HostedResourceState;
   browserStatus?: HostedResourceState;
   message?: string | null;
+  spendUsd?: number;
+  spendApproved?: boolean;
 }): {
   headline: string;
   body: string;
@@ -304,9 +307,16 @@ export function hostedConnectionCopy(input: {
   advertisePaid: boolean;
   trust: { runner: "verified" | "reachable" | "failed"; model: "verified" | "reachable" | "failed" };
 } {
-  const live = input.runnerStatus === "healthy"
-    && input.modelStatus === "healthy"
-    && (input.browserStatus == null || input.browserStatus === "healthy");
+  // Exact IIS: live only when WaitFor-healthy + spend=0 unless approved.
+  // Persist-before-live is unchanged — this does not probe Fly.
+  const cert = certifyHostedLive({
+    runnerHealthy: input.runnerStatus === "healthy",
+    modelAlive: input.modelStatus === "healthy",
+    browserHealthy: input.browserStatus == null ? undefined : input.browserStatus === "healthy",
+    spendUsd: input.spendUsd ?? 0,
+    spendApproved: input.spendApproved === true,
+  });
+  const live = cert.live;
   const runnerTrust = trustFromResource(input.runnerStatus);
   const modelTrust = trustFromResource(input.modelStatus);
   const advertisePaid = advertiseHostedPaid({ runnerTrust, modelTrust });
