@@ -501,6 +501,27 @@ check('detects bearer auth', () => {
 
 console.log('\nriskIcon');
 
+check('matchesDomain exact match', () => {
+  assert.strictEqual(gate.matchesDomain('claude.ai', 'claude.ai'), true);
+});
+
+check('matchesDomain subdomain match', () => {
+  assert.strictEqual(gate.matchesDomain('mcp.claude.ai', 'claude.ai'), true);
+});
+
+check('matchesDomain no false positive on substring', () => {
+  assert.strictEqual(gate.matchesDomain('notclaude.ai', 'claude.ai'), false);
+});
+
+check('matchesDomain no false positive on evil domain', () => {
+  assert.strictEqual(gate.matchesDomain('evil-googlesapis.com', 'googleapis.com'), false);
+});
+
+check('matchesDomain empty inputs', () => {
+  assert.strictEqual(gate.matchesDomain('', 'claude.ai'), false);
+  assert.strictEqual(gate.matchesDomain('claude.ai', ''), false);
+});
+
 check('returns correct icon for each risk level', () => {
   assert.strictEqual(gate.riskIcon(gate.RISK_LEVELS.LOW), '🟢');
   assert.strictEqual(gate.riskIcon(gate.RISK_LEVELS.MEDIUM), '🟡');

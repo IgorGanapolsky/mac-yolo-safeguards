@@ -126,7 +126,7 @@ const INJECTION_PATTERNS = [
   {
     id: 'environment_manipulation',
     name: 'Hidden instruction via encoding',
-    re: /<script[^>]*>.*?<\/script>|\bbase64\s+--decode|eval\s*\(|atob\s*\(|String\.fromCharCode/gi,
+    re: /<script[^>]*>.*?<\/script[^>]*>|\bbase64\s+--decode|eval\s*\(|atob\s*\(|String\.fromCharCode/gi,
     severity: 'medium',
   },
 ];
@@ -353,15 +353,15 @@ function assessServerRisk(server, opts) {
     try {
       const parsed = new URL(server.url);
       for (const domain of euDomains) {
-        if (parsed.hostname.includes(domain) || parsed.hostname.endsWith(domain.replace(/\./g, ''))) {
+        if (matchesDomain(parsed.hostname, domain)) {
           residency = 'eu';
           break;
         }
       }
-      if (residency === 'unknown' && parsed.hostname.includes('googleapis.com')) {
+      if (residency === 'unknown' && parsed.hostname.endsWith('googleapis.com')) {
         residency = 'us';
       }
-      if (residency === 'unknown' && (parsed.hostname.includes('sharepoint.') || parsed.hostname.includes('microsoft.'))) {
+      if (residency === 'unknown' && (parsed.hostname.endsWith('sharepoint.com') || parsed.hostname.endsWith('microsoft.com') || parsed.hostname.endsWith('microsoftonline.com'))) {
         residency = 'us';
       }
     } catch (e) {
@@ -421,6 +421,19 @@ function assessServerRisk(server, opts) {
 }
 
 /**
+ * Check if a hostname matches a domain (exact match or subdomain).
+ * Uses proper domain boundary matching instead of substring includes()
+ * to prevent CodeQL "Incomplete URL substring sanitization" findings.
+ * @param {string} hostname - Hostname from URL
+ * @param {string} domain - Domain to check against
+ * @returns {boolean}
+ */
+function matchesDomain(hostname, domain) {
+  if (!hostname || !domain) return false;
+  return hostname === domain || hostname.endsWith('.' + domain);
+}
+
+/**
  * Extract the operator identifier from a server config.
  * @param {Object} server - Normalized server object
  * @returns {string|null}
@@ -432,10 +445,10 @@ function extractOperator(server) {
       const parsed = new URL(server.url);
       const hostname = parsed.hostname;
       for (const domain of FIRST_PARTY_OPERATORS) {
-        if (hostname.includes(domain) || hostname.endsWith(domain.replace(/\./g, ''))) return domain;
+        if (matchesDomain(hostname, domain)) return domain;
       }
       for (const domain of VERIFIED_THIRD_PARTY_OPERATORS) {
-        if (hostname.includes(domain) || hostname.endsWith(domain.replace(/\./g, ''))) return domain;
+        if (matchesDomain(hostname, domain)) return domain;
       }
       // If URL starts with http and is not localhost, it's a remote third-party
       if (hostname !== 'localhost' && hostname !== '127.0.0.1') return 'third-party';
@@ -1076,6 +1089,7 @@ module.exports = {
   generateRecommendation,
   isRisky,
   riskIcon,
+  matchesDomain,
   checkUrlHealth,
 
   // CLI
