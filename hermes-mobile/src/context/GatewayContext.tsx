@@ -1454,16 +1454,32 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       setWifiConnected(isWifi);
       updateTailscaleVpnActive(state);
     };
-    const netSub = NetInfo.addEventListener((state) => {
-      applyNetInfo(state);
-      refreshHealth();
+    // Debounce NetInfo events to prevent probe flooding on Samsung devices
+    // which fire frequently and cause UI jitter/flickering in computer picker
+    let netInfoDebounceMs = 500;
+    let netInfoDebounceTimer: NodeJS.Timeout | undefined;
+    let netInfoPendingState: NetInfoState | null = null;
+    const triggerProbe = () => {
       void probeTailscaleComputersRef.current({ showUi: false, force: false });
+    };
+    const netSub = NetInfo.addEventListener((state) => {
+      netInfoPendingState = state;
+      if (netInfoDebounceTimer) clearTimeout(netInfoDebounceTimer);
+      netInfoDebounceTimer = setTimeout(() => {
+        if (netInfoPendingState) {
+          applyNetInfo(netInfoPendingState);
+          netInfoPendingState = null;
+        }
+        refreshHealth();
+        triggerProbe();
+      }, netInfoDebounceMs);
     });
     void NetInfo.fetch().then((state) => {
       applyNetInfo(state);
     });
     return () => {
       clearInterval(interval);
+      if (netInfoDebounceTimer) clearTimeout(netInfoDebounceTimer);
       netSub();
     };
   }, [isLoaded, refreshHealth, updateTailscaleVpnActive]);
