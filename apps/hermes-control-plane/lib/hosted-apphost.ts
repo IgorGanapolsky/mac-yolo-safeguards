@@ -6,13 +6,13 @@
 import { advertiseHostedPaid, trustFromResource } from "./hosted-source-of-truth";
 import { certifyHostedLive } from "./hosted-live-iis.js";
 import {
+  resolveHostedFallback,
+  resolveNamedRunnerIdentity,
+} from "./hosted-model-fallback.js";
 
 /** Futurism 2026-08-19 contrast: we are not ChatGPT Computer History / Windows Recall. */
 export const HOSTED_NOT_COMPUTER_HISTORY =
   "Hosted Hermes is not ChatGPT Computer History, not Windows Recall, and not a Mac keylogger. The isolated fenced VPS does not grab the cursor or capture keystrokes.";
-  resolveHostedFallback,
-  resolveNamedRunnerIdentity,
-} from "./hosted-model-fallback.js";
 
 export const DEFAULT_RUNNER_HEALTH_URL = "https://igor-hermes-cloud-runner.fly.dev/health";
 export const RUNNER_STALE_MS = 60_000;
