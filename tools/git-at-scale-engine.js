@@ -206,8 +206,11 @@ function isUnderBase(wtPath, basePath) {
   const lexicalOk = pathIsUnder(absWt, absBase) || pathIsUnder(absWt, realBase);
   if (!lexicalOk) return false;
 
+  // Nothing on disk yet → no symlink to follow; lexical under-base is enough.
+  if (!fs.existsSync(absWt)) return true;
+
   try {
-    const realWt = fs.existsSync(absWt) ? fs.realpathSync(absWt) : absWt;
+    const realWt = fs.realpathSync(absWt);
     return pathIsUnder(realWt, realBase);
   } catch {
     return false;
