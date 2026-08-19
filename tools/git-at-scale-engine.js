@@ -183,10 +183,25 @@ function spawnWorktree(branchName, options = {}) {
   return { success: true, path: targetDir, branch: branchName, reused: false };
 }
 
+/**
+ * Containment check that does NOT follow symlinks first.
+ * Lexical path must sit under base; only then may we realpath for equality.
+ * Fixes Copilot "realpath before validate" note on #1844.
+ */
 function isUnderBase(wtPath, basePath) {
-  const realWt = fs.existsSync(wtPath) ? fs.realpathSync(wtPath) : path.resolve(wtPath);
-  const realBase = fs.existsSync(basePath) ? fs.realpathSync(basePath) : path.resolve(basePath);
-  return realWt === realBase || realWt.startsWith(realBase + path.sep);
+  const absWt = path.resolve(wtPath);
+  const absBase = path.resolve(basePath);
+  const lexicalOk = absWt === absBase || absWt.startsWith(absBase + path.sep);
+  if (!lexicalOk) return false;
+
+  // Optional realpath: reject if a symlink escapes the base after resolution.
+  try {
+    const realWt = fs.existsSync(absWt) ? fs.realpathSync(absWt) : absWt;
+    const realBase = fs.existsSync(absBase) ? fs.realpathSync(absBase) : absBase;
+    return realWt === realBase || realWt.startsWith(realBase + path.sep);
+  } catch {
+    return false;
+  }
 }
 
 function isPorcelainClean(wtPath) {
@@ -426,6 +441,7 @@ module.exports = {
   parseCountObjects,
   hasCommitGraph,
   hasMultiPackIndex,
+  isUnderBase,
   runMaintenance,
   listWorktrees,
   spawnWorktree,
