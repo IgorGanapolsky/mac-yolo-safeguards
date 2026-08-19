@@ -27,7 +27,7 @@ const mocks = vi.hoisted(() => ({
     billing_events_24h: 3,
     landing_views_today: 40,
     sign_in_clicks_today: 8,
-    cloud_continuity_clicks_today: 2,
+    hosted_checkout_clicks_today: 2,
   },
 }));
 
@@ -73,7 +73,7 @@ vi.mock("./runtime", () => ({
   db: () => ({ prepare: (sql: string) => statement(sql) }),
 }));
 
-const { collectAdminMetrics } = await import("./admin-metrics");
+const { collectAdminMetrics, HOSTED_HERMES_PRICE_USD } = await import("./admin-metrics");
 
 describe("collectAdminMetrics", () => {
   const originalFetch = global.fetch;
@@ -81,6 +81,7 @@ describe("collectAdminMetrics", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-25T12:00:00.000Z"));
+    mocks.aggregateRow.paid_orgs = 3;
   });
 
   afterEach(() => {
@@ -119,9 +120,37 @@ describe("collectAdminMetrics", () => {
 
     const metrics = await collectAdminMetrics();
 
+    expect(HOSTED_HERMES_PRICE_USD).toBe(10);
     expect(metrics.revenue.paidOrganizations).toBe(3);
     expect(metrics.revenue.projectedMrrUsd).toBe(30);
     expect(metrics.revenue.projectedArrUsd).toBe(360);
+    expect(metrics.revenue.note).toContain("paid orgs × $10 hosted Hermes");
+    expect(metrics.revenue.note).not.toMatch(/Continuity/i);
+    expect(metrics.revenue.projectedMrrUsd).not.toBe(15481);
+  });
+
+  it("projects 0 MRR and 0 ARR when paidOrganizations is 0", async () => {
+    mocks.aggregateRow.paid_orgs = 0;
+    global.fetch = vi.fn().mockRejectedValue(new Error("unreachable"));
+
+    const metrics = await collectAdminMetrics();
+
+    expect(metrics.revenue.paidOrganizations).toBe(0);
+    expect(metrics.revenue.projectedMrrUsd).toBe(0);
+    expect(metrics.revenue.projectedArrUsd).toBe(0);
+    expect(metrics.activity.recoveredRunsLast24h).toBe(0);
+  });
+
+  it("projects $20 MRR for two paid orgs at the $10 list price", async () => {
+    mocks.aggregateRow.paid_orgs = 2;
+    global.fetch = vi.fn().mockRejectedValue(new Error("unreachable"));
+
+    const metrics = await collectAdminMetrics();
+
+    expect(metrics.revenue.paidOrganizations).toBe(2);
+    expect(metrics.revenue.listPriceUsdPerMonth).toBe(10);
+    expect(metrics.revenue.projectedMrrUsd).toBe(20);
+    expect(metrics.revenue.projectedArrUsd).toBe(240);
   });
 
   it("computes cloud success rate as completed / (completed + failed) over the 30d window", async () => {
@@ -152,5 +181,9 @@ describe("collectAdminMetrics", () => {
     expect(metrics.privacy.chatBodies).toBe(false);
     expect(metrics.privacy.ipAddresses).toBe(false);
     expect(metrics.privacy.fingerprints).toBe(false);
+    expect(metrics.hostedRuns).toHaveLength(1);
+    expect(metrics.hostedRuns[0].taskIdPrefix).toBe("task-abcdef");
+    expect(metrics.cost.estimatedHostedInfraUsdPerMonth).toBe(5);
+    expect(metrics.activity.funnelToday.hosted_checkout_click).toBe(2);
   });
 });

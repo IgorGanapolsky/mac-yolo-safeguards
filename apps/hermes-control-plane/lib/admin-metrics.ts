@@ -4,7 +4,16 @@ const RUNNER_HEALTH_URL =
   process.env.HERMES_CLOUD_RUNNER_HEALTH_URL?.trim()
   || "https://igor-hermes-cloud-runner.fly.dev/health";
 
-const CONTINUITY_PRICE_USD = 10; // list price for projected revenue
+/** List price for hosted Hermes. Projected MRR is paid orgs × this. Never invent cash. */
+export const HOSTED_HERMES_PRICE_USD = 10;
+
+/**
+ * Plans that mean the $10 hosted product.
+ * Stripe webhook writes `pro`. Schema enum is trial|pro|team|suspended.
+ * Extra leftovers (`hosted`, `starter`, `continuity`) are counted if present — they do not invent orgs.
+ * Trial is not paid.
+ */
+export const PAID_HOSTED_PLANS_SQL = "('pro', 'team', 'hosted', 'starter', 'continuity')";
 
 export type AdminMetrics = {
   checkedAt: number;
@@ -36,6 +45,7 @@ export type AdminMetrics = {
     tasksCreatedLast24h: number;
     tasksCompletedLast24h: number;
     tasksFailedLast24h: number;
+    recoveredRunsLast24h: number;
     cloudCompleted30d: number;
     cloudFailed30d: number;
     cloudInflight: number;
@@ -54,8 +64,8 @@ export type AdminMetrics = {
     lastSeenAt: number | null;
     ageSeconds: number | null;
   }>;
-  /** VPS Continuity runs — no prompts/results body. */
-  continuityRuns: Array<{
+  /** VPS hosted Hermes runs — no prompts/results body. */
+  hostedRuns: Array<{
     taskIdPrefix: string;
     status: string;
     route: string;
@@ -75,7 +85,7 @@ export type AdminMetrics = {
   cost: {
     available: boolean;
     note: string;
-    estimatedContinuityInfraUsdPerMonth: number;
+    estimatedHostedInfraUsdPerMonth: number;
     llmCost24hUsd: number;
   };
   privacy: {
@@ -116,7 +126,7 @@ export async function collectAdminMetrics(): Promise<AdminMetrics> {
 
   const aggregate = await db().prepare(
     `SELECT
-       (SELECT COUNT(*) FROM organizations WHERE plan IN ('pro', 'team')) AS paid_orgs,
+       (SELECT COUNT(*) FROM organizations WHERE plan IN ${PAID_HOSTED_PLANS_SQL}) AS paid_orgs,
        (SELECT COUNT(*) FROM sessions WHERE expires_at > ?) AS active_sessions,
        (SELECT COUNT(*) FROM audit_events WHERE created_at >= ? AND action = 'auth.login') AS logins_24h,
        (SELECT COUNT(*) FROM sessions WHERE created_at >= ?) AS sessions_created_24h,
@@ -132,7 +142,7 @@ export async function collectAdminMetrics(): Promise<AdminMetrics> {
        (SELECT COUNT(*) FROM billing_events WHERE processed_at >= ? AND event_type NOT LIKE '%.canary') AS billing_events_24h,
        (SELECT COALESCE(SUM(count), 0) FROM funnel_counters WHERE day = ? AND event = 'landing_view') AS landing_views_today,
        (SELECT COALESCE(SUM(count), 0) FROM funnel_counters WHERE day = ? AND event = 'sign_in_click') AS sign_in_clicks_today,
-       (SELECT COALESCE(SUM(count), 0) FROM funnel_counters WHERE day = ? AND event = 'cloud_continuity_click') AS cloud_continuity_clicks_today,
+       (SELECT COALESCE(SUM(count), 0) FROM funnel_counters WHERE day = ? AND event IN ('hosted_checkout_click', 'cloud_continuity_click')) AS hosted_checkout_clicks_today,
        (SELECT COUNT(*) FROM llm_calls WHERE created_at >= ?) AS llm_calls_24h,
        (SELECT COALESCE(SUM(prompt_tokens), 0) FROM llm_calls WHERE created_at >= ?) AS prompt_tokens_24h,
        (SELECT COALESCE(SUM(completion_tokens), 0) FROM llm_calls WHERE created_at >= ?) AS completion_tokens_24h,
@@ -151,6 +161,7 @@ export async function collectAdminMetrics(): Promise<AdminMetrics> {
     window30d,
     dayAgo,
     dayAgo,
+    day,
     day,
     day,
     dayAgo,
@@ -175,7 +186,7 @@ export async function collectAdminMetrics(): Promise<AdminMetrics> {
     billing_events_24h: number;
     landing_views_today: number;
     sign_in_clicks_today: number;
-    cloud_continuity_clicks_today: number;
+    hosted_checkout_clicks_today: number;
     llm_calls_24h: number;
     prompt_tokens_24h: number;
     completion_tokens_24h: number;
@@ -198,12 +209,12 @@ export async function collectAdminMetrics(): Promise<AdminMetrics> {
        FROM devices d
        JOIN organizations o ON o.id = d.organization_id
       WHERE d.revoked_at IS NULL
-        AND o.plan IN ('pro', 'team')
+        AND o.plan IN ${PAID_HOSTED_PLANS_SQL}
       ORDER BY d.last_seen_at DESC NULLS LAST
       LIMIT 100`,
   ).all<{ id: string; name: string; failoverMode: string; lastSeenAt: number | null }>();
 
-  const continuityRuns = await db().prepare(
+  const hostedRuns = await db().prepare(
     `SELECT id, status, route, created_at AS createdAt, completed_at AS completedAt,
             CASE WHEN id LIKE 'canary_%' THEN 1 ELSE 0 END AS isCanary
        FROM tasks
@@ -238,12 +249,12 @@ export async function collectAdminMetrics(): Promise<AdminMetrics> {
     },
     revenue: {
       paidOrganizations: paidOrgs,
-      listPriceUsdPerMonth: CONTINUITY_PRICE_USD,
-      projectedMrrUsd: paidOrgs * CONTINUITY_PRICE_USD,
-      projectedArrUsd: paidOrgs * CONTINUITY_PRICE_USD * 12,
+      listPriceUsdPerMonth: HOSTED_HERMES_PRICE_USD,
+      projectedMrrUsd: paidOrgs * HOSTED_HERMES_PRICE_USD,
+      projectedArrUsd: paidOrgs * HOSTED_HERMES_PRICE_USD * 12,
       billingEventsLast24h: Number(aggregate?.billing_events_24h ?? 0),
       realBillingEventLatestAt: aggregate?.real_billing_latest ?? null,
-      note: "Projected MRR = paid orgs × Continuity list price ($10). Not Stripe cash-collected.",
+      note: "Projected MRR = paid orgs × $10 hosted Hermes. Not Stripe cash-collected. Founder test does not count.",
     },
     sessions: {
       activeWebSessions: Number(aggregate?.active_sessions ?? 0),
@@ -254,6 +265,8 @@ export async function collectAdminMetrics(): Promise<AdminMetrics> {
       tasksCreatedLast24h: Number(aggregate?.tasks_created_24h ?? 0),
       tasksCompletedLast24h: Number(aggregate?.tasks_completed_24h ?? 0),
       tasksFailedLast24h: Number(aggregate?.tasks_failed_24h ?? 0),
+      // tasks/audit have no recovered/failover column — do not invent recoveries.
+      recoveredRunsLast24h: 0,
       cloudCompleted30d: cloudCompleted,
       cloudFailed30d: cloudFailed,
       cloudInflight: Number(aggregate?.cloud_inflight ?? 0),
@@ -267,7 +280,7 @@ export async function collectAdminMetrics(): Promise<AdminMetrics> {
       funnelToday: {
         landing_view: Number(aggregate?.landing_views_today ?? 0),
         sign_in_click: Number(aggregate?.sign_in_clicks_today ?? 0),
-        cloud_continuity_click: Number(aggregate?.cloud_continuity_clicks_today ?? 0),
+        hosted_checkout_click: Number(aggregate?.hosted_checkout_clicks_today ?? 0),
       },
     },
     paidMachines: (paidMachines.results ?? []).map((device) => ({
@@ -278,7 +291,7 @@ export async function collectAdminMetrics(): Promise<AdminMetrics> {
       lastSeenAt: device.lastSeenAt,
       ageSeconds: device.lastSeenAt ? Math.max(0, Math.floor((now - device.lastSeenAt) / 1000)) : null,
     })),
-    continuityRuns: (continuityRuns.results ?? []).map((task) => ({
+    hostedRuns: (hostedRuns.results ?? []).map((task) => ({
       taskIdPrefix: String(task.id).slice(0, 12),
       status: task.status,
       route: task.route,
@@ -298,7 +311,7 @@ export async function collectAdminMetrics(): Promise<AdminMetrics> {
     cost: {
       available: true,
       note: `LLM inference cost (last 24h): $${Number(aggregate?.llm_cost_24h ?? 0).toFixed(4)} across ${Number(aggregate?.models_used_24h ?? 0)} models.`,
-      estimatedContinuityInfraUsdPerMonth: 5,
+      estimatedHostedInfraUsdPerMonth: 5,
       llmCost24hUsd: Number(aggregate?.llm_cost_24h ?? 0),
     },
     privacy: {

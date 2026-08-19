@@ -117,7 +117,7 @@ test("builds the public hosted Hermes landing page", async () => {
   // Pricing CTAs live in client chrome (static shell + /api/me personalization).
   const chrome = await readFile(new URL("../app/LandingAuthChrome.tsx", import.meta.url), "utf8");
   assert.match(chrome, /data-funnel-event="free_control_click"/);
-  assert.match(chrome, /data-funnel-event="cloud_continuity_click"/);
+  assert.match(chrome, /data-funnel-event="hosted_checkout_click"/);
   assert.match(chrome, /data-funnel-event="sign_in_click"/);
   assert.match(chrome, /Start hosted Hermes — \$10\/mo/);
   assert.match(chrome, /cancel anytime/);

@@ -16,17 +16,17 @@ test("primary $10 hosted Hermes CTAs start WorkOS login, not #pricing", () => {
   const surfaces = read("app/StartSurfaces.tsx");
 
   assert.equal(
-    (page.match(/href="#pricing" className="button button-primary" data-funnel-event="cloud_continuity_click"/g) ?? []).length,
+    (page.match(/href="#pricing" className="button button-primary" data-funnel-event="hosted_checkout_click"/g) ?? []).length,
     0,
   );
   assert.equal(
-    (page.match(/href="\/api\/auth\/login" className="button button-primary" data-funnel-event="cloud_continuity_click"/g) ?? []).length,
+    (page.match(/href="\/api\/auth\/login" className="button button-primary" data-funnel-event="hosted_checkout_click"/g) ?? []).length,
     3,
   );
 
   assert.match(
     chrome,
-    /href="\/api\/auth\/login"\s+className="button button-primary"\s+data-funnel-event="cloud_continuity_click"/,
+    /href="\/api\/auth\/login"\s+className="button button-primary"\s+data-funnel-event="hosted_checkout_click"/,
   );
   assert.doesNotMatch(chrome, /href="#pricing"\s+className="button button-primary"/);
   assert.match(chrome, /mode === "session" \? "\/dashboard" : "\/api\/auth\/login"/);
