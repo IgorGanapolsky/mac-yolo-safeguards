@@ -1,0 +1,10 @@
+{
+  "variables": [
+    {"name": "x", "lb": 0, "ub": 2},
+    {"name": "y", "lb": 0}
+  ],
+  "constraints": [
+    {"name": "must_be_large", "coeffs": {"x": 1}, "sense": ">=", "rhs": 5},
+    {"name": "must_be_small", "coeffs": {"x": 1}, "sense": "<=", "rhs": 1}
+  ]
+}
