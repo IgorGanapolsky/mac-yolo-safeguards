@@ -79,8 +79,55 @@ const MODELS = [
   },
 ];
 
+// --- Embedding Model Registry --------------------------------------------
+// Embedding models are lighter than coding models — they only tokenize and
+// produce vector embeddings (no next-token generation). Requirements are for
+// model download + inference memory, not VRAM (embeddings run CPU-friendly).
+// Dimensions match what pdf-brain (github.com/joelhooks/pdf-brain) validates:
+// mxbai-embed-large=1024, nomic-embed-text=768, all-minilm=384.
+
+const EMBEDDING_MODELS = [
+  {
+    id: 'all-minilm',
+    name: 'all-minilm',
+    dimensions: 384,
+    min_ram_gb: 4,
+    min_disk_gb: 1,
+    description: 'Smallest/fastest embeddings; good for low-resource machines',
+    apple_silicon_ok: true,
+  },
+  {
+    id: 'nomic-embed-text',
+    name: 'nomic-embed-text',
+    dimensions: 768,
+    min_ram_gb: 8,
+    min_disk_gb: 1,
+    description: 'Balanced 768-dim embeddings; common default',
+    apple_silicon_ok: true,
+  },
+  {
+    id: 'mxbai-embed-large',
+    name: 'mxbai-embed-large',
+    dimensions: 1024,
+    min_ram_gb: 8,
+    min_disk_gb: 1,
+    description: '1024-dim embeddings; pdf-brain recommended for knowledge bases',
+    apple_silicon_ok: true,
+  },
+  {
+    id: 'bge-m3',
+    name: 'bge-m3',
+    dimensions: 1024,
+    min_ram_gb: 16,
+    min_disk_gb: 2,
+    description: 'Multilingual 1024-dim embeddings; best quality',
+    apple_silicon_ok: true,
+  },
+];
+
 // Export for testing
 exports.MODELS = MODELS;
+exports.EMBEDDING_MODELS = EMBEDDING_MODELS;
 
 // --- Hardware Detection -----------------------------------------------------
 
@@ -194,6 +241,173 @@ function probeOllama(url) {
 }
 
 exports.probeOllama = probeOllama;
+
+// --- Embedding Model Probe -------------------------------------------------
+
+/**
+ * Probe Ollama for embedding models and verify their dimensions.
+ * Uses POST /api/embeddings with a short probe prompt to determine
+ * the actual embedding dimension (not just whether the model is installed).
+ *
+ * @param {string} url - Ollama base URL
+ * @param {Array} models - List of model IDs to probe (default: EMBEDDING_MODELS)
+ * @returns {Promise<Object>} { ok, url, models: [{ id, installed, dimensions, verified }] }
+ */
+function probeEmbeddingModels(url, models) {
+  const target = url || OLLAMA_DEFAULT;
+  const toCheck = models || EMBEDDING_MODELS.map((m) => m.id);
+  return new Promise((resolve) => {
+    // First get installed models
+    const tagsReq = http.get(`${target}/api/tags`, { timeout: 3000 }, (res) => {
+      let body = '';
+      res.on('data', (chunk) => (body += chunk));
+      res.on('end', () => {
+        let installed = [];
+        try {
+          const data = JSON.parse(body);
+          installed = (data.models || []).map((m) => m.name || m);
+        } catch (e) {
+          resolve({ ok: false, url: target, models: [], error: `JSON parse error: ${e.message}` });
+          return;
+        }
+        resolve({ ok: true, url: target, installed, toCheck });
+      });
+    });
+    tagsReq.on('error', (e) => {
+      resolve({ ok: false, url: target, models: [], error: e.message });
+    });
+    tagsReq.on('timeout', () => {
+      tagsReq.destroy();
+      resolve({ ok: false, url: target, models: [], error: 'timeout (3s)' });
+    });
+  }).then(async (tagsResult) => {
+    if (!tagsResult.ok) {
+      return { ok: false, url: target, models: [], error: tagsResult.error };
+    }
+    const results = [];
+    for (const modelId of toCheck) {
+      const isInstalled = tagsResult.installed.some(
+        (name) => name === modelId || name.startsWith(modelId + ':'),
+      );
+      if (!isInstalled) {
+        results.push({ id: modelId, installed: false, dimensions: null, verified: false });
+        continue;
+      }
+      // Probe the actual dimension by calling /api/embeddings
+      const dims = await probeEmbeddingDimension(target, modelId);
+      const expected = EMBEDDING_MODELS.find((m) => m.id === modelId);
+      const expectedDims = expected ? expected.dimensions : null;
+      results.push({
+        id: modelId,
+        installed: true,
+        dimensions: dims,
+        expected_dim: expectedDims,
+        verified: dims != null && dims > 0,
+      });
+    }
+    return { ok: true, url: target, models: results };
+  });
+}
+
+/**
+ * Call Ollama POST /api/embeddings with a probe prompt to get the
+ * actual embedding vector dimension.
+ *
+ * @param {string} url - Ollama base URL
+ * @param {string} model - Model name to probe
+ * @returns {Promise<number|null>} Dimension count, or null if error
+ */
+function probeEmbeddingDimension(url, model) {
+  return new Promise((resolve) => {
+    const req = http.request(`${url}/api/embeddings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 10000,
+    }, (res) => {
+      let body = '';
+      res.on('data', (chunk) => (body += chunk));
+      res.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          if (data.embedding && Array.isArray(data.embedding)) {
+            resolve(data.embedding.length);
+          } else {
+            resolve(null);
+          }
+        } catch (e) {
+          resolve(null);
+        }
+      });
+    });
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(null);
+    });
+    req.write(JSON.stringify({ model, prompt: 'dimension probe' }));
+    req.end();
+  });
+}
+
+exports.probeEmbeddingModels = probeEmbeddingModels;
+exports.probeEmbeddingDimension = probeEmbeddingDimension;
+
+// --- Embedding Recommendation Engine (pure function) ------------------------
+
+/**
+ * Recommend which embedding models can run on the given hardware.
+ * Embedding models are lighter than coding models — they only need RAM
+ * for model weights, no VRAM-specific requirements.
+ *
+ * @param {Object} hardware - { ram_gb, disk_gb }
+ * @returns {Object} { ok, hardware, recommended, warnings }
+ */
+function recommendEmbeddingModels(hardware) {
+  const ram = parseFloat(hardware.ram_gb);
+  const disk = parseFloat(hardware.disk_gb);
+  const isAppleSilicon = Boolean(hardware.apple_silicon);
+
+  const recommended = [];
+  const warnings = [];
+
+  if (ram < 4) {
+    warnings.push('RAM below 4GB — no embedding model recommended');
+  }
+  if (disk < 1) {
+    warnings.push('Less than 1GB disk space — cannot install any embedding model');
+  }
+
+  for (const model of EMBEDDING_MODELS) {
+    if (ram < model.min_ram_gb) continue;
+    if (disk < model.min_disk_gb) continue;
+    if (isAppleSilicon && !model.apple_silicon_ok) continue;
+
+    recommended.push({
+      id: model.id,
+      name: model.name,
+      dimensions: model.dimensions,
+      description: model.description,
+      min_ram_gb: model.min_ram_gb,
+      min_disk_gb: model.min_disk_gb,
+    });
+  }
+
+  recommended.sort((a, b) => a.dimensions - b.dimensions);
+
+  if (recommended.length === 0) {
+    warnings.push(`No embedding model fits this hardware (RAM ${ram}GB, disk ${disk}GB).`);
+  }
+
+  return {
+    ok: true,
+    hardware: { ram_gb: ram, disk_gb: disk, apple_silicon: isAppleSilicon },
+    recommended,
+    warnings,
+    model_count: EMBEDDING_MODELS.length,
+  };
+}
+
+exports.recommendEmbeddingModels = recommendEmbeddingModels;
 
 // --- Recommendation Engine (pure function) ----------------------------------
 
@@ -393,6 +607,65 @@ function main(argv) {
     return 0;
   }
 
+  if (cmd === 'embeddings') {
+    const ramArg = asArg('--ram');
+    const probePromise = probeEmbeddingModels();
+    if (ramArg) {
+      const hwResult = recommendEmbeddingModels({
+        ram_gb: parseFloat(ramArg),
+        disk_gb: 100,
+        apple_silicon: true,
+      });
+      probePromise.then((result) => {
+        if (json) {
+          console.log(JSON.stringify({ probe: result, recommend: hwResult }, null, 2));
+        } else {
+          console.log('Embedding models:');
+          if (result.ok) {
+            for (const m of result.models) {
+              if (m.installed) {
+                console.log(`  ${m.id} ✓ (dim=${m.dimensions}, verified=${m.verified})`);
+              } else {
+                console.log(`  ${m.id} ✗ (not installed)`);
+              }
+            }
+          } else {
+            console.log(`  Probe failed: ${result.error}`);
+          }
+          console.log('');
+          console.log('Recommended embedding models for your hardware:');
+          for (const r of hwResult.recommended) {
+            console.log(`  ${r.id} — ${r.dimensions}d (${r.description})`);
+          }
+        }
+      }).catch((e) => {
+        console.error(`embeddings probe error: ${e.message}`);
+      });
+    } else {
+      probePromise.then((result) => {
+        if (json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log('Embedding models:');
+          if (result.ok) {
+            for (const m of result.models) {
+              if (m.installed) {
+                console.log(`  ${m.id} ✓ (dim=${m.dimensions}, verified=${m.verified})`);
+              } else {
+                console.log(`  ${m.id} ✗ (not installed)`);
+              }
+            }
+          } else {
+            console.log(`  Probe failed: ${result.error}`);
+          }
+        }
+      }).catch((e) => {
+        console.error(`embeddings probe error: ${e.message}`);
+      });
+    }
+    return 0; // async probe — exit code reflects detection, not probe
+  }
+
   if (cmd === 'help' || cmd === '--help' || cmd === '-h') {
     console.log(`Usage:
   node tools/local-coding-model-selector.js models [--json]
@@ -404,8 +677,13 @@ function main(argv) {
   node tools/local-coding-model-selector.js recommend [--json]
     Detect hardware and recommend which local coding models can run.
 
-  node tools/local-coding-model-selector.js recommend --vram N --ram N --disk N[--json]
+  node tools/local-coding-model-selector.js recommend --vram N --ram N --disk N [--json]
     Recommend using explicit hardware values (for testing/CI).
+
+  node tools/local-coding-model-selector.js embeddings [--ram N] [--json]
+    Probe Ollama for installed embedding models (mxbai-embed-large,
+    nomic-embed-text, all-minilm) and verify their dimensions.
+    Pass --ram N to also show which embedding models fit your hardware.
 
 Environment:
   OLLAMA_HOST  URL for Ollama API (default: http://127.0.0.1:11434)
