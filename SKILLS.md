@@ -59,6 +59,9 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 | `ci-first-fail` | Buildkite-style first-fail CI annotations. Name the failing STEP; never dump logs; do not migrate off GitHub Actions. Slash: /ci-first-fail. | `.agents/skills/ci-first-fail/SKILL.md` | local |
 | `anti-babysitting-mandate` | HARD: never park waiting for continue / want-me-to on pre-authorized work. Residual picker + wrap-up lint. Own PRs only. Slash: /anti-babysitting-mandate. | `.agents/skills/anti-babysitting-mandate/SKILL.md` | local |
 | `git-hooks-no-husky` | Husky process steal without the npm package. Keep relative core.hooksPath=.githooks so each worktree runs its own hook. Slash: /git-hooks-no-husky. | `.agents/skills/git-hooks-no-husky/SKILL.md` | local |
+| `ci-pr-monitor` | Repeatable workflow for monitoring CI check status, tracking PR merge-readiness, and verifying auto-merge success using the gh CLI. | `.agents/skills/ci-pr-monitor/SKILL.md` | local |
+| `live-dashboard-verify` | Verify live ThumbGate.app service health, trace header propagation, and production deployment status using curl + BrowserOS. | `.agents/skills/live-dashboard-verify/SKILL.md` | local |
+| `revenue-gap-tracker` | Track revenue monitoring gaps, identify blocked data sources, and determine what's needed to unblock revenue monitoring (3→5). | `.agents/skills/revenue-gap-tracker/SKILL.md` | local |
 
 ---
 
