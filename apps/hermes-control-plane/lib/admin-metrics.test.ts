@@ -182,7 +182,7 @@ describe("collectAdminMetrics", () => {
     expect(metrics.privacy.ipAddresses).toBe(false);
     expect(metrics.privacy.fingerprints).toBe(false);
     expect(metrics.hostedRuns).toHaveLength(1);
-    expect(metrics.hostedRuns[0].taskIdPrefix).toBe("task-abcdef");
+    expect(metrics.hostedRuns[0].taskIdPrefix).toBe("task-abcdefg");
     expect(metrics.cost.estimatedHostedInfraUsdPerMonth).toBe(5);
     expect(metrics.activity.funnelToday.hosted_checkout_click).toBe(2);
   });
