@@ -29,6 +29,7 @@ const body = `# ThumbGate
 ## Discovery
 - ARD 1.0 catalog: https://thumbgate.app/.well-known/ai-catalog.json
 - Engineering expertise: https://thumbgate.app/expertise
+- Product blog: https://thumbgate.app/blog
 - Live public stats endpoint: https://thumbgate.app/api/expertise/stats
 
 ## Direct answers

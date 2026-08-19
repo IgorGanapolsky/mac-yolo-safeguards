@@ -1,0 +1,80 @@
+.byline {
+  margin: 0 0 28px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.meta {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font: 600 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.article {
+  max-width: 680px;
+}
+
+.article h1 {
+  margin: 0 0 12px;
+  font-size: clamp(36px, 5vw, 52px);
+  letter-spacing: -0.045em;
+  line-height: 1.06;
+}
+
+.article p {
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.7;
+  margin: 0 0 16px;
+}
+
+.article h2 {
+  margin: 32px 0 12px;
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+
+.ctaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.cards {
+  display: grid;
+  gap: 12px;
+}
+
+.card {
+  display: block;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.card:hover {
+  border-color: rgba(34, 211, 238, 0.4);
+}
+
+.card h2 {
+  margin: 0 0 8px;
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+
+.card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.related {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}

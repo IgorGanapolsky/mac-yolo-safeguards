@@ -3158,3 +3158,18 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 | plan.md (append only) | grok-hosted-computer-stack-honesty-20260819 | 2026-08-19T15:00:00Z |
 
 - 2026-08-19T15:00Z `grok-hosted-computer-stack-honesty`: OSS Computer blueprint does **not** transfer as OpenClaw/E2B/Cua. Falsifier: `hermes-cloud-runner` `execute()` is POST `/chat/completions` only; Hands is `HOSTED_BROWSER_CUE_RES` + `browserHealthUrl()` (`POLICY_CUE_NOT_DRIVER`); economic-router is not imported by the runner. Doctor refuses clone installs. Did not vendor those products. ECI: no hosted-app expansion.
+
+| T-THUMBGATE-APP-CURSOR-BLOG-20260819 | First-party Cursor-format /blog on thumbgate.app for hosted Hermes $10 | in_progress | grok-thumbgate-app-cursor-blog-20260819 | `apps/hermes-control-plane/app/blog/**`, `apps/hermes-control-plane/app/sitemap.ts`, `apps/hermes-control-plane/app/page.tsx` (footer Blog link), `apps/hermes-control-plane/app/llms.txt/route.ts`, `apps/hermes-control-plane/tests/blog-cursor-format.test.mjs`, `.intent/contract.yaml` (OFFER-005), `plan.md` | AGENT-417 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| apps/hermes-control-plane/app/blog/** | grok-thumbgate-app-cursor-blog-20260819 | 2026-08-19T15:35:00Z |
+| apps/hermes-control-plane/app/sitemap.ts | grok-thumbgate-app-cursor-blog-20260819 | 2026-08-19T15:35:00Z |
+| apps/hermes-control-plane/app/page.tsx (footer Blog link only) | grok-thumbgate-app-cursor-blog-20260819 | 2026-08-19T15:35:00Z |
+| apps/hermes-control-plane/app/llms.txt/route.ts (discovery line) | grok-thumbgate-app-cursor-blog-20260819 | 2026-08-19T15:35:00Z |
+| apps/hermes-control-plane/tests/blog-cursor-format.test.mjs | grok-thumbgate-app-cursor-blog-20260819 | 2026-08-19T15:35:00Z |
+| .intent/contract.yaml (OFFER-005 only) | grok-thumbgate-app-cursor-blog-20260819 | 2026-08-19T15:35:00Z |
+| plan.md (append only) | grok-thumbgate-app-cursor-blog-20260819 | 2026-08-19T15:35:00Z |
+
+- 2026-08-19T15:35Z `grok-thumbgate-app-cursor-blog`: Cursor blog FORMAT on **thumbgate.app** (not thumbgate.ai). Index = date + topic + author + min read. One product post: Give hosted Hermes a job. No Continuity hero, no $499. First-party surface; do not re-post the same hook already LIVE on dev.to.
