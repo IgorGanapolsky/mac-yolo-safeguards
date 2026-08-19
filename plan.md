@@ -3108,3 +3108,8 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 | plan.md (append only) | grok-husky-hooks-path-20260818 | 2026-08-18T20:05:00Z |
 
 - 2026-08-18T20:05Z `grok-husky-hooks-path`: typicode/husky does **not** transfer as a package. We already have `.githooks` + installer. Steal: keep `core.hooksPath` the relative token `.githooks` so worktrees do not run the primary dirty hook. Doctor refuses `--add-husky`. Did not edit `.githooks/pre-commit` (T-WORKTREE historical).
+
+## Discovered / Decisions (append-only)
+
+| T-GIT-AT-SCALE-CURSOR-20260819 | Steal Cursor Continuity client mechanics: multi-pack-index, geometric maintenance, safe agent-worktree GC, tip-consistency scorecard (NOT Origin hosting) | done | grok-git-at-scale-20260819 | `tools/git-at-scale-engine.js`, `tests/test-git-at-scale-engine.js`, `bin/git-at-scale`, `.agents/skills/git-at-scale/SKILL.md`, `plan.md` | unit tests PASS; live midx on mac-yolo+ThumbGate |
+
