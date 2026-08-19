@@ -8,6 +8,8 @@ import {
 import { captureFirstError } from "@/lib/sentry";
 import { resolveAnalyticsEvent } from "@/lib/analytics-events";
 
+// Allowlist (lib/analytics-events.ts): "example_task_click" "give_work_click" "hosted_checkout_click" "landing_view"
+
 const FUNNEL_SCHEMA_VERSION = 1;
 
 const ALLOWED_ERROR_CLASSES = new Set([
