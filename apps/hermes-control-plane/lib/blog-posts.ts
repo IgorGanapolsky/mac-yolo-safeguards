@@ -131,6 +131,38 @@ export const BLOG_POSTS: BlogPost[] = [
       },
     ],
   },
+  {
+    slug: "agent-telemetry-should-be-content-free",
+    title: "Your agent's telemetry should be content-free",
+    description:
+      "This week's backlash over an AI assistant logging users' keystrokes is a preview of the agent era's trust problem. What an always-on agent's control plane should record — and what it must never see.",
+    category: "ideas",
+    publishedAt: "2026-08-19",
+    author: "Igor Ganapolsky",
+    readMinutes: 4,
+    sections: [
+      {
+        paragraphs: [
+          "This week a major AI assistant made headlines for a feature that, as reported, captures what users type as they type it. Whatever the implementation details turn out to be, the reaction is the story: people assumed the worst instantly, because nothing in how most AI products are built earns the benefit of the doubt.",
+          "For agents the stakes are higher than for chatbots. An always-on agent touches your repositories, your inboxes, your infrastructure. Its control plane sits in the most privileged observation seat imaginable. If that seat records content, you have built a surveillance product with an agent attached.",
+        ],
+      },
+      {
+        heading: "What our control plane records",
+        paragraphs: [
+          "Hosted Hermes runs on a fenced VPS, and thumbgate.app is the pane of glass over it. The analytics that pane collects are aggregate counters with a hard schema: an event name, a day, and optional first-party campaign tokens. No prompts. No thread contents. No keystrokes. No email addresses, IP addresses, cookies, or user-agent strings. Free-form fields are dropped at the door — the endpoint rejects anything not on a fixed allowlist.",
+          "Task receipts — the audit trail of what your agent actually did — are the opposite of telemetry: they exist for you, not us. They stay inside your authenticated workspace, and public aggregate stats are computed with canary runs excluded and identities never exposed.",
+        ],
+      },
+      {
+        heading: "Counts, not contents",
+        paragraphs: [
+          "The honest argument for content-free telemetry is that counts are enough. Counts tell us whether the funnel works, whether runs succeed, and where p95 latency lives. Contents would tell us what your business is doing — and that is not ours to know. The whole premise of an approval-gated agent is that the human holds the sensitive decisions; a control plane that quietly reads everything would make that promise a costume.",
+          "If you are evaluating any always-on agent — ours included — ask one question first: show me exactly what your control plane records when my agent runs. The answer should fit in a paragraph, and it should contain the word no more often than yes.",
+        ],
+      },
+    ],
+  },
 ];
 
 export function getPost(slug: string): BlogPost | undefined {
