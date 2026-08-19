@@ -20,6 +20,7 @@ const {
   getScaleScorecard,
   hasMultiPackIndex,
   hasCommitGraph,
+  isUnderBase,
 } = require('../tools/git-at-scale-engine');
 
 function mkTmpRepo() {
@@ -197,6 +198,23 @@ console.log('Testing git-at-scale-engine...');
     assert.strictEqual(tip.localTip, tip.remoteTip);
   } finally {
     rmrf(bare);
+  }
+}
+
+// --- lexical containment before realpath (Copilot #1844) ---
+{
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'git-at-scale-base-'));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'git-at-scale-out-'));
+  const linkInside = path.join(base, 'escape-link');
+  try {
+    fs.symlinkSync(outside, linkInside);
+    assert.strictEqual(isUnderBase(path.join(base, 'child'), base), true);
+    assert.strictEqual(isUnderBase(outside, base), false);
+    // Symlink lives lexically under base but resolves outside → reject
+    assert.strictEqual(isUnderBase(linkInside, base), false);
+  } finally {
+    rmrf(base);
+    rmrf(outside);
   }
 }
 

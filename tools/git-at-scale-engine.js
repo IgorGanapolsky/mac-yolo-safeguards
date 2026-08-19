@@ -183,10 +183,38 @@ function spawnWorktree(branchName, options = {}) {
   return { success: true, path: targetDir, branch: branchName, reused: false };
 }
 
+function pathIsUnder(candidate, root) {
+  return candidate === root || candidate.startsWith(root + path.sep);
+}
+
+/**
+ * Containment: lexical under-base check first (no symlink follow), then
+ * realpath must still stay under the resolved base (reject escapes).
+ * Handles macOS /var ↔ /private/var aliasing on the base path.
+ * Fixes Copilot "realpath before validate" note on #1844.
+ */
 function isUnderBase(wtPath, basePath) {
-  const realWt = fs.existsSync(wtPath) ? fs.realpathSync(wtPath) : path.resolve(wtPath);
-  const realBase = fs.existsSync(basePath) ? fs.realpathSync(basePath) : path.resolve(basePath);
-  return realWt === realBase || realWt.startsWith(realBase + path.sep);
+  const absBase = path.resolve(basePath);
+  let realBase = absBase;
+  try {
+    if (fs.existsSync(absBase)) realBase = fs.realpathSync(absBase);
+  } catch {
+    realBase = absBase;
+  }
+
+  const absWt = path.resolve(wtPath);
+  const lexicalOk = pathIsUnder(absWt, absBase) || pathIsUnder(absWt, realBase);
+  if (!lexicalOk) return false;
+
+  // Nothing on disk yet → no symlink to follow; lexical under-base is enough.
+  if (!fs.existsSync(absWt)) return true;
+
+  try {
+    const realWt = fs.realpathSync(absWt);
+    return pathIsUnder(realWt, realBase);
+  } catch {
+    return false;
+  }
 }
 
 function isPorcelainClean(wtPath) {
@@ -426,6 +454,7 @@ module.exports = {
   parseCountObjects,
   hasCommitGraph,
   hasMultiPackIndex,
+  isUnderBase,
   runMaintenance,
   listWorktrees,
   spawnWorktree,
