@@ -3252,3 +3252,18 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 | plan.md (append only) | grok-gurobi-harness-gate-20260819 | 2026-08-19T17:20:00Z |
 
 - 2026-08-19T17:20Z `grok-gurobi-harness-gate`: PhaseOneKit2 remaining process. Steal: touchpoint map (swap CLI/lib only) + env/seed-variance log + heuristic saturate/all-frontier vs certified. Did not copy PDFs/Wiley. Did not edit `examples/gurobi/` or `tools/gurobi-fleet-optimize.py`. No Gurobi SKU, no ThumbGate paid knapsack (ECI). AGENT-423 / PR #1872.
+
+| T-GUROBI-BEYOND-LLMS-20260819 | Beyond LLMs podcast steal: certified allocation is not execute license; append-only decision audit + repeatability fingerprint; human oversight for ADB/spend/send. | in_progress | grok-gurobi-beyond-llms-20260819 | `tools/gurobi-decision-audit.js` (new), `tests/test-gurobi-decision-audit.js` (new), `.agents/skills/gurobi-decision-audit/` (new), `tools/gurobi-harness-gate.js` (record hook), `SKILLS.md` (append row), `plan.md` | AGENT-428 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/gurobi-decision-audit.js | grok-gurobi-beyond-llms-20260819 | 2026-08-19T17:15:00Z |
+| tests/test-gurobi-decision-audit.js | grok-gurobi-beyond-llms-20260819 | 2026-08-19T17:15:00Z |
+| .agents/skills/gurobi-decision-audit/SKILL.md | grok-gurobi-beyond-llms-20260819 | 2026-08-19T17:15:00Z |
+| .agents/skills/gurobi-decision-audit/skill-card.md | grok-gurobi-beyond-llms-20260819 | 2026-08-19T17:15:00Z |
+| tools/gurobi-harness-gate.js (record hook) | grok-gurobi-beyond-llms-20260819 | 2026-08-19T17:15:00Z |
+| SKILLS.md (append row only) | grok-gurobi-beyond-llms-20260819 | 2026-08-19T17:15:00Z |
+| plan.md (append only) | grok-gurobi-beyond-llms-20260819 | 2026-08-19T17:15:00Z |
+
+- 2026-08-19T17:15Z `grok-gurobi-beyond-llms`: Podcast https://www.gurobi.com/resources/podcasts/beyond-llms (Adam Dejans Jr / David O'Keefe). Steal: governance — certified $10/ADB proof is observe-only; append-only JSONL audit; fingerprint for repeatability. Did not copy audio/transcript. No Intelligence Hub, no trial SKU, no ThumbGate paid knapsack (ECI). AGENT-428.
