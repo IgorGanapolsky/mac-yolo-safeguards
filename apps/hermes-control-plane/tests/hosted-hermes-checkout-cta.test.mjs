@@ -53,13 +53,13 @@ test("signin, login, and checkout aliases 307 to WorkOS login (not 404)", () => 
   assert.match(checkout, /Location: "\/dashboard"/);
 });
 
-test("Hermes Mobile /go/ios and /go/android stay store 302s", () => {
+test("Hermes Mobile /go/ios and /go/android 301 to / (no store 302 on this host)", () => {
   const ios = read("app/go/ios/route.ts");
   const android = read("app/go/android/route.ts");
-  assert.match(ios, /APP_STORE_URL/);
-  assert.match(ios, /302/);
-  assert.doesNotMatch(ios, /Location:\s*"\/"/);
-  assert.match(android, /PLAY_STORE_URL/);
-  assert.match(android, /302/);
-  assert.doesNotMatch(android, /Location:\s*"\/"/);
+  assert.match(ios, /status:\s*301/);
+  assert.match(ios, /Location:\s*"\/"/);
+  assert.doesNotMatch(ios, /APP_STORE_URL|Response\.redirect/);
+  assert.match(android, /status:\s*301/);
+  assert.match(android, /Location:\s*"\/"/);
+  assert.doesNotMatch(android, /PLAY_STORE_URL|Response\.redirect/);
 });
