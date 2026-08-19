@@ -3284,3 +3284,17 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 | plan.md (append only) | grok-rule-sprawl-20260819 | 2026-08-19T17:30:00Z |
 
 - 2026-08-19T17:30Z `grok-rule-sprawl`: TNS webinar email `~/Downloads/newstack.pdf` (2026-08-19). Steal: load-all vs knapsack under eval/token budget; retrieveWithLatencyBudget (singleflight + stale TTL); review volume is not the control. Did not clone OpenSearch/PPL/UAM (sibling PR #1868). No observability SKU, no ThumbGate paid outreach (ECI). `capturedRevenueUsd=0`. AGENT-429.
+
+| T-HIDDEN-ENTRY-NOT-BRIGHTTALK-20260819 | BrightTALK weekly-rec steal: interest-ranked digest of hidden agent-tool-call entry points (PreToolUse unwired, dynamic tools, missing identity). Drop vendor theater. Do not clone BrightTALK/SailPoint/Strike48/ISO 42001 (PR #1868). | in_progress | grok-hidden-entry-20260819 | `tools/hidden-entry.js` (new), `tests/test-hidden-entry.js` (new), `.agents/skills/hidden-entry-not-brighttalk/`, `SKILLS.md` (append row), `plan.md` | AGENT-430 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/hidden-entry.js | grok-hidden-entry-20260819 | 2026-08-19T17:50:00Z |
+| tests/test-hidden-entry.js | grok-hidden-entry-20260819 | 2026-08-19T17:50:00Z |
+| .agents/skills/hidden-entry-not-brighttalk/SKILL.md | grok-hidden-entry-20260819 | 2026-08-19T17:50:00Z |
+| .agents/skills/hidden-entry-not-brighttalk/skill-card.md | grok-hidden-entry-20260819 | 2026-08-19T17:50:00Z |
+| SKILLS.md (append row only) | grok-hidden-entry-20260819 | 2026-08-19T17:50:00Z |
+| plan.md (append only) | grok-hidden-entry-20260819 | 2026-08-19T17:50:00Z |
+
+- 2026-08-19T17:50Z `grok-hidden-entry`: BrightTALK weekly rec (`~/Downloads/brighttalk.pdf` referenced 2026-08-19; Downloads was empty this turn — steal from existing `/hidden-entry-not-brighttalk` skill). Digest not webinar product. Did not clone ISO/SailPoint (PR #1868). Did not extend `brighttalk-feed-cron-ingestor.js` 10/10 theater. No SOC SKU (ECI). `iso42001Certified=false` `capturedRevenueUsd=0`. AGENT-430.
