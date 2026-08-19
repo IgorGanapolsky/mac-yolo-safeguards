@@ -18,6 +18,7 @@ import {
   runnerHealthy,
   waitForHostedReady,
 } from "./hosted-apphost";
+import { GRB, certifyHostedLive } from "./hosted-live-iis.js";
 
 // Aspire WaitFor lesson: Running ≠ Ready. Dependents wait until healthy.
 
@@ -195,6 +196,69 @@ describe("hostedConnectionCopy", () => {
     expect(hostedResourceLabel("waiting")).toBe("Waiting");
     expect(hostedResourceLabel("healthy")).toBe("Healthy");
     expect(hostedResourceLabel("unhealthy")).toBe("Unhealthy");
+  });
+
+  it("does not claim live when spend>0 without approval", () => {
+    const copy = hostedConnectionCopy({
+      runnerStatus: "healthy",
+      modelStatus: "healthy",
+      spendUsd: 12,
+      spendApproved: false,
+    });
+    expect(copy.live).toBe(false);
+    expect(copy.headline.toLowerCase()).not.toContain("live");
+  });
+
+  it("stays live when spend>0 is approved", () => {
+    const copy = hostedConnectionCopy({
+      runnerStatus: "healthy",
+      modelStatus: "healthy",
+      spendUsd: 12,
+      spendApproved: true,
+    });
+    expect(copy.live).toBe(true);
+    expect(copy.headline).toBe("Hosted Hermes live");
+  });
+});
+
+describe("hosted live IIS certificate", () => {
+  it("is feasible when healthy+spend0", () => {
+    const cert = certifyHostedLive({
+      runnerHealthy: true,
+      modelAlive: true,
+      spendUsd: 0,
+    });
+    expect(cert.Status).toBe(GRB.OPTIMAL);
+    expect(cert.live).toBe(true);
+    expect(cert.IISConstrName).toEqual([]);
+  });
+
+  it("is infeasible when the runner is down", () => {
+    const cert = certifyHostedLive({
+      runnerHealthy: false,
+      modelAlive: true,
+      spendUsd: 0,
+    });
+    expect(cert.Status).toBe(GRB.INFEASIBLE);
+    expect(cert.live).toBe(false);
+    expect(cert.IISConstr.runner_healthy).toBe(1);
+  });
+
+  it("is infeasible when spend>0 without approval", () => {
+    const cert = certifyHostedLive({
+      runnerHealthy: true,
+      modelAlive: true,
+      spendUsd: 1,
+      spendApproved: false,
+    });
+    expect(cert.Status).toBe(GRB.INFEASIBLE);
+    expect(cert.live).toBe(false);
+    expect(cert.IISConstr.spend_zero_or_approved).toBe(1);
+  });
+
+  it("sets live false when the IIS is infeasible", () => {
+    expect(certifyHostedLive({ runnerHealthy: false, modelAlive: true, spendUsd: 0 }).live).toBe(false);
+    expect(hostedConnectionCopy({ runnerStatus: "unhealthy", modelStatus: "healthy" }).live).toBe(false);
   });
 });
 
