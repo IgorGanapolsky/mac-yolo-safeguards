@@ -17,6 +17,8 @@ export type GatedToolClass = (typeof GATED_TOOL_CLASSES)[number];
 
 export const HITL_APPROVAL_SURFACE = "thumbgate.app" as const;
 export const OUTBOUND_EMAIL_MODE = "drafts_only" as const;
+/** Morning-after window. An open interrupt older than this fail-closes. */
+export const OVERNIGHT_INTERRUPT_TTL_MS = 8 * 60 * 60 * 1000;
 
 export type HitlInterruptConfig = {
   allow_ignore: boolean;
@@ -54,6 +56,7 @@ export type HostedHitlInterrupt = {
   status: "open" | "accepted" | "ignored" | "edited" | "denied";
   toolClass: GatedToolClass;
   surface: typeof HITL_APPROVAL_SURFACE;
+  openedAt: number;
 };
 
 export type HostedToolReceipt = {
@@ -165,6 +168,16 @@ export function classifyGatedTool(input: {
   return null;
 }
 
+export function isOvernightUnresolved(input: {
+  openedAt?: number | null;
+  now?: number | null;
+} = {}): boolean {
+  const openedAt = Number(input.openedAt);
+  const now = Number(input.now);
+  if (!Number.isFinite(openedAt) || !Number.isFinite(now)) return false;
+  return now - openedAt >= OVERNIGHT_INTERRUPT_TTL_MS;
+}
+
 export function interruptConfigForClass(toolClass: GatedToolClass): HitlInterruptConfig {
   if (!(GATED_TOOL_CLASSES as readonly string[]).includes(toolClass)) {
     return { ...DEFAULT_GATED_INTERRUPT_CONFIG };
@@ -267,10 +280,15 @@ export function createHostedHitlInterrupt(input: {
   actionClass?: string;
   args?: Record<string, unknown>;
   description?: string;
+  now?: number;
+  openedAt?: number;
 } = {}): HostedHitlInterrupt | null {
   const toolClass = classifyGatedTool(input);
   if (!toolClass) return null;
   const action = String(input.action ?? input.tool ?? toolClass).trim() || toolClass;
+  const openedAt = Number.isFinite(input.openedAt) ? Number(input.openedAt)
+    : Number.isFinite(input.now) ? Number(input.now)
+    : Date.now();
   return {
     action_request: {
       action,
@@ -281,6 +299,7 @@ export function createHostedHitlInterrupt(input: {
     status: "open",
     toolClass,
     surface: HITL_APPROVAL_SURFACE,
+    openedAt,
   };
 }
 
@@ -317,6 +336,7 @@ export function completeGatedHostedTool(input: {
   humanDecision?: HumanHitlDecision | null;
   surface?: string | null;
   now?: number;
+  openedAt?: number;
 } = {}): {
   completed: boolean;
   sent: boolean;
@@ -394,6 +414,22 @@ export function completeGatedHostedTool(input: {
 
   const decision = input.humanDecision ?? null;
   if (!decision || !decision.type) {
+    const openedAt = interrupt?.openedAt ?? input.openedAt ?? input.now;
+    if (isOvernightUnresolved({ openedAt, now: input.now ?? Date.now() })) {
+      return {
+        ...closed,
+        completed: false,
+        interrupt: interrupt ? { ...interrupt, status: "denied" } : null,
+        receipt: receipt({
+          tool: input.tool,
+          action: input.action,
+          outcome: "denied",
+          note: "Unresolved overnight. HITL interrupt fail-closed in thumbgate.app. The tool did not send, spend, or mutate prod.",
+          interruptStatus: "denied",
+          now: input.now,
+        }),
+      };
+    }
     return {
       ...closed,
       completed: false,

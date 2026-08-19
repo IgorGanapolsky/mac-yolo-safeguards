@@ -3,11 +3,13 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   DEFAULT_GATED_INTERRUPT_CONFIG,
+  OVERNIGHT_INTERRUPT_TTL_MS,
   completeGatedHostedTool,
   createHostedHitlInterrupt,
   evaluateHostedToolApproval,
   evaluateOutboundEmail,
   interruptConfigForClass,
+  isOvernightUnresolved,
   parseHostedToolPolicy,
   persistHumanDeny,
 } from "../lib/hosted-tool-approvals.ts";
@@ -121,12 +123,50 @@ test("unresolved interrupt is a fail-closed pause, not success", () => {
     policy: { mode: "always-allow", rules: [] },
     humanDecision: null,
     now: NOW,
+    openedAt: NOW,
   });
   assert.equal(result.completed, false);
   assert.equal(result.spent, false);
   assert.equal(result.receipt.outcome, "paused");
   assert.equal(result.interrupt?.status, "open");
+  assert.equal(result.interrupt?.openedAt, NOW);
   assert.match(result.receipt.note, /does not send, spend, or mutate prod/);
+  assert.equal(isOvernightUnresolved({ openedAt: NOW, now: NOW }), false);
+});
+
+test("unresolved overnight fail-closes and does not send or spend", () => {
+  const openedAt = NOW;
+  const morning = NOW + OVERNIGHT_INTERRUPT_TTL_MS;
+  assert.equal(isOvernightUnresolved({ openedAt, now: morning }), true);
+  const result = completeGatedHostedTool({
+    tool: "stripe_charge",
+    action: "charge",
+    actionClass: "money",
+    policy: { mode: "always-allow", rules: [] },
+    humanDecision: null,
+    openedAt,
+    now: morning,
+  });
+  assert.equal(result.completed, false);
+  assert.equal(result.sent, false);
+  assert.equal(result.spent, false);
+  assert.equal(result.mutatedProd, false);
+  assert.equal(result.receipt.outcome, "denied");
+  assert.equal(result.interrupt?.status, "denied");
+  assert.match(result.receipt.note, /Unresolved overnight/);
+});
+
+test("human accept after overnight still counts on thumbgate.app", () => {
+  const result = completeGatedHostedTool({
+    tool: "deploy",
+    action: "production",
+    actionClass: "production",
+    openedAt: NOW,
+    now: NOW + OVERNIGHT_INTERRUPT_TTL_MS,
+    humanDecision: { type: "accept", surface: "thumbgate.app" },
+  });
+  assert.equal(result.completed, true);
+  assert.equal(result.interrupt?.status, "accepted");
 });
 
 test("deny-beats-allow: prior human deny wins over a later parsed allow", () => {
