@@ -66,8 +66,18 @@ adb -s "$DEVICE" uninstall "$TARGET_ANDROID_PACKAGE" 2>/dev/null || true
 adb -s "$DEVICE" install -r "$APK_OUT"
 adb -s "$DEVICE" shell pm path "$TARGET_ANDROID_PACKAGE" >/dev/null
 
+# save_key.yaml needs the real gateway key. It used to be committed inside the flow, which
+# is how it ended up readable in this public repo; it is supplied at run time now.
+if [ -z "${GATEWAY_API_KEY:-}" ]; then
+  echo "ERROR: GATEWAY_API_KEY is not set — the suite would type a placeholder into the" >&2
+  echo "       gateway key field and report a pass over coverage that never ran." >&2
+  echo "       Supply it from your local secret store, e.g.:" >&2
+  echo "         export GATEWAY_API_KEY=\$(grep '^API_SERVER_KEY=' ~/.hermes/.env | cut -d= -f2-)" >&2
+  exit 1
+fi
+
 echo "Running Maestro full suite against $TARGET_ANDROID_PACKAGE (sequential)..."
 bash "$HERMES_DIR/scripts/run-maestro-for-app.sh" ".maestro/full-suite.yaml" \
-  -p android --udid "$DEVICE"
+  -p android --udid "$DEVICE" -e "GATEWAY_API_KEY=$GATEWAY_API_KEY"
 
 echo "=== Device E2E: PASS ==="
