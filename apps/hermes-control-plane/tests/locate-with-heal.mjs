@@ -1,10 +1,13 @@
 /**
- * Hosted Hermes $10 e2e — Functionize-style locator fallback (not a QA product).
+ * Hosted Hermes $10 e2e — Functionize-style locator fallback + Diagnose-Agent RCA
+ * (not a QA product, not NLP test authoring, not CV / Functionize SDK).
  *
  * Tries candidates in order and returns the first visible locator so a moved
- * #hermes-thread-list / data-testid / role / text selector does not fail the
- * step. On a total miss, returns/throws a named RCA object instead of a vibe
- * "timeout". Not live self-heal in production; not NLP, CV, or Functionize SDK.
+ * #hermes-thread-list / .dashboard-task / checkout CTA does not fail the step.
+ * If a later candidate wins, the hit includes healed: { from, to }.
+ * On a total miss, returns/throws a JSON-serializable RCA object (named step,
+ * expected/actual/rootCause) instead of a vibe "timeout". Dump the RCA to
+ * "chat about a run" — do not add NL test authoring. Not live.
  *
  * Candidate shapes:
  *   "#id" | ".class" | "[data-testid=...]"   → page.locator(css)
@@ -13,6 +16,9 @@
  *   { text: "Checkout" }                     → getByText
  *   { css: ".dashboard-task", hasText: "…" } → locator(css, { hasText })
  */
+
+import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
 
 export const HERMES_THREAD_LIST_CANDIDATES = [
   "#hermes-thread-list",
@@ -87,15 +93,45 @@ function resolveCandidate(page, candidate) {
   return { locator: null, label };
 }
 
-function rcaMiss(step, tried, reason) {
-  return { ok: false, step, tried, reason };
+function screenshotFileName(step) {
+  return `${String(step).replace(/[/\\]/g, "_")}.png`;
+}
+
+async function maybeScreenshot(page, opts, step) {
+  const dir = opts.screenshotDir;
+  if (!dir || !page || typeof page.screenshot !== "function") return null;
+  const screenshotPath = join(dir, screenshotFileName(step));
+  try {
+    await mkdir(dir, { recursive: true });
+    await page.screenshot({ path: screenshotPath });
+    return screenshotPath;
+  } catch {
+    return null;
+  }
+}
+
+function rcaMiss({ step, tried, expected, screenshotPath }) {
+  return {
+    ok: false,
+    step,
+    expected: expected ?? tried[0] ?? "",
+    actual: "none visible",
+    rootCause: "locator-miss",
+    tried,
+    screenshotPath: screenshotPath ?? null,
+    reason: `locator-miss at step "${step}"`,
+  };
 }
 
 function rcaError(miss) {
-  const err = new Error(`[${miss.step}] ${miss.reason}; tried=${JSON.stringify(miss.tried)}`);
-  err.ok = false;
+  const err = new Error(JSON.stringify(miss));
+  err.ok = miss.ok;
   err.step = miss.step;
+  err.expected = miss.expected;
+  err.actual = miss.actual;
+  err.rootCause = miss.rootCause;
   err.tried = miss.tried;
+  err.screenshotPath = miss.screenshotPath;
   err.reason = miss.reason;
   err.rca = miss;
   return err;
@@ -114,8 +150,7 @@ async function visible(locator, timeout) {
 /**
  * @param {object} page Playwright page or a test double
  * @param {Array<string|object>} candidates
- * @param {{ step?: string, timeout?: number, throwOnMiss?: boolean }} [opts]
- * @returns {Promise<{ok:true, locator: object, matched: string, tried: string[], step: string}|{ok:false, step: string, tried: string[], reason: string}>}
+ * @param {{ step?: string, timeout?: number, throwOnMiss?: boolean, screenshotDir?: string }} [opts]
  */
 export async function locateWithHeal(page, candidates, opts = {}) {
   const step = opts.step || "locate";
@@ -123,9 +158,15 @@ export async function locateWithHeal(page, candidates, opts = {}) {
   const throwOnMiss = opts.throwOnMiss !== false;
   const list = Array.isArray(candidates) ? candidates : [];
   const tried = [];
+  const expected = list.length ? candidateLabel(list[0]) : "";
 
   if (list.length === 0) {
-    const miss = rcaMiss(step, tried, `no candidates for step "${step}"`);
+    const miss = rcaMiss({
+      step,
+      tried,
+      expected,
+      screenshotPath: await maybeScreenshot(page, opts, step),
+    });
     if (throwOnMiss) throw rcaError(miss);
     return miss;
   }
@@ -135,15 +176,18 @@ export async function locateWithHeal(page, candidates, opts = {}) {
     tried.push(label);
     const handle = locator && typeof locator.first === "function" ? locator.first() : locator;
     if (await visible(handle, timeout)) {
-      return { ok: true, locator: handle, matched: label, tried, step };
+      const matched = label;
+      const healed = matched !== tried[0] ? { from: tried[0], to: matched } : null;
+      return { ok: true, locator: handle, matched, tried, step, healed };
     }
   }
 
-  const miss = rcaMiss(
+  const miss = rcaMiss({
     step,
     tried,
-    `none of ${tried.length} locators visible for step "${step}"`,
-  );
+    expected,
+    screenshotPath: await maybeScreenshot(page, opts, step),
+  });
   if (throwOnMiss) throw rcaError(miss);
   return miss;
 }
