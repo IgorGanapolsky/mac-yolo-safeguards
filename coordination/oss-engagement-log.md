@@ -79,6 +79,88 @@ last report.
 
 ---
 
+## 2026-08-19 (mid-day) — same-day re-check: nothing new, cross-owner wall unchanged
+
+Ran between the AM entry (below) and the separately-logged PM entry (above, merged to `main`
+while this run's own PR was open — see PR #1838's conflict history). Independently re-ran
+the same survey rather than trusting either the AM entry or PR #1835 blind.
+
+### Repos surveyed
+
+| Org | Repos | Method |
+|-----|-------|--------|
+| Thinking Machines Lab | `thinking-machines-lab/tinker`, `tinker-cookbook` | `search_issues` `created:>2026-08-18` |
+| Poolside AI | `poolsideai` org | `search_issues` `org:poolsideai created:>2026-08-18` |
+| LanceDB | `lancedb` org (`lancedb`, `lance`) | `search_issues` `org:lancedb created:>2026-08-18` |
+
+All four queries returned **zero** new issues since 2026-08-18 as of this run's survey
+window — the PM entry above later found `tinker-cookbook#907` using a wider
+`created:>2026-08-17` window and its own timing (opened 2026-08-18T21:16 UTC, after this
+run's survey), which explains why this run didn't surface it.
+
+### Cross-owner wall
+
+Re-tested once, silently, per standing policy: `add_repo` (push access) for `lancedb/lancedb`
+failed again with `cross-tier adds are not supported in v1: requested "lancedb/lancedb" but
+session already has repos from owner(s) [igorganapolsky]`. Read-only `add_repo` still works
+fine for all three orgs (public anonymous git proxy), confirming this is specifically a
+push-credential/API-scope wall, not a repo-visibility one. Identical to every run back to
+2026-08-04.
+
+### Parked reference issues re-checked
+
+Confirmed via `search_issues` (by number, since direct `issue_read` on non-`igorganapolsky`
+repos is blocked by the wall above) that all previously-identified fixes are still open
+upstream with no competing PR landed:
+
+- `lancedb/lancedb#3915` (list_tables pagination boundary) — open, unchanged.
+- `lancedb/lancedb#2900` (create_table signature drift, Remote vs local) — open, unchanged.
+- `lancedb/lancedb#3950` (lancedb-compat standalone version lookup) — open, unchanged.
+- `thinking-machines-lab/tinker-cookbook#896` (MMLU-Redux per-subject bucketing) — open,
+  unchanged.
+- `poolsideai/pool#38` (ACP `session/prompt` 400 on `1.0.15`) — open, unchanged.
+- `thinking-machines-lab/tinker` PR #54 (own PR, opened 2026-08-03) — still open, still no
+  maintainer response, now 16 days.
+
+Also re-verified the four parked fork branches resolve to the exact commit hashes recorded
+in the 2026-08-18 entries via `git ls-remote` against `IgorGanapolsky/lancedb` and
+`IgorGanapolsky/tinker` — all four present, nothing lost:
+`fix/remote-create-table-storage-options` (`577a9e5`), `fix/compat-dist-version-lookup`
+(`a48a9cc`), `fix/list-tables-pagination-boundary-v2` (`c2e8ce7`),
+`fix/sync-only-async-method-name-v2` (`00b31d6`). `coordination/patches/` and
+`coordination/ready-to-post/` still hold the tinker-cookbook#896 patch and the six ready-to-post
+answer/PR-description drafts.
+
+### What was opened / answered
+
+Nothing new — same conclusion as PR #1835 and the PM entry above. No new issue in this
+run's survey window, and duplicating a third "no new activity" narrative into the same log
+on the same day would add nothing beyond confirming the AM survey was accurate.
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| Re-fixing any of the six parked items | Already fixed, tested, and pushed in prior runs; state unchanged |
+| Poking further at the cross-owner wall (retry loops, alternate tool paths) | Already exhaustively probed across 15+ prior firings since 2026-08-04; re-litigating adds no new information |
+| New manufactured question | No real unknown hit this run |
+
+### ThumbGate mentions
+
+**None** this run.
+
+### Action needed from Igor
+
+Unchanged: the cross-owner `add_repo`/PR-creation block (this session is scoped to
+`igorganapolsky/mac-yolo-safeguards` only, and cannot attach push credentials or call
+issue/PR-write GitHub API tools against `lancedb/*`, `thinking-machines-lab/*`, or
+`poolsideai/*`) is still the only thing standing between six fully-verified, tested fixes
+and six real upstream PRs, plus one ready-to-post answer. Not re-escalating with new
+urgency — this is the same known, already-flagged gap, restated here only because the
+routine's own instructions require a dated entry per firing.
+
+---
+
 ## 2026-08-19 — nothing new, cross-owner wall unchanged
 
 First firing today. Surveyed all three orgs for activity since the last (2026-08-18
