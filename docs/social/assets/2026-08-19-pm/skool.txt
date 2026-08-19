@@ -1,0 +1,7 @@
+Saw a study on HN today worth sharing here: 40,000 runs of a game where people had to review AI agent commands before approving them. Humans missed 1 in 3 that were actually dangerous. (340 points, still climbing as of this evening.)
+
+If you're running agents with any kind of approve/deny gate — on your machine, in CI, wherever — this is worth internalizing: the human step is not a safety net by default. It's only as good as the attention behind it, and attention is exactly what runs out at the end of a long day.
+
+I've been building a free gate (Leash, part of ThumbGate) around that assumption rather than against it. No traction numbers to share — this is a solo build-in-public project — but the honest framing seemed worth posting here before anywhere else.
+
+https://thumbgate.app/?utm_source=skool&utm_medium=social&utm_campaign=2026-08-19-pm&cta_id=2026-08-19-pm_skool_home
