@@ -3308,3 +3308,5 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 - 2026-08-19T17:30Z `claude-code` local-document-index: Extending local-coding-model-selector with embedding model detection (mxbai-embed-large 1024d, nomic-embed-text 768d, all-minilm 384d) and creating local-document-index.js (PDF/MD text extraction via pdftotext, Ollama /api/embeddings, JSONL vector store, cosine similarity search) based on pdf-brain pattern from Tom Dörr tweet. High-ROI: repo has coding model selection but no embedding model verification or local document indexing — fills gap for ThumbGate.app local knowledge base.
 
 - 2026-08-20T02:01:26Z grok: T-DASHBOARD-SENT-MSG-INVISIBLE — user Enter on thumbgate.app/dashboard clears composer but conversation-history never shows the prompt (optimistic only hit task-list). Fixing scroll + threadDetails optimistic merge.
+
+- `2026-08-20T02:48:56Z` **grok-pair-lan-seed** claims `tools/hermes-mobile-pair.js`, `tests/test-hermes-mobile-pair.sh` — LAN-first pageUrl/pair.json when clientIp unknown (phone Tailscale off must not get 100.x seed)

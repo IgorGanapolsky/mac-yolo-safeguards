@@ -643,7 +643,20 @@ function buildLivePairHtml({
 
 function resolveCameraPageUrl(lanIp, { clientIp = null } = {}) {
   const lan = String(lanIp || '').trim();
-  if (lan && isLanClient(clientIp)) return `http://${lan}:${PAIR_PORT}/pair`;
+  const lanUsable = Boolean(lan) && lan !== '127.0.0.1' && lan !== 'localhost' && isPrivateIpv4(lan);
+  // Request arrived on LAN → always answer with LAN (phone may have Tailscale VPN off).
+  if (lanUsable && isLanClient(clientIp)) return `http://${lan}:${PAIR_PORT}/pair`;
+  // Request arrived on Tailscale CGNAT → Tailscale page URL.
+  if (clientIp && isCgnatIpv4(normalizeRemoteIp(clientIp))) {
+    const tailnetIp = localTailscaleIpv4();
+    if (tailnetIp) return `http://${tailnetIp}:${PAIR_PORT}/pair`;
+  }
+  // Seed / no client context (pair.json, agent deep links): LAN-first.
+  // CEO 2026-08-20: unconditional Tailscale preference poisoned phones whose
+  // Tailscale app was off — banner said "in Tailscale" / Not connected on Wi‑Fi.
+  // Camera/HTTP live mint still upgrades to Tailscale when the redeem request
+  // arrives over the tailnet (see resolveLiveMintPairServerUrl).
+  if (lanUsable && clientIp == null) return `http://${lan}:${PAIR_PORT}/pair`;
   const tailnetIp = localTailscaleIpv4();
   if (tailnetIp) return `http://${tailnetIp}:${PAIR_PORT}/pair`;
   return `http://${lanIp}:${PAIR_PORT}/pair`;
@@ -651,8 +664,9 @@ function resolveCameraPageUrl(lanIp, { clientIp = null } = {}) {
 
 /**
  * Phone-reachable pair-exchange base for Camera / HTTP / Tailscale QR paths.
- * Prefer Tailscale MagicDNS IP over LAN — cellular phones cannot redeem against
- * 10.x/192.168.x even when the QR page itself was opened via Tailscale.
+ * Prefer LAN for seed / unknown clients (Tailscale VPN may be off on the phone).
+ * Prefer Tailscale only when the redeem request itself arrived over CGNAT/cellular
+ * Tailscale — never when writing static pair.json without a clientIp.
  * Never use 127.0.0.1 here (that only works for adb reverse deep links).
  */
 function resolvePhoneReachablePairServerUrl(lanIp, { clientIp = null } = {}) {
@@ -661,6 +675,12 @@ function resolvePhoneReachablePairServerUrl(lanIp, { clientIp = null } = {}) {
   // A phone that reached us over the LAN can always redeem over the LAN, and may have
   // Tailscale switched off entirely — do not hand it a tailnet address it cannot route to.
   if (lanUsable && isLanClient(clientIp)) return `http://${lan}:${PAIR_PORT}`;
+  if (clientIp && isCgnatIpv4(normalizeRemoteIp(clientIp))) {
+    const tailnetIp = localTailscaleIpv4();
+    if (tailnetIp) return `http://${tailnetIp}:${PAIR_PORT}`;
+  }
+  // Seed / agent deep-link path (no clientIp): LAN-first.
+  if (lanUsable && clientIp == null) return `http://${lan}:${PAIR_PORT}`;
   const tailnetIp = localTailscaleIpv4();
   if (tailnetIp) return `http://${tailnetIp}:${PAIR_PORT}`;
   if (lanUsable) return `http://${lan}:${PAIR_PORT}`;
