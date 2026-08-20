@@ -4,6 +4,80 @@ Dated entries from the autonomous OSS-engagement routine (Thinking Machines Lab 
 
 ---
 
+## 2026-08-20 (follow-up) — nothing new since this morning's run, one previously-unseen Tinker feature request confirmed server-side, cross-owner wall unchanged
+
+Second firing today. Re-surveyed all three orgs for activity since the morning run
+(2026-08-20 AM, `#1892`, merged) rather than repeating that work.
+
+### Repos surveyed
+
+| Org | Repos | Method |
+|-----|-------|--------|
+| LanceDB | `lancedb` org (`lancedb`, `lance`, `lancedb-go`) | `search_issues` `org:lancedb is:issue is:open`, sorted by created desc |
+| Thinking Machines Lab | `thinking-machines-lab` org (`tinker`, `tinker-cookbook`, `tinker-feedback`) | `search_issues` `org:thinking-machines-lab is:issue is:open`, sorted by created desc |
+| Poolside AI | `poolsideai` org (`pool`) | `search_issues` `org:poolsideai is:issue is:open`, sorted by created desc |
+
+### Findings
+
+**LanceDB** — newest open issue is still `#3967` (StreamingDataset `state_dict`), the exact
+issue considered and skipped this morning as maintainer-owned API design. No new issue
+opened since. All other issues on the first page (`#3951`, `#3950`, `#3926`, `#3923`,
+`#3917`, `#3916`, `#3915`, `#3914`, `#3898`, `#3891`, `#3890`, `#3889`, `#3868`) were
+already triaged and logged in prior runs — packaging/CI, pile-on on an existing PR,
+inconclusive-without-repro, feature requests, or already-fixed/parked. Nothing new to act
+on.
+
+**Thinking Machines Lab** — newest `tinker-cookbook` issue is still `#907` (`dro` loss
+masking), skipped in the 2026-08-19 PM run as server-side (hosted training API). One issue
+not previously logged, `tinker-feedback#141` ("Expose literal hidden states and native LoRA
+parameter-to-activation tangents", opened 2026-08-16), was checked directly: `add_repo`
+`thinking-machines-lab/tinker-feedback` hits the same cross-owner wall as every other
+`thinking-machines-lab` repo, so its exact scope (client vs. server) could not be inspected
+from this session, but by both its title and the established pattern for this repo
+(`tinker-feedback` is the hosted-API issue tracker, not a code repo — same category as the
+already-skipped `tinker#25`), it is a feature request against the hosted Tinker training
+service, not something fixable via a client-side PR. Skipped on the same grounds as prior
+`tinker-feedback`/hosted-API items. No new `tinker` or `tinker-cookbook` issue since
+2026-08-18.
+
+**Poolside AI** — newest `pool` issue is still `#41` (`POOLSIDE_STANDALONE_MODEL not
+working`), already triaged and listed among the previously-considered items in the
+2026-08-18 entry. No new issue since. `pool`'s core remains closed-source; no other repo in
+the org has open issues.
+
+### Cross-owner wall
+
+Re-tested once, silently, per standing policy, via a direct `issue_read` probe against
+`thinking-machines-lab/tinker-feedback#141` while investigating that issue above. Unchanged:
+
+- `issue_read` `thinking-machines-lab/tinker-feedback#141` → `Access denied: repository
+  "thinking-machines-lab/tinker-feedback" is not configured for this session. Allowed
+  repositories: igorganapolsky/mac-yolo-safeguards`
+
+Same wall as every prior run back to 2026-08-04, now spanning this run too.
+
+### What was opened / answered
+
+Nothing. No newly actionable issue in any of the three orgs since this morning's run, and
+no question anywhere that this session could both answer usefully and actually post.
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| lancedb#3967 | Already considered and skipped this morning (maintainer-owned API design); unchanged, not re-litigated |
+| tinker-feedback#141 | Feature request against the hosted Tinker training API (server-side), same category as the already-skipped `tinker#25` |
+| tinker-cookbook#907 | Already skipped in the 2026-08-19 PM run (server-side); unchanged |
+| poolsideai/pool#41 | Already triaged in the 2026-08-18 entry; unchanged |
+| Re-surveying issues already logged in prior runs | No new information since the last triage; re-litigating wastes the run without adding anything actionable |
+| New manufactured question | No real unknown hit this run |
+
+### ThumbGate mentions
+
+**None** this run — no one asked about agent write-gating in anything surveyed.
+
+---
+
 ## 2026-08-20 — one new LanceDB issue considered and skipped (author self-fix), cross-owner wall unchanged
 
 First firing on 2026-08-20. Surveyed all three orgs for activity since the last run
