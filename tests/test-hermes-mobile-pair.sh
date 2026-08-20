@@ -496,11 +496,15 @@ else
   bad "scheduled phone job blocks a duplicate submit before running"
 fi
 
-# Default pairing must prefer tailnet IP (5G-safe), not LAN, when --gateway-url is omitted.
-if [[ "$PAIR_JS" == *"localTailscaleIpv4"* ]] && [[ "$PAIR_JS" == *"5G/cellular-safe"* ]]; then
-  ok "pair script prefers tailnet gateway URL for cellular"
+# Default pairing is LAN-first (home Wi‑Fi with Tailscale off). Tailscale stays an
+# alternate / --mini-tailscale / CGNAT remint path — not the seed gatewayUrl default.
+# CEO 2026-08-20: Tailscale-default re-poisoned pair.json → "in Tailscale" while VPN off.
+if [[ "$PAIR_JS" == *"localTailscaleIpv4"* ]] \
+  && [[ "$PAIR_JS" == *"LAN (Wi‑Fi primary"* || "$PAIR_JS" == *"LAN-first"* ]] \
+  && [[ "$PAIR_JS" == *"--mini-tailscale"* ]]; then
+  ok "pair script defaults to LAN gateway URL (Tailscale optional)"
 else
-  bad "pair script prefers tailnet gateway URL for cellular"
+  bad "pair script defaults to LAN gateway URL (Tailscale optional)"
 fi
 
 DISCOVER_JS="$(cat "$REPO/tools/hermes-discover-tailscale-macs.js")"
