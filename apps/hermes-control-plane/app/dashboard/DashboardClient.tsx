@@ -373,6 +373,9 @@ export default function DashboardClient() {
   const composerFormRef = useRef<HTMLFormElement | null>(null);
   /** Optimistic web prompts waiting to appear in /api/thread-messages. */
   const pendingConversationTasksRef = useRef<ConversationTask[]>([]);
+  // Live count of in-flight tasks, read by the adaptive poll loop to decide
+  // its cadence without re-binding the (empty-deps) poll effect.
+  const activeTasksRef = useRef<number>(0);
   // prefetchThreadDetails retries itself from a setTimeout inside its own
   // useCallback body; calling through this ref satisfies the react-compiler
   // access-before-declaration rule and keeps the retry on the latest instance.
@@ -803,13 +806,21 @@ export default function DashboardClient() {
     // "loading" forever with no error shown and no retry signal.
     const run = () => { void loadWorkspace().catch(() => setLoadState("error")); };
     const initial = window.setTimeout(run, 0);
-    // 15s cadence, foreground-only: the old always-on 5s poll made every open
-    // dashboard tab cost ~17k Workers requests/day against the 100k free-tier
-    // daily cap (2026-08-19 quota incident). Hidden tabs stop polling; a fresh
-    // run fires immediately when the tab returns to the foreground.
+    // Adaptive, foreground-only cadence. loadWorkspace() fetches ~6 endpoints per
+    // tick, so a flat 15s poll cost ~35k Workers requests/day PER VISIBLE TAB;
+    // several visible dashboards across browsers blew the 100k free-tier daily
+    // cap (2026-08-20 quota incident: /api/me, /tasks, /threads, /thread-messages,
+    // /devices, /feedback each ~22k). Poll fast only while a task is in flight;
+    // an idle dashboard (the common case) polls every 60s. Hidden tabs stop.
     let timer: number | undefined;
-    const start = () => { if (timer === undefined) timer = window.setInterval(run, 15000); };
-    const stop = () => { if (timer !== undefined) { window.clearInterval(timer); timer = undefined; } };
+    const ACTIVE_MS = 15000;
+    const IDLE_MS = 60000;
+    const schedule = () => {
+      const delay = activeTasksRef.current > 0 ? ACTIVE_MS : IDLE_MS;
+      timer = window.setTimeout(() => { run(); schedule(); }, delay);
+    };
+    const start = () => { if (timer === undefined) schedule(); };
+    const stop = () => { if (timer !== undefined) { window.clearTimeout(timer); timer = undefined; } };
     const onVisibility = () => { if (document.hidden) stop(); else { run(); start(); } };
     if (!document.hidden) start();
     document.addEventListener("visibilitychange", onVisibility);
@@ -858,6 +869,7 @@ export default function DashboardClient() {
         : null,
   });
   const activeTasks = useMemo(() => tasks.filter((task) => !terminal.has(task.status)), [tasks]);
+  useEffect(() => { activeTasksRef.current = activeTasks.length; }, [activeTasks]);
   const visibleTasks = useMemo(() => {
     if (taskFilter === "completed") {
       return tasks.filter((task) => task.status === "completed" && Boolean(task.result));
