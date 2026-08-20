@@ -344,6 +344,10 @@ export default function DashboardClient() {
   const composerFormRef = useRef<HTMLFormElement | null>(null);
   /** Optimistic web prompts waiting to appear in /api/thread-messages. */
   const pendingConversationTasksRef = useRef<ConversationTask[]>([]);
+  // prefetchThreadDetails retries itself from a setTimeout inside its own
+  // useCallback body; calling through this ref satisfies the react-compiler
+  // access-before-declaration rule and keeps the retry on the latest instance.
+  const prefetchThreadDetailsRef = useRef<((threadId: string, opts?: { force?: boolean }) => Promise<void>) | null>(null);
   /**
    * Composer is in-flow (desktop) / sticky above mobile tab bar (document scroll).
    * Keep a real form ref so empty-state CTAs can focus the textarea.
@@ -457,7 +461,7 @@ export default function DashboardClient() {
               // protects the user's optimistic bubble for one more cycle.
               window.setTimeout(() => {
                 if (selectedThreadRef.current === threadId) {
-                  void prefetchThreadDetails(threadId, { force: true });
+                  void prefetchThreadDetailsRef.current?.(threadId, { force: true });
                 }
               }, 500);
               return;
@@ -499,6 +503,10 @@ export default function DashboardClient() {
       preheatInflightRef.current.delete(threadId);
     }
   }, [persistThreadDetails, readCachedThreadDetails]);
+
+  useEffect(() => {
+    prefetchThreadDetailsRef.current = prefetchThreadDetails;
+  }, [prefetchThreadDetails]);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
