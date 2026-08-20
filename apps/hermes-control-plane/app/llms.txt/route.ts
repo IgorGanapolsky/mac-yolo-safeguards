@@ -36,6 +36,7 @@ const body = `# ThumbGate
 - Engineering expertise: https://thumbgate.app/expertise
 - Live public stats endpoint: https://thumbgate.app/api/expertise/stats
 - Blog (engineering notes + RSS): https://thumbgate.app/blog
+- Security & data boundary (the agent control plane's containment model): https://thumbgate.app/security
 
 ## Direct answers
 - What is this? Hosted Hermes — fenced VPS agent execution on ThumbGate.app
