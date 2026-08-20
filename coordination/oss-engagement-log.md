@@ -4,6 +4,86 @@ Dated entries from the autonomous OSS-engagement routine (Thinking Machines Lab 
 
 ---
 
+## 2026-08-20 (mid-day) — two Poolside issues considered and skipped, cross-owner wall unchanged
+
+Second firing on 2026-08-20. Re-surveyed all three orgs for anything new since the morning
+run rather than repeating that work.
+
+### Repos surveyed
+
+| Org | Repos | Method |
+|-----|-------|--------|
+| LanceDB | `lancedb` org (`lancedb`, `lance`) | `search_issues` `org:lancedb created:>2026-08-19`; `label:good-first-issue state:open` sweep |
+| Thinking Machines Lab | `thinking-machines-lab` org (`tinker`, `tinker-cookbook`) | `search_issues` `org:thinking-machines-lab created:>2026-08-18` |
+| Poolside AI | `poolsideai` org, all 12 public repos | `search_issues`/`search_pull_requests` `org:poolsideai created:>2026-08-10`; `search_repositories org:poolsideai` to recheck each repo's open-issue count |
+
+LanceDB and Thinking Machines Lab returned **zero** new issues since the morning survey, and
+the cross-org `good-first-issue` sweep on LanceDB returned zero open results. Poolside AI
+returned two issues, both pre-dating this morning's run but not previously logged.
+
+### Issues considered
+
+**poolsideai/pool [#41](https://github.com/poolsideai/pool/issues/41)** (opened
+2026-08-16, 2 comments) — "`POOLSIDE_STANDALONE_MODEL` not working". Reporter points a
+custom OpenAI-compatible endpoint (`POOLSIDE_STANDALONE_BASE_URL`) at model
+`poolside/laguna-s-2-1` via `POOLSIDE_STANDALONE_MODEL`, but the outgoing request carries
+`model=*` and the endpoint rejects it — plausibly `pool` not substituting the configured
+model ID when a custom base URL is set, or the reporter needing the bare model name without
+the `poolside/` prefix for a non-Poolside endpoint. Investigated but **not answered**: `pool`
+is closed-source (repo `search_code` returns only `README.md` — no client source is indexed
+to confirm which theory is right), and the issue already carries 2 comments this session
+cannot read (`issue_read get_comments` → `Access denied: repository "poolsideai/pool" is not
+configured for this session`, same wall as every prior run). Answering blind risks repeating
+something already said, or contradicting a maintainer reply already on the thread — skipped
+rather than guess. Not logged as "no action" though: worth another look by a session that can
+actually read the thread.
+
+**poolsideai/pool [#40](https://github.com/poolsideai/pool/issues/40)** (opened 2026-08-13)
+— "[Feedback]: Concurrent queue execution and QoL improvements". A feature/UX feedback
+issue (the `[Feedback]:` template used for RLHF-style session feedback, not a bug report),
+not a first-PR-sized bug/test/docs gap. Skipped, same category as prior feedback-template
+skips.
+
+**poolsideai/bridge-sdk** — repo metadata now shows 3 open issues (up from 0 in every prior
+run), which read as promising since it's an actual Python SDK, not closed-source. Checked
+before acting: `search_issues repo:poolsideai/bridge-sdk` returns zero results, and
+`search_pull_requests` shows the 3 are open PRs (2 from `poolside-bot`, 1 Dependabot), not
+issues — GitHub's `open_issues_count` field counts PRs. No new user-filed issue exists.
+Skipped.
+
+### Cross-owner wall
+
+Re-tested once, silently, per standing policy:
+
+- `add_repo` `lancedb/lancedb` (read) → served anonymously via the session's git proxy, no
+  attach needed (confirms read-only clone access, unchanged from always)
+- `add_repo` `lancedb/lancedb` (push) → `cross-tier adds are not supported in v1: requested
+  "lancedb/lancedb" but session already has repos from owner(s) [igorganapolsky]`
+- `issue_read` `poolsideai/pool#41` `get_comments` → `Access denied: repository
+  "poolsideai/pool" is not configured for this session. Allowed repositories:
+  igorganapolsky/mac-yolo-safeguards`
+
+Unchanged, same wall documented every run since 2026-08-04.
+
+### What was opened / answered
+
+Nothing. No newly actionable, verifiable issue in any of the three orgs this firing.
+
+### Deliberately skipped
+
+| Item | Why |
+|------|-----|
+| poolsideai/pool#41 | Genuine question, but closed-source repo (can't verify root cause against source) and 2 existing comments this session cannot read (cross-owner wall) — answering blind risks being wrong or redundant |
+| poolsideai/pool#40 | Feedback-template issue (UX/QoL), not a bug/test/docs gap |
+| poolsideai/bridge-sdk "3 open issues" | Actually 3 open PRs (bot-authored), not user-filed issues |
+| New manufactured question | No real unknown hit this run |
+
+### ThumbGate mentions
+
+**None** this run — nothing surveyed asked about agent write-gating.
+
+---
+
 ## 2026-08-20 — one new LanceDB issue considered and skipped (author self-fix), cross-owner wall unchanged
 
 First firing on 2026-08-20. Surveyed all three orgs for activity since the last run
