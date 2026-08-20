@@ -40,7 +40,7 @@ test("primary $10 hosted Hermes CTAs POST Stripe Checkout, not WorkOS login", ()
   assert.match(chrome, /mode === "session" \? "\/dashboard" : "\/api\/auth\/login"/);
 
   assert.match(surfaces, /<HostedCheckoutCta/);
-  assert.match(surfaces, /data-testid="start-browser"/);
+  assert.match(surfaces, /testId="start-browser"/);
   assert.doesNotMatch(surfaces, /href="\/api\/auth\/login"/);
   assert.doesNotMatch(surfaces, /href="#pricing"/);
 
