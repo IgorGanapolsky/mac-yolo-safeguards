@@ -17,6 +17,7 @@ import {
   writeJsonSessionStorage,
 } from "@/lib/dashboard-nav-cache";
 import { resolveComposerRunCta } from "@/lib/composer-run-cta";
+import { startDashboardRefresh } from "@/lib/dashboard-refresh";
 import {
   hasPendingConversationTasks,
   mergeConversationTasks,
@@ -799,27 +800,26 @@ export default function DashboardClient() {
 
 
   useEffect(() => {
-    // `void loadWorkspace()` swallowed rejections: a network failure left loadState at
-    // "loading" forever with no error shown and no retry signal.
+    // One-shot workspace load. Recurring poll is OFF by default — the old
+    // 5s/15s setInterval burned the Cloudflare Workers 100k free cap
+    // (~17k requests/day per open tab; 2026-08-19 quota incident).
+    // Opt-in only: ?poll=1 plus cursor/offset, or NEXT_PUBLIC_DASHBOARD_POLL=1
+    // (not the default). Minimum 15 minutes; poll-without-cursor fails closed.
     const run = () => { void loadWorkspace().catch(() => setLoadState("error")); };
     const initial = window.setTimeout(run, 0);
-    // 15s cadence, foreground-only: the old always-on 5s poll made every open
-    // dashboard tab cost ~17k Workers requests/day against the 100k free-tier
-    // daily cap (2026-08-19 quota incident). Hidden tabs stop polling; a fresh
-    // run fires immediately when the tab returns to the foreground.
-    let timer: number | undefined;
-    const start = () => { if (timer === undefined) timer = window.setInterval(run, 15000); };
-    const stop = () => { if (timer !== undefined) { window.clearInterval(timer); timer = undefined; } };
-    const onVisibility = () => { if (document.hidden) stop(); else { run(); start(); } };
-    if (!document.hidden) start();
-    document.addEventListener("visibilitychange", onVisibility);
+    const params = new URLSearchParams(window.location.search);
+    const refresh = startDashboardRefresh({
+      run,
+      search: window.location.search,
+      envPoll: process.env.NEXT_PUBLIC_DASHBOARD_POLL,
+      cursor: params.get("cursor") ?? params.get("offset"),
+    });
     return () => {
       window.clearTimeout(initial);
-      stop();
-      document.removeEventListener("visibilitychange", onVisibility);
+      refresh.stop();
     };
-    // Intentionally not re-binding when selectedThread flips — list poll stays stable.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- shell-first: one poller, not one-per-thread
+    // Intentionally not re-binding when selectedThread flips — one loader, not one-per-thread.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- shell-first: one loader, not one-per-thread
   }, []);
 
   // Persist selection + background revalidate. Instant paint is in openThread / deep-link handlers.
