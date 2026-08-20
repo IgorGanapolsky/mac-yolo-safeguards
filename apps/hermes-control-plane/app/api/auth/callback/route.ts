@@ -107,11 +107,16 @@ export async function GET(request: Request) {
         AND NOT EXISTS (SELECT 1 FROM memberships m WHERE m.organization_id = organizations.id)
       LIMIT 1`
   ).bind(`pending:${normalizedEmail}`).first<{ id: string }>();
-  if (pendingPaid) {
+  if (pendingPaid && !organizationId) {
     organizationId = pendingPaid.id;
     await db().prepare(
       "INSERT OR IGNORE INTO memberships (id, organization_id, user_id, role, created_at) VALUES (?, ?, ?, 'owner', ?)"
     ).bind(crypto.randomUUID(), organizationId, userId, now).run();
+  } else if (pendingPaid && organizationId && organizationId !== pendingPaid.id) {
+    const paid = await db().prepare("SELECT plan FROM organizations WHERE id = ?").bind(pendingPaid.id).first<{ plan: string }>();
+    if (paid?.plan === "pro") {
+      await db().prepare("UPDATE organizations SET plan = 'pro', updated_at = ? WHERE id = ?").bind(now, organizationId).run();
+    }
   } else if (!organizationId) {
     const existingOrg = payload.organization_id
       ? await db().prepare("SELECT id FROM organizations WHERE workos_organization_id = ?").bind(payload.organization_id).first<{ id: string }>()
