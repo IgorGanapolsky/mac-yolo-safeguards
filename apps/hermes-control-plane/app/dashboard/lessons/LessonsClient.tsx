@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
   hermesTaskHref,
@@ -199,7 +200,15 @@ export default function LessonsClient() {
           👍 = keep doing this. 👎 = fix this next time.
         </p>
       </div>
-      <a className="button button-secondary button-small" href="/dashboard">← Back to dashboard</a>
+      <Link
+        className="button button-secondary button-small"
+        href="/dashboard"
+        onClick={() => {
+          window.location.assign("/dashboard");
+        }}
+      >
+        ← Back to dashboard
+      </Link>
     </header>
 
     <section className="lesson-activity" aria-label="Workspace activity (not lessons)">
