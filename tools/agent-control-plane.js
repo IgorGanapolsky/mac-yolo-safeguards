@@ -7,12 +7,19 @@
  * Aggregates plan.md ownership, LaunchAgent health, and continuous E2E proof into one
  * machine-readable dashboard. Not Meta-scale — local fleet control for this repo.
  *
+ * Inspired by Island.io "Enterprise Agentic Control Plane" — code with vibes,
+ * deploy with confidence. Every claim must pass all verification gates before
+ * any "done" or "shipped" statement is emitted (Honesty Protocol).
+ *
  * Usage:
  *   node tools/agent-control-plane.js status [--json]
  *   node tools/agent-control-plane.js claim-check <relative-path> [--agent <id>] [--json]
+ *   node tools/agent-control-plane.js verify [--json]   # pre-flight all safety gates
+ *   node tools/agent-control-plane.js pulse [--json]     # real-time swarm dashboard
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { execSync, execFileSync } = require('child_process');
 const { snapshotPlan } = require('./plan-coordination-snapshot');
@@ -229,6 +236,235 @@ function buildStatus(opts = {}) {
   };
 }
 
+const HARNESS_ROUTER = path.join(REPO, 'tools', 'agent-harness-router.js');
+const COGNITIVE_DEBT_SCANNER = path.join(REPO, 'tools', 'cognitive-debt-scanner.js');
+const ASYNC_MESSAGING = path.join(REPO, 'tools', 'async-agent-messaging.js');
+const CHECKPOINT_GATE = path.join(REPO, 'tools', 'task-checkpoint-gate.js');
+const KNOWNLEDGE_HANDOFF = path.join(REPO, 'tools', 'agent-knowledge-handoff.js');
+const STORAGE_DIR = path.join(os.homedir(), '.mac-yolo-safeguards', 'harness-router');
+const PENDING_FILE = path.join(STORAGE_DIR, 'async-pending-messages.jsonl');
+const REPLIES_FILE = path.join(STORAGE_DIR, 'async-replies.jsonl');
+const CHECKPOINT_FILE = path.join(STORAGE_DIR, 'task-checkpoints.jsonl');
+const HANDOFF_FILE = path.join(STORAGE_DIR, 'agent-handoffs.jsonl');
+
+function runNodeScript(scriptPath, args, opts = {}) {
+  try {
+    const out = execFileSync(
+      process.execPath,
+      [scriptPath, ...args],
+      { cwd: REPO, encoding: 'utf8', maxBuffer: 1024 * 1024 * 10, ...opts },
+    );
+    return { ok: true, output: out };
+  } catch (e) {
+    return { ok: false, output: e.stdout || e.stderr || '', code: e.status || 1 };
+  }
+}
+
+function readJsonl(file) {
+  if (!fs.existsSync(file)) return [];
+  return fs.readFileSync(file, 'utf8')
+    .trim().split('\n')
+    .filter(Boolean)
+    .map((line) => { try { return JSON.parse(line); } catch { return null; } })
+    .filter(Boolean);
+}
+
+/**
+ * verify — runs all safety gates before a "done/shipped" claim.
+ *
+ * Gates (blocking):
+ *   1. codeql-pattern-gate --staged → must be 0 findings (exit 1 if violations)
+ *
+ * Gates (advisory):
+ *   2. cognitive-debt-scanner --diff origin/main → shows cognitive debt patterns
+ *   3. async-agent-messaging pending → unanswered questions block verification
+ *   4. task-checkpoint-gate checkpoints → unresolved checkpoints mean
+ *      dependent work may be stale (stale question / pending answer)
+ *
+ * Honest protocol: if any gate fails, exit 1 and print why.
+ */
+function verify() {
+  const gates = [];
+
+  // Gate 1: CodeQL pattern gate (blocking — CI blocker)
+  const g1 = runNodeScript(path.join(REPO, 'tools', 'codeql-pattern-gate.js'), ['--staged', '--json'], { stdio: 'pipe' });
+  let g1Data = null;
+  if (g1.ok) {
+    try { g1Data = JSON.parse(g1.output); } catch { /* ignore */ }
+  }
+  gates.push({
+    name: 'codeql-pattern-gate',
+    blocking: true,
+    passed: g1.ok && g1Data && g1Data.ok,
+    findingCount: g1Data ? g1Data.findingCount : null,
+    output: g1.output.trim().split('\n').slice(-3).join(' | '),
+  });
+
+  // Gate 2: Cognitive debt scanner (advisory)
+  const g2 = runNodeScript(path.join(REPO, 'tools', 'cognitive-debt-scanner.js'), ['--diff', 'origin/main', '--json'], { stdio: 'pipe' });
+  let g2Data = null;
+  if (g2.ok) {
+    try { g2Data = JSON.parse(g2.output); } catch { /* ignore */ }
+  }
+  gates.push({
+    name: 'cognitive-debt-scanner',
+    blocking: false,
+    passed: true, // advisory — always passes, just informs
+    findingCount: g2Data ? g2Data.findingCount : null,
+    output: g2Data ? `${g2Data.findingCount} cognitive debt patterns` : 'unavailable',
+  });
+
+  // Gate 3: Pending async questions (blocking — unanswered questions)
+  const pendingEntries = readJsonl(PENDING_FILE);
+  const unanswered = pendingEntries.filter((e) => e.status !== 'answered');
+  gates.push({
+    name: 'async-questions-pending',
+    blocking: true,
+    passed: unanswered.length === 0,
+    count: unanswered.length,
+    output: unanswered.length === 0
+      ? 'no unanswered developer questions'
+      : `${unanswered.length} unanswered question(s): ${unanswered.slice(0, 3).map((q) => q.question.slice(0, 60)).join('; ')}`,
+  });
+
+  // Gate 4: Unresolved checkpoints (advisory — stale dependent work)
+  const checkpoints = readJsonl(CHECKPOINT_FILE).filter((c) => c.status === 'active');
+  gates.push({
+    name: 'task-checkpoints-active',
+    blocking: false,
+    passed: true,
+    count: checkpoints.length,
+    output: checkpoints.length === 0
+      ? 'no active checkpoints'
+      : `${checkpoints.length} active checkpoint(s): ${checkpoints.slice(0, 3).map((c) => c.id).join(', ')}`,
+  });
+
+  // Gate 5: Budget check (from harness router health)
+  // Check if any budget receipts exist showing exhaustion
+  const spendGuardDir = path.join(os.homedir(), '.thumbgate', 'receipts', 'spend-guard');
+  let budgetExhausted = false;
+  try {
+    if (fs.existsSync(spendGuardDir)) {
+      const receipts = fs.readdirSync(spendGuardDir)
+        .filter((f) => f.endsWith('.json')).slice(-5);
+      for (const r of receipts) {
+        const data = JSON.parse(fs.readFileSync(path.join(spendGuardDir, r), 'utf8'));
+        if (data.state === 'exhausted' || data.state === 'blocked') {
+          budgetExhausted = true;
+          break;
+        }
+      }
+    }
+  } catch {
+    // budget guard dir doesn't exist → not exhausted
+  }
+  gates.push({
+    name: 'budget-guard',
+    blocking: true,
+    passed: !budgetExhausted,
+    output: budgetExhausted ? 'BUDGET EXHAUSTED — routing blocked' : 'budget guard OK',
+  });
+
+  const allBlockingPassed = gates.filter((g) => g.blocking).every((g) => g.passed);
+  const report = {
+    ok: allBlockingPassed,
+    checkedAt: new Date().toISOString(),
+    gates,
+  };
+
+  return report;
+}
+
+function formatVerify(report) {
+  const lines = ['=== Verify: pre-flight safety gates ==='];
+  for (const g of report.gates) {
+    const status = g.passed ? 'PASS' : 'FAIL';
+    const block = g.blocking ? ' [BLOCKING]' : ' [advisory]';
+    lines.push(`  ${status} ${g.name}${block} — ${g.output}`);
+  }
+  if (report.ok) {
+    lines.push('\n✅ All blocking gates pass — safe to claim "done/shipped".');
+  } else {
+    lines.push('\n❌ One or more blocking gates FAILED — do not claim "done" or "shipped" until resolved.');
+  }
+  return lines.join('\n');
+}
+
+/**
+ * pulse — real-time dashboard of the agent swarm state.
+ *
+ * Shows: plan.md active tasks, pending async questions, active checkpoints,
+ *   recent knowledge handoffs, LaunchAgent health, continuous E2E status.
+ * Maps to Island.io's real-time orchestration view ("code with vibes").
+ */
+function pulse() {
+  const plan = snapshotPlan();
+  const agents = CRITICAL_AGENTS.map(launchctlState);
+
+  // Pending messages
+  const pendingEntries = readJsonl(PENDING_FILE);
+  const unanswered = pendingEntries.filter((e) => e.status !== 'answered');
+
+  // Checkpoints
+  const checkpoints = readJsonl(CHECKPOINT_FILE).filter((c) => c.status === 'active');
+
+  // Recent handoffs
+  const handoffs = readJsonl(HANDOFF_FILE).slice(-5).reverse();
+
+  // Continuous E2E
+  const e2e = readJson(LATEST_E2E) || {};
+
+  return {
+    checkedAt: new Date().toISOString(),
+    plan: {
+      activeTasks: (plan.activeTasks || []).slice(0, 8).map((t) => ({
+        id: t.id, owner: t.owner, status: t.status, task: t.task,
+      })),
+      fileLockCount: plan.fileLocks ? plan.fileLocks.length : 0,
+    },
+    async: { pending: unanswered.length, total: pendingEntries.length },
+    checkpoints: { active: checkpoints.length, items: checkpoints.slice(0, 5).map((c) => ({
+      id: c.id, age: Math.round((Date.now() - new Date(c.timestamp).getTime()) / 60000) + 'm', scopes: c.scopes,
+    })) },
+    knowledge: { recent: handoffs.slice(0, 3).map((h) => ({
+      task: h.task, taskType: h.taskType, decisions: h.decisions?.length || 0, bugs: h.bugsFound?.length || 0,
+    })) },
+    agents: agents.map((a) => ({ label: a.label, ok: a.ok, state: a.state })),
+    continuousE2e: {
+      e2e: e2e.e2e || 'missing',
+      unit: e2e.unit || 'missing',
+      shipClaimOk: e2e.e2e === 'pass',
+      updatedAt: e2e.updatedAt || null,
+    },
+  };
+}
+
+function formatPulse(p) {
+  const lines = ['=== Agent swarm pulse ==='];
+  lines.push(`checkedAt: ${p.checkedAt}`);
+  lines.push(`\nActive tasks (${p.plan.activeTasks.length}):`);
+  for (const t of p.plan.activeTasks) {
+    lines.push(`  [${t.status}] ${t.owner || '?'}: ${t.task?.slice(0, 80)}`);
+  }
+  lines.push(`\nFile locks: ${p.plan.fileLockCount}`);
+  lines.push(`\nPending questions: ${p.async.pending} (${p.async.total} total)`);
+  lines.push(`\nActive checkpoints: ${p.checkpoints.active}`);
+  for (const c of p.checkpoints.items) {
+    lines.push(`  [${c.id}] age=${c.age} scopes=${c.scopes?.join(', ')}`);
+  }
+  lines.push(`\nRecent handoffs: ${p.knowledge.recent.length}`);
+  for (const h of p.knowledge.recent) {
+    lines.push(`  ${h.taskType} | ${h.task} | decisions:${h.decisions} bugs:${h.bugs}`);
+  }
+  lines.push(`\nLaunchAgents:`);
+  for (const a of p.agents) {
+    lines.push(`  ${a.ok ? 'OK' : 'DOWN'} ${a.label}: ${a.state}`);
+  }
+  const e = p.continuousE2e;
+  lines.push(`\nContinuous E2E: ${e.e2e} (unit=${e.unit}) shipClaimOk=${e.shipClaimOk}`);
+  return lines.join('\n');
+}
+
 function formatHuman(status) {
   const lines = [
     '=== Agent control plane ===',
@@ -263,7 +499,9 @@ function main() {
   if (args.help) {
     console.log(`Usage:
   node tools/agent-control-plane.js status [--json]
-  node tools/agent-control-plane.js claim-check <path> [--agent id] [--json]`);
+  node tools/agent-control-plane.js claim-check <path> [--agent id] [--json]
+  node tools/agent-control-plane.js verify [--json]     # pre-flight all safety gates before "done" claims
+  node tools/agent-control-plane.js pulse [--json]      # real-time swarm dashboard`);
     process.exit(0);
   }
 
@@ -283,6 +521,20 @@ function main() {
     process.exit(result.allowed ? 0 : 2);
   }
 
+  if (args.cmd === 'verify') {
+    const report = verify();
+    if (args.json) console.log(JSON.stringify(report, null, 2));
+    else console.log(formatVerify(report));
+    process.exit(report.ok ? 0 : 1);
+  }
+
+  if (args.cmd === 'pulse') {
+    const p = pulse();
+    if (args.json) console.log(JSON.stringify(p, null, 2));
+    else console.log(formatPulse(p));
+    process.exit(0);
+  }
+
   const status = buildStatus();
   if (args.json) console.log(JSON.stringify(status, null, 2));
   else console.log(formatHuman(status));
@@ -296,6 +548,10 @@ module.exports = {
   scoreHealth,
   parseLockOwner,
   fileMentionedInLock,
+  verify,
+  pulse,
+  runNodeScript,
+  readJsonl,
 };
 
 if (require.main === module) {
