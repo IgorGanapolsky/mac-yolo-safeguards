@@ -4,6 +4,7 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 
 | Skill | Description | Definition | Source |
 | :--- | :--- | :--- | :--- |
+| `netflix-oci-causal-engine` | Netflix OCI (Observational Causal Inference) Actor-Critic Engine, Target Trial Emulation (TTE), Propensity Score Inverse Weighting, Placebo Invariant Testing & Sensitivity Analysis for AI Agents. | `.agents/skills/netflix-oci-causal-engine/SKILL.md` | local |
 | `island-agentic-dlp-governance` | Enterprise Agentic Control Plane, in-flight browser DLP guard, zero-trust session boundary interdiction, and VDI reduction engine stolen from Island.io. | `.agents/skills/island-agentic-dlp-governance/SKILL.md` | local |
 | `screenpipe-activity-harness` | Universal Coding Agent Harness Adapter (Cursor, Claude Code, Codex, Ollama) and Activity-to-Skill Distillation Engine stolen from Screenpipe v2.6.56. | `.agents/skills/screenpipe-activity-harness/SKILL.md` | local |
 | `agent-session-start` | Execute session start verification, LaunchAgent health checks, and continuous E2E status reporting. | `~/workspace/git/igor/mac-yolo-safeguards/.agents/skills/agent-session-start/SKILL.md` | local |
