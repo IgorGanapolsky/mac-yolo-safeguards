@@ -3340,3 +3340,4 @@ Three PRs shipped:
 - tools/activity-trigger.js — "Turn repeated work events into automated follow-ups" / watch/match rules with 5-min cooldown (register/matchEvent/watch/fire)
 - Integrates with: hermes-screenpipe-activity.js (activity timeline source), agent-knowledge-handoff.js (capture results), agent-control-plane.js verify (stale checks)
 - 32 new tests (14 action-trace + 18 activity-trigger); all existing tests still pass; codeql-gate 0 findings
+- `2026-08-20T07:18Z` **grok-pair-lan-null-client** residual: pair.json keeps LAN when USB reverse live (HERMES_PAIR_USB_PRIMARY opt-in); PR #1919 follow-up

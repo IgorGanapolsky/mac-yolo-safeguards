@@ -966,7 +966,9 @@ function ensurePairServerDaemon(lanIp) {
  *
  * P0 2026-07-21: --server-only used to always prefer Tailscale and clobber a just-written
  * USB loopback primary (runPairMain → writePairAssets → ensurePairServerDaemon → here).
- * When adb reverse :8642 is up and loopback auth verifies, keep USB as the pair-page primary.
+ * CEO 2026-08-20: do NOT rewrite pair.json to 127.0.0.1 just because adb reverse is live —
+ * agents keep a USB cable plugged in, and that re-poisoned Wi‑Fi phones to "USB" / loopback.
+ * Opt in with HERMES_PAIR_USB_PRIMARY=1 when desk USB-primary is intentional.
  */
 function refreshPairAssetsFromLocalGateway() {
   const health = fetchHealth();
@@ -1009,9 +1011,16 @@ function refreshPairAssetsFromLocalGateway() {
     !String(serial).startsWith('emulator-') &&
     !assertUsbAdbReverses(serial).missing.includes(8642);
   const loopback = 'http://127.0.0.1:8642';
-  if (usbReverseLive && verifyGatewayAuthSync(loopback, apiKey).ok) {
+  const forceUsbPrimary = ['1', 'true', 'yes'].includes(
+    String(process.env.HERMES_PAIR_USB_PRIMARY || '').trim().toLowerCase(),
+  );
+  if (forceUsbPrimary && usbReverseLive && verifyGatewayAuthSync(loopback, apiKey).ok) {
     gatewayUrl = loopback;
-    console.log('  pair.json refresh: keeping USB loopback primary (adb reverse + auth verified)');
+    console.log('  pair.json refresh: HERMES_PAIR_USB_PRIMARY=1 → USB loopback (adb reverse verified)');
+  } else if (usbReverseLive && lanIp && isPrivateIpv4(lanIp)) {
+    console.log(
+      `  pair.json refresh: keeping LAN primary ${gatewayUrl} (USB reverse live but Wi‑Fi seed wins; set HERMES_PAIR_USB_PRIMARY=1 for USB)`,
+    );
   } else if (previous && isLoopbackGatewayUrl(previous.gatewayUrl) && !usbReverseLive) {
     // Cable gone — fall through to Tailscale/LAN rewrite below.
     console.log('  pair.json refresh: prior USB primary, no live reverse — promoting network gateway');

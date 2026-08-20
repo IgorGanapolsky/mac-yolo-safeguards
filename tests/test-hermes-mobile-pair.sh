@@ -645,12 +645,14 @@ else
   bad "USB copy explains Tailscale Camera path + USB cable primary"
 fi
 
-# --server-only refresh must not clobber a live USB loopback primary with Tailscale.
-if [[ "$PAIR_JS" == *"keeping USB loopback primary"* ]] \
+# --server-only refresh keeps LAN seed even when adb reverse is live (cable for agents).
+# USB loopback primary is opt-in via HERMES_PAIR_USB_PRIMARY=1 (CEO 2026-08-20).
+if [[ "$PAIR_JS" == *"HERMES_PAIR_USB_PRIMARY"* ]] \
+  && [[ "$PAIR_JS" == *"keeping LAN primary"* ]] \
   && [[ "$PAIR_JS" == *"usbReverseLive"* ]]; then
-  ok "server-only refresh preserves USB loopback when adb reverse is live"
+  ok "server-only refresh keeps LAN seed when USB reverse is live (USB primary opt-in)"
 else
-  bad "server-only refresh preserves USB loopback when adb reverse is live"
+  bad "server-only refresh keeps LAN seed when USB reverse is live (USB primary opt-in)"
 fi
 
 # --server-only must persist secretless pairCode in pair.json (watchdog /pair.json contract).
