@@ -61,20 +61,6 @@ const SUPPORTED_HARNESSES = {
     capabilities: ['multi_agent_swarm', 'tool_virtualization', 'memory_rag'],
     permissionModel: 'agent_mode_always',
   },
-  GROK: {
-    id: 'grok',
-    name: 'Grok Build / xAI',
-    defaultModel: 'grok-4.5',
-    capabilities: ['file_edit', 'terminal', 'workflows', 'skills'],
-    permissionModel: 'agent_mode_always',
-  },
-  HERMES_YOLO: {
-    id: 'hermes-yolo',
-    name: 'Hermes YOLO (local Mac)',
-    defaultModel: 'local-fleet',
-    capabilities: ['local_tools', 'zero_marginal_cloud'],
-    permissionModel: 'local_isolated',
-  },
 };
 
 /**
@@ -91,12 +77,11 @@ function resolveHarness(harnessName, options = {}) {
       };
     }
   }
-  // Fleet default: Grok / local — not Antigravity cloud
+  // Default to Antigravity / Agent mode always
   return {
-    ...SUPPORTED_HARNESSES.GROK,
-    selectedModel: options.modelOverride || SUPPORTED_HARNESSES.GROK.defaultModel,
-    endpoint: 'local-or-subscription',
-    fallbackReason: 'unknown_harness_defaulted_to_grok',
+    ...SUPPORTED_HARNESSES.ANTIGRAVITY,
+    selectedModel: options.modelOverride || SUPPORTED_HARNESSES.ANTIGRAVITY.defaultModel,
+    endpoint: 'cloud',
   };
 }
 
