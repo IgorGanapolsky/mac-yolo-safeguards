@@ -1451,3 +1451,72 @@ Commit is DCO-signed as `Igor Ganapolsky <iganapolsky@gmail.com>` with a `Co-Aut
 ### Blocker status (report only — no action requested)
 
 Unchanged in kind: `block/buzz` write access remains denied at `create_pull_request`, reconfirmed this run against two separate branches. Fork clone/build/test/push continue to work without issue. New and more consequential than the access wall itself this run: **this task's own concurrency is now producing measurable waste** — a full, independently-verified fix (#6241) had to be thrown away this run purely because another same-day firing had already done the identical work. A future run — or a change to how this task is scheduled — should check this repo's own open-PR queue for an existing `buzz-engagement`/fix-branch entry matching the issue under consideration *before* starting an investigation, not just before opening a PR at the end, to avoid spending fix-and-test effort on work that's already done. One new ready artifact added to the backlog for a write-capable session: the #6262 fix (compare URL and PR body above).
+
+---
+
+## 2026-08-20 — Run 18 (#6375 fixed, tested, and pushed to fork; three new candidates triaged, none forced; access wall reconfirmed an eighteenth time)
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+- **Canonical repo:** [`github.com/block/buzz`](https://github.com/block/buzz) — unchanged maintainer/architecture/community surface from every prior run.
+- **Open-PR-queue check (per Run 16's own recommendation above)**: `mcp__github__list_pull_requests(owner:"IgorGanapolsky", repo:"mac-yolo-safeguards", state:"open")` checked *before* picking an issue. Found [#1893](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/1893) — "docs(buzz): log 2026-08-20 run 17 — #6329/#6319/#6313 investigated, no fix forced" — already open from a same-day earlier firing (created 2026-08-20T00:42 UTC; this run started ~08:36 UTC). Read its full diff via `pull_request_read(method:"get_diff")` before doing anything else: Run 17 investigated #6329, #6319, #6313 and correctly declined to force a fix on any of them (policy judgment call, race-condition needing a test harness, and an unconfirmed code path, respectively — see that PR's diff for the full reasoning). None of Run 17's three candidates overlaps with this run's pick (#6375, filed *after* Run 17's survey cutoff), so no duplicate-work risk this time.
+- **Access:** `mcp__github__list_issues(owner:"block", repo:"buzz", ...)` → same denial as every prior run: `"Access denied: repository 'block/buzz' is not configured for this session. Allowed repositories: igorganapolsky/mac-yolo-safeguards"`. `add_repo(owner:"igorganapolsky", repo:"buzz", access:"push")` succeeded; fresh shallow clone of the fork (still stale at `ce56e344`, 2026-08-03, unchanged since Run 4a) with `upstream` fetched from `block/buzz` at `f88cda9e` (2026-08-19 18:55 PT — newer than Run 17's `9c2f0534` from earlier the same day, confirming continued upstream activity). Both `mcp__github__create_pull_request(owner:"block", repo:"buzz", ...)` and `mcp__github__add_issue_comment(owner:"block", repo:"buzz", ...)` were attempted this run on the finished, tested fix below and **both denied** with the identical message. Eighteenth consecutive run finding zero write access to `block/buzz` from this environment tier.
+
+### What was surveyed (issues newer than #6352, Run 17's cutoff)
+
+Pulled the newest-first open-issues page via `WebFetch` (API list/search on `block/buzz` blocked the same as everything else): #6381 down through #6363, all filed since Run 17.
+
+| Issue | Topic | Action |
+|-------|-------|--------|
+| [#6375](https://github.com/block/buzz/issues/6375) | `buzz-sdk`: `build_add_member`/`build_remove_member` use `check_hex_len(…, 64, …)` — an *at-least*-64 check — instead of the exact-64 `check_pubkey_hex` every sibling builder (`build_moderation_ban`, `build_dm_add_member`, etc.) already uses for this field. An overlong pubkey gets signed into a `p` tag the relay's `extract_p_tag_bytes` then rejects, surfacing as a misleading "missing p tag" error instead of a build-time validation error. | **Fixed, tested, pushed to fork** — see below |
+| [#6363](https://github.com/block/buzz/issues/6363) | Desktop `create_channel` can cross relay and signing identity during a community switch: creator keys are captured early, the relay URL resolves only after an `await` (rate-limiting), `apply_workspace` can swap relay+signer under separate locks in between, so the A-signed create posts to relay B and a subsequent metadata reread queries relay B as identity B for a UUID created by A. Reporter (`wesbillman`, via an automated reviewer) already pinpoints all four call sites and an existing correct pattern (`open_dm`) to model the fix on, plus explicitly asks for a deterministic A-to-B regression test. | **Read in full, not picked** — same shape and scale as #6319 (Run 17): a real, well-scoped fencing/race fix, but it needs new test-only instrumentation to make a timing-dependent race reproducible on demand, across a Tauri command + two lock domains. That's a dedicated-run job, not something to add alongside an already-completed fix in the same run. Recorded here so a future run doesn't re-read the four cited files from zero. |
+| [#6378](https://github.com/block/buzz/issues/6378) | `buzz-acp` idle-pool teardown tears down an agent pool mid-task while a session is waiting on a queued background-subagent notification — the idle timer counts wall-clock since pool creation, not actual activity, so a session that has been continuously busy for under 900s can still be killed exactly at the 900s mark. The queued wakeup is lost, no stop bookkeeping is recorded, and the task dies silently (an 8-hour-old dead session in the reporter's own repro). | **Read in full, not picked** — same liveness-vs-activity class as #4860 (Run 3, still unposted), but locating and fixing the actual idle-timer/activity-tracking code requires reading the full `buzz-acp` pool lifecycle first, which this run's remaining budget after #6375 didn't allow for a second fix-and-test pass this run anyway (1-fix cap). Strong candidate for a dedicated future run. |
+| #6381, #6380, #6377, #6376, #6370, #6369, #6367 | Config-documentation ask, UI @-picker lag / missing invite flow, Windows notification setting bug, archive-then-unarchive not restoring a managed agent's local config, missing per-community data isolation on Desktop, agent list not scoped to the active community, large messages silently failing to render | Read titles/summaries only; none is a write-gating/idempotency/audit-trail/verification-vs-self-report candidate — UI, platform, feature-request, or data-isolation/UX shaped, out of this run's stated domain. `#6376` (archive deletes local config, unarchive doesn't restore) came closest to "durable-write" territory but reads as a straightforward missing-restore-path UX bug, not a verification/fencing gap. |
+
+### Fix for #6375 (this run — real engineering, verified, not a draft)
+
+Read `crates/buzz-sdk/src/builders.rs` in full around `build_add_member`/`build_remove_member` (lines 575–603) and the file's four hex-validation helpers (`check_hex_len`, `check_commit_hex`, `check_pubkey_hex`, `check_hex_exact`, lines 43–83) before touching anything, plus `build_moderation_ban`/`build_dm_add_member` as the existing-correct reference the issue itself points to.
+
+- Confirmed on current `upstream/main` (`f88cda9e`) that both builders call `check_hex_len(target_pubkey, 64, "target_pubkey")` — a `s.len() < min_len` (at-least) check, appropriate for `check_commit_hex`'s abbreviated-git-SHA use case at lines 333/335 (its only other two call sites — confirmed `check_hex_len` stays used, no dead code from this fix) but wrong for a pubkey, which the wire format requires at exactly 64 hex chars.
+- Fix: swapped both call sites to `check_pubkey_hex`, which is already the pattern for this exact field in `build_moderation_ban`, `build_moderation_unban`, `build_moderation_timeout`, and `build_dm_add_member` elsewhere in the same file — it enforces exact length and returns the lowercased string, so the manual `.to_ascii_lowercase()` calls at both `p`-tag sites are removed too. Error variant changes from `InvalidDiffMeta` to `InvalidInput`, matching the issue's own suggested solution and every sibling builder's error type for this field.
+
+#### Verification (executed this run — real output, not inferred)
+
+`buzz-sdk` is a plain Rust library crate, no Tauri/GUI/Postgres dependency:
+
+- **Fail-before, isolated:** reverted just the two builder bodies to their original `check_hex_len`/`.to_ascii_lowercase()` form (kept the six new tests) → `cargo test -p buzz-sdk --lib "builders::tests::add_member"` and `"builders::tests::remove_member"` → **`add_member_rejects_overlong_pubkey`, `add_member_rejects_short_pubkey`, `remove_member_rejects_overlong_pubkey`, `remove_member_rejects_short_pubkey` all failed** (panicked on `Ok` where `unwrap_err()` was called), exactly reproducing the issue's defect — a 65-char and a short/non-64-char pubkey both build successfully when they shouldn't. Restored the fix immediately after.
+- **Pass-after, targeted:** `cargo test -p buzz-sdk --lib "builders::tests::add_member"` → 5 passed; `"builders::tests::remove_member"` → 4 passed.
+- **Pass-after, full crate:** `cargo test -p buzz-sdk --lib` → **268 passed, 0 failed, 0 ignored** (262 before this run's six new tests).
+- `cargo clippy -p buzz-sdk --lib --tests -- -D warnings` → clean, zero warnings.
+- `cargo fmt -p buzz-sdk -- --check` → clean.
+
+New tests (`add_member_lowercases_pubkey`, `add_member_rejects_overlong_pubkey`, `add_member_rejects_short_pubkey`, `remove_member_lowercases_pubkey`, `remove_member_rejects_overlong_pubkey`, `remove_member_rejects_short_pubkey`) mirror the existing `moderation_ban_rejects_overlong_pubkey`/`moderation_ban_lowercases_pubkey` naming and structure already in this file, placed immediately after `remove_member_happy_path`.
+
+### What was opened / answered this run
+
+| Action | Status | URL |
+|--------|--------|-----|
+| Fix branch for #6375, DCO-signed, full crate suite green | **Pushed to Igor's fork** | `IgorGanapolsky/buzz@fix/add-remove-member-pubkey-exact-len` |
+| PR to `block/buzz` | **Attempted, denied this run** (not just staged — an actual `create_pull_request` call was made and rejected) | [compare/open PR](https://github.com/IgorGanapolsky/buzz/pull/new/fix/add-remove-member-pubkey-exact-len) |
+| Comment on #6375 | **Attempted, denied this run** — same message as PR-create | — |
+| Full PR body, ready to paste | Committed to this repo | `coordination/buzz-pr-drafts/6375-add-remove-member-pubkey-exact-len.md` |
+
+Commit is DCO-signed as `Igor Ganapolsky <iganapolsky@gmail.com>` with a `Co-Authored-By: Claude` trailer, branched directly off `upstream/main` (`f88cda9e`), not the fork's stale default branch. No second fix attempted (hard cap: 1/run) — #6363 and #6378 were read in full and correctly declined as noted above, not shallow-fixed to hit two-in-one-run. **ThumbGate is not mentioned anywhere in the branch, commit, PR draft, the two access attempts, or this log entry's technical content** — #6375 is a Buzz-internal SDK input-validation bug with an existing in-codebase fix pattern; no positioning claim is relevant to state on the issue itself.
+
+### Positioning read: **neither** (unchanged, reconfirmed an eighteenth time)
+
+- Not a competitor — Buzz remains a team workspace/chat+git+workflow fabric on Nostr; ThumbGate remains a cross-tool pre-action governance gate for arbitrary agent writes. No change in either product's shape this run.
+- Not a partner — no relationship exists; nothing this run changes that.
+- #6375 is the same recurring shape as #6291 (Run 16), #6262 (Run 16), #5492 (Run 4b), and #4565 (Run 2): a write proceeding on the strength of an inadequate local check, with the *correct* check already present and used elsewhere in the same file but not wired into this one call site. It is real, mounting evidence that "the validation exists somewhere in this codebase but isn't consistently applied at every write call site" is Buzz's single most common defect shape in exactly Igor's domain — but each instance individually remains a plain input-validation bug with a two-line fix, not an architectural gap that an external pre-action gate would close differently than Buzz's own existing helper already does when actually called. #6363 (this run, declined) is the sharper data point on the *architectural* side — a genuine missing-fencing-token race across an `await` boundary, same shape as #6319 from Run 17 — but declining to force a same-run fix on it means it adds no new positioning evidence beyond what #6319 already established last run.
+
+### What was skipped and why
+
+- **#6363** — real, well-scoped race/fencing fix; needs new test-only race-reproduction instrumentation across two lock domains, which is a dedicated-run job per the same reasoning Run 17 applied to #6319. Top backlog candidate for a future run with room for test-harness work specifically.
+- **#6378** — real liveness/activity-tracking bug in `buzz-acp`'s idle-pool teardown, same class as the still-unposted #4860 draft (Run 3); not investigated at source this run (budget went to #6375's fix-and-verify), no comment drafted or posted.
+- **#6381, #6380, #6377, #6376, #6370, #6369, #6367** — read by title/summary only, judged out of domain (UI, platform, config, feature-request, or data-isolation/UX shaped).
+- **A second fix/PR** — hard max 1/run; #6375 is this run's one counted fix.
+- **Re-verifying the standing backlog** (#4860, #5492, #5555, #5557, #5611, #5665, #5667, #5708, #5734, #5759, #5800, WF-08, #6175, #6211, #6218, #6240, #6262, #6291, #6319, #6329) — not re-checked this run; confirmed only that #6375 doesn't overlap with any of them.
+
+### Blocker status (report only — no action requested)
+
+Eighteenth consecutive run with zero write access to `block/buzz` from this environment tier, reconfirmed this run at both `create_pull_request` and `add_issue_comment` against a real, finished, fully-tested fix (not just a hypothetical probe). Fork clone/build/test/push continue to work without issue. One new ready artifact added to the backlog for a write-capable session: the #6375 fix (branch, compare URL, and PR body above) — code and tests are done and waiting, same as every prior run's staged fixes.
