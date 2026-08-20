@@ -4,6 +4,13 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 
 | Skill | Description | Definition | Source |
 | :--- | :--- | :--- | :--- |
+| :| `autonomous-skill-forge` | Self-driving autonomous skill generation and registry validation engine for AI coding agents. | `.agents/skills/autonomous-skill-forge/SKILL.md` | local |
+
+| `anti-babysitting-autonomous-loop` | Autonomous Anti-Babysitting & Continuous Self-Driving Engine. Automatically scans for open PRs, invariant drift, and pending tasks, driving them to green verification and shipping without manual human handoffs. | `.agents/skills/anti-babysitting-autonomous-loop/SKILL.md` | local |
+
+| `autonomous-execution-engine` | Autonomous zero-babysitting continuous execution engine for background coding tasks. | `.agents/skills/autonomous-execution-engine/SKILL.md` | local |
+
+--- | :--- | :--- | :--- |
 | `agent-session-start` | Execute session start verification, LaunchAgent health checks, and continuous E2E status reporting. | `~/workspace/git/igor/mac-yolo-safeguards/.agents/skills/agent-session-start/SKILL.md` | local |
 | `anti-babysitting` | Igor's standing directive (2026-08-10): never end a turn asking him for approval, a click, or a decision the agent could make. Pre-authorized action classes, exhaust-then-park ladder for platform walls, absolute Never-list vs consent-gated actions. | `~/workspace/git/igor/mac-yolo-safeguards/.agents/skills/anti-babysitting/SKILL.md` | local |
 | `rubrik-mythos-triage` | Rubrik Mythos high-ROI steal: checkpoints, trust-boundary prune, Track A only for tight auto-fix classes, Track B for secrets/eval/chains. $10/mo fail-closed local scan. | `~/workspace/git/igor/mac-yolo-safeguards/.agents/skills/rubrik-mythos-triage/SKILL.md` | local |
