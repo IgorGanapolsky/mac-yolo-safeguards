@@ -17,7 +17,7 @@ import {
   writeJsonSessionStorage,
 } from "@/lib/dashboard-nav-cache";
 import { resolveComposerRunCta } from "@/lib/composer-run-cta";
-import { startDashboardRefresh } from "@/lib/dashboard-refresh";
+import { scheduleOneShotErrorRetry, startDashboardRefresh } from "@/lib/dashboard-refresh";
 import {
   hasPendingConversationTasks,
   mergeConversationTasks,
@@ -799,17 +799,23 @@ export default function DashboardClient() {
   }, [prefetchThreadDetails]);
 
 
+  const requestWorkspaceRefresh = useCallback(() => {
+    // One user click / one scheduled retry = one fetch. Never an interval.
+    setLoadState((prev) => (prev === "loaded" ? prev : "loading"));
+    void loadWorkspace().catch(() => setLoadState("error"));
+  }, [loadWorkspace]);
+  const errorRetryUsedRef = useRef(false);
+
   useEffect(() => {
     // One-shot workspace load. Recurring poll is OFF by default — the old
     // 5s/15s setInterval burned the Cloudflare Workers 100k free cap
     // (~17k requests/day per open tab; 2026-08-19 quota incident).
     // Opt-in only: ?poll=1 plus cursor/offset, or NEXT_PUBLIC_DASHBOARD_POLL=1
     // (not the default). Minimum 15 minutes; poll-without-cursor fails closed.
-    const run = () => { void loadWorkspace().catch(() => setLoadState("error")); };
-    const initial = window.setTimeout(run, 0);
+    const initial = window.setTimeout(requestWorkspaceRefresh, 0);
     const params = new URLSearchParams(window.location.search);
     const refresh = startDashboardRefresh({
-      run,
+      run: requestWorkspaceRefresh,
       search: window.location.search,
       envPoll: process.env.NEXT_PUBLIC_DASHBOARD_POLL,
       cursor: params.get("cursor") ?? params.get("offset"),
@@ -821,6 +827,14 @@ export default function DashboardClient() {
     // Intentionally not re-binding when selectedThread flips — one loader, not one-per-thread.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- shell-first: one loader, not one-per-thread
   }, []);
+
+  // One delayed retry after an initial-load error, then stop. Not a loop.
+  useEffect(() => {
+    if (loadState !== "error" || errorRetryUsedRef.current) return;
+    errorRetryUsedRef.current = true;
+    const retry = scheduleOneShotErrorRetry({ run: requestWorkspaceRefresh });
+    return () => retry.stop();
+  }, [loadState, requestWorkspaceRefresh]);
 
   // Persist selection + background revalidate. Instant paint is in openThread / deep-link handlers.
   useEffect(() => {
@@ -1417,6 +1431,15 @@ export default function DashboardClient() {
             </div>
           </div>
           <div className="header-actions">
+            <button
+              type="button"
+              className="button button-small button-secondary"
+              data-testid="dashboard-refresh"
+              onClick={() => requestWorkspaceRefresh()}
+              disabled={busy || loadState === "loading"}
+            >
+              {loadState === "error" ? "Retry" : "Refresh"}
+            </button>
             <span className="status-chip online"><i /> ThumbGate online</span>
             <button className="button button-small button-secondary" onClick={() => void (["pro", "team"].includes(organization.plan) ? manageBilling() : subscribe())} disabled={busy}>
               {["pro", "team"].includes(organization.plan) ? "Manage plan" : organization.cloudAccess ? "Keep cloud after trial" : "Add cloud failover"}
@@ -1535,7 +1558,7 @@ export default function DashboardClient() {
             </div>
             <div className="hermes-scroll-pane">
             {selectedThread && <div className="conversation-history">
-              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><FormattedMessage text={message.content} /></article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. Retrying automatically.</div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
+              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><FormattedMessage text={message.content} /></article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. <button type="button" className="task-filter-clear" data-testid="dashboard-retry" onClick={() => requestWorkspaceRefresh()}>Retry</button></div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
               {threadDetails?.tasks.flatMap((task, index) => {
                 if (!task.prompt.trim()) return [];
                 return [
@@ -1586,7 +1609,15 @@ export default function DashboardClient() {
                 <div className="empty-state" data-state="error">
                   <Mark />
                   <h3>Could not load your workspace</h3>
-                  <p>The last refresh failed, so this list may be incomplete. Retrying automatically.</p>
+                  <p>The last refresh failed, so this list may be incomplete. Tap Retry to fetch once — no background poll.</p>
+                  <button
+                    type="button"
+                    className="button button-primary button-small empty-state-cta"
+                    data-testid="dashboard-retry"
+                    onClick={() => requestWorkspaceRefresh()}
+                  >
+                    Retry
+                  </button>
                 </div>
               ) : visibleTasks.length === 0 && loadState === "loaded" ? (
                 (() => {
