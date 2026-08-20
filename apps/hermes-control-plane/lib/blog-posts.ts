@@ -138,7 +138,7 @@ export const BLOG_POSTS: BlogPost[] = [
       "This week's backlash over an AI assistant logging users' keystrokes is a preview of the agent era's trust problem. What an always-on agent's control plane should record — and what it must never see.",
     category: "ideas",
     publishedAt: "2026-08-19",
-    author: "Igor Ganapolsky",
+    author: "ThumbGate",
     readMinutes: 4,
     sections: [
       {
