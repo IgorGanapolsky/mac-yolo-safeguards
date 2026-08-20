@@ -882,8 +882,16 @@ export default function DashboardClient() {
         setSelectedThread(created.threadId);
         // Persist-before-live already wrote the row. Do not block the card on /api/me.
         void loadWorkspace();
+        // Newest tasks render at the TOP of the list while the composer sits at the
+        // bottom — scrolling to the OUTPUT strip left the just-sent message off-screen
+        // and users read that as "my message vanished" (2026-08-19 report). Scroll to
+        // the new task's own row so the send is visibly confirmed.
         window.requestAnimationFrame(() => {
-          document.getElementById("run-output")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          const target =
+            document.getElementById(`task-${optimistic.id}`)
+            ?? document.getElementById("task-activity")
+            ?? document.getElementById("run-output");
+          target?.scrollIntoView({ behavior: "smooth", block: "center" });
         });
       } else {
         if (body.code === "cloud_task_limit" || body.code === "cloud_entitlement_required") {
