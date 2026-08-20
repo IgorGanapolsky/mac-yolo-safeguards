@@ -53,6 +53,18 @@ description = "High-entropy value assigned to a secret-named variable"
 regex = '''(?i)(api[_-]?key|secret|token|password|passwd|bearer)\s*[:=]\s*['"][A-Za-z0-9_\-\/+]{24,}['"]'''
 keywords = ["key", "secret", "token", "password", "bearer"]
 
+[[rules]]
+id = "hermes-gateway-api-key"
+description = "Hermes gateway API_SERVER_KEY in key=value or key: value form, including deep-link key= params"
+regex = '''(?i)(?:api_server_key|hermes.*key|gateway.*key|key)\s*=['"](?:[A-Za-z0-9._-]{20,})['"]'''
+keywords = ["API_SERVER_KEY", "hermes", "gateway", "key="]
+
+[[rules]]
+id = "hermes-deep-link-key"
+description = "Hermes deep-link with key= param containing high-entropy bearer token"
+regex = '''key=(?:[A-Za-z0-9._-]{20,})'''
+keywords = ["key=", "hermes://"]
+
 [[allowlists]]
 description = "Known dummy fixtures and template placeholders — not real secrets"
 regexTarget = "line"
