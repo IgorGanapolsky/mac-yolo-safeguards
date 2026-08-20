@@ -97,6 +97,10 @@ test("matches Hermes Mobile chat management with persistent rename, delete, and 
   assert.match(dashboard, /Clear all chats\?/);
   assert.match(dashboard, /confirmation: "CLEAR ALL CHATS"/);
   assert.match(globals, /\.thread-menu-trigger\{[^}]*min-width:44px[^}]*min-height:44px/);
+  // ••• menu must be viewport-fixed (not absolute under overflow:hidden sidebar)
+  assert.match(globals, /\.thread-actions\{[^}]*position:fixed/);
+  assert.match(dashboard, /createPortal/);
+  assert.match(dashboard, /placeThreadMenu|toggleThreadMenu/);
   assert.match(globals, /\.chat-dialog\{/);
   assert.match(threadsRoute, /export async function PATCH/);
   assert.match(threadsRoute, /export async function DELETE/);
