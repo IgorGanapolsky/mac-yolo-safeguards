@@ -17,10 +17,13 @@ import {
 } from "@/lib/dashboard-nav-cache";
 import { resolveComposerRunCta } from "@/lib/composer-run-cta";
 import {
+  hasPendingConversationTasks,
   mergeConversationTasks,
+  mergeTasksForTaskList,
   pruneResolvedOptimistic,
   scrollConversationHistoryToLatest,
   type ConversationTask,
+  type TaskLike,
 } from "@/lib/conversation-send-visibility";
 import {
   HOSTED_NOT_COMPUTER_HISTORY,
@@ -444,6 +447,21 @@ export default function DashboardClient() {
         threadCacheRef.current.delete(threadId);
         if (selectedThreadRef.current === threadId) {
           if (detailResponse.status === 404) {
+            // A just-sent message creates a thread that may not be queryable at
+            // /api/thread-messages for a few hundred ms (server-side propagation).
+            // If there are pending optimistic tasks, retry instead of nuking the
+            // view — otherwise the sent message vanishes (2026-08-20 user report).
+            if (hasPendingConversationTasks(pendingConversationTasksRef.current)) {
+              // Schedule a single retry. prefetchThreadDetails with {force:true}
+              // will re-attempt; if it 404s again the pending check still
+              // protects the user's optimistic bubble for one more cycle.
+              window.setTimeout(() => {
+                if (selectedThreadRef.current === threadId) {
+                  void prefetchThreadDetails(threadId, { force: true });
+                }
+              }, 500);
+              return;
+            }
             // Stale selection (deleted thread / wrong org id in sessionStorage).
             setSelectedThread(null);
             setThreadDetails(null);
@@ -663,13 +681,23 @@ export default function DashboardClient() {
           writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, null);
         }
       } else if (activeSelected && !nextThreads.some((t) => t.id === activeSelected)) {
-        // Auto-heal stale selection: if cached thread ID was deleted or not found in nextThreads
-        autoSelectedThread.current = true;
-        const fallbackId = nextThreads.length ? nextThreads[0].id : null;
-        activeSelected = fallbackId;
-        setSelectedThread(fallbackId);
-        setThreadDetails(null);
-        writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, fallbackId);
+        // Auto-heal stale selection: if cached thread ID was deleted or not found in nextThreads.
+        // BUT: if there are pending optimistic tasks for this thread (just-sent
+        // message still propagating server-side), preserve the selection and
+        // threadDetails — nuking them makes the sent message vanish
+        // (2026-08-20 user report: "don't see the message i inputted").
+        if (hasPendingConversationTasks(pendingConversationTasksRef.current)) {
+          // Thread likely just created — give it one more refresh cycle to appear.
+          // Keep current selection + threadDetails so the optimistic bubble survives.
+          void prefetchThreadDetails(activeSelected, { force: true });
+        } else {
+          autoSelectedThread.current = true;
+          const fallbackId = nextThreads.length ? nextThreads[0].id : null;
+          activeSelected = fallbackId;
+          setSelectedThread(fallbackId);
+          setThreadDetails(null);
+          writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, fallbackId);
+        }
       } else if (!autoSelectedThread.current && !activeSelected && nextThreads.length) {
         autoSelectedThread.current = true;
         activeSelected = nextThreads[0].id;
@@ -681,7 +709,15 @@ export default function DashboardClient() {
     }
     if (taskResponse.ok) {
       const nextTasks = (await taskResponse.json() as { tasks: Task[] }).tasks;
-      setTasks(nextTasks);
+      // Merge in optimistic tasks not yet confirmed by the server so the
+      // just-sent task row doesn't vanish from the list while loadWorkspace
+      // races with the optimistic render (2026-08-20 user report).
+      const mergedTasks = mergeTasksForTaskList(
+        nextTasks,
+        pendingConversationTasksRef.current,
+        activeSelected ?? "",
+      );
+      setTasks(mergedTasks);
       writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.tasks, nextTasks);
       if (!focusedTaskFromUrl.current && typeof window !== "undefined") {
         const focusTaskId = new URLSearchParams(window.location.search).get("task");
