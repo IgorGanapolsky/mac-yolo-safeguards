@@ -3342,3 +3342,9 @@ Three PRs shipped:
 - 32 new tests (14 action-trace + 18 activity-trigger); all existing tests still pass; codeql-gate 0 findings
 
 - `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx`, `apps/hermes-control-plane/app/globals.css`, `apps/hermes-control-plane/tests/frictionless-onboarding.test.mjs`, `plan.md` → **grok-thread-menu-anchor** (T-THREAD-MENU-ANCHOR-20260820: fix ••• chat actions menu floating detached in main pane; portal+fixed coords next to trigger) (2026-08-20T06:56:48Z)
+---
+2026-08-20T07:07:33Z | PR #1915 merged (commit faf2550ec) — security: harden detection for hermes-mobile secret exposure (Issue #1889)
+- All 7 required CI checks: green
+- Auto-merged on green
+- 3 files: .gitleaks.toml, .github/workflows/ci.yml, docs/SECURITY-1889-HARDENING-RESEARCH.md
+- CI smoke scan regex refined (API_SERVER_KEY=.{12, → API_SERVER_KEY=['"][A-Za-z0-9._-]{20,}['"], added :!tests/ :!docs/ exclusions) to eliminate false positives
