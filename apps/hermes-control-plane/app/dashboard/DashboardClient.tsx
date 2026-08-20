@@ -1,6 +1,7 @@
 "use client";
 
-import { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, FormEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { BrandMark } from "../BrandMark";
 import { FormattedMessage } from "../FormattedMessage";
 import { SignOutForm } from "../SignOutForm";
@@ -17,6 +18,16 @@ import {
 } from "@/lib/dashboard-nav-cache";
 import { resolveComposerRunCta } from "@/lib/composer-run-cta";
 import {
+  hasPendingConversationTasks,
+  mergeConversationTasks,
+  mergeTasksForTaskList,
+  pruneResolvedOptimistic,
+  scrollConversationHistoryToLatest,
+  type ConversationTask,
+  type TaskLike,
+} from "@/lib/conversation-send-visibility";
+import {
+  HOSTED_NOT_COMPUTER_HISTORY,
   hostedConnectionCopy,
   hostedResourceLabel,
   type HostedResourceState,
@@ -285,7 +296,9 @@ export default function DashboardClient() {
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const [threadSortOrder, setThreadSortOrder] = useState<ThreadSortOrder>("newest");
   const [resizing, setResizing] = useState(false);
-  const [threadMenu, setThreadMenu] = useState<string | null>(null);
+  /** Anchored ••• menu: fixed coords so sidebar overflow cannot detach it. */
+  const [threadMenu, setThreadMenu] = useState<{ id: string; top: number; left: number } | null>(null);
+  const threadMenuRef = useRef<HTMLDivElement | null>(null);
   const [chatDialog, setChatDialog] = useState<ChatDialog | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [chatOperationBusy, setChatOperationBusy] = useState(false);
@@ -322,17 +335,30 @@ export default function DashboardClient() {
     return () => window.cancelAnimationFrame(raf);
   }, [mobileTab]);
 
-  // Close thread action menu when clicking anywhere outside
+  // Keep the ••• actions menu glued to its trigger; close on outside / Escape / scroll.
   useEffect(() => {
     if (!threadMenu) return;
-    function handlePointerDown(e: MouseEvent | TouchEvent | PointerEvent) {
-      const target = e.target as HTMLElement | null;
-      if (!target || !target.closest(".thread-row")) {
-        setThreadMenu(null);
-      }
-    }
-    document.addEventListener("pointerdown", handlePointerDown);
-    return () => document.removeEventListener("pointerdown", handlePointerDown);
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setThreadMenu(null);
+    };
+    const onPointer = (event: Event) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (threadMenuRef.current?.contains(target)) return;
+      if (target instanceof Element && target.closest(".thread-menu-trigger")) return;
+      setThreadMenu(null);
+    };
+    const onRepositionClose = () => setThreadMenu(null);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onPointer, true);
+    window.addEventListener("resize", onRepositionClose);
+    window.addEventListener("scroll", onRepositionClose, true);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onPointer, true);
+      window.removeEventListener("resize", onRepositionClose);
+      window.removeEventListener("scroll", onRepositionClose, true);
+    };
   }, [threadMenu]);
   const chatsListDeepLink =
     typeof window !== "undefined" && window.location.hash === "#chats";
@@ -345,6 +371,12 @@ export default function DashboardClient() {
   const openedChatsListFromUrl = useRef(false);
   const composerObserverRef = useRef<ResizeObserver | null>(null);
   const composerFormRef = useRef<HTMLFormElement | null>(null);
+  /** Optimistic web prompts waiting to appear in /api/thread-messages. */
+  const pendingConversationTasksRef = useRef<ConversationTask[]>([]);
+  // prefetchThreadDetails retries itself from a setTimeout inside its own
+  // useCallback body; calling through this ref satisfies the react-compiler
+  // access-before-declaration rule and keeps the retry on the latest instance.
+  const prefetchThreadDetailsRef = useRef<((threadId: string, opts?: { force?: boolean }) => Promise<void>) | null>(null);
   /**
    * Composer is in-flow (desktop) / sticky above mobile tab bar (document scroll).
    * Keep a real form ref so empty-state CTAs can focus the textarea.
@@ -448,6 +480,21 @@ export default function DashboardClient() {
         threadCacheRef.current.delete(threadId);
         if (selectedThreadRef.current === threadId) {
           if (detailResponse.status === 404) {
+            // A just-sent message creates a thread that may not be queryable at
+            // /api/thread-messages for a few hundred ms (server-side propagation).
+            // If there are pending optimistic tasks, retry instead of nuking the
+            // view — otherwise the sent message vanishes (2026-08-20 user report).
+            if (hasPendingConversationTasks(pendingConversationTasksRef.current)) {
+              // Schedule a single retry. prefetchThreadDetails with {force:true}
+              // will re-attempt; if it 404s again the pending check still
+              // protects the user's optimistic bubble for one more cycle.
+              window.setTimeout(() => {
+                if (selectedThreadRef.current === threadId) {
+                  void prefetchThreadDetailsRef.current?.(threadId, { force: true });
+                }
+              }, 500);
+              return;
+            }
             // Stale selection (deleted thread / wrong org id in sessionStorage).
             setSelectedThread(null);
             setThreadDetails(null);
@@ -463,9 +510,14 @@ export default function DashboardClient() {
         snapshot?: ThreadDetails["snapshot"];
         tasks?: ThreadDetails["tasks"];
       };
+      const serverTasks: ConversationTask[] = Array.isArray(body.tasks) ? body.tasks : [];
+      pendingConversationTasksRef.current = pruneResolvedOptimistic(
+        pendingConversationTasksRef.current,
+        serverTasks,
+      );
       const details: ThreadDetails = {
         snapshot: Array.isArray(body.snapshot) ? body.snapshot : [],
-        tasks: Array.isArray(body.tasks) ? body.tasks : [],
+        tasks: mergeConversationTasks(serverTasks, pendingConversationTasksRef.current),
       };
       persistThreadDetails(threadId, details);
       if (selectedThreadRef.current === threadId) {
@@ -480,6 +532,10 @@ export default function DashboardClient() {
       preheatInflightRef.current.delete(threadId);
     }
   }, [persistThreadDetails, readCachedThreadDetails]);
+
+  useEffect(() => {
+    prefetchThreadDetailsRef.current = prefetchThreadDetails;
+  }, [prefetchThreadDetails]);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
@@ -606,12 +662,24 @@ export default function DashboardClient() {
       return;
     }
     const identity = await me.json() as {
-      user: User;
-      organization: Organization;
+      authenticated?: boolean;
+      user?: User;
+      organization?: Organization;
       continuityUsage?: ContinuityUsage;
       hostedRunner?: HostedResourceView;
       hostedModel?: HostedResourceView;
     };
+    // /api/me is 200 + authenticated:false (not 401) when the cookie is missing.
+    // Do not stay on "Opening the control plane…" forever.
+    if (identity.authenticated === false) {
+      const returnTo = `${window.location.pathname}${window.location.search}`;
+      window.location.replace(`/api/auth/login?return_to=${encodeURIComponent(returnTo)}`);
+      return;
+    }
+    if (!identity.user || !identity.organization) {
+      setLoadState("error");
+      return;
+    }
     setUser(identity.user);
     setOrganization(identity.organization);
     if (identity.continuityUsage) setContinuityUsage(identity.continuityUsage);
@@ -650,13 +718,23 @@ export default function DashboardClient() {
           writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, null);
         }
       } else if (activeSelected && !nextThreads.some((t) => t.id === activeSelected)) {
-        // Auto-heal stale selection: if cached thread ID was deleted or not found in nextThreads
-        autoSelectedThread.current = true;
-        const fallbackId = nextThreads.length ? nextThreads[0].id : null;
-        activeSelected = fallbackId;
-        setSelectedThread(fallbackId);
-        setThreadDetails(null);
-        writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, fallbackId);
+        // Auto-heal stale selection: if cached thread ID was deleted or not found in nextThreads.
+        // BUT: if there are pending optimistic tasks for this thread (just-sent
+        // message still propagating server-side), preserve the selection and
+        // threadDetails — nuking them makes the sent message vanish
+        // (2026-08-20 user report: "don't see the message i inputted").
+        if (hasPendingConversationTasks(pendingConversationTasksRef.current)) {
+          // Thread likely just created — give it one more refresh cycle to appear.
+          // Keep current selection + threadDetails so the optimistic bubble survives.
+          void prefetchThreadDetails(activeSelected, { force: true });
+        } else {
+          autoSelectedThread.current = true;
+          const fallbackId = nextThreads.length ? nextThreads[0].id : null;
+          activeSelected = fallbackId;
+          setSelectedThread(fallbackId);
+          setThreadDetails(null);
+          writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, fallbackId);
+        }
       } else if (!autoSelectedThread.current && !activeSelected && nextThreads.length) {
         autoSelectedThread.current = true;
         activeSelected = nextThreads[0].id;
@@ -668,7 +746,15 @@ export default function DashboardClient() {
     }
     if (taskResponse.ok) {
       const nextTasks = (await taskResponse.json() as { tasks: Task[] }).tasks;
-      setTasks(nextTasks);
+      // Merge in optimistic tasks not yet confirmed by the server so the
+      // just-sent task row doesn't vanish from the list while loadWorkspace
+      // races with the optimistic render (2026-08-20 user report).
+      const mergedTasks = mergeTasksForTaskList(
+        nextTasks,
+        pendingConversationTasksRef.current,
+        activeSelected ?? "",
+      );
+      setTasks(mergedTasks);
       writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.tasks, nextTasks);
       if (!focusedTaskFromUrl.current && typeof window !== "undefined") {
         const focusTaskId = new URLSearchParams(window.location.search).get("task");
@@ -715,18 +801,26 @@ export default function DashboardClient() {
   useEffect(() => {
     // `void loadWorkspace()` swallowed rejections: a network failure left loadState at
     // "loading" forever with no error shown and no retry signal.
-    const run = () => {
-      void loadWorkspace().catch(() => setLoadState("error"));
-      if (selectedThreadRef.current) {
-        void revalidateSelectedThread(selectedThreadRef.current).catch(() => {});
-      }
-    };
+    const run = () => { void loadWorkspace().catch(() => setLoadState("error")); };
     const initial = window.setTimeout(run, 0);
-    const timer = window.setInterval(run, 5000);
-    return () => { window.clearTimeout(initial); window.clearInterval(timer); };
+    // 15s cadence, foreground-only: the old always-on 5s poll made every open
+    // dashboard tab cost ~17k Workers requests/day against the 100k free-tier
+    // daily cap (2026-08-19 quota incident). Hidden tabs stop polling; a fresh
+    // run fires immediately when the tab returns to the foreground.
+    let timer: number | undefined;
+    const start = () => { if (timer === undefined) timer = window.setInterval(run, 15000); };
+    const stop = () => { if (timer !== undefined) { window.clearInterval(timer); timer = undefined; } };
+    const onVisibility = () => { if (document.hidden) stop(); else { run(); start(); } };
+    if (!document.hidden) start();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.clearTimeout(initial);
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
     // Intentionally not re-binding when selectedThread flips — list poll stays stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- shell-first: one poller, not one-per-thread
-  }, [revalidateSelectedThread]);
+  }, []);
 
   // Persist selection + background revalidate. Instant paint is in openThread / deep-link handlers.
   useEffect(() => {
@@ -756,6 +850,7 @@ export default function DashboardClient() {
   const hostedCopy = hostedConnectionCopy({
     runnerStatus,
     modelStatus,
+    runnerIdentity: hostedRunner?.identity,
     message: hostedModel?.status === "unhealthy"
       ? hostedModel.message
       : hostedRunner?.status === "unhealthy"
@@ -796,7 +891,13 @@ export default function DashboardClient() {
 
   async function createTask(event: FormEvent) {
     event.preventDefault();
-    const text = prompt.trim();
+    const form = event.currentTarget instanceof HTMLFormElement
+      ? event.currentTarget
+      : composerFormRef.current;
+    const liveValue = form?.querySelector("textarea") instanceof HTMLTextAreaElement
+      ? form.querySelector("textarea")!.value
+      : prompt;
+    const text = liveValue.trim();
     if (!text) {
       setNotice("Type a message first, then tap Run.");
       return;
@@ -829,7 +930,7 @@ export default function DashboardClient() {
         }),
       });
       let body: {
-        task?: { route: string; threadId: string; preference?: string; deviceId?: string; traceId?: string };
+        task?: { id?: string; route: string; threadId: string; status?: string; prompt?: string; createdAt?: number; preference?: string; deviceId?: string; traceId?: string };
         error?: string;
         code?: string;
         limit?: number | null;
@@ -844,38 +945,65 @@ export default function DashboardClient() {
         return;
       }
       if (response.ok && body.task) {
+        const created = body.task;
+        const now = Date.now();
+        const optimistic: Task = {
+          id: created.id ?? `pending-${now}`,
+          threadId: created.threadId,
+          threadTitle: text.replace(/\s+/g, " ").slice(0, 72),
+          prompt: created.prompt ?? text,
+          status: created.status ?? "pending",
+          route: created.route ?? "cloud",
+          result: null,
+          error: null,
+          createdAt: created.createdAt ?? now,
+          updatedAt: created.createdAt ?? now,
+          completedAt: null,
+          deviceName: null,
+        };
+        setTasks((prev) => [optimistic, ...prev.filter((task) => task.id !== optimistic.id)]);
+        const conversationTask: ConversationTask = {
+          id: optimistic.id,
+          prompt: optimistic.prompt,
+          result: null,
+          error: null,
+          route: optimistic.route,
+          status: optimistic.status,
+          createdAt: optimistic.createdAt,
+        };
+        pendingConversationTasksRef.current = [
+          ...pendingConversationTasksRef.current.filter((task) => task.id !== conversationTask.id),
+          conversationTask,
+        ];
+        setThreadDetails((prev) => ({
+          snapshot: prev?.snapshot ?? [],
+          tasks: mergeConversationTasks(prev?.tasks ?? [], pendingConversationTasksRef.current),
+        }));
         const macName =
-          devices.find((device) => device.id === (body.task?.deviceId ?? selectedDeviceId))?.name
+          devices.find((device) => device.id === (created.deviceId ?? selectedDeviceId))?.name
           ?? selectedDeviceLabel;
         setNotice(
-          body.task.route === "cloud"
+          created.route === "cloud"
             ? "Sent — running on the hosted VPS."
             : `Sent — running on ${macName}.`,
         );
         setPrompt("");
-        const taskThreadId = body.task.threadId;
-        setSelectedThread(taskThreadId);
-        // Optimistically render the newly sent task immediately in the chat conversation
-        const optimisticTask: Task = {
-          id: (body.task as { id?: string }).id ?? crypto.randomUUID(),
-          threadId: taskThreadId,
-          prompt: text,
-          status: "pending",
-          route: body.task.route ?? "cloud",
-          createdAt: Date.now(),
-        };
-        setThreadDetails((prev) => {
-          const prevTasks = prev?.tasks ?? [];
-          if (prevTasks.some((t) => t.id === optimisticTask.id)) return prev;
-          return {
-            snapshot: prev?.snapshot ?? [],
-            tasks: [...prevTasks, optimisticTask],
-          };
-        });
-        await prefetchThreadDetails(taskThreadId, { force: true });
-        await loadWorkspace();
+        setSelectedThread(created.threadId);
+        // Persist-before-live already wrote the row. Do not block the card on /api/me.
+        void loadWorkspace();
+        // Newest tasks render at the TOP of the list while the composer sits at the
+        // bottom — scrolling to the OUTPUT strip left the just-sent message off-screen
+        // and users read that as "my message vanished" (2026-08-19 report). Scroll to
+        // the new task's own row so the send is visibly confirmed.
         window.requestAnimationFrame(() => {
-          document.getElementById("run-output")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          // Chat bubbles live in conversation-history (separate from the task card
+          // list). Scroll both so Enter never looks like a silent no-op.
+          scrollConversationHistoryToLatest(document);
+          const target =
+            document.getElementById(`task-${optimistic.id}`)
+            ?? document.getElementById("task-activity")
+            ?? document.getElementById("run-output");
+          target?.scrollIntoView({ behavior: "smooth", block: "center" });
         });
       } else {
         if (body.code === "cloud_task_limit" || body.code === "cloud_entitlement_required") {
@@ -898,6 +1026,8 @@ export default function DashboardClient() {
           }
         } else {
           setNotice(body.error ?? "Task routing failed");
+          // persist-before-live may have written the row before a 409 ack.
+          void loadWorkspace();
         }
       }
     } catch (error) {
@@ -1021,6 +1151,31 @@ export default function DashboardClient() {
     });
   }
 
+  function placeThreadMenu(threadId: string, trigger: HTMLElement) {
+    const rect = trigger.getBoundingClientRect();
+    const menuWidth = 168;
+    const menuHeight = 112;
+    const gutter = 8;
+    let left = Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - gutter);
+    left = Math.max(gutter, left);
+    let top = rect.bottom + 4;
+    if (top + menuHeight > window.innerHeight - gutter) {
+      top = Math.max(gutter, rect.top - menuHeight - 4);
+    }
+    setThreadMenu({ id: threadId, top, left });
+  }
+
+  function toggleThreadMenu(threadId: string, event: ReactMouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (threadMenu?.id === threadId) {
+      setThreadMenu(null);
+      return;
+    }
+    placeThreadMenu(threadId, event.currentTarget);
+  }
+
+
   function openRenameDialog(thread: Thread) {
     setThreadMenu(null);
     setRenameValue(thread.title);
@@ -1134,7 +1289,28 @@ export default function DashboardClient() {
     }
   }
 
-  if (!user || !organization) return <main className="loading-screen"><Mark /><p>Opening the control plane…</p></main>;
+  // Never hide #hermes-thread-list behind the identity fetch. E2E and a real
+  // phone both need the list locator visible (empty state still has the id).
+  if (!user || !organization) {
+    return (
+      <main className="dashboard-shell" data-workspace-hydrated="0">
+        <aside className="sidebar" aria-label="Hermes navigation">
+          <div className="sidebar-header">
+            <a href="/dashboard" className="brand" aria-label="ThumbGate dashboard"><Mark /><span>ThumbGate <small>Hermes Web</small></span></a>
+          </div>
+          <div className="sidebar-content" id="hermes-chat-rail">
+            <div className="workspace-label">CHATS</div>
+            <nav className="thread-list" id="hermes-thread-list" data-testid="hermes-thread-list" aria-label="Chats">
+              <div className="thread-list-empty" data-testid="thread-list-empty">Opening chats…</div>
+            </nav>
+          </div>
+        </aside>
+        <section className="dashboard-main">
+          <p>Opening the control plane…</p>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main
@@ -1162,18 +1338,21 @@ export default function DashboardClient() {
               {threads.length > 0 && <button type="button" className="clear-all-chats" onClick={() => { setThreadMenu(null); setChatDialog({ kind: "clear" }); }}>Clear all</button>}
             </div>
           </div>
-          <nav className="thread-list" id="hermes-thread-list" aria-label={`Chats, ${threadSortOrder} order`}>{visibleThreads.map((thread, index) => {
-            const isNearBottom = index >= Math.max(1, visibleThreads.length - 2);
-            return (
+          <nav className="thread-list" id="hermes-thread-list" data-testid="hermes-thread-list" aria-label={`Chats, ${threadSortOrder} order`}>{visibleThreads.length === 0 ? (
+            <div className="thread-list-empty" data-testid="thread-list-empty">{loadState === "loading" ? "Opening chats…" : "No chats yet"}</div>
+          ) : visibleThreads.map((thread) => (
             <div key={thread.id} className="thread-row">
               <button title={`${thread.title} — ${formatDateTime(thread.updatedAt)}`} aria-current={selectedThread === thread.id ? "page" : undefined} className={selectedThread === thread.id ? "side-item thread-item active" : "side-item thread-item"} onClick={() => openThread(thread.id)} onPointerEnter={() => void prefetchThreadDetails(thread.id)} onFocus={() => void prefetchThreadDetails(thread.id)}><span className="thread-icon">{thread.sourceSessionId ? "⌘" : "›_"}</span><span className="thread-copy"><strong>{thread.title}</strong><time dateTime={new Date(thread.updatedAt).toISOString()}>{formatDateTime(thread.updatedAt)}</time></span><em>{thread.messageCount || thread.taskCount}</em></button>
-              <button type="button" className="thread-menu-trigger" aria-label={`Actions for ${thread.title}`} aria-haspopup="menu" aria-expanded={threadMenu === thread.id} onClick={() => setThreadMenu((current) => current === thread.id ? null : thread.id)}>•••</button>
-              {threadMenu === thread.id && <div className={isNearBottom ? "thread-actions open-up" : "thread-actions"} role="menu" aria-label={`Actions for ${thread.title}`}>
-                <button type="button" className="thread-action" role="menuitem" onClick={() => openRenameDialog(thread)}><span aria-hidden="true">✎</span> Rename</button>
-                <button type="button" className="thread-action thread-action-danger" role="menuitem" onClick={() => openDeleteDialog(thread)}><span aria-hidden="true">⌫</span> Delete</button>
-              </div>}
+              <button type="button" className="thread-menu-trigger" aria-label={`Actions for ${thread.title}`} aria-haspopup="menu" aria-expanded={threadMenu?.id === thread.id} onClick={(event) => toggleThreadMenu(thread.id, event)}>•••</button>
+              {threadMenu?.id === thread.id && typeof document !== "undefined" && createPortal(
+                <div ref={threadMenuRef} className="thread-actions" role="menu" data-testid="thread-actions-menu" aria-label={`Actions for ${thread.title}`} style={{ top: threadMenu.top, left: threadMenu.left }}>
+                  <button type="button" className="thread-action" role="menuitem" onClick={() => openRenameDialog(thread)}><span aria-hidden="true">✎</span> Rename</button>
+                  <button type="button" className="thread-action thread-action-danger" role="menuitem" onClick={() => openDeleteDialog(thread)}><span aria-hidden="true">⌫</span> Delete</button>
+                </div>,
+                document.body,
+              )}
             </div>
-          );})}</nav>
+          ))}</nav>
           <div className="sidebar-bottom"><div className="avatar">{user.name.slice(0, 1).toUpperCase()}</div><div><strong>{user.name}</strong><small>{accountPlan} plan</small></div><SignOutForm buttonClassName="sign-out-button" data-testid="dashboard-sign-out" /></div>
         </div>
         {chatRailExpanded && <div
@@ -1357,13 +1536,23 @@ export default function DashboardClient() {
             <div className="hermes-scroll-pane">
             {selectedThread && <div className="conversation-history">
               {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><FormattedMessage text={message.content} /></article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. Retrying automatically.</div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
-              {threadDetails?.tasks.flatMap((task, index) => [
-                <article key={`task-user-${index}`} className="conversation-message role-user"><span>web</span><p>{task.prompt}</p></article>,
-                task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><FormattedMessage text={task.result} />{feedbackControls(task.id)}</article>
-                  : task.error ? <article key={`task-error-${index}`} className="conversation-message role-error"><span>failed</span><FormattedMessage text={task.error} /></article>
-                  : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><p>Waiting for the fenced VPS runner to pick this up…</p></article>
-                  : null,
-              ])}
+              {threadDetails?.tasks.flatMap((task, index) => {
+                if (!task.prompt.trim()) return [];
+                return [
+                  <article
+                    key={`task-user-${task.id || index}`}
+                    className="conversation-message role-user"
+                    data-testid="conversation-user-prompt"
+                  >
+                    <span>web</span>
+                    <p>{task.prompt}</p>
+                  </article>,
+                  task.result ? <article key={`task-result-${task.id || index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><FormattedMessage text={task.result} />{feedbackControls(task.id)}</article>
+                    : task.error ? <article key={`task-error-${task.id || index}`} className="conversation-message role-error"><span>failed</span><FormattedMessage text={task.error} /></article>
+                    : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${task.id || index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><p>Waiting for the fenced VPS runner to pick this up…</p></article>
+                    : null,
+                ];
+              })}
             </div>}
             <div className="task-list" id="task-activity">
               {taskFilter !== "all" ? (
@@ -1463,7 +1652,9 @@ export default function DashboardClient() {
                   if ((event.key === "Enter" || event.keyCode === 13) && !event.shiftKey) {
                     if (event.nativeEvent.isComposing) return;
                     event.preventDefault();
-                    if (prompt.trim() && !busy) {
+                    const live = event.currentTarget.value.trim();
+                    if (live && !busy) {
+                      if (live !== prompt) setPrompt(live);
                       const form = event.currentTarget.form;
                       if (form) {
                         if (typeof form.requestSubmit === "function") {
@@ -1487,15 +1678,8 @@ export default function DashboardClient() {
               />
               <div className="run-output" id="run-output" data-testid="run-output" role="status" aria-live="polite">
                 <p className="eyebrow">Output</p>
-                {notice ? (
-                  <p>{notice}</p>
-                ) : busy || (visibleTasks[0] && (visibleTasks[0].status === "running" || visibleTasks[0].status === "pending")) ? (
-                  <p>Running on the hosted VPS…</p>
-                ) : visibleTasks[0]?.error ? (
-                  <p>{visibleTasks[0].error}</p>
-                ) : (
-                  <p>Ready for your next message.</p>
-                )}
+                {/* Notices + in-flight status only — completed results live in the task rows; echoing them here left stale agent output pinned under the composer. */}
+                {notice ? <p>{notice}</p> : visibleTasks[0] && !visibleTasks[0].result && !visibleTasks[0].error ? <p>Running on the hosted VPS…</p> : <p>Results show here after you send.</p>}
               </div>
               <div className="composer-actions">
                 {/* Fallback hidden submit button so form.requestSubmit() and soft keyboard Enter always find a submitter */}
@@ -1589,12 +1773,13 @@ export default function DashboardClient() {
               ) : null}
               <div className="account-recovery" style={{ marginTop: "1rem" }}><p>Signed in as <strong>{user.email}</strong>. If your machines are paired to another email, switch accounts here.</p><SignOutForm buttonClassName="button button-secondary button-small" data-testid="dashboard-switch-account">Switch account</SignOutForm></div>
               <p className="privacy-boundary">Bounded Hermes thread context syncs to this control plane. Tasks execute in isolated serverless leases.</p>
+              <p className="privacy-boundary" data-testid="hosted-not-computer-history">{HOSTED_NOT_COMPUTER_HISTORY} Least privilege: cannot read secrets. Private/incognito analogue: we do not ingest other people&apos;s Slack or DMs.</p>
             </section>
             <details className="panel safety-panel" id="execution-safety" open={safetyExpanded} onToggle={(event) => setSafetyExpanded(event.currentTarget.open)}>
               <summary><span><span className="eyebrow">EXECUTION SAFETY</span><strong>What “Fenced” means</strong></span><span aria-hidden="true">⌄</span></summary>
               <div className="safety-explanation">
                 <p>ThumbGate gives each task to one signed runner at a time. Its 90-second lease must keep renewing; if that runner disappears, the lease expires before another runner can take over.</p>
-                <ul><li>Prevents duplicate or stale runners from continuing work.</li><li>Rejects completion receipts from an expired lease.</li><li>All tasks run in isolated serverless cloud sandboxes.</li></ul>
+                <ul><li>Prevents duplicate or stale runners from continuing work.</li><li>Rejects completion receipts from an expired lease.</li><li>All tasks run in isolated serverless cloud sandboxes.</li><li>Not ChatGPT Computer History, not Windows Recall, not a Mac keylogger — the isolated fenced VPS does not grab the cursor.</li></ul>
                 <button
                   type="button"
                   className="button button-secondary button-small"
