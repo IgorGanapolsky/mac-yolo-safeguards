@@ -929,6 +929,6 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   .continuity-usage-meter{margin-top:14px;padding:12px}
 }
 
-.run-output{margin:.6rem 0 0;padding:.7rem .8rem;border:1px solid rgba(96,165,250,.35);border-radius:10px;background:rgba(15,23,42,.72)}
-.run-output .eyebrow{margin:0 0 .35rem;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:#93c5fd}
-.run-output p{margin:0;font-size:.92rem;line-height:1.4;white-space:pre-wrap;max-height:9rem;overflow:auto}
+.run-output{margin:.5rem 0 0;padding:.45rem .75rem;border:1px solid rgba(96,165,250,.2);border-radius:8px;background:rgba(15,23,42,.45)}
+.run-output .eyebrow{margin:0 0 .2rem;font-size:.65rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#93c5fd}
+.run-output p{margin:0;font-size:.85rem;line-height:1.35;color:#94a3b8}

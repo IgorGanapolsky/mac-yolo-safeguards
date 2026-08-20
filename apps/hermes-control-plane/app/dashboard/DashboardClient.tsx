@@ -1472,7 +1472,15 @@ export default function DashboardClient() {
               />
               <div className="run-output" id="run-output" data-testid="run-output" role="status" aria-live="polite">
                 <p className="eyebrow">Output</p>
-                {notice ? <p>{notice}</p> : visibleTasks[0]?.result ? <p>{visibleTasks[0].result}</p> : visibleTasks[0]?.error ? <p>{visibleTasks[0].error}</p> : visibleTasks[0] ? <p>Running on the hosted VPS…</p> : <p>Results show here after you send.</p>}
+                {notice ? (
+                  <p>{notice}</p>
+                ) : busy || (visibleTasks[0] && (visibleTasks[0].status === "running" || visibleTasks[0].status === "pending")) ? (
+                  <p>Running on the hosted VPS…</p>
+                ) : visibleTasks[0]?.error ? (
+                  <p>{visibleTasks[0].error}</p>
+                ) : (
+                  <p>Ready for your next message.</p>
+                )}
               </div>
               <div className="composer-actions">
                 {/* Fallback hidden submit button so form.requestSubmit() and soft keyboard Enter always find a submitter */}
