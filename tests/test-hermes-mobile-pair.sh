@@ -496,11 +496,15 @@ else
   bad "scheduled phone job blocks a duplicate submit before running"
 fi
 
-# Default pairing must prefer tailnet IP (5G-safe), not LAN, when --gateway-url is omitted.
-if [[ "$PAIR_JS" == *"localTailscaleIpv4"* ]] && [[ "$PAIR_JS" == *"5G/cellular-safe"* ]]; then
-  ok "pair script prefers tailnet gateway URL for cellular"
+# Default pairing is LAN-first (home Wi‑Fi with Tailscale off). Tailscale stays an
+# alternate / --mini-tailscale / CGNAT remint path — not the seed gatewayUrl default.
+# CEO 2026-08-20: Tailscale-default re-poisoned pair.json → "in Tailscale" while VPN off.
+if [[ "$PAIR_JS" == *"localTailscaleIpv4"* ]] \
+  && [[ "$PAIR_JS" == *"LAN (Wi‑Fi primary"* || "$PAIR_JS" == *"LAN-first"* ]] \
+  && [[ "$PAIR_JS" == *"--mini-tailscale"* ]]; then
+  ok "pair script defaults to LAN gateway URL (Tailscale optional)"
 else
-  bad "pair script prefers tailnet gateway URL for cellular"
+  bad "pair script defaults to LAN gateway URL (Tailscale optional)"
 fi
 
 DISCOVER_JS="$(cat "$REPO/tools/hermes-discover-tailscale-macs.js")"
@@ -641,12 +645,14 @@ else
   bad "USB copy explains Tailscale Camera path + USB cable primary"
 fi
 
-# --server-only refresh must not clobber a live USB loopback primary with Tailscale.
-if [[ "$PAIR_JS" == *"keeping USB loopback primary"* ]] \
+# --server-only refresh keeps LAN seed even when adb reverse is live (cable for agents).
+# USB loopback primary is opt-in via HERMES_PAIR_USB_PRIMARY=1 (CEO 2026-08-20).
+if [[ "$PAIR_JS" == *"HERMES_PAIR_USB_PRIMARY"* ]] \
+  && [[ "$PAIR_JS" == *"keeping LAN primary"* ]] \
   && [[ "$PAIR_JS" == *"usbReverseLive"* ]]; then
-  ok "server-only refresh preserves USB loopback when adb reverse is live"
+  ok "server-only refresh keeps LAN seed when USB reverse is live (USB primary opt-in)"
 else
-  bad "server-only refresh preserves USB loopback when adb reverse is live"
+  bad "server-only refresh keeps LAN seed when USB reverse is live (USB primary opt-in)"
 fi
 
 # --server-only must persist secretless pairCode in pair.json (watchdog /pair.json contract).

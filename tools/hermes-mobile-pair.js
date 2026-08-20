@@ -966,14 +966,20 @@ function ensurePairServerDaemon(lanIp) {
  *
  * P0 2026-07-21: --server-only used to always prefer Tailscale and clobber a just-written
  * USB loopback primary (runPairMain → writePairAssets → ensurePairServerDaemon → here).
- * When adb reverse :8642 is up and loopback auth verifies, keep USB as the pair-page primary.
+ * CEO 2026-08-20: do NOT rewrite pair.json to 127.0.0.1 just because adb reverse is live —
+ * agents keep a USB cable plugged in, and that re-poisoned Wi‑Fi phones to "USB" / loopback.
+ * Opt in with HERMES_PAIR_USB_PRIMARY=1 when desk USB-primary is intentional.
  */
 function refreshPairAssetsFromLocalGateway() {
   const health = fetchHealth();
   const lanIp = resolveLanIp(health);
   const hostname = (health.hostname || os.hostname() || 'Mac').replace(/\.local$/i, '');
+  // CEO 2026-08-20: LAN-first for seed/pair.json. Tailscale-shaped gatewayUrl made the
+  // phone UI say "in Tailscale" / "Not connected" while Tailscale VPN was off on Wi‑Fi.
+  // Tailscale stays available as an alternate route via buildRouteAlternates / remints
+  // when the client actually arrives on CGNAT.
   const tailnetIp = localTailscaleIpv4();
-  let gatewayUrl = tailnetIp ? `http://${tailnetIp}:8642` : `http://${lanIp}:8642`;
+  let gatewayUrl = lanIp ? `http://${lanIp}:8642` : tailnetIp ? `http://${tailnetIp}:8642` : 'http://127.0.0.1:8642';
   const apiKey = readLocalApiKey();
   const thumbgateApiKey = readThumbgateApiKey();
   const relayCode =
@@ -1005,9 +1011,16 @@ function refreshPairAssetsFromLocalGateway() {
     !String(serial).startsWith('emulator-') &&
     !assertUsbAdbReverses(serial).missing.includes(8642);
   const loopback = 'http://127.0.0.1:8642';
-  if (usbReverseLive && verifyGatewayAuthSync(loopback, apiKey).ok) {
+  const forceUsbPrimary = ['1', 'true', 'yes'].includes(
+    String(process.env.HERMES_PAIR_USB_PRIMARY || '').trim().toLowerCase(),
+  );
+  if (forceUsbPrimary && usbReverseLive && verifyGatewayAuthSync(loopback, apiKey).ok) {
     gatewayUrl = loopback;
-    console.log('  pair.json refresh: keeping USB loopback primary (adb reverse + auth verified)');
+    console.log('  pair.json refresh: HERMES_PAIR_USB_PRIMARY=1 → USB loopback (adb reverse verified)');
+  } else if (usbReverseLive && lanIp && isPrivateIpv4(lanIp)) {
+    console.log(
+      `  pair.json refresh: keeping LAN primary ${gatewayUrl} (USB reverse live but Wi‑Fi seed wins; set HERMES_PAIR_USB_PRIMARY=1 for USB)`,
+    );
   } else if (previous && isLoopbackGatewayUrl(previous.gatewayUrl) && !usbReverseLive) {
     // Cable gone — fall through to Tailscale/LAN rewrite below.
     console.log('  pair.json refresh: prior USB primary, no live reverse — promoting network gateway');
@@ -1300,13 +1313,19 @@ function runPairMain(args) {
     health = fetchHealthAt(gatewayUrl);
   } else {
     health = fetchHealth();
+    const lanIpFromHealth = resolveLanIp(health);
     const tailnetIp = localTailscaleIpv4();
-    if (tailnetIp) {
-      gatewayUrl = `http://${tailnetIp}:8642`;
-      console.log('  Gateway: tailnet (5G/cellular-safe)', gatewayUrl);
-    } else {
-      const lanIpFromHealth = resolveLanIp(health);
+    // LAN-first default (same Wi‑Fi phones with Tailscale off). Use --mini-tailscale
+    // or an explicit --gateway-url for cellular/tailnet-primary pairing.
+    if (lanIpFromHealth) {
       gatewayUrl = `http://${lanIpFromHealth}:8642`;
+      console.log('  Gateway: LAN (Wi‑Fi primary; Tailscale optional alternate)', gatewayUrl);
+    } else if (tailnetIp) {
+      gatewayUrl = `http://${tailnetIp}:8642`;
+      console.log('  Gateway: tailnet (no LAN IP on /health)', gatewayUrl);
+    } else {
+      gatewayUrl = 'http://127.0.0.1:8642';
+      console.log('  Gateway: loopback fallback', gatewayUrl);
     }
   }
   // Prefer the target Mac's /health local_ip when pairing mini/Tailscale so pair.json
