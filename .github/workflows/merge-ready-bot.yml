@@ -55,7 +55,7 @@ jobs:
                 pull_number: pr.number
               });
 
-              const headSha = commits.data[0]?.sha;
+              const headSha = commits[commits.length - 1]?.sha;
               if (!headSha) continue;
 
               // Get latest commit status
