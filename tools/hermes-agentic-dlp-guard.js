@@ -188,10 +188,15 @@ class AgenticControlPlaneGuard {
       }
     }
 
+    // Island "Say yes to AI. On your terms." — allow with an explicit receipt, not silence.
     return {
       allowed: true,
       sanitizedPayload: typeof action.payload === 'object' ? JSON.parse(dlpResult.sanitized) : dlpResult.sanitized,
-      receipt: dlpResult.receipt,
+      receipt: {
+        ...dlpResult.receipt,
+        kind: 'say_yes',
+        framing: 'Say yes — payload cleared DLP on our terms (scrubbed or clean).',
+      },
     };
   }
 

@@ -63,6 +63,22 @@ test('DLP Sanitizer masks secrets and PII correctly', () => {
   assert.ok(result.sanitized.includes('[REDACTED_EMAIL]'));
 });
 
+test('AgenticControlPlaneGuard say-yes receipt when payload is clean', () => {
+  const guard = new AgenticControlPlaneGuard({
+    organizationId: 'org_test_123',
+    enforceFailClosed: true,
+  });
+  const allowed = guard.evaluateOutboundAction({
+    id: 'act_ok',
+    target: 'llm.completion',
+    payload: 'Summarize the public README section on MCP health.',
+    strictBlockOnCritical: true,
+  });
+  assert.equal(allowed.allowed, true);
+  assert.equal(allowed.receipt.kind, 'say_yes');
+  assert.match(allowed.receipt.framing, /Say yes/i);
+});
+
 test('AgenticControlPlaneGuard enforces fail-closed zero-trust boundaries', () => {
   const guard = new AgenticControlPlaneGuard({
     organizationId: 'org_test_123',
