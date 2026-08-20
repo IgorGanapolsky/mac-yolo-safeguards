@@ -69,6 +69,7 @@ test('keeps active work responsive without burning the idle request budget', () 
     idlePollMs: 15_000,
     heartbeatMs: 30_000,
     sessionSyncMs: 60_000,
+    pairPollMs: 10_000,
   });
   assert.equal(nextConnectorPollDelay(true, schedule), 1_000);
   assert.equal(nextConnectorPollDelay(false, schedule), 15_000);
