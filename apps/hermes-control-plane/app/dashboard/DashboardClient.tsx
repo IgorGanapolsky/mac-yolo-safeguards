@@ -17,6 +17,12 @@ import {
 } from "@/lib/dashboard-nav-cache";
 import { resolveComposerRunCta } from "@/lib/composer-run-cta";
 import {
+  mergeConversationTasks,
+  pruneResolvedOptimistic,
+  scrollConversationHistoryToLatest,
+  type ConversationTask,
+} from "@/lib/conversation-send-visibility";
+import {
   HOSTED_NOT_COMPUTER_HISTORY,
   hostedConnectionCopy,
   hostedResourceLabel,
@@ -333,6 +339,8 @@ export default function DashboardClient() {
   const openedChatsListFromUrl = useRef(false);
   const composerObserverRef = useRef<ResizeObserver | null>(null);
   const composerFormRef = useRef<HTMLFormElement | null>(null);
+  /** Optimistic web prompts waiting to appear in /api/thread-messages. */
+  const pendingConversationTasksRef = useRef<ConversationTask[]>([]);
   /**
    * Composer is in-flow (desktop) / sticky above mobile tab bar (document scroll).
    * Keep a real form ref so empty-state CTAs can focus the textarea.
@@ -451,9 +459,14 @@ export default function DashboardClient() {
         snapshot?: ThreadDetails["snapshot"];
         tasks?: ThreadDetails["tasks"];
       };
+      const serverTasks: ConversationTask[] = Array.isArray(body.tasks) ? body.tasks : [];
+      pendingConversationTasksRef.current = pruneResolvedOptimistic(
+        pendingConversationTasksRef.current,
+        serverTasks,
+      );
       const details: ThreadDetails = {
         snapshot: Array.isArray(body.snapshot) ? body.snapshot : [],
-        tasks: Array.isArray(body.tasks) ? body.tasks : [],
+        tasks: mergeConversationTasks(serverTasks, pendingConversationTasksRef.current),
       };
       persistThreadDetails(threadId, details);
       if (selectedThreadRef.current === threadId) {
@@ -805,7 +818,13 @@ export default function DashboardClient() {
 
   async function createTask(event: FormEvent) {
     event.preventDefault();
-    const text = prompt.trim();
+    const form = event.currentTarget instanceof HTMLFormElement
+      ? event.currentTarget
+      : composerFormRef.current;
+    const liveValue = form?.querySelector("textarea") instanceof HTMLTextAreaElement
+      ? form.querySelector("textarea")!.value
+      : prompt;
+    const text = liveValue.trim();
     if (!text) {
       setNotice("Type a message first, then tap Run.");
       return;
@@ -870,6 +889,23 @@ export default function DashboardClient() {
           deviceName: null,
         };
         setTasks((prev) => [optimistic, ...prev.filter((task) => task.id !== optimistic.id)]);
+        const conversationTask: ConversationTask = {
+          id: optimistic.id,
+          prompt: optimistic.prompt,
+          result: null,
+          error: null,
+          route: optimistic.route,
+          status: optimistic.status,
+          createdAt: optimistic.createdAt,
+        };
+        pendingConversationTasksRef.current = [
+          ...pendingConversationTasksRef.current.filter((task) => task.id !== conversationTask.id),
+          conversationTask,
+        ];
+        setThreadDetails((prev) => ({
+          snapshot: prev?.snapshot ?? [],
+          tasks: mergeConversationTasks(prev?.tasks ?? [], pendingConversationTasksRef.current),
+        }));
         const macName =
           devices.find((device) => device.id === (created.deviceId ?? selectedDeviceId))?.name
           ?? selectedDeviceLabel;
@@ -883,6 +919,8 @@ export default function DashboardClient() {
         // Persist-before-live already wrote the row. Do not block the card on /api/me.
         void loadWorkspace();
         window.requestAnimationFrame(() => {
+          scrollConversationHistoryToLatest(document);
+          document.getElementById(`task-${optimistic.id}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
           document.getElementById("run-output")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
         });
       } else {
@@ -1388,13 +1426,23 @@ export default function DashboardClient() {
             <div className="hermes-scroll-pane">
             {selectedThread && <div className="conversation-history">
               {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><FormattedMessage text={message.content} /></article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. Retrying automatically.</div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
-              {threadDetails?.tasks.flatMap((task, index) => [
-                <article key={`task-user-${index}`} className="conversation-message role-user"><span>web</span><p>{task.prompt}</p></article>,
-                task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><FormattedMessage text={task.result} />{feedbackControls(task.id)}</article>
-                  : task.error ? <article key={`task-error-${index}`} className="conversation-message role-error"><span>failed</span><FormattedMessage text={task.error} /></article>
-                  : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><p>Waiting for the fenced VPS runner to pick this up…</p></article>
-                  : null,
-              ])}
+              {threadDetails?.tasks.flatMap((task, index) => {
+                if (!task.prompt.trim()) return [];
+                return [
+                  <article
+                    key={`task-user-${task.id || index}`}
+                    className="conversation-message role-user"
+                    data-testid="conversation-user-prompt"
+                  >
+                    <span>web</span>
+                    <p>{task.prompt}</p>
+                  </article>,
+                  task.result ? <article key={`task-result-${task.id || index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><FormattedMessage text={task.result} />{feedbackControls(task.id)}</article>
+                    : task.error ? <article key={`task-error-${task.id || index}`} className="conversation-message role-error"><span>failed</span><FormattedMessage text={task.error} /></article>
+                    : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${task.id || index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><p>Waiting for the fenced VPS runner to pick this up…</p></article>
+                    : null,
+                ];
+              })}
             </div>}
             <div className="task-list" id="task-activity">
               {taskFilter !== "all" ? (
@@ -1494,7 +1542,9 @@ export default function DashboardClient() {
                   if ((event.key === "Enter" || event.keyCode === 13) && !event.shiftKey) {
                     if (event.nativeEvent.isComposing) return;
                     event.preventDefault();
-                    if (prompt.trim() && !busy) {
+                    const live = event.currentTarget.value.trim();
+                    if (live && !busy) {
+                      if (live !== prompt) setPrompt(live);
                       const form = event.currentTarget.form;
                       if (form) {
                         if (typeof form.requestSubmit === "function") {
