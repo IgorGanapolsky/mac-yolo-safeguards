@@ -63,6 +63,9 @@ async function ensureGuestOrganization(): Promise<string> {
 }
 
 export async function POST(request: Request) {
+  const current = runtimeEnv();
+  if (!current.STRIPE_SECRET_KEY || !current.STRIPE_PRICE_ID) return jsonError("subscription checkout is not configured", 503);
+
   const session = await currentSession().catch(() => null);
   let organizationId: string;
   let userId: string | null = null;
@@ -90,8 +93,6 @@ export async function POST(request: Request) {
     organizationId = await ensureGuestOrganization();
   }
 
-  const current = runtimeEnv();
-  if (!current.STRIPE_SECRET_KEY || !current.STRIPE_PRICE_ID) return jsonError("subscription checkout is not configured", 503);
   const origin = new URL(request.url).origin;
   const body = new URLSearchParams();
   body.set("mode", "subscription");
