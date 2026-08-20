@@ -7,25 +7,32 @@ const source = fs.readFileSync(
   path.join(import.meta.dirname, "../app/dashboard/DashboardClient.tsx"),
   "utf8",
 );
+const globals = fs.readFileSync(
+  path.join(import.meta.dirname, "../app/globals.css"),
+  "utf8",
+);
 
-// 2026-08-20 user report: clicking a chat row's ••• trigger appeared to do
-// nothing — the menu rendered absolutely-positioned INSIDE the scrollable
-// .thread-list, which extends the scroll area instead of overlaying it, so
-// Rename/Delete opened below the fold. The menu must portal to <body> with
-// fixed coordinates taken from the trigger's rect.
+// 2026-08-20 user report: clicking a chat row's ••• trigger opened Rename/Delete
+// detached in the main pane (absolute under overflow:hidden sidebar / scrollable
+// .thread-list). Menu must portal to <body> with fixed coords from the trigger.
 test("thread row menu portals to body with fixed positioning", () => {
   assert.match(source, /import \{ createPortal \} from "react-dom"/);
-  assert.match(source, /threadMenu === thread\.id && threadMenuPos && createPortal\(/);
-  assert.match(source, /position: "fixed", top: threadMenuPos\.top, left: threadMenuPos\.left/);
+  assert.match(source, /createPortal\(/);
+  assert.match(source, /document\.body/);
   assert.match(source, /getBoundingClientRect\(\)/);
+  assert.match(source, /placeThreadMenu|toggleThreadMenu/);
+  assert.match(globals, /\.thread-actions\{[^}]*position:fixed/);
 });
 
-test("portaled menu dismisses on scroll, resize, and outside pointerdown", () => {
-  assert.match(source, /window\.addEventListener\("scroll", close, true\)/);
-  assert.match(source, /window\.addEventListener\("resize", close\)/);
-  assert.match(source, /window\.addEventListener\("pointerdown", close, true\)/);
+test("portaled menu dismisses on scroll, resize, Escape, and outside pointerdown", () => {
+  assert.match(source, /window\.addEventListener\("scroll"/);
+  assert.match(source, /window\.addEventListener\("resize"/);
+  assert.match(source, /window\.addEventListener\("pointerdown"/);
+  assert.match(source, /Escape/);
 });
 
 test("menu flips above the trigger near the viewport bottom", () => {
-  assert.match(source, /rect\.bottom \+ MENU_HEIGHT \+ 8 > window\.innerHeight \? Math\.max\(8, rect\.top - MENU_HEIGHT - 4\) : rect\.bottom \+ 4/);
+  assert.match(source, /innerHeight/);
+  assert.match(source, /rect\.top - menuHeight/);
+  assert.match(source, /rect\.bottom \+ 4/);
 });

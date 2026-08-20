@@ -3341,3 +3341,5 @@ Three PRs shipped:
 - Integrates with: hermes-screenpipe-activity.js (activity timeline source), agent-knowledge-handoff.js (capture results), agent-control-plane.js verify (stale checks)
 - 32 new tests (14 action-trace + 18 activity-trigger); all existing tests still pass; codeql-gate 0 findings
 - `2026-08-20T07:18Z` **grok-pair-lan-null-client** residual: pair.json keeps LAN when USB reverse live (HERMES_PAIR_USB_PRIMARY opt-in); PR #1919 follow-up
+
+- `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx`, `apps/hermes-control-plane/app/globals.css`, `apps/hermes-control-plane/tests/frictionless-onboarding.test.mjs`, `plan.md` → **grok-thread-menu-anchor** (T-THREAD-MENU-ANCHOR-20260820: fix ••• chat actions menu floating detached in main pane; portal+fixed coords next to trigger) (2026-08-20T06:56:48Z)
