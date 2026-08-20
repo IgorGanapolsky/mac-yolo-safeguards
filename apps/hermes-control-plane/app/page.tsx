@@ -12,6 +12,7 @@ import {
 } from "./LandingAuthChrome";
 import { BrandMark } from "./BrandMark";
 import { StartSurfaces } from "./StartSurfaces";
+import { HostedCheckoutCta } from "./HostedCheckoutCta";
 import styles from "./landing.module.css";
 import {
   CONTINUITY_PRICE_TIERS,
@@ -333,7 +334,7 @@ export default function Home() {
           <article>
             <h3>Yes</h3>
             <p>Keep one agent alive 14 days on a VPS. Approve in the browser. If it dies when the laptop sleeps, the trial failed. Cancel anytime. No cash-ROI refund theater.</p>
-            <p><a href="/api/auth/login" className="button button-primary" data-funnel-event="hosted_checkout_click">{PRO_CTA}</a></p>
+            <p><HostedCheckoutCta>{PRO_CTA}</HostedCheckoutCta></p>
           </article>
           <article>
             <h3>No</h3>
@@ -434,9 +435,9 @@ export default function Home() {
           </article>
         </div>
         <div className="hero-actions" style={{ marginTop: "32px" }}>
-          <a href="/api/auth/login" className="button button-primary" data-funnel-event="hosted_checkout_click">
+          <HostedCheckoutCta>
             {PRO_CTA} <span aria-hidden="true">→</span>
-          </a>
+          </HostedCheckoutCta>
         </div>
       </section>
 
@@ -587,7 +588,7 @@ export default function Home() {
         <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate <small>Hosted Hermes</small></span></Link>
         <p>Hosted Hermes on a fenced VPS · closed-system · flat $10/month · cancel anytime.</p>
         <p><Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link> · <Link href="/blog">Blog</Link></p>
-        <p><a href="/api/auth/login" className="button button-primary" data-funnel-event="hosted_checkout_click">{PRO_CTA}</a></p>
+        <p><HostedCheckoutCta>{PRO_CTA}</HostedCheckoutCta></p>
       </footer>
     </main>
   );
