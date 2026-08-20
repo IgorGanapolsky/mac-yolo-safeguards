@@ -35,9 +35,9 @@ test('Universal Harness Adapter resolves Cursor, Claude Code, Codex, Ollama corr
   assert.equal(ollama.id, 'ollama');
   assert.equal(ollama.endpoint, 'http://localhost:11434/v1');
 
-  // Fallback defaults to Antigravity / Agent mode always
+  // Fallback defaults to grok (not antigravity cloud)
   const fallback = resolveHarness('unknown-agent');
-  assert.equal(fallback.id, 'antigravity');
+  assert.equal(fallback.id, 'grok');
 });
 
 test('Universal Harness creates valid execution envelope', () => {

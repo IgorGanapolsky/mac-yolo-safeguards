@@ -54,6 +54,20 @@ const SUPPORTED_HARNESSES = {
     capabilities: ['zero_cost_local', 'offline_inference'],
     permissionModel: 'local_isolated',
   },
+  GROK: {
+    id: 'grok',
+    name: 'Grok Swarm',
+    defaultModel: 'grok-4.5',
+    capabilities: ['reasoning', 'agentic_swarm', 'tool_calling'],
+    permissionModel: 'workspace_scoped',
+  },
+  HERMES_YOLO: {
+    id: 'hermes-yolo',
+    name: 'Hermes YOLO',
+    defaultModel: 'glm-5.3',
+    capabilities: ['fast_execute', 'terminal', 'file_edit'],
+    permissionModel: 'agent_mode_always',
+  },
   ANTIGRAVITY: {
     id: 'antigravity',
     name: 'Google Antigravity SDK',
@@ -77,11 +91,12 @@ function resolveHarness(harnessName, options = {}) {
       };
     }
   }
-  // Default to Antigravity / Agent mode always
+  // Default to grok with fallback reason
   return {
-    ...SUPPORTED_HARNESSES.ANTIGRAVITY,
-    selectedModel: options.modelOverride || SUPPORTED_HARNESSES.ANTIGRAVITY.defaultModel,
+    ...SUPPORTED_HARNESSES.GROK,
+    selectedModel: options.modelOverride || SUPPORTED_HARNESSES.GROK.defaultModel,
     endpoint: 'cloud',
+    fallbackReason: 'unknown_harness_defaulted_to_grok',
   };
 }
 
