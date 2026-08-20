@@ -9,6 +9,8 @@ export const ANALYTICS_EVENTS = [
   "give_work_click",
   // Blog index + post CTA.
   "blog_cta_click",
+  // Security page CTA.
+  "security_cta_click",
   "watchdog_probe",
   "play_store_click",
   "app_store_click",
