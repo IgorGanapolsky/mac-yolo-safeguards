@@ -1,0 +1,11 @@
+A story making the rounds today (The Register, 20 Aug 2026): an engineer at Softjourn asked an AI agent to recommend a package for a routine task. The agent came back with a name that looked completely legitimate — familiar format, plausible library.
+
+It wasn't real. Someone had registered that exact name days earlier and loaded it with malware, betting a developer under deadline pressure would install first and check later. Security researchers now have a name for this: slopsquatting — attackers squatting on package names AI models are known to hallucinate.
+
+Softjourn caught it because they have a policy: double-check every AI-recommended package's download count and source before installing. That's the whole story. Not a fancier scanner, not a smarter model — a habit of pausing before the "yes."
+
+That's the same bet I'm building Leash around at ThumbGate: the moment before an agent's suggestion becomes an action is the cheapest place to catch the bad one. Risky tool calls — including the install commands agents run without asking twice — pause in the browser for a human decision, free to sign in. I don't have data proving it would have caught this exact package, and I'm not going to pretend otherwise. What I can say honestly: it's built by one person, live today, and stories like this are exactly what I'm testing the design against.
+
+https://thumbgate.app/?utm_source=linkedin&utm_medium=social&utm_campaign=2026-08-20-am&cta_id=2026-08-20-am_linkedin_home
+
+First comment (store link): Also on mobile — https://thumbgate.app/go/android · https://thumbgate.app/go/ios ($4.99 paid download, Hermes Mobile: Leash)

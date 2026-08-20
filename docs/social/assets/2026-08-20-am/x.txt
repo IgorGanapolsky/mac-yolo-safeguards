@@ -1,0 +1,5 @@
+An AI agent recommended a package. It looked completely real. It wasn't — someone had registered that exact hallucinated name days earlier and loaded it with malware.
+
+Researchers are calling it slopsquatting. Building an honest pause-before-install gate around that at thumbgate.app.
+
+https://thumbgate.app/?utm_source=x&utm_medium=social&utm_campaign=2026-08-20-am&cta_id=2026-08-20-am_x_home
