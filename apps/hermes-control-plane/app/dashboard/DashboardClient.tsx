@@ -1,6 +1,6 @@
 "use client";
 
-import { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, FormEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BrandMark } from "../BrandMark";
 import { FormattedMessage } from "../FormattedMessage";
@@ -296,8 +296,9 @@ export default function DashboardClient() {
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const [threadSortOrder, setThreadSortOrder] = useState<ThreadSortOrder>("newest");
   const [resizing, setResizing] = useState(false);
-  const [threadMenu, setThreadMenu] = useState<string | null>(null);
-  const [threadMenuPos, setThreadMenuPos] = useState<{ top: number; left: number } | null>(null);
+  /** Anchored ••• menu: fixed coords so sidebar overflow cannot detach it. */
+  const [threadMenu, setThreadMenu] = useState<{ id: string; top: number; left: number } | null>(null);
+  const threadMenuRef = useRef<HTMLDivElement | null>(null);
   const [chatDialog, setChatDialog] = useState<ChatDialog | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [chatOperationBusy, setChatOperationBusy] = useState(false);
@@ -333,6 +334,32 @@ export default function DashboardClient() {
     });
     return () => window.cancelAnimationFrame(raf);
   }, [mobileTab]);
+
+  // Keep the ••• actions menu glued to its trigger; close on outside / Escape / scroll.
+  useEffect(() => {
+    if (!threadMenu) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setThreadMenu(null);
+    };
+    const onPointer = (event: Event) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (threadMenuRef.current?.contains(target)) return;
+      if (target instanceof Element && target.closest(".thread-menu-trigger")) return;
+      setThreadMenu(null);
+    };
+    const onRepositionClose = () => setThreadMenu(null);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onPointer, true);
+    window.addEventListener("resize", onRepositionClose);
+    window.addEventListener("scroll", onRepositionClose, true);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onPointer, true);
+      window.removeEventListener("resize", onRepositionClose);
+      window.removeEventListener("scroll", onRepositionClose, true);
+    };
+  }, [threadMenu]);
   const chatsListDeepLink =
     typeof window !== "undefined" && window.location.hash === "#chats";
   // True when we must not auto-pick nextThreads[0] (user already chose, or #chats list view).
@@ -1124,27 +1151,30 @@ export default function DashboardClient() {
     });
   }
 
-  // The row menu is portaled to <body> with fixed coordinates; anything that
-  // moves the trigger out from under it (scrolling the list, resizing) or a
-  // click elsewhere must dismiss it.
-  useEffect(() => {
-    if (!threadMenu) return;
-    const close = (event?: Event) => {
-      if (event?.type === "pointerdown") {
-        const target = event.target as HTMLElement | null;
-        if (target?.closest(".thread-actions") || target?.closest(".thread-menu-trigger")) return;
-      }
+  function placeThreadMenu(threadId: string, trigger: HTMLElement) {
+    const rect = trigger.getBoundingClientRect();
+    const menuWidth = 168;
+    const menuHeight = 112;
+    const gutter = 8;
+    let left = Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - gutter);
+    left = Math.max(gutter, left);
+    let top = rect.bottom + 4;
+    if (top + menuHeight > window.innerHeight - gutter) {
+      top = Math.max(gutter, rect.top - menuHeight - 4);
+    }
+    setThreadMenu({ id: threadId, top, left });
+  }
+
+  function toggleThreadMenu(threadId: string, event: ReactMouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (threadMenu?.id === threadId) {
       setThreadMenu(null);
-    };
-    window.addEventListener("scroll", close, true);
-    window.addEventListener("resize", close);
-    window.addEventListener("pointerdown", close, true);
-    return () => {
-      window.removeEventListener("scroll", close, true);
-      window.removeEventListener("resize", close);
-      window.removeEventListener("pointerdown", close, true);
-    };
-  }, [threadMenu]);
+      return;
+    }
+    placeThreadMenu(threadId, event.currentTarget);
+  }
+
 
   function openRenameDialog(thread: Thread) {
     setThreadMenu(null);
@@ -1313,23 +1343,9 @@ export default function DashboardClient() {
           ) : visibleThreads.map((thread) => (
             <div key={thread.id} className="thread-row">
               <button title={`${thread.title} — ${formatDateTime(thread.updatedAt)}`} aria-current={selectedThread === thread.id ? "page" : undefined} className={selectedThread === thread.id ? "side-item thread-item active" : "side-item thread-item"} onClick={() => openThread(thread.id)} onPointerEnter={() => void prefetchThreadDetails(thread.id)} onFocus={() => void prefetchThreadDetails(thread.id)}><span className="thread-icon">{thread.sourceSessionId ? "⌘" : "›_"}</span><span className="thread-copy"><strong>{thread.title}</strong><time dateTime={new Date(thread.updatedAt).toISOString()}>{formatDateTime(thread.updatedAt)}</time></span><em>{thread.messageCount || thread.taskCount}</em></button>
-              <button type="button" className="thread-menu-trigger" aria-label={`Actions for ${thread.title}`} aria-haspopup="menu" aria-expanded={threadMenu === thread.id} onClick={(event) => {
-                const rect = event.currentTarget.getBoundingClientRect();
-                const MENU_WIDTH = 172;
-                const MENU_HEIGHT = 112;
-                setThreadMenuPos({
-                  top: rect.bottom + MENU_HEIGHT + 8 > window.innerHeight ? Math.max(8, rect.top - MENU_HEIGHT - 4) : rect.bottom + 4,
-                  left: Math.max(8, rect.right - MENU_WIDTH),
-                });
-                setThreadMenu((current) => current === thread.id ? null : thread.id);
-              }}>•••</button>
-              {threadMenu === thread.id && threadMenuPos && createPortal(
-                // Portaled + position:fixed: absolutely-positioned inside the row this
-                // menu extended the scrollable .thread-list instead of overlaying it,
-                // so it opened below the fold (2026-08-20 user report). Inline
-                // display:grid is required — the stylesheet hides .thread-actions
-                // outside a .thread-row.
-                <div className="thread-actions" role="menu" aria-label={`Actions for ${thread.title}`} style={{ position: "fixed", top: threadMenuPos.top, left: threadMenuPos.left, right: "auto", display: "grid", zIndex: 80 }}>
+              <button type="button" className="thread-menu-trigger" aria-label={`Actions for ${thread.title}`} aria-haspopup="menu" aria-expanded={threadMenu?.id === thread.id} onClick={(event) => toggleThreadMenu(thread.id, event)}>•••</button>
+              {threadMenu?.id === thread.id && typeof document !== "undefined" && createPortal(
+                <div ref={threadMenuRef} className="thread-actions" role="menu" data-testid="thread-actions-menu" aria-label={`Actions for ${thread.title}`} style={{ top: threadMenu.top, left: threadMenu.left }}>
                   <button type="button" className="thread-action" role="menuitem" onClick={() => openRenameDialog(thread)}><span aria-hidden="true">✎</span> Rename</button>
                   <button type="button" className="thread-action thread-action-danger" role="menuitem" onClick={() => openDeleteDialog(thread)}><span aria-hidden="true">⌫</span> Delete</button>
                 </div>,
