@@ -13,7 +13,7 @@ test("security page states the real boundary and the locked offer", () => {
   assert.match(page, /hosted Hermes/i);
   assert.match(page, /fenced VPS/i);
   assert.match(page, /LOCKED_OFFER/);
-  assert.match(page, /90-second renewable lease/);
+  assert.match(page, /90-second\s+renewable\s+lease/);
   assert.match(page, /LLM-as-a-Judge/);
   assert.match(page, /content-free/i);
 });
