@@ -33,10 +33,7 @@ test("example jobs are clickable logins with per-job cta ids", () => {
   assert.match(analytics, /"give_work_click"/);
   assert.match(signals, /sanitizeAttributionToken/);
   assert.match(signals, /dataset\.ctaId/);
-  assert.equal(
-    (page.match(/href="\/api\/auth\/login" className="button button-primary" data-funnel-event="hosted_checkout_click"/g) ?? []).length,
-    3,
-  );
+  assert.equal((page.match(/<HostedCheckoutCta/g) ?? []).length, 3);
 });
 
 test("llms.txt answers how to give it a job", () => {

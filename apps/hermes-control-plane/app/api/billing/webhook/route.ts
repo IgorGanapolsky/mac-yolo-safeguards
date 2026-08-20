@@ -26,6 +26,8 @@ export async function POST(request: Request) {
     data: { object: {
       metadata?: { organization_id?: string };
       client_reference_id?: string;
+      customer_email?: string;
+      customer_details?: { email?: string };
       status?: string;
       payment_status?: string;
     } };
@@ -37,6 +39,7 @@ export async function POST(request: Request) {
   }
   if (!event.id || !event.type) return new Response("invalid event", { status: 400 });
   const organizationId = event.data.object.metadata?.organization_id ?? event.data.object.client_reference_id ?? null;
+  const payerEmail = (event.data.object.customer_details?.email ?? event.data.object.customer_email ?? "").trim().toLowerCase();
   const now = Date.now();
   const statements = [db().prepare(
     "INSERT OR IGNORE INTO billing_events (event_id, event_type, organization_id, processed_at) VALUES (?, ?, ?, ?)"
@@ -50,6 +53,11 @@ export async function POST(request: Request) {
   const revokesAccess = event.type === "customer.subscription.deleted"
     || (["customer.subscription.created", "customer.subscription.updated"].includes(event.type)
       && ["canceled", "incomplete_expired", "past_due", "unpaid"].includes(subscriptionStatus ?? ""));
+  if (organizationId && payerEmail) {
+    statements.push(db().prepare(
+      "UPDATE organizations SET name = ?, updated_at = ? WHERE id = ? AND name = 'hosted-pending'",
+    ).bind(`pending:${payerEmail}`, now, organizationId));
+  }
   if (organizationId && (grantsAccess || revokesAccess)) {
     statements.push(db().prepare("UPDATE organizations SET plan = ?, updated_at = ? WHERE id = ?")
       .bind(grantsAccess ? "pro" : "suspended", now, organizationId));
