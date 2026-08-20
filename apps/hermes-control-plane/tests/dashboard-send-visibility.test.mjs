@@ -49,6 +49,19 @@ test("loadWorkspace preserves pending optimistic tasks instead of nuking threadD
   );
 });
 
+// 2026-08-19 user report: the composer's Output strip kept replaying the newest
+// task's completed result ("verification bubble" probe residue) forever, right
+// under the input box — duplicating the task row above it. The strip is for
+// notices and in-flight status only; completed results render in task rows.
+test("composer output strip never echoes a completed result or error", () => {
+  const strip = source.match(/<div className="run-output"[\s\S]{0,700}?<\/div>/)?.[0] ?? "";
+  assert.ok(strip.length > 0, "run-output strip must exist (it is the post-send scroll fallback)");
+  assert.doesNotMatch(strip, /visibleTasks\[0\][?.]*\s*\.?result\s*\}/, "strip must not render task result");
+  assert.doesNotMatch(strip, /visibleTasks\[0\][?.]*\s*\.?error\s*\}/, "strip must not render task error");
+  assert.match(strip, /Running on the hosted VPS/, "strip keeps the in-flight status");
+  assert.match(strip, /Results show here after you send/, "strip keeps the idle placeholder");
+});
+
 test("prefetchThreadDetails retries on 404 when optimistic tasks are pending", () => {
   // The 404 path must NOT immediately clear threadDetails when there are
   // pending conversation tasks — it must schedule a retry instead.
