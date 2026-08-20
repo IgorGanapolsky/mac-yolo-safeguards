@@ -16,6 +16,7 @@
 
 export const MIN_DASHBOARD_POLL_INTERVAL_MS = 15 * 60 * 1000;
 export const SUB_MINUTE_POLL_MS = 60_000;
+export const ERROR_RETRY_DELAY_MS = 30_000;
 
 export type DashboardRefreshInput = {
   search?: string | URLSearchParams | null;
@@ -97,6 +98,30 @@ export function startDashboardRefresh(options: {
     intervalId,
     stop: () => {
       clearIntervalFn(intervalId);
+    },
+  };
+}
+
+export type OneShotRetryHandle = {
+  started: boolean;
+  delayMs: number;
+  stop: () => void;
+};
+
+/** One delayed retry after a load error. Not an interval. Never sub-60s loop. */
+export function scheduleOneShotErrorRetry(options: {
+  run: () => void;
+  setTimeoutFn?: typeof setTimeout;
+  clearTimeoutFn?: typeof clearTimeout;
+}): OneShotRetryHandle {
+  const setTimeoutFn = options.setTimeoutFn ?? setTimeout;
+  const clearTimeoutFn = options.clearTimeoutFn ?? clearTimeout;
+  const timeoutId = setTimeoutFn(options.run, ERROR_RETRY_DELAY_MS);
+  return {
+    started: true,
+    delayMs: ERROR_RETRY_DELAY_MS,
+    stop: () => {
+      clearTimeoutFn(timeoutId);
     },
   };
 }

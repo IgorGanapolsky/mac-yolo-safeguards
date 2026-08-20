@@ -3,6 +3,8 @@ import {
   MIN_DASHBOARD_POLL_INTERVAL_MS,
   resolveDashboardRefresh,
   startDashboardRefresh,
+  scheduleOneShotErrorRetry,
+  ERROR_RETRY_DELAY_MS,
 } from "./dashboard-refresh";
 
 describe("resolveDashboardRefresh", () => {
@@ -72,6 +74,20 @@ describe("startDashboardRefresh", () => {
       setIntervalFn,
     });
     expect(handle.started).toBe(false);
+    expect(setIntervalFn).not.toHaveBeenCalled();
+  });
+});
+
+describe("scheduleOneShotErrorRetry", () => {
+  it("schedules one 30s timeout, never a sub-60s interval", () => {
+    const setTimeoutFn = vi.fn(() => 9 as unknown as ReturnType<typeof setTimeout>);
+    const setIntervalFn = vi.fn();
+    const handle = scheduleOneShotErrorRetry({ run: () => {}, setTimeoutFn });
+    expect(handle.started).toBe(true);
+    expect(handle.delayMs).toBe(ERROR_RETRY_DELAY_MS);
+    expect(handle.delayMs).toBe(30_000);
+    expect(setTimeoutFn).toHaveBeenCalledTimes(1);
+    expect(setTimeoutFn.mock.calls[0]?.[1]).toBe(30_000);
     expect(setIntervalFn).not.toHaveBeenCalled();
   });
 });
