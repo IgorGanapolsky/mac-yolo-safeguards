@@ -4,6 +4,8 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 
 | Skill | Description | Definition | Source |
 | :--- | :--- | :--- | :--- |
+| `island-agentic-dlp-governance` | Enterprise Agentic Control Plane, in-flight browser DLP guard, zero-trust session boundary interdiction, and VDI reduction engine stolen from Island.io. | `.agents/skills/island-agentic-dlp-governance/SKILL.md` | local |
+| `screenpipe-activity-harness` | Universal Coding Agent Harness Adapter (Cursor, Claude Code, Codex, Ollama) and Activity-to-Skill Distillation Engine stolen from Screenpipe v2.6.56. | `.agents/skills/screenpipe-activity-harness/SKILL.md` | local |
 | `agent-session-start` | Execute session start verification, LaunchAgent health checks, and continuous E2E status reporting. | `~/workspace/git/igor/mac-yolo-safeguards/.agents/skills/agent-session-start/SKILL.md` | local |
 | `anti-babysitting` | Igor's standing directive (2026-08-10): never end a turn asking him for approval, a click, or a decision the agent could make. Pre-authorized action classes, exhaust-then-park ladder for platform walls, absolute Never-list vs consent-gated actions. | `~/workspace/git/igor/mac-yolo-safeguards/.agents/skills/anti-babysitting/SKILL.md` | local |
 | `rubrik-mythos-triage` | Rubrik Mythos high-ROI steal: checkpoints, trust-boundary prune, Track A only for tight auto-fix classes, Track B for secrets/eval/chains. $10/mo fail-closed local scan. | `~/workspace/git/igor/mac-yolo-safeguards/.agents/skills/rubrik-mythos-triage/SKILL.md` | local |
