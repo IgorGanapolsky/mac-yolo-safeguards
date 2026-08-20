@@ -4,6 +4,7 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 
 | Skill | Description | Definition | Source |
 | :--- | :--- | :--- | :--- |
+| `shift-zero-production-engineering` | Production AI engineering disciplines (intentional multi-tenant DynamoDB/vector retrieval, shift-zero in-prompt threat modeling, and AI tech debt lifecycle governance) for autonomous coding agents. | `.agents/skills/shift-zero-production-engineering/SKILL.md` | local |
 | `teamviewer-dex-instruction-engine` | TeamViewer DEX (Digital Employee Experience) Instruction Runner, Dynamic Parameter Validator, Bounded Remote Target Guard & AI Session Summary Distiller stolen from TeamViewer. | `.agents/skills/teamviewer-dex-instruction-engine/SKILL.md` | local |
 | `netflix-oci-causal-engine` | Netflix OCI (Observational Causal Inference) Actor-Critic Engine, Target Trial Emulation (TTE), Propensity Score Inverse Weighting, Placebo Invariant Testing & Sensitivity Analysis for AI Agents. | `.agents/skills/netflix-oci-causal-engine/SKILL.md` | local |
 | `island-agentic-dlp-governance` | Enterprise Agentic Control Plane, in-flight browser DLP guard, zero-trust session boundary interdiction, and VDI reduction engine stolen from Island.io. | `.agents/skills/island-agentic-dlp-governance/SKILL.md` | local |
