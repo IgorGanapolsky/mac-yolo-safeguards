@@ -1175,6 +1175,7 @@ export default function DashboardClient() {
     placeThreadMenu(threadId, event.currentTarget);
   }
 
+
   function openRenameDialog(thread: Thread) {
     setThreadMenu(null);
     setRenameValue(thread.title);
