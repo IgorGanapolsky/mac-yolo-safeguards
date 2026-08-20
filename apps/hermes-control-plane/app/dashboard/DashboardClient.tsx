@@ -702,13 +702,18 @@ export default function DashboardClient() {
   useEffect(() => {
     // `void loadWorkspace()` swallowed rejections: a network failure left loadState at
     // "loading" forever with no error shown and no retry signal.
-    const run = () => { void loadWorkspace().catch(() => setLoadState("error")); };
+    const run = () => {
+      void loadWorkspace().catch(() => setLoadState("error"));
+      if (selectedThreadRef.current) {
+        void revalidateSelectedThread(selectedThreadRef.current).catch(() => {});
+      }
+    };
     const initial = window.setTimeout(run, 0);
     const timer = window.setInterval(run, 5000);
     return () => { window.clearTimeout(initial); window.clearInterval(timer); };
     // Intentionally not re-binding when selectedThread flips — list poll stays stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- shell-first: one poller, not one-per-thread
-  }, []);
+  }, [revalidateSelectedThread]);
 
   // Persist selection + background revalidate. Instant paint is in openThread / deep-link handlers.
   useEffect(() => {
@@ -835,7 +840,26 @@ export default function DashboardClient() {
             : `Sent — running on ${macName}.`,
         );
         setPrompt("");
-        setSelectedThread(body.task.threadId);
+        const taskThreadId = body.task.threadId;
+        setSelectedThread(taskThreadId);
+        // Optimistically render the newly sent task immediately in the chat conversation
+        const optimisticTask: Task = {
+          id: (body.task as { id?: string }).id ?? crypto.randomUUID(),
+          threadId: taskThreadId,
+          prompt: text,
+          status: "pending",
+          route: body.task.route ?? "cloud",
+          createdAt: Date.now(),
+        };
+        setThreadDetails((prev) => {
+          const prevTasks = prev?.tasks ?? [];
+          if (prevTasks.some((t) => t.id === optimisticTask.id)) return prev;
+          return {
+            snapshot: prev?.snapshot ?? [],
+            tasks: [...prevTasks, optimisticTask],
+          };
+        });
+        await prefetchThreadDetails(taskThreadId, { force: true });
         await loadWorkspace();
         window.requestAnimationFrame(() => {
           document.getElementById("run-output")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
