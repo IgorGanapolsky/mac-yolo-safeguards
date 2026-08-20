@@ -3349,3 +3349,12 @@ Three PRs shipped:
 - Auto-merged on green
 - 3 files: .gitleaks.toml, .github/workflows/ci.yml, docs/SECURITY-1889-HARDENING-RESEARCH.md
 - CI smoke scan regex refined (API_SERVER_KEY=.{12, → API_SERVER_KEY=['"][A-Za-z0-9._-]{20,}['"], added :!tests/ :!docs/ exclusions) to eliminate false positives
+
+---
+2026-08-20T12:06:00Z | PR #1923 opened & auto-merge armed (branch feat/revenue-security-harness-live) — Island DLP guard, Screenpipe steals, GHA quota protection, and dashboard UX polish
+- Enterprise DLP & Zero-Trust Guard: Luhn credit card checksum validation, PII/secret scrubbing, ISO 42001 cryptographic receipts (tools/hermes-agentic-dlp-guard.js)
+- Screenpipe v2.6.56 Steals: Universal Multi-Harness Adapter (Cursor, Claude Code, Codex, Ollama) & Activity-to-Skill Distiller (tools/hermes-universal-harness-adapter.js, tools/hermes-activity-skill-distiller.js)
+- GitHub Actions Quota Protection: Removed runaway check_suite trigger loop in merge-ready-bot.yml, throttled 5 background cron schedules to daily off-peak
+- Dashboard UX Polish: Fixed optimistic chat rendering on send, removed redundant 9rem output mirror box, added smart upward dropdown positioning (open-up) and outside-click dismiss
+- 100% green tests across test-hermes-screenpipe-steals.js (3/3), test-hermes-agentic-dlp-guard.js (4/4), validate-agent-skills.js (110 validated, 0 errors)
+- Superseded and closed legacy branch PR #1868
