@@ -184,6 +184,10 @@ export default function LessonsClient() {
           Lessons are <strong>thumbs you leave on completed answers</strong> — not every chat or prompt.
           👍 = keep doing this. 👎 = fix this next time.
         </p>
+        <p className="privacy-note">
+          🔒 <strong>Private to your workspace.</strong> Only you — and anyone you add to your
+          organization — can see these. They are never public and never shared with other users&rsquo; workspaces.
+        </p>
       </div>
       <a className="button button-secondary button-small" href="/dashboard">← Back to dashboard</a>
     </header>
