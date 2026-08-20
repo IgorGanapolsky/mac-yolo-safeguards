@@ -972,8 +972,12 @@ function refreshPairAssetsFromLocalGateway() {
   const health = fetchHealth();
   const lanIp = resolveLanIp(health);
   const hostname = (health.hostname || os.hostname() || 'Mac').replace(/\.local$/i, '');
+  // CEO 2026-08-20: LAN-first for seed/pair.json. Tailscale-shaped gatewayUrl made the
+  // phone UI say "in Tailscale" / "Not connected" while Tailscale VPN was off on Wi‑Fi.
+  // Tailscale stays available as an alternate route via buildRouteAlternates / remints
+  // when the client actually arrives on CGNAT.
   const tailnetIp = localTailscaleIpv4();
-  let gatewayUrl = tailnetIp ? `http://${tailnetIp}:8642` : `http://${lanIp}:8642`;
+  let gatewayUrl = lanIp ? `http://${lanIp}:8642` : tailnetIp ? `http://${tailnetIp}:8642` : 'http://127.0.0.1:8642';
   const apiKey = readLocalApiKey();
   const thumbgateApiKey = readThumbgateApiKey();
   const relayCode =
@@ -1300,13 +1304,19 @@ function runPairMain(args) {
     health = fetchHealthAt(gatewayUrl);
   } else {
     health = fetchHealth();
+    const lanIpFromHealth = resolveLanIp(health);
     const tailnetIp = localTailscaleIpv4();
-    if (tailnetIp) {
-      gatewayUrl = `http://${tailnetIp}:8642`;
-      console.log('  Gateway: tailnet (5G/cellular-safe)', gatewayUrl);
-    } else {
-      const lanIpFromHealth = resolveLanIp(health);
+    // LAN-first default (same Wi‑Fi phones with Tailscale off). Use --mini-tailscale
+    // or an explicit --gateway-url for cellular/tailnet-primary pairing.
+    if (lanIpFromHealth) {
       gatewayUrl = `http://${lanIpFromHealth}:8642`;
+      console.log('  Gateway: LAN (Wi‑Fi primary; Tailscale optional alternate)', gatewayUrl);
+    } else if (tailnetIp) {
+      gatewayUrl = `http://${tailnetIp}:8642`;
+      console.log('  Gateway: tailnet (no LAN IP on /health)', gatewayUrl);
+    } else {
+      gatewayUrl = 'http://127.0.0.1:8642';
+      console.log('  Gateway: loopback fallback', gatewayUrl);
     }
   }
   // Prefer the target Mac's /health local_ip when pairing mini/Tailscale so pair.json
