@@ -82,21 +82,28 @@ test('checkPermission enforces least-privilege RBAC matrix', () => {
   assert.equal(allowedWildcard.allowed, true);
 });
 
-test('validateTargetEndpoints enforces max limits and rejects wildcards', () => {
+test('validateTargetEndpoints enforces hard 10-device limit and rejects wildcards / bad FQDNs', () => {
   // Empty targets
   const empty = validateTargetEndpoints([]);
   assert.equal(empty.valid, false);
 
-  // Exceeds max 10
+  // Exceeds max 10 even when caller requests 100
   const eleven = Array.from({ length: 11 }, (_, i) => `host-${i}.local`);
-  const exceed = validateTargetEndpoints(eleven, { maxTargets: 10 });
+  const exceed = validateTargetEndpoints(eleven, { maxTargets: 100 });
   assert.equal(exceed.valid, false);
-  assert.ok(exceed.error.includes('exceeds safe maximum limit'));
+  assert.ok(exceed.error.includes('exceeds safe maximum limit of 10 devices'));
 
-  // Wildcard reject
-  const wildcard = validateTargetEndpoints(['*']);
-  assert.equal(wildcard.valid, false);
-  assert.ok(wildcard.error.includes('Wildcard execution is strictly prohibited'));
+  // Wildcard and glob patterns rejected
+  const wildcard1 = validateTargetEndpoints(['*']);
+  assert.equal(wildcard1.valid, false);
+  assert.ok(wildcard1.error.includes('without wildcards'));
+
+  const wildcard2 = validateTargetEndpoints(['host*.corp.local']);
+  assert.equal(wildcard2.valid, false);
+  assert.ok(wildcard2.error.includes('without wildcards'));
+
+  const malformed = validateTargetEndpoints(['not an fqdn with spaces']);
+  assert.equal(malformed.valid, false);
 
   // Valid targets
   const valid = validateTargetEndpoints(['mac-mini-01.local', 'macbook-pro.local']);
@@ -104,7 +111,7 @@ test('validateTargetEndpoints enforces max limits and rejects wildcards', () => 
   assert.equal(valid.targets.length, 2);
 });
 
-test('dispatchInstruction executes and produces persistent receipts', () => {
+test('dispatchInstruction truthfully distinguishes simulation/dryRun from execution', () => {
   const receipt = dispatchInstruction(
     'dex-disk-cleanup',
     { dryRun: true, maxAgeDays: 14, targetFolder: 'caches' },
@@ -114,36 +121,36 @@ test('dispatchInstruction executes and produces persistent receipts', () => {
 
   assert.ok(receipt.dispatchId.startsWith('dex_dsp_'));
   assert.equal(receipt.instructionId, 'dex-disk-cleanup');
-  assert.equal(receipt.overallStatus, 'success');
+  assert.equal(receipt.overallStatus, 'dry_run_verified');
+  assert.equal(receipt.persisted, true);
   assert.equal(receipt.targetCount, 2);
-  assert.equal(receipt.deviceResults.length, 2);
-
-  // Verify file written to disk
-  const receiptFile = path.join(os.homedir(), '.hermes', 'dex-instructions', `${receipt.dispatchId}.json`);
-  if (fs.existsSync(receiptFile)) {
-    const saved = JSON.parse(fs.readFileSync(receiptFile, 'utf8'));
-    assert.equal(saved.dispatchId, receipt.dispatchId);
-  }
+  assert.equal(receipt.deviceResults[0].status, 'simulated_dry_run');
 });
 
-test('generateAugmentedSessionSummary distills multi-turn sessions into verified receipts', () => {
-  const sessionData = {
-    sessionId: 'sess_test_123',
-    operator: 'Chief Agent',
-    targetDevice: 'mac-mini-tailscale.local',
-    actions: [
-      { action: 'Inspected memory health via pgrep' },
-      { action: 'Cleaned orphaned simulator logs' },
-    ],
-    verifiedItems: ['1.2GB disk reclaimed', 'Gateway watchdog status is green'],
-    errors: [],
+test('generateAugmentedSessionSummary derives risk posture from real evidence', () => {
+  // 1. Session with errors -> degraded / high risk
+  const failedSession = {
+    sessionId: 'sess_fail',
+    errors: ['root shell connection failed'],
+    verifiedItems: [],
+    hasValidLease: false,
   };
+  const sumFail = generateAugmentedSessionSummary(failedSession);
+  assert.equal(sumFail.riskAssessment.posture, 'degraded_with_errors');
+  assert.equal(sumFail.riskAssessment.residualRisk, 'high');
+  assert.equal(sumFail.riskAssessment.fencedLeaseValid, false);
 
-  const summary = generateAugmentedSessionSummary(sessionData);
-  assert.ok(summary.summaryId.startsWith('aisum_'));
-  assert.equal(summary.sessionId, 'sess_test_123');
-  assert.equal(summary.actionsSummary.length, 2);
-  assert.equal(summary.riskAssessment.posture, 'hardened');
+  // 2. Session with verified items -> hardened / low risk
+  const okSession = {
+    sessionId: 'sess_ok',
+    errors: [],
+    verifiedItems: ['Reclaimed 500MB disk', 'Port 8765 healthy'],
+    hasValidLease: true,
+  };
+  const sumOk = generateAugmentedSessionSummary(okSession);
+  assert.equal(sumOk.riskAssessment.posture, 'hardened_and_verified');
+  assert.equal(sumOk.riskAssessment.residualRisk, 'low');
+  assert.equal(sumOk.riskAssessment.fencedLeaseValid, true);
 });
 
 test('exportResultsToTSV and formatMarkdownAuditReport generate valid outputs', () => {
@@ -156,18 +163,20 @@ test('exportResultsToTSV and formatMarkdownAuditReport generate valid outputs', 
     callerId: 'operator-1',
     targetCount: 1,
     parameters: { dryRun: true },
-    overallStatus: 'success',
+    overallStatus: 'dry_run_verified',
+    persisted: true,
+    receiptPath: '/tmp/test.json',
     deviceResults: [
-      { target: 'host1.local', status: 'completed', exitCode: 0, executionTimeMs: 150, output: 'Cleaned 500MB' },
+      { target: 'host1.local', status: 'simulated_dry_run', exitCode: 0, executionTimeMs: 45, output: 'Cleaned 500MB' },
     ],
   };
 
   const tsv = exportResultsToTSV(receipt);
   assert.ok(tsv.includes('target\tstatus\texitCode\texecutionTimeMs\toutput'));
-  assert.ok(tsv.includes('host1.local\tcompleted\t0\t150\tCleaned 500MB'));
+  assert.ok(tsv.includes('host1.local\tsimulated_dry_run\t0\t45\tCleaned 500MB'));
 
   const md = formatMarkdownAuditReport(receipt);
   assert.ok(md.includes('# 🖥️ TeamViewer DEX Instruction Execution Receipt'));
   assert.ok(md.includes('dex-disk-cleanup'));
-  assert.ok(md.includes('| `host1.local` | **completed** | `0` | 150ms | Cleaned 500MB |'));
+  assert.ok(md.includes('| `host1.local` | **simulated_dry_run** | `0` | 45ms | Cleaned 500MB |'));
 });

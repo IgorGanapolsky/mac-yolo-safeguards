@@ -12,16 +12,15 @@
  *      (strings, numbers, booleans, enums, regex patterns, defaults) before dispatch.
  *
  * 2. Safe FQDN-Based Bounded Endpoint Targeting:
- *    - Enforces hard safety blast-radius limits (default max 10 devices per execution batch).
- *    - Rejects wildcard / unbound execution targets without explicit verified FQDN or Device ID match.
+ *    - Enforces hard safety blast-radius limits (strict max 10 devices per execution batch).
+ *    - Rejects wildcards, embedded glob characters, and malformed endpoint names.
  *
  * 3. AI Augmented Summary & Session Transcript Distiller:
- *    - Distills multi-step agent interaction transcripts into concise, verifiable AI action receipts
- *      (actions performed, errors mitigated, verified state, follow-ups).
+ *    - Distills multi-step agent interaction transcripts into concise, verifiable AI action receipts.
+ *    - Accurately derives risk assessment and posture directly from actual execution evidence.
  *
  * 4. Least-Privilege Permission Matrix & RBAC Gate:
- *    - Fail-closed permission checking (read_only, device_support, session_execution, admin_policy)
- *      preventing unauthorized agent capability escalation.
+ *    - Fail-closed permission checking (read_only, device_support, session_execution, admin_policy).
  *
  * 5. Structured Result Offloader:
  *    - Multi-format receipt persistence (JSON, TSV, Markdown audit reports) under ~/.hermes/dex-instructions/.
@@ -33,7 +32,8 @@ const path = require('path');
 const crypto = require('crypto');
 
 const DEX_DIR = path.join(os.homedir(), '.hermes', 'dex-instructions');
-const MAX_TARGET_DEVICES_DEFAULT = 10;
+const MAX_TARGET_DEVICES_HARD_CEILING = 10;
+const FQDN_DEVICE_REGEX = /^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$/;
 
 // Standard Built-In DEX Instruction Registry
 const DEFAULT_INSTRUCTIONS = [
@@ -200,10 +200,12 @@ function checkPermission(callerPermissions = [], requiredPermission = 'read_only
 }
 
 /**
- * Validates and sanitizes target endpoint list
+ * Validates and sanitizes target endpoint list with a hard safety ceiling
  */
 function validateTargetEndpoints(targets = [], options = {}) {
-  const maxTargets = options.maxTargets || MAX_TARGET_DEVICES_DEFAULT;
+  // Hard ceiling cannot be overridden by caller options
+  const requestedMax = typeof options.maxTargets === 'number' ? options.maxTargets : MAX_TARGET_DEVICES_HARD_CEILING;
+  const effectiveMax = Math.min(requestedMax, MAX_TARGET_DEVICES_HARD_CEILING);
 
   if (!Array.isArray(targets) || targets.length === 0) {
     return {
@@ -213,22 +215,29 @@ function validateTargetEndpoints(targets = [], options = {}) {
     };
   }
 
-  if (targets.length > maxTargets) {
+  if (targets.length > effectiveMax) {
     return {
       valid: false,
-      error: `Target count (${targets.length}) exceeds safe maximum limit of ${maxTargets} devices.`,
+      error: `Target count (${targets.length}) exceeds safe maximum limit of ${effectiveMax} devices.`,
       targets: [],
     };
   }
 
-  // Ensure no wildcards or blank targets
   const sanitized = [];
   for (const t of targets) {
     const trimmed = typeof t === 'string' ? t.trim() : (t?.id || t?.fqdn || '').trim();
-    if (!trimmed || trimmed === '*' || trimmed.includes('%')) {
+    if (!trimmed) {
       return {
         valid: false,
-        error: `Invalid or wildcard target endpoint '${t}'. Wildcard execution is strictly prohibited.`,
+        error: 'Target endpoint identifier cannot be empty.',
+        targets: [],
+      };
+    }
+    // Reject wildcards, globs, spaces, or injection characters
+    if (trimmed.includes('*') || trimmed.includes('?') || trimmed.includes('%') || trimmed.includes(' ') || !FQDN_DEVICE_REGEX.test(trimmed)) {
+      return {
+        valid: false,
+        error: `Invalid or wildcard target endpoint '${trimmed}'. Targets must strictly match valid FQDN / device ID grammar without wildcards.`,
         targets: [],
       };
     }
@@ -262,23 +271,26 @@ function dispatchInstruction(instructionId, params = {}, targets = [], context =
     throw new Error(`Parameter validation failed: ${paramVal.errors.join('; ')}`);
   }
 
-  // 3. Target device validation
-  const targetVal = validateTargetEndpoints(targets, { maxTargets: context.maxTargets || MAX_TARGET_DEVICES_DEFAULT });
+  // 3. Target device validation with strict hard ceiling
+  const targetVal = validateTargetEndpoints(targets, { maxTargets: context.maxTargets });
   if (!targetVal.valid) {
     throw new Error(targetVal.error);
   }
 
   const dispatchId = `dex_dsp_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
   const timestamp = new Date().toISOString();
+  const isDryRun = paramVal.validated.dryRun === true;
+  const executionMode = context.executionMode || (isDryRun ? 'simulation' : 'simulated_dispatch');
 
-  // 4. Simulate execution results per target
+  // 4. Record truthful execution status
   const deviceResults = targetVal.targets.map((target) => {
     return {
       target,
-      status: 'completed',
+      status: isDryRun ? 'simulated_dry_run' : 'dispatched',
       exitCode: 0,
-      output: `Executed ${instruction.name} with parameters: ${JSON.stringify(paramVal.validated)}`,
-      executionTimeMs: Math.floor(Math.random() * 400) + 120,
+      executionMode,
+      output: `Instruction ${instruction.name} planned for ${target} (dryRun=${isDryRun})`,
+      executionTimeMs: 45,
     };
   });
 
@@ -292,21 +304,23 @@ function dispatchInstruction(instructionId, params = {}, targets = [], context =
     targetCount: targetVal.targets.length,
     parameters: paramVal.validated,
     deviceResults,
-    overallStatus: deviceResults.every((r) => r.status === 'completed') ? 'success' : 'partial_failure',
+    overallStatus: isDryRun ? 'dry_run_verified' : 'dispatched_pending_ack',
+    persisted: false,
+    receiptPath: null,
   };
 
-  // Persist receipt
+  // Persist receipt and truthfully record receipt persistence state
   try {
     if (!fs.existsSync(DEX_DIR)) {
       fs.mkdirSync(DEX_DIR, { recursive: true });
     }
-    fs.writeFileSync(
-      path.join(DEX_DIR, `${dispatchId}.json`),
-      JSON.stringify(dispatchReceipt, null, 2),
-      'utf8'
-    );
-  } catch (_err) {
-    // Ignore in constrained environments
+    const savePath = path.join(DEX_DIR, `${dispatchId}.json`);
+    fs.writeFileSync(savePath, JSON.stringify(dispatchReceipt, null, 2), 'utf8');
+    dispatchReceipt.persisted = true;
+    dispatchReceipt.receiptPath = savePath;
+  } catch (err) {
+    dispatchReceipt.persisted = false;
+    dispatchReceipt.persistenceError = err.message;
   }
 
   return dispatchReceipt;
@@ -315,7 +329,7 @@ function dispatchInstruction(instructionId, params = {}, targets = [], context =
 /**
  * Generates an Augmented AI Summary from session transcript / execution logs
  */
-function generateAugmentedSessionSummary(sessionData) {
+function generateAugmentedSessionSummary(sessionData = {}) {
   const {
     sessionId = `sess_${Date.now()}`,
     operator = 'Hermes Agent',
@@ -323,11 +337,28 @@ function generateAugmentedSessionSummary(sessionData) {
     actions = [],
     transcript = [],
     errors = [],
+    verifiedItems = [],
+    hasValidLease = false,
   } = sessionData;
 
-  const durationSec = sessionData.durationSec || 45;
-  const verifiedItems = sessionData.verifiedItems || [];
-  const riskMitigations = sessionData.riskMitigations || [];
+  const durationSec = sessionData.durationSec || 0;
+  const hasErrors = errors.length > 0;
+  const hasVerifiedItems = verifiedItems.length > 0;
+
+  // Derive risk assessment strictly from actual evidence
+  let posture = 'unknown';
+  let residualRisk = 'medium';
+
+  if (hasErrors) {
+    posture = 'degraded_with_errors';
+    residualRisk = 'high';
+  } else if (hasVerifiedItems) {
+    posture = 'hardened_and_verified';
+    residualRisk = 'low';
+  } else {
+    posture = 'unverified_execution';
+    residualRisk = 'medium';
+  }
 
   const summary = {
     summaryId: `aisum_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`,
@@ -336,14 +367,14 @@ function generateAugmentedSessionSummary(sessionData) {
     operator,
     targetDevice,
     durationSec,
-    overview: `Session executed with ${actions.length} discrete operations across ${targetDevice}.`,
+    overview: `Session recorded ${actions.length} action(s) across ${targetDevice}.`,
     actionsSummary: actions.map((a, idx) => `${idx + 1}. ${a.description || a.action || a}`),
-    keyOutcomes: verifiedItems.length > 0 ? verifiedItems : ['All executed operations satisfied exit verification criteria.'],
-    errorsMitigated: errors.length > 0 ? errors : ['Zero unhandled runtime exceptions during session.'],
+    keyOutcomes: hasVerifiedItems ? verifiedItems : ['No automated verification assertions recorded.'],
+    errorsMitigated: hasErrors ? errors : ['Zero unhandled runtime exceptions recorded.'],
     riskAssessment: {
-      posture: 'hardened',
-      residualRisk: 'low',
-      fencedLeaseValid: true,
+      posture,
+      residualRisk,
+      fencedLeaseValid: Boolean(hasValidLease),
     },
   };
 
@@ -378,6 +409,7 @@ function formatMarkdownAuditReport(dispatchReceipt) {
 - **Timestamp**: ${dispatchReceipt.timestamp}
 - **Caller**: \`${dispatchReceipt.callerId}\`
 - **Overall Status**: **${dispatchReceipt.overallStatus.toUpperCase()}**
+- **Persisted Receipt**: ${dispatchReceipt.persisted ? `\`${dispatchReceipt.receiptPath}\`` : '⚠️ UNPERSISTED'}
 
 ## 🧩 Parameters Applied
 \`\`\`json
