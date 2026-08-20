@@ -109,9 +109,10 @@ else
   bad "pair script splits adb loopback vs Camera/HTTP Tailscale pairServer"
 fi
 
-# Camera/HTTP remints must not redeem against LAN when Tailscale IP exists.
+# Camera/HTTP remints: CGNAT clients upgrade LAN seed → Tailscale; LAN/seed stays LAN.
 if grep -q 'resolveLiveMintPairServerUrl' "$REPO/tools/hermes-mobile-pair.js" \
-  && grep -q 'Stale seed often stores LAN while Camera QR already uses Tailscale' "$REPO/tools/hermes-mobile-pair.js" \
+  && grep -q 'CGNAT client: upgrade LAN seed to Tailscale for Camera QR redeem' "$REPO/tools/hermes-mobile-pair.js" \
+  && grep -q 'Stale Tailscale seed while current answer is LAN' "$REPO/tools/hermes-mobile-pair.js" \
   && grep -q 'Pair exchange (Camera/HTTP)' "$REPO/tools/hermes-mobile-pair.js"; then
   ok "live mint upgrades LAN pairServer to Tailscale for Camera QR redeem"
 else
