@@ -13,10 +13,16 @@ export async function GET() {
       headers: { Location: "/dashboard" },
     });
   }
-  return new Response(null, {
-    status: 307,
-    headers: { Location: "/api/auth/login?return_to=/dashboard" },
-  });
+  return new Response(
+    `<!doctype html><meta charset="utf-8"><title>Start hosted Hermes</title><form id="hosted-checkout" action="/api/billing/checkout" method="POST"></form><script>document.getElementById("hosted-checkout").submit()</script>`,
+    {
+      status: 200,
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+      },
+    },
+  );
 }
 
 export const HEAD = GET;
