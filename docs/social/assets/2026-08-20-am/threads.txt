@@ -1,0 +1,7 @@
+An engineer asked an AI agent to recommend a package. The name looked completely legit. It wasn't — someone registered it days earlier and loaded it with malware, betting on exactly this.
+
+Researchers are calling it slopsquatting. The only thing that caught it in the story: a habit of checking before installing.
+
+Building the pause-before-action gate around that, honestly, at thumbgate.app.
+
+https://thumbgate.app/?utm_source=threads&utm_medium=social&utm_campaign=2026-08-20-am&cta_id=2026-08-20-am_threads_home
