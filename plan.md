@@ -3311,3 +3311,32 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 - 2026-08-20T02:01:26Z grok: T-DASHBOARD-SENT-MSG-INVISIBLE — user Enter on thumbgate.app/dashboard clears composer but conversation-history never shows the prompt (optimistic only hit task-list). Fixing scroll + threadDetails optimistic merge.
 
 - `2026-08-20T02:48:56Z` **grok-pair-lan-seed** claims `tools/hermes-mobile-pair.js`, `tests/test-hermes-mobile-pair.sh` — LAN-first pageUrl/pair.json when clientIp unknown (phone Tailscale off must not get 100.x seed)
+
+## §3 ADDITIONAL NOTES — 2026-08-20T04:10 (append-only)
+
+### Island.io Enterprise Agentic Control Plane implementation (ISLAND-IO-20260820)
+TheNewStack article: 'Codex can now keep coding while it waits for your answer'.
+Island.io's "Enterprise Agentic Control Plane" concept — code with vibes, deploy with confidence.
+
+Three PRs shipped:
+
+**PR #1905** (991f8d2561, merged 2026-08-20T03:28:44Z): Cognitive debt scanner + knowledge handoff
+- tools/cognitive-debt-scanner.js — opt-in diagnostic for 5 AI-code debt patterns
+- tools/agent-knowledge-handoff.js — capture/recall agent decisions for next agent
+- codeql-pattern-gate.js — added no-any-type-annotation rule
+
+**PR #1907** (8024aa44f, merged 2026-08-20T03:30:38Z): Async agent messaging + checkpoint gate
+- tools/async-agent-messaging.js — non-blocking ask/pending/reply (maps to Codex send_user_message_async)
+- tools/task-checkpoint-gate.js — checkpoint/steer/rollback (addresses "no checkpoint preventing work past decision")
+
+**PR #1908** (90e2ec3e0, merged 2026-08-20T04:09:58Z): Control plane verify + pulse
+- tools/agent-control-plane.js — added `verify` (pre-flight safety gates) and `pulse` (real-time swarm dashboard)
+- verify runs: codeql-pattern-gate (BLOCKING), cognitive-debt-scanner (advisory), async-questions-pending (BLOCKING), task-checkpoints-active (advisory), budget-guard (BLOCKING)
+- pulse shows: plan.md tasks, pending async questions, active checkpoints, recent handoffs, LaunchAgent health, continuous E2E status
+- 16 tests pass (8 new)
+
+**PR #1909** (69be149b7, merged 2026-08-20T04:39:25Z): Screenpipe steal — agent action tracer + pattern-triggered agent runner
+- tools/agent-action-trace.js — "See the trigger, context, decision, and result instead of trusting a black box" / immutable JSONL audit trail (start/decision/end/list/show)
+- tools/activity-trigger.js — "Turn repeated work events into automated follow-ups" / watch/match rules with 5-min cooldown (register/matchEvent/watch/fire)
+- Integrates with: hermes-screenpipe-activity.js (activity timeline source), agent-knowledge-handoff.js (capture results), agent-control-plane.js verify (stale checks)
+- 32 new tests (14 action-trace + 18 activity-trigger); all existing tests still pass; codeql-gate 0 findings
