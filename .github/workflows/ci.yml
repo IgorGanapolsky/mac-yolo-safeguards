@@ -245,7 +245,7 @@ jobs:
       - name: Public secret smoke scan
         run: |
           set -eu
-          ! git grep -nE '(ghp_[A-Za-z0-9_]+|github_pat_[A-Za-z0-9_]+|xai-[A-Za-z0-9_-]{20,}|AIzaSy[A-Za-z0-9_-]{20,}|sk_live_[A-Za-z0-9_]+|TELEGRAM_BOT_TOKEN=|STRIPE_SECRET_KEY=sk_|X-Goog-Signature=)' \
+          ! git grep -nE '(ghp_[A-Za-z0-9_]+|github_pat_[A-Za-z0-9_]+|xai-[A-Za-z0-9_-]{20,}|AIzaSy[A-Za-z0-9_-]{20,}|sk_live_[A-Za-z0-9_]+|TELEGRAM_BOT_TOKEN=|STRIPE_SECRET_KEY=sk_|X-Goog-Signature=|API_SERVER_KEY=.{12,}|key=[A-Za-z0-9._-]{20,})' \
             -- ':!.github/workflows/ci.yml' ':!.github/workflows/internal-distribution.yml' ':!.github/workflows/store-release.yml'
 
   revenue-public-checks:
