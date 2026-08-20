@@ -4,6 +4,7 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 
 | Skill | Description | Definition | Source |
 | :--- | :--- | :--- | :--- |
+| `solar-pro-workhorse-router` | Upstage Solar Pro 4 Workhorse Reliability & Economic Agent Router. Implements 3-tier model routing (Frontier vs Workhorse vs Local), 90% token cost reduction for document/schema tasks, and tabular extraction integrity verification (71 AA-LCR). | `.agents/skills/solar-pro-workhorse-router/SKILL.md` | local |
 | `shift-zero-production-engineering` | Production AI engineering disciplines (intentional multi-tenant DynamoDB/vector retrieval, shift-zero in-prompt threat modeling, and AI tech debt lifecycle governance) for autonomous coding agents. | `.agents/skills/shift-zero-production-engineering/SKILL.md` | local |
 | `teamviewer-dex-instruction-engine` | TeamViewer DEX (Digital Employee Experience) Instruction Runner, Dynamic Parameter Validator, Bounded Remote Target Guard & AI Session Summary Distiller stolen from TeamViewer. | `.agents/skills/teamviewer-dex-instruction-engine/SKILL.md` | local |
 | `netflix-oci-causal-engine` | Netflix OCI (Observational Causal Inference) Actor-Critic Engine, Target Trial Emulation (TTE), Propensity Score Inverse Weighting, Placebo Invariant Testing & Sensitivity Analysis for AI Agents. | `.agents/skills/netflix-oci-causal-engine/SKILL.md` | local |
