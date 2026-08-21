@@ -304,11 +304,13 @@ try {
         {
           name: "hermes_session",
           value: SESSION_TOKEN,
-          url: `${base}/`,
+          url: base,
+          sameSite: "Lax",
         },
       ]);
       const page = await context.newPage();
-      await page.goto(`${base}/dashboard`, { waitUntil: "networkidle", timeout: 60_000 });
+      page.on("pageerror", (err) => console.error("[BROWSER ERROR]", err));
+      await page.goto(`${base}/dashboard`, { waitUntil: "domcontentloaded", timeout: 30_000 });
       // Continuity-only composer: visible Output pane, no RUN ON dual picker.
       await page.waitForSelector('[data-testid="run-output"]', { timeout: 30_000 });
       const output = page.locator('[data-testid="run-output"]');

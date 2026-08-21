@@ -225,8 +225,8 @@ function ConversationMeta({ meta }: { meta: ConversationMessageMeta }) {
   );
 }
 
-function sortThreadsNewestFirst(nextThreads: Thread[]) {
-  return [...nextThreads].sort((left, right) =>
+function sortThreadsNewestFirst(nextThreads: Thread[] = []) {
+  return [...(nextThreads ?? [])].sort((left, right) =>
     Number(right.updatedAt) - Number(left.updatedAt) || right.id.localeCompare(left.id)
   );
 }
