@@ -403,6 +403,8 @@ export default function DashboardClient() {
   const openedChatsListFromUrl = useRef(false);
   const composerObserverRef = useRef<ResizeObserver | null>(null);
   const composerFormRef = useRef<HTMLFormElement | null>(null);
+  /** One restore per selected thread: a hard refresh opens at the newest output. */
+  const restoredThreadBottomRef = useRef<string | null>(null);
   /** Optimistic web prompts waiting to appear in /api/thread-messages. */
   const pendingConversationTasksRef = useRef<ConversationTask[]>([]);
   // prefetchThreadDetails retries itself from a setTimeout inside its own
@@ -902,6 +904,16 @@ export default function DashboardClient() {
       cancelled = true;
     };
   }, [selectedThread, revalidateSelectedThread]);
+
+  useEffect(() => {
+    if (loadState !== "loaded" || !selectedThread || !threadDetails) return;
+    if (restoredThreadBottomRef.current === selectedThread) return;
+    restoredThreadBottomRef.current = selectedThread;
+    const raf = window.requestAnimationFrame(() => {
+      scrollConversationHistoryToLatest(document, "auto");
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [loadState, selectedThread, threadDetails]);
   useEffect(() => {
     if (!user || !pairingCodePattern.test(pairCode)) return;
     const currentUrl = new URL(window.location.href);
