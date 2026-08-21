@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Live smoke test for the deployed Hermes Control Plane at thumbgate.app.
 # Asserts the public surface a brand-new visitor hits: apex, www redirect,
-# WorkOS login redirect, and unauthenticated checkout rejection.
+# WorkOS login redirect, and the public guest-to-Stripe checkout path.
 # Exits non-zero on the first failed assertion so CI/launchd can alert.
 set -u
 
@@ -36,8 +36,12 @@ if [[ -n "$APEX_IP" ]]; then
   redirect=$(curl -sS -o /dev/null -m 20 -w "%{redirect_url}" --resolve "$HOST:443:$APEX_IP" "https://$HOST/api/auth/login")
   check "login redirects to WorkOS" "https://api.workos.com/*" "$redirect"
 
-  code=$(curl -sS -o /dev/null -m 20 -w "%{http_code}" -X POST --resolve "$HOST:443:$APEX_IP" "https://$HOST/api/billing/checkout")
-  check "unauthenticated checkout rejected" "401" "$code"
+  checkout_response=$(curl -sS -m 20 -w $'\n%{http_code}' -X POST --resolve "$HOST:443:$APEX_IP" "https://$HOST/api/billing/checkout")
+  code="${checkout_response##*$'\n'}"
+  checkout_body="${checkout_response%$'\n'*}"
+  checkout_url=$(printf '%s' "$checkout_body" | sed -nE 's/.*"url":"(https:\/\/checkout\.stripe\.com\/[^\"]+)".*/\1/p')
+  check "guest checkout starts" "200" "$code"
+  check "guest checkout returns Stripe URL" "https://checkout.stripe.com/*" "$checkout_url"
 fi
 
 if [[ -n "$WWW_IP" ]]; then
