@@ -64,6 +64,12 @@ describe("readableChatOutput", () => {
     expect(readableChatOutput(fenced)).toBe(fenced);
   });
 
+  it("preserves a fenced full-width DSML example when the same message contains a real leak", () => {
+    const fenced = `Example:\n\`\`\`xml\n${productionUnicodeDsml}\n\`\`\``;
+    const rendered = readableChatOutput(`${fenced}\nActual run:\n${productionUnicodeDsml}`);
+    expect(rendered).toBe(`${fenced}\nActual run:\n\n${TOOL_PROTOCOL_INCOMPLETE_MESSAGE}`);
+  });
+
   it("does not rewrite normal assistant prose or code", () => {
     const normal = "Use `curl https://example.com` to inspect the endpoint.";
     expect(hasLeakedToolProtocol(normal)).toBe(false);
