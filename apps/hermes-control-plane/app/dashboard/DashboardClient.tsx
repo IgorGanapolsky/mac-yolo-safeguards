@@ -18,6 +18,7 @@ import {
 } from "@/lib/dashboard-nav-cache";
 import { resolveComposerRunCta } from "@/lib/composer-run-cta";
 import { scheduleOneShotErrorRetry, startActiveTaskRefresh, startDashboardRefresh } from "@/lib/dashboard-refresh";
+import { orderTasksChronologically } from "@/lib/dashboard-task-order";
 import {
   hasPendingConversationTasks,
   mergeConversationTasks,
@@ -911,15 +912,17 @@ export default function DashboardClient() {
     return () => refresh.stop();
   }, [hasProgressingTasks, refreshActiveWork]);
   const visibleTasks = useMemo(() => {
+    let filtered: Task[];
     if (taskFilter === "completed") {
-      return tasks.filter((task) => task.status === "completed" && Boolean(task.result));
-    }
-    if (taskFilter === "unrated") {
-      return tasks.filter(
+      filtered = tasks.filter((task) => task.status === "completed" && Boolean(task.result));
+    } else if (taskFilter === "unrated") {
+      filtered = tasks.filter(
         (task) => task.status === "completed" && Boolean(task.result) && !feedback[task.id],
       );
+    } else {
+      filtered = selectedThread ? tasks.filter((task) => task.threadId === selectedThread) : tasks;
     }
-    return selectedThread ? tasks.filter((task) => task.threadId === selectedThread) : tasks;
+    return orderTasksChronologically(filtered);
   }, [tasks, selectedThread, taskFilter, feedback]);
   const onlineDevices = devices.filter((device) => device.online);
   const p95CompletionLatency = useMemo(() => {
@@ -1043,10 +1046,9 @@ export default function DashboardClient() {
         setSelectedThread(created.threadId);
         // Persist-before-live already wrote the row. Do not block the card on /api/me.
         void loadWorkspace();
-        // Newest tasks render at the TOP of the list while the composer sits at the
-        // bottom — scrolling to the OUTPUT strip left the just-sent message off-screen
-        // and users read that as "my message vanished" (2026-08-19 report). Scroll to
-        // the new task's own row so the send is visibly confirmed.
+        // Tasks render chronologically with the newest row next to the bottom composer.
+        // Scroll to that exact row so the optimistic send is visibly confirmed even
+        // when a long result above it makes the timeline taller than the viewport.
         window.requestAnimationFrame(() => {
           // Chat bubbles live in conversation-history (separate from the task card
           // list). Scroll both so Enter never looks like a silent no-op.
