@@ -52,7 +52,8 @@ const DEFAULT_STORAGE_DIR = path.join(os.homedir(), '.mac-yolo-safeguards', 'har
 // Models we know about, with cost/latency/quality/policy metadata.
 // "provider" must be a FIRST_PARTY or VERIFIED_THIRD_PARTY operator.
 // cost_per_1k_tokens is in USD (input/output).
-// latency_ms is measured at the 80th percentile (warm).
+// latency_ms is the current provider observation when latencyBasis is present;
+// older entries retain their original warm-routing estimate.
 // quality_score is 0-1 (higher is better).
 // privacy is 'local' | 'fenced' | 'third_party'.
 // Supports tools: whether the model supports tool calling.
@@ -74,6 +75,38 @@ const MODEL_REGISTRY = Object.freeze({
     privacy: 'local',
     supportsTools: true,
     maxContext: 200000,
+  },
+  'poolside/laguna-xs-2.1': {
+    provider: 'poolside',
+    endpoint: 'https://inference.poolside.ai/v1',
+    cost_per_1k_tokens: { input: 0.0001, output: 0.0002 },
+    latency_ms: 330,
+    quality_score: 0.86,
+    privacy: 'third_party',
+    supportsTools: true,
+    supportsVision: false,
+    maxContext: 262144,
+    taskCategories: ['coding'],
+    delegationTier: 'fast',
+    pricingBasis: 'conservative public API list price, checked 2026-08-21',
+    latencyBasis: 'Poolside provider P50 via OpenRouter, checked 2026-08-21',
+    qualityBasis: 'conservative routing seed; private benchmarks override by task category',
+  },
+  'poolside/laguna-s-2.1': {
+    provider: 'poolside',
+    endpoint: 'https://inference.poolside.ai/v1',
+    cost_per_1k_tokens: { input: 0.0001, output: 0.0002 },
+    latency_ms: 720,
+    quality_score: 0.93,
+    privacy: 'third_party',
+    supportsTools: true,
+    supportsVision: false,
+    maxContext: 1048576,
+    taskCategories: ['coding'],
+    delegationTier: 'deep',
+    pricingBasis: 'conservative public API list price, checked 2026-08-21',
+    latencyBasis: 'Poolside provider P50 via OpenRouter, checked 2026-08-21',
+    qualityBasis: 'conservative routing seed; private benchmarks override by task category',
   },
   'openai/gpt-4.1': {
     provider: 'openai',
@@ -154,6 +187,7 @@ const VERIFIED_THIRD_PARTY_OPERATORS = Object.freeze([
   'anthropic',
   'google',
   'google-vertex',
+  'poolside',
   'openrouter.ai',
   'tavily',
 ]);
@@ -163,6 +197,7 @@ const SENSITIVE_DATA_RESTRICTED_OPERATORS = Object.freeze([
   'openai',
   'anthropic',
   'google',
+  'poolside',
 ]);
 
 // Models that cost $0 (local/OSS)
@@ -207,11 +242,21 @@ const BENCHMARK_SCHEMA_VERSION = 'benchmark/v1';
  */
 function filterModels(task) {
   const results = [];
+  const preferredProvider = task.preferredProvider || task.delegateTo;
+  const longHorizon = task.longHorizon === true || task.complexity === 'high';
   for (const [modelId, meta] of Object.entries(MODEL_REGISTRY)) {
+    if (preferredProvider && meta.provider !== preferredProvider) continue;
     if (task.requiresTools && !meta.supportsTools) continue;
+    if (task.requiresVision && meta.supportsVision !== true) continue;
     if (task.maxTokens && task.maxTokens > meta.maxContext) continue;
     if (task.privacyRequired === 'local' && meta.privacy !== 'local') continue;
     if (task.privacyRequired === 'fenced' && meta.privacy === 'third_party') continue;
+    if (task.sensitive === true && SENSITIVE_DATA_RESTRICTED_OPERATORS.includes(meta.provider)) continue;
+    if (task.category && Array.isArray(meta.taskCategories) && !meta.taskCategories.includes(task.category)) continue;
+    if (preferredProvider === 'poolside' && meta.provider === 'poolside') {
+      if (longHorizon && meta.delegationTier !== 'deep') continue;
+      if (!longHorizon && meta.delegationTier !== 'fast') continue;
+    }
     results.push({ modelId, ...meta });
   }
   return results;

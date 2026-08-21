@@ -2,6 +2,7 @@ export const HOSTED_PROVIDER_FALLBACK: ReadonlyArray<{
   readonly id: "supergrok" | "deepseek-free" | "poolside";
   readonly label: string;
   readonly model: string;
+  readonly deepModel?: string;
 }>;
 
 export const GATEWAY_BUDGET: "gateway-budget";
@@ -21,10 +22,26 @@ export type HostedFallbackResult = {
 
 export function isQuotaOrFailedRow(text?: string | null): boolean;
 export function inferFailedProvider(text?: string | null): "supergrok" | "deepseek-free" | "poolside";
+export function selectPoolsideHostedModel(input?: {
+  taskCategory?: string;
+  requiresVision?: boolean;
+  sensitive?: boolean;
+  privacyRequired?: "local" | "fenced" | "third_party";
+  maxTokens?: number;
+  longHorizon?: boolean;
+  complexity?: string;
+}): "poolside/laguna-xs-2.1" | "poolside/laguna-s-2.1" | null;
 export function resolveHostedFallback(input?: {
   lastError?: string | null;
   error?: string | null;
   failedProviders?: string[];
+  taskCategory?: string;
+  requiresVision?: boolean;
+  sensitive?: boolean;
+  privacyRequired?: "local" | "fenced" | "third_party";
+  maxTokens?: number;
+  longHorizon?: boolean;
+  complexity?: string;
 }): HostedFallbackResult;
 export function gatewayBudgetApproved(input?: {
   spendUsd?: number;

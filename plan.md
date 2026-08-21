@@ -835,6 +835,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 | T-MCP-CONNECTOR-GOVERNANCE-20260819 | NewStack Mistral MCP connector migration article: build MCP connector governance checker with server risk assessment + prompt injection scanner (no auto-migration, operator trust, caching/perms unclear) | in_progress | claude-code | `tools/mcp-connector-gate.js` (new), `tests/test-mcp-connector-gate.js` (new), `plan.md` | Implementing from origin/main at 548e33710 |
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
+- `tools/agent-harness-router.js`, `tests/test-agent-harness-router.js`, `services/hermes-cloud-runner/server.js`, `services/hermes-cloud-runner/test/server.test.js`, `apps/hermes-control-plane/lib/hosted-model-fallback.js`, `apps/hermes-control-plane/lib/hosted-model-fallback.d.ts`, `apps/hermes-control-plane/lib/hosted-model-fallback.test.ts`, `plan.md` → **codex-poolside-routing-20260821** (AGENT-444: task-aware Poolside Laguna XS/S routing for Hermes harness and ThumbGate cloud execution; draft PR only, no secret/deploy mutation) (2026-08-21T13:02:00Z)
+
 - `tools/agent-swarm-harness.js` (stale-board contention filter + where-is-state only), `tests/test-agent-swarm-harness.js`, `tools/plan-stale-board-hygiene.js` (new), `plan.md` → **grok-plan-contention-hygiene** (T-PLAN-CONTENTION-STALE-HYGIENE-20260818: false STOP from 800+ stale in_progress rows) (2026-08-18T20:47:33Z)
 - `tools/agent-claim-ledger.js`, `tests/test-agent-claim-ledger.js`, `.gitignore`, `plan.md` → **claude-code** (T-GIT-AT-SCALE-ROI-20260819: WAL-backed CAS file-claim ledger + 36-test suite) (2026-08-19T13:30:00Z)
 - `tools/agent-claim-ledger.js`, `tests/test-agent-claim-ledger.js`, `.gitignore`, `plan.md` → **released by claude-code** (done, 36/36 green) (2026-08-19T13:30:00Z)
@@ -3366,3 +3368,9 @@ Three PRs shipped:
 - Dashboard UX Polish: Fixed optimistic chat rendering on send, removed redundant 9rem output mirror box, added smart upward dropdown positioning (open-up) and outside-click dismiss
 - 100% green tests across test-hermes-screenpipe-steals.js (3/3), test-hermes-agentic-dlp-guard.js (4/4), validate-agent-skills.js (110 validated, 0 errors)
 - Superseded and closed legacy branch PR #1868
+
+---
+2026-08-21T13:09:00Z | AGENT-444 local verification complete on `codex/poolside-routing-20260821` — Poolside Laguna task routing for Hermes harness + ThumbGate cloud runner
+- Current primary-source contract: OpenAI-compatible `https://inference.poolside.ai/v1`; `poolside/laguna-xs-2.1` for fast/normal text coding (262,144 context) and `poolside/laguna-s-2.1` for long-horizon/high-complexity text coding (1,048,576 context).
+- Fail-closed boundaries: no Poolside route for explicit non-coding, vision, sensitive/secret-bearing, or local-only work; one selected provider request per task, with no silent second paid meter after failure; health publishes model IDs only, never credentials.
+- Proof: harness router 64/64; cloud runner 9/9; hosted fallback 15/15; control-plane unit 266/266; production build + application tests 209/209; business E2E 7/7; hosted IIS 7/7; verifier mutation suite 6/6; intent-check ok with no affected/unclaimed ACs; exact-file CodeQL pattern gate 0 findings; ESLint and diff-check pass. Draft PR only; provider secret, merge, deploy, and publish remain untouched.
