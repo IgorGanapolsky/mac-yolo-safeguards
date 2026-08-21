@@ -3,8 +3,10 @@
 # for thumbgate.app: ALL canonical skills, ALL tools, the ThumbGate connector
 # (computer-use relay), and headless browser-use - enabled by default.
 #
-#   curl -fsSL https://thumbgate.app/install-harness.sh | bash
-#   (or: HERMES_CONTROL_PLANE_URL=https://app.example bash install-harness.sh)
+#   curl -fsSL https://raw.githubusercontent.com/IgorGanapolsky/mac-yolo-safeguards/main/saas/install-harness.sh | bash
+#   (thumbgate.app/install-harness.sh is the branded alias; the raw GitHub URL is the
+#   bootstrap source, mirroring how the control plane fetches install-connector.sh in
+#   DashboardClient.tsx. Override: HERMES_HARNESS_REPO=<repo> HERMES_CONTROL_PLANE_URL=<url> bash install-harness.sh)
 #
 # Safety rules (see docs/AGENTS.md "No desktop hijack"):
 #   * Interactive browser (real Chrome on your daily profile / osascript /
@@ -65,13 +67,14 @@ fi
 say "Syncing ALL canonical skills -> $SKILLS_DIR"
 if [ "$DRY_RUN" = "1" ]; then
   printf '  [dry-run] git clone --depth 1 --filter=blob:none --no-checkout %s %s\n' "$REPO" "$CACHE"
-  printf '  [dry-run] rsync -a --delete %s/.agents/skills/ %s/\n' "$CACHE" "$SKILLS_DIR"
+  printf '  [dry-run] rsync -a %s/.agents/skills/ %s/ (preserves existing user skills; non-destructive)\n' "$CACHE" "$SKILLS_DIR"
 else
   rm -rf "$CACHE"
   git clone --quiet --depth 1 --filter=blob:none --no-checkout "$REPO" "$CACHE"
-  git -C "$CACHE" sparse-checkout set -q .agents/skills
+  git -C "$CACHE" sparse-checkout set -q .agents/skills tools
   git -C "$CACHE" checkout -q
-  rsync -a --delete "$CACHE/.agents/skills/" "$SKILLS_DIR/"
+  [ -d "$CACHE/tools" ] || { echo "::error::sparse-checkout did not include tools/" >&2; exit 1; }
+  rsync -a "$CACHE/.agents/skills/" "$SKILLS_DIR/"
 fi
 
 # 3. Tools - link the harness toolset (all tools enabled by default)
@@ -82,12 +85,15 @@ elif [ -d "$CACHE/tools" ]; then
   rsync -a --delete "$CACHE/tools/" "$TOOLS_DIR/"
 fi
 
-# 4. Connector (already shipped by thumbgate.app) - computer-use / remote Mac relay
+# 4. Connector (computer-use / remote Mac relay) - fetched from the raw repo
+#    (the same source the control plane uses in DashboardClient.tsx), since the
+#    control plane serves the dashboard, not saas/*.sh.
 say "Installing ThumbGate connector (computer-use relay)"
+CONNECTOR_INSTALLER="https://raw.githubusercontent.com/IgorGanapolsky/mac-yolo-safeguards/main/saas/install-connector.sh"
 if [ "$DRY_RUN" = "1" ]; then
-  printf '  [dry-run] curl -fsSL %s/install-connector.sh | HERMES_CONTROL_PLANE_URL=%s bash\n' "$CONTROL_PLANE" "$CONTROL_PLANE"
+  printf '  [dry-run] curl -fsSL %s | HERMES_CONTROL_PLANE_URL=%s bash\n' "$CONNECTOR_INSTALLER" "$CONTROL_PLANE"
 else
-  curl -fsSL "$CONTROL_PLANE/install-connector.sh" | HERMES_CONTROL_PLANE_URL="$CONTROL_PLANE" bash
+  curl -fsSL "$CONNECTOR_INSTALLER" | HERMES_CONTROL_PLANE_URL="$CONTROL_PLANE" bash
 fi
 
 # 5. Browser-use - HEADLESS only by default (No desktop hijack)

@@ -48,5 +48,18 @@ else
   ok "no interactive-chrome/osascript/com.hermes.chrome-cdp in headless default path"
 fi
 
+# Codex review fixes: raw bootstrap URL, no-destructive skill sync, tools present
+grep -q 'raw.githubusercontent.com.*saas/install-harness.sh' "$SCRIPT" \
+  && ok "bootstrap URL is raw.githubusercontent.com (served source, per control-plane convention)" \
+  || no "bootstrap URL not raw GitHub"
+grep 'sparse-checkout set' "$SCRIPT" | grep -q 'tools' \
+  && ok "sparse-checkout includes tools/ (tools actually install)" \
+  || no "tools missing from sparse-checkout"
+if grep -E 'rsync -a.*\.agents/skills' "$SCRIPT" | grep -q -- '--delete'; then
+  no "skills rsync uses --delete (clobbers existing user skills)"
+else
+  ok "skills rsync has no --delete (preserves existing user skills)"
+fi
+
 echo "saas install-harness: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
