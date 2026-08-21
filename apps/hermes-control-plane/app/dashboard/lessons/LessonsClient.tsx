@@ -407,12 +407,36 @@ export default function LessonsClient() {
                 </p>
               </div>
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "12px", fontSize: "11px" }}>
-                <span style={{ padding: "2px 8px", borderRadius: "4px", background: "rgba(16, 185, 129, 0.1)", color: "#10b981", border: "1px solid rgba(16, 185, 129, 0.2)" }}>
-                  🛡️ Guardrails: Clean (0 PII / 0 Injection)
-                </span>
-                <span style={{ padding: "2px 8px", borderRadius: "4px", background: "rgba(147, 51, 234, 0.1)", color: "#c084fc", border: "1px solid rgba(147, 51, 234, 0.2)" }}>
-                  📊 Groundedness: 100%
-                </span>
+                {(() => {
+                  const textToScan = `${lesson.prompt} ${lesson.result} ${lesson.note || ''}`;
+                  const hasPii = /\b\d{3}-\d{2}-\d{4}\b|\b(?:\d{4}-){3}\d{4}\b/.test(textToScan);
+                  const hasInjection = /ignore (all )?previous instructions|system prompt override/i.test(textToScan);
+                  const isClean = !hasPii && !hasInjection;
+                  const isGrounded = lesson.signal === "up" || !/fabricated|hallucinated|unverified/i.test(textToScan);
+                  const groundednessPct = lesson.signal === "up" ? "100%" : isGrounded ? "85%" : "60%";
+                  return (
+                    <>
+                      <span style={{
+                        padding: "2px 8px",
+                        borderRadius: "4px",
+                        background: isClean ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
+                        color: isClean ? "#10b981" : "#ef4444",
+                        border: isClean ? "1px solid rgba(16, 185, 129, 0.2)" : "1px solid rgba(239, 68, 68, 0.2)",
+                      }}>
+                        🛡️ Guardrails: {isClean ? "Clean" : hasPii ? "PII Flagged" : "Injection Flagged"}
+                      </span>
+                      <span style={{
+                        padding: "2px 8px",
+                        borderRadius: "4px",
+                        background: isGrounded ? "rgba(147, 51, 234, 0.1)" : "rgba(245, 158, 11, 0.1)",
+                        color: isGrounded ? "#c084fc" : "#f59e0b",
+                        border: isGrounded ? "1px solid rgba(147, 51, 234, 0.2)" : "1px solid rgba(245, 158, 11, 0.2)",
+                      }}>
+                        📊 Groundedness: {groundednessPct}
+                      </span>
+                    </>
+                  );
+                })()}
               </div>
               <div className="lesson-card-actions" style={{ marginTop: "14px" }}>
                 <a className="button button-secondary button-small" href={hermesTaskHref(lesson)}>
