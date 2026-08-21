@@ -78,3 +78,35 @@ test('inference includes screen image as JPEG data URI', () => {
   assert.ok(src.includes('data:image/jpeg'), 'should encode screen as JPEG data URI');
   assert.ok(src.includes('includeScreen'), 'should support includeScreen parameter');
 });
+
+test('checkOpenClawStatus returns a Promise resolving to a status object', async () => {
+  const result = bridge.checkOpenClawStatus();
+  assert.equal(typeof result.then, 'function');
+  const res = await result;
+  assert.equal('reachable' in res, true);
+  assert.equal('ok' in res, true);
+});
+
+test('dispatchBrowserAction returns a Promise', () => {
+  const result = bridge.dispatchBrowserAction('open gmail');
+  assert.equal(typeof result.then, 'function');
+});
+
+test('dispatchBrowserAction handles control plane disconnect gracefully', async () => {
+  // Control plane is likely down on CI
+  const res = await bridge.dispatchBrowserAction('open gmail');
+  assert.equal('ok' in res, true);
+  if (!res.ok) {
+    assert.ok(res.error, 'should have error when control plane is down');
+  }
+});
+
+test('dispatchOpenClawAction is exported and callable', () => {
+  assert.equal(typeof bridge.dispatchOpenClawAction, 'function');
+});
+
+test('bridge exports OpenClaw functions', () => {
+  assert.equal(typeof bridge.checkOpenClawStatus, 'function');
+  assert.equal(typeof bridge.dispatchBrowserAction, 'function');
+  assert.equal(typeof bridge.dispatchOpenClawAction, 'function');
+});
