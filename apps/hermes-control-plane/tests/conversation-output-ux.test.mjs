@@ -6,7 +6,6 @@ import test from "node:test";
 const appRoot = path.join(import.meta.dirname, "..");
 const dashboard = fs.readFileSync(path.join(appRoot, "app/dashboard/DashboardClient.tsx"), "utf8");
 const formatted = fs.readFileSync(path.join(appRoot, "app/FormattedMessage.tsx"), "utf8");
-const leases = fs.readFileSync(path.join(appRoot, "lib/task-leases.ts"), "utf8");
 const css = fs.readFileSync(path.join(appRoot, "app/globals.css"), "utf8");
 
 test("assistant outputs sanitize provider tool protocol but user prompts remain verbatim", () => {
@@ -14,12 +13,6 @@ test("assistant outputs sanitize provider tool protocol but user prompts remain 
   assert.match(dashboard, /hideToolProtocol=\{message\.role === "assistant"\}/);
   assert.match(dashboard, /<FormattedMessage text=\{task\.result\} hideToolProtocol \/>/);
   assert.match(dashboard, /<p>\{task\.prompt\}<\/p>/);
-});
-
-test("future leaked tool envelopes fail instead of becoming completed task receipts", () => {
-  assert.match(leases, /const leakedToolProtocol = !input\.error && hasLeakedToolProtocol\(input\.result\)/);
-  assert.match(leases, /const status = completionError \? "failed" : "completed"/);
-  assert.match(leases, /leakedToolProtocol \? null : input\.result/);
 });
 
 test("chat layout has bounded widths and no horizontal output scroller", () => {

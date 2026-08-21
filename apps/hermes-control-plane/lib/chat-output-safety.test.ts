@@ -30,6 +30,21 @@ describe("readableChatOutput", () => {
     );
   });
 
+  it("strips standalone DSML invocation fragments", () => {
+    const rendered = readableChatOutput('<|DSML|invoke name="shell">\n<|DSML|parameter name="command">curl example</|DSML|parameter>');
+    expect(rendered).toBe(TOOL_PROTOCOL_INCOMPLETE_MESSAGE);
+    expect(rendered).not.toContain("DSML");
+  });
+
+  it("preserves quoted protocol examples in prose and Markdown code", () => {
+    const inline = "The tag `<tool_call>example</tool_call>` is the legacy syntax.";
+    const fenced = "Example:\n```xml\n<tool_call>example</tool_call>\n```";
+    expect(hasLeakedToolProtocol(inline)).toBe(false);
+    expect(readableChatOutput(inline)).toBe(inline);
+    expect(hasLeakedToolProtocol(fenced)).toBe(false);
+    expect(readableChatOutput(fenced)).toBe(fenced);
+  });
+
   it("does not rewrite normal assistant prose or code", () => {
     const normal = "Use `curl https://example.com` to inspect the endpoint.";
     expect(hasLeakedToolProtocol(normal)).toBe(false);

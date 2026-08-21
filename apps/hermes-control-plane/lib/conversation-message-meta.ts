@@ -8,6 +8,7 @@ export type ConversationMessageMeta = {
 
 type SnapshotMessage = {
   role: string;
+  content?: string | null;
   createdAt?: number | null;
 };
 
@@ -34,8 +35,9 @@ export function snapshotMessageMeta(
 ): ConversationMessageMeta {
   const exact = validTimestamp(message.createdAt);
   const synced = validTimestamp(threadSyncedAt);
+  const incompleteToolRun = message.role === "assistant" && hasLeakedToolProtocol(message.content);
   return {
-    status: message.role === "assistant" ? "completed" : message.role === "user" ? "sent" : "context",
+    status: incompleteToolRun ? "incomplete" : message.role === "assistant" ? "completed" : message.role === "user" ? "sent" : "context",
     timestamp: exact ?? synced,
     timestampSource: exact ? "message" : synced ? "sync" : null,
   };

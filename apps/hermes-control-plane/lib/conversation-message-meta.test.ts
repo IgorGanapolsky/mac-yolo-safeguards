@@ -18,6 +18,17 @@ describe("snapshotMessageMeta", () => {
     });
   });
 
+  it("marks a sanitized assistant snapshot as incomplete", () => {
+    expect(snapshotMessageMeta({
+      role: "assistant",
+      content: '<|DSML|invoke name="shell">curl example',
+    }, 100)).toEqual({
+      status: "incomplete",
+      timestamp: 100,
+      timestampSource: "sync",
+    });
+  });
+
   it("omits invalid clocks", () => {
     expect(snapshotMessageMeta({ role: "system", createdAt: Number.NaN }, 0)).toEqual({
       status: "context",

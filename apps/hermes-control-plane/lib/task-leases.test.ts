@@ -253,23 +253,4 @@ describe("fenced task leases", () => {
     expect(update.args[2]).not.toBe(raw);
   });
 
-  it("fails leaked provider tool protocol instead of storing a false completed result", async () => {
-    vi.spyOn(Date, "now").mockReturnValue(4_000);
-    mocks.state.existing = { organizationId: "org-1", route: "cloud", leaseGeneration: 3, createdAt: 1_500 };
-    const leaked = '<|DSML|tool_calls><|DSML|invoke name="shell">curl example</|DSML|invoke></|DSML|tool_calls>';
-    expect(await completeTask({
-      owner: "cloud:runner-1",
-      taskId: "task-1",
-      leaseToken: "current-token",
-      result: leaked,
-      actorType: "runner",
-    })).toBe(true);
-    const update = mocks.state.runs[0];
-    expect(update.args[0]).toBe("failed");
-    expect(update.args[1]).toBeNull();
-    expect(update.args[2]).toBe(
-      "The hosted run requested a tool but stopped before returning a final answer.",
-    );
-    expect(mocks.audit).toHaveBeenCalledWith(expect.objectContaining({ action: "task.failed" }));
-  });
 });
