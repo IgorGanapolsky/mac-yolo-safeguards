@@ -19,6 +19,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 ## 1. Task Board
 
+| T-ZERO-CRASH-SELF-HEALING-20260821 | Implement Autonomous Zero-Crash Self-Healing, Self-Improving & Self-Learning Engine (Resilient File System, 4-Tier Graceful Fallback & Invariant Synthesizer) for ThumbGate | done | antigravity | `tools/thumbgate-self-healing-engine.js`, `tests/test-thumbgate-self-healing-engine.js`, `apps/hermes-control-plane/lib/self-healing-runtime.ts`, `apps/hermes-control-plane/tests/self-healing-runtime.test.mjs`, `.agents/skills/self-healing-engine/**`, `SKILLS.md`, `plan.md` | 100% green tests & CLI verification |
 | T-EXPLAINX-TRENDING-RAG-20260821 | Implement Autonomous ExplainX.ai Trending Ingestion, Data Science/ML TF-IDF Ranking & Agentic RAG Strategy Optimizer for ThumbGate | done | antigravity | `tools/explainx-trending-rag-engine.js`, `tests/test-explainx-trending-rag-engine.js`, `.agents/skills/explainx-trending-rag/**`, `SKILLS.md`, `plan.md` | 100% green tests & CLI verification |
 | T-OPENBOT-ACTION-GATEWAY-20260821 | Implement CopilotKit OpenBot AG-UI Action Gateway, Per-Agent Sandboxed Coworkers & Deterministic Policy Interdiction Engine for ThumbGate | done | antigravity | `tools/openbot-action-gateway.js`, `tests/test-openbot-action-gateway.js`, `.agents/skills/openbot-action-gateway/**`, `SKILLS.md`, `plan.md` | 100% green tests & CLI verification |
 | T-FUTURE-AGI-SELF-HEALING-PARTNERSHIP-20260821 | Implement Future AGI Self-Healing Agent Engine, Adversarial Persona Simulation & Synthesizer, and draft $3,000/mo Design-Partner B2B Partnership Response to CEO Nikhil Pareek | in_progress | antigravity | `tools/future-agi-self-healing-engine.js`, `tests/test-future-agi-self-healing-engine.js`, `.agents/skills/future-agi-self-healing-engine/**`, `SKILLS.md`, `plan.md` | 100% green tests & CLI verification |
@@ -3371,3 +3372,21 @@ Three PRs shipped:
 
 ## 3. Decisions / Discovered (append-only)
 - 2026-08-21T13:12Z — claude-code (landing-spacing): origin/main force-moved mid-session; tip is now 97fa558a7 (#1935 NVIDIA NeMo Switchyard); prior tip c4fb1fb85 (#1940 billing) orphaned by upstream rebase. Rebased PR #1929 (feat/landing-spacing-20260820) onto 97fa558a7; re-applied 17 landing edits (5 whole-line + 3 mobile substring pairs, assert-guarded count==1) onto current main. Confirmed a087a3d82 still ancestor; module CSS unchanged on main since a087a3d82 (empty diff) → ported verbatim from d015ebbcc. Landing originals = 0 / landing tokens present; main's agent-activity + mobile-header-actions preserved. The 3 'removed' lines in d015ebbcc→worktree diff are antigravity's dashboard/agent-activity changes (T-THUMBGATE-DASHBOARD-UI-POLISH done) + the restructured @media(700), NOT landing reversion. `vinext build` green; landing tests 6/6. Awaiting CI green to squash-merge.
+
+## Log 2026-08-21T15:37Z — T-HERMES-HARNESS-BOOTSTRAP (this agent)
+- PR #1949 (feat/hermes-harness-bootstrap-20260821) → MERGED to origin/main.
+  mergeSHA=8dfff9bb3, mergedAt=2026-08-21T15:37:39Z, state=MERGED.
+- Codex 3x P1 review threads resolved (PRRT_kwDOSpbiQM6bMS6M/R/U → isResolved:true
+  via GraphQL resolveReviewThread; InputObject accepts threadId only, no message).
+- install-harness.sh fixes: (1) bootstrap + connector fetch from raw.githubusercontent.com
+  (thumbgate.app serves dashboard, not saas/*.sh, per DashboardClient.tsx:73);
+  (2) removed --delete from skills rsync to preserve existing user skills incl.
+  protected mac-freeze-rescue; (3) added tools/ to sparse-checkout + fail-fast guard.
+- tests/test-saas-install-harness.sh: +3 assertions (raw URL, tools in sparse-checkout,
+  no --delete on skills). Dry-run 10/10; shellcheck clean; test-discovery 0 orphans.
+- CI: 21 pass / 4 skip / 0 fail. macOS guard kit PASS (run 32498010063).
+- Worktree pruned (PR merged). Remote branch deleted.
+- Verified poolside wiring already live on origin/main: tools/hermes-economic-router.js
+  (poolside_laguna_specialist L274/277/278; signal L494; selection L590-591) +
+  apps/hermes-control-plane/lib/hosted-model-fallback.js (PAID_METER_IDS includes poolside;
+  inferFailedProvider→poolside; failover resolveHostedFallback). Both tested — no redo.
