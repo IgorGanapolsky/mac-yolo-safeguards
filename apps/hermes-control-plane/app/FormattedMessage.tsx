@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { InlineSpan } from "@/lib/chat-formatted-blocks";
 import { parseFormattedBlocks } from "@/lib/chat-formatted-blocks";
+import { readableChatOutput } from "@/lib/chat-output-safety";
 
 function InlineSpans({ spans }: { spans: InlineSpan[] }) {
   return (
@@ -21,8 +22,8 @@ function InlineSpans({ spans }: { spans: InlineSpan[] }) {
  * dashboard. Renders via JSX only — no dangerouslySetInnerHTML, so there's no HTML
  * injection surface even though this content comes from an LLM.
  */
-export function FormattedMessage({ text }: { text: string }) {
-  const blocks = parseFormattedBlocks(text);
+export function FormattedMessage({ text, hideToolProtocol = false }: { text: string; hideToolProtocol?: boolean }) {
+  const blocks = parseFormattedBlocks(hideToolProtocol ? readableChatOutput(text) : text);
   if (blocks.length === 0) return null;
   const items: ReactNode[] = [];
   let listBuffer: ReactNode[] = [];

@@ -31,4 +31,11 @@ test("visibility helper keeps optimistic rows until the server catches up", () =
   assert.match(helper, /export function pruneResolvedOptimistic/);
   assert.match(helper, /export function scrollConversationHistoryToLatest/);
   assert.match(helper, /\.conversation-history/);
+  assert.match(helper, /:scope > \.conversation-message:last-child/);
+});
+
+test("a refreshed thread scrolls once to its actual latest output", () => {
+  assert.match(client, /restoredThreadBottomRef/);
+  assert.match(client, /loadState !== "loaded" \|\| !selectedThread \|\| !threadDetails/);
+  assert.match(client, /scrollConversationHistoryToLatest\(document, "auto"\)/);
 });
