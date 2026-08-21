@@ -304,10 +304,7 @@ try {
         {
           name: "hermes_session",
           value: SESSION_TOKEN,
-          domain: "127.0.0.1",
-          path: "/",
-          httpOnly: true,
-          sameSite: "Lax",
+          url: `${base}/`,
         },
       ]);
       const page = await context.newPage();
