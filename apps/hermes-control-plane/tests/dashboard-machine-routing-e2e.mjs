@@ -297,23 +297,33 @@ try {
         return false;
       }
     }
-    const browser = await chromium.launch({ headless: true });
+    const browser = await chromium.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+    });
     try {
       const context = await browser.newContext();
       await context.addCookies([
         {
           name: "hermes_session",
           value: SESSION_TOKEN,
-          domain: "127.0.0.1",
-          path: "/",
-          httpOnly: true,
+          url: base,
           sameSite: "Lax",
         },
       ]);
       const page = await context.newPage();
-      await page.goto(`${base}/dashboard`, { waitUntil: "networkidle", timeout: 60_000 });
+      page.on("pageerror", (err) => console.error("[BROWSER ERROR]", err));
+      page.on("console", (msg) => console.log(`[BROWSER CONSOLE] ${msg.type()}: ${msg.text()}`));
+      page.on("requestfailed", (req) => console.error("[REQUEST FAILED]", req.url(), req.failure()?.errorText));
+      await page.goto(`${base}/dashboard`, { waitUntil: "domcontentloaded", timeout: 30_000 });
       // Continuity-only composer: visible Output pane, no RUN ON dual picker.
-      await page.waitForSelector('[data-testid="run-output"]', { timeout: 30_000 });
+      try {
+        await page.waitForSelector('[data-testid="run-output"]', { timeout: 20_000 });
+      } catch (e) {
+        console.error("PAGE URL AT FAILURE:", page.url());
+        console.error("PAGE CONTENT AT FAILURE:\n", await page.content());
+        throw e;
+      }
       const output = page.locator('[data-testid="run-output"]');
       assert.equal(await output.count(), 1, "Output pane must be visible");
       const label = await output.locator(".eyebrow").first().textContent();

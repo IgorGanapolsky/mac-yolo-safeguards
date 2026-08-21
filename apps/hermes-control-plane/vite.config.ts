@@ -16,6 +16,7 @@ const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 
 const sitesBindingConfig = {
   main: "./worker/index.ts",
+  compatibility_date: "2026-07-20",
   compatibility_flags: ["nodejs_compat"],
   d1_databases: d1
     ? [

@@ -41,6 +41,7 @@ import {
   type HostedResourceState,
   type HostedResourceStatus,
 } from "@/lib/hosted-apphost";
+import { getAllBots, type HermesBotProfile } from "@/lib/bot-mode";
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
@@ -225,8 +226,8 @@ function ConversationMeta({ meta }: { meta: ConversationMessageMeta }) {
   );
 }
 
-function sortThreadsNewestFirst(nextThreads: Thread[]) {
-  return [...nextThreads].sort((left, right) =>
+function sortThreadsNewestFirst(nextThreads: Thread[] = []) {
+  return [...(nextThreads ?? [])].sort((left, right) =>
     Number(right.updatedAt) - Number(left.updatedAt) || right.id.localeCompare(left.id)
   );
 }
@@ -284,6 +285,7 @@ export default function DashboardClient() {
   });
   const [threadDetails, setThreadDetails] = useState<ThreadDetails | null>(null);
   const [prompt, setPrompt] = useState("");
+  const [selectedBotId, setSelectedBotId] = useState<string>("chief");
   /**
    * Explicit user override for which hosted runner runs the next task.
    * Resolved selection is derived (useMemo) so we never setState inside an effect (eslint react-hooks/set-state-in-effect).
@@ -333,6 +335,13 @@ export default function DashboardClient() {
   const threadMenuRef = useRef<HTMLDivElement | null>(null);
   const [chatDialog, setChatDialog] = useState<ChatDialog | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const conversationHistoryRef = useRef<HTMLDivElement | null>(null);
+  const scrollConversationToBottom = useCallback(() => {
+    const el = conversationHistoryRef.current;
+    if (el) {
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    }
+  }, []);
   const [chatOperationBusy, setChatOperationBusy] = useState(false);
   const [safetyExpanded, setSafetyExpanded] = useState(false);
   const [feedback, setFeedback] = useState<Record<string, Feedback>>({});
@@ -1633,6 +1642,27 @@ export default function DashboardClient() {
               </div>
               <span>{selectedThread ? `${threadDetails?.snapshot.length ?? 0} synced messages` : `${visibleTasks.length} tasks`}</span>
             </div>
+            {/* Hermes Agent Bot Mode Roster (Nous Research) */}
+            <div className="bot-mode-roster" role="toolbar" aria-label="Hermes Bot Roster">
+              <span className="bot-roster-label">🤖 Bot Roster:</span>
+              <div className="bot-roster-chips">
+                {getAllBots().map((bot) => (
+                  <button
+                    key={bot.id}
+                    type="button"
+                    className={`bot-chip ${selectedBotId === bot.id ? "is-active" : ""}`}
+                    title={`${bot.name}: ${bot.role} (${bot.defaultModel})`}
+                    onClick={() => {
+                      setSelectedBotId(bot.id);
+                      setPrompt((prev) => prev.startsWith("@") ? `${bot.handle} ${prev.replace(/^@[a-zA-Z0-9_-]+\s*/, "")}` : `${bot.handle} ${prev}`.trim());
+                      focusComposer();
+                    }}
+                  >
+                    <span>{bot.avatar} {bot.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
             {/* DimAgent-style observability: always know what the agent is doing */}
             <div
               className="agent-activity"
@@ -1654,7 +1684,7 @@ export default function DashboardClient() {
               </span>
             </div>
             <div className="hermes-scroll-pane">
-            {selectedThread && <div className="conversation-history">
+            {selectedThread && <div className="conversation-history" ref={conversationHistoryRef}>
               {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><ConversationMeta meta={snapshotMessageMeta(message, threadDetails.syncedAt)} /><FormattedMessage text={message.content} hideToolProtocol={message.role === "assistant"} /></article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. <button type="button" className="task-filter-clear" data-testid="dashboard-retry" onClick={() => requestWorkspaceRefresh()}>Retry</button></div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
               {[...(threadDetails?.tasks ?? [])].sort((left, right) => left.createdAt - right.createdAt).flatMap((task, index) => {
                 // Chronological: oldest exchange first, newest at the BOTTOM next to
@@ -1778,6 +1808,36 @@ export default function DashboardClient() {
             </div>
             </div>
             <form className="composer" ref={setComposerNode} onSubmit={(event) => void createTask(event)}>
+              <div className="quick-continuation-chips" role="toolbar" aria-label="Continuation prompts">
+                <span className="chips-label">⚡ 2-word prompts:</span>
+                <div className="chips-scroll">
+                  {[
+                    { label: "now what", desc: "Suggest 3-5 concrete next steps" },
+                    { label: "plz fix", desc: "Diagnose and fix error" },
+                    { label: "interview me", desc: "Ask targeted questions" },
+                    { label: "show receipts", desc: "Verifiable empirical receipts" },
+                    { label: "keep going!", desc: "Continue execution" },
+                    { label: "challenge me", desc: "Adversarial review for flaws" },
+                    { label: "simulate it", desc: "Edge case simulation" },
+                    { label: "elii elie", desc: "Executive vs intern breakdown" },
+                    { label: "audit it", desc: "Security & invariant audit" },
+                    { label: "do this", desc: "Replicate exact pattern" },
+                  ].map((item) => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      className="chip-button"
+                      title={item.desc}
+                      onClick={() => {
+                        setPrompt(item.label);
+                        focusComposer();
+                      }}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <textarea
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
