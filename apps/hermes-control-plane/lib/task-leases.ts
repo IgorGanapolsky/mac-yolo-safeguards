@@ -152,9 +152,12 @@ export async function claimTask(input: {
 
   let cloudDecision: GovernanceDecision | null = null;
   if (input.route === "cloud") {
-    const lastContextPrompt = contextMessages.filter((message) => message.role === "user").at(-1)?.content;
-    const policyPrompt = continuation.applied && lastContextPrompt
-      ? `${lastContextPrompt}\n${continuation.executionPrompt}`
+    const activeUserContext = contextMessages
+      .filter((message) => message.role === "user")
+      .map((message) => message.content)
+      .join("\n");
+    const policyPrompt = continuation.applied && activeUserContext
+      ? `${activeUserContext}\n${continuation.executionPrompt}`
       : candidate.prompt;
     const toolPolicy = evaluateCloudPromptToolPolicy(policyPrompt);
     if (!toolPolicy.allowed) {

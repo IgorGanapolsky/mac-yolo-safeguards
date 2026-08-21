@@ -19,7 +19,6 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
-const { resolveContinuationPrompt } = require('./continuation-prompt-engine');
 
 const RUNS_DIR = () => process.env.HERMES_RUNS_DIR || path.join(os.homedir(), '.hermes', 'runs');
 const LEASE_DIR = () => process.env.HERMES_LEASE_DIR || path.join(os.homedir(), '.hermes', 'leases');
@@ -80,11 +79,6 @@ class Supervisor {
     this.requestedModel = opts.requestedModel || 'unknown';
     this.toolProfile = opts.toolProfile || 'interactive-code';
     this.gitRevision = opts.gitRevision || null;
-    const continuation = resolveContinuationPrompt(opts.prompt || '', {
-      hasContext: opts.hasContext === true || (Array.isArray(opts.contextMessages) && opts.contextMessages.length > 0),
-    });
-    this.executionPrompt = continuation.executionPrompt;
-    this.continuationCommand = opts.continuationCommand || (continuation.applied ? continuation.command : null);
     this.state = 'created';
     this.toolCalls = 0;
     this.commandHashes = new Map(); // hash -> count
@@ -112,7 +106,6 @@ class Supervisor {
       requestedModel: this.requestedModel,
       toolProfile: this.toolProfile,
       gitRevision: this.gitRevision,
-      continuationCommand: this.continuationCommand,
       startedAt: this.startedAt,
       finishedAt: this.state === 'succeeded' || this.state === 'failed' || this.state === 'blocked' ? now() : null,
       toolCalls: this.toolCalls,
@@ -173,14 +166,8 @@ class Supervisor {
     // depending on the async interval firing before the run completes.
     this._emit({ type: 'heartbeat', elapsedMs: 0, toolCalls: this.toolCalls, state: this.state });
     this._emit({ type: 'admitted', workspace: this.workspace, toolProfile: this.toolProfile });
-    if (this.continuationCommand) {
-      this._emit({ type: 'continuation_resolved', command: this.continuationCommand });
-    }
     return { ok: true };
   }
-
-  /** In-memory execution prompt. Prompt text is intentionally absent from durable receipts/events. */
-  getExecutionPrompt() { return this.executionPrompt; }
 
 
   _leaseFile(kind, id) { return path.join(LEASE_DIR(), `${kind}-${id}.json`); }
@@ -321,16 +308,7 @@ class Supervisor {
 function resume(runId, opts = {}) {
   const r = readReceipt(runId);
   if (!r) return { ok: false, reason: 'no receipt' };
-  const sup = new Supervisor({
-    ...opts,
-    runId,
-    policy: r.policy,
-    workspace: r.workspace,
-    requestedModel: r.requestedModel,
-    toolProfile: r.toolProfile,
-    gitRevision: r.gitRevision,
-    continuationCommand: r.continuationCommand,
-  });
+  const sup = new Supervisor({ ...opts, runId, policy: r.policy, workspace: r.workspace, requestedModel: r.requestedModel, toolProfile: r.toolProfile, gitRevision: r.gitRevision });
   sup.state = r.state;
   sup.startedAt = r.startedAt;
   sup.lastEventAt = r.lastEventAt;

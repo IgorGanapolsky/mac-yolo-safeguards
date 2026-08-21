@@ -171,7 +171,7 @@ describe("fenced task leases", () => {
     expect(JSON.stringify(mocks.audit.mock.calls)).not.toContain("It is live");
   });
 
-  it("does not let a continuation command bypass the cloud local-only tool policy", async () => {
+  it("does not let chained continuation commands hide an earlier local-only request", async () => {
     vi.spyOn(Date, "now").mockReturnValue(9_500);
     mocks.state.firsts = [{
       id: "task-local-receipts",
@@ -189,11 +189,18 @@ describe("fenced task leases", () => {
       trialEndsAt: null,
       cloudTasks: 1,
     }];
-    mocks.state.allResults = [{
-      prompt: "Delete /Users/igor/Desktop/private.txt",
-      result: "That requires the local machine",
-      createdAt: 8_000,
-    }];
+    mocks.state.allResults = [
+      {
+        prompt: "Delete /Users/igor/Desktop/private.txt",
+        result: "That requires the local machine",
+        createdAt: 7_000,
+      },
+      {
+        prompt: "keep going",
+        result: "Still requires the local machine",
+        createdAt: 8_000,
+      },
+    ];
 
     expect(await claimTask({ route: "cloud", owner: "cloud:runner-1" })).toBeNull();
     const blocked = mocks.state.runs.find((run) => run.sql.includes("status = 'offline_blocked'"));
