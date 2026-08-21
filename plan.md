@@ -3429,3 +3429,36 @@ Three PRs shipped:
 - 2026-08-21T21:51:00Z `codex-agent-455-continuation-lineage`: PR #1969 now implements the missing compaction semantics. Local paired execution rewrites only `compact_same_thread` to native `/compact` on the existing `sourceSessionId`; hosted completion keeps its successful self-contained summary as the durable task marker; every later claim discards the pre-marker snapshot from model context but evaluates cloud tool policy against the full pre-compaction user lineage. Failed reset tasks never create a marker. Verification: focused Vitest 16/16, focused connector 2/2, full control-plane build/rendered 229/229, full unit 305/305 with 96.11% statements, connector 24/24, lint 0 errors (19 pre-existing warnings), changed-pattern gate 0 findings.
 - 2026-08-21T21:53:00Z `codex-agent-455-continuation-lineage`: real local Hermes gateway 0.19.1 proof passed without touching an existing user session. Created one temporary `thumbgate_agent455_compact_*` session, established one context turn, invoked `/compact`, received a non-empty response, read 4 stored messages with final assistant role, then deleted that exact temporary session; follow-up inventory found 0 temporary sessions.
 - 2026-08-21T22:10:00Z `released-after-pr-1969`: released T-CONTINUATION-LINEAGE-AGENT-455-20260821. PR #1969 merged as `7291d487a356489bd0b5b9c38115742603704731` after all required and post-merge checks passed. Locked deployment `6030051913` shipped Cloudflare version `2492d733-7119-4c53-b10d-67f3c9eb4a24`; provider read-back reports 100% traffic and HTTP 200 `ok:true ready:true` before and after, while public health reports runner/model reachable. Installed connector PID 94563 is running with exact source/runtime hash parity. Dedicated 390x844 live proof reports newest visible, composer visible, and horizontal overflow 0. No existing user thread was mutated for proof; the native `/compact` gateway E2E used and deleted one temporary session.
+
+## Log 2026-08-21T15:37Z — T-HERMES-HARNESS-BOOTSTRAP (this agent)
+- PR #1949 (feat/hermes-harness-bootstrap-20260821) → MERGED to origin/main.
+  mergeSHA=8dfff9bb3, mergedAt=2026-08-21T15:37:39Z, state=MERGED.
+- Codex 3x P1 review threads resolved (PRRT_kwDOSpbiQM6bMS6M/R/U → isResolved:true
+  via GraphQL resolveReviewThread; InputObject accepts threadId only, no message).
+- install-harness.sh fixes: (1) bootstrap + connector fetch from raw.githubusercontent.com
+  (thumbgate.app serves dashboard, not saas/*.sh, per DashboardClient.tsx:73);
+  (2) removed --delete from skills rsync to preserve existing user skills incl.
+  protected mac-freeze-rescue; (3) added tools/ to sparse-checkout + fail-fast guard.
+- tests/test-saas-install-harness.sh: +3 assertions (raw URL, tools in sparse-checkout,
+  no --delete on skills). Dry-run 10/10; shellcheck clean; test-discovery 0 orphans.
+- CI: 21 pass / 4 skip / 0 fail. macOS guard kit PASS (run 32498010063).
+- Worktree pruned (PR merged). Remote branch deleted.
+- Verified poolside wiring already live on origin/main: tools/hermes-economic-router.js
+  (poolside_laguna_specialist L274/277/278; signal L494; selection L590-591) +
+  apps/hermes-control-plane/lib/hosted-model-fallback.js (PAID_METER_IDS includes poolside;
+  inferFailedProvider→poolside; failover resolveHostedFallback). Both tested — no redo.
+
+| T-STEAL-GEMINI-FLASH-COST-20260821 | Steal OpenRouter Gemini 3.7 Flash launch: Ori-Eval best-model-by-cost benchmark (median $/agent-session table + 50% off intro pricing) for hermes-yolo, plus SaaS hosted-model cost estimate helper | done | claude-code | `tools/model-cost-benchmark.js`, `tests/test-model-cost-benchmark.js`, `apps/hermes-control-plane/lib/hosted-model-fallback.js`, `apps/hermes-control-plane/lib/hosted-model-fallback.test.ts`, `plan.md` | cost-benchmark + SaaS cost helper |
+
+## Log 2026-08-21T17:47Z — T-STEAL-GEMINI-FLASH-COST-20260821 (this agent)
+- PR #1957 -> MERGED to origin/main (native auto-merge, squash). mergeSHA=a32a57d2e, mergedAt=2026-08-21T17:47:07Z.
+- Codex P2 (hostedModelCost double-discount) FIXED in 522c69d4: stored original list rates (0.75/3.75/0.075) + apply 50% promo at runtime; promo 1M+1M = $2.25 (was 1.125), post = $4.5, cached = $0.0375. Both review threads resolved via GraphQL resolveReviewThread + PR comment 5373301440.
+- Codex P1 (connect benchmark to hermes-economic-router.js) NOT wired — file is AGENTS.md-LOCKED (repo section 1); benchmark exports MODEL_COST_PER_AGENT_SESSION/MODEL_PRICING_PER_M_TOKEN/rankByCostPerSession()/bestValueModel()/promoActive() ready to consume when unowned.
+- Shipped: tools/model-cost-benchmark.js + tests/test-model-cost-benchmark.js (green: node tests); hosted-model-fallback.js + .test.ts (ESM-verified: [0.75,3.75,0.075,2.25,4.5,0.0375,null,0]).
+- CI (head 522c69d4): unit-and-coverage pass 36s (run 32509392752), macOS guard kit pass 6m22s (run 32509392849), Hermes Mobile typecheck+tests pass 3m9s.
+- Discovered: P1 router-wiring BLOCKED — tools/hermes-economic-router.js is AGENTS.md-LOCKED (repo section 1); surfaced, not force-wired.
+- Worktree pruned (PR merged); remote branch deleted.
+- tools/meta-glasses-hermes-bridge.js, tests/test-meta-glasses-hermes-bridge.js, bin/meta-glasses-hermes, .agents/skills/meta-glasses-hermes/SKILL.md, apps/hermes-control-plane/app/api/glasses/route.ts, plan.md → **meta-glasses-hermes-bridge** (T-META-GLASSES-HERMES-20260821: Meta Glasses BLE + screen capture + voice inference + AR macros bridge; 13/13 tests green) (2026-08-21T23:00:00Z)
+- hermes-mobile/src/native/hermesGlasses.ts, hermes-mobile/native-glasses/kotlin/HermesGlassesModule.kt, hermes-mobile/src/services/hermesGatewayClient.ts, hermes-mobile/src/services/hermesAgentTools.ts, hermes-mobile/src/__tests__/hermesGlasses.test.ts, plan.md → **meta-glasses-hermes-bridge** (T-META-GLASSES-HERMES-20260821: Extend RN glasses native bridge with BLE connect/disconnect, gesture listener, SSE screen relay, macro dispatch; adds gateway client endpoints for glasses) (2026-08-21T23:00:00Z)
+- `tools/meta-glasses-hermes-bridge.js`, `tests/test-meta-glasses-hermes-bridge.js`, `bin/meta-glasses-hermes`, `.agents/skills/meta-glasses-hermes/SKILL.md`, `apps/hermes-control-plane/app/api/glasses/route.ts`, `plan.md` → **meta-glasses-hermes-bridge** (T-META-GLASSES-HERMES-20260821: Meta Glasses BLE + screen capture + voice inference + AR macros bridge; 13/13 tests green) (2026-08-21T23:00:00Z)
+- `hermes-mobile/src/native/hermesGlasses.ts`, `hermes-mobile/native-glasses/kotlin/HermesGlassesModule.kt`, `hermes-mobile/src/services/hermesGatewayClient.ts`, `hermes-mobile/src/services/hermesAgentTools.ts`, `hermes-mobile/src/__tests__/hermesGlasses.test.ts`, `plan.md` → **meta-glasses-hermes-bridge** (T-META-GLASSES-HERMES-20260821: Extend RN glasses native bridge with BLE connect/disconnect, gesture listener, SSE screen relay, macro dispatch; adds gateway client endpoints for glasses) (2026-08-21T23:00:00Z)
