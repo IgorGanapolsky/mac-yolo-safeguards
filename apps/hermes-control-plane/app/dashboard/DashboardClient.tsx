@@ -799,10 +799,23 @@ export default function DashboardClient() {
   }, [prefetchThreadDetails]);
 
 
-  const requestWorkspaceRefresh = useCallback(() => {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
+  const requestWorkspaceRefresh = useCallback(async () => {
     // One user click / one scheduled retry = one fetch. Never an interval.
+    // Visible feedback + a freshness stamp so the click is never a no-op to the
+    // user: the dashboard does not auto-poll (Workers quota), so this is the only
+    // in-page way to pull fresh data.
+    setIsRefreshing(true);
     setLoadState((prev) => (prev === "loaded" ? prev : "loading"));
-    void loadWorkspace().catch(() => setLoadState("error"));
+    try {
+      await loadWorkspace();
+      setLastRefreshedAt(Date.now());
+    } catch {
+      setLoadState("error");
+    } finally {
+      setIsRefreshing(false);
+    }
   }, [loadWorkspace]);
   const errorRetryUsedRef = useRef(false);
 
@@ -1435,11 +1448,24 @@ export default function DashboardClient() {
               type="button"
               className="button button-small button-secondary"
               data-testid="dashboard-refresh"
-              onClick={() => requestWorkspaceRefresh()}
-              disabled={busy || loadState === "loading"}
+              onClick={() => void requestWorkspaceRefresh()}
+              disabled={busy || isRefreshing || loadState === "loading"}
+              title="Fetch the latest chats, tasks, and runner status now. This dashboard does not auto-refresh (to stay within free usage limits), so use this to pull the newest data."
             >
-              {loadState === "error" ? "Retry" : "Refresh"}
+              {isRefreshing ? "↻ Refreshing…" : loadState === "error" ? "Retry" : "↻ Refresh"}
             </button>
+            {lastRefreshedAt !== null && (
+              <span
+                className="refresh-timestamp"
+                data-testid="dashboard-refresh-timestamp"
+                aria-live="polite"
+                style={{ fontSize: "11px", opacity: 0.7, whiteSpace: "nowrap" }}
+              >
+                {isRefreshing
+                  ? "Updating…"
+                  : `Updated ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit" }).format(new Date(lastRefreshedAt))}`}
+              </span>
+            )}
             <span className="status-chip online"><i /> ThumbGate online</span>
             <button className="button button-small button-secondary" onClick={() => void (["pro", "team"].includes(organization.plan) ? manageBilling() : subscribe())} disabled={busy}>
               {["pro", "team"].includes(organization.plan) ? "Manage plan" : organization.cloudAccess ? "Keep cloud after trial" : "Add cloud failover"}
