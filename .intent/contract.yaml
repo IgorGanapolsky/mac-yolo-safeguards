@@ -198,3 +198,29 @@ capabilities:
                 pattern: not affiliated
               - in: scripts/intent-check.js
                 pattern: Do not npx tieline
+  - key: DASHBOARD
+    name: Hosted task result freshness
+    description: Active hosted work advances in place without reviving idle request burn.
+    stories:
+      - key: DASHBOARD-001
+        title: Replace pending with the hosted result
+        actor: signed-in operator
+        goal: see an active hosted task finish without manually refreshing
+        benefit: the dashboard reflects real execution while idle tabs make no recurring requests
+        lifecycle: production
+        acceptance_criteria:
+          - key: DASHBOARD-001-AC1
+            criterion: Autonomously progressing tasks refresh until terminal state with one non-overlapping timeout and a three-minute hard stop, while idle dashboards schedule no active-work refresh.
+            implements:
+              - apps/hermes-control-plane/app/dashboard/DashboardClient.tsx
+              - apps/hermes-control-plane/lib/dashboard-refresh.ts
+            tests:
+              - apps/hermes-control-plane/lib/dashboard-refresh.test.ts
+              - apps/hermes-control-plane/tests/dashboard-poll-hygiene.test.mjs
+            must_contain:
+              - in: apps/hermes-control-plane/app/dashboard/DashboardClient.tsx
+                pattern: startActiveTaskRefresh
+              - in: apps/hermes-control-plane/lib/dashboard-refresh.ts
+                pattern: 'ACTIVE_TASK_REFRESH_MAX_MS = 3 \* 60 \* 1000'
+              - in: apps/hermes-control-plane/lib/dashboard-refresh.ts
+                pattern: 'if \(!options\.isActive\(\)\) return idle'
