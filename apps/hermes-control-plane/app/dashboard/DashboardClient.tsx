@@ -70,7 +70,6 @@ type Feedback = { taskId: string; signal: "up" | "down"; note: string | null; up
 type ChatDialog = { kind: "rename" | "delete"; thread: Thread } | { kind: "clear" };
 
 const terminal = new Set(["completed", "failed"]);
-const autonomouslyProgressing = new Set(["pending", "cloud_pending", "local_pending", "running"]);
 const pairingCodePattern = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/;
 const connectorInstallCommand = "curl -fsSL https://raw.githubusercontent.com/IgorGanapolsky/mac-yolo-safeguards/main/saas/install-connector.sh | bash";
 const chatRailPreferenceKey = "thumbgate.chatRailExpanded";
@@ -803,29 +802,22 @@ export default function DashboardClient() {
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
-  const workspaceLoadInFlightRef = useRef<Promise<void> | null>(null);
-  const refreshWorkspaceOnce = useCallback(() => {
-    if (workspaceLoadInFlightRef.current) return workspaceLoadInFlightRef.current;
-    const pending = loadWorkspace().finally(() => {
-      if (workspaceLoadInFlightRef.current === pending) workspaceLoadInFlightRef.current = null;
-    });
-    workspaceLoadInFlightRef.current = pending;
-    return pending;
-  }, [loadWorkspace]);
   const requestWorkspaceRefresh = useCallback(async () => {
-    // Visible feedback + a freshness stamp so a manual click is never a no-op.
-    // Idle dashboards do not poll; active work has its own bounded refresh loop.
+    // One user click / one scheduled retry = one fetch. Never an interval.
+    // Visible feedback + a freshness stamp so the click is never a no-op to the
+    // user: the dashboard does not auto-poll (Workers quota), so this is the only
+    // in-page way to pull fresh data.
     setIsRefreshing(true);
     setLoadState((prev) => (prev === "loaded" ? prev : "loading"));
     try {
-      await refreshWorkspaceOnce();
+      await loadWorkspace();
       setLastRefreshedAt(Date.now());
     } catch {
       setLoadState("error");
     } finally {
       setIsRefreshing(false);
     }
-  }, [refreshWorkspaceOnce]);
+  }, [loadWorkspace]);
   const errorRetryUsedRef = useRef(false);
 
   useEffect(() => {
@@ -1046,9 +1038,10 @@ export default function DashboardClient() {
         setSelectedThread(created.threadId);
         // Persist-before-live already wrote the row. Do not block the card on /api/me.
         void loadWorkspace();
-        // Tasks render chronologically with the newest row next to the bottom composer.
-        // Scroll to that exact row so the optimistic send is visibly confirmed even
-        // when a long result above it makes the timeline taller than the viewport.
+        // Newest tasks render at the TOP of the list while the composer sits at the
+        // bottom — scrolling to the OUTPUT strip left the just-sent message off-screen
+        // and users read that as "my message vanished" (2026-08-19 report). Scroll to
+        // the new task's own row so the send is visibly confirmed.
         window.requestAnimationFrame(() => {
           // Chat bubbles live in conversation-history (separate from the task card
           // list). Scroll both so Enter never looks like a silent no-op.
@@ -1477,7 +1470,7 @@ export default function DashboardClient() {
               data-testid="dashboard-refresh"
               onClick={() => void requestWorkspaceRefresh()}
               disabled={busy || isRefreshing || loadState === "loading"}
-              title="Fetch the latest chats, tasks, and runner status now. The dashboard does not auto-refresh while idle; active runs update automatically for up to three minutes."
+              title="Fetch the latest chats, tasks, and runner status now. This dashboard does not auto-refresh (to stay within free usage limits), so use this to pull the newest data."
             >
               {isRefreshing ? "↻ Refreshing…" : loadState === "error" ? "Retry" : "↻ Refresh"}
             </button>
@@ -1611,12 +1604,15 @@ export default function DashboardClient() {
             </div>
             <div className="hermes-scroll-pane">
             {selectedThread && <div className="conversation-history">
-              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><FormattedMessage text={message.content} /></article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. <button type="button" className="task-filter-clear" data-testid="dashboard-retry" onClick={() => requestWorkspaceRefresh()}>Retry</button></div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
+              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => (
+                <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}>
+                  <div className="task-top">
+                    <span>{message.role}</span>
+                  </div>
+                  <FormattedMessage text={message.content} />
+                </article>
+              )) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. <button type="button" className="task-filter-clear" data-testid="dashboard-retry" onClick={() => requestWorkspaceRefresh()}>Retry</button></div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
               {[...(threadDetails?.tasks ?? [])].sort((left, right) => left.createdAt - right.createdAt).flatMap((task, index) => {
-                // Chronological: oldest exchange first, newest at the BOTTOM next to
-                // the composer — standard chat order (2026-08-21 user report: "latest
-                // output is not at the bottom"). Non-mutating sort; the tasks API is
-                // newest-first, so this reverses it for the conversation timeline.
                 if (!task.prompt.trim()) return [];
                 return [
                   <article
@@ -1624,13 +1620,41 @@ export default function DashboardClient() {
                     className="conversation-message role-user"
                     data-testid="conversation-user-prompt"
                   >
-                    <span>web</span>
+                    <div className="task-top">
+                      <span>web</span>
+                      {task.createdAt ? <time dateTime={new Date(task.createdAt).toISOString()}>{formatDateTime(task.createdAt)}</time> : null}
+                    </div>
                     <p>{task.prompt}</p>
                   </article>,
-                  task.result ? <article key={`task-result-${task.id || index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><FormattedMessage text={task.result} />{feedbackControls(task.id)}</article>
-                    : task.error ? <article key={`task-error-${task.id || index}`} className="conversation-message role-error"><span>failed</span><FormattedMessage text={task.error} /></article>
-                    : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${task.id || index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><p>Waiting for the fenced VPS runner to pick this up…</p></article>
-                    : null,
+                  task.result ? (
+                    <article key={`task-result-${task.id || index}`} className="conversation-message role-assistant">
+                      <div className="task-top">
+                        <span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span>
+                        {task.createdAt ? <time dateTime={new Date(task.completedAt ?? task.createdAt).toISOString()}>{formatDateTime(task.completedAt ?? task.createdAt)}</time> : null}
+                      </div>
+                      <span className="task-receipt-label">{taskReceiptLabel(task)}</span>
+                      <FormattedMessage text={task.result} />
+                      {feedbackControls(task.id)}
+                    </article>
+                  ) : task.error ? (
+                    <article key={`task-error-${task.id || index}`} className="conversation-message role-error">
+                      <div className="task-top">
+                        <span className="task-status status-failed">failed</span>
+                        {task.createdAt ? <time dateTime={new Date(task.completedAt ?? task.createdAt).toISOString()}>{formatDateTime(task.completedAt ?? task.createdAt)}</time> : null}
+                      </div>
+                      <span className="task-receipt-label">{taskReceiptLabel(task)}</span>
+                      <FormattedMessage text={task.error} />
+                    </article>
+                  ) : task.status !== "completed" && task.status !== "failed" ? (
+                    <article key={`task-pending-${task.id || index}`} className="conversation-message role-pending">
+                      <div className="task-top">
+                        <span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span>
+                        {task.createdAt ? <time dateTime={new Date(task.createdAt).toISOString()}>{formatDateTime(task.createdAt)}</time> : null}
+                      </div>
+                      <span className="task-receipt-label">{taskReceiptLabel(task)}</span>
+                      <p>Waiting for the fenced VPS runner to pick this up…</p>
+                    </article>
+                  ) : null,
                 ];
               })}
             </div>}
