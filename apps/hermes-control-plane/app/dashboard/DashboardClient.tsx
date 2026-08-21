@@ -41,7 +41,6 @@ import {
   type HostedResourceState,
   type HostedResourceStatus,
 } from "@/lib/hosted-apphost";
-import { getAllBots, type HermesBotProfile } from "@/lib/bot-mode";
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
@@ -81,6 +80,7 @@ type Feedback = { taskId: string; signal: "up" | "down"; note: string | null; up
 type ChatDialog = { kind: "rename" | "delete"; thread: Thread } | { kind: "clear" };
 
 const terminal = new Set(["completed", "failed"]);
+const autonomouslyProgressing = new Set(["pending", "cloud_pending", "local_pending", "running"]);
 const pairingCodePattern = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/;
 const connectorInstallCommand = "curl -fsSL https://raw.githubusercontent.com/IgorGanapolsky/mac-yolo-safeguards/main/saas/install-connector.sh | bash";
 const chatRailPreferenceKey = "thumbgate.chatRailExpanded";
@@ -194,44 +194,28 @@ function latency(milliseconds: number | null) {
 }
 
 function formatDateTime(timestamp: number) {
-  try {
-    if (!Number.isFinite(timestamp) || timestamp <= 0) return "";
-    return new Intl.DateTimeFormat("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-      timeZoneName: "short",
-    }).format(new Date(timestamp));
-  } catch {
-    return "";
-  }
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+    timeZoneName: "short",
+  }).format(new Date(timestamp));
 }
 
 function ConversationMeta({ meta }: { meta: ConversationMessageMeta }) {
-  const statusStr = typeof meta?.status === "string" ? meta.status : "unknown";
-  let isoStr: string | null = null;
-  if (meta?.timestamp && Number.isFinite(meta.timestamp) && meta.timestamp > 0) {
-    try {
-      const d = new Date(meta.timestamp);
-      if (!isNaN(d.getTime())) isoStr = d.toISOString();
-    } catch {
-      isoStr = null;
-    }
-  }
-
   return (
     <div
       className="task-top"
       data-testid="conversation-message-meta"
-      data-timestamp-source={meta?.timestampSource ?? "none"}
+      data-timestamp-source={meta.timestampSource ?? "none"}
     >
-      <span className={`task-status status-${statusStr}`}>{statusStr.replaceAll("_", " ")}</span>
-      {isoStr && meta?.timestamp ? (
-        <time dateTime={isoStr}>
+      <span className={`task-status status-${meta.status}`}>{meta.status.replaceAll("_", " ")}</span>
+      {meta.timestamp ? (
+        <time dateTime={new Date(meta.timestamp).toISOString()}>
           {meta.timestampSource === "sync" ? "Synced " : ""}{formatDateTime(meta.timestamp)}
         </time>
       ) : (
@@ -300,7 +284,6 @@ export default function DashboardClient() {
   });
   const [threadDetails, setThreadDetails] = useState<ThreadDetails | null>(null);
   const [prompt, setPrompt] = useState("");
-  const [selectedBotId, setSelectedBotId] = useState<string>("chief");
   /**
    * Explicit user override for which hosted runner runs the next task.
    * Resolved selection is derived (useMemo) so we never setState inside an effect (eslint react-hooks/set-state-in-effect).
@@ -350,6 +333,13 @@ export default function DashboardClient() {
   const threadMenuRef = useRef<HTMLDivElement | null>(null);
   const [chatDialog, setChatDialog] = useState<ChatDialog | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const conversationHistoryRef = useRef<HTMLDivElement | null>(null);
+  const scrollConversationToBottom = useCallback(() => {
+    const el = conversationHistoryRef.current;
+    if (el) {
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    }
+  }, []);
   const [chatOperationBusy, setChatOperationBusy] = useState(false);
   const [safetyExpanded, setSafetyExpanded] = useState(false);
   const [feedback, setFeedback] = useState<Record<string, Feedback>>({});
@@ -365,27 +355,8 @@ export default function DashboardClient() {
    * fold, which reads as "there is no machine picker".
    */
   const rightRailRef = useRef<HTMLElement | null>(null);
-  const conversationHistoryRef = useRef<HTMLDivElement | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   /** Phone shell: hide route-explain blurb so it cannot cover the textarea (Genspark-style compact chrome). */
   const [isNarrowViewport, setIsNarrowViewport] = useState(false);
-
-  const scrollConversationToBottom = useCallback((smooth = false) => {
-    const el = conversationHistoryRef.current;
-    if (el) {
-      el.scrollTo({
-        top: el.scrollHeight,
-        behavior: smooth ? "smooth" : "auto",
-      });
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!selectedThread) return;
-    scrollConversationToBottom(false);
-    const timeout = setTimeout(() => scrollConversationToBottom(false), 50);
-    return () => clearTimeout(timeout);
-  }, [selectedThread, threadDetails, tasks, scrollConversationToBottom]);
 
   // Send the shared scrollport back to the top whenever the pane inside it
   // changes, so a tab always opens at its own heading rather than wherever the
@@ -872,22 +843,29 @@ export default function DashboardClient() {
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
+  const workspaceLoadInFlightRef = useRef<Promise<void> | null>(null);
+  const refreshWorkspaceOnce = useCallback(() => {
+    if (workspaceLoadInFlightRef.current) return workspaceLoadInFlightRef.current;
+    const pending = loadWorkspace().finally(() => {
+      if (workspaceLoadInFlightRef.current === pending) workspaceLoadInFlightRef.current = null;
+    });
+    workspaceLoadInFlightRef.current = pending;
+    return pending;
+  }, [loadWorkspace]);
   const requestWorkspaceRefresh = useCallback(async () => {
-    // One user click / one scheduled retry = one fetch. Never an interval.
-    // Visible feedback + a freshness stamp so the click is never a no-op to the
-    // user: the dashboard does not auto-poll (Workers quota), so this is the only
-    // in-page way to pull fresh data.
+    // Visible feedback + a freshness stamp so a manual click is never a no-op.
+    // Idle dashboards do not poll; active work has its own bounded refresh loop.
     setIsRefreshing(true);
     setLoadState((prev) => (prev === "loaded" ? prev : "loading"));
     try {
-      await loadWorkspace();
+      await refreshWorkspaceOnce();
       setLastRefreshedAt(Date.now());
     } catch {
       setLoadState("error");
     } finally {
       setIsRefreshing(false);
     }
-  }, [loadWorkspace]);
+  }, [refreshWorkspaceOnce]);
   const errorRetryUsedRef = useRef(false);
 
   useEffect(() => {
@@ -1119,10 +1097,9 @@ export default function DashboardClient() {
         setSelectedThread(created.threadId);
         // Persist-before-live already wrote the row. Do not block the card on /api/me.
         void loadWorkspace();
-        // Newest tasks render at the TOP of the list while the composer sits at the
-        // bottom — scrolling to the OUTPUT strip left the just-sent message off-screen
-        // and users read that as "my message vanished" (2026-08-19 report). Scroll to
-        // the new task's own row so the send is visibly confirmed.
+        // Tasks render chronologically with the newest row next to the bottom composer.
+        // Scroll to that exact row so the optimistic send is visibly confirmed even
+        // when a long result above it makes the timeline taller than the viewport.
         window.requestAnimationFrame(() => {
           // Chat bubbles live in conversation-history (separate from the task card
           // list). Scroll both so Enter never looks like a silent no-op.
@@ -1551,7 +1528,7 @@ export default function DashboardClient() {
               data-testid="dashboard-refresh"
               onClick={() => void requestWorkspaceRefresh()}
               disabled={busy || isRefreshing || loadState === "loading"}
-              title="Fetch the latest chats, tasks, and runner status now. This dashboard does not auto-refresh (to stay within free usage limits), so use this to pull the newest data."
+              title="Fetch the latest chats, tasks, and runner status now. The dashboard does not auto-refresh while idle; active runs update automatically for up to three minutes."
             >
               {isRefreshing ? "↻ Refreshing…" : loadState === "error" ? "Retry" : "↻ Refresh"}
             </button>
@@ -1708,6 +1685,10 @@ export default function DashboardClient() {
             {selectedThread && <div className="conversation-history" ref={conversationHistoryRef}>
               {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><ConversationMeta meta={snapshotMessageMeta(message, threadDetails.syncedAt)} /><FormattedMessage text={message.content} hideToolProtocol={message.role === "assistant"} /></article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. <button type="button" className="task-filter-clear" data-testid="dashboard-retry" onClick={() => requestWorkspaceRefresh()}>Retry</button></div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
               {[...(threadDetails?.tasks ?? [])].sort((left, right) => left.createdAt - right.createdAt).flatMap((task, index) => {
+                // Chronological: oldest exchange first, newest at the BOTTOM next to
+                // the composer — standard chat order (2026-08-21 user report: "latest
+                // output is not at the bottom"). Non-mutating sort; the tasks API is
+                // newest-first, so this reverses it for the conversation timeline.
                 if (!task.prompt.trim()) return [];
                 return [
                   <article
@@ -1725,7 +1706,6 @@ export default function DashboardClient() {
                     : null,
                 ];
               })}
-              <div ref={messagesEndRef} style={{ height: 1 }} aria-hidden="true" />
             </div>}
             <div className="task-list" id="task-activity">
               {taskFilter !== "all" ? (
