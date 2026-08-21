@@ -886,15 +886,20 @@ export default function DashboardClient() {
   });
   const activeTasks = useMemo(() => tasks.filter((task) => !terminal.has(task.status)), [tasks]);
   const visibleTasks = useMemo(() => {
-    if (taskFilter === "completed") {
-      return tasks.filter((task) => task.status === "completed" && Boolean(task.result));
-    }
-    if (taskFilter === "unrated") {
-      return tasks.filter(
-        (task) => task.status === "completed" && Boolean(task.result) && !feedback[task.id],
-      );
-    }
-    return selectedThread ? tasks.filter((task) => task.threadId === selectedThread) : tasks;
+    const filtered =
+      taskFilter === "completed"
+        ? tasks.filter((task) => task.status === "completed" && Boolean(task.result))
+        : taskFilter === "unrated"
+          ? tasks.filter((task) => task.status === "completed" && Boolean(task.result) && !feedback[task.id])
+          : selectedThread
+            ? tasks.filter((task) => task.threadId === selectedThread)
+            : tasks;
+    // Oldest→newest so the latest task card sits at the BOTTOM of the list, next to
+    // the composer — standard chat order (2026-08-21 user report: "why is the latest
+    // output not at the bottom?"). Non-mutating copy before sort (the no-filter branch
+    // returns the original `tasks` array); optimistic just-sent tasks carry the highest
+    // createdAt so they land last (bottom).
+    return [...filtered].sort((left, right) => left.createdAt - right.createdAt);
   }, [tasks, selectedThread, taskFilter, feedback]);
   const onlineDevices = devices.filter((device) => device.online);
   const p95CompletionLatency = useMemo(() => {
@@ -1740,7 +1745,7 @@ export default function DashboardClient() {
               <div className="run-output" id="run-output" data-testid="run-output" role="status" aria-live="polite">
                 <p className="eyebrow">Output</p>
                 {/* Notices + in-flight status only — completed results live in the task rows; echoing them here left stale agent output pinned under the composer. */}
-                {notice ? <p>{notice}</p> : visibleTasks[0] && !visibleTasks[0].result && !visibleTasks[0].error ? <p>Running on the hosted VPS…</p> : <p>Results show here after you send.</p>}
+                {notice ? <p>{notice}</p> : visibleTasks.length > 0 && !visibleTasks[visibleTasks.length - 1].result && !visibleTasks[visibleTasks.length - 1].error ? <p>Running on the hosted VPS…</p> : <p>Results show here after you send.</p>}
               </div>
               <div className="composer-actions">
                 {/* Fallback hidden submit button so form.requestSubmit() and soft keyboard Enter always find a submitter */}

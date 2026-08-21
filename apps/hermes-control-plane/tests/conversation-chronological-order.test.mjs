@@ -26,3 +26,18 @@ test("conversation never sorts the tasks array in place (non-mutating)", () => {
     "must copy with [...] before sorting, never mutate threadDetails.tasks",
   );
 });
+
+// The task-activity CARD list is the view the user actually sees (COMPLETED badges +
+// timestamps). It must also run oldest→newest so the newest card sits at the bottom.
+test("visibleTasks card list is sorted oldest-to-newest (latest card at the bottom)", () => {
+  assert.match(
+    source,
+    /\[\.\.\.filtered\]\.sort\(\(left, right\) => left\.createdAt - right\.createdAt\)/,
+    "visibleTasks must be an ascending-by-createdAt copy",
+  );
+});
+
+test("the Running indicator tracks the newest (last) visible task, not index 0", () => {
+  assert.match(source, /visibleTasks\[visibleTasks\.length - 1\]/);
+  assert.doesNotMatch(source, /visibleTasks\[0\]/, "index 0 assumed newest-first; list is now oldest-first");
+});
