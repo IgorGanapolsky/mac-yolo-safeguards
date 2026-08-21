@@ -835,6 +835,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 | T-MCP-CONNECTOR-GOVERNANCE-20260819 | NewStack Mistral MCP connector migration article: build MCP connector governance checker with server risk assessment + prompt injection scanner (no auto-migration, operator trust, caching/perms unclear) | in_progress | claude-code | `tools/mcp-connector-gate.js` (new), `tests/test-mcp-connector-gate.js` (new), `plan.md` | Implementing from origin/main at 548e33710 |
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
+- `apps/hermes-control-plane/lib/future-agi-interop.ts`, `apps/hermes-control-plane/lib/future-agi-interop.test.ts`, `apps/hermes-control-plane/lib/execution-receipt.ts`, `apps/hermes-control-plane/lib/execution-receipt.test.ts`, `plan.md` (append-only coordination rows) → **codex-future-agi-interop-20260821** (AGENT-443: content-free Future AGI-compatible `gen_ai.*` receipt evaluation and approval-required remediation metadata) (2026-08-21T12:54:00Z)
+
 - `tools/agent-swarm-harness.js` (stale-board contention filter + where-is-state only), `tests/test-agent-swarm-harness.js`, `tools/plan-stale-board-hygiene.js` (new), `plan.md` → **grok-plan-contention-hygiene** (T-PLAN-CONTENTION-STALE-HYGIENE-20260818: false STOP from 800+ stale in_progress rows) (2026-08-18T20:47:33Z)
 - `tools/agent-claim-ledger.js`, `tests/test-agent-claim-ledger.js`, `.gitignore`, `plan.md` → **claude-code** (T-GIT-AT-SCALE-ROI-20260819: WAL-backed CAS file-claim ledger + 36-test suite) (2026-08-19T13:30:00Z)
 - `tools/agent-claim-ledger.js`, `tests/test-agent-claim-ledger.js`, `.gitignore`, `plan.md` → **released by claude-code** (done, 36/36 green) (2026-08-19T13:30:00Z)
