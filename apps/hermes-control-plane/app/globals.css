@@ -559,8 +559,6 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   }
   @keyframes agent-pulse{50%{opacity:.45}}
   .agent-activity strong{font-weight:700;color:#E0F2FE}
-  .agent-activity span{color:#94A3B8;font-weight:500}
-  /*
   /*
    * Chat scrollport fills remaining height; composer is a thin fixed dock below
    * (DimAgent workbench — chat primary, not composer half-screen).
@@ -611,17 +609,19 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   .dashboard-shell[data-mobile-tab="hermes"] .workspace-hero{
     display:none !important;
   }
-  .hermes-scroll-pane{
-    flex:1 1 0 !important;
-    min-height:0 !important;
-    max-height:none;
-    overflow-x:hidden;
-    overflow-y:scroll !important;
+  /* Mobile chat visibility: give the transcript a positive, bounded viewport.
+     flex:1 1 0 collapsed inside this auto-height panel; unbounded document flow
+     instead pushed the composer below duplicated long-thread output. */
+  .dashboard-shell[data-mobile-tab="hermes"] .hermes-scroll-pane{
+    flex:0 0 auto !important;
+    height:clamp(280px,46svh,520px);
+    min-height:280px !important;
+    max-height:520px;
+    overflow-x:clip;
+    overflow-y:auto !important;
     -webkit-overflow-scrolling:touch;
     overscroll-behavior:contain;
     touch-action:pan-y;
-  }
-  .dashboard-shell[data-mobile-tab="hermes"] .hermes-scroll-pane{
     padding-bottom:8px;
   }
   .conversation-history{
