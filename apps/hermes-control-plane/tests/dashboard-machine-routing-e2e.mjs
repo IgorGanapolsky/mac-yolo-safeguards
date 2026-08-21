@@ -297,7 +297,10 @@ try {
         return false;
       }
     }
-    const browser = await chromium.launch({ headless: true });
+    const browser = await chromium.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+    });
     try {
       const context = await browser.newContext();
       await context.addCookies([
@@ -311,6 +314,7 @@ try {
       const page = await context.newPage();
       page.on("pageerror", (err) => console.error("[BROWSER ERROR]", err));
       page.on("console", (msg) => console.log(`[BROWSER CONSOLE] ${msg.type()}: ${msg.text()}`));
+      page.on("requestfailed", (req) => console.error("[REQUEST FAILED]", req.url(), req.failure()?.errorText));
       await page.goto(`${base}/dashboard`, { waitUntil: "domcontentloaded", timeout: 30_000 });
       // Continuity-only composer: visible Output pane, no RUN ON dual picker.
       try {
