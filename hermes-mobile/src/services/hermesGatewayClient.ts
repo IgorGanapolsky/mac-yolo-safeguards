@@ -822,3 +822,146 @@ export async function getObsidianAgents(
   return body.data ?? [];
 }
 
+// ---------------------------------------------------------------------------
+// Meta Glasses endpoints
+// ---------------------------------------------------------------------------
+
+export interface GlassesStatus {
+  connected: boolean | null;
+  deviceId: string | null;
+  error: string | null;
+  platform: string;
+}
+
+/**
+ * Check Meta Glasses BLE connection status via the control plane.
+ */
+export async function getGlassesStatus(
+  gatewayUrl: string,
+  apiKey?: string | null,
+  timeoutMs = 5000,
+): Promise<GlassesStatus> {
+  const url = `${base(gatewayUrl)}/api/glasses/status`;
+  return fetchWithTimeout(url, { headers: buildAuthHeaders(apiKey) }, timeoutMs)
+    .then(r => parseJson<GlassesStatus & { error?: string }>(r))
+    .then(body => ({
+      connected: body.connected ?? null,
+      deviceId: body.deviceId ?? null,
+      error: body.error ?? null,
+      platform: body.platform ?? 'unknown',
+    }))
+    .catch(() => ({ connected: null, deviceId: null, error: 'connection failed', platform: 'unknown' }));
+}
+
+export interface GlassesMacroResult {
+  ok: boolean;
+  command: string;
+  output?: string;
+  error?: string;
+  executedAt?: string;
+}
+
+/**
+ * Execute a macro command on the Mac from the glasses.
+ * Commands are routed through the OpenBot Action Gateway for policy interdiction.
+ */
+export async function sendGlassesMacro(
+  gatewayUrl: string,
+  apiKey: string | null | undefined,
+  command: string,
+  timeoutMs = 30000,
+): Promise<GlassesMacroResult> {
+  const url = `${base(gatewayUrl)}/api/glasses`;
+  const response = await fetchWithTimeout(url, {
+    method: 'POST',
+    headers: { ...buildAuthHeaders(apiKey), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'macro', command }),
+  }, timeoutMs);
+  const body = await parseJson<{ ok?: boolean; command?: string; output?: string; error?: string; executedAt?: string }>(response);
+  return {
+    ok: body.ok ?? false,
+    command: body.command ?? command,
+    output: body.output,
+    error: body.error,
+    executedAt: body.executedAt,
+  };
+}
+
+export interface GlassesInferenceResult {
+  ok: boolean;
+  answer?: string;
+  error?: string;
+}
+
+/**
+ * Deep inference: send a prompt (with optional screen context) to Hermes.
+ * Streams SSE response with { type: 'delta' | 'done' } chunks.
+ */
+export async function queryGlassesInference(
+  gatewayUrl: string,
+  apiKey: string | null | undefined,
+  prompt: string,
+  onEvent?: (event: { type: string; delta?: string }) => void,
+  timeoutMs = 60000,
+): Promise<GlassesInferenceResult> {
+  const url = `${base(gatewayUrl)}/api/glasses`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { ...buildAuthHeaders(apiKey), 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+      body: JSON.stringify({ action: 'inference', prompt, includeScreen: true }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      return { ok: false, error: text || `HTTP ${response.status}` };
+    }
+
+    const reader = response.body?.getReader?.();
+    if (!reader) {
+      return { ok: false, error: 'No stream reader available' };
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let answer = '';
+    let done = false;
+
+    while (!done) {
+      const { value, done: streamDone } = await reader.read();
+      if (streamDone) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split('\n\n');
+      buffer = lines.pop() || '';
+      for (const chunk of lines) {
+        if (chunk.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(chunk.slice(6));
+            if (data.type === 'delta') {
+              answer += data.delta || '';
+              onEvent?.({ type: 'delta', delta: data.delta });
+            } else if (data.type === 'done') {
+              done = true;
+              onEvent?.({ type: 'done' });
+              break;
+            }
+          } catch { /* ignore */ }
+        }
+      }
+    }
+
+    return { ok: true, answer: answer.trim() };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+
+
