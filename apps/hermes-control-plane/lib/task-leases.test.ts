@@ -320,6 +320,99 @@ describe("fenced task leases", () => {
     expect(JSON.stringify(mocks.audit.mock.calls)).not.toContain("private result");
   });
 
+  it("persists a successful reset result as a durable same-thread compaction marker", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(4_500);
+    mocks.state.existing = {
+      organizationId: "org-1",
+      route: "cloud",
+      leaseGeneration: 4,
+      createdAt: 2_000,
+      threadId: "thread-1",
+      prompt: "/reset",
+    };
+    expect(await completeTask({
+      owner: "cloud:runner-1",
+      taskId: "task-reset",
+      leaseToken: "current-token",
+      result: "Decision: keep one persistent bot thread. Next: finish the release.",
+      actorType: "runner",
+    })).toBe(true);
+
+    expect(mocks.state.runs.some((run) => run.sql.includes("context_snapshot = ?"))).toBe(false);
+    expect(mocks.audit).toHaveBeenCalledWith(expect.objectContaining({
+      action: "thread.context.compacted",
+      targetId: "thread-1",
+      metadata: {
+        route: "cloud",
+        command: "compact_same_thread",
+        taskId: "task-reset",
+        durableMarker: "completed_task_result",
+      },
+    }));
+    expect(JSON.stringify(mocks.audit.mock.calls)).not.toContain("finish the release");
+  });
+
+  it("uses the latest durable reset result instead of the pre-compaction snapshot", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(10_000);
+    mocks.state.firsts = [{
+      id: "task-after-reset",
+      organizationId: "org-1",
+      threadId: "thread-1",
+      threadTitle: "Thread",
+      prompt: "keep going",
+      currentRoute: "cloud",
+      leaseGeneration: 0,
+      sourceSessionId: "session-1",
+      contextSnapshot: JSON.stringify([
+        { role: "user", content: "obsolete plan that must leave model context" },
+        { role: "assistant", content: "obsolete answer" },
+      ]),
+      syncedAt: null,
+      createdAt: 9_000,
+      plan: "pro",
+      trialEndsAt: null,
+      cloudTasks: 1,
+    }];
+    mocks.state.allResults = [{
+      id: "task-reset",
+      prompt: "/reset",
+      result: "Durable summary: ship the verified Bot Mode integration.",
+      createdAt: 8_000,
+    }];
+
+    const claimed = await claimTask({ route: "cloud", owner: "cloud:runner-1" });
+    expect(claimed?.task.contextMessages).toEqual([
+      { role: "user", content: "/reset" },
+      { role: "assistant", content: "Durable summary: ship the verified Bot Mode integration." },
+    ]);
+    expect(JSON.stringify(claimed?.task.contextMessages)).not.toContain("obsolete plan");
+    expect(mocks.audit).toHaveBeenCalledWith(expect.objectContaining({
+      action: "task.claim",
+      metadata: expect.objectContaining({ contextCompactedFromTaskId: "task-reset" }),
+    }));
+  });
+
+  it("does not compact durable context when a reset task fails", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(4_600);
+    mocks.state.existing = {
+      organizationId: "org-1",
+      route: "cloud",
+      leaseGeneration: 5,
+      createdAt: 2_100,
+      threadId: "thread-1",
+      prompt: "/new",
+    };
+    expect(await completeTask({
+      owner: "cloud:runner-1",
+      taskId: "task-reset-failed",
+      leaseToken: "current-token",
+      error: "provider failed",
+      actorType: "runner",
+    })).toBe(true);
+    expect(mocks.state.runs.some((run) => run.sql.includes("context_snapshot = ?"))).toBe(false);
+    expect(mocks.audit).not.toHaveBeenCalledWith(expect.objectContaining({ action: "thread.context.compacted" }));
+  });
+
   it("maps raw z.ai quota text before storing task.error", async () => {
     vi.spyOn(Date, "now").mockReturnValue(4_000);
     mocks.state.existing = { organizationId: "org-1", route: "cloud", leaseGeneration: 3, createdAt: 1_500 };

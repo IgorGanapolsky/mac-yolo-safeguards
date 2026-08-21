@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveContinuationPrompt } from "./continuation-prompts";
+import { isSameThreadCompactionCommand, resolveContinuationPrompt } from "./continuation-prompts";
 
 describe("continuation prompts", () => {
   it("preserves user copy while creating a context-bound execution instruction", () => {
@@ -33,11 +33,14 @@ describe("continuation prompts", () => {
   });
 
   it("keeps Bot Mode reset commands on the same durable thread", () => {
+    expect(isSameThreadCompactionCommand(" /RESET! ")).toBe(true);
+    expect(isSameThreadCompactionCommand("reset the thread please")).toBe(false);
     expect(resolveContinuationPrompt("/new", { hasContext: true })).toMatchObject({
       applied: true,
       command: "compact_same_thread",
       displayPrompt: "/new",
     });
+    expect(resolveContinuationPrompt("/new", { hasContext: true }).executionPrompt).toMatch(/becomes the durable context/i);
     expect(resolveContinuationPrompt("/reset", { hasContext: false })).toMatchObject({
       applied: false,
       command: "compact_same_thread",

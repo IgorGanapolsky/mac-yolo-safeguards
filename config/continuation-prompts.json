@@ -82,7 +82,7 @@
       "canonical": "/compact",
       "triggers": ["/new", "/reset"],
       "requiresContext": true,
-      "instruction": "Compact the established conversation into the minimum durable working context, then continue in this same persistent conversation. Do not fork or create a replacement thread. Preserve decisions, unfinished work, evidence identifiers, and safety constraints."
+      "instruction": "Return one self-contained compacted working-context summary for this same persistent conversation. Preserve decisions, unfinished work, evidence identifiers, and safety constraints. Do not merely acknowledge compaction, fork, or create a replacement thread: this response becomes the durable context that replaces the earlier messages."
     }
   ]
 }

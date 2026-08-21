@@ -255,6 +255,35 @@ test('resumes the existing Hermes session and carries cloud handoff context', as
   assert.match(received.system_message, /cloud result/);
 });
 
+test('routes Bot Mode reset through native compact on the same Hermes session', async () => {
+  let received;
+  await withServer((request, response) => {
+    let body = '';
+    request.on('data', (chunk) => { body += chunk; });
+    request.on('end', () => {
+      response.setHeader('content-type', 'application/json');
+      if (request.method === 'GET' && request.url === '/api/sessions/mobile_bot_1') {
+        response.end(JSON.stringify({ session: { id: 'mobile_bot_1' } }));
+        return;
+      }
+      received = body ? JSON.parse(body) : null;
+      response.end(JSON.stringify({ message: { role: 'assistant', content: 'compacted in place' } }));
+    });
+  }, async (sessionGatewayUrl) => {
+    const result = await executeLocal(
+      { sessionGatewayUrl },
+      {
+        sourceSessionId: 'mobile_bot_1',
+        prompt: 'expanded instruction must not fork',
+        continuationCommand: 'compact_same_thread',
+        handoffMessages: [],
+      },
+    );
+    assert.equal(result, 'compacted in place');
+  });
+  assert.equal(received.message, '/compact');
+});
+
 test('creates a persistent Hermes web session and pins the configured project workspace', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-web-session-'));
   const hermesConfigPath = path.join(root, 'config.yaml');
