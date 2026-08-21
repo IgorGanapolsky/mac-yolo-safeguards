@@ -535,6 +535,20 @@ assert.strictEqual(virtualWallet.signals.asksForCloudflareWallet, true, 'detects
 assert.strictEqual(virtualWallet.budget.budgetDefaulted, true, 'default cap for virtual wallet');
 assert.strictEqual(virtualWallet.requiresApproval, true, 'virtual wallet funding requires approval');
 
+const poolsideDecision = decision(parseArgs([
+  '--task', 'use Poolside Laguna to refactor the AST parser with cryptographic solver receipts',
+  '--risk', 'high',
+  '--paid-ok',
+  '--max-cost-usd', '0.20',
+  '--latency-ms', '30000',
+  '--ignore-expert-health',
+]));
+assert.strictEqual(poolsideDecision.signals.asksForPoolside, true, 'detects asksForPoolside signal');
+assert.strictEqual(poolsideDecision.selectedRoute.id, 'poolside_laguna_specialist', 'selects poolside_laguna_specialist');
+assert.strictEqual(poolsideDecision.selectedRoute.model, 'poolside/laguna-s-2.1', 'targets poolside/laguna-s-2.1');
+assert.strictEqual(poolsideDecision.selectedRoute.provider, 'poolside', 'routes to poolside provider');
+assert.strictEqual(poolsideDecision.requiresApproval, true, 'poolside requires approval');
+
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-economic-router-'));
 const receiptPath = path.join(tmp, 'receipts.jsonl');
 writeReceipt(routine, receiptPath);
