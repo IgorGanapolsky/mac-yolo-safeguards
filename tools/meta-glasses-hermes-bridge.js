@@ -19,7 +19,7 @@
  *  node tools/meta-glasses-hermes-bridge.js --speak "Connected to Hermes inference engine."
  */
 
-const { execSync, execFileSync, spawn, spawnSync } = require('child_process');
+const { execFileSync, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
@@ -74,11 +74,12 @@ function captureScreen() {
 function speakToGlasses(text, voice = 'Samantha') {
   if (!text) return;
   console.log(`[MetaGlasses Speak] "${text}"`);
+  // Use execFileSync (synchronous) so errors are caught inline, not async.
+  // Falls back gracefully when `say` is not available (e.g. Linux CI).
   try {
-    const child = spawn('say', ['-v', voice, text], { stdio: 'ignore', detached: true });
-    child.unref();
+    execFileSync('say', ['-v', voice, text], { stdio: 'ignore' });
   } catch (err) {
-    console.error(`[MetaGlasses Speak Error]`, err.message);
+    console.error('[MetaGlasses Speak Error]', err.message);
   }
 }
 
@@ -184,8 +185,15 @@ async function queryHermesVision(prompt, includeScreen = true) {
 function runMacro(command) {
   console.log(`[MetaGlasses Macro] Executing: ${command}`);
   try {
-    const out = execSync(command, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
-    return { ok: true, output: out.trim() };
+    const { spawnFileChecked } = require('./lib/safe-exec');
+    const result = spawnFileChecked('sh', ['-c', command], {
+      allowedBasenames: ['sh'],
+      timeout: 30000,
+    });
+    if (result.status === 0) {
+      return { ok: true, output: result.stdout.trim(), stderr: result.stderr?.trim() || '' };
+    }
+    return { ok: false, error: result.stderr?.trim() || `Exit code ${result.status}`, stderr: result.stderr?.trim() || '' };
   } catch (err) {
     return { ok: false, error: err.message, stderr: err.stderr ? String(err.stderr) : '' };
   }
