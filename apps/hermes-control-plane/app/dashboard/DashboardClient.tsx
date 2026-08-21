@@ -886,15 +886,22 @@ export default function DashboardClient() {
   });
   const activeTasks = useMemo(() => tasks.filter((task) => !terminal.has(task.status)), [tasks]);
   const visibleTasks = useMemo(() => {
+    let filtered = tasks;
     if (taskFilter === "completed") {
-      return tasks.filter((task) => task.status === "completed" && Boolean(task.result));
-    }
-    if (taskFilter === "unrated") {
-      return tasks.filter(
+      filtered = tasks.filter((task) => task.status === "completed" && Boolean(task.result));
+    } else if (taskFilter === "unrated") {
+      filtered = tasks.filter(
         (task) => task.status === "completed" && Boolean(task.result) && !feedback[task.id],
       );
+    } else if (selectedThread) {
+      filtered = tasks.filter((task) => task.threadId === selectedThread);
     }
-    return selectedThread ? tasks.filter((task) => task.threadId === selectedThread) : tasks;
+    // Inside a conversation thread, sort chronologically (oldest at top -> newest at bottom).
+    // This ensures the latest message and assistant output render at the bottom directly above the composer.
+    if (selectedThread) {
+      return [...filtered].sort((a, b) => a.createdAt - b.createdAt);
+    }
+    return filtered;
   }, [tasks, selectedThread, taskFilter, feedback]);
   const onlineDevices = devices.filter((device) => device.online);
   const p95CompletionLatency = useMemo(() => {
