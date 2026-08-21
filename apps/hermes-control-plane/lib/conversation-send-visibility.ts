@@ -102,16 +102,15 @@ export function mergeTasksForTaskList<T extends TaskLike & { threadTitle?: strin
 
 export function scrollConversationHistoryToLatest(
   root: ParentNode | null | undefined = typeof document !== "undefined" ? document : null,
+  behavior: ScrollBehavior = "smooth",
 ): boolean {
   if (!root) return false;
   const history = root.querySelector(".conversation-history");
   if (!(history instanceof HTMLElement)) return false;
   history.scrollTop = history.scrollHeight;
-  const latest = history.querySelector(
-    '.conversation-message.role-user[data-testid="conversation-user-prompt"]:last-of-type',
-  );
+  const latest = history.querySelector(":scope > .conversation-message:last-child");
   if (latest instanceof HTMLElement) {
-    latest.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    latest.scrollIntoView({ behavior, block: "end" });
   }
   return true;
 }

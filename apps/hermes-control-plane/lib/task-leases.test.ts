@@ -252,4 +252,5 @@ describe("fenced task leases", () => {
     );
     expect(update.args[2]).not.toBe(raw);
   });
+
 });
