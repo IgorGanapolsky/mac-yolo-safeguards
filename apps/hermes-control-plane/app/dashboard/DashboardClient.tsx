@@ -193,28 +193,44 @@ function latency(milliseconds: number | null) {
 }
 
 function formatDateTime(timestamp: number) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-    timeZoneName: "short",
-  }).format(new Date(timestamp));
+  try {
+    if (!Number.isFinite(timestamp) || timestamp <= 0) return "";
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+      timeZoneName: "short",
+    }).format(new Date(timestamp));
+  } catch {
+    return "";
+  }
 }
 
 function ConversationMeta({ meta }: { meta: ConversationMessageMeta }) {
+  const statusStr = typeof meta?.status === "string" ? meta.status : "unknown";
+  let isoStr: string | null = null;
+  if (meta?.timestamp && Number.isFinite(meta.timestamp) && meta.timestamp > 0) {
+    try {
+      const d = new Date(meta.timestamp);
+      if (!isNaN(d.getTime())) isoStr = d.toISOString();
+    } catch {
+      isoStr = null;
+    }
+  }
+
   return (
     <div
       className="task-top"
       data-testid="conversation-message-meta"
-      data-timestamp-source={meta.timestampSource ?? "none"}
+      data-timestamp-source={meta?.timestampSource ?? "none"}
     >
-      <span className={`task-status status-${meta.status}`}>{meta.status.replaceAll("_", " ")}</span>
-      {meta.timestamp ? (
-        <time dateTime={new Date(meta.timestamp).toISOString()}>
+      <span className={`task-status status-${statusStr}`}>{statusStr.replaceAll("_", " ")}</span>
+      {isoStr && meta?.timestamp ? (
+        <time dateTime={isoStr}>
           {meta.timestampSource === "sync" ? "Synced " : ""}{formatDateTime(meta.timestamp)}
         </time>
       ) : (
