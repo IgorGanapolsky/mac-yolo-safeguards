@@ -67,17 +67,22 @@ async function runTests() {
   assert.strictEqual(deniedExec.receipt.status, 'INTERDICTED');
   console.log('PASS [4/5]: AG-UI Audit Receipt Generation & Fail-Closed Enforcement');
 
-  // 5. Human-in-the-Loop 2FA / Intervention Approval Test
+  // 5. Human-in-the-Loop 2FA / Intervention Approval & Resumption Test
+  let chargeExecuted = false;
   const pausedExec = await gateway.executeWithGateway({
     tool: 'stripe_api',
     command: 'charge customer retainers',
+  }, () => {
+    chargeExecuted = true;
+    return { charged: 3000 };
   });
   assert.strictEqual(pausedExec.requiresHumanApproval, true);
   assert.ok(pausedExec.interventionId.startsWith('act_'));
 
-  const resolved = gateway.resolveIntervention(pausedExec.interventionId, 'approve', { operator: 'igor' });
+  const resolved = await gateway.resolveIntervention(pausedExec.interventionId, 'approve', { operator: 'igor' });
   assert.strictEqual(resolved.status, 'APPROVED_BY_HUMAN');
-  console.log('PASS [5/5]: Human-in-the-Loop Interdiction & Live Override');
+  assert.strictEqual(chargeExecuted, true, 'Approved action was resumed and executed');
+  console.log('PASS [5/5]: Human-in-the-Loop Interdiction & Live Resumption');
 
   console.log('\n=== All 5 OpenBot Action Gateway Tests Passed (100% Green) ===');
 }

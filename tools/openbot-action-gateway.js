@@ -30,7 +30,7 @@ class OpenBotActionGateway extends EventEmitter {
     this.policies = {
       // Always deny destructive system commands
       denyPatterns: [
-        /rm\s+-[rf]{1,2}\s+\//i,
+        /rm\s+-[rf]{1,2}\s+(?:\/|\$home|~)/i,
         /drop\s+table/i,
         /delete\s+from\s+\w+\s+where\s+1=1/i,
         /\bmkfs\b/i,
@@ -46,9 +46,10 @@ class OpenBotActionGateway extends EventEmitter {
         /send\s+email|resend|\bmail\b/i,
         /\b2fa\b|\botp\b|login\s+credential|secret_key/i,
         /git\s+push\s+(?:--force|-f)/i,
+        /\brm\s+-[rf]{1,2}\b/i,
       ],
-      // Allow benign / inspection commands
-      allowCategories: ['read', 'status', 'list', 'inspect', 'grep', 'search', 'eval'],
+      // Benign inspection / read actions allowed unconditionally
+      allowCategories: ['read', 'status', 'list', 'inspect', 'grep', 'search', 'eval', 'view_file', 'git_status'],
     };
   }
 
@@ -62,7 +63,21 @@ class OpenBotActionGateway extends EventEmitter {
       command = '',
       params = {},
       risk = 'low',
+      approved = false,
     } = action;
+
+    const scrubbedParams = this.scrubParameters(params);
+
+    // If already approved by human operator, grant allow
+    if (approved) {
+      return {
+        decision: 'allow',
+        reason: 'Action approved by verified human operator.',
+        risk: risk || 'medium',
+        scrubbedParams,
+        requiresHumanApproval: false,
+      };
+    }
 
     const payloadText = `${tool} ${command} ${JSON.stringify(params)}`.toLowerCase();
 
@@ -73,32 +88,47 @@ class OpenBotActionGateway extends EventEmitter {
           decision: 'deny',
           reason: `Action matches critical safety denylist pattern: ${pattern.toString()}`,
           risk: 'critical',
-          scrubbedParams: this.scrubParameters(params),
+          scrubbedParams,
           requiresHumanApproval: false,
         };
       }
     }
 
-    // 2. Check Ask List (Money, Customer, Production, Auth)
+    // 2. Check Ask List (Money, Customer, Production, Auth, Deletion)
     for (const pattern of this.policies.askPatterns) {
       if (pattern.test(payloadText)) {
         return {
           decision: 'ask',
-          reason: `Action touches sensitive boundary (money/customer/prod/auth): ${pattern.toString()}`,
+          reason: `Action touches sensitive boundary (money/customer/prod/auth/delete): ${pattern.toString()}`,
           risk: 'high',
-          scrubbedParams: this.scrubParameters(params),
+          scrubbedParams,
           requiresHumanApproval: true,
         };
       }
     }
 
-    // 3. Fallback to Allow for benign actions
+    // 3. Check for explicitly allowed categories
+    const isBenign = this.policies.allowCategories.some(
+      (cat) => tool.toLowerCase().includes(cat) || command.toLowerCase().includes(cat)
+    );
+
+    if (isBenign) {
+      return {
+        decision: 'allow',
+        reason: 'Action matches explicitly allowed benign inspection/read category.',
+        risk: 'low',
+        scrubbedParams,
+        requiresHumanApproval: false,
+      };
+    }
+
+    // 4. Fail-closed: unclassified mutating actions default to 'ask'
     return {
-      decision: 'allow',
-      reason: 'Action passed deterministic safety policy checks',
-      risk: risk || 'low',
-      scrubbedParams: this.scrubParameters(params),
-      requiresHumanApproval: false,
+      decision: 'ask',
+      reason: 'Unclassified mutating tool execution — requires explicit human consent.',
+      risk: 'medium',
+      scrubbedParams,
+      requiresHumanApproval: true,
     };
   }
 
@@ -106,8 +136,9 @@ class OpenBotActionGateway extends EventEmitter {
    * 2. Parameter & Credential Scrubber
    */
   scrubParameters(params = {}) {
-    const cleaned = { ...params };
-    const secretKeys = ['password', 'secret', 'token', 'apiKey', 'api_key', 'privateKey', 'auth'];
+    if (typeof params !== 'object' || params === null) return params;
+    const cleaned = Array.isArray(params) ? [...params] : { ...params };
+    const secretKeys = ['password', 'secret', 'token', 'apikey', 'api_key', 'privatekey', 'auth', 'credentials'];
 
     for (const key of Object.keys(cleaned)) {
       if (secretKeys.some((s) => key.toLowerCase().includes(s.toLowerCase()))) {
@@ -180,15 +211,26 @@ class OpenBotActionGateway extends EventEmitter {
     }
 
     if (evaluation.decision === 'ask') {
+      const scrubbedAction = {
+        ...action,
+        params: evaluation.scrubbedParams,
+      };
+
       const intervention = {
         actionId,
-        action,
+        action: scrubbedAction,
         evaluation,
+        executorFn,
         status: 'PENDING_APPROVAL',
         requestedAt: new Date().toISOString(),
       };
       this.pendingInterventions.set(actionId, intervention);
-      this.emit('intervention.required', intervention);
+      this.emit('intervention.required', {
+        actionId,
+        action: scrubbedAction,
+        evaluation,
+        status: 'PENDING_APPROVAL',
+      });
 
       return {
         success: false,
@@ -234,9 +276,9 @@ class OpenBotActionGateway extends EventEmitter {
   }
 
   /**
-   * 5. Human-in-the-Loop Approval / Rejection
+   * 5. Human-in-the-Loop Approval / Rejection with Execution Resumption
    */
-  resolveIntervention(interventionId, decision = 'approve', resolutionDetails = {}) {
+  async resolveIntervention(interventionId, decision = 'approve', resolutionDetails = {}) {
     const intervention = this.pendingInterventions.get(interventionId);
     if (!intervention) {
       throw new Error(`Intervention ${interventionId} not found`);
@@ -248,6 +290,13 @@ class OpenBotActionGateway extends EventEmitter {
 
     this.pendingInterventions.delete(interventionId);
     this.emit('intervention.resolved', { interventionId, decision });
+
+    if (decision === 'approve' && typeof intervention.executorFn === 'function') {
+      const approvedAction = { ...intervention.action, approved: true };
+      const resumedExecution = await this.executeWithGateway(approvedAction, intervention.executorFn);
+      intervention.resumedExecution = resumedExecution;
+    }
+
     return intervention;
   }
 }

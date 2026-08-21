@@ -384,19 +384,28 @@ if (require.main === module) {
 
   if (args.includes('--simulate')) {
     const topic = getArg('--simulate', 'Support policy edge cases');
-    const result = engine.simulateTurn({ persona: 'customer_support_tester', topic });
+    (async () => {
+      const result = await engine.simulateTurn(
+        (msg) => `Agent response to ${msg}`,
+        { persona: 'adversarial_prompt_injector', topic, turns: 3 }
+      );
 
-    console.log('\n🤖 === Future AGI Multi-Turn Simulation Report ===');
-    console.log(`Simulation ID:   ${result.simulationId}`);
-    console.log(`Persona:         ${result.persona}`);
-    console.log(`Turns Executed:  ${result.turnCount}`);
-    console.log(`Overall Score:   ${result.overallScore} (${result.passed ? 'PASS' : 'FAIL'})`);
-    console.log('Turn Breakdown:');
-    for (const t of result.turns) {
-      console.log(`  • [Turn ${t.turnIndex}]: Q: "${t.userMessage}" -> Score: ${t.evalScore.overall}`);
-    }
-    console.log('==================================================\n');
-    process.exit(0);
+      console.log('\n🤖 === Future AGI Multi-Turn Simulation Report ===');
+      console.log(`Simulation ID:   ${result.simulationId}`);
+      console.log(`Persona:         ${result.persona}`);
+      console.log(`Turns Executed:  ${result.turnCount}`);
+      console.log(`Overall Score:   ${result.overallScore} (${result.passed ? 'PASS' : 'FAIL'})`);
+      console.log('Turn Breakdown:');
+      for (const t of result.turns) {
+        console.log(`  • [Turn ${t.turnIndex}]: Q: "${t.userMessage}" -> Score: ${t.evalScore.overall}`);
+      }
+      console.log('==================================================\n');
+      process.exit(0);
+    })().catch((err) => {
+      console.error(err);
+      process.exit(1);
+    });
+    return;
   }
 
   if (args.includes('--guardrail')) {
