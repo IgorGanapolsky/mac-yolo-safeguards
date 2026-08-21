@@ -310,9 +310,16 @@ try {
       ]);
       const page = await context.newPage();
       page.on("pageerror", (err) => console.error("[BROWSER ERROR]", err));
+      page.on("console", (msg) => console.log(`[BROWSER CONSOLE] ${msg.type()}: ${msg.text()}`));
       await page.goto(`${base}/dashboard`, { waitUntil: "domcontentloaded", timeout: 30_000 });
       // Continuity-only composer: visible Output pane, no RUN ON dual picker.
-      await page.waitForSelector('[data-testid="run-output"]', { timeout: 30_000 });
+      try {
+        await page.waitForSelector('[data-testid="run-output"]', { timeout: 20_000 });
+      } catch (e) {
+        console.error("PAGE URL AT FAILURE:", page.url());
+        console.error("PAGE CONTENT AT FAILURE:\n", await page.content());
+        throw e;
+      }
       const output = page.locator('[data-testid="run-output"]');
       assert.equal(await output.count(), 1, "Output pane must be visible");
       const label = await output.locator(".eyebrow").first().textContent();
