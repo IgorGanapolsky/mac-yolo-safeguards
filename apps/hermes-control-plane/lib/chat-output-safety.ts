@@ -1,19 +1,19 @@
 const LEAKED_TOOL_PROTOCOL_RE =
-  /^[ \t]*(?:<\|DSML\|(?:tool_calls|invoke|parameter)\b|<tool_?call\b|<toolcall\b|<function_?call\b)/im;
+  /^[ \t]*(?:<[|｜]DSML[|｜](?:tool_calls|invoke|parameter)\b|<tool_?call\b|<toolcall\b|<function_?call\b)/im;
 
 const TOOL_PROTOCOL_BLOCKS = [
-  /^[ \t]*<\|DSML\|tool_calls\b[^>]*>[\s\S]*?<\/\|DSML\|tool_calls>/gim,
-  /^[ \t]*<\|DSML\|invoke\b[^>]*>[\s\S]*?<\/\|DSML\|invoke>/gim,
-  /^[ \t]*<\|DSML\|parameter\b[^>]*>[\s\S]*?<\/\|DSML\|parameter>/gim,
+  /^[ \t]*<[|｜]DSML[|｜]tool_calls\b[^>]*>[\s\S]*?<\/[|｜]DSML[|｜]tool_calls>/gim,
+  /^[ \t]*<[|｜]DSML[|｜]invoke\b[^>]*>[\s\S]*?<\/[|｜]DSML[|｜]invoke>/gim,
+  /^[ \t]*<[|｜]DSML[|｜]parameter\b[^>]*>[\s\S]*?<\/[|｜]DSML[|｜]parameter>/gim,
   /^[ \t]*<toolcall\b[^>]*>[\s\S]*?<\/toolcall>/gim,
   /^[ \t]*<tool_?call\b[^>]*>[\s\S]*?<\/tool_?call>/gim,
   /^[ \t]*<function_?call\b[^>]*>[\s\S]*?<\/function_?call>/gim,
 ];
 
 const TRUNCATED_TOOL_PROTOCOL = [
-  /^[ \t]*<\|DSML\|tool_calls\b[^>]*>[\s\S]*$/im,
-  /^[ \t]*<\|DSML\|invoke\b[^>]*>[\s\S]*$/im,
-  /^[ \t]*<\|DSML\|parameter\b[^>]*>[\s\S]*$/im,
+  /^[ \t]*<[|｜]DSML[|｜]tool_calls\b[^>]*>[\s\S]*$/im,
+  /^[ \t]*<[|｜]DSML[|｜]invoke\b[^>]*>[\s\S]*$/im,
+  /^[ \t]*<[|｜]DSML[|｜]parameter\b[^>]*>[\s\S]*$/im,
   /^[ \t]*<toolcall\b[^>]*>[\s\S]*$/im,
   /^[ \t]*<tool_?call\b[^>]*>[\s\S]*$/im,
   /^[ \t]*<function_?call\b[^>]*>[\s\S]*$/im,

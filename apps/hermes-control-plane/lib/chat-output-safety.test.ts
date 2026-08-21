@@ -11,6 +11,12 @@ const dsml = `<|DSML|tool_calls>
 </|DSML|invoke>
 </|DSML|tool_calls>`;
 
+const productionUnicodeDsml = `<｜DSML｜tool_calls>
+<｜DSML｜invoke name="shell">
+<｜DSML｜parameter name="command" string="true">curl -s -L https://explainx.ai/trending | head -c 8000</｜DSML｜parameter>
+</｜DSML｜invoke>
+</｜DSML｜tool_calls>`;
+
 describe("readableChatOutput", () => {
   it("replaces the exact leaked DSML from the production screenshot with plain language", () => {
     expect(readableChatOutput(`Let me fetch that URL.\n${dsml}`)).toBe(
@@ -20,6 +26,19 @@ describe("readableChatOutput", () => {
 
   it("handles truncated DSML without showing wire syntax", () => {
     const rendered = readableChatOutput("Starting now.\n<|DSML|tool_calls>\n<|DSML|invoke name=\"shell\">");
+    expect(rendered).toBe(`Starting now.\n\n${TOOL_PROTOCOL_INCOMPLETE_MESSAGE}`);
+    expect(rendered).not.toContain("DSML");
+  });
+
+  it("replaces the production provider's full-width Unicode DSML delimiters", () => {
+    const rendered = readableChatOutput(`Let me fetch that URL.\n${productionUnicodeDsml}`);
+    expect(rendered).toBe(`Let me fetch that URL.\n\n${TOOL_PROTOCOL_INCOMPLETE_MESSAGE}`);
+    expect(rendered).not.toContain("DSML");
+    expect(hasLeakedToolProtocol(productionUnicodeDsml)).toBe(true);
+  });
+
+  it("handles truncated full-width Unicode DSML without showing wire syntax", () => {
+    const rendered = readableChatOutput("Starting now.\n<｜DSML｜tool_calls>\n<｜DSML｜invoke name=\"shell\">");
     expect(rendered).toBe(`Starting now.\n\n${TOOL_PROTOCOL_INCOMPLETE_MESSAGE}`);
     expect(rendered).not.toContain("DSML");
   });
