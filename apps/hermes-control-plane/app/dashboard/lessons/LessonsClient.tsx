@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
   hermesTaskHref,
@@ -178,14 +179,36 @@ export default function LessonsClient() {
   return <main className="lessons-shell">
     <header className="lessons-header">
       <div>
-        <p className="eyebrow">THUMBGATE</p>
-        <h1>ThumbGate lessons</h1>
+        <p className="eyebrow">THUMBGATE · 🔒 PRIVATE INSTITUTIONAL MEMORY</p>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+          <h1>ThumbGate lessons</h1>
+          <span style={{
+            fontSize: "12px",
+            fontWeight: 600,
+            padding: "3px 8px",
+            borderRadius: "6px",
+            background: "rgba(16, 185, 129, 0.15)",
+            color: "#10b981",
+            border: "1px solid rgba(16, 185, 129, 0.3)",
+          }}>
+            🔒 Private to {user.email}
+          </span>
+        </div>
         <p>
-          Lessons are <strong>thumbs you leave on completed answers</strong> — not every chat or prompt.
+          Lessons are <strong>thumbs you leave on completed answers</strong> — strictly private to your workspace.
+          They steer your personal AI agents and are never shared publicly or with third parties.
           👍 = keep doing this. 👎 = fix this next time.
         </p>
       </div>
-      <a className="button button-secondary button-small" href="/dashboard">← Back to dashboard</a>
+      <Link
+        className="button button-secondary button-small"
+        href="/dashboard"
+        onClick={() => {
+          window.location.assign("/dashboard");
+        }}
+      >
+        ← Back to dashboard
+      </Link>
     </header>
 
     <section className="lesson-activity" aria-label="Workspace activity (not lessons)">
