@@ -4,6 +4,7 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 
 | Skill | Description | Definition | Source |
 | :--- | :--- | :--- | :--- |
+| `future-agi-self-healing-engine` | Future AGI Self-Healing Agent Engine, Adversarial Persona Simulation, OTel Span Tracing & Automated Guardrail Patch Synthesizer for all coding agents on Igor's Mac. | `.agents/skills/future-agi-self-healing-engine/SKILL.md` | local |
 | `local-first-sync-engine` | Local-First Sync Engine & Reactive Collection Architecture (ElectricSQL / TanStack DB style, query-driven sync, optimistic mutations with transactional rollback) for all coding agents on Igor's Mac. | `.agents/skills/local-first-sync-engine/SKILL.md` | local |
 | `nvidia-nemo-switchyard-engine` | NVIDIA Nemotron 3.5 Lightning & NeMo Switchyard Engine (30B MoE / 3B active parameters, step-level agentic routing, 77% cost reduction & 70% latency speedup) for all coding agents on Igor's Mac. | `.agents/skills/nvidia-nemo-switchyard-engine/SKILL.md` | local |
 | `solar-pro-workhorse-router` | Upstage Solar Pro 4 Workhorse Reliability & Economic Agent Router. Implements 3-tier model routing (Frontier vs Workhorse vs Local), 90% token cost reduction for document/schema tasks, and tabular extraction integrity verification (71 AA-LCR). | `.agents/skills/solar-pro-workhorse-router/SKILL.md` | local |
