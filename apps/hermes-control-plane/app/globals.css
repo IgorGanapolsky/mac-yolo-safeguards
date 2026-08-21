@@ -508,17 +508,18 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   @keyframes agent-pulse{50%{opacity:.45}}
   .agent-activity strong{font-weight:700;color:#E0F2FE}
   .agent-activity span{color:#94A3B8;font-weight:500}
-  /* Mobile chat visibility: phone uses the document scrollport. An auto-height
-     task panel cannot give flex:1 1 0 a definite remainder, so Android Chrome
-     collapsed this pane to the one-pixel divider and hid every chat/output row. */
+  /* Mobile chat visibility: give the transcript a positive, bounded viewport.
+     flex:1 1 0 collapsed inside this auto-height panel; unbounded document flow
+     instead pushed the composer below duplicated long-thread output. */
   .dashboard-shell[data-mobile-tab="hermes"] .hermes-scroll-pane{
     flex:0 0 auto !important;
-    min-height:0 !important;
-    max-height:none;
+    height:clamp(280px,46svh,520px);
+    min-height:280px !important;
+    max-height:520px;
     overflow-x:clip;
-    overflow-y:visible !important;
+    overflow-y:auto !important;
     -webkit-overflow-scrolling:touch;
-    overscroll-behavior:auto;
+    overscroll-behavior:contain;
     touch-action:pan-y;
     padding-bottom:8px;
   }
