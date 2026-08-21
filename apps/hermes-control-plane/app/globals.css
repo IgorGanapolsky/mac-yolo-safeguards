@@ -485,6 +485,56 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   .task-panel .panel-heading{flex:0 0 auto;padding:8px 12px;border-bottom:1px solid var(--line)}
   .dashboard-shell[data-mobile-tab="hermes"] .task-panel .panel-heading .eyebrow{display:none}
   .dashboard-shell[data-mobile-tab="hermes"] .task-panel .panel-heading h2{font-size:14px;margin:0}
+  /* Hermes Agent Bot Mode Roster (Nous Research) */
+  .bot-mode-roster{
+    flex:0 0 auto;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:6px 12px;
+    background:rgba(15,23,42,.6);
+    border-bottom:1px solid var(--line);
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  .bot-roster-label{
+    font:700 10px ui-monospace,monospace;
+    color:var(--accent);
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    flex:0 0 auto;
+  }
+  .bot-roster-chips{
+    display:flex;
+    gap:6px;
+    align-items:center;
+    overflow-x:auto;
+  }
+  .bot-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    border:1px solid rgba(255,255,255,.1);
+    background:rgba(255,255,255,.04);
+    color:var(--text-secondary);
+    border-radius:999px;
+    padding:3px 10px;
+    font:600 11px Inter,system-ui,sans-serif;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:all .15s ease;
+  }
+  .bot-chip:hover{
+    background:rgba(255,255,255,.08);
+    border-color:rgba(56,189,248,.4);
+    color:#FFFFFF;
+  }
+  .bot-chip.is-active{
+    background:rgba(34,211,238,.15);
+    border-color:#22D3EE;
+    color:#38BDF8;
+    box-shadow:0 0 10px rgba(34,211,238,.12);
+  }
   /* Agent activity strip — DimAgent "know what your agent is doing" */
   .agent-activity{
     flex:0 0 auto;

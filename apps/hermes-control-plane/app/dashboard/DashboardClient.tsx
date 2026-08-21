@@ -41,6 +41,7 @@ import {
   type HostedResourceState,
   type HostedResourceStatus,
 } from "@/lib/hosted-apphost";
+import { getAllBots, type HermesBotProfile } from "@/lib/bot-mode";
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
@@ -299,6 +300,7 @@ export default function DashboardClient() {
   });
   const [threadDetails, setThreadDetails] = useState<ThreadDetails | null>(null);
   const [prompt, setPrompt] = useState("");
+  const [selectedBotId, setSelectedBotId] = useState<string>("chief");
   /**
    * Explicit user override for which hosted runner runs the next task.
    * Resolved selection is derived (useMemo) so we never setState inside an effect (eslint react-hooks/set-state-in-effect).
@@ -1660,6 +1662,27 @@ export default function DashboardClient() {
                 )}
               </div>
               <span>{selectedThread ? `${threadDetails?.snapshot.length ?? 0} synced messages` : `${visibleTasks.length} tasks`}</span>
+            </div>
+            {/* Hermes Agent Bot Mode Roster (Nous Research) */}
+            <div className="bot-mode-roster" role="toolbar" aria-label="Hermes Bot Roster">
+              <span className="bot-roster-label">🤖 Bot Roster:</span>
+              <div className="bot-roster-chips">
+                {getAllBots().map((bot) => (
+                  <button
+                    key={bot.id}
+                    type="button"
+                    className={`bot-chip ${selectedBotId === bot.id ? "is-active" : ""}`}
+                    title={`${bot.name}: ${bot.role} (${bot.defaultModel})`}
+                    onClick={() => {
+                      setSelectedBotId(bot.id);
+                      setPrompt((prev) => prev.startsWith("@") ? `${bot.handle} ${prev.replace(/^@[a-zA-Z0-9_-]+\s*/, "")}` : `${bot.handle} ${prev}`.trim());
+                      focusComposer();
+                    }}
+                  >
+                    <span>{bot.avatar} {bot.name}</span>
+                  </button>
+                ))}
+              </div>
             </div>
             {/* DimAgent-style observability: always know what the agent is doing */}
             <div
