@@ -199,6 +199,10 @@ export default function LessonsClient() {
           They steer your personal AI agents and are never shared publicly or with third parties.
           👍 = keep doing this. 👎 = fix this next time.
         </p>
+        <p className="privacy-note">
+          🔒 <strong>Private to your workspace.</strong> Only you — and anyone you add to your
+          organization — can see these. They are never public and never shared with other users&rsquo; workspaces.
+        </p>
       </div>
       <Link
         className="button button-secondary button-small"
