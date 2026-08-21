@@ -1612,7 +1612,11 @@ export default function DashboardClient() {
             <div className="hermes-scroll-pane">
             {selectedThread && <div className="conversation-history">
               {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><FormattedMessage text={message.content} /></article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. <button type="button" className="task-filter-clear" data-testid="dashboard-retry" onClick={() => requestWorkspaceRefresh()}>Retry</button></div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
-              {threadDetails?.tasks.flatMap((task, index) => {
+              {[...(threadDetails?.tasks ?? [])].sort((left, right) => left.createdAt - right.createdAt).flatMap((task, index) => {
+                // Chronological: oldest exchange first, newest at the BOTTOM next to
+                // the composer — standard chat order (2026-08-21 user report: "latest
+                // output is not at the bottom"). Non-mutating sort; the tasks API is
+                // newest-first, so this reverses it for the conversation timeline.
                 if (!task.prompt.trim()) return [];
                 return [
                   <article
