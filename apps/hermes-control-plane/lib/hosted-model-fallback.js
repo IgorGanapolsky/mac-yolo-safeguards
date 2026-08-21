@@ -38,6 +38,42 @@ export const CONSUMER_SUB_METERS = Object.freeze([
   "codex-sdk",
 ]);
 
+/**
+ * Steal: Google Gemini 3.7 Flash launch pricing on OpenRouter (50% off intro
+ * through Aug 27, 2026). Per-M-token rates for the only fully-priced route in
+ * the launch email. Unknown models => not priced (fail closed).
+ */
+export const HOSTED_MODEL_PRICING = Object.freeze({
+  "google/gemini-3.7-flash": Object.freeze({
+    inputUsdPerM: 0.375,
+    outputUsdPerM: 1.875,
+    cachedUsdPerM: 0.0375,
+    promoDiscount: 0.5,
+    promoEnd: "2026-08-27T23:59:59Z",
+  }),
+});
+
+/**
+ * Estimate USD cost for a model given token usage. The Gemini 3.7 Flash intro
+ * promo (50% off) is applied automatically while live; after promoEnd it bills
+ * the listed (already-discounted) rate. Unknown model => null (never bill an
+ * un-budgeted route).
+ */
+export function hostedModelCost(modelId, usage = {}) {
+  const pricing = HOSTED_MODEL_PRICING[modelId];
+  if (!pricing) return null;
+  const inputM = Number(usage.inputTokens ?? 0) / 1e6;
+  const outputM = Number(usage.outputTokens ?? 0) / 1e6;
+  const cachedM = Number(usage.cachedTokens ?? 0) / 1e6;
+  const subtotal =
+    inputM * pricing.inputUsdPerM +
+    outputM * pricing.outputUsdPerM +
+    cachedM * pricing.cachedUsdPerM;
+  const now = usage.now ? new Date(usage.now) : new Date();
+  const onPromo = now < new Date(pricing.promoEnd);
+  return onPromo ? subtotal * (1 - pricing.promoDiscount) : subtotal;
+}
+
 const GENERIC_IDENTITIES = new Set([
   "",
   "shared",
