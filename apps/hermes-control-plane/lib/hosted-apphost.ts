@@ -115,6 +115,9 @@ export function mapProviderError(text: string): string {
   if (!raw) {
     return "Hosted model failed. The runner is up; the model is not ready.";
   }
+  if (raw.startsWith("UNVERIFIED_TOOL_CLAIM:")) {
+    return "Hosted Hermes quarantined a response that claimed tool activity without a verified receipt. No local file, browser, or shell action ran.";
+  }
   if (isQuotaOrOverloadError(raw)) {
     const overloadedOnly = OVERLOAD_RE.test(raw)
       && !QUOTA_EXHAUSTED_RE.test(raw)

@@ -58,6 +58,11 @@ describe("isQuotaOrOverloadError", () => {
 });
 
 describe("mapProviderError", () => {
+  it("preserves the unverified-tool-claim quarantine as a truthful task error", () => {
+    expect(mapProviderError("UNVERIFIED_TOOL_CLAIM: model claimed it searched Desktop")).toBe(
+      "Hosted Hermes quarantined a response that claimed tool activity without a verified receipt. No local file, browser, or shell action ran.",
+    );
+  });
   it("does not return only the raw z.ai string", () => {
     const mapped = mapProviderError(QUOTA);
     expect(mapped).toBe(

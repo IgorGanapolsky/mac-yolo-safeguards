@@ -9,6 +9,7 @@ export type CloudToolDecision =
 
 /** Patterns that should not auto-run on the hosted VPS runner. */
 export const LOCAL_ONLY_PROMPT_PATTERNS: ReadonlyArray<{ id: string; re: RegExp; hint: string }> = Object.freeze([
+  { id: "local_user_path", re: /(?:^|[\s("'`])(?:\/(?:Users|home)\/[^\s/]+\/|\/Volumes\/[^\s/]+\/|~\/|[a-z]:\\Users\\)/im, hint: "local computer file path" },
   { id: "applescript", re: /\b(osascript|applescript|tell\s+application)\b/i, hint: "AppleScript / macOS automation" },
   { id: "keychain", re: /\b(security\s+find-generic-password|keychain)\b/i, hint: "macOS Keychain" },
   { id: "imessage", re: /\b(imessage|messages\.app|bluebubbles)\b/i, hint: "Messages / iMessage" },
@@ -22,11 +23,14 @@ export function evaluateCloudPromptToolPolicy(prompt: string): CloudToolDecision
   const text = String(prompt ?? "");
   for (const pattern of LOCAL_ONLY_PROMPT_PATTERNS) {
     if (pattern.re.test(text)) {
+      const message = pattern.id === "local_user_path"
+        ? "Hosted Hermes cannot access this local computer path. No file was read or searched. Describe the requested outcome without relying on that path."
+        : `Hosted Hermes cannot run this send (${pattern.hint}). The required hosted sidecar is not this laptop. Remove the local-only step.`;
       return {
         allowed: false,
         code: "local_only_tool",
         matched: pattern.id,
-        message: `Hosted Hermes cannot run this send (${pattern.hint}). The required hosted sidecar is not this laptop. Remove the local-only step.`,
+        message,
       };
     }
   }
