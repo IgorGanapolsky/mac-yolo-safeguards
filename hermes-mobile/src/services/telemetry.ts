@@ -12,6 +12,12 @@ const sentryConfig = {
   // Modest performance sample: capture traces for 20% of transactions. Errors
   // and crashes are always captured regardless of this rate.
   tracesSampleRate: 0.2,
+  // Session Replay is not part of the Hermes Mobile observability contract.
+  // Keep both rates explicit so SDK/native defaults or a dashboard-side replay
+  // enablement cannot consume the tiny reserved replay quota. Crash, error, and
+  // performance reporting remain enabled above.
+  replaysSessionSampleRate: 0,
+  replaysOnErrorSampleRate: 0,
 };
 
 let initialized = false;
@@ -62,6 +68,8 @@ export function initCrashReporting(): void {
   Sentry.init({
     dsn,
     tracesSampleRate: sentryConfig.tracesSampleRate,
+    replaysSessionSampleRate: sentryConfig.replaysSessionSampleRate,
+    replaysOnErrorSampleRate: sentryConfig.replaysOnErrorSampleRate,
     release: `hermes-mobile@${APP_VERSION}`,
     dist: BUILD_NUMBER || undefined,
     environment: __DEV__ ? 'development' : 'production',
