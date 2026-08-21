@@ -143,6 +143,29 @@ async function main() {
     else no('spawn worker captures stdout and exit', new Error(JSON.stringify(res)));
   } catch (e) { no('spawn worker captures stdout and exit', e); }
 
+  try {
+    // 10. Continuation commands resolve in-memory and persist content-free lineage only.
+    resetLeases();
+    const s = new Supervisor({
+      prompt: 'show receipts',
+      contextMessages: [{ role: 'assistant', content: 'Private prior claim' }],
+    });
+    s.admit();
+    const receipt = readReceipt(s.runId);
+    const events = readEvents(s.runId);
+    const durable = JSON.stringify({ receipt, events });
+    if (
+      s.getExecutionPrompt().includes('Audit the claims')
+      && receipt.continuationCommand === 'show_receipts'
+      && events.some((event) => event.type === 'continuation_resolved' && event.command === 'show_receipts')
+      && !durable.includes('Private prior claim')
+      && !durable.includes('Audit the claims')
+      && resume(s.runId).supervisor.continuationCommand === 'show_receipts'
+    ) ok('continuation prompt resolves with content-free durable lineage');
+    else no('continuation prompt resolves with content-free durable lineage', new Error(durable));
+    s.succeed();
+  } catch (e) { no('continuation prompt resolves with content-free durable lineage', e); }
+
   fs.rmSync(ROOT, { recursive: true, force: true });
   console.log(`hermes-yolo supervisor: ${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

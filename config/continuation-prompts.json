@@ -1,0 +1,88 @@
+{
+  "schemaVersion": "thumbgate/continuation-prompts/v1",
+  "source": "https://www.linkedin.com/posts/alliekmiller_here-are-18-two-word-ai-prompts-im-kind-activity-7493740891245924352-FISD",
+  "sources": [
+    "https://www.linkedin.com/posts/alliekmiller_here-are-18-two-word-ai-prompts-im-kind-activity-7493740891245924352-FISD",
+    "https://hermes-agent.nousresearch.com/docs/user-guide/bot-mode"
+  ],
+  "scope": "Publicly described commands supplied by the operator on 2026-08-21; this catalog does not claim to reproduce an unpublished complete list.",
+  "commands": [
+    {
+      "id": "now_what",
+      "canonical": "now what",
+      "triggers": ["now what"],
+      "requiresContext": true,
+      "instruction": "Review the established conversation context. Recommend 3 to 5 actionable next steps, ranked by expected value and effort. Name the single best next action and why. Do not repeat work already completed."
+    },
+    {
+      "id": "interview_me",
+      "canonical": "interview me",
+      "triggers": ["interview me"],
+      "requiresContext": true,
+      "instruction": "Identify the highest-impact missing fact in the established conversation context and ask one targeted question that would materially improve the result. Do not ask for information already present."
+    },
+    {
+      "id": "please_fix",
+      "canonical": "plz fix",
+      "triggers": ["plz fix", "please fix"],
+      "requiresContext": true,
+      "instruction": "Diagnose the concrete defect shown in the established conversation context, reproduce it when possible, implement the smallest complete fix within authorized scope, and verify the exact failing path now passes. Lead with the result and evidence."
+    },
+    {
+      "id": "do_this",
+      "canonical": "do this",
+      "triggers": ["do this"],
+      "requiresContext": true,
+      "instruction": "Implement or recreate the referenced artifact or behavior from the established conversation context. Preserve functional requirements, adapt the presentation to the current product, and verify the result. If the referenced artifact is genuinely absent, state that exact blocker."
+    },
+    {
+      "id": "simulate_it",
+      "canonical": "simulate it",
+      "triggers": ["simulate it"],
+      "requiresContext": true,
+      "instruction": "Simulate the proposal from the established conversation context across base, best, and worst cases plus material edge conditions. Separate measured facts from assumptions, show decision-changing variables, and recommend the robust option."
+    },
+    {
+      "id": "challenge",
+      "canonical": "challenge this",
+      "triggers": ["challenge me", "challenge this"],
+      "requiresContext": true,
+      "instruction": "Act as a critical sparring partner. Find the strongest hidden assumptions, counterexamples, failure modes, and incentive conflicts in the established conversation context. Then propose a stronger alternative instead of merely disagreeing."
+    },
+    {
+      "id": "keep_going",
+      "canonical": "keep going",
+      "triggers": ["keep going"],
+      "requiresContext": true,
+      "instruction": "Continue the active task from its exact current state. Do not restart, recap, or repeat completed work. Take the next safe in-scope action, verify it, and continue until a real terminal condition or external blocker is reached."
+    },
+    {
+      "id": "show_receipts",
+      "canonical": "show receipts",
+      "triggers": ["show receipts"],
+      "requiresContext": true,
+      "instruction": "Audit the claims in the established conversation context. Provide the strongest available evidence for each material claim: provider record, URL, identifier, file diff, command and result, or citation. Label anything unverified or unknown explicitly and do not infer completion, partnership, deployment, or revenue."
+    },
+    {
+      "id": "explain_intern",
+      "canonical": "ELII",
+      "triggers": ["elii"],
+      "requiresContext": true,
+      "instruction": "Explain the relevant result from the established conversation context as if briefing a capable intern: define necessary terms, make the causal chain explicit, and include one concrete example without being patronizing."
+    },
+    {
+      "id": "explain_executive",
+      "canonical": "ELIE",
+      "triggers": ["elie"],
+      "requiresContext": true,
+      "instruction": "Explain the relevant result from the established conversation context for an executive: lead with outcome, business impact, risk, decision, and next action; omit implementation detail unless it changes the decision."
+    },
+    {
+      "id": "compact_same_thread",
+      "canonical": "/compact",
+      "triggers": ["/new", "/reset"],
+      "requiresContext": true,
+      "instruction": "Compact the established conversation into the minimum durable working context, then continue in this same persistent conversation. Do not fork or create a replacement thread. Preserve decisions, unfinished work, evidence identifiers, and safety constraints."
+    }
+  ]
+}

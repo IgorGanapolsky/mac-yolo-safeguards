@@ -14,6 +14,7 @@ import { randomToken, sha256 } from "./security";
 import { evaluateCloudPromptToolPolicy } from "./cloud-tool-policy";
 import { mapProviderError, rememberProviderError } from "./hosted-apphost";
 import { webSessionIdForThread } from "./web-session";
+import { resolveContinuationPrompt } from "./continuation-prompts";
 
 export const TASK_LEASE_MS = 90_000;
 
@@ -92,6 +93,8 @@ export async function claimTask(input: {
   threadId: string;
   threadTitle: string;
   prompt: string;
+  displayPrompt: string;
+  continuationCommand: string | null;
   leaseGeneration: number;
   sourceSessionId: string | null;
   contextMessages: ContextMessage[];
@@ -132,9 +135,28 @@ export async function claimTask(input: {
   ).bind(now - 30 * 24 * 60 * 60 * 1000, ...params).first<TaskCandidate>();
   if (!candidate) return null;
 
+  const prior = await db().prepare(
+    `SELECT prompt, result, created_at AS createdAt FROM tasks
+      WHERE thread_id = ? AND id <> ? AND status = 'completed' AND result IS NOT NULL AND created_at < ?
+      ORDER BY created_at ASC LIMIT 30`
+  ).bind(candidate.threadId, candidate.id, candidate.createdAt).all<{ prompt: string; result: string; createdAt: number }>();
+  const unsynced = prior.results.filter((task) => task.createdAt > (candidate.syncedAt ?? 0));
+  const handoffMessages = unsynced.flatMap((task) => [
+    { role: "user" as const, content: task.prompt },
+    { role: "assistant" as const, content: task.result },
+  ]);
+  const contextMessages = boundMessages([...parseSnapshot(candidate.contextSnapshot), ...handoffMessages]);
+  const continuation = resolveContinuationPrompt(candidate.prompt, {
+    hasContext: contextMessages.some((message) => message.role === "user" || message.role === "assistant"),
+  });
+
   let cloudDecision: GovernanceDecision | null = null;
   if (input.route === "cloud") {
-    const toolPolicy = evaluateCloudPromptToolPolicy(candidate.prompt);
+    const lastContextPrompt = contextMessages.filter((message) => message.role === "user").at(-1)?.content;
+    const policyPrompt = continuation.applied && lastContextPrompt
+      ? `${lastContextPrompt}\n${continuation.executionPrompt}`
+      : candidate.prompt;
+    const toolPolicy = evaluateCloudPromptToolPolicy(policyPrompt);
     if (!toolPolicy.allowed) {
       const blocked = await db().prepare(
         `UPDATE tasks SET status = 'offline_blocked', route = 'blocked', error = ?, updated_at = ?,
@@ -198,18 +220,6 @@ export async function claimTask(input: {
     }
   }
 
-  const prior = await db().prepare(
-    `SELECT prompt, result, created_at AS createdAt FROM tasks
-      WHERE thread_id = ? AND id <> ? AND status = 'completed' AND result IS NOT NULL AND created_at < ?
-      ORDER BY created_at ASC LIMIT 30`
-  ).bind(candidate.threadId, candidate.id, candidate.createdAt).all<{ prompt: string; result: string; createdAt: number }>();
-  const unsynced = prior.results.filter((task) => task.createdAt > (candidate.syncedAt ?? 0));
-  const handoffMessages = unsynced.flatMap((task) => [
-    { role: "user" as const, content: task.prompt },
-    { role: "assistant" as const, content: task.result },
-  ]);
-  const contextMessages = boundMessages([...parseSnapshot(candidate.contextSnapshot), ...handoffMessages]);
-
   const leaseToken = randomToken();
   const leaseExpiresAt = now + TASK_LEASE_MS;
   const update = await db().prepare(
@@ -237,6 +247,8 @@ export async function claimTask(input: {
       ...(cloudDecision
         ? governanceAuditMetadata(cloudDecision, { stage: "automatic_claim", route: "cloud" })
         : { policyVersion: AGENT_GOVERNANCE_POLICY_VERSION, decision: "allow", stage: "automatic_claim" }),
+      continuationCommand: continuation.applied ? continuation.command : null,
+      continuationApplied: continuation.applied,
     },
   });
   return { task: {
@@ -244,7 +256,9 @@ export async function claimTask(input: {
     organizationId: candidate.organizationId,
     threadId: candidate.threadId,
     threadTitle: candidate.threadTitle,
-    prompt: candidate.prompt,
+    prompt: continuation.executionPrompt,
+    displayPrompt: candidate.prompt,
+    continuationCommand: continuation.applied ? continuation.command : null,
     sourceSessionId,
     contextMessages,
     handoffMessages: boundMessages(handoffMessages, 24_000),
