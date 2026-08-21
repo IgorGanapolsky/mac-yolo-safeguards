@@ -20,6 +20,12 @@ import { resolveComposerRunCta } from "@/lib/composer-run-cta";
 import { scheduleOneShotErrorRetry, startActiveTaskRefresh, startDashboardRefresh } from "@/lib/dashboard-refresh";
 import { orderTasksChronologically } from "@/lib/dashboard-task-order";
 import {
+  snapshotMessageMeta,
+  taskOutputMeta,
+  taskPromptMeta,
+  type ConversationMessageMeta,
+} from "@/lib/conversation-message-meta";
+import {
   hasPendingConversationTasks,
   mergeConversationTasks,
   mergeTasksForTaskList,
@@ -65,7 +71,11 @@ type Device = {
 };
 type Thread = { id: string; title: string; taskCount: number; updatedAt: number; source: string; model: string | null; preview: string | null; messageCount: number; sourceSessionId: string | null; syncedAt: number | null; deviceName: string | null };
 type Task = { id: string; threadId: string; threadTitle: string; prompt: string; status: string; route: string; result: string | null; error: string | null; createdAt: number; updatedAt: number; completedAt: number | null; deviceName: string | null };
-type ThreadDetails = { snapshot: Array<{ role: string; content: string }>; tasks: Array<{ id: string; prompt: string; result: string | null; error: string | null; route: string; status: string; createdAt: number }> };
+type ThreadDetails = {
+  syncedAt?: number | null;
+  snapshot: Array<{ role: string; content: string; createdAt?: number | null }>;
+  tasks: Array<{ id: string; prompt: string; result: string | null; error: string | null; route: string; status: string; createdAt: number; completedAt?: number | null; deviceName?: string | null }>;
+};
 type Feedback = { taskId: string; signal: "up" | "down"; note: string | null; updatedAt: number };
 type ChatDialog = { kind: "rename" | "delete"; thread: Thread } | { kind: "clear" };
 
@@ -154,7 +164,7 @@ function taskListEmptyCopy(input: {
   };
 }
 
-function taskReceiptLabel(task: { route: string; deviceName: string | null; status: string }): string {
+function taskReceiptLabel(task: { route: string; deviceName?: string | null; status: string }): string {
   if (task.route === "cloud") return "☁ hosted Hermes · fenced · 90s lease";
   if (task.route === "local") {
     const host = task.deviceName?.trim() || "Hermes machine";
@@ -194,6 +204,25 @@ function formatDateTime(timestamp: number) {
     hour12: true,
     timeZoneName: "short",
   }).format(new Date(timestamp));
+}
+
+function ConversationMeta({ meta }: { meta: ConversationMessageMeta }) {
+  return (
+    <div
+      className="task-top"
+      data-testid="conversation-message-meta"
+      data-timestamp-source={meta.timestampSource ?? "none"}
+    >
+      <span className={`task-status status-${meta.status}`}>{meta.status.replaceAll("_", " ")}</span>
+      {meta.timestamp ? (
+        <time dateTime={new Date(meta.timestamp).toISOString()}>
+          {meta.timestampSource === "sync" ? "Synced " : ""}{formatDateTime(meta.timestamp)}
+        </time>
+      ) : (
+        <time>Time unavailable</time>
+      )}
+    </div>
+  );
 }
 
 function sortThreadsNewestFirst(nextThreads: Thread[]) {
@@ -510,6 +539,7 @@ export default function DashboardClient() {
         return;
       }
       const body = await detailResponse.json() as ThreadDetails & {
+        thread?: { syncedAt?: number | null };
         snapshot?: ThreadDetails["snapshot"];
         tasks?: ThreadDetails["tasks"];
       };
@@ -519,6 +549,7 @@ export default function DashboardClient() {
         serverTasks,
       );
       const details: ThreadDetails = {
+        syncedAt: body.thread?.syncedAt ?? null,
         snapshot: Array.isArray(body.snapshot) ? body.snapshot : [],
         tasks: mergeConversationTasks(serverTasks, pendingConversationTasksRef.current),
       };
@@ -1031,6 +1062,7 @@ export default function DashboardClient() {
           conversationTask,
         ];
         setThreadDetails((prev) => ({
+          syncedAt: prev?.syncedAt ?? null,
           snapshot: prev?.snapshot ?? [],
           tasks: mergeConversationTasks(prev?.tasks ?? [], pendingConversationTasksRef.current),
         }));
@@ -1611,7 +1643,7 @@ export default function DashboardClient() {
             </div>
             <div className="hermes-scroll-pane">
             {selectedThread && <div className="conversation-history">
-              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><FormattedMessage text={message.content} /></article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. <button type="button" className="task-filter-clear" data-testid="dashboard-retry" onClick={() => requestWorkspaceRefresh()}>Retry</button></div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
+              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><ConversationMeta meta={snapshotMessageMeta(message, threadDetails.syncedAt)} /><FormattedMessage text={message.content} hideToolProtocol={message.role === "assistant"} /></article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. <button type="button" className="task-filter-clear" data-testid="dashboard-retry" onClick={() => requestWorkspaceRefresh()}>Retry</button></div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
               {[...(threadDetails?.tasks ?? [])].sort((left, right) => left.createdAt - right.createdAt).flatMap((task, index) => {
                 // Chronological: oldest exchange first, newest at the BOTTOM next to
                 // the composer — standard chat order (2026-08-21 user report: "latest
@@ -1625,11 +1657,12 @@ export default function DashboardClient() {
                     data-testid="conversation-user-prompt"
                   >
                     <span>web</span>
+                    <ConversationMeta meta={taskPromptMeta(task)} />
                     <p>{task.prompt}</p>
                   </article>,
-                  task.result ? <article key={`task-result-${task.id || index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><FormattedMessage text={task.result} />{feedbackControls(task.id)}</article>
-                    : task.error ? <article key={`task-error-${task.id || index}`} className="conversation-message role-error"><span>failed</span><FormattedMessage text={task.error} /></article>
-                    : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${task.id || index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><p>Waiting for the fenced VPS runner to pick this up…</p></article>
+                  task.result ? <article key={`task-result-${task.id || index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.result} hideToolProtocol />{feedbackControls(task.id)}</article>
+                    : task.error ? <article key={`task-error-${task.id || index}`} className="conversation-message role-error"><span>Hermes error</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.error} /></article>
+                    : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${task.id || index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><p>Waiting for the fenced VPS runner to pick this up…</p></article>
                     : null,
                 ];
               })}

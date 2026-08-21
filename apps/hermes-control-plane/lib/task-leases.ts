@@ -14,6 +14,7 @@ import { randomToken, sha256 } from "./security";
 import { evaluateCloudPromptToolPolicy } from "./cloud-tool-policy";
 import { mapProviderError, rememberProviderError } from "./hosted-apphost";
 import { webSessionIdForThread } from "./web-session";
+import { hasLeakedToolProtocol, TOOL_PROTOCOL_INCOMPLETE_MESSAGE } from "./chat-output-safety";
 
 export const TASK_LEASE_MS = 90_000;
 
@@ -303,8 +304,12 @@ export async function completeTask(input: {
   externalEvidenceId?: string | null;
 }): Promise<boolean> {
   const now = Date.now();
+  // A raw provider tool envelope is not a completed customer outcome. This can
+  // happen when a text-only hosted runner receives a model-specific tool call.
+  const leakedToolProtocol = !input.error && hasLeakedToolProtocol(input.result);
+  const completionError = input.error ?? (leakedToolProtocol ? TOOL_PROTOCOL_INCOMPLETE_MESSAGE : undefined);
   // Soft task row status still tracks executor report; audit receipt carries true outcome semantics.
-  const status = input.error ? "failed" : "completed";
+  const status = completionError ? "failed" : "completed";
   const tokenHash = await sha256(input.leaseToken);
   const existing = await db().prepare(
     `SELECT organization_id AS organizationId, route, lease_generation AS leaseGeneration,
@@ -316,15 +321,15 @@ export async function completeTask(input: {
     createdAt: number;
   }>();
   if (!existing) return false;
-  const storedError = input.error
-    ? (existing.route === "cloud" ? mapProviderError(input.error) : input.error)
+  const storedError = completionError
+    ? (existing.route === "cloud" && !leakedToolProtocol ? mapProviderError(completionError) : completionError)
     : null;
   const update = await db().prepare(
     `UPDATE tasks SET status = ?, result = ?, error = ?, completed_at = ?, updated_at = ?,
             lease_owner = NULL, lease_token_hash = NULL, lease_expires_at = NULL
       WHERE id = ? AND status = 'running' AND lease_owner = ? AND lease_token_hash = ?
         AND lease_expires_at > ?`
-  ).bind(status, input.result ?? null, storedError, now, now,
+  ).bind(status, leakedToolProtocol ? null : input.result ?? null, storedError, now, now,
     input.taskId, input.owner, tokenHash, now).run();
   if (update.meta.changes !== 1) return false;
   if (existing.route === "cloud") {
