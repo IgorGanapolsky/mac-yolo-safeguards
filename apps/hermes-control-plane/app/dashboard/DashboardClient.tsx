@@ -1803,6 +1803,36 @@ export default function DashboardClient() {
             </div>
             </div>
             <form className="composer" ref={setComposerNode} onSubmit={(event) => void createTask(event)}>
+              <div className="quick-continuation-chips" role="toolbar" aria-label="Continuation prompts">
+                <span className="chips-label">⚡ 2-word prompts:</span>
+                <div className="chips-scroll">
+                  {[
+                    { label: "now what", desc: "Suggest 3-5 concrete next steps" },
+                    { label: "plz fix", desc: "Diagnose and fix error" },
+                    { label: "interview me", desc: "Ask targeted questions" },
+                    { label: "show receipts", desc: "Verifiable empirical receipts" },
+                    { label: "keep going!", desc: "Continue execution" },
+                    { label: "challenge me", desc: "Adversarial review for flaws" },
+                    { label: "simulate it", desc: "Edge case simulation" },
+                    { label: "elii elie", desc: "Executive vs intern breakdown" },
+                    { label: "audit it", desc: "Security & invariant audit" },
+                    { label: "do this", desc: "Replicate exact pattern" },
+                  ].map((item) => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      className="chip-button"
+                      title={item.desc}
+                      onClick={() => {
+                        setPrompt(item.label);
+                        focusComposer();
+                      }}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <textarea
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}

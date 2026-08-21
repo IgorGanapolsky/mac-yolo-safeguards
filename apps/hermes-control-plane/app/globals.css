@@ -390,15 +390,15 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
    * under the sticky bottom nav. Desktop E2E is >=1280 and skips this query.
    */
   .dashboard-shell[data-mobile-tab="hermes"]{
-    height:auto;
-    max-height:none;
+    height:100dvh;
+    max-height:100dvh;
     min-height:100dvh;
-    overflow:visible;
+    overflow:hidden;
   }
   .dashboard-shell[data-mobile-tab="hermes"] .dashboard-main{
     flex:1 1 auto;
     min-height:0;
-    overflow:visible;
+    overflow:hidden;
     padding:8px 10px calc(72px + env(safe-area-inset-bottom, 0px));
   }
   .dashboard-shell[data-mobile-tab="hermes"] .dashboard-header{
@@ -415,7 +415,7 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   .dashboard-shell[data-mobile-tab="hermes"] .dashboard-grid{
     flex:1 1 auto;
     min-height:0;
-    overflow:visible;
+    overflow:hidden;
   }
   .dashboard-shell[data-mobile-tab="hermes"] .task-panel{
     display:flex;
@@ -423,7 +423,7 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     flex:1 1 auto !important;
     min-height:0 !important;
     max-height:none !important;
-    overflow:visible !important;
+    overflow:hidden !important;
     border:1px solid var(--line);
     background:#0B0F19;
   }
@@ -511,9 +511,56 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   .agent-activity strong{font-weight:700;color:#E0F2FE}
   .agent-activity span{color:#94A3B8;font-weight:500}
   /*
+  /*
    * Chat scrollport fills remaining height; composer is a thin fixed dock below
    * (DimAgent workbench — chat primary, not composer half-screen).
    */
+  .quick-continuation-chips{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:8px;
+    overflow-x:auto;
+    white-space:nowrap;
+    -webkit-overflow-scrolling:touch;
+    padding:2px 0;
+  }
+  .quick-continuation-chips .chips-label{
+    font:700 10px ui-monospace,monospace;
+    color:var(--accent);
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    flex:0 0 auto;
+  }
+  .quick-continuation-chips .chips-scroll{
+    display:flex;
+    gap:6px;
+    align-items:center;
+    overflow-x:auto;
+  }
+  .quick-continuation-chips .chip-button{
+    border:1px solid rgba(56,189,248,.3);
+    background:rgba(15,23,42,.8);
+    color:#E2E8F0;
+    border-radius:999px;
+    padding:4px 10px;
+    font:600 11px Inter,system-ui,sans-serif;
+    cursor:pointer;
+    white-space:nowrap;
+    flex:0 0 auto;
+    transition:background .15s ease,border-color .15s ease,color .15s ease;
+  }
+  .quick-continuation-chips .chip-button:hover,
+  .quick-continuation-chips .chip-button:focus-visible{
+    background:rgba(34,211,238,.2);
+    border-color:#22D3EE;
+    color:#FFFFFF;
+  }
+  .dashboard-shell[data-mobile-tab="hermes"] .quick-metrics,
+  .dashboard-shell[data-mobile-tab="hermes"] .metric-grid,
+  .dashboard-shell[data-mobile-tab="hermes"] .workspace-hero{
+    display:none !important;
+  }
   .hermes-scroll-pane{
     flex:1 1 0 !important;
     min-height:0 !important;
@@ -531,6 +578,9 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
     max-height:none;
     border-bottom:1px solid var(--line);
     min-height:min(42dvh, 360px);
+    display:flex;
+    flex-direction:column;
+    gap:10px;
   }
   .conversation-message{max-width:94%}
   .task-list{max-height:none}
