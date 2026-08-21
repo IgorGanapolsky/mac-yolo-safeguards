@@ -318,8 +318,27 @@ export default function DashboardClient() {
    * fold, which reads as "there is no machine picker".
    */
   const rightRailRef = useRef<HTMLElement | null>(null);
+  const conversationHistoryRef = useRef<HTMLDivElement | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   /** Phone shell: hide route-explain blurb so it cannot cover the textarea (Genspark-style compact chrome). */
   const [isNarrowViewport, setIsNarrowViewport] = useState(false);
+
+  const scrollConversationToBottom = useCallback((smooth = false) => {
+    const el = conversationHistoryRef.current;
+    if (el) {
+      el.scrollTo({
+        top: el.scrollHeight,
+        behavior: smooth ? "smooth" : "auto",
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!selectedThread) return;
+    scrollConversationToBottom(false);
+    const timeout = setTimeout(() => scrollConversationToBottom(false), 50);
+    return () => clearTimeout(timeout);
+  }, [selectedThread, threadDetails, tasks, scrollConversationToBottom]);
 
   // Send the shared scrollport back to the top whenever the pane inside it
   // changes, so a tab always opens at its own heading rather than wherever the
@@ -1603,7 +1622,7 @@ export default function DashboardClient() {
               </span>
             </div>
             <div className="hermes-scroll-pane">
-            {selectedThread && <div className="conversation-history">
+            {selectedThread && <div className="conversation-history" ref={conversationHistoryRef}>
               {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => (
                 <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}>
                   <div className="task-top">
@@ -1657,6 +1676,7 @@ export default function DashboardClient() {
                   ) : null,
                 ];
               })}
+              <div ref={messagesEndRef} style={{ height: 1 }} aria-hidden="true" />
             </div>}
             <div className="task-list" id="task-activity">
               {taskFilter !== "all" ? (
