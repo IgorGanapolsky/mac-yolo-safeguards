@@ -508,21 +508,18 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   @keyframes agent-pulse{50%{opacity:.45}}
   .agent-activity strong{font-weight:700;color:#E0F2FE}
   .agent-activity span{color:#94A3B8;font-weight:500}
-  /*
-   * Chat scrollport fills remaining height; composer is a thin fixed dock below
-   * (DimAgent workbench — chat primary, not composer half-screen).
-   */
-  .hermes-scroll-pane{
-    flex:1 1 0 !important;
+  /* Mobile chat visibility: phone uses the document scrollport. An auto-height
+     task panel cannot give flex:1 1 0 a definite remainder, so Android Chrome
+     collapsed this pane to the one-pixel divider and hid every chat/output row. */
+  .dashboard-shell[data-mobile-tab="hermes"] .hermes-scroll-pane{
+    flex:0 0 auto !important;
     min-height:0 !important;
     max-height:none;
-    overflow-x:hidden;
-    overflow-y:scroll !important;
+    overflow-x:clip;
+    overflow-y:visible !important;
     -webkit-overflow-scrolling:touch;
-    overscroll-behavior:contain;
+    overscroll-behavior:auto;
     touch-action:pan-y;
-  }
-  .dashboard-shell[data-mobile-tab="hermes"] .hermes-scroll-pane{
     padding-bottom:8px;
   }
   .conversation-history{
