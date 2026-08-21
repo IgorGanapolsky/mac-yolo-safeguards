@@ -128,6 +128,11 @@ jobs:
           set -eu
           bash tests/test-hermes-gateway-watchdog-e2e.sh
 
+      - name: Hermes SaaS harness installer unit tests (dry-run, hermetic)
+        run: |
+          set -eu
+          bash tests/test-saas-install-harness.sh
+
       - name: Node tool unit tests
         run: |
           set -u
