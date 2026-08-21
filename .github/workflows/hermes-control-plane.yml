@@ -92,6 +92,9 @@ jobs:
       - name: Build Cloudflare Worker once (shared by session + machine E2E)
         run: npm run build:cloudflare
         working-directory: apps/hermes-control-plane
+      - name: Hosted action approval E2E (signed runner + tenant browser + D1)
+        run: node tests/action-approval-e2e.mjs
+        working-directory: apps/hermes-control-plane
       - name: Run local Cloudflare Worker session-lifecycle E2E
         run: node tests/cloudflare-worker-smoke.mjs
         working-directory: apps/hermes-control-plane

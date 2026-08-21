@@ -135,6 +135,29 @@ export const tasks = sqliteTable("tasks", {
   completedAt: integer("completed_at"),
 }, (table) => [uniqueIndex("tasks_org_idempotency_unique").on(table.organizationId, table.idempotencyKey)]);
 
+export const actionApprovalRequests = sqliteTable("action_approval_requests", {
+  id: text("id").primaryKey(),
+  organizationId: text("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  taskId: text("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  executorId: text("executor_id").notNull(),
+  idempotencyKey: text("idempotency_key").notNull(),
+  actionClass: text("action_class", { enum: ["money", "customer", "production", "send", "calendar"] }).notNull(),
+  summary: text("summary").notNull(),
+  argumentDigest: text("argument_digest").notNull(),
+  status: text("status", { enum: ["pending", "approved", "denied", "expired", "consumed"] }).notNull().default("pending"),
+  expiresAt: integer("expires_at").notNull(),
+  requestedAt: integer("requested_at").notNull(),
+  decidedAt: integer("decided_at"),
+  decidedByUserId: text("decided_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  consumedAt: integer("consumed_at"),
+  consumedByRunnerId: text("consumed_by_runner_id"),
+  updatedAt: integer("updated_at").notNull(),
+}, (table) => [
+  uniqueIndex("action_approval_executor_idempotency_unique").on(table.executorId, table.idempotencyKey),
+  index("action_approval_org_status_requested_idx").on(table.organizationId, table.status, table.requestedAt),
+  index("action_approval_task_status_idx").on(table.taskId, table.status),
+]);
+
 export const responseFeedback = sqliteTable("response_feedback", {
   id: text("id").primaryKey(),
   organizationId: text("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
