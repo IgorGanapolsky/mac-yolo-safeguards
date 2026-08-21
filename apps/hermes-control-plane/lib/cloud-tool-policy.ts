@@ -8,8 +8,17 @@ export type CloudToolDecision =
   | { allowed: false; code: "local_only_tool"; message: string; matched: string };
 
 /** Patterns that should not auto-run on the hosted VPS runner. */
-export const LOCAL_ONLY_PROMPT_PATTERNS: ReadonlyArray<{ id: string; re: RegExp; hint: string }> = Object.freeze([
-  { id: "local_user_path", re: /(?:^|[\s("'`])(?:\/(?:Users|home)\/[^\s/]+\/|\/Volumes\/[^\s/]+\/|~\/|[a-z]:\\Users\\)/im, hint: "local computer file path" },
+export const LOCAL_ONLY_PROMPT_PATTERNS: ReadonlyArray<{ id: string; re: RegExp; hint: string; message?: string }> = Object.freeze([
+  {
+    // A path on the user's OWN computer (their Mac Desktop/Documents, or a Windows
+    // user profile). The fenced VPS cannot see it, so the model must never pretend
+    // to read, list, or delete it. Note: /home/... is the VPS itself, so it is NOT matched.
+    id: "local_filesystem_path",
+    re: /(?:\/Users\/[^\s/]+\/|(?:^|\s)~\/(?:Desktop|Documents|Downloads|Movies|Pictures|Music|Library|Applications)\b|[A-Za-z]:[\\/]Users[\\/])/,
+    hint: "a file on your own computer",
+    message:
+      "Hosted Hermes runs on an isolated fenced VPS, so it can't see or touch files on your own computer — your Desktop, Documents, and Downloads are not reachable from here, and it will never read or delete them. Paste the file's contents into the chat, or run this on a paired local machine instead.",
+  },
   { id: "applescript", re: /\b(osascript|applescript|tell\s+application)\b/i, hint: "AppleScript / macOS automation" },
   { id: "keychain", re: /\b(security\s+find-generic-password|keychain)\b/i, hint: "macOS Keychain" },
   { id: "imessage", re: /\b(imessage|messages\.app|bluebubbles)\b/i, hint: "Messages / iMessage" },
@@ -23,14 +32,13 @@ export function evaluateCloudPromptToolPolicy(prompt: string): CloudToolDecision
   const text = String(prompt ?? "");
   for (const pattern of LOCAL_ONLY_PROMPT_PATTERNS) {
     if (pattern.re.test(text)) {
-      const message = pattern.id === "local_user_path"
-        ? "Hosted Hermes cannot access this local computer path. No file was read or searched. Describe the requested outcome without relying on that path."
-        : `Hosted Hermes cannot run this send (${pattern.hint}). The required hosted sidecar is not this laptop. Remove the local-only step.`;
       return {
         allowed: false,
         code: "local_only_tool",
         matched: pattern.id,
-        message,
+        message:
+          pattern.message ??
+          `Hosted Hermes cannot run this send (${pattern.hint}). The required hosted sidecar is not this laptop. Remove the local-only step.`,
       };
     }
   }

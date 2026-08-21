@@ -26,6 +26,28 @@ describe("evaluateCloudPromptToolPolicy", () => {
     }
   });
 
+  it("blocks a local-computer file path so the model can't hallucinate reading or deleting it", () => {
+    // 2026-08-21: hosted agent got /Users/.../Desktop/Screenshot.png, invented an
+    // `ls`, then offered to delete it. The fenced VPS cannot see the user's Mac.
+    const desktop = evaluateCloudPromptToolPolicy(
+      "do we need this? /Users/igorganapolsky/Desktop/Screenshot 2026-08-16 at 12.09.06 PM.png",
+    );
+    expect(desktop).toMatchObject({ allowed: false, code: "local_only_tool", matched: "local_filesystem_path" });
+    if (!desktop.allowed) {
+      expect(desktop.message).toContain("fenced VPS");
+      expect(desktop.message).toContain("never read or delete");
+      expect(desktop.message).not.toContain("Continuity");
+    }
+    expect(evaluateCloudPromptToolPolicy("summarize ~/Documents/notes.md").allowed).toBe(false);
+    expect(evaluateCloudPromptToolPolicy("open C:\\Users\\igor\\report.docx").allowed).toBe(false);
+  });
+
+  it("does NOT block VPS-local or relative paths (no false positive)", () => {
+    expect(evaluateCloudPromptToolPolicy("read ./src/index.ts and fix the bug").allowed).toBe(true);
+    expect(evaluateCloudPromptToolPolicy("cat /home/runner/work/repo/file.ts").allowed).toBe(true);
+    expect(evaluateCloudPromptToolPolicy("check /tmp/output.log for the stack trace").allowed).toBe(true);
+  });
+
   it("blocks private LAN and local Hermes gateway references", () => {
     const lan = evaluateCloudPromptToolPolicy("curl http://192.168.1.20:4010/v1/models");
     expect(lan).toMatchObject({
@@ -45,30 +67,6 @@ describe("evaluateCloudPromptToolPolicy", () => {
       expect(gateway.message).not.toContain("Keep the Mac online");
       expect(gateway.message).not.toContain("Continuity");
     }
-  });
-
-  it("blocks local user-machine paths before a hosted task is admitted", () => {
-    const prompts = [
-      "do we need this? /Users/igorganapolsky/Desktop/Screenshot 2026-08-16 at 12.09.06 PM.png",
-      "inspect /Users/igorganapolsky/Desktop/Screenshot\\ 2026-08-16\\ at\\ 12.09.06\\ PM.png",
-      "read /Users/igorganapolsky/Desktop/Screenshot\u00a02026-08-16.png",
-      "open ~/Desktop/incident.png",
-      "inspect /home/runner/private/report.txt",
-      "read C:\\Users\\Igor\\Desktop\\incident.txt",
-    ];
-
-    for (const prompt of prompts) {
-      const decision = evaluateCloudPromptToolPolicy(prompt);
-      expect(decision).toMatchObject({ allowed: false, code: "local_only_tool", matched: "local_user_path" });
-      if (!decision.allowed) {
-        expect(decision.message).toContain("No file was read or searched");
-      }
-    }
-  });
-
-  it("does not confuse hosted workspace and URL paths with local user-machine paths", () => {
-    expect(evaluateCloudPromptToolPolicy("inspect /workspace/repo/src/index.ts").allowed).toBe(true);
-    expect(evaluateCloudPromptToolPolicy("review https://example.com/Users/guide").allowed).toBe(true);
   });
 });
 
