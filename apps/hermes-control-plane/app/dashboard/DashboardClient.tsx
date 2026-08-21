@@ -41,6 +41,7 @@ import {
   type HostedResourceState,
   type HostedResourceStatus,
 } from "@/lib/hosted-apphost";
+import { getAllBots, type HermesBotProfile } from "@/lib/bot-mode";
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
@@ -284,6 +285,7 @@ export default function DashboardClient() {
   });
   const [threadDetails, setThreadDetails] = useState<ThreadDetails | null>(null);
   const [prompt, setPrompt] = useState("");
+  const [selectedBotId, setSelectedBotId] = useState<string>("chief");
   /**
    * Explicit user override for which hosted runner runs the next task.
    * Resolved selection is derived (useMemo) so we never setState inside an effect (eslint react-hooks/set-state-in-effect).
