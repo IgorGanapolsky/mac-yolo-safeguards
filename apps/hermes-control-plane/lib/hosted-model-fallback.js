@@ -40,14 +40,16 @@ export const CONSUMER_SUB_METERS = Object.freeze([
 
 /**
  * Steal: Google Gemini 3.7 Flash launch pricing on OpenRouter (50% off intro
- * through Aug 27, 2026). Per-M-token rates for the only fully-priced route in
- * the launch email. Unknown models => not priced (fail closed).
+ * through Aug 27, 2026). Per-M-token rates are the ORIGINAL (full) list prices;
+ * the 50% promo is applied at runtime in hostedModelCost(). Storing the full
+ * rate (not the already-discounted promo rate) avoids a double discount.
+ * Unknown models => not priced (fail closed).
  */
 export const HOSTED_MODEL_PRICING = Object.freeze({
   "google/gemini-3.7-flash": Object.freeze({
-    inputUsdPerM: 0.375,
-    outputUsdPerM: 1.875,
-    cachedUsdPerM: 0.0375,
+    inputUsdPerM: 0.75,
+    outputUsdPerM: 3.75,
+    cachedUsdPerM: 0.075,
     promoDiscount: 0.5,
     promoEnd: "2026-08-27T23:59:59Z",
   }),
@@ -56,7 +58,7 @@ export const HOSTED_MODEL_PRICING = Object.freeze({
 /**
  * Estimate USD cost for a model given token usage. The Gemini 3.7 Flash intro
  * promo (50% off) is applied automatically while live; after promoEnd it bills
- * the listed (already-discounted) rate. Unknown model => null (never bill an
+ * the full (original) list rate. Unknown model => null (never bill an
  * un-budgeted route).
  */
 export function hostedModelCost(modelId, usage = {}) {

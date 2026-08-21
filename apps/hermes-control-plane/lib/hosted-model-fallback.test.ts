@@ -206,30 +206,30 @@ describe("named fallback dual-meter fail-closed", () => {
 describe("hosted model pricing (Gemini 3.7 Flash intro steal)", () => {
   it("prices the 50%-off intro rate through Aug 27 and full rate after", () => {
     const g = HOSTED_MODEL_PRICING["google/gemini-3.7-flash"];
-    expect(g.inputUsdPerM).toBe(0.375);
-    expect(g.outputUsdPerM).toBe(1.875);
-    expect(g.cachedUsdPerM).toBe(0.0375);
+    expect(g.inputUsdPerM).toBe(0.75);
+    expect(g.outputUsdPerM).toBe(3.75);
+    expect(g.cachedUsdPerM).toBe(0.075);
     expect(g.promoDiscount).toBe(0.5);
     expect(g.promoEnd).toBe("2026-08-27T23:59:59Z");
-    // 1M input + 1M output during promo: (0.375 + 1.875) * 0.5 = 1.125
+    // 1M input + 1M output during promo: original (0.75 + 3.75) * 0.5 = 2.25
     expect(hostedModelCost("google/gemini-3.7-flash", {
       inputTokens: 1_000_000,
       outputTokens: 1_000_000,
       now: "2026-08-21T12:00:00Z",
-    })).toBe(1.125);
-    // after promo: full rate 0.375 + 1.875 = 2.25
+    })).toBe(2.25);
+    // after promo: full (original) rate 0.75 + 3.75 = 4.5
     expect(hostedModelCost("google/gemini-3.7-flash", {
       inputTokens: 1_000_000,
       outputTokens: 1_000_000,
       now: "2026-08-28T00:00:00Z",
-    })).toBe(2.25);
-    // cached 1M on promo: 0.0375 * 0.5 = 0.01875
+    })).toBe(4.5);
+    // cached 1M on promo: 0.075 * 0.5 = 0.0375
     expect(hostedModelCost("google/gemini-3.7-flash", {
       inputTokens: 0,
       outputTokens: 0,
       cachedTokens: 1_000_000,
       now: "2026-08-21T12:00:00Z",
-    })).toBe(0.01875);
+    })).toBe(0.0375);
   });
 
   it("fails closed: unknown model => null; zero usage => zero cost", () => {
