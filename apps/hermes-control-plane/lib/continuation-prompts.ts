@@ -31,6 +31,10 @@ export function normalizeContinuationPrompt(value: unknown): string {
     .replace(/\s+/gu, " ");
 }
 
+export function isSameThreadCompactionCommand(prompt: unknown): boolean {
+  return commandsByTrigger.get(normalizeContinuationPrompt(prompt))?.id === "compact_same_thread";
+}
+
 export function resolveContinuationPrompt(
   prompt: unknown,
   options: { hasContext: boolean },
