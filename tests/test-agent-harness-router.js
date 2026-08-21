@@ -73,6 +73,8 @@ test('MODEL_REGISTRY has expected models', () => {
   assertTrue(MOD.MODEL_REGISTRY['openai/gpt-4.1'], 'should have OpenAI GPT-4.1');
   assertTrue(MOD.MODEL_REGISTRY['anthropic/claude-3-5-sonnet'], 'should have Anthropic Claude');
   assertTrue(MOD.MODEL_REGISTRY['google/gemini-2.5-pro'], 'should have Google Gemini');
+  assertTrue(MOD.MODEL_REGISTRY['poolside/laguna-xs-2.1'], 'should have Poolside Laguna XS 2.1');
+  assertTrue(MOD.MODEL_REGISTRY['poolside/laguna-s-2.1'], 'should have Poolside Laguna S 2.1');
 });
 
 test('FREE_MODELS contains local models only', () => {
@@ -90,12 +92,14 @@ test('VERIFIED_THIRD_PARTY_OPERATORS contains openai/anthropic/google', () => {
   assertTrue(MOD.VERIFIED_THIRD_PARTY_OPERATORS.includes('openai'), 'openai should be verified third-party');
   assertTrue(MOD.VERIFIED_THIRD_PARTY_OPERATORS.includes('anthropic'), 'anthropic should be verified');
   assertTrue(MOD.VERIFIED_THIRD_PARTY_OPERATORS.includes('google'), 'google should be verified');
+  assertTrue(MOD.VERIFIED_THIRD_PARTY_OPERATORS.includes('poolside'), 'poolside should be verified');
 });
 
 test('SENSITIVE_DATA_RESTRICTED_OPERATORS restricts openai/anthropic/google', () => {
   assertTrue(MOD.SENSITIVE_DATA_RESTRICTED_OPERATORS.includes('openai'), 'openai should be restricted');
   assertTrue(MOD.SENSITIVE_DATA_RESTRICTED_OPERATORS.includes('anthropic'), 'anthropic should be restricted');
   assertTrue(MOD.SENSITIVE_DATA_RESTRICTED_OPERATORS.includes('google'), 'google should be restricted');
+  assertTrue(MOD.SENSITIVE_DATA_RESTRICTED_OPERATORS.includes('poolside'), 'poolside should be restricted');
   assertFalse(MOD.SENSITIVE_DATA_RESTRICTED_OPERATORS.includes('zai'), 'zai should not be restricted');
 });
 
@@ -138,6 +142,15 @@ test('filterModels filters by privacyRequired=fenced (only non-third-party)', ()
 test('filterModels returns empty array for impossible constraints', () => {
   const result = MOD.filterModels({ privacyRequired: 'local', maxTokens: 2000000 });
   assertEqual(result.length, 0, 'should return empty for impossible constraints');
+});
+
+test('filterModels keeps Poolside coding-only, text-only, and outside local-only work', () => {
+  const coding = MOD.filterModels({ category: 'coding', preferredProvider: 'poolside' });
+  assertEqual(coding.map((model) => model.modelId), ['poolside/laguna-xs-2.1']);
+  assertEqual(MOD.filterModels({ category: 'summarization', preferredProvider: 'poolside' }).length, 0);
+  assertEqual(MOD.filterModels({ category: 'coding', preferredProvider: 'poolside', requiresVision: true }).length, 0);
+  assertEqual(MOD.filterModels({ category: 'coding', preferredProvider: 'poolside', privacyRequired: 'local' }).length, 0);
+  assertEqual(MOD.filterModels({ category: 'coding', preferredProvider: 'poolside', sensitive: true }).length, 0);
 });
 
 // ─── 3. effectiveCost ───────────────────────────────────────────────
@@ -232,6 +245,22 @@ test('routeModel with budgetGuard routes to local when exhausted', () => {
     { preference: 'balance', budgetGuard: guard }
   );
   assertEqual(result.metadata.privacy, 'local');
+});
+
+test('routeModel delegates normal coding to Laguna XS and long-horizon coding to Laguna S', () => {
+  const fast = MOD.routeModel(
+    { category: 'coding', requiresTools: true, preferredProvider: 'poolside' },
+    { preference: 'balance' }
+  );
+  assertEqual(fast.modelId, 'poolside/laguna-xs-2.1');
+  assertEqual(fast.metadata.endpoint, 'https://inference.poolside.ai/v1');
+
+  const deep = MOD.routeModel(
+    { category: 'coding', requiresTools: true, delegateTo: 'poolside', complexity: 'high' },
+    { preference: 'balance' }
+  );
+  assertEqual(deep.modelId, 'poolside/laguna-s-2.1');
+  assertEqual(deep.metadata.maxContext, 1048576);
 });
 
 // ─── 5. BudgetGuard ─────────────────────────────────────────────────
