@@ -3,7 +3,7 @@
 const assert = require('assert');
 const path = require('path');
 const fs = require('fs');
-const { ResilientFileSystem, SelfHealingSupervisor } = require('../tools/thumbgate-self-healing-engine');
+const { ResilientFileSystem, SelfHealingSupervisor, resolveResilientPath } = require('../tools/thumbgate-self-healing-engine');
 
 async function runTests() {
   console.log('=== Running ThumbGate Self-Healing, Self-Improving & Self-Learning Tests ===\n');
@@ -20,10 +20,10 @@ async function runTests() {
   const readRes1 = rfs.readFile(normalPath);
   assert.strictEqual(readRes1.ok, true);
   assert.ok(readRes1.data.includes('healthy'));
-  console.log('PASS [1/5]: Primary File System Write & Read');
+  console.log('PASS [1/6]: Primary File System Write & Read');
 
   // 2. Permission Denied / Read-Only Fallback to Memory Tier
-  const forbiddenPath = '/root/forbidden-thumbgate-secret.json'; // Unwritable without root
+  const forbiddenPath = '/root/forbidden-thumbgate-secret.json';
   const writeRes2 = rfs.writeFile(forbiddenPath, { secretToken: '12345' });
   assert.strictEqual(writeRes2.ok, true, 'Zero crash on unwritable path');
   assert.ok(['tmp_fallback', 'in_memory', 'user_cache'].includes(writeRes2.tier));
@@ -31,9 +31,17 @@ async function runTests() {
   const readRes2 = rfs.readFile(forbiddenPath);
   assert.strictEqual(readRes2.ok, true);
   assert.ok(readRes2.data.includes('12345'));
-  console.log('PASS [2/5]: Resilient Multi-Tier Storage Failover on Permission Errors');
+  console.log('PASS [2/6]: Resilient Multi-Tier Storage Failover on Permission Errors');
 
-  // 3. Self-Healing Task Execution with Retry
+  // 3. Unicode Whitespace & Escaped Path Normalization (macOS screenshot fix)
+  const mockEscaped = '/tmp/Screenshot\\ 2026-08-21\\ at\\ 11.45.19\\ AM.png';
+  fs.writeFileSync('/tmp/Screenshot 2026-08-21 at 11.45.19\u202fAM.png', 'fake_png_data');
+  const pathRes = resolveResilientPath(mockEscaped);
+  assert.strictEqual(pathRes.ok, true);
+  assert.ok(pathRes.resolvedPath.includes('Screenshot'));
+  console.log('PASS [3/6]: Unicode Narrow No-Break Space & Escaped Path Resolution');
+
+  // 4. Self-Healing Task Execution with Retry
   let attemptsMade = 0;
   const healingTask = await supervisor.executeWithSelfHealing('flaky_api_call', (attempt) => {
     attemptsMade = attempt;
@@ -46,9 +54,9 @@ async function runTests() {
   assert.strictEqual(healingTask.ok, true);
   assert.strictEqual(healingTask.healed, true);
   assert.strictEqual(attemptsMade, 2);
-  console.log('PASS [3/5]: Closed-Loop Automatic Task Self-Healing & Retry');
+  console.log('PASS [4/6]: Closed-Loop Automatic Task Self-Healing & Retry');
 
-  // 4. Graceful Degradation & Fallback
+  // 5. Graceful Degradation & Fallback
   const failingTaskWithFallback = await supervisor.executeWithSelfHealing(
     'unreachable_service',
     () => {
@@ -63,15 +71,15 @@ async function runTests() {
   assert.strictEqual(failingTaskWithFallback.ok, true);
   assert.strictEqual(failingTaskWithFallback.fallbackUsed, true);
   assert.strictEqual(failingTaskWithFallback.result.degraded, true);
-  console.log('PASS [4/5]: Graceful Fallback on Exhausted Retries');
+  console.log('PASS [5/6]: Graceful Fallback on Exhausted Retries');
 
-  // 5. Self-Improving & Self-Learning Invariant Synthesis
+  // 6. Self-Improving & Self-Learning Invariant Synthesis
   const knowledge = supervisor.getKnowledgeReport();
   assert.ok(knowledge.healedIncidents >= 2);
   assert.ok(knowledge.activePreventionRules.length >= 2);
-  console.log('PASS [5/5]: Self-Improving Invariant Synthesis & Memory Learning');
+  console.log('PASS [6/6]: Self-Improving Invariant Synthesis & Memory Learning');
 
-  console.log('\n=== All 5 Self-Healing Engine Tests Passed (100% Green) ===');
+  console.log('\n=== All 6 Self-Healing Engine Tests Passed (100% Green) ===');
 }
 
 runTests().catch((err) => {
