@@ -1,18 +1,18 @@
 const LEAKED_TOOL_PROTOCOL_RE =
-  /<\|DSML\|(?:tool_calls|invoke|parameter)\b|<tool\s*_?\s*call\b|<toolcall\b|<function\s*_?\s*call\b/i;
+  /<\|DSML\|(?:tool_calls|invoke|parameter)\b|<tool_?call\b|<toolcall\b|<function_?call\b/i;
 
 const TOOL_PROTOCOL_BLOCKS = [
-  /\s*<\|DSML\|tool_calls\b[^>]*>[\s\S]*?<\/\|DSML\|tool_calls>\s*/gi,
-  /\s*<toolcall\b[^>]*>[\s\S]*?<\/toolcall>\s*/gi,
-  /\s*<tool\s*_?\s*call\b[^>]*>[\s\S]*?<\/tool\s*_?\s*call>\s*/gi,
-  /\s*<function\s*_?\s*call\b[^>]*>[\s\S]*?<\/function\s*_?\s*call>\s*/gi,
+  /<\|DSML\|tool_calls\b[^>]*>[\s\S]*?<\/\|DSML\|tool_calls>/gi,
+  /<toolcall\b[^>]*>[\s\S]*?<\/toolcall>/gi,
+  /<tool_?call\b[^>]*>[\s\S]*?<\/tool_?call>/gi,
+  /<function_?call\b[^>]*>[\s\S]*?<\/function_?call>/gi,
 ];
 
 const TRUNCATED_TOOL_PROTOCOL = [
-  /\s*<\|DSML\|tool_calls\b[^>]*>[\s\S]*$/i,
-  /\s*<toolcall\b[^>]*>[\s\S]*$/i,
-  /\s*<tool\s*_?\s*call\b[^>]*>[\s\S]*$/i,
-  /\s*<function\s*_?\s*call\b[^>]*>[\s\S]*$/i,
+  /<\|DSML\|tool_calls\b[^>]*>[\s\S]*$/i,
+  /<toolcall\b[^>]*>[\s\S]*$/i,
+  /<tool_?call\b[^>]*>[\s\S]*$/i,
+  /<function_?call\b[^>]*>[\s\S]*$/i,
 ];
 
 export const TOOL_PROTOCOL_INCOMPLETE_MESSAGE =
