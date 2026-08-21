@@ -11,15 +11,20 @@
  *  3. Deep Inference: Queries Hermes LiteLLM gateway with screen image and prompt.
  *  4. Voice TTS Playback: Streams synthesized speech directly into Meta glasses open-ear speakers.
  *  5. Mac Command/Macro Dispatch: Executes shell and AppleScript automation.
+ *  6. OpenClaw Browser Dispatch: Routes browser automation intents from glasses
+ *     to the Hermes Control Plane, enabling hands-free web navigation, clicks,
+ *     form fills, and system control via voice.
  *
  * Usage:
  *  node tools/meta-glasses-hermes-bridge.js --status
+ *  node tools/meta-glasses-hermes-bridge.js --openclaw-status
  *  node tools/meta-glasses-hermes-bridge.js --ask "What is on my screen right now?"
  *  node tools/meta-glasses-hermes-bridge.js --command "open Slack and focus Warp"
  *  node tools/meta-glasses-hermes-bridge.js --speak "Connected to Hermes inference engine."
+ *  node tools/meta-glasses-hermes-bridge.js --openclaw "Open gmail in chrome"
  */
 
-const { execFileSync, spawnSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
@@ -71,6 +76,51 @@ function captureScreen() {
   return { ok: false, error: 'File not created' };
 }
 
+const RECORDING_PATH = '/tmp/hermes-meta-recording.mp4';
+
+function recordScreen(durationSec = 5, outputPath = RECORDING_PATH) {
+  console.log(`[MetaGlasses Record] Recording screen sequence for ${durationSec}s...`);
+  speakToGlasses(`Recording screen for ${durationSec} seconds.`);
+  
+  const frameDir = '/tmp/hermes-meta-frames';
+  try {
+    if (!fs.existsSync(frameDir)) fs.mkdirSync(frameDir, { recursive: true });
+    // Clean old frames
+    fs.readdirSync(frameDir).forEach((f) => fs.unlinkSync(path.join(frameDir, f)));
+
+    const fps = 2; // 2 frames per sec for high quality visual grounding
+    const totalFrames = durationSec * fps;
+    const intervalMs = Math.round(1000 / fps);
+
+    for (let i = 0; i < totalFrames; i++) {
+      const framePath = path.join(frameDir, `frame_${String(i).padStart(4, '0')}.jpg`);
+      execFileSync('screencapture', ['-x', '-t', 'jpg', framePath], { stdio: 'pipe' });
+      // Small sync sleep between frames
+      execFileSync('sleep', [String(intervalMs / 1000)]);
+    }
+
+    // Compile into mp4 with ffmpeg
+    execFileSync('ffmpeg', [
+      '-y',
+      '-r', String(fps),
+      '-i', path.join(frameDir, 'frame_%04d.jpg'),
+      '-c:v', 'libx264',
+      '-pix_fmt', 'yuv420p',
+      outputPath
+    ], { stdio: 'pipe' });
+
+    if (fs.existsSync(outputPath)) {
+      const stats = fs.statSync(outputPath);
+      const msg = `Screen recording complete. Captured ${totalFrames} frames.`;
+      speakToGlasses(msg);
+      return { ok: true, path: outputPath, bytes: stats.size, frames: totalFrames, durationSec };
+    }
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+  return { ok: false, error: 'Recording failed' };
+}
+
 function speakToGlasses(text, voice = 'Samantha') {
   if (!text) return;
   console.log(`[MetaGlasses Speak] "${text}"`);
@@ -83,8 +133,22 @@ function speakToGlasses(text, voice = 'Samantha') {
   }
 }
 
+function getActiveDesktopContext() {
+  let appName = '';
+  let gitBranch = '';
+  try {
+    appName = execFileSync('osascript', ['-e', 'tell application "System Events" to get name of first process whose frontmost is true'], { encoding: 'utf8' }).trim();
+  } catch (_) {}
+  try {
+    gitBranch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+  } catch (_) {}
+  return { appName, gitBranch };
+}
+
 async function queryHermesVision(prompt, includeScreen = true) {
   const messages = [];
+  const desk = getActiveDesktopContext();
+  const contextNote = desk.appName ? ` [Desktop Context: Active Frontmost App is ${desk.appName}${desk.gitBranch ? `, Git Branch: ${desk.gitBranch}` : ''}]` : '';
 
   if (includeScreen) {
     const screen = captureScreen();
@@ -92,7 +156,7 @@ async function queryHermesVision(prompt, includeScreen = true) {
       messages.push({
         role: 'user',
         content: [
-          { type: 'text', text: prompt || 'Analyze this screen and provide concise key takeaways or action items.' },
+          { type: 'text', text: (prompt || 'Analyze this screen and provide concise key takeaways or action items.') + contextNote },
           {
             type: 'image_url',
             image_url: {
@@ -102,10 +166,10 @@ async function queryHermesVision(prompt, includeScreen = true) {
         ],
       });
     } else {
-      messages.push({ role: 'user', content: prompt });
+      messages.push({ role: 'user', content: prompt + contextNote });
     }
   } else {
-    messages.push({ role: 'user', content: prompt });
+    messages.push({ role: 'user', content: prompt + contextNote });
   }
 
   messages.unshift({
@@ -116,8 +180,13 @@ async function queryHermesVision(prompt, includeScreen = true) {
   const endpoints = [
     {
       url: LITELLM_ENDPOINT,
-      model: includeScreen ? 'vision-gemini' : 'glm-5.3',
-      timeout: 10000,
+      model: includeScreen ? 'glm-vision' : 'glm-5.3',
+      timeout: 15000,
+    },
+    {
+      url: LITELLM_ENDPOINT,
+      model: includeScreen ? 'vision-gemini' : 'hermes-local',
+      timeout: 15000,
     },
     {
       url: 'http://127.0.0.1:11434/v1/chat/completions',
@@ -130,7 +199,7 @@ async function queryHermesVision(prompt, includeScreen = true) {
     try {
       const payload = JSON.stringify({
         model: ep.model,
-        messages: includeScreen && ep.url.includes('11434') ? [{ role: 'user', content: prompt }] : messages,
+        messages: includeScreen && ep.url.includes('11434') ? [{ role: 'user', content: prompt + contextNote }] : messages,
         max_tokens: 250,
         temperature: 0.2,
       });
@@ -199,25 +268,106 @@ function runMacro(command) {
   }
 }
 
+const OPENCLAW_CONTROL_PLANE = 'http://127.0.0.1:3000';
+const BROWSER_INTENT_RE = /\b(open\s+(url|website|webpage|browser)|navigate|go to|visit|click|browse|search|login|fill|submit|scroll|refresh|bookmark)\b/i;
+
+/**
+ * Check if the OpenClaw control plane is reachable.
+ */
+function checkOpenClawStatus() {
+  return new Promise((resolve) => {
+    const u = new URL(OPENCLAW_CONTROL_PLANE + '/');
+    const req = http.request(
+      { hostname: u.hostname, port: u.port, path: u.pathname, method: 'GET', timeout: 5000 },
+      (r) => {
+        resolve({ ok: true, status: r.statusCode, reachable: true });
+      }
+    );
+    req.on('error', () => resolve({ ok: false, reachable: false, error: 'Control plane not reachable' }));
+    req.on('timeout', () => { req.destroy(); resolve({ ok: false, reachable: false, error: 'Connection timeout' }); });
+    req.end();
+  });
+}
+
+/**
+ * Dispatch a browser automation intent to the OpenClaw control plane
+ * via the glasses macro endpoint. Returns the control plane's response.
+ */
+async function dispatchBrowserAction(intent, context = {}) {
+  const screen = captureScreen();
+  const payload = JSON.stringify({
+    action: 'macro',
+    command: intent,
+    context: Object.assign({
+      screen: screen.ok ? { ok: true, bytes: screen.bytes } : { ok: false },
+      desktop: getActiveDesktopContext(),
+    }, context),
+  });
+
+  return new Promise((resolve) => {
+    const u = new URL(OPENCLAW_CONTROL_PLANE + '/api/glasses');
+    const req = http.request(
+      {
+        hostname: u.hostname,
+        port: u.port,
+        path: u.pathname,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
+        timeout: 15000,
+      },
+      (r) => {
+        let body = '';
+        r.on('data', (c) => (body += c));
+        r.on('end', () => {
+          try {
+            resolve({ ok: true, status: r.statusCode, response: JSON.parse(body) });
+          } catch (e) {
+            resolve({ ok: true, status: r.statusCode, response: body });
+          }
+        });
+      }
+    );
+    req.on('error', (e) => resolve({ ok: false, error: e.message }));
+    req.on('timeout', () => { req.destroy(); resolve({ ok: false, error: 'Timeout' }); });
+    req.write(payload);
+    req.end();
+  });
+}
+
 /**
  * OpenClaw Action & Multi-Agent Dispatcher
  * Bridges voice intents from Meta Glasses into OpenClaw agent execution.
+ * Recognizes browser automation intents and routes them to the control
+ * plane; falls back to Hermes LLM for command translation.
  */
 async function dispatchOpenClawAction(intent, context = {}) {
   console.log(`[OpenClaw Dispatch] Intent from Meta Glasses: "${intent}"`);
   speakToGlasses(`OpenClaw processing: ${intent.slice(0, 40)}`);
 
-  // Direct fast-path for explicit CLI commands (0ms LLM latency)
   const trimmed = intent.trim();
+
+  // Direct fast-path for explicit CLI commands (0ms LLM latency)
   if (/^(git|gh|npm|node|open|cmm|osascript|echo|ls|cat|df|ps|kill)\b/i.test(trimmed)) {
     const res = runMacro(trimmed);
     if (res.ok) {
       const msg = `OpenClaw executed: ${trimmed.slice(0, 30)}. Output: ${res.output.slice(0, 60)}`;
-      speakToGlasses(`OpenClaw command succeeded.`);
+      speakToGlasses(`Command succeeded.`);
       return { ok: true, command: trimmed, output: res.output, spoken: msg };
     } else {
       speakToGlasses('OpenClaw command failed.');
       return { ok: false, command: trimmed, error: res.error, stderr: res.stderr };
+    }
+  }
+
+  // Browser automation intents → dispatch to control plane
+  if (BROWSER_INTENT_RE.test(trimmed)) {
+    const res = await dispatchBrowserAction(trimmed, context);
+    if (res.ok) {
+      speakToGlasses('OpenClaw browser action dispatched.');
+      return { ok: true, type: 'browser', command: trimmed, response: res.response, dispatchStatus: res.status };
+    } else {
+      speakToGlasses('OpenClaw browser dispatch failed. Trying Hermes fallback.');
+      // Fall through to Hermes LLM path below
     }
   }
 
@@ -278,6 +428,14 @@ async function main() {
     return;
   }
 
+  if (args.includes('--record')) {
+    const recIndex = args.indexOf('--record') + 1;
+    const sec = parseInt(args[recIndex], 10) || 5;
+    const res = recordScreen(sec);
+    console.log(JSON.stringify(res, null, 2));
+    return;
+  }
+
   if (args.includes('--ask')) {
     const askIndex = args.indexOf('--ask') + 1;
     const query = args[askIndex] || 'Summarize what is currently on my screen.';
@@ -312,6 +470,12 @@ async function main() {
     return;
   }
 
+  if (args.includes('--openclaw-status')) {
+    const status = await checkOpenClawStatus();
+    console.log(JSON.stringify(status, null, 2));
+    return;
+  }
+
   console.log(`
 Meta Glasses Hermes & OpenClaw Action Bridge
 Usage:
@@ -319,9 +483,11 @@ Usage:
   node tools/meta-glasses-hermes-bridge.js --connect
   node tools/meta-glasses-hermes-bridge.js --speak "Text to speak"
   node tools/meta-glasses-hermes-bridge.js --screen
+  node tools/meta-glasses-hermes-bridge.js --record [seconds]
   node tools/meta-glasses-hermes-bridge.js --ask "Your prompt"
   node tools/meta-glasses-hermes-bridge.js --command "sh command"
   node tools/meta-glasses-hermes-bridge.js --openclaw "voice intent"
+  node tools/meta-glasses-hermes-bridge.js --openclaw-status
   `);
 }
 
@@ -333,8 +499,11 @@ module.exports = {
   checkConnection,
   ensureConnected,
   captureScreen,
+  recordScreen,
   speakToGlasses,
   queryHermesVision,
   runMacro,
   dispatchOpenClawAction,
+  checkOpenClawStatus,
+  dispatchBrowserAction,
 };
