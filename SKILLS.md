@@ -85,3 +85,5 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 *Last synchronized: 2026-08-18T19:10:00.000Z*
 *Last synchronized: 2026-08-18T20:05:00.000Z*
 | `agent-harness-router` | Agent harness router consolidating TrueFoundry TrueForge, Martech, GLM-5.3, and Futurism ideas: model routing by cost/latency/quality/privacy, $10/mo fail-closed budget enforcement, discovery capture of scattered AI wins, private benchmark validation, model portability scoring. Never captures keystrokes/clicks/local activity (fail-closed ChatGPT Computer History alternative). | `~/workspace/git/igor/mac-yolo-safeguards/.agents/skills/agent-harness-router/SKILL.md` | local |
+| `openbot-action-gateway` | CopilotKit OpenBot AG-UI Action Gateway, Per-Agent Sandboxed Coworkers & Deterministic Policy Interdiction Engine for ThumbGate. | `.agents/skills/openbot-action-gateway/SKILL.md` | local |
+| `explainx-trending-rag` | Autonomous ExplainX.ai Trending Ingestion, Data Science/ML TF-IDF Ranking & Agentic RAG Strategy Optimizer for ThumbGate. | `.agents/skills/explainx-trending-rag/SKILL.md` | local |
