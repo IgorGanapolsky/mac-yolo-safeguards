@@ -3570,3 +3570,24 @@ RELEASED: grok-context-vault-20260822 (feat/context-vault-20260822) — Implemen
 - 2026-08-22T18:28:00Z `codex-agent-467-pr-hygiene`: implemented the claimed durable closeout contract on `codex/agent-467-hygiene-directives`. The contract binds GitHub evidence, Linear ownership, strict-gated Obsidian writeback, exact-head branch deletion proof, exact-main required checks, dry-run verification, and measurable research hypotheses; `CLAUDE.md` and `GEMINI.md` remain pointers to the canonical `AGENTS.md` rule.
 - `docs/agents/shipping-and-hygiene.md` (CEO closeout detail only) → **codex-agent-467-pr-hygiene** (AGENT-467: move the detailed closeout contract out of always-injected `AGENTS.md` to restore the enforced token budget) (2026-08-22T18:42:00Z)
 - 2026-08-22T18:42:00Z `codex-agent-467-pr-hygiene`: review correction for PR #1980. Keep only a compact pointer in always-injected directives; the detailed CEO PR/system-hygiene evidence contract lives in `docs/agents/shipping-and-hygiene.md` so context-budget validation remains green.
+
+## Hosted Hermes turn statusline (append 2026-08-22T19:25:36Z) — agent `grok-hosted-turn-statusline`
+
+Complement to AGENT-476 / PR #1984. Does **not** steal DashboardClient.tsx. Codex holds AGENT-476; antigravity PR #1984 hardcodes Mac `localhost:11434` Ollama which violates the hosted Hermes lock.
+
+### Task
+| T-HOSTED-TURN-STATUSLINE-20260822 | Sticky thumbgate.app dashboard Turn Statusline (Engine, TTFT, Cost) using hosted Hermes identity; never default to localhost Ollama or invented <10ms TTFT | in_progress | grok-hosted-turn-statusline | `apps/hermes-control-plane/lib/turn-statusline.ts`, `apps/hermes-control-plane/lib/turn-statusline.test.ts`, `apps/hermes-control-plane/app/dashboard/TurnStatusline.tsx`, `apps/hermes-control-plane/app/dashboard/DashboardTurnChrome.tsx`, `apps/hermes-control-plane/app/dashboard/layout.tsx`, `apps/hermes-control-plane/app/api/turn-status/route.ts`, `apps/hermes-control-plane/tests/turn-status-chrome.test.mjs`, `.intent/contract.yaml`, `plan.md` | 2026-08-22T19:35:09Z: chrome node:test 2/2 + vitest 5/5; intent-check HOST-002-AC1 supported; default `Hosted Hermes · SuperGrok (grok-4.5)` / TTFT `unmeasured` / cost `$0.00 · included in $10/mo`; Mac Ollama engine strings rejected |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| apps/hermes-control-plane/lib/turn-statusline.ts | grok-hosted-turn-statusline | 2026-08-22T19:25:36Z |
+| apps/hermes-control-plane/lib/turn-statusline.test.ts | grok-hosted-turn-statusline | 2026-08-22T19:25:36Z |
+| apps/hermes-control-plane/app/dashboard/TurnStatusline.tsx | grok-hosted-turn-statusline | 2026-08-22T19:25:36Z |
+| apps/hermes-control-plane/app/dashboard/DashboardTurnChrome.tsx | grok-hosted-turn-statusline | 2026-08-22T19:25:36Z |
+| apps/hermes-control-plane/app/dashboard/turn-statusline.module.css | grok-hosted-turn-statusline | 2026-08-22T19:25:36Z |
+| apps/hermes-control-plane/app/dashboard/layout.tsx | grok-hosted-turn-statusline | 2026-08-22T19:25:36Z |
+| apps/hermes-control-plane/app/api/turn-status/route.ts | grok-hosted-turn-statusline | 2026-08-22T19:25:36Z |
+| apps/hermes-control-plane/tests/turn-status-chrome.test.mjs | grok-hosted-turn-statusline | 2026-08-22T19:25:36Z |
+| .intent/contract.yaml (HOST-002 append) | grok-hosted-turn-statusline | 2026-08-22T19:25:36Z |
+| plan.md (this append) | grok-hosted-turn-statusline | 2026-08-22T19:25:36Z |
