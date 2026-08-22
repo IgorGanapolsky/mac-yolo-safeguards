@@ -3591,3 +3591,17 @@ Complement to AGENT-476 / PR #1984. Does **not** steal DashboardClient.tsx. Code
 | apps/hermes-control-plane/tests/turn-status-chrome.test.mjs | grok-hosted-turn-statusline | 2026-08-22T19:25:36Z |
 | .intent/contract.yaml (HOST-002 append) | grok-hosted-turn-statusline | 2026-08-22T19:25:36Z |
 | plan.md (this append) | grok-hosted-turn-statusline | 2026-08-22T19:25:36Z |
+
+## Drop always-green ThumbGate online chip (append 2026-08-22T20:05:00Z) — agent `grok-drop-online-chip`
+
+Header chip is a static `className="status-chip online"` label. It does not probe the VPS, the runner, or billing. Signed-in is enough. Same one-line delete already sits in DIRTY #1984 / AGENT-476 hunks — land it on main without their Ollama footer.
+
+### Task
+| T-DROP-THUMBGATE-ONLINE-CHIP-20260822 | Remove the always-green "ThumbGate online" dashboard header chip | in_progress | grok-drop-online-chip | `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx` (header chip only), `apps/hermes-control-plane/tests/header-online-chip.test.mjs`, `plan.md` | source test: DashboardClient must not contain `ThumbGate online` |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| apps/hermes-control-plane/app/dashboard/DashboardClient.tsx (header `status-chip online` span only) | grok-drop-online-chip | 2026-08-22T20:05:00Z |
+| apps/hermes-control-plane/tests/header-online-chip.test.mjs | grok-drop-online-chip | 2026-08-22T20:05:00Z |
+| plan.md (this append) | grok-drop-online-chip | 2026-08-22T20:05:00Z |
