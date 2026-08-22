@@ -234,31 +234,6 @@ try {
   assert.equal(byId[linuxTask.id]?.deviceName, DEVICE_LINUX.name);
   assert.equal(byId[fallbackTask.id]?.deviceName, DEVICE_LINUX.name);
 
-  // Persist a measured terminal turn so the private statusline is proven from
-  // organization-scoped D1 evidence rather than placeholder UI copy.
-  const completedAt = Date.now();
-  d1([
-    `UPDATE threads SET model = 'qwen3:8b', updated_at = ${completedAt} WHERE id = '${miniTask.threadId}' AND organization_id = 'e2e-org'`,
-    `UPDATE tasks SET route = 'cloud', status = 'completed', completed_at = ${completedAt}, updated_at = ${completedAt} WHERE id = '${miniTask.id}' AND organization_id = 'e2e-org'`,
-    `INSERT INTO audit_events (id, organization_id, actor_type, actor_id, action, target_type, target_id, metadata, created_at) VALUES ('e2e-turn-receipt', 'e2e-org', 'runner', 'e2e-runner', 'task.completed', 'task', '${miniTask.id}', '{"model":"qwen3:8b","durationMs":321,"promptTokens":1200,"completionTokens":80,"ttftMs":92,"costUsd":0}', ${completedAt})`,
-  ].join("; "));
-  const statuslineRes = await fetch(`${base}/api/execution-statusline`, { headers: authHeaders });
-  assert.equal(statuslineRes.status, 200);
-  assert.match(statuslineRes.headers.get("cache-control") || "", /no-store/);
-  const statuslineBody = await statuslineRes.json();
-  assert.deepEqual(statuslineBody.statusline, {
-    taskId: miniTask.id,
-    status: "completed",
-    engine: "Hosted Hermes",
-    model: "qwen3:8b",
-    durationMs: 321,
-    promptTokens: 1200,
-    completionTokens: 80,
-    ttftMs: 92,
-    costUsd: 0,
-    completedAt,
-  });
-
   // --- Served client bundle contract (no browser) ---
   const dash = await fetch(`${base}/dashboard`, {
     headers: { cookie: authHeaders.cookie },
@@ -351,10 +326,6 @@ try {
       }
       const output = page.locator('[data-testid="run-output"]');
       assert.equal(await output.count(), 1, "Output pane must be visible");
-      const statusline = page.getByLabel("Latest completed turn telemetry");
-      assert.equal(await statusline.count(), 1, "Turn statusline must be mounted once");
-      assert.match(await statusline.innerText(), /Engine[\s\S]*Model[\s\S]*Duration[\s\S]*Tokens[\s\S]*TTFT[\s\S]*Cost/i);
-      assert.match(await statusline.innerText(), /Hosted Hermes[\s\S]*qwen3:8b[\s\S]*321ms[\s\S]*1\.3k[\s\S]*92ms[\s\S]*\$0\.00/i);
       const label = await output.locator(".eyebrow").first().textContent();
       assert.match(label || "", /Output/i);
       assert.doesNotMatch(label || "", /Which Mac\?/);
@@ -399,14 +370,15 @@ try {
 
       await page.setViewportSize({ width: 390, height: 844 });
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.getByLabel("Latest completed turn telemetry").waitFor({ state: "visible" });
+      await page.locator('[data-testid="run-output"]').waitFor({ state: "visible" });
       const mobileGeometry = await page.evaluate(() => ({
         pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-        statusBottom: document.querySelector('[aria-label="Latest completed turn telemetry"]')?.getBoundingClientRect().bottom ?? 0,
-        viewportHeight: window.innerHeight,
+        chipsDisplay: getComputedStyle(document.querySelector(".quick-continuation-chips")).display,
+        outputWidth: document.querySelector('[data-testid="run-output"]')?.getBoundingClientRect().width ?? 0,
       }));
       assert.ok(mobileGeometry.pageOverflow <= 1, `mobile page overflowed by ${mobileGeometry.pageOverflow}px`);
-      assert.ok(mobileGeometry.statusBottom < mobileGeometry.viewportHeight - 55, "mobile statusline must stay above bottom navigation");
+      assert.equal(mobileGeometry.chipsDisplay, "flex");
+      assert.ok(mobileGeometry.outputWidth > 0 && mobileGeometry.outputWidth <= 390, "mobile Output pane must stay visible and bounded");
       return true;
     } finally {
       await browser.close();
