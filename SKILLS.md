@@ -4,6 +4,7 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 
 | Skill | Description | Definition | Source |
 | :--- | :--- | :--- | :--- |
+| `structural-refactoring-engine` | SWE-Bench ProMax-style Structural AST Refactoring, Concurrency Invariant Sentinel & Zero-Entropy Atomic Rollback Engine | `.agents/skills/structural-refactoring-engine/SKILL.md` | local |
 | `future-agi-self-healing-engine` | Future AGI Self-Healing Agent Engine, Adversarial Persona Simulation, OTel Span Tracing & Automated Guardrail Patch Synthesizer for all coding agents on Igor's Mac. | `.agents/skills/future-agi-self-healing-engine/SKILL.md` | local |
 | `local-first-sync-engine` | Local-First Sync Engine & Reactive Collection Architecture (ElectricSQL / TanStack DB style, query-driven sync, optimistic mutations with transactional rollback) for all coding agents on Igor's Mac. | `.agents/skills/local-first-sync-engine/SKILL.md` | local |
 | `nvidia-nemo-switchyard-engine` | NVIDIA Nemotron 3.5 Lightning & NeMo Switchyard Engine (30B MoE / 3B active parameters, step-level agentic routing, 77% cost reduction & 70% latency speedup) for all coding agents on Igor's Mac. | `.agents/skills/nvidia-nemo-switchyard-engine/SKILL.md` | local |
