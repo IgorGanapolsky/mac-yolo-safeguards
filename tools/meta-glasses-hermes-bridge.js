@@ -34,29 +34,94 @@ const META_DEVICE_NAME = 'RB Meta 00F1';
 const LITELLM_ENDPOINT = 'http://127.0.0.1:4010/v1/chat/completions';
 const SCREENSHOT_PATH = '/tmp/hermes-meta-screen.jpg';
 
-function checkConnection() {
+function checkPhoneGlassesBond() {
   try {
-    // Use execFileSync with explicit args to avoid shell injection
+    const out = execFileSync(
+      'adb',
+      ['shell', 'dumpsys', 'bluetooth_manager'],
+      { encoding: 'utf8', timeout: 8000, maxBuffer: 8 * 1024 * 1024 },
+    );
+    const hasDevice = /RB Meta/i.test(out) || out.toLowerCase().includes(META_BT_MAC.replace(/-/g, ':'));
+    const active = /RB Meta[^\n]*ACTIVE/i.test(out) || /Connected:\s*1[\s\S]{0,120}RB Meta/i.test(out);
+    return {
+      ok: hasDevice,
+      connected: Boolean(active || (hasDevice && /ConnectionState:\s*STATE_CONNECTED/i.test(out))),
+      rail: 'phone_bt',
+      hermesInstalled: (() => {
+        try {
+          execFileSync('adb', ['shell', 'pm', 'path', 'com.iganapolsky.hermesmobile'], {
+            encoding: 'utf8',
+            timeout: 5000,
+          });
+          return true;
+        } catch {
+          return false;
+        }
+      })(),
+    };
+  } catch (err) {
+    return { ok: false, connected: false, rail: 'phone_bt', error: err.message, hermesInstalled: false };
+  }
+}
+
+function checkMacGlassesBond() {
+  try {
     const out = execFileSync('blueutil', ['--info', META_BT_MAC], { encoding: 'utf8' });
     const isConnected = /\bconnected\b/i.test(out) && !out.includes('not connected');
     return {
       connected: isConnected,
       raw: out.trim(),
+      rail: 'mac_bt',
       deviceName: META_DEVICE_NAME,
       mac: META_BT_MAC,
     };
   } catch (err) {
-    return { connected: false, error: err.message };
+    return { connected: false, rail: 'mac_bt', error: err.message, deviceName: META_DEVICE_NAME, mac: META_BT_MAC };
   }
+}
+
+/**
+ * Truthful multi-rail status.
+ * Ray-Ban Meta is usually bonded to the phone (Meta AI), not the Mac.
+ * "Hey Meta" will still say it is not Hermes — Meta AI is a closed assistant.
+ */
+function checkConnection() {
+  const mac = checkMacGlassesBond();
+  const phone = checkPhoneGlassesBond();
+  const connected = Boolean(mac.connected || phone.connected);
+  return {
+    connected,
+    rail: mac.connected ? 'mac_bt' : phone.connected ? 'phone_bt' : 'none',
+    mac,
+    phone,
+    hermesAppInstalled: Boolean(phone.hermesInstalled),
+    metaAiOwnsWakeWord: true,
+    note: phone.connected && !phone.hermesInstalled
+      ? 'Glasses are on the phone via Meta AI; Hermes Mobile is not installed, so Meta AI correctly says it is not connected to Hermes/OpenClaw.'
+      : phone.connected && phone.hermesInstalled
+        ? 'Glasses on phone + Hermes installed. Wake word is still Meta AI unless a DAT companion session is started from Hermes.'
+        : mac.connected
+          ? 'Glasses bonded to Mac audio path.'
+          : 'No Mac or phone BT bond detected for RB Meta.',
+    deviceName: META_DEVICE_NAME,
+    macAddress: META_BT_MAC,
+  };
 }
 
 function ensureConnected() {
   const status = checkConnection();
-  if (!status.connected) {
-    console.log(`[MetaGlasses] Connecting to ${META_DEVICE_NAME} (${META_BT_MAC})...`);
+  if (status.connected) return checkConnection();
+
+  // Prefer reclaiming Mac BT only when phone does not already own the glasses.
+  if (!status.phone?.connected) {
+    console.log(`[MetaGlasses] Connecting to ${META_DEVICE_NAME} (${META_BT_MAC}) on Mac...`);
     try {
       execFileSync('blueutil', ['--connect', META_BT_MAC], { stdio: 'inherit' });
     } catch (_) {}
+  } else {
+    console.log(
+      `[MetaGlasses] Phone already owns ${META_DEVICE_NAME}; skipping Mac BT steal. Install/open Hermes on phone for companion path.`,
+    );
   }
   return checkConnection();
 }
@@ -395,20 +460,48 @@ const MCP_BROKER = 'http://127.0.0.1:8766/mcp';
 const BROWSER_INTENT_RE = /\b(open\s+(url|website|webpage|browser)|navigate|go to|visit|click|browse|search|login|fill|submit|scroll|refresh|bookmark)\b/i;
 
 /**
- * Check if the OpenClaw control plane is reachable.
+ * OpenClaw / Hermes reachability — MCP broker is the live rail; :3000 control plane is optional.
  */
 function checkOpenClawStatus() {
-  return new Promise((resolve) => {
-    const u = new URL(OPENCLAW_CONTROL_PLANE + '/');
-    const req = http.request(
-      { hostname: u.hostname, port: u.port, path: u.pathname, method: 'GET', timeout: 5000 },
-      (r) => {
-        resolve({ ok: true, status: r.statusCode, reachable: true });
+  const probe = (url) =>
+    new Promise((resolve) => {
+      try {
+        const u = new URL(url);
+        const req = http.request(
+          { hostname: u.hostname, port: u.port, path: u.pathname, method: 'GET', timeout: 3000 },
+          (r) => {
+            let body = '';
+            r.on('data', (c) => (body += c));
+            r.on('end', () => resolve({ ok: true, status: r.statusCode, reachable: true, body: body.slice(0, 200) }));
+          },
+        );
+        req.on('error', (e) => resolve({ ok: false, reachable: false, error: e.message }));
+        req.on('timeout', () => {
+          req.destroy();
+          resolve({ ok: false, reachable: false, error: 'Connection timeout' });
+        });
+        req.end();
+      } catch (err) {
+        resolve({ ok: false, reachable: false, error: err.message });
       }
-    );
-    req.on('error', () => resolve({ ok: false, reachable: false, error: 'Control plane not reachable' }));
-    req.on('timeout', () => { req.destroy(); resolve({ ok: false, reachable: false, error: 'Connection timeout' }); });
-    req.end();
+    });
+
+  return Promise.all([
+    probe('http://127.0.0.1:8766/health'),
+    probe(OPENCLAW_CONTROL_PLANE + '/'),
+  ]).then(([mcp, controlPlane]) => {
+    const ok = Boolean(mcp.ok);
+    return {
+      ok,
+      reachable: ok,
+      mcpBroker: mcp,
+      controlPlane,
+      note: ok
+        ? controlPlane.ok
+          ? 'OpenClaw MCP broker + control plane reachable'
+          : 'OpenClaw MCP broker healthy; glasses control plane :3000 down (optional)'
+        : 'OpenClaw MCP broker not reachable on :8766',
+    };
   });
 }
 

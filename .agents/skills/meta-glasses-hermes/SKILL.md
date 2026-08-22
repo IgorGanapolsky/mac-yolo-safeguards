@@ -12,6 +12,20 @@ description: >
 Connects Meta smart glasses (Ray-Ban Meta Gen 2, Qualcomm AR1) to the sovereign
 Hermes & OpenClaw AI engine for real-time IT operations, incident triage, and hands-free memory persistence.
 
+## Hard honesty (do not confuse these rails)
+
+| Rail | What it is | Answers "connected to Hermes?" |
+|------|------------|--------------------------------|
+| **Meta AI wake word** ("Hey Meta") | Meta's closed assistant | **Always no** for Hermes/OpenClaw |
+| **Phone BT** (Meta AI app ↔ RB Meta) | Glasses bonded to Galaxy | Connected to **Meta**, not Hermes |
+| **Hermes companion / DAT** | Hermes Mobile session via Wearables DAT | Only after Hermes is installed + DAT session |
+| **Mac bridge** (`tools/meta-glasses-hermes-bridge.js`) | Status/TTS/vision/OpenClaw MCP | Reports phone_bt vs mac_bt truthfully |
+
+```bash
+node tools/meta-glasses-hermes-bridge.js --status
+node tools/meta-glasses-hermes-bridge.js --openclaw-status
+```
+
 ## Architecture Topology
 
 ```

@@ -5,10 +5,12 @@ const bridge = require('../tools/meta-glasses-hermes-bridge');
 test('checkConnection returns a result object', () => {
   const status = bridge.checkConnection();
   assert.equal(typeof status.connected, 'boolean');
-  // deviceName and mac may be absent if blueutil is not installed (e.g. Linux CI)
+  assert.equal(typeof status.rail, 'string');
+  assert.equal(typeof status.metaAiOwnsWakeWord, 'boolean');
+  // device identity is always present; Mac BT details may be nested under status.mac
   if (status.connected) {
     assert.equal(status.deviceName, 'RB Meta 00F1');
-    assert.equal(status.mac, '80-aa-1c-19-61-c1');
+    assert.equal(status.macAddress, '80-aa-1c-19-61-c1');
   }
 });
 
