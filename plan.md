@@ -3535,3 +3535,7 @@ Three PRs shipped:
 ## 3. Decisions (append-only) — agent: meta-glasses-dat-sdk-connection-20260822 (Fix)
 
 - **2026-08-22T01:25Z**: Fixed `withHermesDatSdk.js` — replaced active `implementation 'com.meta.wearables:dat-sdk:1.0.0'` (which doesn't exist on Maven Central and broke Android Gradle prebuild) with a commented-out placeholder inside the `dependencies {}` block. The DAT SDK is distributed via Meta for Developers portal, not Maven, so the plugin now adds a commented AAR dependency placeholder + documentation on manual install. CI Android E2E build failure was caused by this; the fix keeps `npx expo prebuild` succeeding without the SDK installed.
+
+## 3. Decisions (append-only) — agent: meta-glasses-dat-sdk-connection-20260822 (Fix #2)
+
+- **2026-08-22T01:30Z**: Removed `withAndroidManifest` from `withHermesDatSdk.js` — the `platformPermissions` assignment was being serialized as `<platformPermissions>` XML element in AndroidManifest.xml, causing AAPT error: "unexpected element <platformPermissions> found in <manifest>". Permissions (BLUETOOTH_CONNECT, BLUETOOTH_SCAN, CAMERA) are already declared by `expo-camera` and the base manifest. Plugin now only injects the Gradle dependency placeholder (commented AAR) + Kotlin jvmTarget documentation comment.
