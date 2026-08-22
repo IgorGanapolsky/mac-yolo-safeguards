@@ -79,6 +79,11 @@ describe("evaluateCloudPromptToolPolicy", () => {
     expect(evaluateCloudPromptToolPolicy("read ./src/index.ts and fix the bug").allowed).toBe(true);
     expect(evaluateCloudPromptToolPolicy("cat /home/runner/work/repo/file.ts").allowed).toBe(true);
     expect(evaluateCloudPromptToolPolicy("check /tmp/output.log for the stack trace").allowed).toBe(true);
+    expect(
+      evaluateCloudPromptToolPolicy(
+        "which project are you working on? you checked out https://github.com/IgorGanapolsky/RealEstate/pulls into local project, as well as Obsidian Vault into ~/Documents : https://github.com/IgorGanapolsky/AI-Agent-Sync"
+      ).allowed
+    ).toBe(true);
   });
 
   it("blocks private LAN and local Hermes gateway references", () => {

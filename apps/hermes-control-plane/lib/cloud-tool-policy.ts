@@ -14,7 +14,7 @@ export const LOCAL_ONLY_PROMPT_PATTERNS: ReadonlyArray<{ id: string; re: RegExp;
     // user profile). The fenced VPS cannot see it, so the model must never pretend
     // to read, list, or delete it. Note: /home/... is the VPS itself, so it is NOT matched.
     id: "local_filesystem_path",
-    re: /(?:\/Users\/[^\s/]+\/|(?:^|\s)~\/(?:Desktop|Documents|Downloads|Movies|Pictures|Music|Library|Applications)\b|[A-Za-z]:[\\/]Users[\\/])/,
+    re: /(?:\/Users\/[^\s/]+\/|(?:^|\s)~\/(?:Desktop|Documents|Downloads|Movies|Pictures|Music|Library|Applications)\/[^\s]+|[A-Za-z]:[\\/]Users[\\/])/,
     hint: "a file on your own computer",
     message:
       "Hosted Hermes runs on an isolated fenced VPS, so it can't see or touch files on your own computer — your Desktop, Documents, and Downloads are not reachable from here, and it will never read or delete them. Upload the file or paste its contents into the chat.",
