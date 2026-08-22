@@ -96,6 +96,7 @@ export async function POST(request: Request) {
       sessionId?: string;
       command?: string;
       gesture?: string;
+      context?: Record<string, unknown>;
     } | null;
 
     if (!body) {
@@ -173,9 +174,11 @@ async function handleInference(
 
 /**
  * Macro execution: run a shell command from the Mac.
+ * Accepts { command, gesture?, context? } where context is optional
+ * metadata from the glasses bridge (screen capture, desktop state).
  */
 async function handleMacro(
-  body: { command?: string; gesture?: string },
+  body: { command?: string; gesture?: string; context?: Record<string, unknown> },
   span: Span,
 ): Promise<Response> {
   const command = body.command;
@@ -185,6 +188,9 @@ async function handleMacro(
   }
 
   setAttribute(span, "macro.command", command);
+  if (body.context) {
+    setAttribute(span, "macro.context", JSON.stringify(body.context));
+  }
 
   // In production, this would shell out to the bridge tool.
   // For the API route, we return a structured response that the
@@ -194,6 +200,7 @@ async function handleMacro(
     ok: true,
     action: "macro",
     command,
+    context: body.context ?? null,
     executedAt: new Date().toISOString(),
     note: "Macro dispatched to Mac-side bridge. Check the bridge logs for output.",
   }, {
