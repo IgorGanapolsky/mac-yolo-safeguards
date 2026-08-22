@@ -167,6 +167,11 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .conversation-message p{color:var(--text-secondary);font:13px/1.58 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow-wrap:anywhere;word-break:break-word}
 .conversation-message pre,.dashboard-task pre{background:#090C14;border-left:2px solid var(--accent);padding:11px;color:#abb5b0;font:10px/1.5 ui-monospace,monospace;max-height:360px;overflow-x:auto;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;max-width:100%;border-radius:6px;margin:8px 0}
 .conversation-message code,.dashboard-task code{word-break:break-word;overflow-wrap:anywhere;white-space:pre-wrap}
+.turn-statusline{display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.08);font:11px/1.4 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;color:var(--muted,#718079);flex-wrap:wrap;user-select:all}
+.turn-statusline strong{color:var(--text-primary,#e6ede9);font-weight:600}
+.turn-statusline .statusline-tag{display:inline-flex;align-items:center;gap:4px}
+.turn-statusline .statusline-metric{color:var(--accent,#93f58a);font-weight:500}
+.turn-statusline .statusline-sep{opacity:.35}
 .dashboard-task pre{background:#090C14;border-left-color:var(--accent)}
 .dashboard-task,.device-card,.privacy-boundary{border-color:var(--line)}
 .device-card select,.pair-form input{min-height:44px;background:var(--composer);border-radius:12px;color:var(--text-secondary)}

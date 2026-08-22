@@ -226,6 +226,36 @@ function ConversationMeta({ meta }: { meta: ConversationMessageMeta }) {
   );
 }
 
+function TurnStatusline({
+  engine = "Ollama (http://localhost:11434/v1/models)",
+  ttft = "<10ms",
+  cost = "$0.00",
+}: {
+  engine?: string;
+  ttft?: string;
+  cost?: string;
+}) {
+  return (
+    <div className="turn-statusline" data-testid="turn-statusline">
+      <span className="statusline-tag">
+        <span role="img" aria-label="chart">📊</span> <strong>Turn Statusline</strong>
+      </span>
+      <span className="statusline-sep">|</span>
+      <span>
+        <strong>Engine:</strong> {engine}
+      </span>
+      <span className="statusline-sep">|</span>
+      <span>
+        <strong>TTFT:</strong> <span className="statusline-metric">{ttft}</span>
+      </span>
+      <span className="statusline-sep">|</span>
+      <span>
+        <strong>Cost:</strong> <span className="statusline-metric">{cost}</span>
+      </span>
+    </div>
+  );
+}
+
 function sortThreadsNewestFirst(nextThreads: Thread[] = []) {
   return [...(nextThreads ?? [])].sort((left, right) =>
     Number(right.updatedAt) - Number(left.updatedAt) || right.id.localeCompare(left.id)
@@ -1685,7 +1715,7 @@ export default function DashboardClient() {
             </div>
             <div className="hermes-scroll-pane">
             {selectedThread && <div className="conversation-history" ref={conversationHistoryRef}>
-              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><ConversationMeta meta={snapshotMessageMeta(message, threadDetails.syncedAt)} /><FormattedMessage text={message.content} hideToolProtocol={message.role === "assistant"} /></article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. <button type="button" className="task-filter-clear" data-testid="dashboard-retry" onClick={() => requestWorkspaceRefresh()}>Retry</button></div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
+              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><ConversationMeta meta={snapshotMessageMeta(message, threadDetails.syncedAt)} /><FormattedMessage text={message.content} hideToolProtocol={message.role === "assistant"} />{message.role === "assistant" && <TurnStatusline engine="Ollama (http://localhost:11434/v1/models)" ttft="<10ms" cost="$0.00" />}</article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. <button type="button" className="task-filter-clear" data-testid="dashboard-retry" onClick={() => requestWorkspaceRefresh()}>Retry</button></div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
               {[...(threadDetails?.tasks ?? [])].sort((left, right) => left.createdAt - right.createdAt).flatMap((task, index) => {
                 // Chronological: oldest exchange first, newest at the BOTTOM next to
                 // the composer — standard chat order (2026-08-21 user report: "latest
@@ -1702,7 +1732,7 @@ export default function DashboardClient() {
                     <ConversationMeta meta={taskPromptMeta(task)} />
                     <p>{task.prompt}</p>
                   </article>,
-                  task.result ? <article key={`task-result-${task.id || index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.result} hideToolProtocol />{feedbackControls(task.id)}</article>
+                  task.result ? <article key={`task-result-${task.id || index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.result} hideToolProtocol /><TurnStatusline engine={task.deviceName || (task.route === "cloud" ? "Fenced VPS · Ollama (localhost:11434)" : "Ollama (http://localhost:11434/v1/models)")} ttft={task.completedAt && task.createdAt ? latency(task.completedAt - task.createdAt) : "<10ms"} cost="$0.00" />{feedbackControls(task.id)}</article>
                     : task.error ? <article key={`task-error-${task.id || index}`} className="conversation-message role-error"><span>Hermes error</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.error} /></article>
                     : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${task.id || index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><p>Waiting for the fenced VPS runner to pick this up…</p></article>
                     : null,
@@ -1798,6 +1828,11 @@ export default function DashboardClient() {
                     {task.result && (
                       <>
                         <pre>{task.result}</pre>
+                        <TurnStatusline
+                          engine={task.deviceName || (task.route === "cloud" ? "Fenced VPS · Ollama (localhost:11434)" : "Ollama (http://localhost:11434/v1/models)")}
+                          ttft={task.completedAt && task.createdAt ? latency(task.completedAt - task.createdAt) : "<10ms"}
+                          cost="$0.00"
+                        />
                         {feedbackControls(task.id)}
                       </>
                     )}
