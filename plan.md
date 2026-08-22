@@ -3570,3 +3570,20 @@ RELEASED: grok-context-vault-20260822 (feat/context-vault-20260822) — Implemen
 - 2026-08-22T18:28:00Z `codex-agent-467-pr-hygiene`: implemented the claimed durable closeout contract on `codex/agent-467-hygiene-directives`. The contract binds GitHub evidence, Linear ownership, strict-gated Obsidian writeback, exact-head branch deletion proof, exact-main required checks, dry-run verification, and measurable research hypotheses; `CLAUDE.md` and `GEMINI.md` remain pointers to the canonical `AGENTS.md` rule.
 - `docs/agents/shipping-and-hygiene.md` (CEO closeout detail only) → **codex-agent-467-pr-hygiene** (AGENT-467: move the detailed closeout contract out of always-injected `AGENTS.md` to restore the enforced token budget) (2026-08-22T18:42:00Z)
 - 2026-08-22T18:42:00Z `codex-agent-467-pr-hygiene`: review correction for PR #1980. Keep only a compact pointer in always-injected directives; the detailed CEO PR/system-hygiene evidence contract lives in `docs/agents/shipping-and-hygiene.md` so context-budget validation remains green.
+
+## Hosted Hermes Stripe checkout alignment (append 2026-08-22T19:13:15Z) — agent `grok-hosted-hermes-stripe-checkout`
+
+### Task
+| T-HOSTED-HERMES-STRIPE-CHECKOUT-20260822 | Align live Stripe Checkout with the hosted Hermes $10/mo 14-day lock: rename leftover Leash Cloud Runner catalog copy, put the 14-day trial on Checkout Sessions, keep billing portal matching Hosted Hermes | in_progress | grok-hosted-hermes-stripe-checkout | `apps/hermes-control-plane/app/api/billing/checkout/route.ts`, `apps/hermes-control-plane/app/api/billing/portal/route.ts`, `apps/hermes-control-plane/tests/stranger-checkout-gate.test.mjs`, `apps/hermes-control-plane/tests/rendered-html.test.mjs`, `plan.md` | Live catalog name Hosted Hermes; Checkout Session sends trial_period_days=14; portal accepts Hosted Hermes product name; focused billing tests green |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| apps/hermes-control-plane/app/api/billing/checkout/route.ts | grok-hosted-hermes-stripe-checkout | 2026-08-22T19:13:15Z |
+| apps/hermes-control-plane/app/api/billing/portal/route.ts | grok-hosted-hermes-stripe-checkout | 2026-08-22T19:13:15Z |
+| apps/hermes-control-plane/tests/stranger-checkout-gate.test.mjs | grok-hosted-hermes-stripe-checkout | 2026-08-22T19:13:15Z |
+| apps/hermes-control-plane/tests/rendered-html.test.mjs | grok-hosted-hermes-stripe-checkout | 2026-08-22T19:13:15Z |
+| plan.md (this append) | grok-hosted-hermes-stripe-checkout | 2026-08-22T19:13:15Z |
+
+### Decision
+- Live Stripe product `prod_UvCkEGXfhxBSlk` was still named Leash Cloud Runner (Mac-pair continuation). Catalog renamed to Hosted Hermes with fenced-VPS copy + marketing features. Checkout Sessions must send `subscription_data[trial_period_days]=14` so the 14-day trial is real, not only landing copy.
