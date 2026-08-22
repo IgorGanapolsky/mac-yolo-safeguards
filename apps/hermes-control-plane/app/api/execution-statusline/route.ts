@@ -8,14 +8,15 @@ export async function GET() {
   try { session = await requireSession(); } catch { return jsonError("sign in required", 401); }
 
   const row = await db().prepare(
-    `SELECT k.id AS taskId, k.status, k.route, t.model,
+    `SELECT k.id AS taskId, k.status, k.route, NULL AS model,
             k.created_at AS createdAt, k.completed_at AS completedAt,
             (SELECT a.metadata FROM audit_events a
               WHERE a.organization_id = ? AND a.target_type = 'task' AND a.target_id = k.id
                 AND a.action IN ('task.completed', 'task.failed')
               ORDER BY a.created_at DESC LIMIT 1) AS metadata
-       FROM tasks k JOIN threads t ON t.id = k.thread_id
-      WHERE k.organization_id = ? AND t.organization_id = ?
+       FROM tasks k
+      WHERE k.organization_id = ?
+        AND EXISTS (SELECT 1 FROM threads t WHERE t.id = k.thread_id AND t.organization_id = ?)
         AND k.status IN ('completed', 'failed')
       ORDER BY COALESCE(k.completed_at, k.updated_at) DESC LIMIT 1`,
   ).bind(session.organizationId, session.organizationId, session.organizationId).first<ExecutionStatuslineRow>();

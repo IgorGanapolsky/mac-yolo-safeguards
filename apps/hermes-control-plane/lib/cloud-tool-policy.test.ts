@@ -59,7 +59,20 @@ describe("evaluateCloudPromptToolPolicy", () => {
       "use /Users/igor/RealEstate and inspect https://github.com/IgorGanapolsky/RealEstate/pulls",
     );
     expect(pullsPrompt).toContain("Repository: https://github.com/IgorGanapolsky/RealEstate");
-    expect(pullsPrompt).not.toContain("/pulls");
+    expect(pullsPrompt).toContain("/pulls");
+
+    const suffixPrompt = buildHostedExecutionPrompt(
+      "In /Users/me/project, fix issue 42 in https://github.com/acme/project",
+    );
+    expect(suffixPrompt).toContain("fix issue 42");
+    expect(suffixPrompt).not.toContain("/Users/me/project");
+  });
+
+  it("neutralizes an earlier local-only message even when another turn supplies a repository", async () => {
+    const { buildHostedExecutionPrompt } = await import("./cloud-tool-policy");
+    const prior = buildHostedExecutionPrompt("inspect /Users/me/Desktop/private.txt");
+    expect(prior).toContain("local-only path");
+    expect(prior).not.toContain("/Users/me/Desktop/private.txt");
   });
 
   it("does NOT block VPS-local or relative paths (no false positive)", () => {

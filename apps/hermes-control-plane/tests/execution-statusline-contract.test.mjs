@@ -20,6 +20,8 @@ test("private dashboard mounts a truthful latest-turn statusline", () => {
   assert.match(component, /document\.visibilityState/);
   assert.match(route, /requireSession\(\)/);
   assert.match(route, /organization_id = \?/);
+  assert.match(route, /NULL AS model/);
+  assert.doesNotMatch(route, /t\.model/);
   assert.match(route, /cache-control.*no-store/i);
   assert.doesNotMatch(dashboard, /ThumbGate online/i);
 });

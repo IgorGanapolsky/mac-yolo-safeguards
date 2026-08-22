@@ -53,7 +53,8 @@ export function buildExecutionStatusline(row: ExecutionStatuslineRow): Execution
   const elapsed = createdAt !== null && completedAt !== null && completedAt >= createdAt
     ? completedAt - createdAt
     : null;
-  const rawModel = typeof row.model === "string" ? row.model.trim().slice(0, 120) : "";
+  const measuredModel = typeof metadata.model === "string" ? metadata.model : row.model;
+  const rawModel = typeof measuredModel === "string" ? measuredModel.trim().slice(0, 120) : "";
 
   return {
     taskId: row.taskId,

@@ -240,7 +240,7 @@ try {
   d1([
     `UPDATE threads SET model = 'qwen3:8b', updated_at = ${completedAt} WHERE id = '${miniTask.threadId}' AND organization_id = 'e2e-org'`,
     `UPDATE tasks SET route = 'cloud', status = 'completed', completed_at = ${completedAt}, updated_at = ${completedAt} WHERE id = '${miniTask.id}' AND organization_id = 'e2e-org'`,
-    `INSERT INTO audit_events (id, organization_id, actor_type, actor_id, action, target_type, target_id, metadata, created_at) VALUES ('e2e-turn-receipt', 'e2e-org', 'runner', 'e2e-runner', 'task.completed', 'task', '${miniTask.id}', '{"durationMs":321,"promptTokens":1200,"completionTokens":80,"ttftMs":92,"costUsd":0}', ${completedAt})`,
+    `INSERT INTO audit_events (id, organization_id, actor_type, actor_id, action, target_type, target_id, metadata, created_at) VALUES ('e2e-turn-receipt', 'e2e-org', 'runner', 'e2e-runner', 'task.completed', 'task', '${miniTask.id}', '{"model":"qwen3:8b","durationMs":321,"promptTokens":1200,"completionTokens":80,"ttftMs":92,"costUsd":0}', ${completedAt})`,
   ].join("; "));
   const statuslineRes = await fetch(`${base}/api/execution-statusline`, { headers: authHeaders });
   assert.equal(statuslineRes.status, 200);

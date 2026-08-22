@@ -58,6 +58,17 @@ describe("buildExecutionStatusline", () => {
     });
   });
 
+  it("prefers task-scoped receipt model evidence over mutable thread metadata", () => {
+    const statusline = buildExecutionStatusline({
+      taskId: "task-3",
+      status: "completed",
+      route: "cloud",
+      model: "stale-thread-model",
+      metadata: JSON.stringify({ model: "measured-run-model" }),
+    });
+    expect(statusline.model).toBe("measured-run-model");
+  });
+
   it("formats compact values without turning unknown into zero", () => {
     expect(formatLatency(null)).toBe("—");
     expect(formatLatency(92)).toBe("92ms");

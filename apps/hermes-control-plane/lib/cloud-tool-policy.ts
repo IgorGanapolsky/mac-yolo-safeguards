@@ -53,6 +53,17 @@ function githubRepositoryUrls(prompt: string): string[] {
   return Array.from(new Set(String(prompt ?? "").match(GITHUB_REPOSITORY_RE) ?? []));
 }
 
+function omitLocalPathReferences(prompt: string): string {
+  return prompt
+    .replace(/\/Users\/[^\s,;]+/gi, "[local path omitted]")
+    .replace(/~\/(?:Desktop|Documents|Downloads|Movies|Pictures|Music|Library|Applications)(?:\/[^\s,;]+)?/gi, "[local path omitted]")
+    .replace(/[A-Za-z]:[\\/]Users[\\/][^\s,;]+/gi, "[local path omitted]")
+    .replace(/(?:\[local path omitted\]\s*)+/g, "[local path omitted] ")
+    .replace(/\s+([,;:.!?])/g, "$1")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
 /**
  * Derive the prompt sent to the fenced runner without changing the stored user
  * message. A repository URL is usable on the VPS; a path on the user's own
@@ -61,12 +72,13 @@ function githubRepositoryUrls(prompt: string): string[] {
 export function buildHostedExecutionPrompt(prompt: string): string {
   const text = String(prompt ?? "").trim();
   const repositories = githubRepositoryUrls(text);
-  if (repositories.length === 0 || !LOCAL_ONLY_PROMPT_PATTERNS[0].re.test(text)) return text;
+  if (!LOCAL_ONLY_PROMPT_PATTERNS[0].re.test(text)) return text;
+  if (repositories.length === 0) {
+    return "Earlier context referenced a local-only path that is unavailable on the fenced VPS. Do not inspect, modify, or make claims about that omitted local path.";
+  }
 
-  const localPathIndex = text.search(LOCAL_ONLY_PROMPT_PATTERNS[0].re);
-  const intent = localPathIndex > 0 ? text.slice(0, localPathIndex).trim().replace(/[,:;\-]+$/, "") : "Complete the requested repository work.";
   return [
-    intent,
+    omitLocalPathReferences(text),
     `Repository: ${repositories.join(", ")}`,
     "Work only from the repository on the fenced VPS. Clone or fetch it. Do not claim access to omitted local paths. If repository access fails, report the exact repository or authentication blocker.",
   ].filter(Boolean).join("\n\n");
