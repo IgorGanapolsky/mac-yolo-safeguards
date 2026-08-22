@@ -2,16 +2,24 @@
  * HermesGlassesDatPackage.kt
  *
  * React Native package that bridges the Meta Wearables DAT SDK
- * Camera Kit to JavaScript via HermesGlassesModule.
+ * Camera Kit to JavaScript via HermesGlassesDatModule.
  *
  * Registers the HermesDatCameraModule for native method calls:
  *   - startCameraStream()
  *   - stopCameraStream()
- *   - requestSnapshot()
- *   - sendFrameToVisionModel(label)
+ *   - requestSnapshot()          → arms next-frame capture (triggered by gestures)
+ *   - sendFrameToVisionModel(label) → processes the latest frame immediately
+ *   - startAudioRecording(path)   → HFP audio capture for meetings
+ *   - stopAudioRecording()      → returns file path
  *
  * Requires Developer Mode on the glasses:
  *   Meta AI app → Settings → App Info → tap version 5×
+ *
+ * Gesture wiring (double_blink / tap → snapshot → vision):
+ *   JS onGlassesGesture callback calls requestSnapshot(), which calls
+ *   datCamera.requestSnapshot() to set an atomic flag. The next I420
+ *   frame via onFrameReceived() sees the flag, converts I420→JPEG,
+ *   and POSTs to the Mac bridge's /api/glasses/vision endpoint.
  */
 package com.iganapolsky.hermesmobile.glasses
 
@@ -38,12 +46,12 @@ class HermesGlassesDatModule(context: ReactApplicationContext) : ReactContextBas
     }
 
     private var datCamera: HermesDatCameraModule? = null
-    private var snapshotPending = false
 
     override fun getName() = "HermesGlassesDat"
 
     /**
      * Start streaming camera frames from Meta Glasses via DAT SDK.
+     * The glasses must already be connected via BLE (connectGlasses()).
      */
     @ReactMethod
     fun startCameraStream(promise: Promise) {
@@ -79,34 +87,27 @@ class HermesGlassesDatModule(context: ReactApplicationContext) : ReactContextBas
     }
 
     /**
-     * Request a snapshot — next available I420 frame is
-     * JPEG-encoded and sent to vision model via Hermes Gateway.
+     * Arm a snapshot — the next I420 frame from the DAT SDK will be
+     * JPEG-encoded and POSTed to the vision model. Called by the JS
+     * gesture handler on double_blink or tap.
      */
     @ReactMethod
     fun requestSnapshot(promise: Promise) {
-        if (snapshotPending) {
-            promise.reject("SNAPSHOT_PENDING", "Snapshot already requested")
-            return
-        }
-        snapshotPending = true
         try {
             datCamera?.let {
-                it.sendFrameToVisionModel("snapshot")
-                snapshotPending = false
+                it.requestSnapshot()
                 promise.resolve(true)
             } ?: run {
-                snapshotPending = false
-                promise.reject("NO_CAMERA", "Camera stream not started")
+                promise.reject("NO_CAMERA", "Camera stream not started. Call startCameraStream() first.")
             }
         } catch (e: Exception) {
-            snapshotPending = false
             promise.reject("DAT_ERROR", e.localizedMessage ?: "Unknown error")
         }
     }
 
     /**
-     * Send latest frame to vision model. Used for direct capture
-     * without waiting for a snapshot request.
+     * Send the latest frame to the vision model immediately.
+     * Does not wait for a gesture — fires on the most recent frame.
      */
     @ReactMethod
     fun sendFrameToVisionModel(label: String, promise: Promise) {
@@ -117,6 +118,45 @@ class HermesGlassesDatModule(context: ReactApplicationContext) : ReactContextBas
                     putBoolean("ok", true)
                     putString("label", label)
                 })
+            } ?: run {
+                promise.reject("NO_CAMERA", "Camera stream not started. Call startCameraStream() first.")
+            }
+        } catch (e: Exception) {
+            promise.reject("DAT_ERROR", e.localizedMessage ?: "Unknown error")
+        }
+    }
+
+    /**
+     * Start recording meeting audio via HFP from the glasses.
+     * @param outputPath file path for the recorded audio
+     */
+    @ReactMethod
+    fun startAudioRecording(outputPath: String, promise: Promise) {
+        try {
+            datCamera?.let {
+                it.startAudioRecording(outputPath)
+                promise.resolve(true)
+            } ?: run {
+                promise.reject("NO_CAMERA", "Camera stream not started. Call startCameraStream() first.")
+            }
+        } catch (e: Exception) {
+            promise.reject("DAT_ERROR", e.localizedMessage ?: "Unknown error")
+        }
+    }
+
+    /**
+     * Stop the current audio recording and return the file path.
+     */
+    @ReactMethod
+    fun stopAudioRecording(promise: Promise) {
+        try {
+            datCamera?.let {
+                val path = it.stopAudioRecording()
+                if (path != null) {
+                    promise.resolve(path)
+                } else {
+                    promise.reject("AUDIO_NOT_RUNNING", "No audio recording in progress")
+                }
             } ?: run {
                 promise.reject("NO_CAMERA", "Camera stream not started. Call startCameraStream() first.")
             }
