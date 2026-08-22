@@ -45,7 +45,7 @@
             }
           }
         },
-        "NSLocalNetworkUsageDescription": "Hermes Mobile finds your computer on Wi‑Fi and Tailscale so chat can connect."
+        "NSLocalNetworkUsageDescription": "Hermes Mobile finds your computer on Wi\u2011Fi and Tailscale so chat can connect."
       },
       "privacyManifests": {
         "NSPrivacyTracking": false,
@@ -184,7 +184,8 @@
           "organization": "max-smith-kdp-llc",
           "project": "hermes-mobile"
         }
-      ]
+      ],
+      "./plugins/withHermesDatSdk.js"
     ]
   }
 }
