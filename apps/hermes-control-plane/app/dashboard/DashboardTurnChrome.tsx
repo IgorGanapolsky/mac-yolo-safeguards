@@ -28,11 +28,17 @@ export function DashboardTurnChrome() {
       }
     };
     void load();
-    const onFocus = () => void load();
-    window.addEventListener("focus", onFocus);
+    const id = window.setInterval(() => void load(), 15_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    window.addEventListener("focus", onVisible);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
-      window.removeEventListener("focus", onFocus);
+      window.clearInterval(id);
+      window.removeEventListener("focus", onVisible);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 

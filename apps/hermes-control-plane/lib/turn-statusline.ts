@@ -50,7 +50,11 @@ export function formatTtft(ttftMs?: number | null): string {
 }
 
 export function formatTurnCost(costUsd?: number | null): string {
-  if (costUsd == null || !Number.isFinite(costUsd)) return "$0.00 · included in $10/mo";
+  if (costUsd == null || !Number.isFinite(costUsd) || costUsd < 0) {
+    return "$0.00 · included in $10/mo";
+  }
+  if (costUsd === 0) return "$0.00";
+  if (costUsd < 0.01) return "<$0.01";
   return `$${costUsd.toFixed(2)}`;
 }
 

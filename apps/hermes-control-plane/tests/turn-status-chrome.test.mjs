@@ -34,8 +34,11 @@ test("dashboard chrome mounts hosted Turn Statusline, not localhost Ollama", () 
   assert.match(bar, /Cost:/);
   assert.match(chrome, /formatTurnStatusline/);
   assert.match(chrome, /\/api\/turn-status/);
-  assert.match(api, /llm_calls/);
+  assert.match(chrome, /setInterval/);
+  assert.match(api, /hosted-fallback/);
+  assert.doesNotMatch(api, /FROM llm_calls/);
   assert.match(lib, /Hosted Hermes/);
+  assert.match(lib, /<\$0\.01/);
   assert.match(lib, /unmeasured/);
   assert.doesNotMatch(lib, /localhost:11434/);
   assert.doesNotMatch(chrome, MAC_OLLAMA);
@@ -48,6 +51,7 @@ test("formatter defaults to hosted Hermes and keeps TTFT unmeasured", () => {
   assert.equal(formatEngine(), "Hosted Hermes · SuperGrok (grok-4.5)");
   assert.equal(formatTtft(null), "unmeasured");
   assert.equal(formatTurnCost(null), "$0.00 · included in $10/mo");
+  assert.equal(formatTurnCost(0.004), "<$0.01");
   assert.equal(
     formatTurnStatusline().line,
     "Turn Statusline | Engine: Hosted Hermes · SuperGrok (grok-4.5) | TTFT: unmeasured | Cost: $0.00 · included in $10/mo",

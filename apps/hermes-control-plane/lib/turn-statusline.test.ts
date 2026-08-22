@@ -39,6 +39,7 @@ describe("turn statusline", () => {
   it("treats unknown turn cost as included in the $10/mo plan", () => {
     expect(formatTurnCost(null)).toBe("$0.00 · included in $10/mo");
     expect(formatTurnCost(0)).toBe("$0.00");
+    expect(formatTurnCost(0.004)).toBe("<$0.01");
     expect(formatTurnCost(1.234)).toBe("$1.23");
   });
 
