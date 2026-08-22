@@ -3544,3 +3544,10 @@ Three PRs shipped:
 ## 3. Decisions (append-only) — agent: meta-glasses-dat-sdk-connection-20260822 (Fix #2)
 
 - **2026-08-22T01:30Z**: Removed `withAndroidManifest` from `withHermesDatSdk.js` — the `platformPermissions` assignment was being serialized as `<platformPermissions>` XML element in AndroidManifest.xml, causing AAPT error: "unexpected element <platformPermissions> found in <manifest>". Permissions (BLUETOOTH_CONNECT, BLUETOOTH_SCAN, CAMERA) are already declared by `expo-camera` and the base manifest. Plugin now only injects the Gradle dependency placeholder (commented AAR) + Kotlin jvmTarget documentation comment.
+
+## 3. Decisions (append-only) — agent: meta-glasses-dat-sdk-connection-20260822 (Round 2)
+
+- **2026-08-22T01:35Z**: Fixed `HermesDatCameraModule.kt` — replaced non-existent `android.media.ImageFormat.getYuvBitmap()` with proper `YuvImage` + `NV21` conversion. Added `convertI420ToJpeg(frame)` and `convertI420ToJpeg(yBuffer, uBuffer, vBuffer, w, h)` utility functions that manually interleave U/V planes for NV21 format. Fixed `init` block syntax (`init: Unit = with(...)` → proper `init { }`). Fixed `snapshotFlow.tryEmit()` hack with `AtomicBoolean.compareAndSet`. Added HFP audio recording via `MediaRecorder` with `startAudioRecording(outputPath)` / `stopAudioRecording()`.
+- **2026-08-22T01:38Z**: Added `sendVisionFrame()` and `sendAudioRecording()` methods to `HermesGatewayClient.kt` — POSTs JPEG base64 frames to Mac bridge `/api/glasses/vision` endpoint via OkHttp. Returns VisionResult/AudioResult data classes.
+- **2026-08-22T01:40Z**: Updated `HermesGlassesDatPackage.kt` — `requestSnapshot()` now arms the next-frame capture flag via `datCamera.requestSnapshot()` (instead of immediately trying to capture). Added `startAudioRecording()` / `stopAudioRecording()` native methods. Both call through to `HermesDatCameraModule`.
+- **Verification**: 0 typecheck errors, 2401/2401 hermes-mobile tests pass, CodeQL 0 findings. Maestro flow validation 43/43 OK.
