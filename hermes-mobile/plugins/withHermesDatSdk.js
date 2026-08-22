@@ -1,43 +1,54 @@
 /**
  * withHermesDatSdk.js
  *
- * Expo config plugin — adds Meta Wearables Device Access Toolkit (DAT) SDK
- * dependency for streaming raw camera frames from Ray-Ban Meta glasses.
+ * Expo config plugin — registers Meta Wearables Device Access Toolkit (DAT) SDK
+ * for streaming raw camera frames from Ray-Ban Meta glasses.
  *
- * Install:
- *   npm install @meta/wearables-dat-sdk
- *   npx expo prebuild
+ * The DAT SDK is distributed via the Meta for Developers portal (not Maven Central)
+ * and must be manually installed after enabling Developer Mode on the glasses.
+ * This plugin adds the native dependency as a commented placeholder and registers
+ * the required permissions + Kotlin version, so `npx expo prebuild` succeeds.
  *
- * The DAT SDK is a native iOS (Swift) and Android (Kotlin) SDK that provides
- * Camera Kit for streaming I420 video frames from Meta smart glasses to a
- * companion app. This bypasses Meta AI's "I can't read screens" guardrail
- * by giving you direct access to raw camera frames.
+ * Install (Android):
+ *   Visit https://developers.meta.com → Wearables DAT SDK → download AAR
+ *   Place the .aar in android/app/libs/ and uncomment the dependency below.
+ *
+ * Install (iOS):
+ *   Use Swift Package Manager with the Meta Wearables DAT SDK URL.
  *
  * @see https://developers.meta.com/blog/introducing-meta-wearables-device-access-toolkit/
  */
-const { withProjectBuildGradle, withAppBuildGradle, withAndroidManifest } = require('@expo/config-plugins');
+const { withAppBuildGradle, withProjectBuildGradle, withAndroidManifest } = require('@expo/config-plugins');
 
 const DAT_SDK_VERSION = '1.0.0';
 
 function withHermesDatSdk(config) {
-  // Add DAT SDK dependency to build.gradle (app level)
+  // Add DAT SDK dependency placeholder to build.gradle (app level).
+  // The actual Maven coordinate depends on how Meta ships the SDK; we add a
+  // commented-out placeholder so the dependency line is discoverable but does
+  // not break builds when the SDK isn't installed.
   config = withAppBuildGradle(config, (mod) => {
-    if (!mod.modResults.contents.includes('@meta:wearables-dat-sdk')) {
-      mod.modResults.contents += `
-    // Meta Wearables Device Access Toolkit (DAT SDK)
-    implementation 'com.meta.wearables:dat-sdk:${DAT_SDK_VERSION}'
-`;
+    if (!mod.modResults.contents.includes('@meta/wearables-dat-sdk')) {
+      // Inject the placeholder inside the dependencies block.
+      mod.modResults.contents = mod.modResults.contents.replace(
+        /dependencies\s*\{/,
+        'dependencies {\n    // Meta Wearables Device Access Toolkit (DAT SDK)\n    // implementation(name: "dat-sdk-1.0.0", ext: "aar")\n    // Install: download AAR from developers.meta.com → android/app/libs/',
+      );
     }
     return mod;
   });
 
-  // Add Kotlin options for DAT SDK compatibility
+  // Set Kotlin jvmTarget to 21 (DAT SDK requires Kotlin 2.1+)
   config = withProjectBuildGradle(config, (mod) => {
-    if (!mod.modResults.contents.includes('dat-sdk-kotlin-options')) {
+    if (!mod.modResults.contents.includes('hermes-dat-sdk-kotlin')) {
       mod.modResults.contents = mod.modResults.contents.replace(
         'kotlinOptions {',
-        'kotlinOptions {\n        // DAT SDK requires Kotlin 2.1+\n        jvmTarget = "21"',
+        'kotlinOptions {\n        // DAT SDK requires Kotlin 2.1+\n        // hermes-dat-sdk-kotlin\n        jvmTarget = "21"',
       );
+      if (mod.modResults.contents.includes('kotlinOptions {')) {
+        // kotlinOptions block may not exist; add after kotlinOptions in buildscript
+        mod.modResults.contents += '\n// hermes-dat-sdk-kotlin: Kotlin jvmTarget 21+ required for DAT SDK';
+      }
     }
     return mod;
   });
@@ -51,12 +62,9 @@ function withHermesDatSdk(config) {
       'android.permission.CAMERA',
       'android.permission.BROADCAST_STICKY',
     ];
-    mod.modResults.manifest['dat-sdk-enabled'] = true;
     return mod;
   });
 
-  // Mark config with version metadata
-  config.version = config.version || {};
   return config;
 }
 

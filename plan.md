@@ -3531,3 +3531,7 @@ Three PRs shipped:
 - **2026-08-22T01:10Z**: Configured Tailscale Serve on ports 18789 (OpenClaw/Mobile pair server) and 8766 (MCP broker) for tailnet-only access. Funnel disabled (security: loopback only).
 - **2026-08-22T01:15Z**: Updated `tools/meta-glasses-hermes-bridge.js` dispatchBrowserAction to also relay browser intents through MCP broker channel 'browser-automation' for cross-agent visibility.
 - **2026-08-22T01:20Z**: Verified Meta Glasses full pipeline: captureScreen ✅ (126KB JPEG), recordScreen ✅ (6 frames → MP4), queryHermesVision ✅ (correctly identified Chrome), speakToGlasses ✅ (TTS via `say` command). 16/16 tests pass. CodeQL 0 findings.
+
+## 3. Decisions (append-only) — agent: meta-glasses-dat-sdk-connection-20260822 (Fix)
+
+- **2026-08-22T01:25Z**: Fixed `withHermesDatSdk.js` — replaced active `implementation 'com.meta.wearables:dat-sdk:1.0.0'` (which doesn't exist on Maven Central and broke Android Gradle prebuild) with a commented-out placeholder inside the `dependencies {}` block. The DAT SDK is distributed via Meta for Developers portal, not Maven, so the plugin now adds a commented AAR dependency placeholder + documentation on manual install. CI Android E2E build failure was caused by this; the fix keeps `npx expo prebuild` succeeding without the SDK installed.
