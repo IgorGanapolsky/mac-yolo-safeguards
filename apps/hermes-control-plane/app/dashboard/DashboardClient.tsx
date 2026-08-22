@@ -248,41 +248,19 @@ function clampSidebarWidth(width: number) {
 }
 
 export default function DashboardClient() {
-  /** Shell-first: hydrate from sessionStorage so revisits paint before network. */
-  const [user, setUser] = useState<User | null>(() => {
-    const cached = readJsonSessionStorage<CachedIdentity<User, Organization>>(DASHBOARD_CACHE_KEYS.me);
-    return cached?.user ?? null;
-  });
-  const [organization, setOrganization] = useState<Organization | null>(() => {
-    const cached = readJsonSessionStorage<CachedIdentity<User, Organization>>(DASHBOARD_CACHE_KEYS.me);
-    return cached?.organization ?? null;
-  });
+  /** First client render matches server HTML; the mount effect restores the cached shell. */
+  const [user, setUser] = useState<User | null>(null);
+  const [organization, setOrganization] = useState<Organization | null>(null);
   /** CoreWeave-style remaining capacity from /api/me (governance-enforced caps). */
   const [continuityUsage, setContinuityUsage] = useState<ContinuityUsage | null>(null);
   const [hostedRunner, setHostedRunner] = useState<HostedResourceView | null>(null);
   const [hostedModel, setHostedModel] = useState<HostedResourceView | null>(null);
   const [devices, setDevices] = useState<Device[]>([]);
-  const [threads, setThreads] = useState<Thread[]>(() => readJsonSessionStorage<Thread[]>(DASHBOARD_CACHE_KEYS.threads) ?? []);
-  const [tasks, setTasks] = useState<Task[]>(() => readJsonSessionStorage<Task[]>(DASHBOARD_CACHE_KEYS.tasks) ?? []);
-  const [selectedThread, setSelectedThread] = useState<string | null>(() => {
-    // Lessons deep-links: list/filter modes must not auto-open a sticky thread.
-    if (typeof window !== "undefined") {
-      if (window.location.hash === "#chats") return null;
-      const filter = new URLSearchParams(window.location.search).get("filter");
-      if (filter === "completed" || filter === "unrated") return null;
-    }
-    const stored = readJsonSessionStorage<string>(DASHBOARD_CACHE_KEYS.selectedThread);
-    if (stored) return stored;
-    const cachedThreads = readJsonSessionStorage<Thread[]>(DASHBOARD_CACHE_KEYS.threads) ?? [];
-    return cachedThreads[0]?.id ?? null;
-  });
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [selectedThread, setSelectedThread] = useState<string | null>(null);
   /** Lessons → Hermes deep-link: ?filter=completed|unrated shows task receipts across chats. */
-  const [taskFilter, setTaskFilter] = useState<"all" | "completed" | "unrated">(() => {
-    if (typeof window === "undefined") return "all";
-    const filter = new URLSearchParams(window.location.search).get("filter");
-    if (filter === "completed" || filter === "unrated") return filter;
-    return "all";
-  });
+  const [taskFilter, setTaskFilter] = useState<"all" | "completed" | "unrated">("all");
   const [threadDetails, setThreadDetails] = useState<ThreadDetails | null>(null);
   const [prompt, setPrompt] = useState("");
   const [selectedBotId, setSelectedBotId] = useState<string>("chief");
@@ -687,15 +665,28 @@ export default function DashboardClient() {
   }
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    const timer = window.setTimeout(() => {
       try {
         window.sessionStorage.removeItem(DASHBOARD_CACHE_KEYS.devices);
         window.localStorage.removeItem(preferredDevicePreferenceKey);
       } catch {}
-    }
-    const pendingCode = new URLSearchParams(window.location.search).get("pair")?.toUpperCase() ?? "";
-    if (!pairingCodePattern.test(pendingCode)) return;
-    const timer = window.setTimeout(() => setPairCode(pendingCode), 0);
+      const cached = readJsonSessionStorage<CachedIdentity<User, Organization>>(DASHBOARD_CACHE_KEYS.me);
+      if (cached?.user) setUser(cached.user);
+      if (cached?.organization) setOrganization(cached.organization);
+      const cachedThreads = readJsonSessionStorage<Thread[]>(DASHBOARD_CACHE_KEYS.threads) ?? [];
+      const cachedTasks = readJsonSessionStorage<Task[]>(DASHBOARD_CACHE_KEYS.tasks) ?? [];
+      setThreads(cachedThreads);
+      setTasks(cachedTasks);
+
+      const params = new URLSearchParams(window.location.search);
+      const filter = params.get("filter");
+      if (filter === "completed" || filter === "unrated") setTaskFilter(filter);
+      else if (window.location.hash !== "#chats") {
+        setSelectedThread(readJsonSessionStorage<string>(DASHBOARD_CACHE_KEYS.selectedThread) ?? cachedThreads[0]?.id ?? null);
+      }
+      const pendingCode = params.get("pair")?.toUpperCase() ?? "";
+      if (pairingCodePattern.test(pendingCode)) setPairCode(pendingCode);
+    }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -1546,7 +1537,6 @@ export default function DashboardClient() {
                   : `Updated ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit" }).format(new Date(lastRefreshedAt))}`}
               </span>
             )}
-            <span className="status-chip online"><i /> ThumbGate online</span>
             <button className="button button-small button-secondary" onClick={() => void (["pro", "team"].includes(organization.plan) ? manageBilling() : subscribe())} disabled={busy}>
               {["pro", "team"].includes(organization.plan) ? "Manage plan" : organization.cloudAccess ? "Keep cloud after trial" : "Add cloud failover"}
             </button>

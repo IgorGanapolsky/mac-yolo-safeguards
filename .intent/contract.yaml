@@ -176,6 +176,47 @@ capabilities:
                 pattern: 'ThumbGate Wake'
               - in: apps/hermes-control-plane/app/StartSurfaces.tsx
                 pattern: '28 days|78 Tasks'
+  - key: DASHBOARD
+    name: Truthful hosted-work dashboard
+    description: The dashboard stays readable and reports only persisted execution evidence.
+    stories:
+      - key: DASHBOARD-001
+        title: Understand the latest hosted turn
+        actor: buyer
+        goal: see which engine ran, how long it took, and which measured usage fields exist
+        benefit: no vague online promise or invented zero-cost telemetry
+        lifecycle: production
+        acceptance_criteria:
+          - key: DASHBOARD-001-AC1
+            criterion: The private dashboard shows organization-scoped latest-turn evidence and keeps prompts and output readable on desktop and mobile.
+            implements:
+              - apps/hermes-control-plane/app/dashboard/layout.tsx
+              - apps/hermes-control-plane/app/dashboard/ExecutionStatusline.tsx
+              - apps/hermes-control-plane/app/dashboard/execution-statusline.module.css
+              - apps/hermes-control-plane/app/api/execution-statusline/route.ts
+              - apps/hermes-control-plane/app/dashboard/DashboardClient.tsx
+              - apps/hermes-control-plane/app/globals.css
+              - apps/hermes-control-plane/lib/execution-statusline.ts
+              - apps/hermes-control-plane/lib/cloud-tool-policy.ts
+              - apps/hermes-control-plane/app/api/runner/tasks/claim/route.ts
+            tests:
+              - apps/hermes-control-plane/lib/execution-statusline.test.ts
+              - apps/hermes-control-plane/lib/cloud-tool-policy.test.ts
+              - apps/hermes-control-plane/tests/execution-statusline-contract.test.mjs
+            must_contain:
+              - in: apps/hermes-control-plane/app/dashboard/ExecutionStatusline.tsx
+                pattern: Turn Statusline
+              - in: apps/hermes-control-plane/app/api/runner/tasks/claim/route.ts
+                pattern: buildHostedExecutionPrompt
+              - in: apps/hermes-control-plane/lib/cloud-tool-policy.ts
+                pattern: Clone or fetch
+              - in: apps/hermes-control-plane/app/globals.css
+                pattern: '\.composer > \.run-output'
+            must_not_contain:
+              - in: apps/hermes-control-plane/app/dashboard/DashboardClient.tsx
+                pattern: ThumbGate online
+              - in: apps/hermes-control-plane/lib/cloud-tool-policy.ts
+                pattern: paired local machine
   - key: PROCESS
     name: Intent contract process
     description: Agents grade accepted behavior against linked files before claiming done.

@@ -37,9 +37,29 @@ describe("evaluateCloudPromptToolPolicy", () => {
       expect(desktop.message).toContain("fenced VPS");
       expect(desktop.message).toContain("never read or delete");
       expect(desktop.message).not.toContain("Continuity");
+      expect(desktop.message).not.toContain("paired local machine");
     }
     expect(evaluateCloudPromptToolPolicy("summarize ~/Documents/notes.md").allowed).toBe(false);
     expect(evaluateCloudPromptToolPolicy("open C:\\Users\\igor\\report.docx").allowed).toBe(false);
+  });
+
+  it("uses a GitHub repository as the VPS source while omitting local-only paths", async () => {
+    const { buildHostedExecutionPrompt } = await import("./cloud-tool-policy");
+    const prompt = "work in /Users/igor/Documents/RealEstate and use https://github.com/IgorGanapolsky/RealEstate";
+    expect(evaluateCloudPromptToolPolicy(prompt)).toEqual({ allowed: true });
+
+    const executionPrompt = buildHostedExecutionPrompt(prompt);
+    expect(executionPrompt).toContain("https://github.com/IgorGanapolsky/RealEstate");
+    expect(executionPrompt).toContain("fenced VPS");
+    expect(executionPrompt).toContain("Clone or fetch");
+    expect(executionPrompt).not.toContain("/Users/igor/Documents/RealEstate");
+    expect(executionPrompt).not.toContain("paired");
+
+    const pullsPrompt = buildHostedExecutionPrompt(
+      "use /Users/igor/RealEstate and inspect https://github.com/IgorGanapolsky/RealEstate/pulls",
+    );
+    expect(pullsPrompt).toContain("Repository: https://github.com/IgorGanapolsky/RealEstate");
+    expect(pullsPrompt).not.toContain("/pulls");
   });
 
   it("does NOT block VPS-local or relative paths (no false positive)", () => {

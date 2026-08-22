@@ -17,7 +17,7 @@ export const LOCAL_ONLY_PROMPT_PATTERNS: ReadonlyArray<{ id: string; re: RegExp;
     re: /(?:\/Users\/[^\s/]+\/|(?:^|\s)~\/(?:Desktop|Documents|Downloads|Movies|Pictures|Music|Library|Applications)\b|[A-Za-z]:[\\/]Users[\\/])/,
     hint: "a file on your own computer",
     message:
-      "Hosted Hermes runs on an isolated fenced VPS, so it can't see or touch files on your own computer — your Desktop, Documents, and Downloads are not reachable from here, and it will never read or delete them. Paste the file's contents into the chat, or run this on a paired local machine instead.",
+      "Hosted Hermes runs on an isolated fenced VPS, so it can't see or touch files on your own computer — your Desktop, Documents, and Downloads are not reachable from here, and it will never read or delete them. Upload the file or paste its contents into the chat.",
   },
   { id: "applescript", re: /\b(osascript|applescript|tell\s+application)\b/i, hint: "AppleScript / macOS automation" },
   { id: "keychain", re: /\b(security\s+find-generic-password|keychain)\b/i, hint: "macOS Keychain" },
@@ -30,8 +30,10 @@ export const LOCAL_ONLY_PROMPT_PATTERNS: ReadonlyArray<{ id: string; re: RegExp;
 
 export function evaluateCloudPromptToolPolicy(prompt: string): CloudToolDecision {
   const text = String(prompt ?? "");
+  const hasGitHubRepository = githubRepositoryUrls(text).length > 0;
   for (const pattern of LOCAL_ONLY_PROMPT_PATTERNS) {
     if (pattern.re.test(text)) {
+      if (pattern.id === "local_filesystem_path" && hasGitHubRepository) continue;
       return {
         allowed: false,
         code: "local_only_tool",
@@ -43,6 +45,31 @@ export function evaluateCloudPromptToolPolicy(prompt: string): CloudToolDecision
     }
   }
   return { allowed: true };
+}
+
+const GITHUB_REPOSITORY_RE = /https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\.git)?/gi;
+
+function githubRepositoryUrls(prompt: string): string[] {
+  return Array.from(new Set(String(prompt ?? "").match(GITHUB_REPOSITORY_RE) ?? []));
+}
+
+/**
+ * Derive the prompt sent to the fenced runner without changing the stored user
+ * message. A repository URL is usable on the VPS; a path on the user's own
+ * computer is not and must not leak into model instructions as if it existed.
+ */
+export function buildHostedExecutionPrompt(prompt: string): string {
+  const text = String(prompt ?? "").trim();
+  const repositories = githubRepositoryUrls(text);
+  if (repositories.length === 0 || !LOCAL_ONLY_PROMPT_PATTERNS[0].re.test(text)) return text;
+
+  const localPathIndex = text.search(LOCAL_ONLY_PROMPT_PATTERNS[0].re);
+  const intent = localPathIndex > 0 ? text.slice(0, localPathIndex).trim().replace(/[,:;\-]+$/, "") : "Complete the requested repository work.";
+  return [
+    intent,
+    `Repository: ${repositories.join(", ")}`,
+    "Work only from the repository on the fenced VPS. Clone or fetch it. Do not claim access to omitted local paths. If repository access fails, report the exact repository or authentication blocker.",
+  ].filter(Boolean).join("\n\n");
 }
 
 export type HostedSidecarName = "runner" | "model" | "browser";

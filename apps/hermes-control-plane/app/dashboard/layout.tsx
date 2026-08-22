@@ -2,6 +2,7 @@ import { currentSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { ClientErrorBeacon } from "../ClientErrorBeacon";
+import { ExecutionStatusline } from "./ExecutionStatusline";
 
 export default async function PrivateDashboardLayout({ children }: { children: ReactNode }) {
   const session = await currentSession();
@@ -10,6 +11,7 @@ export default async function PrivateDashboardLayout({ children }: { children: R
     <>
       <ClientErrorBeacon />
       {children}
+      <ExecutionStatusline />
     </>
   );
 }
