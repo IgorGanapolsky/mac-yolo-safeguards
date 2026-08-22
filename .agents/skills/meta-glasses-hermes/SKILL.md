@@ -37,7 +37,10 @@ node tools/meta-glasses-hermes-bridge.js --phone-only
 node tools/meta-glasses-hermes-bridge.js --openclaw-status
 node tools/meta-glasses-hermes-bridge.js --email
 node tools/meta-glasses-hermes-bridge.js --capabilities
+node tools/meta-glasses-hermes-bridge.js --play-podcasts
+node tools/meta-glasses-hermes-bridge.js --media-list
 node tools/meta-glasses-hermes-bridge.js --ask "what's in my inbox"
+node tools/meta-glasses-hermes-bridge.js --ask "play my latest podcasts"
 ```
 
 ## HARD: Gmail vs "email is not connected"
@@ -58,6 +61,14 @@ Hermes Gmail (`~/.hermes/google_token.json`) **is** connected: `--email` reads `
 | Android XR Projected | Hermes native-glasses scaffold — not Ray-Ban Meta display |
 
 Never claim Hey Meta runs Hermes MCPs. Route "look at my email" to Hermes `--ask`/`--email` until Meta Apps Gmail OAuth is on.
+
+## HARD: Google Play Music / podcasts (CEO 2026-08-22)
+
+Hey Meta said **not supported** because **Google Play Music shut down December 2020**. Official Meta music partners (Aug 2026): Spotify, Amazon Music, Apple Music (iOS), Audible (US), iHeart (US). **Not** Play Music. **Not** YouTube Music as a Hey Meta connector.
+
+Phone audio still plays through the glasses as Bluetooth speakers. Hermes `--play-podcasts` starts YouTube Music (successor) or Spotify/iHeart on the phone. Never pair glasses to the Mac for audio. Never start media during an in-call screen.
+
+Official: https://www.meta.com/ai-glasses/music-and-audio/ and App connections at https://www.meta.com/help/ai-glasses/512899661905977/
 
 If glasses keep "trying to connect to MacBook Pro": Mac residual bond or glasses multi-point memory. Run `--phone-only`, confirm macOS Bluetooth has no RB Meta pair, keep Meta AI Device connected on the phone.
 

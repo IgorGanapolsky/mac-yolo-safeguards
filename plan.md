@@ -3577,3 +3577,9 @@ RELEASED: grok-context-vault-20260822 (feat/context-vault-20260822) — Implemen
 - **Files**: `tools/meta-glasses-hermes-bridge.js`, `tools/glasses-gmail.py`, `tests/test-meta-glasses-hermes-bridge.js`, `.agents/skills/meta-glasses-hermes/SKILL.md`, `plan.md`
 - **Owner**: grok-meta-glasses-gmail-caps
 - **Proof**: Gmail API `ok` for iganapolsky@gmail.com (1879 msgs); tests 20/20; MCP :8766 + LiteLLM models listed
+
+### 2026-08-22T19:40:00Z `grok-meta-glasses-phone-media`
+- **Task**: Hey Meta "play my latest podcasts from Google Play Music" is not supported. Play Music retired Dec 2020. Meta partners: Spotify, Amazon Music, Apple Music (iOS), Audible/iHeart (US) — not Play Music / YouTube Music. Hermes `--play-podcasts` starts YTM/Spotify/iHeart on the phone; glasses are already phone BT speakers. Never Mac-steal. Never start media in-call.
+- **Files**: `tools/meta-glasses-hermes-bridge.js`, `tests/test-meta-glasses-hermes-bridge.js`, `.agents/skills/meta-glasses-hermes/SKILL.md`, `plan.md`
+- **Owner**: grok-meta-glasses-phone-media
+- **Proof**: tests 22/22; `--play-podcasts` fail-closed with no ADB; USB empty; igor-s-s25.lan 192.168.12.139 ping-loss; Tailscale igors-s25-1 last seen 23h. Live phone start parked until ADB.

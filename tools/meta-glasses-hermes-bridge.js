@@ -37,8 +37,38 @@ const SCREENSHOT_PATH = '/tmp/hermes-meta-screen.jpg';
 const PHONE_ONLY_BT = process.env.HERMES_GLASSES_PHONE_ONLY !== '0';
 const GMAIL_HELPER = path.join(__dirname, 'glasses-gmail.py');
 const EMAIL_INTENT_RE = /\b(email|inbox|gmail|unread mail|messages in my mail|what.?s in my (mail|inbox))\b/i;
+const MEDIA_INTENT_RE =
+  /\b(podcasts?|spotify|youtube music|google play music|play music|iheart|audible|amazon music)\b/i;
+const MEDIA_CONTROL_RE = /\b(pause|skip|next|stop|resume)\b.{0,24}\b(podcast|music|song|track|episode)?\b/i;
+/** Meta Hey-Meta music partners (Aug 2026). Google Play Music is not among them. */
+const META_MUSIC_PARTNERS = ['Spotify', 'Amazon Music', 'Apple Music (iOS only)', 'Audible (US)', 'iHeart (US)'];
+const PHONE_MEDIA_APPS = [
+  { pkg: 'com.google.android.apps.youtube.music', name: 'YouTube Music', kind: 'ytm', metaPartner: false },
+  { pkg: 'com.spotify.music', name: 'Spotify', kind: 'spotify', metaPartner: true },
+  { pkg: 'com.amazon.mp3', name: 'Amazon Music', kind: 'amazon', metaPartner: true },
+  { pkg: 'com.iheart.android', name: 'iHeart', kind: 'iheart', metaPartner: true },
+  { pkg: 'com.clearchannel.iheartradio.controller', name: 'iHeartRadio', kind: 'iheart', metaPartner: true },
+  { pkg: 'com.audible.application', name: 'Audible', kind: 'audible', metaPartner: true },
+  { pkg: 'com.google.android.apps.podcasts', name: 'Google Podcasts', kind: 'gpodcasts', metaPartner: false },
+  { pkg: 'com.google.android.music', name: 'Google Play Music (retired)', kind: 'gpm', metaPartner: false },
+];
+
+function adbHasDevice() {
+  try {
+    const out = execFileSync('adb', ['devices'], { encoding: 'utf8', timeout: 4000 });
+    return out.split('\n').some((line) => {
+      const t = line.trim();
+      return Boolean(t) && !t.startsWith('List of') && !t.startsWith('*') && /\sdevice$/.test(t);
+    });
+  } catch {
+    return false;
+  }
+}
 
 function checkPhoneGlassesBond() {
+  if (!adbHasDevice()) {
+    return { ok: false, connected: false, rail: 'phone_bt', error: 'no adb device', hermesInstalled: false };
+  }
   try {
     const out = execFileSync(
       'adb',
@@ -374,6 +404,181 @@ function readGmailInbox(n = 5, query = 'in:inbox') {
   return { ok: false, error: lastErr, email: 'iganapolsky@gmail.com' };
 }
 
+function adbShell(args, timeout = 10000) {
+  if (!adbHasDevice()) {
+    return { ok: false, error: 'no adb device', out: '' };
+  }
+  try {
+    const out = execFileSync('adb', ['shell', ...args], { encoding: 'utf8', timeout });
+    return { ok: true, out: String(out) };
+  } catch (err) {
+    return { ok: false, error: err.message, out: err.stdout ? String(err.stdout) : '' };
+  }
+}
+
+function phoneCallActive() {
+  const tel = adbShell(['dumpsys', 'telephony.registry'], 4000);
+  if (/mCallState=[12]\b/.test(tel.out || '')) return true;
+  const telecom = adbShell(['dumpsys', 'telecom'], 4000);
+  return /isInCall:\s*true/i.test(telecom.out || '');
+}
+
+function listPhoneMediaApps() {
+  const listed = adbShell(['pm', 'list', 'packages'], 8000);
+  if (!listed.ok) {
+    return {
+      ok: false,
+      adb: false,
+      error: listed.error,
+      note: 'Phone ADB not attached. Plug USB or restore wireless adb — glasses still play whatever the phone is already streaming over BT.',
+      metaHeyMetaSupports: META_MUSIC_PARTNERS,
+      googlePlayMusic: 'Shut down Dec 2020. Successor is YouTube Music. Hey Meta cannot play Google Play Music.',
+      installed: [],
+    };
+  }
+  const hay = listed.out;
+  const installed = PHONE_MEDIA_APPS.filter((a) => hay.includes(a.pkg)).map((a) => ({
+    ...a,
+    installed: true,
+  }));
+  return {
+    ok: true,
+    adb: true,
+    installed,
+    missing: PHONE_MEDIA_APPS.filter((a) => !hay.includes(a.pkg)).map((a) => a.name),
+    metaHeyMetaSupports: META_MUSIC_PARTNERS,
+    googlePlayMusic: 'Shut down Dec 2020. Successor is YouTube Music. Hey Meta has no Play Music connector.',
+    workaround: 'Play on the phone; glasses are the Bluetooth speakers (already phone-only BT).',
+  };
+}
+
+function phoneMediaKey(key) {
+  const map = {
+    play: 'KEYCODE_MEDIA_PLAY',
+    pause: 'KEYCODE_MEDIA_PAUSE',
+    playpause: 'KEYCODE_MEDIA_PLAY_PAUSE',
+    next: 'KEYCODE_MEDIA_NEXT',
+    prev: 'KEYCODE_MEDIA_PREVIOUS',
+    stop: 'KEYCODE_MEDIA_STOP',
+  };
+  const code = map[key] || 'KEYCODE_MEDIA_PLAY_PAUSE';
+  return adbShell(['input', 'keyevent', code], 5000);
+}
+
+function playLatestPodcasts() {
+  if (process.env.HERMES_GLASSES_MEDIA_DRY_RUN === '1') {
+    return {
+      ok: true,
+      dryRun: true,
+      launched: null,
+      googlePlayMusicRetired: true,
+      metaHeyMetaSupports: META_MUSIC_PARTNERS,
+      spoken:
+        'Google Play Music shut down in December 2020. Hey Meta cannot play it. Partners are Spotify, Amazon Music, Apple Music on iOS, Audible and iHeart in the US. Hermes starts YouTube Music or Spotify on the phone; glasses are the Bluetooth speakers.',
+    };
+  }
+
+  const apps = listPhoneMediaApps();
+  const steps = [];
+  if (!apps.ok) {
+    return {
+      ok: false,
+      googlePlayMusicRetired: true,
+      ...apps,
+      spoken:
+        'Google Play Music is gone. Connect the phone over USB so I can start YouTube Music or Spotify. Glasses already play phone audio over Bluetooth.',
+    };
+  }
+
+  if (phoneCallActive()) {
+    return {
+      ok: false,
+      inCall: true,
+      googlePlayMusicRetired: true,
+      metaHeyMetaSupports: META_MUSIC_PARTNERS,
+      installed: apps.installed.map((a) => a.name),
+      spoken:
+        'A phone call is active. Not starting podcasts over the call. After it ends, Hermes will start YouTube Music on the phone and the glasses will hear it over Bluetooth.',
+    };
+  }
+
+  const have = (kind) => apps.installed.find((a) => a.kind === kind);
+  const ytm = have('ytm');
+  const spotify = have('spotify');
+  const iheart = have('iheart');
+  const gpm = have('gpm');
+
+  let launched = null;
+  const tryStart = (args, label) => {
+    const res = adbShell(['am', 'start', ...args], 8000);
+    steps.push({ label, ok: res.ok, error: res.error || null, out: (res.out || '').slice(0, 200) });
+    return res.ok && !/Error|unable to resolve/i.test(res.out || '');
+  };
+
+  if (ytm) {
+    launched = tryStart(
+      ['-a', 'android.intent.action.VIEW', '-d', 'https://music.youtube.com/podcasts', '-p', ytm.pkg],
+      'youtube-music-podcasts',
+    )
+      ? ytm
+      : launched;
+    if (!launched) {
+      launched = tryStart(
+        [
+          '-a',
+          'android.media.action.MEDIA_PLAY_FROM_SEARCH',
+          '--es',
+          'query',
+          'podcasts',
+          '-p',
+          ytm.pkg,
+        ],
+        'youtube-music-search-podcasts',
+      )
+        ? ytm
+        : launched;
+    }
+  }
+  if (!launched && spotify) {
+    launched = tryStart(
+      ['-a', 'android.intent.action.VIEW', '-d', 'spotify:collection:podcasts:episodes', '-p', spotify.pkg],
+      'spotify-podcasts',
+    )
+      ? spotify
+      : launched;
+  }
+  if (!launched && iheart) {
+    launched = tryStart(
+      ['-a', 'android.intent.action.VIEW', '-d', 'https://www.iheart.com/podcast/', '-p', iheart.pkg],
+      'iheart-podcasts',
+    )
+      ? iheart
+      : launched;
+  }
+  if (!launched && ytm) {
+    launched = tryStart(['-n', `${ytm.pkg}/.activities.MusicActivity`], 'youtube-music-activity') ? ytm : launched;
+  }
+
+  const play = phoneMediaKey('play');
+  steps.push({ label: 'media-play-key', ok: play.ok, error: play.error || null });
+
+  const spoken = launched
+    ? `Playing latest podcasts on ${launched.name}. Glasses are the phone Bluetooth speakers. Google Play Music is retired — YouTube Music is the replacement.`
+    : gpm
+      ? 'Google Play Music is retired. YouTube Music or Spotify is not installed, so I cannot start podcasts from the phone.'
+      : 'No YouTube Music, Spotify, or iHeart on the phone. Install YouTube Music (Play Music successor) or Spotify, then I will start podcasts.';
+
+  return {
+    ok: Boolean(launched || play.ok),
+    launched: launched ? launched.name : null,
+    googlePlayMusicRetired: true,
+    metaHeyMetaSupports: META_MUSIC_PARTNERS,
+    installed: apps.installed.map((a) => a.name),
+    steps,
+    spoken,
+  };
+}
+
 function listLiteLlmModels() {
   try {
     const out = execFileSync('curl', ['-sS', '-m', '3', 'http://127.0.0.1:4010/v1/models'], {
@@ -422,9 +627,12 @@ function capabilities() {
         'it_system_voice_hud',
       ],
     },
+    media: listPhoneMediaApps(),
     honesty: {
       heyMeta: 'Meta closed assistant — cannot run Hermes/MCP/Gmail unless Meta Apps Gmail is connected in the Meta AI app.',
-      hermesRail: 'node tools/meta-glasses-hermes-bridge.js --email|--ask|--openclaw uses Hermes Gmail + LiteLLM + OpenClaw MCP.',
+      hermesRail: 'node tools/meta-glasses-hermes-bridge.js --email|--ask|--openclaw|--play-podcasts uses Hermes Gmail + phone media + LiteLLM + OpenClaw MCP.',
+      googlePlayMusic:
+        'Google Play Music shut down Dec 2020. Hey Meta music partners are Spotify, Amazon Music, Apple Music (iOS), Audible, iHeart — not Play Music / YouTube Music. Hermes starts YouTube Music or Spotify on the phone; glasses are BT speakers.',
     },
   };
 }
@@ -740,6 +948,22 @@ async function dispatchOpenClawAction(intent, context = {}) {
 
   const trimmed = intent.trim();
 
+  if (MEDIA_INTENT_RE.test(trimmed) || (/\bplay\b/i.test(trimmed) && MEDIA_CONTROL_RE.test(trimmed))) {
+    if (/\bpause\b/i.test(trimmed)) {
+      const k = phoneMediaKey('pause');
+      speakToGlasses('Paused phone media. Glasses follow the phone Bluetooth audio.');
+      return { ok: k.ok, type: 'media', action: 'pause', error: k.error };
+    }
+    if (/\b(skip|next)\b/i.test(trimmed)) {
+      const k = phoneMediaKey('next');
+      speakToGlasses('Skipped to the next track on the phone.');
+      return { ok: k.ok, type: 'media', action: 'next', error: k.error };
+    }
+    const play = playLatestPodcasts();
+    speakToGlasses(play.spoken);
+    return { ok: play.ok, type: 'media', action: 'play-podcasts', ...play };
+  }
+
   if (EMAIL_INTENT_RE.test(trimmed)) {
     const inbox = readGmailInbox(5);
     if (!inbox.ok) {
@@ -839,6 +1063,30 @@ async function main() {
     return;
   }
 
+  if (args.includes('--media-list')) {
+    console.log(JSON.stringify(listPhoneMediaApps(), null, 2));
+    return;
+  }
+
+  if (args.includes('--play-podcasts') || args.includes('--media')) {
+    const play = playLatestPodcasts();
+    console.log(JSON.stringify(play, null, 2));
+    speakToGlasses(play.spoken);
+    return;
+  }
+
+  if (args.includes('--media-pause')) {
+    const k = phoneMediaKey('pause');
+    console.log(JSON.stringify(k, null, 2));
+    return;
+  }
+
+  if (args.includes('--media-next')) {
+    const k = phoneMediaKey('next');
+    console.log(JSON.stringify(k, null, 2));
+    return;
+  }
+
   if (args.includes('--release-mac') || args.includes('--phone-only')) {
     const release = releaseMacGlassesBond();
     const status = checkConnection();
@@ -882,7 +1130,7 @@ async function main() {
   if (args.includes('--ask')) {
     const askIndex = args.indexOf('--ask') + 1;
     const prompt = args[askIndex] || 'What should I know right now?';
-    if (EMAIL_INTENT_RE.test(prompt)) {
+    if (EMAIL_INTENT_RE.test(prompt) || MEDIA_INTENT_RE.test(prompt)) {
       const res = await dispatchOpenClawAction(prompt);
       console.log(JSON.stringify(res, null, 2));
       return;
@@ -991,6 +1239,10 @@ Usage:
   node tools/meta-glasses-hermes-bridge.js --status
   node tools/meta-glasses-hermes-bridge.js --capabilities
   node tools/meta-glasses-hermes-bridge.js --email
+  node tools/meta-glasses-hermes-bridge.js --play-podcasts
+  node tools/meta-glasses-hermes-bridge.js --media-list
+  node tools/meta-glasses-hermes-bridge.js --media-pause
+  node tools/meta-glasses-hermes-bridge.js --media-next
   node tools/meta-glasses-hermes-bridge.js --connect          # phone-only; never Mac BT steal
   node tools/meta-glasses-hermes-bridge.js --phone-only       # disconnect+unpair Mac if holding glasses
   node tools/meta-glasses-hermes-bridge.js --release-mac      # alias of --phone-only
@@ -1030,7 +1282,11 @@ module.exports = {
   ensureConnected,
   releaseMacGlassesBond,
   readGmailInbox,
+  listPhoneMediaApps,
+  playLatestPodcasts,
+  phoneMediaKey,
   capabilities,
+  META_MUSIC_PARTNERS,
   PHONE_ONLY_BT,
   META_BT_MAC,
   META_DEVICE_NAME,

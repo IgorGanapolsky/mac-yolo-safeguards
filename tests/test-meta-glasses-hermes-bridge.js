@@ -65,6 +65,31 @@ test('capabilities reports gmail + llm + mcp rails', () => {
   assert.ok(src.includes('EMAIL_INTENT_RE'));
 });
 
+test('playLatestPodcasts explains Google Play Music is retired and never claims Meta supports it', () => {
+  process.env.HERMES_GLASSES_MEDIA_DRY_RUN = '1';
+  const res = bridge.playLatestPodcasts();
+  assert.equal(res.ok, true);
+  assert.equal(res.dryRun, true);
+  assert.equal(res.googlePlayMusicRetired, true);
+  assert.ok(Array.isArray(res.metaHeyMetaSupports));
+  assert.ok(res.metaHeyMetaSupports.includes('Spotify'));
+  assert.equal(res.metaHeyMetaSupports.includes('Google Play Music'), false);
+  assert.equal(bridge.META_MUSIC_PARTNERS.includes('YouTube Music'), false);
+  assert.match(res.spoken, /Play Music/i);
+  const src = require('fs').readFileSync(__dirname + '/../tools/meta-glasses-hermes-bridge.js', 'utf8');
+  assert.ok(src.includes('--play-podcasts'));
+  assert.ok(src.includes('--media-list'));
+  assert.ok(src.includes('youtube.music'));
+  assert.ok(src.includes('phoneCallActive'));
+  delete process.env.HERMES_GLASSES_MEDIA_DRY_RUN;
+});
+
+test('listPhoneMediaApps returns a result object', () => {
+  const res = bridge.listPhoneMediaApps();
+  assert.equal(typeof res.ok, 'boolean');
+  assert.ok(Array.isArray(res.metaHeyMetaSupports));
+});
+
 test('captureScreen returns an ok-flagged result (mockable on CI)', () => {
   const res = bridge.captureScreen();
   assert.equal('ok' in res, true);
