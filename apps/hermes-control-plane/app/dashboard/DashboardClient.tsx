@@ -1576,7 +1576,6 @@ export default function DashboardClient() {
                   : `Updated ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit" }).format(new Date(lastRefreshedAt))}`}
               </span>
             )}
-            <span className="status-chip online"><i /> ThumbGate online</span>
             <button className="button button-small button-secondary" onClick={() => void (["pro", "team"].includes(organization.plan) ? manageBilling() : subscribe())} disabled={busy}>
               {["pro", "team"].includes(organization.plan) ? "Manage plan" : organization.cloudAccess ? "Keep cloud after trial" : "Add cloud failover"}
             </button>

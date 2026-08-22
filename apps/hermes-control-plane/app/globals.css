@@ -172,6 +172,30 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .turn-statusline .statusline-tag{display:inline-flex;align-items:center;gap:4px}
 .turn-statusline .statusline-metric{color:var(--accent,#93f58a);font-weight:500}
 .turn-statusline .statusline-sep{opacity:.35}
+
+/* Global 2-Word Continuation Prompt Chips */
+.quick-continuation-chips{display:flex;align-items:center;gap:8px;margin-bottom:8px;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;padding:2px 0}
+.quick-continuation-chips .chips-label{font:700 10px ui-monospace,monospace;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;flex:0 0 auto}
+.quick-continuation-chips .chips-scroll{display:flex;gap:6px;align-items:center;overflow-x:auto}
+.quick-continuation-chips .chip-button{border:1px solid rgba(56,189,248,.3);background:rgba(15,23,42,.8);color:#E2E8F0;border-radius:999px;padding:4px 10px;font:600 11px Inter,system-ui,sans-serif;cursor:pointer;white-space:nowrap;flex:0 0 auto;transition:background .15s ease,border-color .15s ease,color .15s ease}
+.quick-continuation-chips .chip-button:hover,.quick-continuation-chips .chip-button:focus-visible{background:rgba(34,211,238,.2);border-color:#22D3EE;color:#FFFFFF}
+
+/* Global Nous Bot Mode Roster */
+.bot-mode-roster{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:6px 12px;background:rgba(15,23,42,.6);border-bottom:1px solid var(--line);overflow-x:auto;-webkit-overflow-scrolling:touch}
+.bot-roster-label{font:700 10px ui-monospace,monospace;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;flex:0 0 auto}
+.bot-roster-chips{display:flex;gap:6px;align-items:center;overflow-x:auto}
+.bot-chip{display:inline-flex;align-items:center;gap:4px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:var(--text-secondary);border-radius:999px;padding:3px 10px;font:600 11px Inter,system-ui,sans-serif;cursor:pointer;white-space:nowrap;transition:all .15s ease}
+.bot-chip:hover{background:rgba(255,255,255,.08);border-color:rgba(56,189,248,.4);color:#FFFFFF}
+.bot-chip.is-active{background:rgba(34,211,238,.15);border-color:#22D3EE;color:#38BDF8;box-shadow:0 0 10px rgba(34,211,238,.12)}
+
+/* Global Agent Activity Strip */
+.agent-activity{flex:0 0 auto;display:flex;align-items:center;gap:8px;margin:0;padding:8px 12px;border-bottom:1px solid var(--line);background:rgba(34,211,238,.06);color:#A5F3FC;font:600 12px/1.35 Inter,ui-sans-serif,system-ui,sans-serif}
+.agent-activity[data-state="idle"]{display:none}
+.agent-activity[data-state="running"]{display:flex}
+.agent-activity-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(34,211,238,.18);flex:0 0 auto;animation:agent-pulse 1.4s ease-in-out infinite}
+@keyframes agent-pulse{50%{opacity:.45}}
+.agent-activity strong{font-weight:700;color:#E0F2FE}
+
 .dashboard-task pre{background:#090C14;border-left-color:var(--accent)}
 .dashboard-task,.device-card,.privacy-boundary{border-color:var(--line)}
 .device-card select,.pair-form input{min-height:44px;background:var(--composer);border-radius:12px;color:var(--text-secondary)}
@@ -490,125 +514,6 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   .task-panel .panel-heading{flex:0 0 auto;padding:8px 12px;border-bottom:1px solid var(--line)}
   .dashboard-shell[data-mobile-tab="hermes"] .task-panel .panel-heading .eyebrow{display:none}
   .dashboard-shell[data-mobile-tab="hermes"] .task-panel .panel-heading h2{font-size:14px;margin:0}
-  /* Hermes Agent Bot Mode Roster (Nous Research) */
-  .bot-mode-roster{
-    flex:0 0 auto;
-    display:flex;
-    align-items:center;
-    gap:8px;
-    padding:6px 12px;
-    background:rgba(15,23,42,.6);
-    border-bottom:1px solid var(--line);
-    overflow-x:auto;
-    -webkit-overflow-scrolling:touch;
-  }
-  .bot-roster-label{
-    font:700 10px ui-monospace,monospace;
-    color:var(--accent);
-    text-transform:uppercase;
-    letter-spacing:.05em;
-    flex:0 0 auto;
-  }
-  .bot-roster-chips{
-    display:flex;
-    gap:6px;
-    align-items:center;
-    overflow-x:auto;
-  }
-  .bot-chip{
-    display:inline-flex;
-    align-items:center;
-    gap:4px;
-    border:1px solid rgba(255,255,255,.1);
-    background:rgba(255,255,255,.04);
-    color:var(--text-secondary);
-    border-radius:999px;
-    padding:3px 10px;
-    font:600 11px Inter,system-ui,sans-serif;
-    cursor:pointer;
-    white-space:nowrap;
-    transition:all .15s ease;
-  }
-  .bot-chip:hover{
-    background:rgba(255,255,255,.08);
-    border-color:rgba(56,189,248,.4);
-    color:#FFFFFF;
-  }
-  .bot-chip.is-active{
-    background:rgba(34,211,238,.15);
-    border-color:#22D3EE;
-    color:#38BDF8;
-    box-shadow:0 0 10px rgba(34,211,238,.12);
-  }
-  /* Agent activity strip — DimAgent "know what your agent is doing" */
-  .agent-activity{
-    flex:0 0 auto;
-    display:flex;
-    align-items:center;
-    gap:8px;
-    margin:0;
-    padding:8px 12px;
-    border-bottom:1px solid var(--line);
-    background:rgba(34,211,238,.06);
-    color:#A5F3FC;
-    font:600 12px/1.35 Inter,ui-sans-serif,system-ui,sans-serif;
-  }
-  .agent-activity[data-state="idle"]{display:none}
-  .agent-activity[data-state="running"]{display:flex}
-  .agent-activity-dot{
-    width:7px;height:7px;border-radius:50%;
-    background:var(--accent);
-    box-shadow:0 0 0 4px rgba(34,211,238,.18);
-    flex:0 0 auto;
-    animation:agent-pulse 1.4s ease-in-out infinite;
-  }
-  @keyframes agent-pulse{50%{opacity:.45}}
-  .agent-activity strong{font-weight:700;color:#E0F2FE}
-  /*
-   * Chat scrollport fills remaining height; composer is a thin fixed dock below
-   * (DimAgent workbench — chat primary, not composer half-screen).
-   */
-  .quick-continuation-chips{
-    display:flex;
-    align-items:center;
-    gap:8px;
-    margin-bottom:8px;
-    overflow-x:auto;
-    white-space:nowrap;
-    -webkit-overflow-scrolling:touch;
-    padding:2px 0;
-  }
-  .quick-continuation-chips .chips-label{
-    font:700 10px ui-monospace,monospace;
-    color:var(--accent);
-    text-transform:uppercase;
-    letter-spacing:.05em;
-    flex:0 0 auto;
-  }
-  .quick-continuation-chips .chips-scroll{
-    display:flex;
-    gap:6px;
-    align-items:center;
-    overflow-x:auto;
-  }
-  .quick-continuation-chips .chip-button{
-    border:1px solid rgba(56,189,248,.3);
-    background:rgba(15,23,42,.8);
-    color:#E2E8F0;
-    border-radius:999px;
-    padding:4px 10px;
-    font:600 11px Inter,system-ui,sans-serif;
-    cursor:pointer;
-    white-space:nowrap;
-    flex:0 0 auto;
-    transition:background .15s ease,border-color .15s ease,color .15s ease;
-  }
-  .quick-continuation-chips .chip-button:hover,
-  .quick-continuation-chips .chip-button:focus-visible{
-    background:rgba(34,211,238,.2);
-    border-color:#22D3EE;
-    color:#FFFFFF;
-  }
   .dashboard-shell[data-mobile-tab="hermes"] .quick-metrics,
   .dashboard-shell[data-mobile-tab="hermes"] .metric-grid,
   .dashboard-shell[data-mobile-tab="hermes"] .workspace-hero{
