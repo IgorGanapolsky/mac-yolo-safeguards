@@ -82,6 +82,19 @@ Tables and full protocol: [docs/agents/decision-stack.md](./docs/agents/decision
 
 Full policy (Dependabot, security alerts, CI queue storms, Code Quality): [docs/agents/shipping-and-hygiene.md](./docs/agents/shipping-and-hygiene.md).
 
+### CEO PR and system-hygiene closeout
+
+When Igor explicitly requests a PR/branch/system-hygiene session:
+
+- GitHub is the source for code, PR, branch, protection, and Actions state; Linear is the ownership/priority lock; the canonical Obsidian vault is the durable handoff only after its strict coordination gate passes.
+- Inventory every open PR and classify its draft/merge/conflict/check/review state. Merge only owned or ownerless work whose required checks and review threads are green; document every other blocker without rewriting another agent's branch.
+- Before deleting a branch, prove a merged PR for that exact head, no open PR, no attached worktree, and no active claim. Record before/after counts. `git fetch --prune` removes stale local tracking refs; it is not evidence that this session deleted a live remote branch.
+- Remove only this agent's disposable worktrees or worktrees whose PR is proven merged. Preserve dirty, divergent, active, and no-PR histories.
+- After the final merge, verify the exact `main` SHA against every required context, verify `develop` only when that branch exists, and run the repository health/dry-run gate again.
+- Research intake must produce one measurable hypothesis and executable acceptance check. A passing focused test does not validate a benchmark whose score is hard-coded or whose claimed axis is unevaluated.
+- Update Linear and RAG with receipts and mistakes. Update Obsidian through its isolated-worktree/PR path; if its strict lease gate fails, record the blocker and make no vault write.
+- Never emit the requested completion confirmation while any PR, cleanup action, CI context, dry run, or durable writeback is unverified or unaccounted for.
+
 ## Protected components (verify after each change)
 
 1. ThumbGate MCP retrieval — `mcp__thumbgate__recall` must return relevant results after each capture
