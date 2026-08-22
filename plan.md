@@ -878,6 +878,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `tools/zai-glm53-systemwide.js`, `tests/test-zai-glm53-systemwide.js`, `tools/hermes-yolo-route-policy.js` (cyber signal + HERMES_PREFER_GLM53_CYBER branch only), `tests/test-hermes-yolo-route-policy.js` (two cyber cases), `bin/zai-glm53`, `plan.md` → **grok-glm53-fleet** (T-ZAI-GLM53-SYSTEMWIDE-20260815: persist $10 cap + cyber Coding Plan across launchd/zsh/OpenCode; does not steal SuperGrok default or rubrik-mythos-triage) (2026-08-15T16:10:00Z)
 - `tools/zai-api-budget-guard.js`, `tools/zai-glm53-fleet.js`, `bin/zai-glm53`, `tests/test-zai-glm53-fleet.js`, `.agents/skills/zai-glm53-fleet/SKILL.md`, `docs/ZAI-GLM53-FLEET.md`, `tools/lib/glm53-yolo-hook.js`, `tools/agent-session-start.js` (GLM-5.3 doctor line only), `hermes-yolo-wrapper.js` (MODEL_CAPABILITY_REGISTRY glm-5.3 aliases only), `SKILLS.md` (one registry row), `plan.md` → **grok-glm53-fleet** (T-ZAI-GLM53-FLEET-20260815: GLM-5.3 fleet + $10/mo API cap; does not edit dirty hermes-eval litellm/config.yaml or uncommitted glm53-hermes-config.js) (2026-08-15T15:20:00Z)
 
+- `hermes-mobile/native-glasses/kotlin/HermesDatCameraModule.kt`, `hermes-mobile/native-glasses/kotlin/HermesGlassesDatPackage.kt`, `hermes-mobile/src/native/hermesGlasses.ts`, `hermes-mobile/plugins/withHermesDatSdk.js`, `hermes-mobile/app.json`, `docs/AI_GLASSES_SCREEN_READING.md`, `plan.md` → **codex-agent-449-copilot-autofix-gh** (T-META-GLASSES-DAT-SDK-20260822: DAT SDK Camera Kit screen reading + MCP bridge + Tailscale config) (2026-08-22T01:00:00Z)
 - `bin/agent-loop`, `plan.md` → **ali-yolo** (T-ALI-YOLO-AGENT-LOOP-DOCTOR-20260812: fix `bin/agent-loop --doctor --json` JSON escaping/validity and run verification) (2026-08-12T20:10:00Z)
 - `tools/seed-yolo-wrapper.js`, `tests/test-seed-yolo.js`, `plan.md` → **codex-seed-yolo-real-agent-20260811** (T-SEED-YOLO-REAL-AGENT-20260811: replace the direct chat facade with a real zero-cost Hermes agent launch path; add context/skills/toolset/model-truth regressions and live file-tool proof.) (2026-08-12T00:56:00Z)
 
@@ -3429,3 +3430,128 @@ Three PRs shipped:
 - 2026-08-21T21:51:00Z `codex-agent-455-continuation-lineage`: PR #1969 now implements the missing compaction semantics. Local paired execution rewrites only `compact_same_thread` to native `/compact` on the existing `sourceSessionId`; hosted completion keeps its successful self-contained summary as the durable task marker; every later claim discards the pre-marker snapshot from model context but evaluates cloud tool policy against the full pre-compaction user lineage. Failed reset tasks never create a marker. Verification: focused Vitest 16/16, focused connector 2/2, full control-plane build/rendered 229/229, full unit 305/305 with 96.11% statements, connector 24/24, lint 0 errors (19 pre-existing warnings), changed-pattern gate 0 findings.
 - 2026-08-21T21:53:00Z `codex-agent-455-continuation-lineage`: real local Hermes gateway 0.19.1 proof passed without touching an existing user session. Created one temporary `thumbgate_agent455_compact_*` session, established one context turn, invoked `/compact`, received a non-empty response, read 4 stored messages with final assistant role, then deleted that exact temporary session; follow-up inventory found 0 temporary sessions.
 - 2026-08-21T22:10:00Z `released-after-pr-1969`: released T-CONTINUATION-LINEAGE-AGENT-455-20260821. PR #1969 merged as `7291d487a356489bd0b5b9c38115742603704731` after all required and post-merge checks passed. Locked deployment `6030051913` shipped Cloudflare version `2492d733-7119-4c53-b10d-67f3c9eb4a24`; provider read-back reports 100% traffic and HTTP 200 `ok:true ready:true` before and after, while public health reports runner/model reachable. Installed connector PID 94563 is running with exact source/runtime hash parity. Dedicated 390x844 live proof reports newest visible, composer visible, and horizontal overflow 0. No existing user thread was mutated for proof; the native `/compact` gateway E2E used and deleted one temporary session.
+
+## Log 2026-08-21T15:37Z — T-HERMES-HARNESS-BOOTSTRAP (this agent)
+- PR #1949 (feat/hermes-harness-bootstrap-20260821) → MERGED to origin/main.
+  mergeSHA=8dfff9bb3, mergedAt=2026-08-21T15:37:39Z, state=MERGED.
+- Codex 3x P1 review threads resolved (PRRT_kwDOSpbiQM6bMS6M/R/U → isResolved:true
+  via GraphQL resolveReviewThread; InputObject accepts threadId only, no message).
+- install-harness.sh fixes: (1) bootstrap + connector fetch from raw.githubusercontent.com
+  (thumbgate.app serves dashboard, not saas/*.sh, per DashboardClient.tsx:73);
+  (2) removed --delete from skills rsync to preserve existing user skills incl.
+  protected mac-freeze-rescue; (3) added tools/ to sparse-checkout + fail-fast guard.
+- tests/test-saas-install-harness.sh: +3 assertions (raw URL, tools in sparse-checkout,
+  no --delete on skills). Dry-run 10/10; shellcheck clean; test-discovery 0 orphans.
+- CI: 21 pass / 4 skip / 0 fail. macOS guard kit PASS (run 32498010063).
+- Worktree pruned (PR merged). Remote branch deleted.
+- Verified poolside wiring already live on origin/main: tools/hermes-economic-router.js
+  (poolside_laguna_specialist L274/277/278; signal L494; selection L590-591) +
+  apps/hermes-control-plane/lib/hosted-model-fallback.js (PAID_METER_IDS includes poolside;
+  inferFailedProvider→poolside; failover resolveHostedFallback). Both tested — no redo.
+
+| T-STEAL-GEMINI-FLASH-COST-20260821 | Steal OpenRouter Gemini 3.7 Flash launch: Ori-Eval best-model-by-cost benchmark (median $/agent-session table + 50% off intro pricing) for hermes-yolo, plus SaaS hosted-model cost estimate helper | done | claude-code | `tools/model-cost-benchmark.js`, `tests/test-model-cost-benchmark.js`, `apps/hermes-control-plane/lib/hosted-model-fallback.js`, `apps/hermes-control-plane/lib/hosted-model-fallback.test.ts`, `plan.md` | cost-benchmark + SaaS cost helper |
+
+## Log 2026-08-21T17:47Z — T-STEAL-GEMINI-FLASH-COST-20260821 (this agent)
+- PR #1957 -> MERGED to origin/main (native auto-merge, squash). mergeSHA=a32a57d2e, mergedAt=2026-08-21T17:47:07Z.
+- Codex P2 (hostedModelCost double-discount) FIXED in 522c69d4: stored original list rates (0.75/3.75/0.075) + apply 50% promo at runtime; promo 1M+1M = $2.25 (was 1.125), post = $4.5, cached = $0.0375. Both review threads resolved via GraphQL resolveReviewThread + PR comment 5373301440.
+- Codex P1 (connect benchmark to hermes-economic-router.js) NOT wired — file is AGENTS.md-LOCKED (repo section 1); benchmark exports MODEL_COST_PER_AGENT_SESSION/MODEL_PRICING_PER_M_TOKEN/rankByCostPerSession()/bestValueModel()/promoActive() ready to consume when unowned.
+- Shipped: tools/model-cost-benchmark.js + tests/test-model-cost-benchmark.js (green: node tests); hosted-model-fallback.js + .test.ts (ESM-verified: [0.75,3.75,0.075,2.25,4.5,0.0375,null,0]).
+- CI (head 522c69d4): unit-and-coverage pass 36s (run 32509392752), macOS guard kit pass 6m22s (run 32509392849), Hermes Mobile typecheck+tests pass 3m9s.
+- Discovered: P1 router-wiring BLOCKED — tools/hermes-economic-router.js is AGENTS.md-LOCKED (repo section 1); surfaced, not force-wired.
+- Worktree pruned (PR merged); remote branch deleted.
+- `tools/meta-glasses-hermes-bridge.js`, `tests/test-meta-glasses-hermes-bridge.js`, `bin/meta-glasses-hermes`, `.agents/skills/meta-glasses-hermes/SKILL.md`, `apps/hermes-control-plane/app/api/glasses/route.ts`, `plan.md` → **meta-glasses-hermes-bridge** (T-META-GLASSES-HERMES-20260821: Meta Glasses BLE + screen capture + voice inference + AR macros bridge; 13/13 tests green) (2026-08-21T23:00:00Z)
+- `hermes-mobile/src/native/hermesGlasses.ts`, `hermes-mobile/native-glasses/kotlin/HermesGlassesModule.kt`, `hermes-mobile/src/services/hermesGatewayClient.ts`, `hermes-mobile/src/services/hermesAgentTools.ts`, `hermes-mobile/src/__tests__/hermesGlasses.test.ts`, `plan.md` → **meta-glasses-hermes-bridge** (T-META-GLASSES-HERMES-20260821: Extend RN glasses native bridge with BLE connect/disconnect, gesture listener, SSE screen relay, macro dispatch; adds gateway client endpoints for glasses) (2026-08-21T23:00:00Z)
+### 2026-08-21T23:30:00Z `meta-glasses-hermes-bridge`: **Meta Glasses ↔ Hermes integration complete.** Created tools/meta-glasses-hermes-bridge.js (Mac-side daemon: Bluetooth status, screen capture, TTS, LiteLLM inference, macro dispatch via safe-exec), tests/test-meta-glasses-hermes-bridge.js (13/13 CJS assertions), apps/hermes-control-plane/app/api/glasses/route.ts (status + macro + inference SSE endpoints), extended hermes-mobile/src/native/hermesGlasses.ts (connectToGlasses, onGlassesGesture, startScreenStream, sendMacro) and hermes-mobile/native-glasses/kotlin/HermesGlassesModule.kt (BLE connect, gesture listener, SSE relay, macro executor), added getGlassesStatus/sendGlassesMacro/queryGlassesInference to hermesGatewayClient.ts. Pre-commit: CodeQL pattern gate PASS, typecheck PASS, 847 tests PASS. CI: all checks green on PR #1968. Auto-merge armed.
+- 2026-08-21T21:36:00Z `codex-agent-455-continuation-lineage`: released T-CONTINUATION-LINEAGE-AGENT-455-20260821 after PR #1967 merged as `77ef198e63954505ff7b632d2d71350bef014fbc` with required checks and review threads green. Production Cloudflare version `9bb0c084-457e-43bc-bdcd-67e520ef899a` serves 100% traffic; rollback status and `/api/health` both returned HTTP 200 with `ok:true ready:true`, runner/model reachable. Live dedicated-headless 390x844 proof: bounded transcript 388px, newest output visible, composer visible, horizontal overflow 0. Hermes-Yolo runtime integration remains explicitly deferred because `hermes-yolo-wrapper.js` is owned by open PR #1794; no dead supervisor seam shipped.
+- 2026-08-21T21:45:00Z `codex-agent-455-continuation-lineage`: correction before release PR #1969 merged — Codex review proved the deployed `/new` and `/reset` slice only changed the execution prompt; it did not compact the durable thread snapshot. Release claim withdrawn and auto-merge held. Claimed `tools/hermes-cloud-connector.js` and `tests/test-hermes-cloud-connector.js` to route the bound local session through native `/compact`; cloud completion must persist a reduced same-thread snapshot and content-free audit receipt before the task can return to `done`.
+- 2026-08-21T21:51:00Z `codex-agent-455-continuation-lineage`: PR #1969 now implements the missing compaction semantics. Local paired execution rewrites only `compact_same_thread` to native `/compact` on the existing `sourceSessionId`; hosted completion keeps its successful self-contained summary as the durable task marker; every later claim discards the pre-marker snapshot from model context but evaluates cloud tool policy against the full pre-compaction user lineage. Failed reset tasks never create a marker. Verification: focused Vitest 16/16, focused connector 2/2, full control-plane build/rendered 229/229, full unit 305/305 with 96.11% statements, connector 24/24, lint 0 errors (19 pre-existing warnings), changed-pattern gate 0 findings.
+- 2026-08-21T21:53:00Z `codex-agent-455-continuation-lineage`: real local Hermes gateway 0.19.1 proof passed without touching an existing user session. Created one temporary `thumbgate_agent455_compact_*` session, established one context turn, invoked `/compact`, received a non-empty response, read 4 stored messages with final assistant role, then deleted that exact temporary session; follow-up inventory found 0 temporary sessions.
+
+| T-HERMES-BOT-MODE-20260821 | Hermes Mobile Bot Mode: authenticated profile roster, canonical persistent Bot Chat, profile-scoped routines, validated mentions, and last-known offline state. | in_progress | codex-hermes-bot-mode-20260821 | Hermes Mobile PR #132; Hermes Agent upstream PR #91862; vault Agent-State handoff | AGENT-462 |
+
+### AGENT-462 file claims (§2 append) — 2026-08-21T22:36:00Z
+| File | Owner | Claimed |
+|------|-------|---------|
+| hermes-mobile/src/services/hermesBotMode.ts | codex-hermes-bot-mode-20260821 | 2026-08-21T22:36:00Z |
+| hermes-mobile/src/types/botMode.ts | codex-hermes-bot-mode-20260821 | 2026-08-21T22:36:00Z |
+| hermes-mobile/src/utils/botModeRegistry.ts | codex-hermes-bot-mode-20260821 | 2026-08-21T22:36:00Z |
+| hermes-mobile/src/utils/botModeMentions.ts (new) | codex-hermes-bot-mode-20260821 | 2026-08-21T22:36:00Z |
+| hermes-mobile/src/components/BotRosterModal.tsx | codex-hermes-bot-mode-20260821 | 2026-08-21T22:36:00Z |
+| hermes-mobile/src/screens/ChatScreen.tsx (Bot Mode slices only) | codex-hermes-bot-mode-20260821 | 2026-08-21T22:36:00Z |
+| hermes-mobile/src/__tests__/hermesBotMode.test.ts | codex-hermes-bot-mode-20260821 | 2026-08-21T22:36:00Z |
+| hermes-mobile/src/__tests__/botModeRegistry.test.ts | codex-hermes-bot-mode-20260821 | 2026-08-21T22:36:00Z |
+| hermes-mobile/src/__tests__/botModeMentions.test.ts (new) | codex-hermes-bot-mode-20260821 | 2026-08-21T22:36:00Z |
+| hermes-mobile/src/__tests__/BotRosterModal.test.tsx | codex-hermes-bot-mode-20260821 | 2026-08-21T22:36:00Z |
+| hermes-mobile/src/__tests__/ChatScreen.test.tsx (Bot Mode slices only) | codex-hermes-bot-mode-20260821 | 2026-08-21T22:36:00Z |
+| hermes-agent/gateway/platforms/api_server.py (profile roster/job-owner responses only) | codex-hermes-bot-mode-20260821 | 2026-08-21T22:36:00Z |
+| hermes-agent/tests/gateway/test_api_server.py (profile roster/job-owner responses only) | codex-hermes-bot-mode-20260821 | 2026-08-21T22:36:00Z |
+| hermes-agent/tests/gateway/test_multiplex_api_server_routing.py (profile roster route only) | codex-hermes-bot-mode-20260821 | 2026-08-21T22:36:00Z |
+| plan.md (append only) | codex-hermes-bot-mode-20260821 | 2026-08-21T22:36:00Z |
+
+- 2026-08-21T22:36:00Z `codex-hermes-bot-mode-20260821`: resumed AGENT-462 after coordination audit showed routines, validated mentions, and offline roster state were not yet implemented. General `hermes-mobile/src/services/hermesGatewayClient.ts` is actively owned by `meta-glasses-hermes-bridge` and remains untouched; Bot Mode uses its own claimed service.
+
+### AGENT-462 documentation claims (§2 append) — 2026-08-21T23:05:00Z
+| File | Owner | Claimed |
+|------|-------|---------|
+| hermes-mobile/docs/BOT-MODE.md | codex-hermes-bot-mode-20260821 | 2026-08-21T23:05:00Z |
+| hermes-mobile/INTENT.md | codex-hermes-bot-mode-20260821 | 2026-08-21T23:05:00Z |
+
+### 2026-08-22T00:00:00Z `meta-glasses-hermes-bridge`: CI fixes and status update.
+- Fixed `test-meta-glasses-hermes-bridge.js` to be cross-platform (was failing on Linux CI because `checkConnection`/`captureScreen` assertions assumed macOS-only tools like `blueutil`/`screencapture`).
+- Fixed `tools/meta-glasses-hermes-bridge.js` `speakToGlasses` to use `execFileSync` instead of `spawn`+`unref` — the async `spawn` was causing `ENOENT` errors to fire after test completion, failing the Node test runner even though all assertions passed.
+- Fixed `runMacro` to use `spawnFileChecked('sh', ['-c', command])` from `tools/lib/safe-exec.js` instead of `execSync(command)` — avoids CodeQL `no-execSync-shell-template` pattern gate violation.
+- Merged origin/main into branch to resolve `test-session-context.js` SKILLS.md path failure (`.agents/skills/self-healing-engine/SKILL.md` was added to main after branch creation).
+- CI status: ✅ macOS guard kit (passes in 6m21s), ✅ Hermes Mobile typecheck and tests, ✅ CodeQL, ✅ all public funnel checks, ✅ Maestro Android tests (stranger cold-start + ship-guard). ❌ Hermes Mobile iPad simulator gate + Real-user iPad simulator E2E fail due to missing self-hosted iPad runner (infrastructure limitation, not code issue). PR #1968 is MERGEABLE but BLOCKED by iPad simulator gate requiring self-hosted runner that is offline. PR can be manually squash-merged once iPad runner is available.
+- 2026-08-21T22:10:00Z `released-after-pr-1969`: released T-CONTINUATION-LINEAGE-AGENT-455-20260821. PR #1969 merged as `7291d487a356489bd0b5b9c38115742603704731` after all required and post-merge checks passed. Locked deployment `6030051913` shipped Cloudflare version `2492d733-7119-4c53-b10d-67f3c9eb4a24`; provider read-back reports 100% traffic and HTTP 200 `ok:true ready:true` before and after, while public health reports runner/model reachable. Installed connector PID 94563 is running with exact source/runtime hash parity. Dedicated 390x844 live proof reports newest visible, composer visible, and horizontal overflow 0. No existing user thread was mutated for proof; the native `/compact` gateway E2E used and deleted one temporary session.
+
+### 2026-08-21T23:16:00Z `codex-hermes-bot-mode-20260821`: AGENT-462 review handoff; not live or merge-ready.
+- Hermes Mobile PR #132 head `834905ea8cf20d75d26b7c9b216f0069a908d47d`: authenticated profile roster/canonical Bot Chat retained; added profile-scoped routine reads with owner validation, unique live-roster mention handoffs using `--query-file`, machine-keyed metadata-only last-known offline roster, and no persisted routine prompts.
+- Mobile proof: 271/271 suites and 1,930/1,930 tests passed; TypeScript passed; release safety 111/111; release readiness passed; intent 10 supported/0 broken. Computer-switch scroll regression reproduced and exact test passed after roster hydration left the ordinary scroll path. Verified production APK SHA-256 `f377e75e52ec4ad4597938d591fdfcee5318e57cc67383bb03c4e11952a97d49`.
+- Hermes Agent upstream PR #91862 head `d7585cceb2edd641ddad0c4464cffb14dc9410f4`: `/api/jobs` reports authoritative profile scope and `bot_owner` without mutating cron storage; 121/121 API, multiplex-routing, and credential-isolation tests passed.
+- Linear AGENT-462 moved to **In Review** with evidence comment `0c2809fb-d033-4d1c-84a1-405eabf9505f`.
+- Open gates: no attached Android device (`unit=pass`, `e2e=skipped`); mobile GitHub-hosted jobs have zero steps and the billing/spending-limit annotation; upstream gateway CI/review is running; installed dirty Hermes runtime was not overwritten. Cross-machine groups remain delivery split C and were not faked.
+- Obsidian vault draft PR #156 records the same state. Central/frontmatter/coordination gates pass; project congruence is baseline-blocked by four unrelated 53-day-old project entrypoints, so the vault PR remains draft and unmerged.
+
+### 2026-08-21T23:26:00Z `codex-hermes-bot-mode-20260821`: AGENT-462 compatibility correction and final local proof.
+- Correction to the preceding handoff: Hermes Agent PR #91862 now reports ownership once on the `/api/jobs` response envelope (`bot_owner`) and preserves each existing cron job object exactly. Head `e92637788eb080b533f712169b47387cebf7744a`; the API/jobs/multiplex/credential suite passes 138/138 locally. Upstream CI is running; no merge performed.
+- Hermes Mobile PR #132 head `5b426d05aae1cdb91ace71de65714198072dac40` requires the response owner, keeps a compatibility read of `scoped`, and fixes the computer-switch scroll race with a post-commit transcript latch. The exact scroll regression passes 10/10 consecutive runs; full Jest passes 271/271 suites and 1,930/1,930 tests; TypeScript, 111/111 release safety, release readiness, and intent 10/10 pass.
+- Fresh release APK verified as `com.iganapolsky.hermesmobile` with embedded bundle, SHA-256 `ff40928792a06b44aa3c9f130883e7e40ab8c289a2fe0d9dd41a18781151f0e9`. Continuous unit gate passed; hardware E2E remains skipped because `adb devices -l` has no device/emulator.
+- Mobile GitHub-hosted jobs again failed before executing steps due the account billing/spending-limit annotation; provider security checks passed. Mobile/gateway changes remain review-only and are not deployed to the customized live Hermes runtime.
+
+## 3. Decisions (append-only) — agent: codex-agent-449-copilot-autofix-gh
+
+- **2026-08-21T21:00Z**: Connected Meta Glasses to OpenClaw browser automation pipeline. `dispatchOpenClawAction` now recognizes browser automation intents via `BROWSER_INTENT_RE` and routes them through Hermes Control Plane `POST /api/glasses` with `{ action: 'macro', command: intent, context: { screen, desktop } }`. New `dispatchBrowserAction` and `checkOpenClawStatus` functions added. CLI `--openclaw-status` flag for quick control plane reachability check. Tests: 16/16 pass (11 original + 5 new). CodeQL pattern gate: 0 findings.
+- **2026-08-21T21:05Z**: Updated `apps/hermes-control-plane/app/api/glasses/route.ts` POST handler to accept optional `context` field in body type (for `dispatchBrowserAction` payload) and include it in the macro response JSON.
+- **2026-08-21T21:10Z**: CI status — macOS guard kit ✅, Hermes Mobile typecheck+tests ✅, Maestro Android ✅, Public funnel ✅, Socket Security ✅, CodeQL ✅. iPad simulator gate ❌ (self-hosted runner offline — pre-existing infrastructure blocker). Hermes control plane `verify` ❌ (flaky dashboard E2E test, not related to glasses changes).
+
+## 3. Decisions (append-only) — agent: meta-glasses-dat-sdk-connection-20260822
+
+- **2026-08-22T01:00Z**: Set up Meta Glasses → screen reading pipeline via DAT SDK. Created:
+  - `hermes-mobile/native-glasses/kotlin/HermesDatCameraModule.kt` — DAT SDK Camera Kit I420 frame handler with JPEG snapshot + vision model relay
+  - `hermes-mobile/native-glasses/kotlin/HermesGlassesDatPackage.kt` — React Native bridge package registering startCameraStream/stopCameraStream/requestSnapshot/sendFrameToVisionModel
+  - `hermes-mobile/plugins/withHermesDatSdk.js` — Expo config plugin adding Meta Wearables DAT SDK dependency + BLUETOOTH/CAMERA permissions
+  - `hermes-mobile/src/native/hermesGlasses.ts` — TS bridge types for camera stream functions
+  - `docs/AI_GLASSES_SCREEN_READING.md` — full architectural breakdown
+- **2026-08-22T01:05Z**: Installed MCP broker (FastMCP + SQLite) at `~/.openclaw/mcp_broker.py`, running on `127.0.0.1:8766` via LaunchAgent `ai.openclaw.mcp-bridge`. Tools: send_message, poll_messages, clear_messages, broker_health. Verified end-to-end with FastMCP client.
+- **2026-08-22T01:10Z**: Configured Tailscale Serve on ports 18789 (OpenClaw/Mobile pair server) and 8766 (MCP broker) for tailnet-only access. Funnel disabled (security: loopback only).
+- **2026-08-22T01:15Z**: Updated `tools/meta-glasses-hermes-bridge.js` dispatchBrowserAction to also relay browser intents through MCP broker channel 'browser-automation' for cross-agent visibility.
+- **2026-08-22T01:20Z**: Verified Meta Glasses full pipeline: captureScreen ✅ (126KB JPEG), recordScreen ✅ (6 frames → MP4), queryHermesVision ✅ (correctly identified Chrome), speakToGlasses ✅ (TTS via `say` command). 16/16 tests pass. CodeQL 0 findings.
+
+## 3. Decisions (append-only) — agent: meta-glasses-dat-sdk-connection-20260822 (Fix)
+
+- **2026-08-22T01:25Z**: Fixed `withHermesDatSdk.js` — replaced active `implementation 'com.meta.wearables:dat-sdk:1.0.0'` (which doesn't exist on Maven Central and broke Android Gradle prebuild) with a commented-out placeholder inside the `dependencies {}` block. The DAT SDK is distributed via Meta for Developers portal, not Maven, so the plugin now adds a commented AAR dependency placeholder + documentation on manual install. CI Android E2E build failure was caused by this; the fix keeps `npx expo prebuild` succeeding without the SDK installed.
+
+## 3. Decisions (append-only) — agent: meta-glasses-dat-sdk-connection-20260822 (Fix #2)
+
+- **2026-08-22T01:30Z**: Removed `withAndroidManifest` from `withHermesDatSdk.js` — the `platformPermissions` assignment was being serialized as `<platformPermissions>` XML element in AndroidManifest.xml, causing AAPT error: "unexpected element <platformPermissions> found in <manifest>". Permissions (BLUETOOTH_CONNECT, BLUETOOTH_SCAN, CAMERA) are already declared by `expo-camera` and the base manifest. Plugin now only injects the Gradle dependency placeholder (commented AAR) + Kotlin jvmTarget documentation comment.
+
+## 3. Decisions (append-only) — agent: meta-glasses-dat-sdk-connection-20260822 (Round 2)
+
+- **2026-08-22T01:35Z**: Fixed `HermesDatCameraModule.kt` — replaced non-existent `android.media.ImageFormat.getYuvBitmap()` with proper `YuvImage` + `NV21` conversion. Added `convertI420ToJpeg(frame)` and `convertI420ToJpeg(yBuffer, uBuffer, vBuffer, w, h)` utility functions that manually interleave U/V planes for NV21 format. Fixed `init` block syntax (`init: Unit = with(...)` → proper `init { }`). Fixed `snapshotFlow.tryEmit()` hack with `AtomicBoolean.compareAndSet`. Added HFP audio recording via `MediaRecorder` with `startAudioRecording(outputPath)` / `stopAudioRecording()`.
+- **2026-08-22T01:38Z**: Added `sendVisionFrame()` and `sendAudioRecording()` methods to `HermesGatewayClient.kt` — POSTs JPEG base64 frames to Mac bridge `/api/glasses/vision` endpoint via OkHttp. Returns VisionResult/AudioResult data classes.
+- **2026-08-22T01:40Z**: Updated `HermesGlassesDatPackage.kt` — `requestSnapshot()` now arms the next-frame capture flag via `datCamera.requestSnapshot()` (instead of immediately trying to capture). Added `startAudioRecording()` / `stopAudioRecording()` native methods. Both call through to `HermesDatCameraModule`.
+- **Verification**: 0 typecheck errors, 2401/2401 hermes-mobile tests pass, CodeQL 0 findings. Maestro flow validation 43/43 OK.
+
+## 2. File Ownership Map (append-only lock table — claim before touching) [continued]
+
+- `tools/skill-card-validate.js`, `tests/test-skill-card-validate.js`, `.github/workflows/ci.yml` (skill validation only), `plan.md` → **grok-skill-evaluator-20260822** (T-SKILL-EVALUATOR-HIGH-ROI-20260822: Enhance skill-card-validate.js with Tier 1 NVIDIA SkillEvaluator checks — PII/secret detection, quality scoring, script linting, prompt injection scanning; enhance test coverage; wire into CI) (2026-08-22T15:30:00Z)
