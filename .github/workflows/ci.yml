@@ -187,26 +187,31 @@ jobs:
           set -eu
           # Tier 1 safety and structure checks: PII/secret scan, quality scoring,
           # script linting, and prompt injection detection.
-          # Fails CI if ANY security findings (PII/secret leaks, lint errors,
-          # prompt injection) are detected. Missing skill-card.md and quality
-          # score gaps are informational (pre-existing debt).
+          # Cloudflare-style enforcement: MUST violations (security) block CI;
+          # SHOULD violations (missing card, quality gaps) are advisory only.
           node tools/skill-card-validate.js --json > /tmp/skill-audit.json
           node -e "
             const d = require('/tmp/skill-audit.json');
-            let securityFindings = 0;
+            const mustFindings = [];
+            const shouldFindings = [];
             for (const s of d.skills) {
-              securityFindings += s.piiFindings.length;
-              securityFindings += s.lintFindings.filter(f => f.severity === 'error').length;
-              securityFindings += s.injectionFindings.length;
+              for (const v of s.mustViolations) mustFindings.push(v.message);
+              for (const v of s.shouldViolations) shouldFindings.push(v.message);
             }
-            console.log('Skill catalog: %d/%d ok, quality avg=%d, PII=%d, lint_errs=%d, injection=%d',
-              d.passed, d.total,
-              Math.round(d.skills.reduce((s,x) => s+x.quality.score, 0)/d.total),
-              d.skills.reduce((s,x) => s+x.piiFindings.length, 0),
-              d.skills.reduce((s,x) => s+x.lintFindings.filter(f=>f.severity==='error').length, 0),
-              d.skills.reduce((s,x) => s+x.injectionFindings.length, 0));
-            if (securityFindings > 0) {
-              console.error('::error::%d Tier 1 security finding(s) — PII leaks, lint errors, or prompt injection detected', securityFindings);
+            console.log('Skill catalog: %d/%d ok', d.passed, d.total);
+            console.log('  Deviations: %d MUST (blocking), %d SHOULD (advisory)',
+              d.deviations.must, d.deviations.should);
+            console.log('  Quality avg=%d',
+              d.total > 0 ? Math.round(d.skills.reduce((s,x) => s+x.quality.score, 0)/d.total) : 0);
+            if (shouldFindings.length) {
+              console.log('  Advisory (SHOULD):');
+              for (const msg of shouldFindings.slice(0, 20)) console.log('    - %s', msg);
+              if (shouldFindings.length > 20) console.log('    ... and %d more', shouldFindings.length - 20);
+            }
+            if (mustFindings.length > 0) {
+              console.error('::error::%d MUST violation(s) — PII leaks, lint errors, or prompt injection', mustFindings.length);
+              console.error('MUST violations:');
+              for (const msg of mustFindings) console.error('  - %s', msg);
               process.exit(1);
             }
           "
