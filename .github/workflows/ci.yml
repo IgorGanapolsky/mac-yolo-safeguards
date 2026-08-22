@@ -182,6 +182,35 @@ jobs:
           mkdir -p "$HOME/workspace/git/igor/antigravity-hub/antigravity-cli/bin"
           ./install.sh
 
+      - name: NVIDIA SkillEvaluator Tier 1 — skill catalog static checks
+        run: |
+          set -eu
+          # Tier 1 safety and structure checks: PII/secret scan, quality scoring,
+          # script linting, and prompt injection detection.
+          # Fails CI if ANY security findings (PII/secret leaks, lint errors,
+          # prompt injection) are detected. Missing skill-card.md and quality
+          # score gaps are informational (pre-existing debt).
+          node tools/skill-card-validate.js --json > /tmp/skill-audit.json
+          node -e "
+            const d = require('/tmp/skill-audit.json');
+            let securityFindings = 0;
+            for (const s of d.skills) {
+              securityFindings += s.piiFindings.length;
+              securityFindings += s.lintFindings.filter(f => f.severity === 'error').length;
+              securityFindings += s.injectionFindings.length;
+            }
+            console.log('Skill catalog: %d/%d ok, quality avg=%d, PII=%d, lint_errs=%d, injection=%d',
+              d.passed, d.total,
+              Math.round(d.skills.reduce((s,x) => s+x.quality.score, 0)/d.total),
+              d.skills.reduce((s,x) => s+x.piiFindings.length, 0),
+              d.skills.reduce((s,x) => s+x.lintFindings.filter(f=>f.severity==='error').length, 0),
+              d.skills.reduce((s,x) => s+x.injectionFindings.length, 0));
+            if (securityFindings > 0) {
+              console.error('::error::%d Tier 1 security finding(s) — PII leaks, lint errors, or prompt injection detected', securityFindings);
+              process.exit(1);
+            }
+          "
+
       # A self-hosted runner is also a live workstation. Never install a PR or
       # branch checkout over its LaunchAgent targets: an older concurrent run
       # can silently roll production safeguards backward. The live copies need
