@@ -80,6 +80,7 @@ test('playLatestPodcasts explains Google Play Music is retired and never claims 
   assert.ok(src.includes('--play-podcasts'));
   assert.ok(src.includes('--media-list'));
   assert.ok(src.includes('youtube.music'));
+  assert.ok(src.includes('music.youtube.com/new_episodes'));
   assert.ok(src.includes('phoneCallActive'));
   delete process.env.HERMES_GLASSES_MEDIA_DRY_RUN;
 });

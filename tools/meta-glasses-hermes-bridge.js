@@ -516,12 +516,23 @@ function playLatestPodcasts() {
   };
 
   if (ytm) {
-    launched = tryStart(
-      ['-a', 'android.intent.action.VIEW', '-d', 'https://music.youtube.com/podcasts', '-p', ytm.pkg],
-      'youtube-music-podcasts',
-    )
-      ? ytm
-      : launched;
+    // Prefer new_episodes (same order as tools/prolo-android-podcast-macro.js) so
+    // "latest podcasts" is not the generic /podcasts browse page.
+    const ytmViews = [
+      ['https://music.youtube.com/new_episodes', 'youtube-music-new-episodes'],
+      ['https://music.youtube.com/podcasts/new_episodes', 'youtube-music-podcasts-new-episodes'],
+      ['https://music.youtube.com/library/podcasts', 'youtube-music-library-podcasts'],
+      ['https://music.youtube.com/podcasts', 'youtube-music-podcasts'],
+    ];
+    for (const [url, label] of ytmViews) {
+      if (launched) break;
+      launched = tryStart(
+        ['-a', 'android.intent.action.VIEW', '-d', url, '-p', ytm.pkg],
+        label,
+      )
+        ? ytm
+        : launched;
+    }
     if (!launched) {
       launched = tryStart(
         [
