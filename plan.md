@@ -3546,3 +3546,9 @@ Three PRs shipped:
 - **2026-08-22T01:38Z**: Added `sendVisionFrame()` and `sendAudioRecording()` methods to `HermesGatewayClient.kt` — POSTs JPEG base64 frames to Mac bridge `/api/glasses/vision` endpoint via OkHttp. Returns VisionResult/AudioResult data classes.
 - **2026-08-22T01:40Z**: Updated `HermesGlassesDatPackage.kt` — `requestSnapshot()` now arms the next-frame capture flag via `datCamera.requestSnapshot()` (instead of immediately trying to capture). Added `startAudioRecording()` / `stopAudioRecording()` native methods. Both call through to `HermesDatCameraModule`.
 - **Verification**: 0 typecheck errors, 2401/2401 hermes-mobile tests pass, CodeQL 0 findings. Maestro flow validation 43/43 OK.
+
+## 2. File Ownership Map (append-only lock table — claim before touching) [continued]
+
+- `tools/skill-card-validate.js`, `tests/test-skill-card-validate.js`, `.github/workflows/ci.yml` (skill validation only), `plan.md` → **grok-skill-evaluator-20260822** (T-SKILL-EVALUATOR-HIGH-ROI-20260822: Enhance skill-card-validate.js with Tier 1 NVIDIA SkillEvaluator checks — PII/secret detection, quality scoring, script linting, prompt injection scanning; enhance test coverage; wire into CI) (2026-08-22T15:30:00Z)
+
+- `tools/skill-card-validate.js`, `tests/test-skill-card-validate.js`, `.github/workflows/ci.yml` (skill validation only), `.agents/skills/*/SKILL.md` (PII redactions) → **grok-skill-evaluator-20260822** (T-SKILL-EVALUATOR-CLOUDFLARE-20260822: Implement MUST/SHOULD enforcement classification for skill validation — MUST violations (PII, lint, injection) fail CI; SHOULD violations (missing card, quality score) are advisory only; add deviation tracking) (2026-08-22T15:51:00Z)
