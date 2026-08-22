@@ -38,7 +38,7 @@ function checkConnection() {
   try {
     // Use execFileSync with explicit args to avoid shell injection
     const out = execFileSync('blueutil', ['--info', META_BT_MAC], { encoding: 'utf8' });
-    const isConnected = out.includes('connected');
+    const isConnected = /\bconnected\b/i.test(out) && !out.includes('not connected');
     return {
       connected: isConnected,
       raw: out.trim(),
@@ -59,6 +59,22 @@ function ensureConnected() {
     } catch (_) {}
   }
   return checkConnection();
+}
+
+const PHONE_SCREENSHOT_PATH = '/tmp/hermes-phone-screen.png';
+
+function capturePhoneScreen() {
+  try {
+    execFileSync('sh', ['-c', `adb exec-out screencap -p > ${PHONE_SCREENSHOT_PATH}`], { stdio: 'pipe' });
+    if (fs.existsSync(PHONE_SCREENSHOT_PATH)) {
+      const stats = fs.statSync(PHONE_SCREENSHOT_PATH);
+      const b64 = fs.readFileSync(PHONE_SCREENSHOT_PATH).toString('base64');
+      return { ok: true, path: PHONE_SCREENSHOT_PATH, bytes: stats.size, base64: b64 };
+    }
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+  return { ok: false, error: 'Phone screenshot not created' };
 }
 
 function captureScreen() {
@@ -121,16 +137,96 @@ function recordScreen(durationSec = 5, outputPath = RECORDING_PATH) {
   return { ok: false, error: 'Recording failed' };
 }
 
-function speakToGlasses(text, voice = 'Samantha') {
+function getVoiceForText(text, explicitVoice = null) {
+  if (explicitVoice) return explicitVoice;
+  if (!text) return 'Samantha';
+  // Russian / Cyrillic characters
+  if (/[\u0400-\u04FF]/.test(text)) return 'Milena';
+  // Spanish accents / markers
+  if (/[áéíóúüñ¿¡]/i.test(text)) return 'Paulina';
+  return 'Samantha';
+}
+
+function speakToGlasses(text, voice = null) {
   if (!text) return;
-  console.log(`[MetaGlasses Speak] "${text}"`);
+  const chosenVoice = getVoiceForText(text, voice);
+  console.log(`[MetaGlasses Speak (${chosenVoice})] "${text}"`);
   // Use execFileSync (synchronous) so errors are caught inline, not async.
   // Falls back gracefully when `say` is not available (e.g. Linux CI).
   try {
-    execFileSync('say', ['-v', voice, text], { stdio: 'ignore' });
+    execFileSync('say', ['-v', chosenVoice, text], { stdio: 'ignore' });
   } catch (err) {
     console.error('[MetaGlasses Speak Error]', err.message);
   }
+}
+
+async function translateText(text, targetLang = 'es') {
+  const isRussian = /^ru/i.test(targetLang) || /russian/i.test(targetLang);
+  const langName = isRussian ? 'Russian' : 'Spanish';
+  const targetVoice = isRussian ? 'Milena' : 'Paulina';
+
+  const prompt = `Translate the following text into natural, fluent ${langName}. Output ONLY the translated text, no explanations, no quotes, no markdown formatting:\n\n"${text}"`;
+
+  const endpoints = [
+    { url: LITELLM_ENDPOINT, model: 'glm-5.3' },
+    { url: LITELLM_ENDPOINT, model: 'vision-gemini' },
+    { url: 'http://127.0.0.1:11434/v1/chat/completions', model: 'qwen3.5:9b-hermes-64k' },
+  ];
+
+  for (const ep of endpoints) {
+    try {
+      const payload = JSON.stringify({
+        model: ep.model,
+        messages: [
+          { role: 'system', content: `You are a real-time speech interpreter for Meta smart glasses. Translate directly into natural ${langName}. Output only the translation.` },
+          { role: 'user', content: prompt },
+        ],
+        max_tokens: 300,
+        temperature: 0.1,
+      });
+
+      const res = await new Promise((resolve) => {
+        const u = new URL(ep.url);
+        const req = http.request(
+          {
+            hostname: u.hostname,
+            port: u.port,
+            path: u.pathname,
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Content-Length': Buffer.byteLength(payload),
+            },
+            timeout: 10000,
+          },
+          (r) => {
+            let b = '';
+            r.on('data', (c) => (b += c));
+            r.on('end', () => {
+              try {
+                const data = JSON.parse(b);
+                const answer = data.choices?.[0]?.message?.content?.trim();
+                if (answer) resolve({ ok: true, translation: answer, targetLang, voice: targetVoice, model: ep.model });
+                else resolve({ ok: false, error: data.error?.message || b });
+              } catch (e) {
+                resolve({ ok: false, error: e.message });
+              }
+            });
+          }
+        );
+        req.on('error', (e) => resolve({ ok: false, error: e.message }));
+        req.on('timeout', () => { req.destroy(); resolve({ ok: false, error: 'Timeout' }); });
+        req.write(payload);
+        req.end();
+      });
+
+      if (res.ok) {
+        speakToGlasses(res.translation, targetVoice);
+        return res;
+      }
+    } catch (_) {}
+  }
+  return { ok: false, error: 'Translation endpoints exhausted' };
 }
 
 function getActiveDesktopContext() {
@@ -145,14 +241,40 @@ function getActiveDesktopContext() {
   return { appName, gitBranch };
 }
 
-async function queryHermesVision(prompt, includeScreen = true) {
+async function queryHermesVision(prompt, options = true) {
+  // Support boolean includeScreen or options object { screen: true, phone: false }
+  const isScreen = typeof options === 'boolean' ? options : (options?.screen ?? false);
+  const isPhone = typeof options === 'object' ? (options?.phone ?? false) : false;
+
   const messages = [];
   const desk = getActiveDesktopContext();
   const contextNote = desk.appName ? ` [Desktop Context: Active Frontmost App is ${desk.appName}${desk.gitBranch ? `, Git Branch: ${desk.gitBranch}` : ''}]` : '';
 
-  if (includeScreen) {
+  let hasImage = false;
+
+  if (isPhone) {
+    const phone = capturePhoneScreen();
+    if (phone.ok) {
+      hasImage = true;
+      messages.push({
+        role: 'user',
+        content: [
+          { type: 'text', text: (prompt || 'Analyze this phone screen and provide concise key takeaways or action items.') },
+          {
+            type: 'image_url',
+            image_url: {
+              url: `data:image/png;base64,${phone.base64}`,
+            },
+          },
+        ],
+      });
+    } else {
+      messages.push({ role: 'user', content: (prompt || 'Analyze phone state') + ` (Phone capture failed: ${phone.error})` });
+    }
+  } else if (isScreen) {
     const screen = captureScreen();
     if (screen.ok) {
+      hasImage = true;
       messages.push({
         role: 'user',
         content: [
@@ -180,18 +302,18 @@ async function queryHermesVision(prompt, includeScreen = true) {
   const endpoints = [
     {
       url: LITELLM_ENDPOINT,
-      model: includeScreen ? 'glm-vision' : 'glm-5.3',
-      timeout: 15000,
+      model: hasImage ? 'vision-gemini' : 'glm-5.3',
+      timeout: 10000,
     },
     {
       url: LITELLM_ENDPOINT,
-      model: includeScreen ? 'vision-gemini' : 'hermes-local',
-      timeout: 15000,
+      model: hasImage ? 'glm-vision' : 'glm-coding',
+      timeout: 12000,
     },
     {
       url: 'http://127.0.0.1:11434/v1/chat/completions',
-      model: 'qwen2.5:3b-64k',
-      timeout: 10000,
+      model: hasImage ? 'qwen3-vl:4b-instruct' : 'qwen3.5:9b-hermes-64k',
+      timeout: 12000,
     },
   ];
 
@@ -199,9 +321,9 @@ async function queryHermesVision(prompt, includeScreen = true) {
     try {
       const payload = JSON.stringify({
         model: ep.model,
-        messages: includeScreen && ep.url.includes('11434') ? [{ role: 'user', content: prompt + contextNote }] : messages,
+        messages: hasImage && ep.url.includes('11434') ? [{ role: 'user', content: prompt + contextNote }] : messages,
         max_tokens: 250,
-        temperature: 0.2,
+        temperature: 0.1,
       });
 
       const res = await new Promise((resolve, reject) => {
@@ -225,7 +347,7 @@ async function queryHermesVision(prompt, includeScreen = true) {
               try {
                 const data = JSON.parse(body);
                 const answer = data.choices?.[0]?.message?.content;
-                if (answer) resolve({ ok: true, answer: answer.trim() });
+                if (answer) resolve({ ok: true, answer: answer.trim(), model: ep.model });
                 else resolve({ ok: false, error: data.error?.message || body });
               } catch (e) {
                 resolve({ ok: false, error: e.message, raw: body });
@@ -520,19 +642,96 @@ async function main() {
     return;
   }
 
+  if (args.includes('--phone-screen')) {
+    const res = capturePhoneScreen();
+    console.log(JSON.stringify({ ok: res.ok, path: res.path, bytes: res.bytes }, null, 2));
+    return;
+  }
+
+  if (args.includes('--phone-ask')) {
+    const askIndex = args.indexOf('--phone-ask') + 1;
+    const query = args[askIndex] || 'Summarize what is currently on my phone screen.';
+    console.log(`[MetaGlasses Inference] Querying Hermes with phone screen: "${query}"...`);
+    const res = await queryHermesVision(query, { screen: false, phone: true });
+    if (res.ok) {
+      console.log(`\n🧠 Answer (${res.model || 'hermes'}): ${res.answer}\n`);
+      speakToGlasses(res.answer);
+    } else {
+      console.error(`[Inference Failed]`, res.error || res.raw);
+      speakToGlasses('Phone inference request failed.');
+    }
+    return;
+  }
+
+  if (args.includes('--phone-command')) {
+    const cmdIndex = args.indexOf('--phone-command') + 1;
+    const cmd = args[cmdIndex];
+    if (cmd) {
+      const res = runPhoneMacro(cmd);
+      console.log(JSON.stringify(res, null, 2));
+      speakToGlasses(res.ok ? 'Phone command executed.' : 'Phone command failed.');
+    }
+    return;
+  }
+
+  if (args.includes('--translate')) {
+    const tIndex = args.indexOf('--translate') + 1;
+    const targetLang = args[tIndex] || 'es';
+    const text = args[tIndex + 1] || 'Hello, real-time translation is active on your Meta smart glasses.';
+    console.log(`[MetaGlasses Translation] Translating to ${targetLang}: "${text}"...`);
+    const res = await translateText(text, targetLang);
+    console.log(JSON.stringify(res, null, 2));
+    return;
+  }
+
+  if (args.includes('--translate-es')) {
+    const tIndex = args.indexOf('--translate-es') + 1;
+    const text = args[tIndex] || 'Hello, real-time Spanish translation is online.';
+    console.log(`[MetaGlasses Translation (ES)] "${text}"...`);
+    const res = await translateText(text, 'es');
+    console.log(JSON.stringify(res, null, 2));
+    return;
+  }
+
+  if (args.includes('--translate-ru')) {
+    const tIndex = args.indexOf('--translate-ru') + 1;
+    const text = args[tIndex] || 'Hello, real-time Russian translation is online.';
+    console.log(`[MetaGlasses Translation (RU)] "${text}"...`);
+    const res = await translateText(text, 'ru');
+    console.log(JSON.stringify(res, null, 2));
+    return;
+  }
+
   console.log(`
 Meta Glasses Hermes & OpenClaw Action Bridge
 Usage:
   node tools/meta-glasses-hermes-bridge.js --status
   node tools/meta-glasses-hermes-bridge.js --connect
   node tools/meta-glasses-hermes-bridge.js --speak "Text to speak"
+  node tools/meta-glasses-hermes-bridge.js --translate es "Text to translate to Spanish"
+  node tools/meta-glasses-hermes-bridge.js --translate ru "Text to translate to Russian"
+  node tools/meta-glasses-hermes-bridge.js --translate-es "Text to translate"
+  node tools/meta-glasses-hermes-bridge.js --translate-ru "Text to translate"
   node tools/meta-glasses-hermes-bridge.js --screen
+  node tools/meta-glasses-hermes-bridge.js --phone-screen
   node tools/meta-glasses-hermes-bridge.js --record [seconds]
   node tools/meta-glasses-hermes-bridge.js --ask "Your prompt"
+  node tools/meta-glasses-hermes-bridge.js --phone-ask "Your prompt"
   node tools/meta-glasses-hermes-bridge.js --command "sh command"
+  node tools/meta-glasses-hermes-bridge.js --phone-command "adb command"
   node tools/meta-glasses-hermes-bridge.js --openclaw "voice intent"
   node tools/meta-glasses-hermes-bridge.js --openclaw-status
   `);
+}
+
+function runPhoneMacro(command) {
+  console.log(`[MetaGlasses Phone Macro] Executing: ${command}`);
+  try {
+    const out = execFileSync('adb', ['shell', command], { encoding: 'utf8', timeout: 15000 });
+    return { ok: true, output: out.trim() };
+  } catch (err) {
+    return { ok: false, error: err.message, stderr: err.stderr ? String(err.stderr) : '' };
+  }
 }
 
 if (require.main === module) {
@@ -543,10 +742,14 @@ module.exports = {
   checkConnection,
   ensureConnected,
   captureScreen,
+  capturePhoneScreen,
   recordScreen,
   speakToGlasses,
+  translateText,
+  getVoiceForText,
   queryHermesVision,
   runMacro,
+  runPhoneMacro,
   dispatchOpenClawAction,
   checkOpenClawStatus,
   dispatchBrowserAction,

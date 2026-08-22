@@ -1,75 +1,73 @@
 ---
 name: meta-glasses-hermes
 description: >
-  Meta Glasses (Ray-Ban / Oakley) integration with Hermes agent runtime:
-  screen capture streaming, voice-to-inference, and AR macro/command
-  execution on MacBook via Hermes gateway. Trigger when user wants to
-  connect Meta glasses to Hermes for live screen capture, deep AI
-  inference, or hands-free macro execution. Slash: /meta-glasses-hermes.
+  Meta Ray-Ban Smart Glasses Hardware, Android Phone Companion, OpenClaw MCP &
+  Deep Hermes Inference Action Bridge. Features 4-hour meeting recording, real-time
+  multilingual translation (RU/ES/EN), physical rack & K8s incident OCR, OpenClaw
+  agent dispatch, and air-gapped privacy quarantine. Trigger: /meta-glasses-hermes.
 ---
 
-# Meta Glasses Hermes Integration
+# Meta Glasses + Hermes & OpenClaw IT Copilot Suite (August 2026)
 
-Connects Meta smart glasses (Ray-Ban / Oakley, Meta Wear 2026+) to the
-Hermes agent runtime for five capabilities:
+Connects Meta smart glasses (Ray-Ban Meta Gen 2, Qualcomm AR1) to the sovereign
+Hermes & OpenClaw AI engine for real-time IT operations, incident triage, and hands-free memory persistence.
 
-1. **Bluetooth link status** — probes and connects to the Meta glasses
-   BLE peripheral via `blueutil` (Mac-side daemon).
-2. **Multimodal screen capture** — grabs retina screen context as JPEG
-   for vision-model inference.
-3. **Deep inference** — queries the Hermes LiteLLM gateway with the
-   screen image + voice prompt, returning concise spoken-friendly answers.
-4. **Voice TTS playback** — streams synthesized speech directly into the
-   glasses' open-ear speakers via macOS `say`.
-5. **Mac command/macro dispatch** — executes shell and AppleScript
-   automation, routed through the OpenBot Action Gateway for deterministic
-   policy interdiction.
+## Architecture Topology
 
-## Steal Matrix (high ROI only)
-
-| Meta Glasses concept | Implement here |
-|----------------------|----------------|
-| Live voice mode | `hermes-voice-engine.js` + `bin/eleven-voice` + this bridge (TTS via `say`) |
-| Screen capture streaming | `tools/meta-glasses-hermes-bridge.js` captureScreen → JPEG base64 |
-| AR gesture macros | `tools/meta-glasses-hermes-bridge.js` runMacro (wink → shell command) |
-| Deep inference via gateway | `tools/meta-glasses-hermes-bridge.js` queryHermesVision (LiteLLM gateway) |
-| Workflow teaching ("watch it") | Native `hermesGlasses.ts` + `HermesGlassesModule` gesture recording |
-
-## CLI Usage
-
-```bash
-# Check Bluetooth connection status to glasses
-node tools/meta-glasses-hermes-bridge.js --status
-
-# Connect to glasses via BLE
-node tools/meta-glasses-hermes-bridge.js --connect
-
-# Speak text into glasses' open-ear speakers
-node tools/meta-glasses-hermes-bridge.js --speak "Connected to Hermes inference engine."
-
-# Capture screen as JPEG
-node tools/meta-glasses-hermes-bridge.js --screen
-
-# Deep inference: ask Hermes to analyze the screen
-node tools/meta-glasses-hermes-bridge.js --ask "What is on my screen right now?"
-
-# Execute a shell macro command
-node tools/meta-glasses-hermes-bridge.js --command "open Slack and focus Warp"
-
-# Run tests
-node tests/test-meta-glasses-hermes-bridge.js
+```
+[Glasses 5-Mic Array & 12MP Camera]
+                │ (Bluetooth HFP/A2DP)
+                ▼
+[Android Companion: Samsung Galaxy S25]
+   • Meta View Live Translation (RU ⟷ EN ⟷ ES)
+   • 4-Hour Meeting Audio Ingestion
+   • /sdcard/Download/Meta AI/ Media Sync
+                │ (ADB / Tailscale Peer-to-Peer)
+                ▼
+[Mac Sovereign Gateway & Inference Mesh]
+   • LiteLLM :4010 (GLM-5.3, Gemini 3.7 Flash)
+   • Ollama :11434 (Qwen 3.5 64k, Qwen-VL)
+   • OpenClaw MCP Broker (:8766 / Tailscale)
+   • LaunchAgent ai.hermes.glasses-ingest
+                │
+    ┌───────────┴───────────┐
+    ▼                       ▼
+[Obsidian Meeting Vault] [OpenClaw IT MCP Tools]
 ```
 
-## Native Module
+## Core Superpowers & Workflows
 
-The Android native side lives in `hermes-mobile/native-glasses/kotlin/`:
-- `HermesGlassesModule.kt` — RN bridge for BLE + projection
-- `HermesGlassesViewModel.kt` — state management for glasses UI
-- `HermesGlassesScreens.kt` — Compose XR AR overlay screens
-- `HermesGlassesProjectedActivity.kt` — projected display lifecycle
+### 1. 🌐 Real-Time Multilingual Live Translation
+* **Russian (`ru`)**: Native `Milena` voice synthesis + GLM-5.3 interpreter.
+* **Spanish (`es`)**: Native `Paulina` / `Mónica` voice synthesis.
+* **Script Auto-Detection**: Inspects Cyrillic and Spanish diacritics to automatically route speech to the correct native voice.
 
-## Related
+```bash
+# Real-time CLI Translation
+node tools/meta-glasses-hermes-bridge.js --translate-ru "All deployment checks passed."
+node tools/meta-glasses-hermes-bridge.js --translate-es "System metrics are within nominal thresholds."
+```
 
-- `/openbot-action-gateway` — AG-UI policy interdiction for every command
-- `/outcome-owned-agent-pattern` — GrokBot team-agent orchestration
-- `/screenpipe-activity-local` — activity timeline + recall
+### 2. 🖥️ Physical Server Rack & Datacenter Vision
+* **Tool**: `it_diagnose_hardware`
+* **Workflow**: Glasses camera snapshot $\rightarrow$ `vision-gemini` inspects switch link LEDs (amber vs solid green 10G), redundant PSU lines, and ToR patch panel strain relief.
+
+### 3. 🚨 Terminal & K8s Incident Triage
+* **Tool**: `it_analyze_incident`
+* **Workflow**: Retinal capture of stack trace / Grafana panic $\rightarrow$ parses error $\rightarrow$ generates targeted `kubectl` rollout and logs commands.
+
+### 4. 🎙️ 4-Hour Continuous Meeting Vault
+* **Tool**: `openclaw-meeting-vault.js`
+* **Workflow**: 5-mic beamforming array captures continuous audio on phone $\rightarrow$ syncs to Mac $\rightarrow$ extracts markdown checkboxes (`- [ ]`) $\rightarrow$ saves to `~/Documents/Obsidian Vault/Meetings/` and indexes in `~/.openclaw/memory/meetings.jsonl`.
+
+### 5. 🛡️ Air-Gapped Zero-Leak Quarantine
+* Inadvertently captured client secrets, private keys, or non-consenting faces trigger `action: quarantine`. Media is held locally in `~/.hermes/glasses/quarantine/` with zero cloud egress.
+
+## Testing & Verification
+
+```bash
+# Run unit & integration test suite
+node --test tests/test-meta-glasses-hermes-bridge.js
+node --test tests/test-openclaw-meeting-vault.js
+node --test tests/test-glasses-it-superpowers-e2e.js
+```
