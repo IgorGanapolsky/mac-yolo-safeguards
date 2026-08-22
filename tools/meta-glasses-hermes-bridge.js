@@ -33,6 +33,8 @@ const META_BT_MAC = '80-aa-1c-19-61-c1';
 const META_DEVICE_NAME = 'RB Meta 00F1';
 const LITELLM_ENDPOINT = 'http://127.0.0.1:4010/v1/chat/completions';
 const SCREENSHOT_PATH = '/tmp/hermes-meta-screen.jpg';
+/** HARD: Ray-Ban Meta BT belongs to the phone only. Never Mac-pair / Mac-steal. */
+const PHONE_ONLY_BT = process.env.HERMES_GLASSES_PHONE_ONLY !== '0';
 
 function checkPhoneGlassesBond() {
   try {
@@ -108,20 +110,74 @@ function checkConnection() {
   };
 }
 
-function ensureConnected() {
-  const status = checkConnection();
-  if (status.connected) return checkConnection();
+/**
+ * If Mac somehow holds RB Meta, drop it immediately (phone-only policy).
+ * Never pairs, never --connect. Disconnect + unpair only.
+ */
+function releaseMacGlassesBond() {
+  const actions = [];
+  try {
+    const info = execFileSync('blueutil', ['--info', META_BT_MAC], { encoding: 'utf8' });
+    const connected = /\bconnected\b/i.test(info) && !/not connected/i.test(info);
+    const paired = /\bpaired\b/i.test(info) && !/not paired/i.test(info);
+    if (connected) {
+      try {
+        execFileSync('blueutil', ['--disconnect', META_BT_MAC], { stdio: 'pipe' });
+        actions.push('disconnect');
+      } catch (_) {
+        actions.push('disconnect_failed');
+      }
+    }
+    if (paired || connected) {
+      try {
+        execFileSync('blueutil', ['--unpair', META_BT_MAC], { stdio: 'pipe' });
+        actions.push('unpair');
+      } catch (_) {
+        actions.push('unpair_failed');
+      }
+    }
+    if (actions.length === 0) actions.push('mac_clear');
+  } catch (err) {
+    actions.push(`probe_error:${err.message}`);
+  }
+  return { ok: true, mac: META_BT_MAC, actions };
+}
 
-  // Prefer reclaiming Mac BT only when phone does not already own the glasses.
+/**
+ * Phone-only ensure: never Mac BT connect.
+ * --connect used to blueutil --connect and steal the glasses from the phone.
+ */
+function ensureConnected() {
+  if (PHONE_ONLY_BT) {
+    const release = releaseMacGlassesBond();
+    const status = checkConnection();
+    status.phoneOnly = true;
+    status.macRelease = release;
+    if (status.phone?.connected) {
+      console.log(
+        `[MetaGlasses] Phone owns ${META_DEVICE_NAME} (phone_bt). Mac BT steal disabled.`,
+      );
+    } else if (status.mac?.connected) {
+      // Should be rare: releaseMacGlassesBond already ran; re-probe.
+      console.log(
+        `[MetaGlasses] Mac was holding ${META_DEVICE_NAME}; released. Reconnect glasses in Meta AI on the phone.`,
+      );
+    } else {
+      console.log(
+        `[MetaGlasses] ${META_DEVICE_NAME} not on phone BT yet. Open Meta AI on the phone — do not pair to this Mac.`,
+      );
+    }
+    return status;
+  }
+
+  // Escape hatch only: HERMES_GLASSES_PHONE_ONLY=0 (not the default).
+  const status = checkConnection();
+  if (status.connected) return status;
   if (!status.phone?.connected) {
     console.log(`[MetaGlasses] Connecting to ${META_DEVICE_NAME} (${META_BT_MAC}) on Mac...`);
     try {
       execFileSync('blueutil', ['--connect', META_BT_MAC], { stdio: 'inherit' });
     } catch (_) {}
-  } else {
-    console.log(
-      `[MetaGlasses] Phone already owns ${META_DEVICE_NAME}; skipping Mac BT steal. Install/open Hermes on phone for companion path.`,
-    );
   }
   return checkConnection();
 }
@@ -667,10 +723,22 @@ async function main() {
     return;
   }
 
+  if (args.includes('--release-mac') || args.includes('--phone-only')) {
+    const release = releaseMacGlassesBond();
+    const status = checkConnection();
+    console.log(JSON.stringify({ phoneOnly: true, release, status }, null, 2));
+    return;
+  }
+
   if (args.includes('--connect')) {
+    // Phone-only: never Mac-steal. Same as ensureConnected under PHONE_ONLY_BT.
     const status = ensureConnected();
-    console.log(JSON.stringify(status, null, 2));
-    speakToGlasses('Meta glasses connected to Hermes and OpenClaw.');
+    console.log(JSON.stringify({ ...status, phoneOnly: PHONE_ONLY_BT }, null, 2));
+    if (status.phone?.connected) {
+      speakToGlasses('Glasses stay on the phone. Mac Bluetooth steal is off.');
+    } else {
+      speakToGlasses('Connect the glasses in Meta AI on your phone. Not this Mac.');
+    }
     return;
   }
 
@@ -799,7 +867,9 @@ async function main() {
 Meta Glasses Hermes & OpenClaw Action Bridge
 Usage:
   node tools/meta-glasses-hermes-bridge.js --status
-  node tools/meta-glasses-hermes-bridge.js --connect
+  node tools/meta-glasses-hermes-bridge.js --connect          # phone-only; never Mac BT steal
+  node tools/meta-glasses-hermes-bridge.js --phone-only       # disconnect+unpair Mac if holding glasses
+  node tools/meta-glasses-hermes-bridge.js --release-mac      # alias of --phone-only
   node tools/meta-glasses-hermes-bridge.js --speak "Text to speak"
   node tools/meta-glasses-hermes-bridge.js --translate es "Text to translate to Spanish"
   node tools/meta-glasses-hermes-bridge.js --translate ru "Text to translate to Russian"
@@ -834,6 +904,10 @@ if (require.main === module) {
 module.exports = {
   checkConnection,
   ensureConnected,
+  releaseMacGlassesBond,
+  PHONE_ONLY_BT,
+  META_BT_MAC,
+  META_DEVICE_NAME,
   captureScreen,
   capturePhoneScreen,
   recordScreen,

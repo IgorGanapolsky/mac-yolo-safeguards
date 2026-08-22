@@ -19,6 +19,30 @@ test('ensureConnected returns a connection status', () => {
   assert.equal(typeof status.connected, 'boolean');
 });
 
+test('phone-only policy is the default and never Mac-steals under ensureConnected', () => {
+  assert.equal(bridge.PHONE_ONLY_BT, true);
+  const fs = require('fs');
+  const src = fs.readFileSync(__dirname + '/../tools/meta-glasses-hermes-bridge.js', 'utf8');
+  assert.ok(src.includes('PHONE_ONLY_BT'), 'must define PHONE_ONLY_BT');
+  assert.ok(src.includes('releaseMacGlassesBond'), 'must be able to release Mac bond');
+  // Default path must not instruct blueutil --connect unless escape hatch is set.
+  assert.ok(
+    /HERMES_GLASSES_PHONE_ONLY !== '0'/.test(src),
+    'Mac --connect must be behind HERMES_GLASSES_PHONE_ONLY=0 escape hatch',
+  );
+  const status = bridge.ensureConnected();
+  assert.equal(status.phoneOnly, true);
+  assert.ok(status.macRelease);
+  assert.equal(status.mac?.connected, false, 'Mac must not hold glasses after ensureConnected');
+});
+
+test('releaseMacGlassesBond is exported and safe when unpaired', () => {
+  const res = bridge.releaseMacGlassesBond();
+  assert.equal(res.ok, true);
+  assert.equal(res.mac, bridge.META_BT_MAC);
+  assert.ok(Array.isArray(res.actions));
+});
+
 test('captureScreen returns an ok-flagged result (mockable on CI)', () => {
   const res = bridge.captureScreen();
   assert.equal('ok' in res, true);

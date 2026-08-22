@@ -21,10 +21,23 @@ Hermes & OpenClaw AI engine for real-time IT operations, incident triage, and ha
 | **Hermes companion / DAT** | Hermes Mobile session via Wearables DAT | Only after Hermes is installed + DAT session |
 | **Mac bridge** (`tools/meta-glasses-hermes-bridge.js`) | Status/TTS/vision/OpenClaw MCP | Reports phone_bt vs mac_bt truthfully |
 
+## HARD: phone-only Bluetooth (CEO 2026-08-22)
+
+Glasses BT belongs to the **phone only**. The Mac must never pair/steal `RB Meta 00F1`.
+
+| NEVER | ALWAYS |
+|-------|--------|
+| `blueutil --connect 80-aa-1c-19-61-c1` | Phone Meta AI owns the bond |
+| Pair Ray-Ban Meta in macOS Bluetooth | `node tools/meta-glasses-hermes-bridge.js --phone-only` |
+| Treat Mac audio SCO as the companion path | `HERMES_GLASSES_PHONE_ONLY` default on (set `=0` only for explicit Mac audio debug) |
+
 ```bash
 node tools/meta-glasses-hermes-bridge.js --status
+node tools/meta-glasses-hermes-bridge.js --phone-only
 node tools/meta-glasses-hermes-bridge.js --openclaw-status
 ```
+
+If glasses keep "trying to connect to MacBook Pro": Mac residual bond or glasses multi-point memory. Run `--phone-only`, confirm macOS Bluetooth has no RB Meta pair, keep Meta AI Device connected on the phone.
 
 ## Architecture Topology
 
