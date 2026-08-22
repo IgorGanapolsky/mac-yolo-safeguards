@@ -269,6 +269,7 @@ function runMacro(command) {
 }
 
 const OPENCLAW_CONTROL_PLANE = 'http://127.0.0.1:3000';
+const MCP_BROKER = 'http://127.0.0.1:8766/mcp';
 const BROWSER_INTENT_RE = /\b(open\s+(url|website|webpage|browser)|navigate|go to|visit|click|browse|search|login|fill|submit|scroll|refresh|bookmark)\b/i;
 
 /**
@@ -291,7 +292,8 @@ function checkOpenClawStatus() {
 
 /**
  * Dispatch a browser automation intent to the OpenClaw control plane
- * via the glasses macro endpoint. Returns the control plane's response.
+ * via the glasses macro endpoint, and also relay through the MCP broker
+ * for cross-agent visibility. Returns the control plane's response.
  */
 async function dispatchBrowserAction(intent, context = {}) {
   const screen = captureScreen();
@@ -304,7 +306,7 @@ async function dispatchBrowserAction(intent, context = {}) {
     }, context),
   });
 
-  return new Promise((resolve) => {
+  const result = await new Promise((resolve) => {
     const u = new URL(OPENCLAW_CONTROL_PLANE + '/api/glasses');
     const req = http.request(
       {
@@ -332,6 +334,48 @@ async function dispatchBrowserAction(intent, context = {}) {
     req.write(payload);
     req.end();
   });
+
+  // Relay intent through MCP broker for cross-agent visibility
+  const mcpPayload = JSON.stringify({
+    jsonrpc: '2.0',
+    id: Date.now(),
+    method: 'tools/call',
+    params: {
+      name: 'send_message',
+      arguments: {
+        sender: 'meta-glasses',
+        recipient: 'hermes',
+        channel: 'browser-automation',
+        content: `BROWSER INTENT: ${intent}`,
+      },
+    },
+  });
+
+  const mcpU = new URL(MCP_BROKER);
+  const mcpReq = http.request(
+    {
+      hostname: mcpU.hostname,
+      port: mcpU.port,
+      path: '/mcp',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(mcpPayload),
+        'Accept': 'text/event-stream, application/json',
+      },
+      timeout: 5000,
+    },
+    (r) => {
+      r.on('data', () => {});
+      r.on('end', () => {});
+    }
+  );
+  mcpReq.on('error', () => {});
+  mcpReq.on('timeout', () => { mcpReq.destroy(); });
+  mcpReq.write(mcpPayload);
+  mcpReq.end();
+
+  return result;
 }
 
 /**
