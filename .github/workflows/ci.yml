@@ -182,6 +182,20 @@ jobs:
           mkdir -p "$HOME/workspace/git/igor/antigravity-hub/antigravity-cli/bin"
           ./install.sh
 
+      - name: NVIDIA SkillEvaluator Tier 1 — skill catalog static checks
+        run: |
+          set -eu
+          # Tier 1 safety and structure checks: PII/secret scan, quality scoring,
+          # script linting, and prompt injection detection (non-strict: informational).
+          node tools/skill-card-validate.js --json > /tmp/skill-audit.json
+          node -e "
+            const d = require('/tmp/skill-audit.json');
+            console.log('Skill catalog: %d/%d ok, quality avg=%d, PII findings=%d',
+              d.passed, d.total,
+              Math.round(d.skills.reduce((s,x) => s+x.quality.score, 0)/d.total),
+              d.skills.reduce((s,x) => s+x.piiFindings.length, 0));
+          "
+
       # A self-hosted runner is also a live workstation. Never install a PR or
       # branch checkout over its LaunchAgent targets: an older concurrent run
       # can silently roll production safeguards backward. The live copies need
