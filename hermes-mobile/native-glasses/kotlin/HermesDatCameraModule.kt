@@ -15,19 +15,23 @@
  *   4. JPEG-encode and send to vision model via Hermes Gateway
  *   5. Result is spoken back via glasses speakers
  *
+ * For meeting audio, the DAT SDK routes the glasses' microphones down to the
+ * host phone using standard Bluetooth HFP (Hands-Free Profile).
+ *
  * NOTE: Requires Developer Mode enabled on the glasses (tap app version 5x
  * in Meta AI app Settings > App Info).
  */
 package com.iganapolsky.hermesmobile.glasses
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
+import android.graphics.YuvImage
+import android.media.MediaRecorder
 import android.util.Base64
 import android.util.Log
-import androidx.annotation.ColorInt
 import com.meta.wearables.dat.sdk.DatCameraFrame
 import com.meta.wearables.dat.sdk.DatCameraListener
-import com.meta.wearables.dat.sdk.DatCameraManager
 import com.meta.wearables.dat.sdk.DatGlasses
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -45,13 +49,16 @@ class HermesDatCameraModule(
     companion object {
         private const val TAG = "HermesDatCamera"
         private const val JPEG_QUALITY = 90
-        private const val FRAME_THROTTLE_MS = 200
+        private const val FRAME_THROTTLE_MS = 200L
     }
 
     // Incoming snapshot requests from gestures
     private val snapshotFlow = MutableSharedFlow<Unit>(replay = 1)
 
-    // Latest frame buffer (I420 Y plane)
+    // Flag for pending snapshot requests (simpler than flow for synchronous callback)
+    private val snapshotRequested = AtomicBoolean(false)
+
+    // Latest frame buffer (I420)
     @Volatile
     private var latestFrame: DatCameraFrame? = null
     @Volatile
@@ -59,8 +66,16 @@ class HermesDatCameraModule(
 
     private val isStreaming = AtomicBoolean(false)
 
-    init: Unit = with(glasses.camera) {
-        setListener(this@HermesDatCameraModule)
+    // HFP audio recorder for meeting capture
+    private var audioRecorder: MediaRecorder? = null
+    private val isRecordingAudio = AtomicBoolean(false)
+
+    init {
+        try {
+            glasses.camera.setListener(this)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to set camera listener: ${e.message}")
+        }
     }
 
     /**
@@ -97,6 +112,8 @@ class HermesDatCameraModule(
      * The next available frame will be captured and sent to the vision model.
      */
     fun requestSnapshot() {
+        snapshotRequested.set(true)
+        // Emit on the flow for async observers
         CoroutineScope(Dispatchers.Main).launch {
             snapshotFlow.emit(Unit)
         }
@@ -115,13 +132,25 @@ class HermesDatCameraModule(
 
         latestFrame = frame
 
-        // Check if a snapshot was requested
-        val pendingSnapshot = try {
-            snapshotFlow.tryEmit(Unit)
-            false
-        } catch (e: Exception) {
-            // This is hacky — use a flag instead
-            false
+        // Check if a snapshot was requested via gesture
+        if (snapshotRequested.compareAndSet(true, false)) {
+            val jpegBase64 = convertI420ToJpeg(frame)
+
+            if (jpegBase64 != null) {
+                val width = frame.width
+                val height = frame.height
+
+                // Send via Hermes Gateway to the Mac bridge
+                // The Mac bridge (tools/meta-glasses-hermes-bridge.js) routes
+                // to Claude 3.5 Sonnet vision or GPT-4o via LiteLLM gateway
+                HermesGatewayClient().sendVisionFrame(
+                    jpegBase64 = jpegBase64,
+                    width = width,
+                    height = height,
+                    label = "snapshot",
+                    prompt = "Extract all visible text from this screen capture. Return JSON: {text, ui_elements, actionable_items}"
+                )
+            }
         }
     }
 
@@ -131,12 +160,7 @@ class HermesDatCameraModule(
      */
     fun captureSnapshotAsJpegBase64(): String? {
         val frame = latestFrame ?: return null
-        val bitmap = frame.toBitmap() ?: return null
-        val stream = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, stream)
-        val jpegBytes = stream.toByteArray()
-        stream.close()
-        return Base64.encodeToString(jpegBytes, Base64.NO_WRAP)
+        return convertI420ToJpeg(frame)
     }
 
     /**
@@ -144,13 +168,8 @@ class HermesDatCameraModule(
      */
     fun captureSnapshotAsJpegBytes(): ByteArray? {
         val frame = latestFrame ?: return null
-        val bitmap = frame.toBitmap() ?: return null
-        val stream = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, stream)
-        val jpegBytes = stream.toByteArray()
-        stream.close()
-        bitmap.recycle()
-        return jpegBytes
+        val base64 = convertI420ToJpeg(frame) ?: return null
+        return Base64.decode(base64, Base64.NO_WRAP)
     }
 
     /**
@@ -159,38 +178,157 @@ class HermesDatCameraModule(
     fun getSnapshotFlow() = snapshotFlow.asSharedFlow()
 
     /**
-     * Convert DatCameraFrame I420 data to Android Bitmap.
+     * Convert a DatCameraFrame (raw I420) to a JPEG base64 string.
+     *
+     * I420 (YUV420P) has separate Y, U, V planes. Android's YuvImage
+     * expects NV21 (Y + interleaved VU). We manually interleave U and V.
+     *
+     * @param frame The raw I420 frame from the DAT SDK Camera Kit
+     * @return base64-encoded JPEG string, or null on failure
      */
-    private fun DatCameraFrame.toBitmap(): Bitmap? {
-        try {
-            val yuv = this.yuv420
-            val width = this.width
-            val height = this.height
+    fun convertI420ToJpeg(frame: DatCameraFrame): String? {
+        return try {
+            val yuv420 = frame.yuv420
+            val width = frame.width
+            val height = frame.height
 
-            // Y plane
-            val yBuffer = yuv.yBuffer
-            val ySize = yuv.ySize
+            val yBuffer = yuv420.yBuffer
+            val uBuffer = yuv420.uBuffer
+            val vBuffer = yuv420.vBuffer
 
-            // U and V planes ( subsampled 2x2 for I420)
-            val uBuffer = yuv.uBuffer
-            val uSize = yuv.uSize
-            val vBuffer = yuv.vBuffer
-            val vSize = yuv.vSize
+            val ySize = yBuffer.remaining()
+            val uSize = uBuffer.remaining()
+            val vSize = vBuffer.remaining()
 
-            // Convert YUV420 to NV21 (Android format)
-            val yuv420 = ByteArray(ySize + uSize + vSize)
-            yBuffer.get(yuv420, 0, ySize)
+            // Build NV21 buffer: Y plane + interleaved V/U plane
+            val nv21 = ByteArray(ySize + uSize + vSize)
 
-            // Swap U and V for NV21 (V before U in NV21)
-            vBuffer.get(yuv420, ySize, vSize)
-            uBuffer.get(yuv420, ySize + vSize, uSize)
+            // Y plane (full resolution)
+            yBuffer.get(nv21, 0, ySize)
 
-            val yuvImage = android.media.ImageFormat.getYuvBitmap(
-                yuv420, width, height, ImageFormat.NV21
-            )
-            return yuvImage
+            // NV21 interleaves V then U (V first, U second — swapped vs I420)
+            val vRowStride = uSize / (width / 2 * height / 2)
+            val uRowStride = vRowStride // I420 has same row stride for U and V
+            val chromaWidth = width / 2
+            val chromaHeight = height / 2
+
+            // Interleave V and U into NV21 format
+            val vBytes = ByteArray(vSize)
+            val uBytes = ByteArray(uSize)
+            vBuffer.get(vBytes)
+            uBuffer.get(uBytes)
+
+            for (row in 0 until chromaHeight) {
+                val vOffset = row * vRowStride
+                val uOffset = row * uRowStride
+                val outOffset = ySize + row * chromaWidth * 2
+                for (col in 0 until chromaWidth) {
+                    nv21[outOffset + col * 2] = vBytes[vOffset + col]     // V
+                    nv21[outOffset + col * 2 + 1] = uBytes[uOffset + col]   // U
+                }
+            }
+
+            val yuvImage = YuvImage(nv21, ImageFormat.NV21, width, height, null)
+            val stream = ByteArrayOutputStream()
+            yuvImage.compressToJpeg(android.graphics.Rect(0, 0, width, height), JPEG_QUALITY, stream)
+            val jpegBytes = stream.toByteArray()
+            stream.close()
+
+            Base64.encodeToString(jpegBytes, Base64.NO_WRAP)
         } catch (e: Exception) {
-            Log.e(TAG, "Frame conversion error: ${e.message}")
+            Log.e(TAG, "I420→JPEG conversion error: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Convert I420 raw ByteBuffer data to a JPEG base64 string.
+     * Utility overload that accepts raw buffers directly.
+     */
+    fun convertI420ToJpeg(yBuffer: ByteBuffer, uBuffer: ByteBuffer, vBuffer: ByteBuffer, width: Int, height: Int): String? {
+        return try {
+            val ySize = yBuffer.remaining()
+            val uSize = uBuffer.remaining()
+            val vSize = vBuffer.remaining()
+
+            val nv21 = ByteArray(ySize + uSize + vSize)
+            yBuffer.get(nv21, 0, ySize)
+
+            val vBytes = ByteArray(vSize)
+            val uBytes = ByteArray(uSize)
+            vBuffer.get(vBytes)
+            uBuffer.get(uBytes)
+
+            // Interleave V/U for NV21
+            val chromaWidth = width / 2
+            val chromaHeight = height / 2
+            for (row in 0 until chromaHeight) {
+                val vOffset = row * (width / 2)
+                val uOffset = row * (width / 2)
+                val outOffset = ySize + row * chromaWidth * 2
+                for (col in 0 until chromaWidth) {
+                    nv21[outOffset + col * 2] = vBytes[vOffset + col]
+                    nv21[outOffset + col * 2 + 1] = uBytes[uOffset + col]
+                }
+            }
+
+            val yuvImage = YuvImage(nv21, ImageFormat.NV21, width, height, null)
+            val stream = ByteArrayOutputStream()
+            yuvImage.compressToJpeg(android.graphics.Rect(0, 0, width, height), JPEG_QUALITY, stream)
+            val jpegBytes = stream.toByteArray()
+            stream.close()
+            Base64.encodeToString(jpegBytes, Base64.NO_WRAP)
+        } catch (e: Exception) {
+            Log.e(TAG, "Raw I420 conversion error: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Start recording meeting audio via the glasses' microphones.
+     * The DAT SDK routes HFP audio from the glasses to the phone's
+     * Bluetooth stack, and MediaRecorder captures it.
+     */
+    fun startAudioRecording(outputPath: String) {
+        if (isRecordingAudio.getAndSet(true)) return
+        try {
+            audioRecorder = MediaRecorder().apply {
+                setAudioSource(MediaRecorder.AudioSource.VOICE_COMMUNICATION)
+                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                setAudioEncodingBitRate(128000)
+                setAudioSamplingRate(44100)
+                setOutputFile(outputPath)
+                prepare()
+                start()
+            }
+            Log.i(TAG, "Audio recording started: $outputPath")
+        } catch (e: Exception) {
+            Log.e(TAG, "Audio recording failed: ${e.message}")
+            isRecordingAudio.set(false)
+            audioRecorder = null
+        }
+    }
+
+    /**
+     * Stop the current audio recording and return the file path.
+     */
+    fun stopAudioRecording(): String? {
+        if (!isRecordingAudio.getAndSet(false)) return null
+        try {
+            val path = audioRecorder?.let {
+                it.stop()
+                it.reset()
+                it.outputFile
+            }
+            audioRecorder?.release()
+            audioRecorder = null
+            Log.i(TAG, "Audio recording stopped: $path")
+            return path
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping audio recording: ${e.message}")
+            audioRecorder?.release()
+            audioRecorder = null
             return null
         }
     }
@@ -201,18 +339,16 @@ class HermesDatCameraModule(
      * for screen text extraction.
      */
     fun sendFrameToVisionModel(frameLabel: String = "screen") {
-        val jpegBase64 = captureSnapshotAsJpegBase64() ?: run {
+        val frame = latestFrame ?: run {
             Log.w(TAG, "No frame available for vision model")
             return
         }
 
-        val width = latestFrame?.width ?: 0
-        val height = latestFrame?.height ?: 0
+        val jpegBase64 = convertI420ToJpeg(frame) ?: return
+        val width = frame.width
+        val height = frame.height
 
-        // Send via Hermes Gateway to the Mac bridge
-        // The Mac bridge (tools/meta-glasses-hermes-bridge.js) routes
-        // to Claude 3.5 Sonnet vision or GPT-4o via LiteLLM gateway
-        HermesGatewayClient.sendVisionFrame(
+        HermesGatewayClient().sendVisionFrame(
             jpegBase64 = jpegBase64,
             width = width,
             height = height,
