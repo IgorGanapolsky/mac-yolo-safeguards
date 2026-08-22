@@ -1861,8 +1861,11 @@ export default function DashboardClient() {
               />
               <div className="run-output" id="run-output" data-testid="run-output" role="status" aria-live="polite">
                 <p className="eyebrow">Output</p>
-                {/* Notices + in-flight status only — completed results live in the task rows; echoing them here left stale agent output pinned under the composer. */}
-                {notice ? <p>{notice}</p> : visibleTasks[0] && !visibleTasks[0].result && !visibleTasks[0].error ? <p>Running on the hosted VPS…</p> : <p>Results show here after you send.</p>}
+                {visibleTasks[0] && !visibleTasks[0].result && !visibleTasks[0].error ? (
+                  <p>Running on the hosted VPS…</p>
+                ) : (
+                  <p>Results show in the thread after you send.</p>
+                )}
               </div>
               <div className="composer-actions">
                 {/* Fallback hidden submit button so form.requestSubmit() and soft keyboard Enter always find a submitter */}
