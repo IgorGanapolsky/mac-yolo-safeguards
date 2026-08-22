@@ -35,6 +35,8 @@ const LITELLM_ENDPOINT = 'http://127.0.0.1:4010/v1/chat/completions';
 const SCREENSHOT_PATH = '/tmp/hermes-meta-screen.jpg';
 /** HARD: Ray-Ban Meta BT belongs to the phone only. Never Mac-pair / Mac-steal. */
 const PHONE_ONLY_BT = process.env.HERMES_GLASSES_PHONE_ONLY !== '0';
+const GMAIL_HELPER = path.join(__dirname, 'glasses-gmail.py');
+const EMAIL_INTENT_RE = /\b(email|inbox|gmail|unread mail|messages in my mail|what.?s in my (mail|inbox))\b/i;
 
 function checkPhoneGlassesBond() {
   try {
@@ -350,6 +352,83 @@ async function translateText(text, targetLang = 'es') {
   return { ok: false, error: 'Translation endpoints exhausted' };
 }
 
+function readGmailInbox(n = 5, query = 'in:inbox') {
+  const pyCandidates = [
+    path.join(process.env.HOME || '', '.hermes/venvs/google-workspace/bin/python3'),
+    'python3',
+  ];
+  let lastErr = 'python3 missing';
+  for (const py of pyCandidates) {
+    try {
+      const out = execFileSync(
+        py,
+        [GMAIL_HELPER, '--n', String(n), '--query', query],
+        { encoding: 'utf8', timeout: 20000 },
+      );
+      const parsed = JSON.parse(out);
+      return parsed;
+    } catch (err) {
+      lastErr = err.message;
+    }
+  }
+  return { ok: false, error: lastErr, email: 'iganapolsky@gmail.com' };
+}
+
+function listLiteLlmModels() {
+  try {
+    const out = execFileSync('curl', ['-sS', '-m', '3', 'http://127.0.0.1:4010/v1/models'], {
+      encoding: 'utf8',
+    });
+    const data = JSON.parse(out);
+    return (data.data || []).map((m) => m.id).filter(Boolean).slice(0, 40);
+  } catch (err) {
+    return { error: err.message };
+  }
+}
+
+function capabilities() {
+  const conn = checkConnection();
+  const gmail = readGmailInbox(1);
+  let ollama = [];
+  try {
+    const tags = JSON.parse(
+      execFileSync('curl', ['-sS', '-m', '3', 'http://127.0.0.1:11434/api/tags'], { encoding: 'utf8' }),
+    );
+    ollama = (tags.models || []).map((m) => m.name).slice(0, 20);
+  } catch (_) {}
+  return {
+    phoneOnly: PHONE_ONLY_BT,
+    glasses: conn,
+    gmail: {
+      ok: Boolean(gmail.ok),
+      email: gmail.email || 'iganapolsky@gmail.com',
+      messagesTotal: gmail.messagesTotal || 0,
+      note: gmail.ok
+        ? 'Hermes Gmail rail live. Hey Meta uses a separate Meta AI Apps connector.'
+        : gmail.error,
+    },
+    llms: {
+      litellm: listLiteLlmModels(),
+      ollama,
+    },
+    mcp: {
+      broker: 'http://127.0.0.1:8766/mcp',
+      tools: [
+        'send_message',
+        'poll_messages',
+        'glasses_capture',
+        'it_diagnose_hardware',
+        'it_analyze_incident',
+        'it_system_voice_hud',
+      ],
+    },
+    honesty: {
+      heyMeta: 'Meta closed assistant — cannot run Hermes/MCP/Gmail unless Meta Apps Gmail is connected in the Meta AI app.',
+      hermesRail: 'node tools/meta-glasses-hermes-bridge.js --email|--ask|--openclaw uses Hermes Gmail + LiteLLM + OpenClaw MCP.',
+    },
+  };
+}
+
 function getActiveDesktopContext() {
   let appName = '';
   let gitBranch = '';
@@ -661,6 +740,22 @@ async function dispatchOpenClawAction(intent, context = {}) {
 
   const trimmed = intent.trim();
 
+  if (EMAIL_INTENT_RE.test(trimmed)) {
+    const inbox = readGmailInbox(5);
+    if (!inbox.ok) {
+      speakToGlasses('Hermes Gmail is not readable right now.');
+      return { ok: false, type: 'email', error: inbox.error };
+    }
+    const lines = (inbox.messages || [])
+      .map((m) => `${m.from}: ${m.subject}`)
+      .join(' | ');
+    const prompt = `Igor asked via Meta glasses: "${trimmed}". His Gmail ${inbox.email} has ${inbox.messagesTotal} messages. Latest: ${lines}. Answer in 1-2 spoken sentences. Do not claim email is disconnected.`;
+    const plan = await queryHermesVision(prompt, false);
+    const spoken = plan.ok ? plan.answer : `Inbox for ${inbox.email} is connected. Latest: ${(inbox.messages[0] || {}).subject || 'no subject'}.`;
+    speakToGlasses(spoken);
+    return { ok: true, type: 'email', email: inbox.email, messages: inbox.messages, spoken };
+  }
+
   // Direct fast-path for explicit CLI commands (0ms LLM latency)
   if (/^(git|gh|npm|node|open|cmm|osascript|echo|ls|cat|df|ps|kill)\b/i.test(trimmed)) {
     const res = runMacro(trimmed);
@@ -723,6 +818,27 @@ async function main() {
     return;
   }
 
+  if (args.includes('--capabilities')) {
+    console.log(JSON.stringify(capabilities(), null, 2));
+    return;
+  }
+
+  if (args.includes('--email')) {
+    const qIndex = args.indexOf('--email') + 1;
+    const maybeQuery = args[qIndex] && !args[qIndex].startsWith('--') ? args[qIndex] : 'in:inbox';
+    const inbox = readGmailInbox(5, maybeQuery);
+    console.log(JSON.stringify(inbox, null, 2));
+    if (inbox.ok) {
+      const first = (inbox.messages && inbox.messages[0]) || {};
+      speakToGlasses(
+        `Gmail ${inbox.email} is connected. ${inbox.messagesTotal} messages. Latest: ${first.subject || 'empty inbox'}.`,
+      );
+    } else {
+      speakToGlasses('Hermes Gmail could not be read.');
+    }
+    return;
+  }
+
   if (args.includes('--release-mac') || args.includes('--phone-only')) {
     const release = releaseMacGlassesBond();
     const status = checkConnection();
@@ -765,7 +881,13 @@ async function main() {
 
   if (args.includes('--ask')) {
     const askIndex = args.indexOf('--ask') + 1;
-    const query = args[askIndex] || 'Summarize what is currently on my screen.';
+    const prompt = args[askIndex] || 'What should I know right now?';
+    if (EMAIL_INTENT_RE.test(prompt)) {
+      const res = await dispatchOpenClawAction(prompt);
+      console.log(JSON.stringify(res, null, 2));
+      return;
+    }
+    const query = prompt || 'Summarize what is currently on my screen.';
     console.log(`[MetaGlasses Inference] Querying Hermes with screen: "${query}"...`);
     const res = await queryHermesVision(query, true);
     if (res.ok) {
@@ -867,6 +989,8 @@ async function main() {
 Meta Glasses Hermes & OpenClaw Action Bridge
 Usage:
   node tools/meta-glasses-hermes-bridge.js --status
+  node tools/meta-glasses-hermes-bridge.js --capabilities
+  node tools/meta-glasses-hermes-bridge.js --email
   node tools/meta-glasses-hermes-bridge.js --connect          # phone-only; never Mac BT steal
   node tools/meta-glasses-hermes-bridge.js --phone-only       # disconnect+unpair Mac if holding glasses
   node tools/meta-glasses-hermes-bridge.js --release-mac      # alias of --phone-only
@@ -905,6 +1029,8 @@ module.exports = {
   checkConnection,
   ensureConnected,
   releaseMacGlassesBond,
+  readGmailInbox,
+  capabilities,
   PHONE_ONLY_BT,
   META_BT_MAC,
   META_DEVICE_NAME,

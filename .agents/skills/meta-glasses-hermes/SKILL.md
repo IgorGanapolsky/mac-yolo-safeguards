@@ -35,7 +35,29 @@ Glasses BT belongs to the **phone only**. The Mac must never pair/steal `RB Meta
 node tools/meta-glasses-hermes-bridge.js --status
 node tools/meta-glasses-hermes-bridge.js --phone-only
 node tools/meta-glasses-hermes-bridge.js --openclaw-status
+node tools/meta-glasses-hermes-bridge.js --email
+node tools/meta-glasses-hermes-bridge.js --capabilities
+node tools/meta-glasses-hermes-bridge.js --ask "what's in my inbox"
 ```
+
+## HARD: Gmail vs "email is not connected"
+
+Hey Meta looking at the phone Gmail app still says **email is not connected** until **Meta AI → hamburger → Settings → Apps → Connect Gmail** (Accounts Center OAuth as `iganapolsky@gmail.com`). That is Meta's closed connector.
+
+Hermes Gmail (`~/.hermes/google_token.json`) **is** connected: `--email` reads `iganapolsky@gmail.com`. Do not hang up an in-call screen to finish Meta OAuth — wait until idle, then Settings → Apps.
+
+## Maximize autonomy (Aug 2026 honesty)
+
+| Layer | What actually wires |
+|-------|---------------------|
+| Hey Meta / Muse Spark | Closed Meta AI. Apps/Calendar/Gmail only via Meta Settings → Apps |
+| Phone BT | Meta AI companion only (phone-only policy) |
+| Hermes bridge | LiteLLM :4010 (glm-5.3, vision-gemini, muse-spark, …) + Ollama + `--email` + `--openclaw` |
+| OpenClaw MCP :8766 | glasses_capture, it_diagnose_hardware, it_analyze_incident, it_system_voice_hud, send_message |
+| DAT / VisionClaw-style | Third-party camera+Gemini overlay; needs Meta AI Developer Mode + DAT SDK — not Hey Meta |
+| Android XR Projected | Hermes native-glasses scaffold — not Ray-Ban Meta display |
+
+Never claim Hey Meta runs Hermes MCPs. Route "look at my email" to Hermes `--ask`/`--email` until Meta Apps Gmail OAuth is on.
 
 If glasses keep "trying to connect to MacBook Pro": Mac residual bond or glasses multi-point memory. Run `--phone-only`, confirm macOS Bluetooth has no RB Meta pair, keep Meta AI Device connected on the phone.
 

@@ -3571,3 +3571,9 @@ RELEASED: grok-context-vault-20260822 (feat/context-vault-20260822) — Implemen
 - **Files**: `tools/meta-glasses-hermes-bridge.js`, `tests/test-meta-glasses-hermes-bridge.js`, `.agents/skills/meta-glasses-hermes/SKILL.md`, `plan.md`
 - **Owner**: grok-meta-glasses-phone-only-bt
 - **Machine**: LaunchAgent `com.igor.hermes-glasses-phone-only-bt` + `~/.hermes/glasses/phone_only_bt_enforce.sh` (out of repo)
+
+### 2026-08-22T19:20:28Z `grok-meta-glasses-gmail-caps`
+- **Task**: Wire Hermes Gmail (iganapolsky@gmail.com) + capabilities dump onto glasses bridge; Hey Meta "email not connected" is Meta Apps OAuth, not phone mail
+- **Files**: `tools/meta-glasses-hermes-bridge.js`, `tools/glasses-gmail.py`, `tests/test-meta-glasses-hermes-bridge.js`, `.agents/skills/meta-glasses-hermes/SKILL.md`, `plan.md`
+- **Owner**: grok-meta-glasses-gmail-caps
+- **Proof**: Gmail API `ok` for iganapolsky@gmail.com (1879 msgs); tests 20/20; MCP :8766 + LiteLLM models listed

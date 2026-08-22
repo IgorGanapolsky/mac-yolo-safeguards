@@ -43,6 +43,28 @@ test('releaseMacGlassesBond is exported and safe when unpaired', () => {
   assert.ok(Array.isArray(res.actions));
 });
 
+test('readGmailInbox returns a result object for iganapolsky@gmail.com', () => {
+  const res = bridge.readGmailInbox(1);
+  assert.equal(typeof res.ok, 'boolean');
+  if (res.ok) {
+    assert.equal(res.email, 'iganapolsky@gmail.com');
+    assert.ok(Array.isArray(res.messages));
+  } else {
+    assert.ok(res.error, 'offline/CI should still explain failure');
+  }
+});
+
+test('capabilities reports gmail + llm + mcp rails', () => {
+  const cap = bridge.capabilities();
+  assert.equal(cap.gmail.email, 'iganapolsky@gmail.com');
+  assert.ok(cap.mcp.broker.includes('8766'));
+  assert.ok(cap.honesty.heyMeta.includes('Meta closed assistant'));
+  const fs = require('fs');
+  const src = fs.readFileSync(__dirname + '/../tools/meta-glasses-hermes-bridge.js', 'utf8');
+  assert.ok(src.includes('--email'));
+  assert.ok(src.includes('EMAIL_INTENT_RE'));
+});
+
 test('captureScreen returns an ok-flagged result (mockable on CI)', () => {
   const res = bridge.captureScreen();
   assert.equal('ok' in res, true);
