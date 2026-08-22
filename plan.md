@@ -3591,3 +3591,20 @@ Complement to AGENT-476 / PR #1984. Does **not** steal DashboardClient.tsx. Code
 | apps/hermes-control-plane/tests/turn-status-chrome.test.mjs | grok-hosted-turn-statusline | 2026-08-22T19:25:36Z |
 | .intent/contract.yaml (HOST-002 append) | grok-hosted-turn-statusline | 2026-08-22T19:25:36Z |
 | plan.md (this append) | grok-hosted-turn-statusline | 2026-08-22T19:25:36Z |
+
+## Hosted composer honesty (append 2026-08-22T20:15:00Z) — agent `grok-hosted-composer-honesty`
+
+Live dashboard looked broken: 2-word chips had no desktop pill CSS (styles trapped in max-width:700px), and mentioning `~/Documents` next to a GitHub URL 409'd with "paired local machine" copy.
+
+### Task
+| T-HOSTED-COMPOSER-HONESTY-20260822 | Desktop chip pills wrap; local-path gate requires a real file path; no Mac-pair CTA; policy errors stay in the notice toast not the Output strip | in_progress | grok-hosted-composer-honesty | `apps/hermes-control-plane/lib/cloud-tool-policy.ts`, `apps/hermes-control-plane/lib/cloud-tool-policy.test.ts`, `apps/hermes-control-plane/app/globals.css`, `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx` (run-output only), `apps/hermes-control-plane/tests/composer-honesty.test.mjs`, `plan.md` | node:test composer-honesty + vitest cloud-tool-policy |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| apps/hermes-control-plane/lib/cloud-tool-policy.ts | grok-hosted-composer-honesty | 2026-08-22T20:15:00Z |
+| apps/hermes-control-plane/lib/cloud-tool-policy.test.ts | grok-hosted-composer-honesty | 2026-08-22T20:15:00Z |
+| apps/hermes-control-plane/app/globals.css (chip root styles + run-output) | grok-hosted-composer-honesty | 2026-08-22T20:15:00Z |
+| apps/hermes-control-plane/app/dashboard/DashboardClient.tsx (run-output notice echo only) | grok-hosted-composer-honesty | 2026-08-22T20:15:00Z |
+| apps/hermes-control-plane/tests/composer-honesty.test.mjs | grok-hosted-composer-honesty | 2026-08-22T20:15:00Z |
+| plan.md (this append) | grok-hosted-composer-honesty | 2026-08-22T20:15:00Z |

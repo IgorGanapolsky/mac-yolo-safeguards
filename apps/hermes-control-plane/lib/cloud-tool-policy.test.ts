@@ -37,6 +37,7 @@ describe("evaluateCloudPromptToolPolicy", () => {
       expect(desktop.message).toContain("fenced VPS");
       expect(desktop.message).toContain("never read or delete");
       expect(desktop.message).not.toContain("Continuity");
+      expect(desktop.message).not.toMatch(/paired local machine/i);
     }
     expect(evaluateCloudPromptToolPolicy("summarize ~/Documents/notes.md").allowed).toBe(false);
     expect(evaluateCloudPromptToolPolicy("open C:\\Users\\igor\\report.docx").allowed).toBe(false);
@@ -46,6 +47,9 @@ describe("evaluateCloudPromptToolPolicy", () => {
     expect(evaluateCloudPromptToolPolicy("read ./src/index.ts and fix the bug").allowed).toBe(true);
     expect(evaluateCloudPromptToolPolicy("cat /home/runner/work/repo/file.ts").allowed).toBe(true);
     expect(evaluateCloudPromptToolPolicy("check /tmp/output.log for the stack trace").allowed).toBe(true);
+    const screenshotPrompt =
+      "which project are you working on? you checked out https://github.com/IgorGanapolsky/RealEstate/pulls into local project, as well as Obsidian Vault into ~/Documents : https://github.com/IgorGanapolsky/AI-Agent-Sync";
+    expect(evaluateCloudPromptToolPolicy(screenshotPrompt).allowed).toBe(true);
   });
 
   it("blocks private LAN and local Hermes gateway references", () => {

@@ -156,6 +156,52 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 }
 .composer-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:8px}
 .composer-run{flex:0 0 auto}
+.quick-continuation-chips{
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  margin-bottom:8px;
+  flex-wrap:wrap;
+  padding:2px 0;
+}
+.quick-continuation-chips .chips-label{
+  font:700 10px ui-monospace,monospace;
+  color:var(--accent);
+  text-transform:uppercase;
+  letter-spacing:.05em;
+  flex:0 0 auto;
+  padding-top:6px;
+}
+.quick-continuation-chips .chips-scroll{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  align-items:center;
+  min-width:0;
+  flex:1 1 12rem;
+}
+.quick-continuation-chips .chip-button{
+  appearance:none;
+  -webkit-appearance:none;
+  display:inline-flex;
+  align-items:center;
+  border:1px solid rgba(56,189,248,.35);
+  background:rgba(15,23,42,.9);
+  color:#E2E8F0;
+  border-radius:999px;
+  padding:5px 10px;
+  min-height:28px;
+  font:600 11px Inter,system-ui,sans-serif;
+  cursor:pointer;
+  white-space:nowrap;
+  flex:0 0 auto;
+}
+.quick-continuation-chips .chip-button:hover,
+.quick-continuation-chips .chip-button:focus-visible{
+  background:rgba(34,211,238,.2);
+  border-color:#22D3EE;
+  color:#FFFFFF;
+}
 .conversation-history{background:rgba(7,10,18,.55);overflow-x:hidden;max-width:100%}
 .dashboard-shell,.dashboard-main,.dashboard-grid,.task-panel,.hermes-scroll-pane{min-width:0;max-width:100%}.dashboard-shell{overflow-x:clip}.conversation-message{border-radius:18px;background:rgba(255,255,255,.045);font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:92%;overflow-wrap:anywhere;word-break:break-word}
 .conversation-message.role-user{background:var(--user-bubble);border-color:rgba(255,255,255,.1);color:var(--user-bubble-text)}
@@ -1056,9 +1102,9 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   .continuity-usage-meter{margin-top:14px;padding:12px}
 }
 
-.run-output{margin:.6rem 0 0;padding:.7rem .8rem;border:1px solid rgba(96,165,250,.35);border-radius:10px;background:rgba(15,23,42,.72)}
-.run-output .eyebrow{margin:0 0 .35rem;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:#93c5fd}
-.run-output p{margin:0;font-size:.92rem;line-height:1.4;white-space:pre-wrap;max-height:9rem;overflow:auto}
+.run-output{margin:.6rem 0 0;padding:.5rem 0 0;border:0;background:transparent}
+.run-output .eyebrow{margin:0 0 .2rem;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:#64748b}
+.run-output p{margin:0;font-size:.85rem;line-height:1.4;color:#94A3B8;white-space:normal;max-height:none;overflow:visible}
 
 /* 2026-08-20 UI audit fixes (user screenshot):
    1. .mobile-clear-all leaked onto desktop — its phone-only display rule lived
