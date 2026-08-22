@@ -258,6 +258,16 @@ jobs:
       - name: Retrieval quality eval
         run: node tools/rag-retrieval-eval.js
 
+      # AI Context Vault (Allie K. Miller pattern): 8 copy-paste prompts that
+      # make AI understand this repo's identity, goals, constraints, and work state.
+      # Generates the vault from repo metadata and validates all 8 prompts are present.
+      - name: AI Context Vault — generate and validate
+        run: |
+          set -eu
+          node tools/context-vault.js generate --out artifacts/context-vault.md
+          node tools/context-vault.js validate --vault artifacts/context-vault.md
+          node tools/context-vault.js --json
+
       # poolside-yolo asserts it runs fully autonomous. It shipped a --mode value
       # pool does not recognise, so pool silently reverted to approval prompts and
       # nobody noticed for days — this suite was never wired into CI. It is

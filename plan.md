@@ -3554,3 +3554,9 @@ Three PRs shipped:
 - `tools/skill-card-validate.js`, `tests/test-skill-card-validate.js`, `.github/workflows/ci.yml` (skill validation only), `.agents/skills/*/SKILL.md` (PII redactions) → **grok-skill-evaluator-20260822** (T-SKILL-EVALUATOR-CLOUDFLARE-20260822: Implement MUST/SHOULD enforcement classification for skill validation — MUST violations (PII, lint, injection) fail CI; SHOULD violations (missing card, quality score) are advisory only; add deviation tracking) (2026-08-22T15:51:00Z)
 
 RELEASED: grok-skill-evaluator-20260822 (feat/cloudflare-enforcement-20260822) — MUST/SHOULD enforcement classification implemented, tested, CodeQL-gated, CI step updated, PR #1973 opened with auto-merge.
+
+RELEASED: feat/cloudflare-enforcement-20260822 (PR #1974 merged at d802c3c) — MUST/SHOULD enforcement classification: 53/53 skills ok, 0 MUST violations, 78 SHOULD deviations. All CI checks green.
+
+- `tools/context-vault.js`, `tests/test-context-vault.js`, `.github/workflows/ci.yml` (context-vault only) → **grok-context-vault-20260822** (T-CONTEXT-VAULT-8-PROMPTS: Implement Allie K. Miller AI Context Vault — 8 copy-paste prompts to make AI understand you. Generates vendor-agnostic context prompts from repo metadata. CLI: generate, validate, list. Wire into CI.) (2026-08-22T16:00:00Z)
+
+RELEASED: grok-context-vault-20260822 (feat/context-vault-20260822) — Implemented Allie K. Miller AI Context Vault: 8 copy-paste prompts to make AI understand this repo. tools/context-vault.js with generate/validate/list/JSON CLI. tests/test-context-vault.js (22 assertions). CI step generates + validates vault. CodeQL clean.
