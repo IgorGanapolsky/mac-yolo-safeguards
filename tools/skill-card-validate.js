@@ -28,12 +28,14 @@ const path = require('path');
 const REQUIRED_SECTIONS = ['Description', 'Owner', 'License'];
 
 function parseArgs(args) {
-  const out = { json: false, strict: false, dir: null, tier2: false, quality: false };
+  const out = { json: false, strict: false, strictAll: false, dir: null, tier2: false, quality: false, verbose: false };
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--json') out.json = true;
     else if (args[i] === '--strict') out.strict = true;
+    else if (args[i] === '--strict-all') out.strictAll = true;
     else if (args[i] === '--tier2') out.tier2 = true;
     else if (args[i] === '--quality') out.quality = true;
+    else if (args[i] === '--verbose') out.verbose = true;
     else if (args[i] === '--dir' && args[i + 1]) out.dir = args[++i];
   }
   return out;
@@ -380,51 +382,120 @@ function checkDistinctiveness(skillsDir) {
   return overlaps;
 }
 
+// Cloudflare-style enforcement: not every rule is a blocking rule.
+// MUST violations block CI (security-critical); SHOULD is advisory.
+const MUST_CHECKS = new Set([
+  'pii_leak',           // PII / secret leak
+  'script_lint_error',  // dangerous code patterns
+  'prompt_injection',   // injection phrases in SKILL.md
+]);
+
+const SHOULD_CHECKS = new Set([
+  'missing_skill_md',
+  'missing_name_frontmatter',
+  'missing_description_frontmatter',
+  'body_too_long',
+  'missing_card',
+  'missing_section',
+  'license_too_thin',
+  'quality_below_threshold',
+]);
+
+/**
+ * Lifecycle states for skills (Cloudflare RFC-style).
+ * progression: proposal → active → deprecated
+ */
+const LIFECYCLE_STATES = ['proposal', 'active', 'deprecated'];
+
 // --- Enhanced validation ---
 
 function validateSkillDir(dir) {
   const name = path.basename(dir);
   const skillMdPath = path.join(dir, 'SKILL.md');
   const cardPath = path.join(dir, 'skill-card.md');
-  const skillErrors = [];
+  const mustViolations = [];
+  const shouldViolations = [];
 
-  if (!fs.existsSync(skillMdPath)) skillErrors.push('missing SKILL.md');
-  else {
+  if (!fs.existsSync(skillMdPath)) {
+    shouldViolations.push({ check: 'missing_skill_md', severity: 'SHOULD', message: 'missing SKILL.md' });
+  } else {
     const content = fs.readFileSync(skillMdPath, 'utf8');
-    if (!/^---[\s\S]*?name:\s*\S+/m.test(content)) skillErrors.push('SKILL.md missing name frontmatter');
-    if (!/^---[\s\S]*?description:/m.test(content)) skillErrors.push('SKILL.md missing description frontmatter');
+    if (!/^---[\s\S]*?name:\s*\S+/m.test(content)) {
+      shouldViolations.push({ check: 'missing_name_frontmatter', severity: 'SHOULD', message: 'SKILL.md missing name frontmatter' });
+    }
+    if (!/^---[\s\S]*?description:/m.test(content)) {
+      shouldViolations.push({ check: 'missing_description_frontmatter', severity: 'SHOULD', message: 'SKILL.md missing description frontmatter' });
+    }
+
     const lines = content.split('\n').length;
-    if (lines > 500) skillErrors.push(`SKILL.md body too long (${lines} > 500); move detail to references/`);
+    if (lines > 500) {
+      shouldViolations.push({ check: 'body_too_long', severity: 'SHOULD', message: `SKILL.md body too long (${lines} > 500); move detail to references/` });
+    }
   }
 
   const cardResult = validateCard(cardPath);
 
-  // Tier 1: PII detection
+  // Lifecycle state from SKILL.md frontmatter (Cloudflare RFC-style)
+  let lifecycle = null;
+  if (fs.existsSync(skillMdPath)) {
+    const mdContent = fs.readFileSync(skillMdPath, 'utf8');
+    const lifecycleMatch = mdContent.match(/^---[\s\S]*?lifecycle:\s*(\w+)/m);
+    if (lifecycleMatch) lifecycle = lifecycleMatch[1];
+  }
+  if (!fs.existsSync(cardPath)) {
+    shouldViolations.push({ check: 'missing_card', severity: 'SHOULD', message: 'missing skill-card.md' });
+  }
+  for (const err of cardResult.errors) {
+    if (err.includes('missing or empty section')) {
+      shouldViolations.push({ check: 'missing_section', severity: 'SHOULD', message: err });
+    } else {
+      shouldViolations.push({ check: 'license_too_thin', severity: 'SHOULD', message: err });
+    }
+  }
+
+  // Tier 1: PII detection — MUST (security-critical)
   const piiFindings = detectPIISkillDir(dir);
   const piiErrors = piiFindings.map((f) => `PII/secret leak: ${f.type} in ${path.basename(f.file)}:${f.line}`);
+  for (const msg of piiErrors) {
+    mustViolations.push({ check: 'pii_leak', severity: 'MUST', message: msg });
+  }
 
-  // Tier 1: Script linting
+  // Tier 1: Script linting — MUST (security-critical)
   const lintFindings = lintSkillScripts(dir).filter((f) => f.severity === 'error');
   const lintErrors = lintFindings.map((f) => `security lint: ${f.id} in ${path.relative(dir, f.file)}:${f.line}`);
+  for (const msg of lintErrors) {
+    mustViolations.push({ check: 'script_lint_error', severity: 'MUST', message: msg });
+  }
 
-  // Tier 1: Prompt injection scanning (P1: wire into validation)
+  // Tier 1: Prompt injection — MUST (security-critical)
   const injectionFindings = detectPromptInjection(dir);
   const injectionErrors = injectionFindings.map((f) => `prompt injection: ${f.match} in ${path.basename(f.file)}:${f.line}`);
+  for (const msg of injectionErrors) {
+    mustViolations.push({ check: 'prompt_injection', severity: 'MUST', message: msg });
+  }
 
-  const cardErrors = cardResult.errors;
-  const errors = [...skillErrors, ...cardErrors, ...piiErrors, ...lintErrors, ...injectionErrors];
+  const errors = mustViolations;
+  const warnings = shouldViolations;
+
+  // Quality score check as SHOULD
+  const quality = scoreSkillQuality(dir);
+  if (quality.score < 70) {
+    shouldViolations.push({ check: 'quality_below_threshold', severity: 'SHOULD', message: `quality score ${quality.score} < 70` });
+  }
 
   return {
     name,
     path: dir,
-    ok: errors.length === 0,
-    errors,
+    ok: errors.length === 0,  // ok = no MUST violations
+    mustViolations,
+    shouldViolations,
     hasCard: fs.existsSync(cardPath),
     hasSkillMd: fs.existsSync(skillMdPath),
-    piiFindings: piiFindings.map((f) => ({ ...f, match: '⟦REDACTED⟧' })),
+    lifecycle,
+    piiFindings,
     lintFindings,
     injectionFindings,
-    quality: scoreSkillQuality(dir),
+    quality,
   };
 }
 
@@ -432,6 +503,10 @@ function audit(rootDir, options = {}) {
   const dirs = listSkillDirs(rootDir);
   const skills = dirs.map((d) => validateSkillDir(d));
   const failed = skills.filter((s) => !s.ok);
+
+  // Count deviations (Cloudflare-style: all violations, not just failing skills)
+  const mustCount = skills.reduce((s, x) => s + x.mustViolations.length, 0);
+  const shouldCount = skills.reduce((s, x) => s + x.shouldViolations.length, 0);
 
   // Tier 2: distinctiveness (only when --tier2 flag)
   let overlaps = [];
@@ -447,6 +522,11 @@ function audit(rootDir, options = {}) {
     ok: failed.length === 0 && overlaps.length === 0,
     skills,
     overlaps: options.tier2 ? overlaps : undefined,
+    deviations: {
+      must: mustCount,
+      should: shouldCount,
+      total: mustCount + shouldCount,
+    },
   };
 }
 
@@ -465,17 +545,21 @@ function main(argv = process.argv.slice(2)) {
   if (args.json) {
     console.log(JSON.stringify(result, null, 2));
   } else {
+    const dev = result.deviations;
     console.log(`skill-card-validate: ${result.passed}/${result.total} ok under ${root}`);
+    console.log(`  Deviations: ${dev.must} MUST (blocking), ${dev.should} SHOULD (advisory)`);
     for (const s of result.skills) {
       const mark = s.ok ? 'PASS' : 'FAIL';
-      const piiCount = s.piiFindings?.length || 0;
-      const lintCount = s.lintFindings?.filter((f) => f.severity === 'error').length || 0;
-      const qScore = s.quality?.score ?? 0;
       const extra = [];
-      if (piiCount > 0) extra.push(`PII:${piiCount}`);
-      if (lintCount > 0) extra.push(`lint:${lintCount}`);
-      if (args.quality) extra.push(`Q:${qScore}`);
-      console.log(`  [${mark}] ${s.name} [${extra.join(' ')}]${s.errors.length ? ` — ${s.errors.join('; ')}` : ''}`);
+      if (s.piiFindings?.length) extra.push(`PII:${s.piiFindings.length}`);
+      if (s.lintFindings?.filter((f) => f.severity === 'error').length) extra.push(`lint:${s.lintFindings.filter((f) => f.severity === 'error').length}`);
+      if (s.injectionFindings?.length) extra.push(`inj:${s.injectionFindings.length}`);
+      if (s.shouldViolations?.length) extra.push(`warn:${s.shouldViolations.length}`);
+      if (args.quality) extra.push(`Q:${s.quality?.score ?? 0}`);
+      if (s.lifecycle) extra.push(`L:${s.lifecycle}`);
+      const warns = s.shouldViolations.map((v) => v.message).join('; ');
+      const errs = s.mustViolations.map((v) => v.message).join('; ');
+      console.log(`  [${mark}] ${s.name} [${extra.join(' ')}]${errs ? ` — ${errs}` : ''}${warns && args.verbose ? ` (w: ${warns})` : ''}`);
     }
     if (result.overlaps && result.overlaps.length > 0) {
       console.log(`\n  Distinctiveness warnings (${result.overlaps.length}):`);
@@ -485,7 +569,8 @@ function main(argv = process.argv.slice(2)) {
     }
   }
 
-  if (args.strict && !result.ok) return 1;
+  if (args.strict && result.deviations.must > 0) return 1;
+  if (args.strictAll && (result.deviations.must + result.deviations.should) > 0) return 1;
   return 0;
 }
 
@@ -495,6 +580,9 @@ if (require.main === module) {
 
 module.exports = {
   REQUIRED_SECTIONS,
+  MUST_CHECKS,
+  SHOULD_CHECKS,
+  LIFECYCLE_STATES,
   PII_PATTERNS,
   SCRIPT_LINT_PATTERNS,
   PROMPT_INJECTION_PATTERNS,
