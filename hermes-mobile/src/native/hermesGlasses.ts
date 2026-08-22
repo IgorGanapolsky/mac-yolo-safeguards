@@ -39,6 +39,26 @@ type HermesGlassesNative = {
    * Resolves with { ok: boolean, output?: string, error?: string }.
    */
   sendMacro: (command: string) => Promise<{ ok: boolean; output?: string; error?: string }>;
+  /**
+   * Start streaming raw camera frames from Meta Glasses via the
+   * Meta Wearables DAT SDK Camera Kit. Requires Developer Mode
+   * enabled on the glasses. Only available on Android.
+   */
+  startCameraStream: () => Promise<boolean>;
+  /**
+   * Stop the DAT SDK camera frame stream.
+   */
+  stopCameraStream: () => Promise<void>;
+  /**
+   * Request an immediate snapshot from the current camera stream.
+   * Triggers on next available I420 frame. Only available on Android.
+   */
+  requestSnapshot: () => Promise<boolean>;
+  /**
+   * Send the latest captured frame to a vision model for OCR/analysis.
+   * Route: frame → Mac bridge → LiteLLM gateway → Claude/GPT-4o/Gemini.
+   */
+  sendFrameToVisionModel: (label?: string) => Promise<{ ok: boolean; text?: string; error?: string }>;
 };
 
 const Native: HermesGlassesNative | undefined =
@@ -167,4 +187,50 @@ export async function sendMacro(command: string): Promise<{ ok: boolean; output?
     throw new Error('Macro execution is only available on Android');
   }
   return Native.sendMacro(command);
+}
+
+/**
+ * Start streaming raw camera frames from Meta Glasses via the
+ * Meta Wearables DAT SDK Camera Kit.
+ * Requires Developer Mode enabled on the glasses
+ * (tap app version 5× in Meta AI app Settings > App Info).
+ */
+export async function startCameraStream(): Promise<boolean> {
+  if (!Native?.startCameraStream) {
+    throw new Error('Camera streaming via DAT SDK is only available on Android');
+  }
+  return Native.startCameraStream();
+}
+
+/**
+ * Stop the DAT SDK camera frame stream.
+ */
+export async function stopCameraStream(): Promise<void> {
+  if (!Native?.stopCameraStream) {
+    throw new Error('Camera streaming via DAT SDK is only available on Android');
+  }
+  return Native.stopCameraStream();
+}
+
+/**
+ * Request an immediate snapshot from the current camera stream.
+ * The next available I420 frame will be captured and JPEG-encoded.
+ */
+export async function requestSnapshot(): Promise<boolean> {
+  if (!Native?.requestSnapshot) {
+    throw new Error('Snapshot request is only available on Android');
+  }
+  return Native.requestSnapshot();
+}
+
+/**
+ * Send the latest captured frame to a vision model for OCR/analysis.
+ * Frames are routed through the Mac bridge (tools/meta-glasses-hermes-bridge.js)
+ * which sends them to the LiteLLM gateway for Claude/GPT-4o/Gemini vision.
+ */
+export async function sendFrameToVisionModel(label: string = 'screen'): Promise<{ ok: boolean; text?: string; error?: string }> {
+  if (!Native?.sendFrameToVisionModel) {
+    throw new Error('Vision model dispatch is only available on Android');
+  }
+  return Native.sendFrameToVisionModel(label);
 }
