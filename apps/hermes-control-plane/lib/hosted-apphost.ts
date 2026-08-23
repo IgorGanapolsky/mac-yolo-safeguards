@@ -163,7 +163,6 @@ export function modelHealthy(input: {
     lastError,
     failedProviders: input.failedProviders,
   });
-  if (route.exhausted) return false;
   // Quota / FAILED on the first provider is failover, not a dead VPS.
   if (route.modelAlive) return true;
   if (!isQuotaOrOverloadError(lastError)) return true;
