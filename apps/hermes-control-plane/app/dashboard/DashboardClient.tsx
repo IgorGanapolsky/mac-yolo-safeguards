@@ -41,7 +41,6 @@ import {
   type HostedResourceState,
   type HostedResourceStatus,
 } from "@/lib/hosted-apphost";
-import { getAllBots, type HermesBotProfile } from "@/lib/bot-mode";
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
@@ -293,7 +292,6 @@ export default function DashboardClient() {
   const [taskFilter, setTaskFilter] = useState<"all" | "completed" | "unrated">("all");
   const [threadDetails, setThreadDetails] = useState<ThreadDetails | null>(null);
   const [prompt, setPrompt] = useState("");
-  const [selectedBotId, setSelectedBotId] = useState<string>("chief");
   /**
    * Explicit user override for which hosted runner runs the next task.
    * Resolved selection is derived (useMemo) so we never setState inside an effect (eslint react-hooks/set-state-in-effect).
@@ -383,6 +381,21 @@ export default function DashboardClient() {
     });
     return () => window.cancelAnimationFrame(raf);
   }, [mobileTab]);
+
+  // Restore pending prompt after returning from Stripe checkout / plan activation
+  useEffect(() => {
+    if (hasCloudAccess) {
+      try {
+        const pending = window.sessionStorage.getItem("thumbgate_pending_prompt");
+        if (pending && !prompt) {
+          setPrompt(pending);
+          window.sessionStorage.removeItem("thumbgate_pending_prompt");
+        }
+      } catch {
+        /* private browsing */
+      }
+    }
+  }, [hasCloudAccess, prompt]);
 
   // Keep the ••• actions menu glued to its trigger; close on outside / Escape / scroll.
   useEffect(() => {
@@ -1662,27 +1675,6 @@ export default function DashboardClient() {
               </div>
               <span>{selectedThread ? `${threadDetails?.snapshot.length ?? 0} synced messages` : `${visibleTasks.length} tasks`}</span>
             </div>
-            {/* Hermes Agent Bot Mode Roster (Nous Research) */}
-            <div className="bot-mode-roster" role="toolbar" aria-label="Hermes Bot Roster">
-              <span className="bot-roster-label">🤖 Bot Roster:</span>
-              <div className="bot-roster-chips">
-                {getAllBots().map((bot) => (
-                  <button
-                    key={bot.id}
-                    type="button"
-                    className={`bot-chip ${selectedBotId === bot.id ? "is-active" : ""}`}
-                    title={`${bot.name}: ${bot.role} (${bot.defaultModel})`}
-                    onClick={() => {
-                      setSelectedBotId(bot.id);
-                      setPrompt((prev) => prev.startsWith("@") ? `${bot.handle} ${prev.replace(/^@[a-zA-Z0-9_-]+\s*/, "")}` : `${bot.handle} ${prev}`.trim());
-                      focusComposer();
-                    }}
-                  >
-                    <span>{bot.avatar} {bot.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
             {/* DimAgent-style observability: always know what the agent is doing */}
             <div
               className="agent-activity"
@@ -1871,6 +1863,14 @@ export default function DashboardClient() {
                     if (event.nativeEvent.isComposing) return;
                     event.preventDefault();
                     const live = event.currentTarget.value.trim();
+                    if (!hasCloudAccess) {
+                      if (live) {
+                        try { window.sessionStorage.setItem("thumbgate_pending_prompt", live); } catch {}
+                      }
+                      setNotice("Opening checkout to activate your trial and run your prompt…");
+                      void subscribe();
+                      return;
+                    }
                     if (live && !busy) {
                       if (live !== prompt) setPrompt(live);
                       const form = event.currentTarget.form;
@@ -1885,6 +1885,8 @@ export default function DashboardClient() {
                           form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
                         }
                       }
+                    } else if (!live) {
+                      setNotice("Type a message first, then tap Run.");
                     }
                   }
                 }}
@@ -1910,20 +1912,21 @@ export default function DashboardClient() {
                   if (cta.kind === "upgrade") {
                     return (
                       <button
-                        type="submit"
+                        type="button"
                         className="button button-primary button-small composer-run"
                         data-testid={cta.testId}
                         disabled={cta.disabled}
                         onClick={(e) => {
-                          if (!prompt.trim()) {
-                            e.preventDefault();
-                            setNotice("A trial or Pro plan is required to run on the hosted VPS. Open Manage plan.");
-                            document.getElementById("billing")?.scrollIntoView({ behavior: "smooth" });
-                            window.location.hash = "billing";
+                          e.preventDefault();
+                          const live = prompt.trim();
+                          if (live) {
+                            try { window.sessionStorage.setItem("thumbgate_pending_prompt", live); } catch {}
                           }
+                          setNotice("Opening checkout to activate your plan…");
+                          void subscribe();
                         }}
                       >
-                        {cta.label}
+                        {busy ? "Opening checkout…" : cta.label}
                       </button>
                     );
                   }
