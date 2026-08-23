@@ -382,6 +382,21 @@ export default function DashboardClient() {
     return () => window.cancelAnimationFrame(raf);
   }, [mobileTab]);
 
+  // Restore pending prompt after returning from Stripe checkout / plan activation
+  useEffect(() => {
+    if (hasCloudAccess) {
+      try {
+        const pending = window.sessionStorage.getItem("thumbgate_pending_prompt");
+        if (pending && !prompt) {
+          setPrompt(pending);
+          window.sessionStorage.removeItem("thumbgate_pending_prompt");
+        }
+      } catch {
+        /* private browsing */
+      }
+    }
+  }, [hasCloudAccess, prompt]);
+
   // Keep the ••• actions menu glued to its trigger; close on outside / Escape / scroll.
   useEffect(() => {
     if (!threadMenu) return;
@@ -1848,6 +1863,14 @@ export default function DashboardClient() {
                     if (event.nativeEvent.isComposing) return;
                     event.preventDefault();
                     const live = event.currentTarget.value.trim();
+                    if (!hasCloudAccess) {
+                      if (live) {
+                        try { window.sessionStorage.setItem("thumbgate_pending_prompt", live); } catch {}
+                      }
+                      setNotice("Opening checkout to activate your trial and run your prompt…");
+                      void subscribe();
+                      return;
+                    }
                     if (live && !busy) {
                       if (live !== prompt) setPrompt(live);
                       const form = event.currentTarget.form;
@@ -1862,6 +1885,8 @@ export default function DashboardClient() {
                           form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
                         }
                       }
+                    } else if (!live) {
+                      setNotice("Type a message first, then tap Run.");
                     }
                   }
                 }}
@@ -1887,20 +1912,21 @@ export default function DashboardClient() {
                   if (cta.kind === "upgrade") {
                     return (
                       <button
-                        type="submit"
+                        type="button"
                         className="button button-primary button-small composer-run"
                         data-testid={cta.testId}
                         disabled={cta.disabled}
                         onClick={(e) => {
-                          if (!prompt.trim()) {
-                            e.preventDefault();
-                            setNotice("A trial or Pro plan is required to run on the hosted VPS. Open Manage plan.");
-                            document.getElementById("billing")?.scrollIntoView({ behavior: "smooth" });
-                            window.location.hash = "billing";
+                          e.preventDefault();
+                          const live = prompt.trim();
+                          if (live) {
+                            try { window.sessionStorage.setItem("thumbgate_pending_prompt", live); } catch {}
                           }
+                          setNotice("Opening checkout to activate your plan…");
+                          void subscribe();
                         }}
                       >
-                        {cta.label}
+                        {busy ? "Opening checkout…" : cta.label}
                       </button>
                     );
                   }
