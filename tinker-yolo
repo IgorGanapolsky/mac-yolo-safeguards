@@ -506,6 +506,10 @@ Read-only / free:
   recommend [--json]         host-aware Inkling vs local-baseline decision
   --doctor [--json]          Tinker auth/catalog + recommendation; no training
   build                      build a private local dataset; no upload
+  prompt-distill [--json] [--write] [--out PATH] [--limit N]
+                             Cookbook prompt distillation: replace 30–60k-char
+                             system packs with a short stub. Sidecar only; $0;
+                             never uploads; never changes hermes-yolo default
   agent ["task"] [options]    local tool-using agent
   chat ["task"] [options]     alias for agent
       [--model TAG] [--workspace PATH] [--max-turns N]
@@ -577,6 +581,11 @@ case "$command" in
     [ "$#" -eq 0 ] || { echo "tinker-yolo: build takes no arguments" >&2; exit 2; }
     build_dataset
     exit $? ;;
+  prompt-distill)
+    DISTILL="${TINKER_PROMPT_DISTILL:-$HERE/tools/hermes-yolo-tinker-prompt-distill.js}"
+    [ -f "$DISTILL" ] || { echo "tinker-yolo: missing prompt-distill tool ($DISTILL)" >&2; exit 127; }
+    command -v node >/dev/null 2>&1 || { echo "tinker-yolo: node not found on PATH" >&2; exit 127; }
+    exec node "$DISTILL" "$@" ;;
   chat|agent)
     run_local_agent "$@"
     exit $? ;;
