@@ -3613,3 +3613,16 @@ Complement to AGENT-476 / PR #1984. Does **not** steal DashboardClient.tsx. Code
 ## 2. File Ownership Map (append-only lock table — claim before touching) [continued 2026-08-24]
 
 - `apps/hermes-control-plane/build/cloudflare-target.mjs`, `apps/hermes-control-plane/worker/index.ts`, `apps/hermes-control-plane/worker/edge-policy.ts`, `apps/hermes-control-plane/lib/cloudflare-edge-policy.test.ts`, `tests/test-hermes-cloudflare-deploy-config.js`, `plan.md` (append only) → **codex-cloudflare-edge-roi-2011** (GH #2011: Cloudflare-native write throttling, version-scoped anonymous public Cache API, Smart Placement; exclude PR #2010 Kitesurf/x402 files and all active dashboard/API-route claims) (2026-08-24T20:11:00Z)
+## T-CF-DEVELOPER-STACK-20260824 (append 2026-08-24T16:40:00Z) — agent `grok-cf-developer-stack`
+
+developers.cloudflare.com high-ROI steal. **Mechanics not products.** Markdown for Agents (`Accept: text/markdown` + token headers), wrangler `compatibility_date >= 2026-03-24` for Browser Run quickAction, AI crawl policy (public ALLOW / dashboard DENY), contextual 403 `documentation_url`. Linear **AGENT-490**.
+
+Does **not** clone Workers AI, AI Gateway, Vectorize, Agents SDK, Wallets, Flagship, Workflows, Sandbox, Cloudflare One. Does **not** enable billable traces. Does **not** restore Continuity / Mac-pair.
+
+### File claims
+- `tools/cloudflare-developer-stack.js` (new)
+- `tests/test-cloudflare-developer-stack.js` (new)
+- `.agents/skills/cloudflare-developer-stack/` (new)
+- `SKILLS.md` (append row)
+- `.agents/skills/sources.yml` (append in_repo name)
+- `plan.md` (this append)
