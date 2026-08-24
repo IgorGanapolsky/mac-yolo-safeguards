@@ -163,11 +163,11 @@ test("keeps the deployed web host DOM-native instead of adding a React Native We
   // Phone must not re-show the route explain card after base CSS (CEO overlap 2026-07-25).
   assert.match(globals, /\.composer-route-explain\{[\s\S]*display:none !important/);
   assert.match(globals, /\.dashboard-header\{[\s\S]*grid-template-columns:1fr/);
-  // Chat-first workbench (DimAgent visual workbench steal, 2026-08-18):
-  // messages fill remaining height; thin composer dock; not half-screen input.
-  assert.match(globals, /data-mobile-tab="hermes"\]\{[\s\S]*height:100dvh/);
+  // Chat-first workbench: shell is bounded below the statusline; transcript
+  // flex-shrinks so the composer stays on-screen (CEO 2026-08-24 no prompt box).
+  assert.match(globals, /data-mobile-tab="hermes"\]\{[\s\S]*max-height:calc\(100dvh - var\(--turn-statusline-h/);
   assert.match(globals, /data-mobile-tab="hermes"\] \.task-panel\{[\s\S]*overflow:hidden !important/);
-  assert.match(globals, /data-mobile-tab="hermes"\] \.hermes-scroll-pane\{[\s\S]*height:clamp\(280px,46svh,520px\)[\s\S]*overflow-y:auto !important/);
+  assert.match(globals, /data-mobile-tab="hermes"\] \.hermes-scroll-pane\{[\s\S]*flex:1 1 0 !important[\s\S]*overflow-y:auto !important/);
   assert.match(globals, /task-panel \.composer[\s\S]*position:relative !important/);
   assert.match(globals, /composer textarea\{[\s\S]*min-height:40px/);
   assert.match(globals, /\.agent-activity/);

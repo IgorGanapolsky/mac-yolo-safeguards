@@ -10,16 +10,15 @@ const dashboard = readFileSync(
 
 test("phone chat gets a positive bounded scrollport instead of collapsing or burying the composer", () => {
   const mobileWorkbench = css.match(
-    /\/\* Mobile chat visibility: give the transcript a positive, bounded viewport[\s\S]*?\.dashboard-shell\[data-mobile-tab="hermes"\] \.hermes-scroll-pane\s*\{([\s\S]*?)\n\s*\}/,
+    /\/\* Mobile chat visibility: flexible scrollport so composer is never pushed off-screen[\s\S]*?\.dashboard-shell\[data-mobile-tab="hermes"\] \.hermes-scroll-pane\s*\{([\s\S]*?)\n\s*\}/,
   );
 
   assert.ok(mobileWorkbench, "mobile Hermes scroll-pane visibility rule must exist");
-  assert.match(mobileWorkbench[1], /flex:\s*0 0 auto\s*!important/);
-  assert.match(mobileWorkbench[1], /height:\s*clamp\(280px,46svh,520px\)/);
-  assert.match(mobileWorkbench[1], /min-height:\s*280px\s*!important/);
-  assert.match(mobileWorkbench[1], /max-height:\s*520px/);
+  assert.match(mobileWorkbench[1], /flex:\s*1 1 0\s*!important/);
+  assert.match(mobileWorkbench[1], /min-height:\s*8rem\s*!important/);
   assert.match(mobileWorkbench[1], /overflow-y:\s*auto\s*!important/);
-  assert.doesNotMatch(mobileWorkbench[1], /flex:\s*1 1 0/);
+  assert.doesNotMatch(mobileWorkbench[1], /height:\s*clamp\(280px/);
+  assert.doesNotMatch(mobileWorkbench[1], /min-height:\s*280px/);
   assert.doesNotMatch(mobileWorkbench[1], /overflow-y:\s*visible/);
 });
 

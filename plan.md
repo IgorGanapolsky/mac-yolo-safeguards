@@ -19,6 +19,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 ## 1. Task Board
 
+| T-MOBILE-COMPOSER-REACHABLE-20260824 | P0: phone dashboard has no prompt box — stop 100dvh+tab-padding from clipping the composer under the statusline | in_progress | grok-mobile-composer-reachable | `apps/hermes-control-plane/app/globals.css` (Hermes mobile shell/scroll/composer dock only; not chips or run-output rules), `apps/hermes-control-plane/tests/dashboard-mobile-chat-visibility.test.mjs`, `apps/hermes-control-plane/tests/dashboard-mobile-composer-reachable.test.mjs`, `apps/hermes-control-plane/tests/frictionless-onboarding.test.mjs` (three mobile-shell assertions only), `plan.md` | AGENT-484; CEO screenshot thumbgate.app/d |
 | T-STRIP-BOT-ROSTER-BANNER-20260823 | Strip clownish emoji bot roster banner from Thread Console header; simplify dashboard workbench layout | done | antigravity | `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx`, `apps/hermes-control-plane/app/globals.css`, `apps/hermes-control-plane/tests/dashboard-chips-layout.test.mjs`, `plan.md` | 100% green tests (247/247 unit tests, 19/19 context checks, 55/55 skills) |
 | T-AGENT-476 | Show a truthful turn statusline on the authenticated ThumbGate dashboard using persisted workspace evidence; remove the hard-coded “ThumbGate online” promise; never fabricate missing tokens, TTFT, model, or cost | blocked | codex-agent-476-turn-statusline | `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx`, `plan.md` (append only) | Blocked 2026-08-22: PR #1986 merged a competing statusline and retains active ownership of its layout/component/API/contract files; repo coordination forbids overwriting that owner. This branch preserves those files exactly and removes only the independent hard-coded whole-product badge. |
 | T-AGENT-476-INCIDENT | Repair the live screenshot regressions discovered during AGENT-476: concatenated prompt chips, overlapping Output label/body, stale paired-machine denial, and mixed local-path plus GitHub-repository false block | in_review | codex-agent-476-turn-statusline | `apps/hermes-control-plane/app/globals.css` (quick-prompt and run-output rules only), `apps/hermes-control-plane/lib/cloud-tool-policy.ts`, `apps/hermes-control-plane/lib/cloud-tool-policy.test.ts`, `apps/hermes-control-plane/app/api/runner/tasks/claim/route.ts`, `apps/hermes-control-plane/tests/execution-statusline-contract.test.mjs`, `plan.md` (append only) | Linear AGENT-476 incident follow-up; local build + 243/243 tests + authenticated desktop/mobile E2E pass; awaiting fresh PR CI and live deploy proof. Raw task text remains stored; runner claim omits local paths and scopes execution to the GitHub URL; local-only prompts still fail closed. |
@@ -3607,3 +3608,16 @@ Complement to AGENT-476 / PR #1984. Does **not** steal DashboardClient.tsx. Code
 
 - PR #1986 merged commit `64a6e43d2` while PR #1983 was under review and retains active ownership of the dashboard statusline layout, component, API, tests, and intent contract.
 - T-AGENT-476 is blocked under the no-cross-owner-edit rule. PR #1983 now preserves PR #1986 files exactly and is narrowed to T-AGENT-476-INCIDENT: readable quick prompts/output, mobile overflow proof, generic `ThumbGate online` badge removal, and safe fenced-VPS execution for prompts containing a local path plus a GitHub repository URL.
+
+## T-MOBILE-COMPOSER-REACHABLE-20260824 (append 2026-08-24T15:20:00Z) — agent `grok-mobile-composer-reachable`
+
+CEO screenshot: thumbgate.app/d on phone after send — thread, VPS meter, Useful?, tabs, Turn Statusline visible; **no textarea**. Linear AGENT-484.
+
+Does **not** steal DashboardClient.tsx, layout.tsx, TurnStatusline, or chips/run-output rules (AGENT-476 / PR #1986). CSS slice only: Hermes mobile shell height, tab padding, scroll-pane flex, composer dock.
+
+### File claims (§2 append)
+- `apps/hermes-control-plane/app/globals.css` (Hermes mobile shell/scroll/composer dock only) → **grok-mobile-composer-reachable** (T-MOBILE-COMPOSER-REACHABLE-20260824 / AGENT-484) (2026-08-24T15:20:00Z)
+- `apps/hermes-control-plane/tests/dashboard-mobile-chat-visibility.test.mjs` → **grok-mobile-composer-reachable** (2026-08-24T15:20:00Z)
+- `apps/hermes-control-plane/tests/dashboard-mobile-composer-reachable.test.mjs` (new) → **grok-mobile-composer-reachable** (2026-08-24T15:20:00Z)
+- `apps/hermes-control-plane/tests/frictionless-onboarding.test.mjs` (three mobile-shell assertions only) → **grok-mobile-composer-reachable** (2026-08-24T15:20:00Z)
+- `plan.md` (this append) → **grok-mobile-composer-reachable** (2026-08-24T15:20:00Z)
