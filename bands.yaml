@@ -1,0 +1,60 @@
+# bands.yaml — Statistical Control-Band Configuration (Stage 6 Maintain)
+# Implements Western Electric rules for deterministic anomaly detection and autonomous loop closure
+
+version: 1.0
+evaluation_window: 30d
+
+metrics:
+  - id: ci_test_failure_rate
+    name: CI Test Suite Failure Rate
+    unit: percentage
+    baseline_mean: 0.02
+    baseline_std: 0.008
+    rules: western_electric
+    tiers:
+      1sigma:
+        action: log
+        description: "Normal variance. Log entry only."
+      2sigma:
+        action: diagnose
+        tools: ["Read", "Grep", "git log"]
+        description: "Elevated failure rate. Run diagnosis and post summary."
+      3sigma:
+        action: propose_and_revert
+        auto_intent: true
+        routes: ["pull_request", "runbook:quarantine_flaky_test"]
+        description: "Breached control band. Auto-generate intent.md and open quarantine PR."
+
+  - id: post_deploy_5xx_rate
+    name: Post-Deploy HTTP 5xx Rate
+    unit: percentage
+    baseline_mean: 0.001
+    baseline_std: 0.0005
+    rules: western_electric
+    tiers:
+      1sigma:
+        action: log
+      2sigma:
+        action: diagnose
+        tools: ["Read", "curl", "logs"]
+      3sigma:
+        action: trigger_rollback
+        auto_intent: true
+        routes: ["runbook:rollback_deployment", "pull_request"]
+        description: "Critical error surge. Trigger automated rollback and record intent.md incident."
+
+  - id: pr_cycle_time_hours
+    name: PR Lead Time to Merge
+    unit: hours
+    baseline_mean: 4.5
+    baseline_std: 1.2
+    rules: western_electric
+    tiers:
+      1sigma:
+        action: log
+      2sigma:
+        action: diagnose
+      3sigma:
+        action: report_governance
+        auto_intent: true
+        description: "Process drift detected. Generate process improvement intent.md."
