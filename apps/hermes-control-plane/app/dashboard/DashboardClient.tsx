@@ -173,17 +173,9 @@ function taskReceiptLabel(task: { route: string; deviceName?: string | null; sta
   return "Ⅱ Awaiting route · fenced when claimed";
 }
 
-/** Prefer online machines, then most recently seen — only when the user has no saved pick. */
-function pickDefaultDeviceId(nextDevices: Device[], preferredId: string | null | undefined): string {
-  if (!nextDevices.length) return "";
-  if (preferredId && nextDevices.some((device) => device.id === preferredId)) return preferredId;
-  const sorted = [...nextDevices].sort((left, right) => {
-    const leftOnline = left.online || left.presence === "online" ? 1 : 0;
-    const rightOnline = right.online || right.presence === "online" ? 1 : 0;
-    if (rightOnline !== leftOnline) return rightOnline - leftOnline;
-    return (right.lastSeenAt ?? 0) - (left.lastSeenAt ?? 0) || left.name.localeCompare(right.name);
-  });
-  return sorted[0]?.id ?? "";
+/** Hosted VPS is the default run target. Never auto-pick a paired Mac. */
+function pickDefaultDeviceId(_nextDevices: Device[], _preferredId: string | null | undefined): string {
+  return "";
 }
 
 function latency(milliseconds: number | null) {
@@ -322,19 +314,10 @@ export default function DashboardClient() {
   const preheatInflightRef = useRef<Set<string>>(new Set());
 
   const selectedDeviceId = useMemo(() => {
-    if (!devices.length) return "";
     if (deviceOverrideId && devices.some((device) => device.id === deviceOverrideId)) {
       return deviceOverrideId;
     }
-    let stored: string | null = null;
-    if (typeof window !== "undefined") {
-      try {
-        stored = window.localStorage.getItem(preferredDevicePreferenceKey);
-      } catch {
-        stored = null;
-      }
-    }
-    return pickDefaultDeviceId(devices, stored);
+    return pickDefaultDeviceId(devices, null);
   }, [devices, deviceOverrideId]);
 
   const selectedDevice = devices.find((device) => device.id === selectedDeviceId) ?? null;
@@ -1063,7 +1046,9 @@ export default function DashboardClient() {
         body: JSON.stringify({
           prompt: text,
           threadId: selectedThread,
-          deviceId: selectedDeviceId || undefined,
+          ...(deviceOverrideId && devices.some((device) => device.id === deviceOverrideId)
+            ? { deviceId: deviceOverrideId }
+            : {}),
           idempotencyKey: crypto.randomUUID(),
           traceId: crypto.randomUUID(),
           routePreference: "cloud",
@@ -1969,18 +1954,22 @@ export default function DashboardClient() {
                 <li className="is-done"><span>2</span>LLM-as-a-Judge guardrails enabled</li>
                 <li className={hostedCopy.live ? "is-done" : ""}><span>3</span>{hostedCopy.live ? "Online & autonomous" : "Waiting until runner and model are healthy"}</li>
               </ol>
+              <p className="helper-copy" data-testid="hosted-run-default">
+                Tasks run on the hosted VPS. Pairing a computer is optional and never required to send.
+              </p>
               {devices.length > 0 ? (
-                <div className="leash-device-picker" data-testid="leash-device-picker">
+                <details className="leash-device-picker" data-testid="leash-device-picker">
+                  <summary>Optional: send the next task to a paired computer</summary>
                   <label htmlFor="leash-device-select" className="composer-where-label" style={{ margin: 0 }}>
-                    Run tasks on
+                    Hosted VPS is the default
                   </label>
                   <select
                     id="leash-device-select"
                     data-testid="leash-device-select"
-                    value={selectedDeviceId}
+                    value={selectedDeviceId || "cloud"}
                     onChange={(event) => chooseDevice(event.target.value)}
                     disabled={busy}
-                    aria-label="Which machine should run tasks"
+                    aria-label="Hosted VPS is the default run target"
                   >
                     <option value="cloud">☁ Hosted VPS (default)</option>
                     {devices.map((device) => (
@@ -1989,9 +1978,9 @@ export default function DashboardClient() {
                       </option>
                     ))}
                   </select>
-                </div>
+                </details>
               ) : null}
-              <div className="account-recovery" style={{ marginTop: "1rem" }}><p>Signed in as <strong>{user.email}</strong>. If your machines are paired to another email, switch accounts here.</p><SignOutForm buttonClassName="button button-secondary button-small" data-testid="dashboard-switch-account">Switch account</SignOutForm></div>
+              <div className="account-recovery" style={{ marginTop: "1rem" }}><p>Signed in as <strong>{user.email}</strong>. If this is the wrong workspace, switch accounts here.</p><SignOutForm buttonClassName="button button-secondary button-small" data-testid="dashboard-switch-account">Switch account</SignOutForm></div>
               <p className="privacy-boundary">Bounded Hermes thread context syncs to this control plane. Tasks execute in isolated serverless leases.</p>
               <p className="privacy-boundary" data-testid="hosted-not-computer-history">{HOSTED_NOT_COMPUTER_HISTORY} Least privilege: cannot read secrets. Private/incognito analogue: we do not ingest other people&apos;s Slack or DMs.</p>
             </section>
@@ -2011,9 +2000,9 @@ export default function DashboardClient() {
               </div>
             </details>
             <section className="panel" id="web-settings" tabIndex={-1}>
-              <div className="panel-heading"><div><p className="eyebrow">SETTINGS</p><h2>Paired Hermes connectors</h2></div></div>
+              <div className="panel-heading"><div><p className="eyebrow">SETTINGS</p><h2>Hosted VPS runner</h2></div></div>
               <p className="helper-copy">
-                ThumbGate executes tasks directly on our fenced serverless Cloud VPS runner (90s renewable lease). No local Mac software or background daemons are required.
+                ThumbGate executes tasks on the fenced Cloud VPS runner (90s renewable lease). No local Mac software is required. Pairing a computer stays optional below.
               </p>
               {devices.map((device) => {
                 const isPreferred = device.id === selectedDeviceId;

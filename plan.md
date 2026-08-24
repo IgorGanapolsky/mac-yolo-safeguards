@@ -3609,3 +3609,15 @@ Complement to AGENT-476 / PR #1984. Does **not** steal DashboardClient.tsx. Code
 
 - PR #1986 merged commit `64a6e43d2` while PR #1983 was under review and retains active ownership of the dashboard statusline layout, component, API, tests, and intent contract.
 - T-AGENT-476 is blocked under the no-cross-owner-edit rule. PR #1983 now preserves PR #1986 files exactly and is narrowed to T-AGENT-476-INCIDENT: readable quick prompts/output, mobile overflow proof, generic `ThumbGate online` badge removal, and safe fenced-VPS execution for prompts containing a local path plus a GitHub repository URL.
+
+## T-HOSTED-VPS-DEFAULT-20260824 (append 2026-08-24T16:05:00Z) — agent `grok-hosted-vps-default`
+
+CEO: no Continuity option; UI forces Mac pairing. Product lock is hosted VPS. `pickDefaultDeviceId` + localStorage auto-selected a paired Mac so `createTask` sent `deviceId` despite `routePreference: "cloud"`.
+
+Does not add a Continuity/RUN ON picker. Hosted VPS is default; pairing is optional `<details>`.
+
+### File claims
+- `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx` (default device + Leash/Settings copy only) → **grok-hosted-vps-default** (AGENT-485)
+- `apps/hermes-control-plane/tests/hosted-vps-default.test.mjs` (new)
+- `apps/hermes-control-plane/tests/frictionless-onboarding.test.mjs` (hosted-default assertions only)
+- `plan.md` (this append)
