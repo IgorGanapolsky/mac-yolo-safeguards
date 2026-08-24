@@ -3717,3 +3717,24 @@ GH #2038 / Linear AGENT-510. Restore control-plane CI after PR #2000 merged ESLi
 - Fixed: required-check contract 41/41, Actionlint 2/2 workflows, Ruby YAML parse 2/2, dependency automation policy 16/16, CodeQL pattern gate 0 findings across 1,308 files, and `git diff --check` passed.
 - `gh copilot` review was attempted but the provider rejected it because the monthly quota is exhausted; no Copilot review claim.
 - Branch protection is intentionally unchanged until this workflow is merged and the irrelevant-path success route is observed on GitHub.
+
+## Knowledge-layer edges overlay (append 2026-08-24T22:41:09Z) — agent `grok-knowledge-layer-edges`
+
+TDS Cekikj (2026-08-20): always-fuse is grok PR #2029 / AGENT-500 — **do not dual-edit** `tools/knowledge-graph-fuse.js`. This slice is the leftover cheap mechanics: two-threshold alias ER (no LLM), bitemporal expire-and-open, ingest-time contradiction. No Cosmos Gremlin, no Azure, no insurance ontology.
+
+| Task | Goal | Status | Owner | Files | AcceptanceCheck |
+|---|---|---|---|---|---|
+| T-KNOWLEDGE-LAYER-EDGES-20260824 | Two-threshold resolve + bitemporal edges + ingest contradiction overlay; ablation is alias-only vs two-threshold fragmentation | in_progress | grok-knowledge-layer-edges | `tools/knowledge-layer-edges.js` (new), `tests/test-knowledge-layer-edges.js` (new), `evals/knowledge-layer-edges/fixture.json` (new), `bin/knowledge-layer-edges` (new), `.agents/skills/knowledge-layer-edges-not-gremlin/**` (new), `SKILLS.md` (one row), `.agents/skills/sources.yml` (one pin), `plan.md` (this append) | focused tests pass; alias-only fragments more than two-threshold; genuine conflict declinesToSettle; same-authority update expires not rewrites; gray zone is needs_review not LLM |
+
+### File claims
+
+- `tools/knowledge-layer-edges.js` (new)
+- `tests/test-knowledge-layer-edges.js` (new)
+- `evals/knowledge-layer-edges/fixture.json` (new)
+- `bin/knowledge-layer-edges` (new)
+- `.agents/skills/knowledge-layer-edges-not-gremlin/**` (new)
+- `SKILLS.md` (one row)
+- `.agents/skills/sources.yml` (one pin)
+- `plan.md` (this append)
+
+Do **not** touch: `tools/knowledge-graph-fuse.js`, `tests/test-knowledge-graph-fuse.js`, `bin/knowledge-graph-fuse`, `.agents/skills/knowledge-graph-fuse/**`, `tools/retrieval-interface-contracts.js`.

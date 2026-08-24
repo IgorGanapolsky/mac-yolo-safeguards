@@ -23,6 +23,8 @@ in_repo:
   - revenue-gap-tracker
   - skill-catalog-governance
   - cloudflare-developer-stack
+  - knowledge-layer-edges-not-gremlin
+
 
 external:
   # Intentionally empty by default on Apple Silicon fleet.

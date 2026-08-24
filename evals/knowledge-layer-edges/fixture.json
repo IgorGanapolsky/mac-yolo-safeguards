@@ -1,0 +1,37 @@
+{
+  "schema": "knowledge-layer-edges/fixture-v1",
+  "canonicals": [
+    {
+      "id": "hosted-vps",
+      "title": "Hosted VPS",
+      "aliases": ["fenced VPS", "hosted Hermes", "thumbgate.app VPS"]
+    },
+    {
+      "id": "hosted-completed",
+      "title": "Hosted completed status",
+      "aliases": ["task completed", "lifecycle completed"]
+    },
+    {
+      "id": "skill-dump",
+      "title": "Operator skill dump",
+      "aliases": ["SKILL.md dump", "30k system prompt"]
+    },
+    {
+      "id": "continuity-picker",
+      "title": "Continuity picker",
+      "aliases": ["RUN ON picker", "Mac-pair chooser"]
+    }
+  ],
+  "mentions": [
+    { "id": "m1", "text": "fenced VPS" },
+    { "id": "m2", "text": "hosted Hermes" },
+    { "id": "m3", "text": "thumbgate.app VPS" },
+    { "id": "m4", "text": "task completed" },
+    { "id": "m5", "text": "SKILL.md dump" },
+    { "id": "m6", "text": "30k system prompt" },
+    { "id": "m7", "text": "RUN ON picker" },
+    { "id": "m8", "text": "laptop chat session" },
+    { "id": "m9", "text": "hosted machine vps" },
+    { "id": "m10", "text": "machine we own hosted" }
+  ]
+}
