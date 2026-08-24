@@ -6,14 +6,18 @@
  *
  * It is a decision function, not an enforcement point. The caller must refuse a
  * "deny" and must route a "confirm" to a person before running the action.
+ *
+ * Relative specifiers carry an explicit .ts extension so the module loads under
+ * node's ESM loader as well as the bundler, matching lib/content-lane.ts and
+ * lib/hosted-tool-approvals.ts. Without it the unit tests cannot import this.
  */
 
-import { evaluateNavigation, type NetDecision } from "./network";
-import { evaluateMember, matchGuardedLabel, type MemberDecision } from "./members";
+import { evaluateNavigation, type NetDecision } from "./network.ts";
+import { evaluateMember, matchGuardedLabel, type MemberDecision } from "./members.ts";
 
-export * from "./network";
-export * from "./members";
-export * from "./sanitize";
+export * from "./network.ts";
+export * from "./members.ts";
+export * from "./sanitize.ts";
 
 export type BrowserDecision = NetDecision | MemberDecision;
 
