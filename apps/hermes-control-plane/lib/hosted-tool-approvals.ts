@@ -8,6 +8,7 @@
  */
 
 import { evaluateRemoteAction, type RemoteAction } from "./hosted-remote-surface.ts";
+import { evaluateSsrf, type SsrfDecision } from "./ssrf-guard.ts";
 
 export const HOSTED_APPROVAL_MODES = ["always-ask", "accept-edits", "always-allow"] as const;
 export type HostedApprovalMode = (typeof HOSTED_APPROVAL_MODES)[number];
@@ -47,7 +48,7 @@ export type HostedToolPolicy = {
 
 export type ToolDecision =
   | { allowed: true; mode: HostedApprovalMode }
-  | { allowed: false; mode: HostedApprovalMode; reason: string; source: "deny_rule" | "always_ask" | "remote_cap" };
+  | { allowed: false; mode: HostedApprovalMode; reason: string; source: "deny_rule" | "always_ask" | "remote_cap" | "ssrf_guard" };
 
 export type HostedHitlInterrupt = {
   action_request: { action: string; args: Record<string, unknown> };
@@ -233,6 +234,26 @@ export function persistHumanDeny(
   return current;
 }
 
+/**
+ * Obscura SSRF steal: hosted web_fetch/browser URLs deny private IPs by default.
+ * Client `allowPrivateNetwork` is ignored unless operatorOverride is true.
+ */
+export function evaluateHostedUrlFetch(input: {
+  url?: string;
+  args?: Record<string, unknown>;
+  allowPrivateNetwork?: boolean;
+  operatorOverride?: boolean;
+  resolvedAddresses?: string[];
+} = {}): SsrfDecision {
+  const fromArgs = input.args && typeof input.args.url === "string" ? input.args.url : "";
+  const url = String(input.url || fromArgs || "");
+  const allowPrivateNetwork = input.operatorOverride === true && input.allowPrivateNetwork === true;
+  return evaluateSsrf(url, {
+    allowPrivateNetwork,
+    resolvedAddresses: input.resolvedAddresses,
+  });
+}
+
 export function evaluateHostedToolApproval(input: {
   policy?: HostedToolPolicy | null;
   tool?: string;
@@ -240,8 +261,34 @@ export function evaluateHostedToolApproval(input: {
   toolClass?: string;
   remote?: boolean;
   remoteAction?: RemoteAction;
+  url?: string;
+  args?: Record<string, unknown>;
+  allowPrivateNetwork?: boolean;
+  operatorOverride?: boolean;
+  resolvedAddresses?: string[];
 } = {}): ToolDecision {
   const policy = input.policy ?? DEFAULT_POLICY;
+  const fetchUrl = String(
+    input.url
+    || (input.args && typeof input.args.url === "string" ? input.args.url : "")
+    || "",
+  );
+  const looksLikeFetch = /web_fetch|browser_|screenshot|scrape|fetch_url/i.test(
+    String(input.tool || input.action || ""),
+  );
+  if (fetchUrl || looksLikeFetch) {
+    if (fetchUrl) {
+      const ssrf = evaluateHostedUrlFetch(input);
+      if (!ssrf.allowed) {
+        return {
+          allowed: false,
+          mode: policy.mode,
+          reason: ssrf.reason,
+          source: "ssrf_guard",
+        };
+      }
+    }
+  }
   if (input.remote) {
     const remoteAction = input.remoteAction
       ?? (input.action === "read_secrets" || input.tool === "secrets" ? "read_secrets"

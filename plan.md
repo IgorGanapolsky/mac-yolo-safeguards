@@ -3609,3 +3609,23 @@ Complement to AGENT-476 / PR #1984. Does **not** steal DashboardClient.tsx. Code
 
 - PR #1986 merged commit `64a6e43d2` while PR #1983 was under review and retains active ownership of the dashboard statusline layout, component, API, tests, and intent contract.
 - T-AGENT-476 is blocked under the no-cross-owner-edit rule. PR #1983 now preserves PR #1986 files exactly and is narrowed to T-AGENT-476-INCIDENT: readable quick prompts/output, mobile overflow proof, generic `ThumbGate online` badge removal, and safe fenced-VPS execution for prompts containing a local path plus a GitHub repository URL.
+
+## T-OBSCURA-BROWSER-GUARD-20260824 (append 2026-08-24T21:10:00Z) — agent `grok-obscura-ssrf-guard`
+
+Obscura (https://github.com/h4ckf0r0day/obscura) high-ROI steal for **thumbgate.app**. **Mechanics not their browser.** SSRF deny-by-default (loopback/RFC1918/link-local/metadata/CGNAT/IPv6 ULA), CDP bind `127.0.0.1` only, zero-state sessions. Wired into hosted `web_fetch` via `evaluateHostedUrlFetch`. Linear **AGENT-493**.
+
+Does **not** clone Obscura/V8/Chromium, stealth fingerprinting, residential proxies, or Obscura Cloud. Does **not** restore Continuity / Mac-pair / RUN ON. Does **not** edit DashboardClient (AGENT-476) or kitesurf files (AGENT-489).
+
+### File claims
+- `tools/lib/ssrf-guard.js` (new)
+- `tools/obscura-browser-guard.js` (new)
+- `tests/test-obscura-browser-guard.js` (new)
+- `apps/hermes-control-plane/lib/ssrf-guard.ts` (new)
+- `apps/hermes-control-plane/lib/ssrf-guard.test.ts` (new)
+- `apps/hermes-control-plane/lib/hosted-tool-approvals.ts` (SSRF hook)
+- `apps/hermes-control-plane/tests/hosted-tool-approvals.test.mjs` (SSRF cases)
+- `.agents/skills/obscura-browser-guard/` (new)
+- `SKILLS.md` (append row)
+- `.agents/skills/sources.yml` (append in_repo name)
+- `plan.md` (this append)
+

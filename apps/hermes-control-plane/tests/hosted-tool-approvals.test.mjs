@@ -7,6 +7,7 @@ import {
   completeGatedHostedTool,
   createHostedHitlInterrupt,
   evaluateHostedToolApproval,
+  evaluateHostedUrlFetch,
   evaluateOutboundEmail,
   interruptConfigForClass,
   isOvernightUnresolved,
@@ -257,6 +258,40 @@ test("outbound email is drafts-only and never sends", () => {
   assert.equal(result.completed, false);
   assert.equal(result.sent, false);
   assert.equal(result.receipt.outcome, "draft_only");
+});
+
+test("Obscura SSRF deny-by-default blocks metadata and loopback even on always-allow", () => {
+  const policy = { mode: "always-allow", rules: [] };
+  const meta = evaluateHostedToolApproval({
+    policy,
+    tool: "web_fetch",
+    url: "http://169.254.169.254/latest/meta-data/",
+  });
+  assert.equal(meta.allowed, false);
+  assert.equal(meta.source, "ssrf_guard");
+
+  const loop = evaluateHostedUrlFetch({ url: "http://127.0.0.1:8080" });
+  assert.equal(loop.allowed, false);
+
+  const clientLie = evaluateHostedUrlFetch({
+    url: "http://10.0.0.4/",
+    allowPrivateNetwork: true,
+  });
+  assert.equal(clientLie.allowed, false, "client flag without operatorOverride is ignored");
+
+  const operator = evaluateHostedUrlFetch({
+    url: "http://127.0.0.1/",
+    allowPrivateNetwork: true,
+    operatorOverride: true,
+  });
+  assert.equal(operator.allowed, true);
+
+  const pub = evaluateHostedToolApproval({
+    policy,
+    tool: "web_fetch",
+    args: { url: "https://example.com/docs" },
+  });
+  assert.equal(pub.allowed, true);
 });
 
 test("production files we touch do not import langgraph, langchain, or agent-inbox", () => {
