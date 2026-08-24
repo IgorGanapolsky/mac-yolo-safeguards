@@ -90,7 +90,28 @@ const ROUTES = Object.freeze({
     label: 'Local Ollama via gateway — offline / zero spend',
     tier: 'local',
   },
+  // Explicit routine / asks-local leaf only. Never a silent Qwen fallback for
+  // interactive coding — glm-coding remains ROUTES.coding (quality lock).
+  local_leaf: {
+    id: 'local_leaf',
+    model: 'qwen3-hermes-tinker:q4',
+    provider: 'custom:ollama-local-64k',
+    label: 'Local tinker leaf (qwen3-hermes-tinker:q4 via tinker-yolo) — routine / explicit-local only',
+    tier: 'local',
+    backend: 'tinker-yolo',
+  },
 });
+
+/**
+ * Hybrid leaf: predictable/explicit-local work on owned hardware.
+ * Hard, long-context, cyber, GLM/Kimi asks, and smoke stay on subscription.
+ */
+function shouldRouteLocalLeaf(signals) {
+  if (!signals) return false;
+  if (signals.hard || signals.longContext || signals.asksK3 || signals.cyber) return false;
+  if (signals.asksGlm || signals.asksKimi || signals.smoke) return false;
+  return Boolean(signals.routine || signals.asksLocal);
+}
 
 function taskSignals(task) {
   const text = String(task || '').toLowerCase();
@@ -238,6 +259,24 @@ function selectRoute(opts = {}) {
     };
   }
 
+  // Routine / explicit-local → tinker leaf. Must run BEFORE chain primary so
+  // glm-coding does not swallow signals.routine (previously unused).
+  if (shouldRouteLocalLeaf(signals)) {
+    return {
+      ...ROUTES.local_leaf,
+      reason: signals.routine
+        ? 'routine leaf → qwen3-hermes-tinker:q4 (tinker-yolo); coding default unchanged'
+        : 'explicit local/offline → qwen3-hermes-tinker:q4 (tinker-yolo); not a silent Qwen fallback',
+      signals,
+      inferenceTask: inferenceTask.id,
+      mode,
+      chain: chainPlan.chain,
+      latencyBudgetMs: inferenceTask.latencyBudgetMs,
+      businessKpi: inferenceTask.businessKpi,
+      policyVersion: POLICY_VERSION,
+    };
+  }
+
   const primary = chainPlan.primary;
   const fromRegistry = Object.values(ROUTES).find((r) => r.model === primary);
   if (fromRegistry) {
@@ -364,6 +403,16 @@ async function selectRouteWithProbe(opts = {}) {
   if (opts.probe === false || process.env.HERMES_YOLO_PROBE === '0') {
     return { ...primary, probe: null, fallbackUsed: false };
   }
+  // local_leaf is Ollama-direct (qwen3-hermes-tinker:q4), not a LiteLLM alias.
+  // Do not probe :4010 and do not add this leaf to the coding fallback chain
+  // (that would silently demote glm-coding to Qwen).
+  if (primary.id === 'local_leaf') {
+    return {
+      ...primary,
+      probe: { skipped: true, reason: 'local_leaf is Ollama-direct, not LiteLLM' },
+      fallbackUsed: false,
+    };
+  }
   const probePrimary = await probeModel(primary.model);
   if (probePrimary.ok) {
     return { ...primary, probe: probePrimary, fallbackUsed: false };
@@ -445,6 +494,7 @@ module.exports = {
   PROVIDER,
   ROUTES,
   taskSignals,
+  shouldRouteLocalLeaf,
   selectRoute,
   selectRouteWithProbe,
   probeModel,

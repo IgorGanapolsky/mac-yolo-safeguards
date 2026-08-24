@@ -3626,3 +3626,25 @@ Does **not** clone Workers AI, AI Gateway, Vectorize, Agents SDK, Wallets, Flags
 - `SKILLS.md` (append row)
 - `.agents/skills/sources.yml` (append in_repo name)
 - `plan.md` (this append)
+
+## T-HERMES-YOLO-COST-AUTONOMY-20260824 (append 2026-08-24) — agent `grok`
+
+Episode steal: local-first hybrid delivery, **not** cancel-Claude. `ROUTES.local_leaf` = `qwen3-hermes-tinker:q4` via tinker-yolo for `signals.routine` / `signals.asksLocal` when not hard/long-context. Interactive coding default stays `glm-coding`. Cost-autonomy CLI classifies local_leaf vs subscription vs paid_opt_in; refuses speculative GPUs, replace-all-hosted, generic local consulting, invented $3000 savings, ThumbGate paid outreach. Linear **AGENT-504**.
+
+Does **not** edit `hermes-yolo-wrapper.js`. Does **not** buy GPUs. Does **not** quote $3000 as ours. Agency cash remains $149 AHLS.
+
+### Task
+| T-HERMES-YOLO-COST-AUTONOMY-20260824 | Hybrid local_leaf + cost-autonomy audit for hermes-yolo without changing glm-coding default | in_progress | grok | `tools/hermes-yolo-route-policy.js` (local_leaf + routine/asksLocal only), `tests/test-hermes-yolo-route-policy.js`, `tools/hermes-yolo-cost-autonomy.js` (new), `tests/test-hermes-yolo-cost-autonomy.js` (new), `bin/hermes-yolo-cost-autonomy` (new), `.agents/skills/hermes-yolo-cost-autonomy/**` (new), `SKILLS.md` (append row), `plan.md` | AGENT-504 |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/hermes-yolo-route-policy.js (local_leaf + routine/asksLocal branch only) | grok | 2026-08-24T22:30:00Z |
+| tests/test-hermes-yolo-route-policy.js (local_leaf cases) | grok | 2026-08-24T22:30:00Z |
+| tools/hermes-yolo-cost-autonomy.js | grok | 2026-08-24T22:30:00Z |
+| tests/test-hermes-yolo-cost-autonomy.js | grok | 2026-08-24T22:30:00Z |
+| bin/hermes-yolo-cost-autonomy | grok | 2026-08-24T22:30:00Z |
+| .agents/skills/hermes-yolo-cost-autonomy/** | grok | 2026-08-24T22:30:00Z |
+| SKILLS.md (append row) | grok | 2026-08-24T22:30:00Z |
+| .agents/skills/sources.yml (append in_repo name) | grok | 2026-08-24T22:30:00Z |
+| plan.md (this append) | grok | 2026-08-24T22:30:00Z |
