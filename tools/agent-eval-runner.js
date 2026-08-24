@@ -65,9 +65,21 @@ function runStaticAssertions(item, rootDir, failures) {
 
 /** Assertions that read a recorded agent result. */
 function runRuntimeAssertions(item, result, failures) {
-  const output = result.output || '';
+  // Output-scanning assertions need real output evidence. Defaulting a missing
+  // or non-string `output` to '' would make every must_not_contain assertion
+  // pass vacuously, i.e. report a secret-leak eval as clean having inspected
+  // nothing. Absent evidence is a failure, not a clean scan.
+  const scansOutput = item.must_not_contain !== undefined || item.must_contain !== undefined;
+  const hasOutput = typeof result.output === 'string';
+  if (scansOutput && !hasOutput) {
+    const keys = ['must_not_contain', 'must_contain'].filter((k) => item[k] !== undefined);
+    failures.push(
+      'Result records no string `output`; cannot verify ' + keys.join(', ') + ' (no evidence to scan)'
+    );
+  }
+  const output = hasOutput ? result.output : '';
 
-  if (item.must_not_contain) {
+  if (item.must_not_contain && hasOutput) {
     for (const forbidden of item.must_not_contain) {
       if (output.includes(forbidden)) {
         failures.push('Output contains forbidden string: ' + forbidden);
@@ -75,7 +87,7 @@ function runRuntimeAssertions(item, result, failures) {
     }
   }
 
-  if (item.must_contain) {
+  if (item.must_contain && hasOutput) {
     for (const required of item.must_contain) {
       if (!output.includes(required)) {
         failures.push('Output missing required string: ' + required);
@@ -116,10 +128,16 @@ function runRuntimeAssertions(item, result, failures) {
 function runEvals(evalsFilePath, resultsFilePath = null, options = {}) {
   const rootDir = options.rootDir || ROOT_DIR;
   const evals = JSON.parse(fs.readFileSync(evalsFilePath, 'utf8'));
-  const results =
-    resultsFilePath && fs.existsSync(resultsFilePath)
-      ? JSON.parse(fs.readFileSync(resultsFilePath, 'utf8'))
-      : {};
+  // A results path the caller explicitly supplied must exist. Silently
+  // substituting {} would turn a typo'd or deleted path into a clean skip and
+  // let CI accept a run that never inspected the intended agent results.
+  let results = {};
+  if (resultsFilePath) {
+    if (!fs.existsSync(resultsFilePath)) {
+      throw new Error('Results file not found: ' + resultsFilePath);
+    }
+    results = JSON.parse(fs.readFileSync(resultsFilePath, 'utf8'));
+  }
 
   let passed = 0;
   let failed = 0;
@@ -160,22 +178,24 @@ function runEvals(evalsFilePath, resultsFilePath = null, options = {}) {
     if (failures.length) {
       failed++;
       details.push({ id: item.id, name: item.name, status: 'FAIL', reasons: failures });
-    } else if (didSkipRuntime && !staticKeys.length) {
-      // Nothing was actually verified. Never call that a pass.
+    } else if (didSkipRuntime) {
+      // Partially evaluated is still unverified. A passing static half does not
+      // license a PASS for an eval whose runtime half never ran -- that is what
+      // let the secret-leak eval report PASS without scanning any output.
       skipped++;
-      details.push({
+      const detail = {
         id: item.id,
         name: item.name,
         status: 'SKIP',
-        reasons: ['No recorded result for ' + runtimeKeys.join(', ') + '; nothing was verified'],
-      });
-    } else {
-      passed++;
-      const detail = { id: item.id, name: item.name, status: 'PASS' };
-      if (didSkipRuntime) {
-        detail.partial = 'static checks only; runtime keys unverified (' + runtimeKeys.join(', ') + ')';
+        reasons: ['No recorded result for ' + runtimeKeys.join(', ') + '; those assertions were not verified'],
+      };
+      if (staticKeys.length) {
+        detail.partial = 'static checks passed (' + staticKeys.join(', ') + '); runtime keys unverified';
       }
       details.push(detail);
+    } else {
+      passed++;
+      details.push({ id: item.id, name: item.name, status: 'PASS' });
     }
   }
 

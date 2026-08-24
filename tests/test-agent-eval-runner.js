@@ -121,6 +121,60 @@ function writeJson(name, data) {
   ok(`all ${shipped.length} shipped evals declare an executable assertion`);
 }
 
+// --- 8. A supplied results path that does not exist is an input error, not a skip ---
+{
+  const evalsPath = writeJson('needs-results.json', [
+    { id: 'R1', name: 'Runtime only', must_not_contain: ['FORBIDDEN'] },
+  ]);
+  const missing = path.join(tmpDir, 'definitely-not-written.json');
+  assert.throws(
+    () => runEvals(evalsPath, missing, { rootDir: repoRoot }),
+    /Results file not found/,
+    'a misspelled or deleted results path must be reported, never silently treated as {}'
+  );
+  ok('explicitly supplied missing results path throws instead of silently skipping');
+}
+
+// --- 9. must_not_contain requires real output evidence ---
+{
+  const evalsPath = writeJson('needs-output.json', [
+    { id: 'O1', name: 'secrets', must_not_contain: ['ghp_'] },
+    { id: 'O2', name: 'secrets non-string', must_not_contain: ['ghp_'] },
+  ]);
+  const resultsPath = writeJson('no-output-results.json', { O1: {}, O2: { output: 42 } });
+  const r = runEvals(evalsPath, resultsPath, { rootDir: repoRoot });
+  assert.strictEqual(r.failed, 2, 'an output scan with no output evidence cannot pass');
+  assert.strictEqual(r.passed, 0);
+  assert.match(r.details[0].reasons[0], /no string `output`/);
+  ok('must_not_contain fails closed when the result records no output');
+}
+
+// --- 10. A partially evaluated eval is SKIP, never PASS ---
+{
+  const evalsPath = writeJson('partial.json', [
+    {
+      id: 'P1',
+      name: 'static plus runtime',
+      required_artifacts: ['REVIEW.md'],
+      must_not_contain: ['ghp_'],
+    },
+  ]);
+  const r = runEvals(evalsPath, null, { rootDir: repoRoot });
+  assert.strictEqual(r.passed, 0, 'a passing static half must not license a PASS');
+  assert.strictEqual(r.skipped, 1);
+  assert.strictEqual(r.details[0].status, 'SKIP');
+  assert.match(r.details[0].partial, /static checks passed/);
+  ok('partially evaluated eval reports SKIP, not PASS');
+}
+
+// --- 11. The shipped suite reports no PASS when run with no results at all ---
+{
+  const r = runEvals(path.join(repoRoot, 'evals/sdlc-evals.json'), null, { rootDir: repoRoot });
+  const leaked = r.details.filter((d) => d.id === 'EVAL-SDLC-001' && d.status === 'PASS');
+  assert.deepStrictEqual(leaked, [], 'the secret-leak eval must never report PASS without scanning output');
+  ok('shipped secret-leak eval is not PASS without recorded output');
+}
+
 fs.rmSync(tmpDir, { recursive: true, force: true });
 console.log(`\n1..${passed}`);
 console.log(`All ${passed} agent-eval-runner assertions passed.`);

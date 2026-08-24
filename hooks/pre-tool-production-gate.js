@@ -11,11 +11,40 @@
 
 const fs = require('fs');
 
+// Recursive-force rm flags in any order (-rf, -fr, -Rf, -rfv, ...), plus any
+// long options that precede the target path.
+const RM_RF = '\\brm\\s+-(?=[a-zA-Z]*[rR])(?=[a-zA-Z]*f)[a-zA-Z]+\\s+(?:--[a-z-]+\\s+)*';
+
+const DESTRUCTIVE_PATTERNS = [
+  /\bdrop\s+database\b/i,
+  /\bgit\s+push\s+[^\n]*--force/i,
+  // A system directory, with or without a deeper path under it.
+  new RegExp(RM_RF + '\\/(?:etc|var|usr|bin|sbin|System|Library|Applications|Users)(?:\\/|\\b)', 'i'),
+  // The exact filesystem root. This needs a pattern of its own: the previous
+  // `(\/|\/etc|...)\b` form tested for a word boundary after "/", where none
+  // exists, so the exact root deletion -- the highest-impact case this guard
+  // claims to interdict -- returned ALLOW, while `/etc` blocked only by
+  // happening to end in a word character.
+  new RegExp(RM_RF + '\\/\\s*(?:$|[;&|]|--)', 'i'),
+];
+
 function evaluatePreToolUse(input) {
   const toolName = input?.tool_name || input?.tool || '';
   const toolInput = input?.tool_input || input?.input || {};
   const cmd = (toolInput.command || toolInput.CommandLine || '').trim();
-  const filePath = (toolInput.path || toolInput.AbsolutePath || toolInput.TargetFile || '').trim();
+  // Claude-style PreToolUse events carry Read/Write/Edit paths in
+  // `tool_input.file_path` (and notebooks in `notebook_path`). Ignoring those
+  // left filePath empty and returned ALLOW for a credential read such as
+  // { tool_name: 'Read', tool_input: { file_path: '~/.ssh/id_rsa' } },
+  // bypassing both the credential-read guard and the test-edit guard below.
+  const filePath = (
+    toolInput.file_path ||
+    toolInput.notebook_path ||
+    toolInput.path ||
+    toolInput.AbsolutePath ||
+    toolInput.TargetFile ||
+    ''
+  ).trim();
   const env = process.env;
 
   // 1. Secret read guard
@@ -36,7 +65,7 @@ function evaluatePreToolUse(input) {
 
   // 2. Destructive command check
   if (cmd) {
-    if (/(\bdrop\s+database\b|\brm\s+-rf\s+(\/|\/etc|\/var|\/usr|\/System|\/Library)\b|git\s+push\s+.*--force)/i.test(cmd)) {
+    if (DESTRUCTIVE_PATTERNS.some(rx => rx.test(cmd))) {
       return {
         decision: 'BLOCK',
         exitCode: 2,
