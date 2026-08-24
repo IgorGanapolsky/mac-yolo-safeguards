@@ -40,3 +40,7 @@ media_optional:
     docs: https://lemonade-server.ai
     probe: http://127.0.0.1:13305/api/v1/models
     install: optional
+
+- name: ai-native-sdlc
+  path: .agents/skills/ai-native-sdlc
+  source: local
