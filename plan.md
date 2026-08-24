@@ -3733,3 +3733,10 @@ GH #2034 / Linear AGENT-505. Remove fabricated fallback preference data and fixe
 - Eligibility now requires the concrete `thumbgate-explicit-pairwise-v1` human comparison schema with event and distinct chosen/rejected response identities; labels alone and agent/model evidence are rejected.
 - Mobile evidence reuses the durable freshness gate (`updatedAt`, `unit=pass`, `e2e=pass`) instead of accepting a bare or stale `status=pass` file.
 - Focused regression proof: 9/9 Node tests pass; both changed tools pass `node --check`; `git diff --check` passes.
+
+- `tools/infoq-high-roi-steals.js`, `tests/test-infoq-high-roi-steals.js`, `tools/agent-action-trace.js`, `tests/test-agent-action-trace.js`, `plan.md` (append only) → **codex-evidence-fusion-2027** (GH #2027 / AGENT-498: replace fixed savings/nDCG/A+ claims with measured local-first cost and search-vs-graph ablation evidence; make MCP action trace append-only while preserving legacy reads) (2026-08-24T20:55:00Z)
+## Evidence/ROI review remediation (append 2026-08-24T22:35:00Z) — `codex-evidence-fusion-2027`
+
+- A zero-dollar aggregate baseline is now `INSUFFICIENT_EVIDENCE`; it can no longer be labeled measured while producing a null cost-reduction percentage.
+- Readiness now requires the measured candidate to win the canary (`promote_candidate_canary`); a costlier, lower-quality candidate makes `--validate` exit nonzero.
+- Proof: ROI suite passes, append-only action-trace suite passes 17 assertions, both changed tools pass `node --check`, and `git diff --check` passes.
