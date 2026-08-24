@@ -3697,3 +3697,34 @@ Linear **AGENT-515**. Do not steal AGENT-476 DashboardClient/statusline. No Cont
 - `apps/hermes-control-plane/tests/dashboard-mobile-composer-reachable.test.mjs` (new)
 - `plan.md` (this append)
 
+## Ownership audit and file claim (append 2026-08-24T21:27:00Z) — `codex-eslint10-hotfix`
+
+The July postcss task shipped in PR #930 at `41207d159`; its package manifest and lockfile claim is released. The July dependency-policy task has no live worktree or branch and its files are committed on `main`; that stale claim is released without deleting history.
+
+- `apps/hermes-control-plane/package.json` (ESLint pin only)
+- `apps/hermes-control-plane/package-lock.json` (ESLint resolution only)
+- `.github/dependabot.yml` (ESLint-major ignore only)
+- `tests/test-dependency-automation-policy.js` (ESLint assertion only)
+- `plan.md` (this append)
+
+GH #2038 / Linear AGENT-510. Restore control-plane CI after PR #2000 merged ESLint 10 despite failed `verify`; prevent automated ESLint semver-major recurrence.
+
+## Required-check integrity claim (append 2026-08-24T21:38:00Z) — `codex-required-check-integrity`
+
+| Task | Goal | Status | Owner | Files | AcceptanceCheck |
+|---|---|---|---|---|---|
+| T-AGENT-516-REQUIRED-CHECK-INTEGRITY | Prevent path-filtered control-plane checks from disappearing or being ignored by branch protection after PR #2000 merged with a red `verify` | in_progress | codex-required-check-integrity | `.github/workflows/hermes-control-plane.yml`, `.github/workflows/control-plane-tests.yml`, `tests/test-required-check-contract.js`, `plan.md` (append only) | GH #2042 / Linear AGENT-516; both checks are emitted for every PR, irrelevant changes take an explicit cheap success path, detector failure fails closed, focused contract tests pass, and provider readback proves strict branch protection requires both only after the workflow is merged |
+
+### File claims
+
+- `.github/workflows/hermes-control-plane.yml`
+- `.github/workflows/control-plane-tests.yml`
+- `tests/test-required-check-contract.js`
+- `plan.md` (this append only)
+
+### Local proof
+
+- Fail-first: baseline path-filtered workflow failed `tests/test-required-check-contract.js` at the missing universal PR context assertion.
+- Fixed: required-check contract 41/41, Actionlint 2/2 workflows, Ruby YAML parse 2/2, dependency automation policy 16/16, CodeQL pattern gate 0 findings across 1,308 files, and `git diff --check` passed.
+- `gh copilot` review was attempted but the provider rejected it because the monthly quota is exhausted; no Copilot review claim.
+- Branch protection is intentionally unchanged until this workflow is merged and the irrelevant-path success route is observed on GitHub.
