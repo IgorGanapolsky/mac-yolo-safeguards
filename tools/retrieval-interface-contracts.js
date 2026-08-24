@@ -55,6 +55,16 @@ const CONTRACTS = /** @type {InterfaceContract[]} */ ([
     description: 'Weighted RRF fusion of harness + grepae + second-stage CE/ColBERT/LLM rerank',
   },
   {
+    id: 'code.graph-fuse',
+    owner: 'knowledge-graph-fuse',
+    layer: 'serving',
+    requiredPaths: [
+      path.join(REPO, 'tools', 'knowledge-graph-fuse.js'),
+      path.join(REPO, 'tools', 'retrieval-rrf.js'),
+    ],
+    description: 'Always-fused 1-hop graphify expansion of search hits (no wording router)',
+  },
+  {
     id: 'code.rerank',
     owner: 'retrieval-rerank',
     layer: 'serving',
