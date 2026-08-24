@@ -3717,3 +3717,25 @@ GH #2038 / Linear AGENT-510. Restore control-plane CI after PR #2000 merged ESLi
 - Fixed: required-check contract 41/41, Actionlint 2/2 workflows, Ruby YAML parse 2/2, dependency automation policy 16/16, CodeQL pattern gate 0 findings across 1,308 files, and `git diff --check` passed.
 - `gh copilot` review was attempted but the provider rejected it because the monthly quota is exhausted; no Copilot review claim.
 - Branch protection is intentionally unchanged until this workflow is merged and the irrelevant-path success route is observed on GitHub.
+
+## Hosted browser ref-batch (append 2026-08-24T23:20:00Z) — agent `grok-hosted-browser-ref-batch`
+
+New Stack Anthropic Browser Use steal: executor hosts the browser; refs replace pixels; batch fail-stop. Complementary to PR #2037 — **do not dual-edit** `apps/hermes-control-plane/lib/browser-guard/**`. Complementary to PR #2020 — **do not dual-edit** `ssrf-guard` / `hosted-tool-approvals.ts`.
+
+| Task | Goal | Status | Owner | Files | AcceptanceCheck |
+|---|---|---|---|---|---|
+| T-HOSTED-BROWSER-REF-BATCH-20260824 | Map article mechanics onto hosted VPS executor: refs not coords; stale-ref after navigate; ordered batch stop on deny/confirm. Not a 27-op Anthropic clone. | done | grok-hosted-browser-ref-batch | `tools/hosted-browser-ref-batch.js` (new), `tests/test-hosted-browser-ref-batch.js` (new), `bin/hosted-browser-ref-batch` (new), `apps/hermes-control-plane/lib/hosted-browser-ref-batch.mjs` (new), `apps/hermes-control-plane/tests/hosted-browser-ref-batch.test.mjs` (new), `.agents/skills/hosted-browser-ref-batch-not-anthropic/**` (new), `SKILLS.md` (one row), `.agents/skills/sources.yml` (one pin), `plan.md` (this append) | `node tests/test-hosted-browser-ref-batch.js` PASS; pixel click denied; stale ref after navigate; batch skippedCount>0; JS/upload confirm; honesty anthropicRunsTheBrowser false; $10 VPS; no Continuity |
+
+### File claims
+
+- `tools/hosted-browser-ref-batch.js` (new)
+- `tests/test-hosted-browser-ref-batch.js` (new)
+- `bin/hosted-browser-ref-batch` (new)
+- `apps/hermes-control-plane/lib/hosted-browser-ref-batch.mjs` (new)
+- `apps/hermes-control-plane/tests/hosted-browser-ref-batch.test.mjs` (new)
+- `.agents/skills/hosted-browser-ref-batch-not-anthropic/**` (new)
+- `SKILLS.md` (one row)
+- `.agents/skills/sources.yml` (one pin)
+- `plan.md` (this append)
+
+Do **not** touch: `apps/hermes-control-plane/lib/browser-guard/**`, `hosted-tool-approvals.ts`, `ssrf-guard.ts`, `DashboardClient.tsx`, `page.tsx`.
