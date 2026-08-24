@@ -22,6 +22,7 @@ in_repo:
   - live-dashboard-verify
   - revenue-gap-tracker
   - skill-catalog-governance
+  - ai-native-sdlc
 
 external:
   # Intentionally empty by default on Apple Silicon fleet.

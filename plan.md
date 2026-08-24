@@ -3613,3 +3613,20 @@ Complement to AGENT-476 / PR #1984. Does **not** steal DashboardClient.tsx. Code
 ## 2. File Ownership Map (append-only lock table — claim before touching) [continued 2026-08-24]
 
 - `apps/hermes-control-plane/build/cloudflare-target.mjs`, `apps/hermes-control-plane/worker/index.ts`, `apps/hermes-control-plane/worker/edge-policy.ts`, `apps/hermes-control-plane/lib/cloudflare-edge-policy.test.ts`, `tests/test-hermes-cloudflare-deploy-config.js`, `plan.md` (append only) → **codex-cloudflare-edge-roi-2011** (GH #2011: Cloudflare-native write throttling, version-scoped anonymous public Cache API, Smart Placement; exclude PR #2010 Kitesurf/x402 files and all active dashboard/API-route claims) (2026-08-24T20:11:00Z)
+## T-AI-NATIVE-SDLC-20260824 (append 2026-08-24T17:10:00Z) — agent `grok-ai-native-sdlc`
+
+Anthropic AI-native SDLC playbook steal (https://claude.com/blog/the-ai-native-sdlc-playbook). **Mechanics not Claude Code.** Committed artifact chain `intent.md` → `spec.md` → `plan.md` → tests/diff → `REVIEW.md` → incident draft. `AGENTS.md` is the CLAUDE.md analog. Production deploys humans-only (`productionGateWired: false`). Linear **AGENT-492**.
+
+Does **not** clone Claude Code evals YAML, MDM managed settings, Western Electric auto-quarantine, Claude Tag, or Continuity/Mac-pair/RUN ON. Does **not** dual-edit AGENT-407 `.intent/contract.yaml` / `scripts/intent-check.js`.
+
+### File claims
+- `tools/ai-native-sdlc.js` (new)
+- `tests/test-ai-native-sdlc.js` (new)
+- `.agents/skills/ai-native-sdlc/` (new)
+- `intent/TEMPLATE.md` (new; not `.intent/`)
+- `spec/TEMPLATE.md` (new)
+- `REVIEW.md` (new)
+- `SKILLS.md` (append row)
+- `.agents/skills/sources.yml` (append in_repo name)
+- `plan.md` (this append)
+

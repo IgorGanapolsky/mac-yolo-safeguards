@@ -89,4 +89,5 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 | `openbot-action-gateway` | CopilotKit OpenBot AG-UI Action Gateway, Per-Agent Sandboxed Coworkers & Deterministic Policy Interdiction Engine for ThumbGate. | `.agents/skills/openbot-action-gateway/SKILL.md` | local |
 | `explainx-trending-rag` | Autonomous ExplainX.ai Trending Ingestion, Data Science/ML TF-IDF Ranking & Agentic RAG Strategy Optimizer for ThumbGate. | `.agents/skills/explainx-trending-rag/SKILL.md` | local |
 | `self-healing-engine` | Autonomous Zero-Crash Self-Healing, Self-Improving & Self-Learning Engine for ThumbGate.app and Hermes Harnesses. | `.agents/skills/self-healing-engine/SKILL.md` | local |
+| `ai-native-sdlc` | Anthropic AI-native SDLC doctor: committed artifact chain (intent→spec→plan→tests→REVIEW.md→incident draft). Maps onto AGENTS.md. Never clone Claude Code evals/MDM/auto-quarantine/Continuity. Slash: /ai-native-sdlc. | `.agents/skills/ai-native-sdlc/SKILL.md` | local |
 
