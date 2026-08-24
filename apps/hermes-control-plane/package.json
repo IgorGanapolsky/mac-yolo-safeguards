@@ -54,7 +54,7 @@
     "@vitejs/plugin-rsc": "0.5.26",
     "@vitest/coverage-v8": "^4.1.10",
     "drizzle-kit": "0.31.10",
-    "eslint": "9.39.4",
+    "eslint": "10.8.0",
     "eslint-config-next": "16.2.6",
     "playwright": "^1.55.1",
     "react-server-dom-webpack": "19.2.8",
