@@ -13,6 +13,24 @@ let lastPollAt = 0;
 let lastTaskAt = 0;
 let lastError = null;
 
+const HOSTED_CAPABILITY_CONTRACT = [
+  'You are Hosted Hermes running as an isolated model completion on a fenced VPS.',
+  'This execution has no filesystem, shell, browser, computer-use, or local-device tools.',
+  'Never claim that you read, searched, opened, changed, or deleted a file; ran a command; or used a browser.',
+  'If a request requires one of those capabilities, state that it is unavailable. Never invent tool output.',
+].join(' ');
+
+const UNVERIFIED_TOOL_CLAIM_RE = /\bI(?:'ve| have)?\s+(?:successfully\s+)?(?:ran|executed|searched|checked|inspected|opened|deleted|removed|created|edited|modified|wrote|listed|downloaded|uploaded|clicked|navigated|browsed|accessed)\b/i;
+const UNVERIFIED_FILE_READ_RE = /\bI(?:'ve| have)?\s+(?:read|found)\s+(?:the|your|a|an)\s+(?:file|path|directory|folder|screenshot|command|page|site|website|repository|repo)\b/i;
+
+function assertNoUnverifiedToolClaim(content) {
+  const text = String(content ?? '');
+  if (UNVERIFIED_TOOL_CLAIM_RE.test(text) || UNVERIFIED_FILE_READ_RE.test(text)) {
+    throw new Error('UNVERIFIED_TOOL_CLAIM: Hosted Hermes stopped a response that claimed tool activity without a verified tool receipt. No local file, browser, or shell action ran.');
+  }
+  return text;
+}
+
 function positiveMilliseconds(value, fallback) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -60,16 +78,16 @@ async function callControl(config, pathname, body = {}) {
 
 async function execute(config, task) {
   const context = Array.isArray(task.contextMessages)
-    ? task.contextMessages.filter((message) => ['user', 'assistant', 'system'].includes(message?.role) && typeof message?.content === 'string')
+    ? task.contextMessages.filter((message) => ['user', 'assistant'].includes(message?.role) && typeof message?.content === 'string')
     : [];
   const response = await fetch(`${config.openaiBaseUrl}/chat/completions`, {
     method: 'POST', headers: { authorization: `Bearer ${config.openaiKey}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ model: config.model, messages: [...context, { role: 'user', content: task.prompt }], max_tokens: MODEL_MAX_TOKENS, stream: false }),
+    body: JSON.stringify({ model: config.model, messages: [{ role: 'system', content: HOSTED_CAPABILITY_CONTRACT }, ...context, { role: 'user', content: task.prompt }], max_tokens: MODEL_MAX_TOKENS, stream: false }),
     signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
   });
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.error?.message || payload.error || `Model provider HTTP ${response.status}`);
-  return payload.choices?.[0]?.message?.content ?? JSON.stringify(payload);
+  return assertNoUnverifiedToolClaim(payload.choices?.[0]?.message?.content ?? JSON.stringify(payload));
 }
 
 async function withLeaseRenewal(work, renew, intervalMs = LEASE_RENEW_MS) {
@@ -128,5 +146,5 @@ async function main() {
   }
 }
 
-module.exports = { callControl, configFromEnv, execute, nextPollDelay, pollingSchedule, runOnce, withLeaseRenewal };
+module.exports = { HOSTED_CAPABILITY_CONTRACT, assertNoUnverifiedToolClaim, callControl, configFromEnv, execute, nextPollDelay, pollingSchedule, runOnce, withLeaseRenewal };
 if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });
