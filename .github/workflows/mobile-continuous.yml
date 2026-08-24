@@ -2,8 +2,8 @@ name: Hermes Mobile Continuous
 
 on:
   schedule:
-    # Every 6 hours — autonomous cloud verification when Mac is offline
-    - cron: '20 */6 * * *'
+    # Once daily off-peak (04:00 UTC) — autonomous cloud verification
+    - cron: '0 4 * * *'
   pull_request:
     paths:
       - 'hermes-mobile/**'

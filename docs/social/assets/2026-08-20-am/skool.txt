@@ -1,0 +1,7 @@
+Saw a story worth sharing here: an engineer asked an AI agent to recommend a package. It looked completely legitimate. It wasn't — someone had registered that exact hallucinated name days earlier and loaded it with malware. Researchers are calling it slopsquatting. (The Register, 20 Aug 2026, via Softjourn's Sergiy Fitsak.)
+
+The only thing that caught it: a team habit of checking download counts and source before installing anything an AI recommends. Not a smarter model. A pause.
+
+I've been building a free approve/deny gate (Leash, part of ThumbGate) around that same instinct — pause the risky action before it runs, not after. No traction numbers to share, this is a solo build-in-public project, but the honest framing seemed worth posting here first.
+
+https://thumbgate.app/?utm_source=skool&utm_medium=social&utm_campaign=2026-08-20-am&cta_id=2026-08-20-am_skool_home

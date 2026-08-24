@@ -271,6 +271,24 @@ const ROUTES = [
     requiresApproval: true,
   },
   {
+    id: 'poolside_laguna_specialist',
+    label: 'Poolside Laguna S-2.1 autonomous coding specialist',
+    agent: 'autonomous-coding-specialist',
+    provider: 'poolside',
+    model: 'poolside/laguna-s-2.1',
+    costUsd: 0.05,
+    latencyMs: 12000,
+    reliability: 0.94,
+    riskCeiling: 'high',
+    strengths: ['poolside', 'laguna', 'coding-specialist', 'autonomous-refactor', 'solver-receipts', 'ast-transforms', 'deep-coding', 'patch-generation'],
+    commandEnv: {
+      HERMES_YOLO_PROVIDER: 'poolside',
+      HERMES_YOLO_MODEL: 'poolside/laguna-s-2.1',
+    },
+    proofGates: ['explicit-approval', 'cost-cap', 'unit-test-pass', 'receipt-written'],
+    requiresApproval: true,
+  },
+  {
     id: 'mobile_e2e_gate',
     label: 'Hermes Mobile E2E verifier',
     agent: 'verifier',
@@ -473,6 +491,7 @@ function taskSignals(task) {
     asksForGlm: /\bglm\b|glm[- ]?5\.?[23]|z\.?ai|zai|glm-coding/.test(text),
     asksForGlm53: /glm[- ]?5\.?3/.test(text),
     asksForGlm52: /glm[- ]?5\.?2/.test(text),
+    asksForPoolside: /\bpoolside\b|\blaguna\b|autonomous[- ]coding|deep[- ]coding|solver[- ]receipts?|ast[- ]transforms?/i.test(text),
     asksForFugu: /\bfugu\b|sakana/.test(text),
     asksForNemotron: /\bnemotron\b|\bnvidia\b|\bnim\b/.test(text),
     asksForGrok: /\bgrok\b|grok[- ]?4\.5|\bxai\b|\bx\.ai\b/.test(text),
@@ -567,6 +586,10 @@ function scoreRoute(route, args, signals) {
     if (signals.retrievalQuality) score += 18;
     if (signals.asksForOpenRouterFusion && !signals.asksForParallel) score -= 80;
     if (route.candidateOnly) score -= 8;
+  }
+  if (route.id === 'poolside_laguna_specialist') {
+    if (signals.asksForPoolside) score += 95;
+    if (signals.architecture || signals.userDoubt || signals.longContextOrAgentic) score += 20;
   }
   if (route.id === 'openrouter_fusion') {
     if (signals.asksForOpenRouterFusion) score += 75;

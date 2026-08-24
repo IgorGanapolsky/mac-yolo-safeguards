@@ -59,7 +59,13 @@ try {
 
   const degradedHealth = await fetch(`http://127.0.0.1:${port}/api/health`);
   assert.equal(degradedHealth.status, 503);
-  assert.equal((await degradedHealth.json()).code, "LEASH_DATABASE_UNAVAILABLE");
+  const degradedBody = await degradedHealth.json();
+  assert.equal(degradedBody.ok, false);
+  assert.equal(degradedBody.ready, false);
+  assert.equal(degradedBody.telemetry, undefined);
+  assert.equal(degradedBody.usersTotal, undefined);
+  assert.equal(degradedBody.service, undefined);
+  assert.equal(degradedBody.code, undefined);
 
   const degradedFunnel = await fetch(`http://127.0.0.1:${port}/api/analytics/event`, {
     method: "POST",
@@ -137,7 +143,7 @@ try {
   assert.match(html, /Start hosted Hermes — \$10\/mo/);
   assert.match(html, />Sign in</);
   assert.equal((html.match(/data-funnel-event="sign_in_click"/g) ?? []).length, 1);
-  assert.equal((html.match(/data-funnel-event="cloud_continuity_click"/g) ?? []).length >= 1, true);
+  assert.equal((html.match(/data-funnel-event="hosted_checkout_click"/g) ?? []).length >= 1, true);
   assert.doesNotMatch(html, /After you sign in/);
   assert.doesNotMatch(html, /Sign in to private dashboard/);
   assert.doesNotMatch(html, />Sign out</);
@@ -172,42 +178,15 @@ try {
   assert.equal(health.headers.get("strict-transport-security"), "max-age=63072000; includeSubDomains; preload");
   const healthPayload = await health.json();
   assert.equal(healthPayload.ok, true);
-  assert.equal(healthPayload.service, "leash-control");
-  assert.equal(healthPayload.database, "available");
-  assert.equal(healthPayload.schema, "current");
-  assert.equal(typeof healthPayload.checkedAt, "number");
   assert.equal(healthPayload.ready, false);
-  assert.equal(healthPayload.status, "degraded");
-  assert.deepEqual(healthPayload.config, {
-    workosAuthConfigured: false,
-    stripeCheckoutConfigured: false,
-    stripeWebhookConfigured: false,
-    cloudRunnerConfigured: false,
-  });
-  assert.equal(healthPayload.concerns.length, 4);
-  assert.deepEqual(healthPayload.telemetry, {
-    usersTotal: 0,
-    organizationsTotal: 0,
-    activeSessions: 0,
-    activeDevices: 0,
-    deviceHeartbeatLatestAt: null,
-    auditLatestAt: null,
-    analyticsLatestAt: null,
-    billingEventLatestAt: null,
-    realBillingEventLatestAt: null,
-    landingViewsToday: 0,
-    signInClicksToday: 0,
-    cloudContinuityClicksToday: 0,
-    clientErrorsToday: 0,
-    loginsLast24h: 0,
-    pairingsLast24h: 0,
-    checkoutCreatedLast24h: 0,
-    checkoutFailedLast24h: 0,
-    portalCreatedLast24h: 0,
-    portalFailedLast24h: 0,
-    billingEventsLast24h: 0,
-    paidOrganizationsTotal: 0,
-  });
+  assert.equal(healthPayload.scope, "liveness");
+  assert.equal(typeof healthPayload.advertisePaid, "boolean");
+  assert.equal(healthPayload.telemetry, undefined);
+  assert.equal(healthPayload.usersTotal, undefined);
+  assert.equal(healthPayload.service, undefined);
+  assert.equal(healthPayload.paidOrganizationsTotal, undefined);
+  assert.equal(healthPayload.config, undefined);
+  assert.equal(healthPayload.concerns, undefined);
 
   const funnel = await fetch(`http://127.0.0.1:${port}/api/analytics/event`, {
     method: "POST",
@@ -316,35 +295,39 @@ try {
   assert.equal(authenticatedDashboard.status, 200);
   const authenticatedMe = await fetch(`http://127.0.0.1:${port}/api/me`, { headers: authenticatedHeaders });
   assert.equal(authenticatedMe.status, 200);
-  assert.deepEqual(await authenticatedMe.json(), {
-    authenticated: true,
-    user: {
-      id: "e2e-user",
-      email: "e2e@example.com",
-      name: "E2E User",
-      avatarUrl: null,
-    },
-    organization: {
-      id: "e2e-org",
-      plan: "pro",
-      trialEndsAt: null,
-      cloudAccess: true,
-    },
-    // CoreWeave-style capacity truth from governance-aligned caps.
-    continuityUsage: {
-      cloudTasks30d: 0,
-      cloudTaskLimit: 100,
-      cloudTasksRemaining: 100,
-      activeTasks: 0,
-      maxActiveTasks: 10,
-      plan: "pro",
-      purchaseMode: "on_demand_monthly",
-      windowDays: 30,
-      percentUsed: 0,
-      exhausted: false,
-      upgradeHint: null,
-    },
+  const me = await authenticatedMe.json();
+  assert.equal(me.authenticated, true);
+  assert.deepEqual(me.user, {
+    id: "e2e-user",
+    email: "e2e@example.com",
+    name: "E2E User",
+    avatarUrl: null,
   });
+  assert.deepEqual(me.organization, {
+    id: "e2e-org",
+    plan: "pro",
+    trialEndsAt: null,
+    cloudAccess: true,
+  });
+  assert.deepEqual(me.continuityUsage, {
+    cloudTasks30d: 0,
+    cloudTaskLimit: 100,
+    cloudTasksRemaining: 100,
+    activeTasks: 0,
+    maxActiveTasks: 10,
+    plan: "pro",
+    purchaseMode: "on_demand_monthly",
+    windowDays: 30,
+    percentUsed: 0,
+    exhausted: false,
+    upgradeHint: null,
+  });
+  const hostedStates = ["waiting", "healthy", "unhealthy"];
+  for (const key of ["hostedRunner", "hostedModel", "hostedBrowser"]) {
+    assert.ok(me[key], `${key} must be present`);
+    assert.ok(hostedStates.includes(me[key].status), `${key}.status`);
+    assert.equal(typeof me[key].message, "string");
+  }
 
   const logout = await fetch(`http://127.0.0.1:${port}/api/auth/logout`, {
     method: "POST",

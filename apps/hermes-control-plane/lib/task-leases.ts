@@ -12,7 +12,9 @@ import {
 import { db } from "./runtime";
 import { randomToken, sha256 } from "./security";
 import { evaluateCloudPromptToolPolicy } from "./cloud-tool-policy";
+import { mapProviderError, rememberProviderError } from "./hosted-apphost";
 import { webSessionIdForThread } from "./web-session";
+import { isSameThreadCompactionCommand, resolveContinuationPrompt } from "./continuation-prompts";
 
 export const TASK_LEASE_MS = 90_000;
 
@@ -91,6 +93,8 @@ export async function claimTask(input: {
   threadId: string;
   threadTitle: string;
   prompt: string;
+  displayPrompt: string;
+  continuationCommand: string | null;
   leaseGeneration: number;
   sourceSessionId: string | null;
   contextMessages: ContextMessage[];
@@ -131,9 +135,53 @@ export async function claimTask(input: {
   ).bind(now - 30 * 24 * 60 * 60 * 1000, ...params).first<TaskCandidate>();
   if (!candidate) return null;
 
+  const prior = await db().prepare(
+    `SELECT id, prompt, result, created_at AS createdAt FROM tasks
+      WHERE thread_id = ? AND id <> ? AND status = 'completed' AND result IS NOT NULL AND created_at < ?
+      ORDER BY created_at ASC LIMIT 30`
+  ).bind(candidate.threadId, candidate.id, candidate.createdAt).all<{ id: string; prompt: string; result: string; createdAt: number }>();
+  const compactionCandidates = await db().prepare(
+    `SELECT id, prompt, result, created_at AS createdAt FROM tasks
+      WHERE thread_id = ? AND id <> ? AND status = 'completed' AND result IS NOT NULL AND created_at < ?
+        AND LOWER(RTRIM(TRIM(prompt), '!?.,;: ')) IN ('/new', '/reset')
+      ORDER BY created_at DESC LIMIT 1`
+  ).bind(candidate.threadId, candidate.id, candidate.createdAt).all<{ id: string; prompt: string; result: string; createdAt: number }>();
+  const latestCompaction = compactionCandidates.results.find((task) => isSameThreadCompactionCommand(task.prompt)) ?? null;
+  const unsynced = prior.results.filter((task) => task.createdAt > (candidate.syncedAt ?? 0));
+  const postCompaction = latestCompaction
+    ? prior.results.filter((task) => task.createdAt > latestCompaction.createdAt)
+    : unsynced;
+  const handoffTasks = latestCompaction ? [latestCompaction, ...postCompaction] : unsynced;
+  const handoffMessages = handoffTasks.flatMap((task) => [
+    { role: "user" as const, content: task.prompt },
+    { role: "assistant" as const, content: task.result },
+  ]);
+  const policyContextMessages = boundMessages([
+    ...parseSnapshot(candidate.contextSnapshot),
+    ...prior.results.flatMap((task) => [
+      { role: "user" as const, content: task.prompt },
+      { role: "assistant" as const, content: task.result },
+    ]),
+  ]);
+  const contextMessages = latestCompaction
+    ? boundMessages(handoffMessages)
+    : boundMessages([...parseSnapshot(candidate.contextSnapshot), ...handoffMessages]);
+  const continuation = resolveContinuationPrompt(candidate.prompt, {
+    hasContext: contextMessages.some((message) => message.role === "user" || message.role === "assistant"),
+  });
+
   let cloudDecision: GovernanceDecision | null = null;
   if (input.route === "cloud") {
-    const toolPolicy = evaluateCloudPromptToolPolicy(candidate.prompt);
+    // Compaction changes what the model receives, never the safety lineage used
+    // to decide whether a hosted runner may execute the task.
+    const activeUserContext = policyContextMessages
+      .filter((message) => message.role === "user")
+      .map((message) => message.content)
+      .join("\n");
+    const policyPrompt = continuation.applied && activeUserContext
+      ? `${activeUserContext}\n${continuation.executionPrompt}`
+      : candidate.prompt;
+    const toolPolicy = evaluateCloudPromptToolPolicy(policyPrompt);
     if (!toolPolicy.allowed) {
       const blocked = await db().prepare(
         `UPDATE tasks SET status = 'offline_blocked', route = 'blocked', error = ?, updated_at = ?,
@@ -197,18 +245,6 @@ export async function claimTask(input: {
     }
   }
 
-  const prior = await db().prepare(
-    `SELECT prompt, result, created_at AS createdAt FROM tasks
-      WHERE thread_id = ? AND id <> ? AND status = 'completed' AND result IS NOT NULL AND created_at < ?
-      ORDER BY created_at ASC LIMIT 30`
-  ).bind(candidate.threadId, candidate.id, candidate.createdAt).all<{ prompt: string; result: string; createdAt: number }>();
-  const unsynced = prior.results.filter((task) => task.createdAt > (candidate.syncedAt ?? 0));
-  const handoffMessages = unsynced.flatMap((task) => [
-    { role: "user" as const, content: task.prompt },
-    { role: "assistant" as const, content: task.result },
-  ]);
-  const contextMessages = boundMessages([...parseSnapshot(candidate.contextSnapshot), ...handoffMessages]);
-
   const leaseToken = randomToken();
   const leaseExpiresAt = now + TASK_LEASE_MS;
   const update = await db().prepare(
@@ -236,6 +272,9 @@ export async function claimTask(input: {
       ...(cloudDecision
         ? governanceAuditMetadata(cloudDecision, { stage: "automatic_claim", route: "cloud" })
         : { policyVersion: AGENT_GOVERNANCE_POLICY_VERSION, decision: "allow", stage: "automatic_claim" }),
+      continuationCommand: continuation.applied ? continuation.command : null,
+      continuationApplied: continuation.applied,
+      contextCompactedFromTaskId: latestCompaction?.id ?? null,
     },
   });
   return { task: {
@@ -243,7 +282,9 @@ export async function claimTask(input: {
     organizationId: candidate.organizationId,
     threadId: candidate.threadId,
     threadTitle: candidate.threadTitle,
-    prompt: candidate.prompt,
+    prompt: continuation.executionPrompt,
+    displayPrompt: candidate.prompt,
+    continuationCommand: continuation.applied ? continuation.command : null,
     sourceSessionId,
     contextMessages,
     handoffMessages: boundMessages(handoffMessages, 24_000),
@@ -307,28 +348,53 @@ export async function completeTask(input: {
   const tokenHash = await sha256(input.leaseToken);
   const existing = await db().prepare(
     `SELECT organization_id AS organizationId, route, lease_generation AS leaseGeneration,
-            created_at AS createdAt FROM tasks WHERE id = ?`
+            created_at AS createdAt, thread_id AS threadId, prompt FROM tasks WHERE id = ?`
   ).bind(input.taskId).first<{
     organizationId: string;
     route: "local" | "cloud";
     leaseGeneration: number;
     createdAt: number;
+    threadId: string;
+    prompt: string;
   }>();
   if (!existing) return false;
+  const storedError = input.error
+    ? (existing.route === "cloud" ? mapProviderError(input.error) : input.error)
+    : null;
   const update = await db().prepare(
     `UPDATE tasks SET status = ?, result = ?, error = ?, completed_at = ?, updated_at = ?,
             lease_owner = NULL, lease_token_hash = NULL, lease_expires_at = NULL
       WHERE id = ? AND status = 'running' AND lease_owner = ? AND lease_token_hash = ?
         AND lease_expires_at > ?`
-  ).bind(status, input.result ?? null, input.error ?? null, now, now,
+  ).bind(status, input.result ?? null, storedError, now, now,
     input.taskId, input.owner, tokenHash, now).run();
   if (update.meta.changes !== 1) return false;
+  const compactedResult = input.result?.trim();
+  if (!storedError && compactedResult && isSameThreadCompactionCommand(existing.prompt)) {
+    await audit({
+      organizationId: existing.organizationId,
+      actorType: input.actorType,
+      actorId: input.owner,
+      action: "thread.context.compacted",
+      targetType: "thread",
+      targetId: existing.threadId,
+      metadata: {
+        route: existing.route,
+        command: "compact_same_thread",
+        taskId: input.taskId,
+        durableMarker: "completed_task_result",
+      },
+    });
+  }
+  if (existing.route === "cloud") {
+    rememberProviderError(storedError, now);
+  }
   const receipt = buildTaskCompletionReceipt({
     actorType: input.actorType,
     actorId: input.owner,
     taskId: input.taskId,
     route: existing.route,
-    error: input.error,
+    error: storedError ?? undefined,
     externalCheckPassed: input.externalCheckPassed,
     externalCheckKind: input.externalCheckKind,
     externalEvidenceId: input.externalEvidenceId,

@@ -1,5 +1,6 @@
 import type { GatewaySettings } from '../types/gateway';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 /**
  * CEO 2026-08-03: ZERO DEMO FOREVER for real users and store binaries.

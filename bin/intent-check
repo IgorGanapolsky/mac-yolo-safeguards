@@ -1,0 +1,11 @@
+#!/usr/bin/env node
+'use strict';
+
+const { main } = require('../scripts/intent-check');
+
+try {
+  process.exitCode = main();
+} catch (error) {
+  process.stderr.write(`${error.message}\n`);
+  process.exitCode = 1;
+}

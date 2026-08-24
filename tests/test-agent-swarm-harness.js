@@ -39,6 +39,8 @@ const {
   resolveSreAction,
   estimateTokens,
   MEGAFILES,
+  isStaleBoardTask,
+  filterLiveActiveTasks,
   FIELD_GUIDE_LINE_BUDGET,
   STATE_LAYER_SOURCE,
   TOOLBOX_SOURCE,
@@ -71,19 +73,19 @@ const SAMPLE_PLAN = `# plan.md
 
 | ID  | Task | Status | Owner | Files (claim) | AcceptanceCheck |
 |-----|------|--------|-------|---------------|-----------------|
-| T-1 | Numeric active | in_progress | worker-b | \`hermes-mobile/src/screens/ChatScreen.tsx\` | jest |
+| T-LIVE-A-20260818 | Numeric active | in_progress | worker-b | \`hermes-mobile/src/screens/ChatScreen.tsx\` | jest |
 | T-LEASH-LAZY-SPINNER | Named active | in_progress | planner-a | \`hermes-mobile/src/components/ConnectMacGate.tsx\`, \`plan.md\` | OTA |
 | T-TINKER-FULL-TOOLS-20260721 | Named done | done | codex | \`tinker-yolo\` | done |
-| T-OVERLAP | Contends ChatScreen | in_progress | other-agent | \`hermes-mobile/src/screens/ChatScreen.tsx\` | conflict |
+| T-LIVE-B-20260818 | Contends ChatScreen | in_progress | other-agent | \`hermes-mobile/src/screens/ChatScreen.tsx\` | conflict |
 
 ## 2. File Ownership Map
-- \`hermes-mobile/src/screens/ChatScreen.tsx\` → **worker-b** (T-1)
+- \`hermes-mobile/src/screens/ChatScreen.tsx\` → **worker-b** (T-LIVE-A-20260818)
 `;
 
 test('parseActiveTasks includes named task ids and claimedFiles', () => {
   const tasks = parseActiveTasks(SAMPLE_PLAN);
   const ids = tasks.map((t) => t.id).sort();
-  assert.deepStrictEqual(ids, ['T-1', 'T-LEASH-LAZY-SPINNER', 'T-OVERLAP']);
+  assert.deepStrictEqual(ids, ['T-LEASH-LAZY-SPINNER', 'T-LIVE-A-20260818', 'T-LIVE-B-20260818']);
   const leash = tasks.find((t) => t.id === 'T-LEASH-LAZY-SPINNER');
   assert.ok(leash.claimedFiles.includes('hermes-mobile/src/components/ConnectMacGate.tsx'));
 });
@@ -285,7 +287,7 @@ test('whereIsStateCheck returns three questions with machine-readable evidence',
     `# plan.md
 ## 1. Task Board
 | ID  | Task | Status | Owner | Files (claim) | AcceptanceCheck |
-| T-1 | alone | in_progress | solo | \`tools/foo.js\` | test |
+| T-SOLO-20260818 | alone | in_progress | solo | \`tools/foo.js\` | test |
 `,
   );
   const clean = whereIsStateCheck({
@@ -617,3 +619,43 @@ test('buildHarnessReport on real plan.md when present', () => {
 if (process.exitCode) {
   process.exit(process.exitCode);
 }
+
+test('isStaleBoardTask ignores undated and ancient dated board rows', () => {
+  const now = Date.parse('2026-08-18T20:00:00Z');
+  assert.strictEqual(isStaleBoardTask({ id: 'T-129' }, { nowMs: now }), true);
+  assert.strictEqual(isStaleBoardTask({ id: 'T-FOO-20260701' }, { nowMs: now }), true);
+  assert.strictEqual(isStaleBoardTask({ id: 'T-LIVE-20260818' }, { nowMs: now }), false);
+  assert.strictEqual(isStaleBoardTask({ id: 'T-RECENT-20260810' }, { nowMs: now }), false);
+  assert.strictEqual(isStaleBoardTask({ id: 'T-EDGE-20260803' }, { nowMs: now }), true);
+});
+
+test('whereIsStateCheck ignores stale board contention (false STOP)', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'where-stale-'));
+  const planPath = path.join(dir, 'plan.md');
+  const stalePlan = [
+    '# plan.md',
+    '## 1. Task Board',
+    '| ID | Task | Status | Owner | Files (claim) | AcceptanceCheck |',
+    '|----|------|--------|-------|---------------|-----------------|',
+    '| T-OLD-A-20260701 | stale A | in_progress | ghost-a | `hermes-mobile/src/screens/ChatScreen.tsx` | old |',
+    '| T-OLD-B-20260715 | stale B | in_progress | ghost-b | `hermes-mobile/src/screens/ChatScreen.tsx` | old |',
+    '| T-LIVE-20260818 | live alone | in_progress | solo | `tools/foo.js` | ok |',
+    '',
+  ].join('\n');
+  fs.writeFileSync(planPath, stalePlan);
+  fs.mkdirSync(path.join(dir, 'docs/agent-field-guide'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'docs/agent-field-guide/index.md'), '# guide\n');
+  const check = whereIsStateCheck({
+    planPath,
+    repo: dir,
+    env: { HERMES_FLEET_HOST_ROLE: 'mac_pro' },
+    nowMs: Date.parse('2026-08-18T20:00:00Z'),
+  });
+  const ownership = check.questions.find((q) => q.id === 'repo_ownership');
+  assert.strictEqual(ownership.status, 'clear', ownership.evidence);
+  assert.strictEqual(ownership.ok, true);
+  assert.ok(/stale/.test(ownership.evidence));
+  assert.strictEqual(check.ok, true);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+

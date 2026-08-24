@@ -1,0 +1,11 @@
+{
+  "merged_not_closed_linear": false,
+  "own_prs": [
+    { "owner": "grok", "state": "green", "id": 1822 },
+    { "owner": "codex", "state": "green", "id": 1810 }
+  ],
+  "own_linear_in_progress": "AGENT-409",
+  "handoff_next": "write grok anti-babysitting-mandate skill",
+  "cheap_leftover": null,
+  "skill_gap": null
+}

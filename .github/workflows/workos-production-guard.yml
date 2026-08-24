@@ -14,7 +14,7 @@ name: WorkOS production guard
 
 on:
   schedule:
-    - cron: '11 */6 * * *' # every 6h, off the hour
+    - cron: '0 8 * * *' # once daily at 08:00 UTC
   workflow_dispatch: {}
 
 concurrency:

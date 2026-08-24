@@ -77,10 +77,13 @@ test("conversation empty states wait for load + details", () => {
 });
 
 test("workspace load failures still set error state", () => {
+  // Behaviour, not exact syntax: the refresh handler must catch a failed
+  // workspace load and surface it as error state. (2026-08-21: the handler moved
+  // from fire-and-forget `.catch()` to async try/catch to add progress feedback.)
   assert.match(
     dashboard,
-    /loadWorkspace\(\)\.catch\(\(\) => setLoadState\("error"\)\)/,
-    "workspace poll failures must be caught and surfaced",
+    /requestWorkspaceRefresh = useCallback\(async[\s\S]*?catch[\s\S]{0,80}setLoadState\("error"\)/,
+    "workspace refresh failures must be caught and surfaced",
   );
 });
 
@@ -119,4 +122,49 @@ test("empty task copy is hosted VPS, not Mac-pair blame", () => {
   assert.match(dashboard, /function taskReceiptLabel/);
   assert.match(dashboard, /hosted Hermes · fenced · 90s lease/);
   assert.match(dashboard, /data-testid="task-receipt"/);
+});
+
+test("does not claim live or instantly when hosted resources are unhealthy", () => {
+  // Aspire WaitFor lesson: Running ≠ Ready. Copy comes from hostedConnectionCopy.
+  assert.match(dashboard, /hostedConnectionCopy/);
+  assert.match(dashboard, /hostedResourceLabel/);
+  assert.match(dashboard, /hostedRunner/);
+  assert.match(dashboard, /hostedModel/);
+  assert.match(dashboard, /data-testid="hosted-runner-status"/);
+  assert.match(dashboard, /data-testid="hosted-model-status"/);
+  assert.match(dashboard, /Runner · \{hostedResourceLabel\(runnerStatus\)\}/);
+  assert.match(dashboard, /Model · \{hostedResourceLabel\(modelStatus\)\}/);
+  assert.doesNotMatch(dashboard, /Tasks run instantly in the cloud/);
+  assert.doesNotMatch(dashboard, /<strong>☁️ Hosted Hermes live<\/strong>/);
+  assert.match(dashboard, /data-hosted-ready=\{hostedCopy\.live \? "1" : "0"\}/);
+  assert.match(dashboard, /fenced VPS/);
+  assert.doesNotMatch(dashboard, /Continuity hero|Mac lid|Cloud vs Local/);
+});
+
+test("does not toast leftover Mac-pair machine-found copy", () => {
+  assert.doesNotMatch(dashboard, /Machine found\. Verify its name/);
+  assert.doesNotMatch(dashboard, /approve the prefilled code/);
+  assert.doesNotMatch(dashboard, /Waiting on your paired machine/);
+  assert.match(dashboard, /Hosted on a fenced VPS/);
+});
+
+test("signed-in dashboard markup always includes #hermes-thread-list even with zero tasks", () => {
+  assert.match(dashboard, /id="hermes-thread-list"/);
+  assert.match(dashboard, /data-testid="hermes-thread-list"/);
+  assert.match(dashboard, /thread-list-empty/);
+  assert.match(dashboard, /No chats yet/);
+  const firstList = dashboard.indexOf('id="hermes-thread-list"');
+  const secondList = dashboard.indexOf('id="hermes-thread-list"', firstList + 1);
+  assert.ok(firstList > -1 && secondList > firstList, "identity-loading shell and signed-in shell both render the list");
+  const firstTestid = dashboard.indexOf('data-testid="hermes-thread-list"');
+  const secondTestid = dashboard.indexOf('data-testid="hermes-thread-list"', firstTestid + 1);
+  assert.ok(firstTestid > -1 && secondTestid > firstTestid, "identity-loading shell and signed-in shell both expose data-testid");
+  assert.doesNotMatch(
+    dashboard,
+    /if \(!user \|\| !organization\) return <main className="loading-screen">/,
+    "identity fetch must not replace the dashboard with a list-less loading screen",
+  );
+  const emptyAt = dashboard.indexOf("No chats yet");
+  const signedInList = dashboard.lastIndexOf('id="hermes-thread-list"');
+  assert.ok(emptyAt > signedInList, "empty-state copy lives inside the signed-in thread list");
 });

@@ -1,0 +1,9 @@
+Someone's Claude Code background tasks sat "Running" for 34+ hours last month and burned about 1 million tokens before they noticed. Ten tasks, none finished, none cancellable from the task panel. (Source: github.com/anthropics/claude-code, issue #75314 — still open today.)
+
+Nothing exploded. Nothing was destructive. The tasks just ran quietly while nobody was looking — and looking meant being back at a desk.
+
+That's the gap I'm building ThumbGate.app to close: a browser you can open from anywhere to see what your agents are actually doing right now, instead of guessing based on when you last checked. Approve/deny gating (Leash) is free forever on web and mobile. Continuity — a hosted fallback for when your Mac itself is offline — is the only paid tier, and it's a separate problem from this one.
+
+If you run background coding agents: how do you find out when one's gone quiet in the wrong way?
+
+https://thumbgate.app/?utm_source=linkedin&utm_medium=social&utm_campaign=2026-08-19-am&cta_id=2026-08-19-am_linkedin_home

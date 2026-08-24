@@ -11,6 +11,8 @@ import {
   LandingPricingCtaPaid,
 } from "./LandingAuthChrome";
 import { BrandMark } from "./BrandMark";
+import { StartSurfaces } from "./StartSurfaces";
+import { HostedCheckoutCta } from "./HostedCheckoutCta";
 import styles from "./landing.module.css";
 import {
   CONTINUITY_PRICE_TIERS,
@@ -37,7 +39,12 @@ const FAQ_ITEMS = [
   {
     question: "Why not just run another agent pilot on my laptop?",
     answer:
-      "Pilots die when the machine sleeps. Hosted Hermes is one always-on agent on a fenced VPS. You approve money, customer, or production actions in this browser. If it dies when the laptop sleeps, the trial failed.",
+      "Pilots die when the machine sleeps. Scheduled work and watchers do not fire if the computer is off. Hosted Hermes is one always-on agent on a fenced VPS. You approve money, customer, or production actions in this browser. If it dies when the laptop sleeps, the trial failed.",
+  },
+  {
+    question: "Can I use the AI plan I already pay for instead?",
+    answer:
+      "A laptop subscription runner — use the plan you already pay for — still dies when the laptop sleeps. That Codex-sub-on-laptop path is not this product. Hosted Hermes is the always-on fenced VPS at $10/mo (14-day trial). Approvals in thumbgate.app.",
   },
   {
     question: "Where do approvals happen?",
@@ -80,9 +87,59 @@ const FAQ_ITEMS = [
       "It pauses. You approve or deny in thumbgate.app. Conflicting goals without a human gate is how agents ship malware. Hosted Hermes does not auto-run that.",
   },
   {
+    question: "How do I get started?",
+    answer:
+      "Sign in with email, Google, or Apple in this browser. Start the $10 hosted Hermes trial. There is no Mac, Windows, or Linux download. Approvals stay in thumbgate.app.",
+  },
+  {
+    question: "How do I give it a job?",
+    answer:
+      "Sign in, start the $10 hosted Hermes trial, and type the job in the dashboard. It runs on a fenced VPS while the laptop sleeps. Money, customer, or production actions pause in thumbgate.app.",
+  },
+  {
+    question: "Do I install a desktop app?",
+    answer:
+      "No. Hosted Hermes is one always-on agent on a fenced VPS. Local desktop employees die when the laptop sleeps. Approvals stay in thumbgate.app.",
+  },
+  {
+    question: "Does the browser get full VPS access?",
+    answer:
+      "No. The browser is untrusted. A session with no matching capability cannot reach core commands. Money, customer, and production still pause for you in thumbgate.app.",
+  },
+  {
+    question: "Can I run it on my machine instead?",
+    answer:
+      "No. The $10 offer is hosted Hermes on a fenced VPS. Approvals stay in thumbgate.app. If it dies when the laptop sleeps, the trial failed.",
+  },
+  {
+    question: "Is this a training API?",
+    answer:
+      "No. We do not sell fine-tuning or a GPU cluster. Hosted Hermes is one always-on agent on a fenced VPS. $10/mo.",
+  },
+  {
+    question: "Do you train on my runs?",
+    answer:
+      "No. Your runs stay yours. We do not train our models on your data.",
+  },
+  {
     question: "Is this a memory or session-handoff plugin?",
     answer:
       "No. Hosted Hermes is the always-on box: a fenced VPS. Approvals happen in thumbgate.app.",
+  },
+  {
+    question: "How is this different from Perplexity Computer or other computer-use agents?",
+    answer:
+      "Perplexity Computer is a general-purpose digital worker inside Perplexity's cloud. Hosted Hermes is your own always-on coding agent on a fenced VPS, steered from thumbgate.app, with human approval gates on money, customer, and production actions. If you want an agent that keeps working after your laptop sleeps and pauses before dangerous actions, that is this product. $10/mo.",
+  },
+  {
+    question: "Does hosted Hermes record Computer History or capture keystrokes?",
+    answer:
+      "No. Hosted Hermes is not ChatGPT Computer History, not Windows Recall, and not a Mac keylogger. The isolated fenced VPS does not grab the cursor, capture keystrokes or clicks, or store an unencrypted timeline of local Mac activity. We do not learn from everything you do on your computer. Least privilege: we cannot read secrets. Private/incognito analogue: we do not ingest other people's Slack or DMs.",
+  },
+  {
+    question: "Can hosted Hermes run background and recurring tasks?",
+    answer:
+      "Yes. Scheduled work and watchers keep firing because the fenced VPS never sleeps. Long runs hold a 90-second renewable lease with receipts. Risky steps pause for your approval in thumbgate.app.",
   },
 ] as const;
 
@@ -94,14 +151,30 @@ export default function Home() {
     "@graph": [
       {
         "@type": "SoftwareApplication",
-        name: "ThumbGate",
+        name: "Hosted Hermes",
+        brand: { "@type": "Brand", name: "ThumbGate" },
         url: "https://thumbgate.app/",
         applicationCategory: "DeveloperApplication",
         operatingSystem: "Web",
         description:
-          "Hosted Hermes on a fenced VPS. Approvals happen in thumbgate.app.",
+          "Hosted Hermes on a fenced VPS. $10/mo. 14-day trial. Approvals in thumbgate.app. Not a Mac-pair product. Not ChatGPT Computer History / Windows Recall.",
         offers: [
-          { "@type": "Offer", name: "Hosted Hermes", price: "10", priceCurrency: "USD" },
+          {
+            "@type": "Offer",
+            name: "Hosted Hermes",
+            price: "10",
+            priceCurrency: "USD",
+            url: "https://thumbgate.app/",
+            availability: "https://schema.org/InStock",
+            description: "14-day trial. Cancel anytime.",
+            priceSpecification: {
+              "@type": "UnitPriceSpecification",
+              price: "10",
+              priceCurrency: "USD",
+              unitCode: "MON",
+              billingDuration: "P1M",
+            },
+          },
         ],
       },
       {
@@ -136,7 +209,7 @@ export default function Home() {
           <p className="eyebrow"><span className="live-dot" /> Hosted Hermes · Fenced VPS</p>
           <h1>Hermes that stays on.</h1>
           <p className="hero-lede">
-            Hosted on a fenced VPS. Not a laptop process. Approve money, customer, or production actions in this browser. Flat $10/month. 14 days free. Cancel anytime.
+            Chatbots answer. Laptop agents sleep. Hosted Hermes keeps working — for hours, days, or months. Always on, even when your computer is off. Always awake. Always working. Hosted on a fenced VPS. Not a laptop process. You own the work. We own the machine. Approve money, customer, or production actions in this browser. Flat $10/month. 14 days free. Cancel anytime.
           </p>
           <p className="signin-note">
             Automations can draft and run. Money, customer-facing, or production actions require your approval in this browser.
@@ -148,12 +221,107 @@ export default function Home() {
             <span>One clock · 14-day trial</span>
             <span>Approvals in thumbgate.app</span>
           </div>
+          <p className="signin-note"><a href="#example-tasks">See example jobs</a> — then start the $10 trial.</p>
         </div>
 
         <nav className="hero-console hero-actions-panel" aria-label="Private workspace actions">
           <RemoteControlDiagram />
           <LandingAuthPanel />
         </nav>
+      </section>
+
+      <StartSurfaces />
+
+      <section id="example-tasks" className="section-block" data-testid="example-tasks">
+        <div className="section-heading">
+          <p className="eyebrow">Hand it real work</p>
+          <h2>Tasks you can give hosted Hermes today.</h2>
+          <p>
+            Prompt in natural language. The run keeps working on the fenced VPS after you close the laptop.
+            Money, customer, and production actions pause for your approval.
+          </p>
+        </div>
+        <div className="steps-grid">
+          <article>
+            <a
+              href="/api/auth/login"
+              data-funnel-event="example_task_click"
+              data-cta-id="watch-ci"
+              data-testid="example-task-watch-ci"
+            >
+              <span>01</span>
+              <h3>Watch CI overnight</h3>
+              <p>
+                &ldquo;Watch my repo&rsquo;s CI. When a run goes red, open a fix branch and draft the PR.
+                Pause before anything merges.&rdquo; The watcher keeps firing while your machine sleeps.
+              </p>
+            </a>
+          </article>
+          <article>
+            <a
+              href="/api/auth/login"
+              data-funnel-event="example_task_click"
+              data-cta-id="morning-digest"
+              data-testid="example-task-morning-digest"
+            >
+              <span>02</span>
+              <h3>Run the morning digest</h3>
+              <p>
+                &ldquo;Every morning at 6, pull the numbers, build the report, and draft the email.
+                Pause before anything sends.&rdquo; Recurring background tasks are the point of an always-on box.
+              </p>
+            </a>
+          </article>
+          <article>
+            <a
+              href="/api/auth/login"
+              data-funnel-event="example_task_click"
+              data-cta-id="long-migration"
+              data-testid="example-task-long-migration"
+            >
+              <span>03</span>
+              <h3>Finish the long migration</h3>
+              <p>
+                &ldquo;Keep the data migration going until it&rsquo;s done. Pause before touching
+                production.&rdquo; Long runs hold a renewable lease; destructive steps wait for your approval.
+              </p>
+            </a>
+          </article>
+        </div>
+        <div className="steps-grid" data-testid="give-work-loop" style={{ marginTop: "32px" }}>
+          <article>
+            <span>01</span>
+            <h3>Give hosted Hermes a job</h3>
+            <p>Sign in and type the work in the dashboard. Natural language. No desktop install.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>Hosted Hermes works</h3>
+            <p>
+              The agent keeps a lease on a fenced VPS. The laptop can sleep. The run does not die
+              with the lid.
+            </p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Iterate and approve</h3>
+            <p>
+              Guide the run in this tab. Money, customer, or production actions pause in
+              thumbgate.app.
+            </p>
+          </article>
+        </div>
+        <div className="hero-actions" style={{ marginTop: "32px" }}>
+          <a
+            href="/api/auth/login"
+            className="button button-primary"
+            data-funnel-event="give_work_click"
+            data-cta-id="put-hosted-hermes-to-work"
+            data-testid="give-work-cta"
+          >
+            {PRO_CTA} <span aria-hidden="true">→</span>
+          </a>
+        </div>
       </section>
 
       <section id="qualifier" className="section-block" data-testid="qualifier">
@@ -166,7 +334,7 @@ export default function Home() {
           <article>
             <h3>Yes</h3>
             <p>Keep one agent alive 14 days on a VPS. Approve in the browser. If it dies when the laptop sleeps, the trial failed. Cancel anytime. No cash-ROI refund theater.</p>
-            <p><a href="#pricing" className="button button-primary" data-funnel-event="cloud_continuity_click">{PRO_CTA}</a></p>
+            <p><HostedCheckoutCta>{PRO_CTA}</HostedCheckoutCta></p>
           </article>
           <article>
             <h3>No</h3>
@@ -202,7 +370,7 @@ export default function Home() {
         <div className="steps-grid">
           <article>
             <h3>Laptop / local session</h3>
-            <p>The laptop sleeps. The process is gone. Nothing reports it. Work stops until you sit down again.</p>
+            <p>The laptop sleeps. The process is gone. A subscription runner — use the plan you already pay for — still dies with the lid. Work stops until you sit down again.</p>
           </article>
           <article>
             <h3>Fenced VPS</h3>
@@ -210,16 +378,44 @@ export default function Home() {
           </article>
         </div>
       </section>
+
       <section id="setup" className="setup-section">
         <div className="section-heading">
           <p className="eyebrow">Start hosted Hermes</p>
-          <h2>Sign in. Run on VPS. Stay gated.</h2>
+          <h2>Sign in. Start on VPS. Stay gated.</h2>
         </div>
         <ol className="setup-steps">
           <li><span>01</span><div><h3>Sign in</h3><p>Google via AuthKit. Open the hosted Hermes dashboard from any browser.</p></div></li>
           <li><span>02</span><div><h3>Start the $10 trial</h3><p>A paid plan unlocks the fenced cloud VPS runner under your plan caps.</p></div></li>
           <li><span>03</span><div><h3>Dispatch work</h3><p>Agents run on a fenced VPS with pre-action gates. Not on your laptop.</p></div></li>
         </ol>
+        <div className="quickstart-box" style={{
+          marginTop: "24px",
+          padding: "16px 20px",
+          borderRadius: "8px",
+          background: "rgba(0, 0, 0, 0.4)",
+          border: "1px solid var(--line)",
+          fontFamily: "monospace",
+          fontSize: "13px",
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", flexWrap: "wrap", gap: "8px" }}>
+            <span style={{ color: "var(--text-secondary)", fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              ⚡ 60-Second Quickstart (Zero-Install SDK)
+            </span>
+            <span style={{ color: "#10b981", fontSize: "11px", background: "rgba(16, 185, 129, 0.15)", padding: "2px 8px", borderRadius: "4px" }}>
+              OTel Tracing + 0ms Pre-Action WriteGuard
+            </span>
+          </div>
+          <pre style={{ margin: 0, color: "var(--brand-terminal)", overflowX: "auto", whiteSpace: "pre-wrap" }}>
+{`# 1. Initialize ThumbGate client
+npx @thumbgate/cli init
+
+# 2. Protect any agent with pre-action interdiction & OTel tracing
+import { ThumbGate } from "@thumbgate/sdk";
+const tg = new ThumbGate();
+await tg.protect(agentStep);`}
+          </pre>
+        </div>
       </section>
 
       <section id="how-it-works" className="section-block">
@@ -245,6 +441,7 @@ export default function Home() {
           <p>
             Tool calls, approvals, and hosted runs stay on thumbgate.app. Access is the signed-in org.
             There is no phone leash and no third-party approval surface on this product.
+            Not ChatGPT Computer History, not Windows Recall, not a Mac keylogger — the fenced VPS does not grab the cursor.
           </p>
         </div>
         <div className="steps-grid">
@@ -265,9 +462,9 @@ export default function Home() {
           </article>
         </div>
         <div className="hero-actions" style={{ marginTop: "32px" }}>
-          <a href="#pricing" className="button button-primary" data-funnel-event="cloud_continuity_click">
+          <HostedCheckoutCta>
             {PRO_CTA} <span aria-hidden="true">→</span>
-          </a>
+          </HostedCheckoutCta>
         </div>
       </section>
 
@@ -417,8 +614,8 @@ export default function Home() {
       <footer>
         <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate <small>Hosted Hermes</small></span></Link>
         <p>Hosted Hermes on a fenced VPS · closed-system · flat $10/month · cancel anytime.</p>
-        <p><Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link></p>
-        <p><a href="#pricing" className="button button-primary" data-funnel-event="cloud_continuity_click">{PRO_CTA}</a></p>
+        <p><Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link> · <Link href="/blog">Blog</Link></p>
+        <p><HostedCheckoutCta>{PRO_CTA}</HostedCheckoutCta></p>
       </footer>
     </main>
   );

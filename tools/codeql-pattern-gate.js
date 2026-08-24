@@ -214,6 +214,34 @@ const RULES = [
       ];
     },
   },
+  {
+    // AI-generated code often uses `: any` or `:<any>` type assertions,
+    // which erases type-safety context for the next agent. Cognitive debt.
+    id: 'no-any-type-annotation',
+    codeql: 'js/any-type-assertion',
+    severity: 'medium',
+    test: (text, file) => {
+      if (!file.endsWith('.ts') && !file.endsWith('.tsx')) return [];
+      // Exclude type declaration files (ambient types may legitimately use any).
+      if (file.endsWith('.d.ts')) return [];
+      // Allowlist files that intentionally use any (e.g. type test helpers, interop).
+      if (file.includes('/tests/') || file.includes('/__tests__/')) return [];
+      const re = /:\s*any\b/;
+      if (!re.test(text)) return [];
+      const hits = [];
+      const lines = text.split(/\n/);
+      for (let i = 0; i < lines.length; i++) {
+        if (re.test(lines[i])) {
+          hits.push({
+            line: i + 1,
+            message:
+              ': \': any\' erases type information for the next agent. Use a concrete type or generics — cognitive debt in AI-generated code.',
+          });
+        }
+      }
+      return hits;
+    },
+  },
 ];
 
 

@@ -12,7 +12,7 @@ name: PR hygiene
 
 on:
   schedule:
-    - cron: '17 */6 * * *'   # every 6h at :17 (off the hour to dodge cron congestion)
+    - cron: '0 6 * * *'   # once daily at 06:00 UTC
   workflow_dispatch: {}
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]

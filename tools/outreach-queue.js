@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const { spawnSync } = require('child_process');
+const { critiqueDraft } = require('./outreach-critic');
 
 const usage = `Usage:
   node tools/outreach-queue.js --prospects prospects.tsv --contacts contacts.tsv --drafts outreach.md --out send-queue.tsv [--min-score N] [--force]
@@ -164,6 +165,14 @@ function main() {
     if (!draft) {
       missing.push(`${prospect.prospect_label}: missing draft`);
     }
+    // Actor-critic gate (#1925 review P1): a draft only reaches 'ready' if the
+    // deterministic critic finds no hard failure (dishonest claims, missing
+    // opt-out/CTA). Anchors are deliberately omitted here — personalization is
+    // scored as a caveat upstream, never a queue-blocking failure.
+    const critique = draft ? critiqueDraft({ subject: draft.subject, body: draft.body, anchors: [] }) : null;
+    if (critique && critique.verdict === 'not_satisfactory') {
+      console.warn(`critic blocked ${prospect.prospect_label}: ${critique.hard.join('; ')}`);
+    }
     return {
       ...prospect,
       contact_type: contact && contact.contact_type,
@@ -171,7 +180,7 @@ function main() {
       contact_source_url: contact && contact.source_url,
       subject: draft && draft.subject,
       draft_body: draft && draft.body,
-      send_status: 'ready',
+      send_status: critique && critique.verdict === 'not_satisfactory' ? 'blocked_by_critic' : 'ready',
     };
   });
 

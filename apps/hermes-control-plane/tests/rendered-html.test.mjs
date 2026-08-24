@@ -71,8 +71,12 @@ test("builds the public hosted Hermes landing page", async () => {
   const iosGo = await readFile(new URL("../app/go/ios/route.ts", import.meta.url), "utf8");
   assert.match(storeLinks, /com\.iganapolsky\.hermesmobile\.paid/);
   assert.match(storeLinks, /id6786778037/);
-  assert.match(androidGo, /PLAY_STORE_URL/);
-  assert.match(iosGo, /APP_STORE_URL/);
+  assert.match(androidGo, /status:\s*301/);
+  assert.match(iosGo, /status:\s*301/);
+  assert.match(androidGo, /Location:\s*"\/"/);
+  assert.match(iosGo, /Location:\s*"\/"/);
+  assert.doesNotMatch(androidGo, /PLAY_STORE_URL|Response\.redirect/);
+  assert.doesNotMatch(iosGo, /APP_STORE_URL|Response\.redirect/);
   assert.doesNotMatch(page, /Sign in with AuthKit \(Google, Apple, Microsoft, GitHub/);
   assert.match(page, /<BillingPlan \/>/);
   assert.match(page, /LandingAuthHero|LandingAuthNav/);
@@ -112,12 +116,14 @@ test("builds the public hosted Hermes landing page", async () => {
   assert.match(portalRoute, /export async function POST/);
   assert.match(portalRoute, /handlePortalRequest|isGet/);
   assert.match(dashboard, /\? manageBilling\(\) : subscribe\(\)/);
-  assert.match(page, /Sign in\. Run on VPS\. Stay gated\./);
+  assert.match(page, /Sign in\. Start on VPS\. Stay gated\./);
   assert.match(page, /Hosted Hermes/);
   // Pricing CTAs live in client chrome (static shell + /api/me personalization).
   const chrome = await readFile(new URL("../app/LandingAuthChrome.tsx", import.meta.url), "utf8");
+  const hostedCta = await readFile(new URL("../app/HostedCheckoutCta.tsx", import.meta.url), "utf8");
   assert.match(chrome, /data-funnel-event="free_control_click"/);
-  assert.match(chrome, /data-funnel-event="cloud_continuity_click"/);
+  assert.match(hostedCta, /data-funnel-event="hosted_checkout_click"/);
+  assert.match(chrome, /<HostedCheckoutCta>/);
   assert.match(chrome, /data-funnel-event="sign_in_click"/);
   assert.match(chrome, /Start hosted Hermes — \$10\/mo/);
   assert.match(chrome, /cancel anytime/);
@@ -140,7 +146,8 @@ test("builds the public hosted Hermes landing page", async () => {
   assert.match(page, /SoftwareApplication/);
   assert.match(page, /RemoteControlDiagram/);
   const diagram = await readFile(new URL("../app/RemoteControlDiagram.tsx", import.meta.url), "utf8");
-  assert.doesNotMatch(diagram, /Hermes Mobile/);
+  assert.doesNotMatch(diagram, /Hermes Mobile|HERMES MOBILE|phone chassis/i);
+  assert.doesNotMatch(diagram, /width="58" height="112"/);
   assert.match(diagram, /thumbgate\.app/);
   assert.match(diagram, /LLM-as-a-Judge/);
   assert.match(diagram, /Fenced VPS/);
@@ -149,8 +156,14 @@ test("builds the public hosted Hermes landing page", async () => {
   // visible FAQ + FAQPage JSON-LD so answer engines can cite it.
   assert.match(page, /FAQPage/);
   assert.match(page, /id="faq"/);
+  assert.match(page, /id="example-tasks"/);
+  assert.match(page, /Give hosted Hermes a job/);
+  assert.match(page, /How do I give it a job\?/);
   assert.match(page, /What is ThumbGate\?/);
   assert.match(page, /Why not just run another agent pilot/);
+  assert.match(page, /Can I use the AI plan I already pay for instead\?/);
+  assert.match(page, /use the plan you already pay for/);
+  assert.match(page, /Codex-sub-on-laptop path is not this product/);
   assert.match(page, /Where do approvals happen\?/);
   assert.match(page, /What if the agent wants to kill a process or copy itself\?/);
   assert.match(page, /does not auto-run that/);
@@ -209,6 +222,8 @@ test("builds the public hosted Hermes landing page", async () => {
   assert.match(llms, /fenced VPS agent execution|fenced cloud VPS/i);
   assert.match(llms, /Do I pair my Mac\? No/);
   assert.match(llms, /Why not another laptop pilot/);
+  assert.match(llms, /Is Codex-sub-on-laptop the \$10 offer\? No/);
+  assert.match(llms, /Do not wrap ChatGPT Plus into thumbgate\.app/);
   assert.doesNotMatch(page, /Igor|Ganapolsky/i);
   assert.doesNotMatch(`${layout}\n${robots}\n${sitemap}\n${llms}`, /Igor|Ganapolsky/i);
   assert.doesNotMatch(page, /codex-preview|react-loading-skeleton/);
@@ -248,4 +263,38 @@ test("public legal pages use hosted Hermes, not Continuity", async () => {
   assert.match(terms, /Hosted Hermes is a fenced VPS runner/);
   assert.match(terms, /no phone leash/);
   assert.doesNotMatch(terms, /Continuity/);
+});
+
+test("conversion e2e: auth aliases, public health, no store 302, no invented traction", async () => {
+  const [signin, login, checkout, health, catalog, expertiseData, expertiseClient] = await Promise.all([
+    readFile(new URL("../app/signin/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/login/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/checkout/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/health/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../public/.well-known/ai-catalog.json", import.meta.url), "utf8"),
+    readFile(new URL("../lib/expertise-data.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/expertise/ExpertiseClient.tsx", import.meta.url), "utf8"),
+  ]);
+  for (const [name, src] of [["signin", signin], ["login", login]]) {
+    assert.match(src, /status:\s*307/, name);
+    assert.match(src, /\/api\/auth\/login\?return_to=\/dashboard/, name);
+    assert.doesNotMatch(src, /status:\s*404/, name);
+  }
+  assert.match(checkout, /status:\s*307/);
+  assert.match(checkout, /currentSession\(/);
+  assert.match(checkout, /action="\/api\/billing\/checkout" method="POST"/);
+  assert.match(checkout, /Location:\s*"\/dashboard"/);
+  assert.doesNotMatch(health, /service:\s*"leash-control"/);
+  assert.doesNotMatch(health, /LEASH_DATABASE_UNAVAILABLE/);
+  assert.match(health, /currentAdminSession/);
+  assert.match(health, /hosted-hermes/);
+  assert.match(health, /if \(!\(await isAdmin\(\)\)\)/);
+  assert.match(health, /usersTotal/);
+  assert.match(health, /advertisePaid/);
+  assert.match(health, /publicHealthFromCache/);
+  assert.doesNotMatch(catalog, /SignedMachinePairing|Leash/);
+  assert.doesNotMatch(expertiseData, /147 cloud|99\.3%|40% faster|closing the lid|Igor|Ganapolsky/i);
+  assert.match(expertiseData, /caseStudies: \[\]/);
+  assert.doesNotMatch(expertiseClient, /Author:|cs\.author\.name|147|99\.3%|40% faster/i);
+  assert.doesNotMatch(`${signin}\n${login}\n${checkout}\n${health}\n${catalog}`, /Igor|Ganapolsky/i);
 });

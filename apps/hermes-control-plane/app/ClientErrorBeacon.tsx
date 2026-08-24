@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { captureFirstError } from "@/lib/sentry";
 
 const endpoint = "/api/analytics/event";
 const MAX_REPORTS_PER_SESSION = 8;
@@ -51,6 +52,7 @@ function reportClientError(input?: unknown) {
     if (count >= MAX_REPORTS_PER_SESSION) return;
     sessionStorage.setItem(key, String(count + 1));
     const errorClass = classifyError(input);
+    void captureFirstError({ name: errorClass });
     const body = JSON.stringify({
       schemaVersion: 1,
       event: "client_error",

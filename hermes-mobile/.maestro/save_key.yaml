@@ -1,5 +1,15 @@
 appId: com.iganapolsky.hermesmobile
+env:
+  # Supplied at run time: maestro test -e GATEWAY_API_KEY=...
+  # NEVER commit a real key here. 2026-08-19: the live gateway key sat in
+  # this file and in test_merge.js, and the vendored copy of this repo inside
+  # the PUBLIC mac-yolo-safeguards repo exposed it for ~25 days.
+  GATEWAY_API_KEY: REPLACE_ME
 ---
+# Without a real key this flow would type REPLACE_ME into the gateway key field and the
+# suite would carry on against an unauthenticated gateway — a silent pass over coverage
+# that never happened. Fail here instead, naming the fix.
+- assertTrue: ${GATEWAY_API_KEY !== 'REPLACE_ME' && GATEWAY_API_KEY.length > 0}
 - launchApp
 - runFlow: e2e-bootstrap.yaml
 - tapOn:
@@ -14,7 +24,7 @@ appId: com.iganapolsky.hermesmobile
     speed: 35
 - tapOn:
     id: "gateway-api-key-input"
-- inputText: "sk-hermes-api-server-key-2026-06-15"
+- inputText: "${GATEWAY_API_KEY}"
 - runFlow:
     when:
       platform: android

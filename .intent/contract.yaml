@@ -1,0 +1,231 @@
+version: 1
+inspired_by: https://github.com/knoxgraeme/tieline
+affiliation: not affiliated
+description: >
+  Reviewed product intent for mac-yolo-safeguards / thumbgate.app.
+  Merge accepts this YAML. Do not vendor Tieline Postgres or `npx tieline`.
+capabilities:
+  - key: OFFER
+    name: Hosted Hermes public offer
+    description: The $10/mo fenced-VPS offer buyers see on thumbgate.app.
+    stories:
+      - key: OFFER-001
+        title: Name the one paid offer
+        actor: buyer
+        goal: see the live price and trial clock before signing in
+        benefit: no invented SKU or traction claim
+        lifecycle: production
+        acceptance_criteria:
+          - key: OFFER-001-AC1
+            criterion: The public landing must name hosted Hermes at $10/mo with a 14-day trial.
+            implements:
+              - apps/hermes-control-plane/app/page.tsx
+            tests:
+              - apps/hermes-control-plane/tests/hosting-selector.test.mjs
+            must_contain:
+              - in: apps/hermes-control-plane/app/page.tsx
+                pattern: '\$10/mo'
+              - in: apps/hermes-control-plane/app/page.tsx
+                pattern: '14-day trial'
+            must_not_contain:
+              - in: apps/hermes-control-plane/app/page.tsx
+                pattern: ThumbGate Wake
+              - in: apps/hermes-control-plane/app/page.tsx
+                pattern: QoderWork
+      - key: OFFER-002
+        title: Approvals stay in the browser
+        actor: buyer
+        goal: approve money, customer, or production actions in thumbgate.app
+        benefit: no phone leash and no third-party approval surface
+        lifecycle: production
+        acceptance_criteria:
+          - key: OFFER-002-AC1
+            criterion: Landing copy must say approvals happen in thumbgate.app.
+            implements:
+              - apps/hermes-control-plane/app/page.tsx
+            tests:
+              - apps/hermes-control-plane/tests/qoder-wake-steal.test.mjs
+            must_contain:
+              - in: apps/hermes-control-plane/app/page.tsx
+                pattern: Approvals happen in thumbgate.app
+      - key: OFFER-003
+        title: Chief product lock
+        actor: implementing agent
+        goal: read the accepted offer before changing landing copy
+        benefit: agents do not restore Continuity, Mac-pair, or a RUN ON picker
+        lifecycle: production
+        acceptance_criteria:
+          - key: OFFER-003-AC1
+            criterion: CHIEF.md must keep the hosted Hermes $10/mo 14-day lock.
+            implements:
+              - .agents/CHIEF.md
+            tests:
+              - tests/test-intent-check.js
+            must_contain:
+              - in: .agents/CHIEF.md
+                pattern: '\$10/mo'
+              - in: .agents/CHIEF.md
+                pattern: '14-day trial'
+              - in: .agents/CHIEF.md
+                pattern: 'Do not hero Continuity'
+      - key: OFFER-004
+        title: Give-work loop on the public landing
+        actor: buyer
+        goal: see how to give hosted Hermes a job without a desktop install
+        benefit: task-first path, not a connector marketplace or second SKU
+        lifecycle: production
+        acceptance_criteria:
+          - key: OFFER-004-AC1
+            criterion: Landing example-tasks include a Give/Works/Approve loop with per-job cta ids.
+            implements:
+              - apps/hermes-control-plane/app/page.tsx
+            tests:
+              - apps/hermes-control-plane/tests/perplexity-computer-steal.test.mjs
+            must_contain:
+              - in: apps/hermes-control-plane/app/page.tsx
+                pattern: 'Give hosted Hermes a job'
+              - in: apps/hermes-control-plane/app/page.tsx
+                pattern: 'id="example-tasks"'
+              - in: apps/hermes-control-plane/app/page.tsx
+                pattern: 'data-cta-id="watch-ci"'
+            must_not_contain:
+              - in: apps/hermes-control-plane/app/page.tsx
+                pattern: 'Gmail, Slack, Notion'
+              - in: apps/hermes-control-plane/app/page.tsx
+                pattern: 'ThumbGate Wake'
+      - key: OFFER-005
+        title: First-party blog on thumbgate.app
+        actor: buyer
+        goal: read Cursor-format engineering notes about hosted Hermes on the product domain
+        benefit: first-party /blog, not a second SKU and not thumbgate.ai
+        lifecycle: production
+        acceptance_criteria:
+          - key: OFFER-005-AC1
+            criterion: thumbgate.app/blog lists a dated product post with author and read time, linking Give hosted Hermes a job.
+            implements:
+              - apps/hermes-control-plane/app/blog/page.tsx
+              - apps/hermes-control-plane/lib/blog-posts.ts
+              - apps/hermes-control-plane/app/blog/[slug]/page.tsx
+            tests:
+              - apps/hermes-control-plane/tests/blog.test.mjs
+            must_contain:
+              - in: apps/hermes-control-plane/lib/blog-posts.ts
+                pattern: 'Give hosted Hermes a job'
+              - in: apps/hermes-control-plane/app/blog/page.tsx
+                pattern: 'min read'
+              - in: apps/hermes-control-plane/app/sitemap.ts
+                pattern: 'thumbgate.app/blog'
+            must_not_contain:
+              - in: apps/hermes-control-plane/lib/blog-posts.ts
+                pattern: 'Gmail, Slack, Notion'
+              - in: apps/hermes-control-plane/lib/blog-posts.ts
+                pattern: '$499'
+  - key: HOST
+    name: Hosting picker
+    description: Cloud is the $10 offer. Local is the machine, not a second SKU.
+    stories:
+      - key: HOST-001
+        title: Default to Cloud
+        actor: buyer
+        goal: start hosted Hermes without choosing a second paid product
+        benefit: Local cannot be sold as a $0 SKU
+        lifecycle: production
+        acceptance_criteria:
+          - key: HOST-001-AC1
+            criterion: HostingSelector must default to cloud and say Local is not a second SKU.
+            implements:
+              - apps/hermes-control-plane/app/HostingSelector.tsx
+            tests:
+              - apps/hermes-control-plane/tests/hosting-selector.test.mjs
+            must_contain:
+              - in: apps/hermes-control-plane/app/HostingSelector.tsx
+                pattern: 'useState<HostingMode>\("cloud"\)'
+              - in: apps/hermes-control-plane/app/HostingSelector.tsx
+                pattern: 'not a second SKU'
+            must_not_contain:
+              - in: apps/hermes-control-plane/app/HostingSelector.tsx
+                pattern: 'Vellum Cloud'
+              - in: apps/hermes-control-plane/app/HostingSelector.tsx
+                pattern: 'Mac-pair|phone leash|RUN ON'
+      - key: HOST-002
+        title: Turn statusline is hosted Hermes, not Mac Ollama
+        actor: operator
+        goal: see Engine, TTFT, and Cost on thumbgate.app like an LLM turn footer
+        benefit: no invented localhost engine or fake sub-10ms TTFT
+        lifecycle: production
+        acceptance_criteria:
+          - key: HOST-002-AC1
+            criterion: Dashboard chrome must show a Turn Statusline whose default engine is hosted Hermes, not localhost Ollama.
+            implements:
+              - apps/hermes-control-plane/lib/turn-statusline.ts
+              - apps/hermes-control-plane/app/dashboard/layout.tsx
+              - apps/hermes-control-plane/app/dashboard/DashboardTurnChrome.tsx
+              - apps/hermes-control-plane/app/dashboard/TurnStatusline.tsx
+            tests:
+              - apps/hermes-control-plane/lib/turn-statusline.test.ts
+              - apps/hermes-control-plane/tests/turn-status-chrome.test.mjs
+            must_contain:
+              - in: apps/hermes-control-plane/lib/turn-statusline.ts
+                pattern: Hosted Hermes
+              - in: apps/hermes-control-plane/lib/turn-statusline.ts
+                pattern: unmeasured
+              - in: apps/hermes-control-plane/app/dashboard/layout.tsx
+                pattern: DashboardTurnChrome
+              - in: apps/hermes-control-plane/app/dashboard/layout.tsx
+                pattern: styles.frame
+            must_not_contain:
+              - in: apps/hermes-control-plane/lib/turn-statusline.ts
+                pattern: localhost:11434
+              - in: apps/hermes-control-plane/app/dashboard/DashboardTurnChrome.tsx
+                pattern: localhost:11434
+  - key: START
+    name: Zero-install start surfaces
+    description: Browser start, optional stores, no fake desktop installers.
+    stories:
+      - key: START-001
+        title: No desktop download wall
+        actor: buyer
+        goal: start hosted Hermes in the current tab
+        benefit: no invented installer or QoderWake stats
+        lifecycle: production
+        acceptance_criteria:
+          - key: START-001-AC1
+            criterion: StartSurfaces must invert the desktop download wall without invented metrics.
+            implements:
+              - apps/hermes-control-plane/app/StartSurfaces.tsx
+            tests:
+              - apps/hermes-control-plane/tests/start-surfaces.test.mjs
+            must_contain:
+              - in: apps/hermes-control-plane/app/StartSurfaces.tsx
+                pattern: 'No desktop install'
+              - in: apps/hermes-control-plane/app/StartSurfaces.tsx
+                pattern: '\$10/mo · 14-day trial'
+            must_not_contain:
+              - in: apps/hermes-control-plane/app/StartSurfaces.tsx
+                pattern: 'curl -fsSL'
+              - in: apps/hermes-control-plane/app/StartSurfaces.tsx
+                pattern: 'ThumbGate Wake'
+              - in: apps/hermes-control-plane/app/StartSurfaces.tsx
+                pattern: '28 days|78 Tasks'
+  - key: PROCESS
+    name: Intent contract process
+    description: Agents grade accepted behavior against linked files before claiming done.
+    stories:
+      - key: PROCESS-001
+        title: Deterministic intent check
+        actor: implementing agent
+        goal: fail closed on broken AC links and content drift
+        benefit: silent offer regressions become a local exit 1
+        lifecycle: production
+        acceptance_criteria:
+          - key: PROCESS-001-AC1
+            criterion: intent-check must exist and be covered by a node test.
+            implements:
+              - scripts/intent-check.js
+            tests:
+              - tests/test-intent-check.js
+            must_contain:
+              - in: scripts/intent-check.js
+                pattern: not affiliated
+              - in: scripts/intent-check.js
+                pattern: Do not npx tieline
