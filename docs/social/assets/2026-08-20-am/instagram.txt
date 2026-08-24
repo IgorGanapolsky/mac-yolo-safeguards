@@ -1,0 +1,11 @@
+CAPTION:
+A story out today: an AI agent recommended a package. It looked completely real. It wasn't — someone had registered that exact hallucinated name days earlier and loaded it with malware, betting a developer would install first and check later.
+
+Security researchers have a name for it now: slopsquatting.
+
+Building the pause-before-you-hit-install gate around exactly that, honestly, at thumbgate.app — free to sign in, no traction numbers to round up.
+
+https://thumbgate.app/?utm_source=instagram&utm_medium=social&utm_campaign=2026-08-20-am&cta_id=2026-08-20-am_instagram_home
+
+MEME BRIEF (not generated — Gamma generate_image -> 402 insufficient credits; Higgsfield balance 0.5cr vs 2cr required; both retested live 2026-08-20T13:0xZ; never-spend-money rule holds):
+Concept: a developer's cursor hovering over "Install" in a chat UI where an AI assistant just suggested a package. The package name and icon look completely ordinary. In the corner, in text small enough to miss at a glance: "registered 4 days ago · 0 downloads." Caption overlay: "It looked exactly like the real one." Original composition only — no film/TV stills, no trademarked templates. Dedup key: package-install-4days-0downloads (log so not reused within 30 days once actually generated).

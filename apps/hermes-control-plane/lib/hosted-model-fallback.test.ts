@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CONSUMER_SUB_METERS,
   GATEWAY_BUDGET,
+  HOSTED_MODEL_PRICING,
   HOSTED_PROVIDER_FALLBACK,
   NAMED_FREE_FALLBACK,
   PAID_METER_IDS,
@@ -13,6 +14,7 @@ import {
   resolveNamedRunnerIdentity,
   shouldFirePaidMeter,
   shouldKeepCallingRoute,
+  hostedModelCost,
 } from "./hosted-model-fallback.js";
 import { HOSTED_GATE_LINES, trimHostedPrompt } from "./hosted-prompt-trim.js";
 import { CONSTR, GRB, certifyHostedLive } from "./hosted-live-iis.js";
@@ -55,7 +57,7 @@ describe("hosted provider fallback lock", () => {
     expect(route.vpsDead).toBe(false);
     expect(modelHealthy({
       lastError: QUOTA,
-      now: Date.now(),
+      now: Date.UTC(2026, 7, 22, 21, 7, 1),
       failedProviders: ["supergrok", "deepseek-free", "poolside"],
     })).toBe(false);
   });
@@ -198,5 +200,40 @@ describe("named fallback dual-meter fail-closed", () => {
     expect(shouldFirePaidMeter({ meter: "chatgpt-plus" })).toBe(false);
     expect(shouldFirePaidMeter({ meter: "codex-sub" })).toBe(false);
     expect(shouldKeepCallingRoute({ meters: ["codex-sdk"] })).toBe(false);
+  });
+});
+
+describe("hosted model pricing (Gemini 3.7 Flash intro steal)", () => {
+  it("prices the 50%-off intro rate through Aug 27 and full rate after", () => {
+    const g = HOSTED_MODEL_PRICING["google/gemini-3.7-flash"];
+    expect(g.inputUsdPerM).toBe(0.75);
+    expect(g.outputUsdPerM).toBe(3.75);
+    expect(g.cachedUsdPerM).toBe(0.075);
+    expect(g.promoDiscount).toBe(0.5);
+    expect(g.promoEnd).toBe("2026-08-27T23:59:59Z");
+    // 1M input + 1M output during promo: original (0.75 + 3.75) * 0.5 = 2.25
+    expect(hostedModelCost("google/gemini-3.7-flash", {
+      inputTokens: 1_000_000,
+      outputTokens: 1_000_000,
+      now: "2026-08-21T12:00:00Z",
+    })).toBe(2.25);
+    // after promo: full (original) rate 0.75 + 3.75 = 4.5
+    expect(hostedModelCost("google/gemini-3.7-flash", {
+      inputTokens: 1_000_000,
+      outputTokens: 1_000_000,
+      now: "2026-08-28T00:00:00Z",
+    })).toBe(4.5);
+    // cached 1M on promo: 0.075 * 0.5 = 0.0375
+    expect(hostedModelCost("google/gemini-3.7-flash", {
+      inputTokens: 0,
+      outputTokens: 0,
+      cachedTokens: 1_000_000,
+      now: "2026-08-21T12:00:00Z",
+    })).toBe(0.0375);
+  });
+
+  it("fails closed: unknown model => null; zero usage => zero cost", () => {
+    expect(hostedModelCost("claude-sonnet-5", { inputTokens: 1_000_000 })).toBeNull();
+    expect(hostedModelCost("google/gemini-3.7-flash", {})).toBe(0);
   });
 });

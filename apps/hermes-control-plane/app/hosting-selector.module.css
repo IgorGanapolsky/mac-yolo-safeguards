@@ -4,11 +4,11 @@
 
 .header {
   text-align: center;
-  margin-bottom: 22px;
+  margin-bottom: var(--space-md);
 }
 
 .header h2 {
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-2xs);
   font-size: clamp(28px, 4vw, 40px);
   letter-spacing: -0.03em;
 }
@@ -29,8 +29,8 @@
 }
 
 .helpBox {
-  margin: 0 0 18px;
-  padding: 12px 14px;
+  margin: 0 0 var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--panel);
@@ -42,17 +42,17 @@
 .cards {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-xs);
 }
 
 .card,
 .cardSelected {
   display: flex;
   align-items: flex-start;
-  gap: 14px;
+  gap: var(--space-sm);
   width: 100%;
   text-align: left;
-  padding: 16px 18px;
+  padding: var(--space-sm) var(--space-sm);
   border-radius: 14px;
   border: 1px solid var(--line);
   background: var(--panel);
@@ -79,7 +79,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-3xs);
 }
 
 .copy strong {
@@ -98,7 +98,7 @@
   border-radius: 50%;
   border: 2px solid #3f3f46;
   flex-shrink: 0;
-  margin-top: 8px;
+  margin-top: var(--space-2xs);
 }
 
 .cardSelected .radio {
@@ -109,12 +109,12 @@
 .continue {
   display: block;
   width: 100%;
-  margin-top: 22px;
+  margin-top: var(--space-md);
   text-align: center;
 }
 
 .localNote {
-  margin: 18px 0 0;
+  margin: var(--space-sm) 0 0;
   color: var(--muted);
   font-size: 14px;
   line-height: 1.5;

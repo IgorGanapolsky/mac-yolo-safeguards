@@ -63,4 +63,42 @@ test('clean file empty', () => {
   });
 });
 
+test('flags any-type annotation in TypeScript', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cqg-ts-'));
+  const file = path.join(dir, 'sample.ts');
+  fs.writeFileSync(file, 'function foo(x: any) { return x; }\n');
+  try {
+    const hits = scanFile(file);
+    assert.ok(hits.some((h) => h.rule === 'no-any-type-annotation'), JSON.stringify(hits));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('does not flag any-type in test files', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cqg-ts-test-'));
+  const dir2 = path.join(dir, 'tests');
+  fs.mkdirSync(dir2);
+  const file = path.join(dir2, 'sample.test.ts');
+  fs.writeFileSync(file, 'function foo(x: any) { return x; }\n');
+  try {
+    const hits = scanFile(file);
+    assert.ok(!hits.some((h) => h.rule === 'no-any-type-annotation'), 'should not flag test files');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('does not flag any-type in d.ts declaration files', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cqg-ts-dts-'));
+  const file = path.join(dir, 'sample.d.ts');
+  fs.writeFileSync(file, 'declare function foo(x: any): void;\n');
+  try {
+    const hits = scanFile(file);
+    assert.ok(!hits.some((h) => h.rule === 'no-any-type-annotation'), 'should not flag .d.ts files');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 console.log('test-codeql-pattern-gate: done');

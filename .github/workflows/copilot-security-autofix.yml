@@ -43,7 +43,7 @@ jobs:
           # already autofixed (autofix==null). Alert numbers are integers, so the
           # interpolated filter is safe. No alerts -> nothing to do.
           NEW=$(gh api "repos/${GH_REPO}/code-scanning/alerts?ref=${HEAD_SHA}" \
-            --jq --raw '[.[] | select(.pull_request.number == '"${PR_NUMBER}"' and .state == "open" and (.autofix // null) == null) | .number] | length')
+            --jq '[.[] | select(.pull_request.number == '"${PR_NUMBER}"' and .state == "open" and (.autofix // null) == null) | .number] | length')
           echo "new open code-scanning alerts on PR #${PR_NUMBER}: ${NEW}"
           [ "${NEW}" = "0" ] && exit 0
           # Never auto-fix WIP branches.

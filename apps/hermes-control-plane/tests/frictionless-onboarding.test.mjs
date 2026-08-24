@@ -97,6 +97,10 @@ test("matches Hermes Mobile chat management with persistent rename, delete, and 
   assert.match(dashboard, /Clear all chats\?/);
   assert.match(dashboard, /confirmation: "CLEAR ALL CHATS"/);
   assert.match(globals, /\.thread-menu-trigger\{[^}]*min-width:44px[^}]*min-height:44px/);
+  // ••• menu must be viewport-fixed (not absolute under overflow:hidden sidebar)
+  assert.match(globals, /\.thread-actions\{[^}]*position:fixed/);
+  assert.match(dashboard, /createPortal/);
+  assert.match(dashboard, /placeThreadMenu|toggleThreadMenu/);
   assert.match(globals, /\.chat-dialog\{/);
   assert.match(threadsRoute, /export async function PATCH/);
   assert.match(threadsRoute, /export async function DELETE/);
@@ -161,9 +165,7 @@ test("keeps the deployed web host DOM-native instead of adding a React Native We
   assert.match(globals, /\.dashboard-header\{[\s\S]*grid-template-columns:1fr/);
   // Chat-first workbench (DimAgent visual workbench steal, 2026-08-18):
   // messages fill remaining height; thin composer dock; not half-screen input.
-  assert.match(globals, /data-mobile-tab="hermes"\]\{[\s\S]*height:100dvh/);
-  assert.match(globals, /data-mobile-tab="hermes"\] \.task-panel\{[\s\S]*overflow:hidden !important/);
-  assert.match(globals, /hermes-scroll-pane\{[\s\S]*overflow-y:scroll !important/);
+  assert.match(globals, /data-mobile-tab="hermes"\] \.hermes-scroll-pane\{[\s\S]*flex:1 1 0 !important[\s\S]*overflow-y:auto !important/);
   assert.match(globals, /task-panel \.composer[\s\S]*position:relative !important/);
   assert.match(globals, /composer textarea\{[\s\S]*min-height:40px/);
   assert.match(globals, /\.agent-activity/);

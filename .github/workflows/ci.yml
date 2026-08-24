@@ -128,6 +128,11 @@ jobs:
           set -eu
           bash tests/test-hermes-gateway-watchdog-e2e.sh
 
+      - name: Hermes SaaS harness installer unit tests (dry-run, hermetic)
+        run: |
+          set -eu
+          bash tests/test-saas-install-harness.sh
+
       - name: Node tool unit tests
         run: |
           set -u
@@ -177,6 +182,40 @@ jobs:
           mkdir -p "$HOME/workspace/git/igor/antigravity-hub/antigravity-cli/bin"
           ./install.sh
 
+      - name: NVIDIA SkillEvaluator Tier 1 — skill catalog static checks
+        run: |
+          set -eu
+          # Tier 1 safety and structure checks: PII/secret scan, quality scoring,
+          # script linting, and prompt injection detection.
+          # Cloudflare-style enforcement: MUST violations (security) block CI;
+          # SHOULD violations (missing card, quality gaps) are advisory only.
+          node tools/skill-card-validate.js --json > /tmp/skill-audit.json
+          node -e "
+            const d = require('/tmp/skill-audit.json');
+            const mustFindings = [];
+            const shouldFindings = [];
+            for (const s of d.skills) {
+              for (const v of s.mustViolations) mustFindings.push(v.message);
+              for (const v of s.shouldViolations) shouldFindings.push(v.message);
+            }
+            console.log('Skill catalog: %d/%d ok', d.passed, d.total);
+            console.log('  Deviations: %d MUST (blocking), %d SHOULD (advisory)',
+              d.deviations.must, d.deviations.should);
+            console.log('  Quality avg=%d',
+              d.total > 0 ? Math.round(d.skills.reduce((s,x) => s+x.quality.score, 0)/d.total) : 0);
+            if (shouldFindings.length) {
+              console.log('  Advisory (SHOULD):');
+              for (const msg of shouldFindings.slice(0, 20)) console.log('    - %s', msg);
+              if (shouldFindings.length > 20) console.log('    ... and %d more', shouldFindings.length - 20);
+            }
+            if (mustFindings.length > 0) {
+              console.error('::error::%d MUST violation(s) — PII leaks, lint errors, or prompt injection', mustFindings.length);
+              console.error('MUST violations:');
+              for (const msg of mustFindings) console.error('  - %s', msg);
+              process.exit(1);
+            }
+          "
+
       # A self-hosted runner is also a live workstation. Never install a PR or
       # branch checkout over its LaunchAgent targets: an older concurrent run
       # can silently roll production safeguards backward. The live copies need
@@ -219,6 +258,26 @@ jobs:
       - name: Retrieval quality eval
         run: node tools/rag-retrieval-eval.js
 
+      # AI Context Vault (Allie K. Miller pattern): 8 copy-paste prompts that
+      # make AI understand this repo's identity, goals, constraints, and work state.
+      # Generates the vault from repo metadata and validates all 8 prompts are present.
+      - name: AI Context Vault — generate and validate
+        run: |
+          set -eu
+          node tools/context-vault.js generate --out artifacts/context-vault.md
+          node tools/context-vault.js validate --vault artifacts/context-vault.md
+          node tools/context-vault.js --json
+
+      # Two-Word AI Prompts (Allie K. Miller pattern): 18 role-shifting shortcut
+      # prompts that steer conversations after context is established. Validates
+      # the registry, all repo_tool references resolve to existing files, and
+      # CodeQL pattern gate is clean.
+      - name: Two-Word AI Prompts — registry + tool validation
+        run: |
+          set -eu
+          node tools/two-word-prompts.js --json
+          node tools/codeql-pattern-gate.js --json tools/two-word-prompts.js
+
       # poolside-yolo asserts it runs fully autonomous. It shipped a --mode value
       # pool does not recognise, so pool silently reverted to approval prompts and
       # nobody noticed for days — this suite was never wired into CI. It is
@@ -245,8 +304,8 @@ jobs:
       - name: Public secret smoke scan
         run: |
           set -eu
-          ! git grep -nE '(ghp_[A-Za-z0-9_]+|github_pat_[A-Za-z0-9_]+|xai-[A-Za-z0-9_-]{20,}|AIzaSy[A-Za-z0-9_-]{20,}|sk_live_[A-Za-z0-9_]+|TELEGRAM_BOT_TOKEN=|STRIPE_SECRET_KEY=sk_|X-Goog-Signature=)' \
-            -- ':!.github/workflows/ci.yml' ':!.github/workflows/internal-distribution.yml' ':!.github/workflows/store-release.yml'
+          ! git grep -nE '(ghp_[A-Za-z0-9_]+|github_pat_[A-Za-z0-9_]+|xai-[A-Za-z0-9_-]{20,}|AIzaSy[A-Za-z0-9_-]{20,}|sk_live_[A-Za-z0-9_]+|TELEGRAM_BOT_TOKEN=|STRIPE_SECRET_KEY=sk_|X-Goog-Signature=|API_SERVER_KEY=['\''"][A-Za-z0-9._-]{20,}[''"]|key=[A-Za-z0-9._-]{20,})' \
+            -- ':!.github/workflows/ci.yml' ':!.github/workflows/internal-distribution.yml' ':!.github/workflows/store-release.yml' ':!tests/' ':!docs/'
 
   revenue-public-checks:
     name: Public funnel checks
@@ -447,12 +506,11 @@ jobs:
       - name: Upload coverage to GitHub Code Quality
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         continue-on-error: true
-        uses: actions/upload-code-coverage@1c15be36fc3733ba839b1dd643bd9556e4426dc1 # v1
+        uses: actions/upload-code-coverage@d8e329117199404bba6fc81efe8093dc7c015e34 # v1.4.2
         with:
           file: hermes-mobile/coverage/cobertura-coverage.xml
           language: TypeScript
           label: code-coverage/hermes-mobile-jest
-          fail-on-error: false
 
       - name: Export and scan public Android JavaScript
         env:

@@ -2,16 +2,19 @@ name: Merge-Ready Bot
 
 on:
   workflow_run:
-    workflows: ["CI", "CodeQL Analysis", "Dependabot"]
+    workflows: ["CI"]
     types:
       - completed
-  check_suite:
-    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: merge-ready-bot-${{ github.event.workflow_run.head_sha || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check_merge_readiness:
     runs-on: ubuntu-latest
-    if: github.event.check_suite == null || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     permissions:
       pull-requests: write
       contents: read

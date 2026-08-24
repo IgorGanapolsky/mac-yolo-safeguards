@@ -1253,6 +1253,49 @@ Commit is DCO-signed as `Igor Ganapolsky <iganapolsky@gmail.com>` with a `Co-Aut
 
 Unchanged in kind, sharper in scope this run: the block covers `block/buzz` writes generally, confirmed now at both `create_pull_request` and `add_issue_comment` specifically (not inferred from one endpoint to the other). Fork clone/build/test/push continue to work without issue from this session tier. Two more ready artifacts added to the backlog for a write-capable session: the #6218 fix (compare URL and PR body above) and the #6211 comment (full text above, ready to paste as-is).
 
+## 2026-08-19 — Run 16 (#6291 root-caused, fixed, and fully test-verified: unvalidated mention pubkeys signed into p-tags; access block reconfirmed with a new, more specific denial reason)
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+- **Canonical repo:** [`github.com/block/buzz`](https://github.com/block/buzz) — unchanged. Confirmed live via anonymous git-proxy read this run (no API access needed for this check): current `upstream/main` is `93114c9c` ("Fix mobile Activity thread navigation (#5850)", 2026-08-18T16:01:15-07:00), moved on from the prior run's `d2cfd377`.
+- **Access, sharper detail this run:** `add_repo(owner:"block", repo:"buzz", access:"push")` returned a *new* error shape not seen in the prior 15 runs: `"cross-tier adds are not supported in v1: requested block/buzz but session already has repos from owner(s) [igorganapolsky]. Start a new session with the requested repo as the initial source, or add a repo from the same owner as the existing sources"`. This is a session-scoping mechanic (one GitHub owner per session for push-tier attach), not the account-permission denial the log has documented since Run 6 — but the practical effect is the same: `block/buzz` cannot be attached for push from a session that already holds `igorganapolsky/*`. `mcp__github__create_pull_request(owner:"block", repo:"buzz", ...)` and `mcp__github__add_issue_comment(owner:"block", repo:"buzz", ...)` both returned the familiar `"Access denied: repository 'block/buzz' is not configured for this session. Allowed repositories: igorganapolsky/mac-yolo-safeguards, igorganapolsky/buzz"` — sixteenth consecutive confirmation at both the PR-create and comment-write layers. Read access to `block/buzz` via the anonymous git-proxy clone worked with no restriction, as in every prior run.
+- This run's session started scoped to only `igorganapolsky/mac-yolo-safeguards` (no `igorganapolsky/buzz`, unlike the end-state of prior runs) — `add_repo(owner:"igorganapolsky", repo:"buzz", access:"push")` re-attached it cleanly this run; no data lost, the fork itself is untouched between runs.
+
+### What was surveyed
+
+`WebFetch` on `block/buzz`'s open-issues list, sorted by creation date descending, covering the window since the prior run's cutoff (#6233 down through #6201, read by title only last time) through today's newest (#6295):
+
+| Issue | Topic | Action |
+|-------|-------|--------|
+| [#6291](https://github.com/block/buzz/issues/6291) | `buzz_sdk::builders::build_message` (and `build_forum_post`/`build_forum_comment`, which share the same `mention_tags()` helper) signs mention pubkeys into `p`-tags without validating they're actual hex pubkeys — non-hex strings, empty values, file paths all survive into signed events | **Fixed, tested, staged** (below) — squarely in-domain: this is exactly ThumbGate's shape of problem (an action fires and gets signed/published on the strength of unvalidated input, not a checked precondition), reported with a precise root cause and zero comments |
+| #6295, #6294, #6292 | Windows taskbar/notification bugs, a Home Assistant feature request | Titles read; not in Igor's stated domain (platform integration, not reliability/idempotency/write-gating) |
+| #6287 | Feature request: make agent create/role-edit approval configurable | Read title + summary; a policy/UX feature ask, not a root-caused bug with a technical gap to fill |
+| #6281 | `BUZZ_RELAY_URL` overloaded for three purposes, blocking private-network relay access | Read title + summary; a config/architecture design question, not something with a specific fix Igor's domain adds to |
+| #6280, #6276 | Desktop: agent visibility filtering inconsistency; Pulse @mentions don't notify while unfocused | Read titles; UI/notification-plumbing bugs, adjacent but not in the stated domain (agent reliability, idempotency, write-gating, leases, verification-vs-self-report) |
+| #6272 | Linux AppImage: WebKitWebProcess memory grows to ~12GB, OOM-killed, main process then crashes with SIGBUS | Read title + summary; a memory-leak/platform bug, outside domain and not something reachable without a running desktop instance to profile |
+| #6270 | `read_file`/`str_replace` don't expand leading `~` | Read title; a small, real bug but outside stated domain (path handling, not reliability/gating) |
+| #6268 | Agent runtime mis-reports a community-scope rejection as a false "self-attestation" error, plus mention picker doesn't label community origin | Read in full — root-caused, reproducible, with log evidence the reporter needs; a strong secondary candidate. Adjacent to domain (verification-vs-self-report: the runtime's own error message misrepresents what was actually checked) but not chosen this run — hard cap is one fix per run, and #6291 has a smaller, more surgical fix already sitting unused in the same file (`check_pubkey_hex`), making it the higher-confidence pick within this run's budget. Recorded as a strong next-run candidate. |
+| #6262 | `buzz mem patch`: stdin/patch input silently truncated at 65,535 bytes, surfaces as a bogus hunk-mismatch error | Read title + summary; in-domain-adjacent (silent truncation masquerading as a different failure) but CLI-scoped and not chosen this run given the cap |
+| #6233, #6221, #6215, #6212, #6209, #6202, #6201, #6197, #6192 | Carried over from last run's unread-by-title list | Still not read in full this run; budget went to #6291's fix and #6268's full read. Recorded honestly as unread, not triaged. |
+| #6211, #6206 | Already logged in full in the prior run (comment drafted/blocked for #6211; #6206 already fully diagnosed by its reporter) | Not re-investigated; no new information this run |
+
+### Investigation and fix for #6291 (this run — real engineering, not a draft)
+
+Read `crates/buzz-sdk/src/builders.rs` (`mention_tags`, `check_pubkey_hex`, `build_message`, `build_forum_post`, `build_forum_comment`) and `crates/buzz-sdk/src/mentions.rs` (`normalize_mention_pubkeys`) before touching anything:
+
+- Confirmed on current `upstream/main` (`93114c9c`) — not an old snapshot — that `mention_tags()` (the actual code path all three public builders call) does `hex.to_ascii_lowercase()` per entry with no hex/length check, then pushes a `["p", &lower]` tag straight into the event that gets signed. The issue's own reporter names `mention_tags()`/`normalize_mention_pubkeys()` — the bug is in `mention_tags`, the function `build_message` and friends actually call; `normalize_mention_pubkeys` in `mentions.rs` has the identical gap but is a separate, unused-by-these-builders pure helper, not itself in the signing path.
+- Found the fix already had its building block in the same file: `check_pubkey_hex(s, field)` (defined a few lines above `mention_tags`, used today only by `build_agent_observer_frame`) validates 64-char hex and lowercases in one call, and already returns `SdkError::InvalidInput` — no new error variant needed.
+- Fix: swapped `hex.to_ascii_lowercase()` for `check_pubkey_hex(hex, "mention pubkey")?` inside `mention_tags`'s loop. One-line functional change; every mention entry across all three builders (`build_message`, `build_forum_post`, `build_forum_comment`) is now validated before it can reach a signed tag.
+- Checked every real call site across the workspace (`buzz-cli`, `buzz-acp`, desktop `commands/messages.rs`, `commands/agent_discovery/relay_directory.rs`, `huddle/pipeline.rs`, the `countdown-bot` example) — all pass real `.pubkey.to_hex()`/resolved-pubkey values, none pass placeholder or malformed strings in non-test code, so this is a pure hardening fix with no expected behavior change for well-formed callers.
+
+#### Verification (executed this run — real output, not inferred)
+
+Scoped to the `buzz-sdk` crate (pure Rust, no Tauri/GUI toolchain needed) rather than attempting a full workspace build:
+
+- **Fail-before, proven in isolation:** reverted just the `mention_tags` line to the original `hex.to_ascii_lowercase()` while keeping the three new tests, ran `cargo test -p buzz-sdk --lib builders::tests::message_rejects` → **0 passed, 3 failed**. `message_rejects_wrong_length_mention_pubkey` panicked with `called Result::unwrap_err() on an Ok value: EventBuilder { ..., tags: [..., Tag(["p", "abc123"])], ... }` — reproducing the issue's exact symptom (garbage value signed into a live `p`-tag). Restored the fix.
+- **Pass-after, full crate:** `cargo test -p buzz-sdk --lib` → **265 passed, 0 failed, 0 ignored.**
+- `cargo clippy -p buzz-sdk --lib --tests -- -D warnings` → clean, zero warnings.
+- `cargo fmt -p buzz-sdk -- --check` → clean, no changes needed.
 ## 2026-08-19 — #6241 fixed, tested, and staged (build_add_member silently dropped self-targeted p tag); 15th consecutive run with zero write access to block/buzz, confirmed again at create_pull_request
 
 ### What was VERIFIED (Step 0 — reconfirmed)
@@ -1336,6 +1379,30 @@ Read `crates/buzz-cli/src/commands/mem.rs`'s `cmd_patch` and `cmd_set` before to
 
 | Action | Status | URL |
 |--------|--------|-----|
+| Fix branch for #6291, DCO-signed, full crate suite green | **Pushed to Igor's fork** | `IgorGanapolsky/buzz@fix/mention-tags-validate-pubkey-hex` |
+| PR to `block/buzz` | **Staged — one click** (API blocked, confirmed this run) | [compare/open PR](https://github.com/IgorGanapolsky/buzz/compare/main...IgorGanapolsky:buzz:fix/mention-tags-validate-pubkey-hex?expand=1) |
+| Full PR body, ready to paste | Committed to this repo | `coordination/buzz-pr-drafts/6291-mention-tags-validate-pubkey-hex.md` |
+| Comment on #6291 explaining the fix location | Attempted, blocked | — (same `add_issue_comment` denial as PR-create) |
+
+Commit is DCO-signed as `Igor Ganapolsky <iganapolsky@gmail.com>` with a `Co-Authored-By: Claude` trailer, based directly on current `upstream/main` (`93114c9c`) rather than the fork's stale `main` (`ce56e344`, 2026-08-03) — pushed as a new branch off the live upstream tip via a second remote (`fork`) added to the read-only `block/buzz` clone, so the diff applies cleanly against current upstream. No second PR opened (hard cap: 1/run). **ThumbGate is not mentioned anywhere in the branch, commit, PR draft, or the attempted #6291 comment** — this is an SDK input-validation bug with a fix that reuses Buzz's own existing helper; no positioning claim is relevant to state on the issue itself.
+
+### Positioning read: **neither** (unchanged, reconfirmed a sixteenth time)
+
+- Not a competitor — unchanged shape on both sides; Buzz remains a team workspace/chat+git+workflow fabric on Nostr, ThumbGate remains a cross-tool pre-action governance gate for arbitrary agent writes.
+- Not a partner — no relationship exists.
+- #6291 is the closest data point yet to ThumbGate's actual mechanism: a write (a signed, published Nostr event) proceeding on the strength of unchecked input, with the necessary check *already present in the codebase* but not wired into the one path that needed it. That is precisely the "verification vs. self-report" gap ThumbGate's pre-action gate targets — but it is a plain input-validation bug with a two-line fix inside Buzz's own SDK, not evidence of an architectural need for an external gating layer. Recorded as reinforcing the recurring theme, not as grounds to change the positioning read.
+
+### What was skipped and why
+
+- **#6268** — root-caused and reproducible, genuinely close to Igor's domain (a runtime misreporting what it actually verified), but not this run's pick: #6291 had a smaller, higher-confidence fix already half-built into the same file, and the hard cap is one fix per run. Strong candidate for a future run — no comment drafted or posted this run to avoid the "self-report vs. verified state" risk without being able to post it anyway.
+- **#6295, #6294, #6292, #6287, #6281, #6280, #6276, #6272, #6270, #6262** — read by title/summary only, judged out of domain or out of this run's scope; not investigated in full.
+- **#6233, #6221, #6215, #6212, #6209, #6202, #6201, #6197, #6192** — still unread since the prior run; recorded honestly as unread, not triaged.
+- **A comment on #6291** — attempted, blocked by the same access wall as PR-create (see Access above).
+- **Backlogged drafts from prior runs** (#4860, #5492, #5555, #5557, #5611, #5665, #5667, #5708, #5734, #5759, #5800, WF-08, #6175, #6211, #6218, and now #6291) — not re-verified this run.
+
+### Blocker status (report only — no action requested)
+
+Sixteenth consecutive run with zero write access to `block/buzz` from this environment tier. New this run: the access-control layer itself now surfaces a more specific reason at attach-time (`cross-tier adds are not supported in v1` — one GitHub owner per session for push-tier repo attachment) rather than only a blanket API denial, which narrows what a future write-capable session would need (a session whose *initial* source is `block/buzz`, or one that never attaches an `igorganapolsky/*` repo first, rather than a general permissions grant). Fork clone/build/test/push continue to work without issue. Three ready artifacts now sit in the backlog for a write-capable session: the #6218 fix, the #6211 comment, and now the #6291 fix (compare URL and PR body above).
 | Fix branch for #6241, DCO-signed, full crate suite green | **Pushed to Igor's fork** | `IgorGanapolsky/buzz@fix/build-add-member-allow-self-tagging` |
 | PR to `block/buzz` | **Staged — one click** (API blocked, confirmed this run) | [compare/open PR](https://github.com/IgorGanapolsky/buzz/pull/new/fix/build-add-member-allow-self-tagging) |
 | Full PR body, ready to paste | Committed to this repo | `coordination/buzz-pr-drafts/6241-build-add-member-allow-self-tagging.md` |
@@ -1384,3 +1451,70 @@ Commit is DCO-signed as `Igor Ganapolsky <iganapolsky@gmail.com>` with a `Co-Aut
 ### Blocker status (report only — no action requested)
 
 Unchanged in kind: `block/buzz` write access remains denied at `create_pull_request`, reconfirmed this run against two separate branches. Fork clone/build/test/push continue to work without issue. New and more consequential than the access wall itself this run: **this task's own concurrency is now producing measurable waste** — a full, independently-verified fix (#6241) had to be thrown away this run purely because another same-day firing had already done the identical work. A future run — or a change to how this task is scheduled — should check this repo's own open-PR queue for an existing `buzz-engagement`/fix-branch entry matching the issue under consideration *before* starting an investigation, not just before opening a PR at the end, to avoid spending fix-and-test effort on work that's already done. One new ready artifact added to the backlog for a write-capable session: the #6262 fix (compare URL and PR body above).
+
+---
+
+## 2026-08-20 — Run 19 (#6388 fixed, tested, pushed to fork: message edits invisible on read paths; 19th access-wall confirmation)
+
+### What was VERIFIED (Step 0 — reconfirmed)
+
+- **Canonical repo:** [`github.com/block/buzz`](https://github.com/block/buzz) — unchanged. Maintainer (Block), architecture (Nostr-based team workspace: chat + git + workflow automation across `buzz-relay`, `buzz-cli`, `buzz-sdk`, `buzz-acp`, desktop), and community surface all identical to every prior run.
+- **Open-PR-queue check (per Run 16's standing recommendation)**: `list_pull_requests(owner:"IgorGanapolsky", repo:"mac-yolo-safeguards", state:"open")` run *before* picking an issue. Latest same-day engagement PRs are #1893 (run 17 — #6329/#6319/#6313, no fix forced) and #1920 (run 18 — #6375 fixed). Also cross-checked the fork's remote branch list (`git ls-remote --heads origin`): no branch referencing #6388/#6389/#6390 or "edit" exists. No duplicate-work risk — #6388/#6389/#6390 were all filed after run 17/18's survey cutoffs.
+- **Access:** `add_repo(owner:"igorganapolsky", repo:"buzz", access:"push")` accepted; fresh shallow clone (fork `origin/main` still stale at `ce56e344`, 2026-08-03) with `upstream` fetched from `block/buzz` at `2e7583bf` (2026-08-20 10:16 -0600, "fix(desktop): distinguish duplicate agent devices (#6337)"). `add_repo(owner:"block", repo:"buzz", access:"push")` → same `cross-tier adds are not supported in v1` rejection as run 18 (session already holds `igorganapolsky/*`). `create_pull_request(owner:"block", repo:"buzz", ...)` attempted on the finished, tested branch → **denied**: `"Access denied: repository 'block/buzz' is not configured for this session."` 19th consecutive run with zero write access to `block/buzz` from this environment tier.
+
+### What was surveyed (open issues newer than #6375, run 18's cutoff)
+
+Pulled the newest-first open-issues page via `WebFetch`: #6391 down through #6376, plus #6375 (run 18's pick).
+
+| Issue | Topic | Action |
+|-------|-------|--------|
+| [#6388](https://github.com/block/buzz/issues/6388) | `messages edit` accepted (kind 40003) but `get`/`history`/`thread` still show the original kind 9 content — a write reported as succeeding, invisible on the authoritative read path | **Fixed, tested, pushed to fork** — see below |
+| [#6389](https://github.com/block/buzz/issues/6389) | `messages get` on a nonexistent/unauthorized channel returns `[]` and exits 0 — indistinguishable from a real empty channel; reporter wants fail-closed (nonzero exit) | **Read in full, not picked** — genuinely in-domain (fail-closed / verification), but a correct fix must distinguish nonexistent vs. unauthorized vs. empty, and the relay returns an empty set for all three; "unauthorized" is not separable from the relay response without a separate channel-existence probe (query kind 39000 for the `#d`), and even that can't distinguish unauthorized from nonexistent. That's a design-space decision (what should the CLI assert, and can it?), not a mechanical fix — declined rather than force a partial/possibly-wrong fail-closed. Recorded so a future run doesn't re-derive the relay-response ambiguity from zero. |
+| [#6390](https://github.com/block/buzz/issues/6390) | `channels list` `created_at` reflects the last kind 39000 metadata replacement (last state change), not channel birth time; reporter wants it fixed or renamed/documented | **Read in full, not picked** — real correctness/clarity bug in the pure `extract_channel_metadata` helper, but the only in-place fix is a rename of a JSON output field (breaking to scripts) or documentation; the true creation timestamp isn't in the replaceable kind 39000 event at all (it's in the original create event), so a value-correct fix needs an extra query per channel. Borderline the "no doc/rename-only PR" rule; not this run's pick. |
+| #6391, #6384, #6383, #6381, #6380, #6378, #6377, #6376 | clap arg-order UX (`--format` after subcommand), huddle video feature, AWS CDK deploy proposal, ACP idle-pool config, Desktop/Mobile @-picker & invite UX, ACP idle-pool teardown killing in-flight sessions (#6378, same class as still-unposted #4860), Windows alert setting, archive deletes local agent config | Read titles/summaries. #6378 is a genuine liveness-vs-activity bug in Igor's domain but (per run 18's own note on it) locating the idle-timer/activity code needs a full `buzz-acp` pool-lifecycle read — a dedicated-run job, and the 1-fix cap was already spent on #6388. Rest are UI/platform/feature/config-shaped, out of this run's domain. |
+
+### Fix for #6388 (this run — real engineering, verified, not a draft)
+
+Read `crates/buzz-cli/src/commands/messages.rs` (`cmd_get_messages`, `cmd_get_thread`, `normalize_events`, `format_events`) and `buzz-sdk`'s `build_edit` (kind 40003 with tags `["h", channel]`, `["e", target_event_id]`, content = new text) on current `upstream/main` before touching anything.
+
+- **Root cause, confirmed at source:** `cmd_get_messages`'s fetch filter is `kinds: [9, 40002, 40008, 45001, 45003]` — 40003 is absent, so `messages get` never even retrieves edit events and always returns the stale kind 9 content. `cmd_get_thread` *does* list 40003 in its filter (line 410), which is precisely why the reporter saw the thread render both the edit `F` and the original `E` as separate events — it fetches edits but never collapses them.
+- **Fix:** added `apply_message_edits`, a pure transform over the fetched event list. For each kind 40003 edit whose author matches the target message's author (a message may only be edited by its sender), the latest edit by `created_at` replaces the target's `content` (send-time `created_at` preserved) and the standalone edit event is dropped. Foreign-author edits and edits whose target isn't in the returned set are left untouched — no data silently discarded. Wired into both read paths; added 40003 to `cmd_get_messages`'s default filter. Reuses the existing `e`-tag/40003 conventions already in the codebase; no new dependencies.
+- Extracting the collapse into a pure `Vec<Value> -> Vec<Value>` function (rather than testing the commands end-to-end, which need a live `BuzzClient`) made the behavior directly unit-testable without new test infrastructure.
+
+#### Verification (executed this run — real output, not inferred)
+
+`buzz-cli` is a plain Rust binary crate (no Tauri/GUI/Postgres):
+
+- **Fail-before, isolated:** neutered `apply_message_edits` to an identity pass-through (kept the five new tests) → `edit_replaces_target_content_and_drops_edit_event` and `latest_edit_by_created_at_wins` both **FAILED**, exactly reproducing the issue (edited content invisible on read; edit shown alongside original). Restored the fix immediately.
+- **Pass-after, module:** `cargo test -p buzz-cli --lib commands::messages::tests` → **30 passed, 0 failed** (25 before this run's 5 new tests).
+- **Pass-after, full crate:** `cargo test -p buzz-cli --lib` → **355 passed, 0 failed, 0 ignored**.
+- `cargo clippy -p buzz-cli --lib --tests -- -D warnings` → clean, zero warnings.
+- `cargo fmt -p buzz-cli -- --check` → clean (one fmt pass on the new `edit()` test helper's signature, applied and reverified).
+
+### What was opened / answered this run
+
+| Action | Status | URL |
+|--------|--------|-----|
+| Fix branch for #6388, DCO-signed, full crate suite green | **Pushed to Igor's fork** | `IgorGanapolsky/buzz@fix/messages-get-apply-edits` |
+| PR to `block/buzz` | **Attempted, denied this run** (real `create_pull_request` call, rejected) | [compare/open PR](https://github.com/IgorGanapolsky/buzz/compare/main...IgorGanapolsky:buzz:fix/messages-get-apply-edits?expand=1) |
+| Full PR body, ready to paste | Committed to this repo | `coordination/buzz-pr-drafts/6388-messages-get-apply-edits.md` |
+
+Commit branched directly off `upstream/main` (`2e7583bf`), not the fork's stale default. No second fix (hard cap: 1/run) — #6389, #6390, #6378 read in full and declined as noted, not shallow-fixed to hit two-in-one. **ThumbGate is not mentioned anywhere in the branch, commit, PR draft, the access attempt, or this entry's technical content** — #6388 is a Buzz-internal CLI read-path bug.
+
+### Positioning read: **neither** (unchanged, reconfirmed a nineteenth time)
+
+- Not a competitor — Buzz remains a Nostr team-workspace fabric (chat + git + workflow); ThumbGate remains a cross-tool pre-action governance gate for arbitrary agent writes. No overlap in what either ships.
+- Not a partner — no relationship exists.
+- #6388 is the sharpest verification-vs-self-report data point yet in Igor's exact domain: a write the system **accepts and reports as succeeding** (the edit is stored, `messages edit` returns the 40003 event id) that is then **absent from the authoritative read** — the classic gap between "the action was recorded" and "the observable state reflects it." That is precisely the seam ThumbGate's pre-action gate reasons about. But note the direction: this is a *read-path reconciliation* bug (the edit really did land; the reader just didn't apply it), not a case of an unverified write being allowed through. A pre-action gate would not have prevented it — the write was legitimate. So it reinforces that "verify observable state, don't trust the success return" is a recurring real problem in this space, while also showing this particular instance is Buzz's own read-model bug, not an architectural gap an external gate closes. Positioning unchanged.
+
+### What was skipped and why
+
+- **#6389** — fail-closed on nonexistent/unauthorized channel; in-domain but blocked by relay-response ambiguity (nonexistent/unauthorized/empty all return `[]`). Needs a design decision, not a mechanical fix. Top backlog candidate if the maintainers clarify intended semantics.
+- **#6390** — `created_at` mislabel; only in-place fix is a breaking rename or an extra per-channel query. Borderline the no-rename-only rule.
+- **#6378** — real ACP idle-pool liveness bug (same class as still-unposted #4860); needs a full `buzz-acp` lifecycle read, a dedicated-run job. 1-fix cap already spent.
+- **A second fix/PR** — hard max 1/run; #6388 is this run's one counted fix.
+- **Re-verifying the standing backlog** (#4860, #5492, #5555, #5557, #5611, #5665, #5667, #5708, #5734, #5759, #5800, WF-08, #6175, #6211, #6218, #6240, #6262, #6291, #6319, #6329, #6363, #6375, #6378) — not re-checked this run; confirmed only that #6388 doesn't overlap any of them.
+
+### Blocker status (report only — no action requested)
+
+Nineteenth consecutive run with zero write access to `block/buzz` from this environment tier, reconfirmed at `create_pull_request` against a real, finished, fully-tested fix. Fork clone/build/test/push work without issue. One new ready artifact added to the backlog for a write-capable session: the #6388 fix (branch, compare URL, PR body above). Code and tests are done and waiting, same as every prior run's staged fixes.

@@ -297,23 +297,33 @@ try {
         return false;
       }
     }
-    const browser = await chromium.launch({ headless: true });
+    const browser = await chromium.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+    });
     try {
       const context = await browser.newContext();
       await context.addCookies([
         {
           name: "hermes_session",
           value: SESSION_TOKEN,
-          domain: "127.0.0.1",
-          path: "/",
-          httpOnly: true,
+          url: base,
           sameSite: "Lax",
         },
       ]);
       const page = await context.newPage();
-      await page.goto(`${base}/dashboard`, { waitUntil: "networkidle", timeout: 60_000 });
+      page.on("pageerror", (err) => console.error("[BROWSER ERROR]", err));
+      page.on("console", (msg) => console.log(`[BROWSER CONSOLE] ${msg.type()}: ${msg.text()}`));
+      page.on("requestfailed", (req) => console.error("[REQUEST FAILED]", req.url(), req.failure()?.errorText));
+      await page.goto(`${base}/dashboard`, { waitUntil: "domcontentloaded", timeout: 30_000 });
       // Continuity-only composer: visible Output pane, no RUN ON dual picker.
-      await page.waitForSelector('[data-testid="run-output"]', { timeout: 30_000 });
+      try {
+        await page.waitForSelector('[data-testid="run-output"]', { timeout: 20_000 });
+      } catch (e) {
+        console.error("PAGE URL AT FAILURE:", page.url());
+        console.error("PAGE CONTENT AT FAILURE:\n", await page.content());
+        throw e;
+      }
       const output = page.locator('[data-testid="run-output"]');
       assert.equal(await output.count(), 1, "Output pane must be visible");
       const label = await output.locator(".eyebrow").first().textContent();
@@ -326,8 +336,27 @@ try {
       assert.equal(await page.locator("text=Open Continuity settings").count(), 0);
       assert.equal(await page.locator('[data-testid="open-settings"]').count(), 1);
       const chromeText = await page.locator("body").innerText();
+      assert.doesNotMatch(chromeText, /ThumbGate online/i);
       assert.doesNotMatch(chromeText, /Which Mac\?/);
       assert.doesNotMatch(chromeText, /\bMy Mac\b/);
+      const desktopGeometry = await page.evaluate(() => {
+        const chips = document.querySelector(".quick-continuation-chips");
+        const label = document.querySelector('[data-testid="run-output"] .eyebrow');
+        const body = document.querySelector('[data-testid="run-output"] p:not(.eyebrow)');
+        const chipsStyle = chips ? getComputedStyle(chips) : null;
+        const labelRect = label?.getBoundingClientRect();
+        const bodyRect = body?.getBoundingClientRect();
+        return {
+          pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          chipsDisplay: chipsStyle?.display,
+          chipsGap: Number.parseFloat(chipsStyle?.gap || "0"),
+          outputSeparated: Boolean(labelRect && bodyRect && bodyRect.top >= labelRect.bottom),
+        };
+      });
+      assert.ok(desktopGeometry.pageOverflow <= 1, `desktop page overflowed by ${desktopGeometry.pageOverflow}px`);
+      assert.equal(desktopGeometry.chipsDisplay, "flex");
+      assert.ok(desktopGeometry.chipsGap > 0, "desktop continuation prompts must have visible gaps");
+      assert.equal(desktopGeometry.outputSeparated, true, "Output label and body must not overlap");
       // Submit through Continuity-only composer (no machine picker).
       await page.fill('textarea[aria-label="Message for Hermes"]', "browser e2e on Continuity");
       await page.click("button.composer-run");
@@ -338,6 +367,18 @@ try {
       assert.doesNotMatch(bodyText, /\bMy Mac\b/);
       const outputText = await output.innerText();
       assert.match(outputText, /Output/i);
+
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.locator('[data-testid="run-output"]').waitFor({ state: "visible" });
+      const mobileGeometry = await page.evaluate(() => ({
+        pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        chipsDisplay: getComputedStyle(document.querySelector(".quick-continuation-chips")).display,
+        outputWidth: document.querySelector('[data-testid="run-output"]')?.getBoundingClientRect().width ?? 0,
+      }));
+      assert.ok(mobileGeometry.pageOverflow <= 1, `mobile page overflowed by ${mobileGeometry.pageOverflow}px`);
+      assert.equal(mobileGeometry.chipsDisplay, "flex");
+      assert.ok(mobileGeometry.outputWidth > 0 && mobileGeometry.outputWidth <= 390, "mobile Output pane must stay visible and bounded");
       return true;
     } finally {
       await browser.close();

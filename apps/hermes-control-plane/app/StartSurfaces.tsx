@@ -1,4 +1,5 @@
 import { StoreBadgeRow } from "./StoreBadges";
+import { HostedCheckoutCta } from "./HostedCheckoutCta";
 import styles from "./start-surfaces.module.css";
 
 /**
@@ -57,14 +58,9 @@ export function StartSurfaces() {
                 <span>No install script. Start in this tab.</span>
               </li>
             </ul>
-            <a
-              href="/api/auth/login"
-              className="button button-primary"
-              data-funnel-event="hosted_checkout_click"
-              data-testid="start-browser"
-            >
+            <HostedCheckoutCta testId="start-browser">
               Start hosted Hermes — $10/mo
-            </a>
+            </HostedCheckoutCta>
           </div>
 
           <aside className={styles.card} data-testid="agent-identity-card" aria-label="Hosted Hermes identity">
