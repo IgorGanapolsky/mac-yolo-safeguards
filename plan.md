@@ -3609,3 +3609,17 @@ Complement to AGENT-476 / PR #1984. Does **not** steal DashboardClient.tsx. Code
 
 - PR #1986 merged commit `64a6e43d2` while PR #1983 was under review and retains active ownership of the dashboard statusline layout, component, API, tests, and intent contract.
 - T-AGENT-476 is blocked under the no-cross-owner-edit rule. PR #1983 now preserves PR #1986 files exactly and is narrowed to T-AGENT-476-INCIDENT: readable quick prompts/output, mobile overflow proof, generic `ThumbGate online` badge removal, and safe fenced-VPS execution for prompts containing a local path plus a GitHub repository URL.
+
+## T-CF-DEVELOPER-STACK-20260824 (append 2026-08-24T16:40:00Z) — agent `grok-cf-developer-stack`
+
+developers.cloudflare.com high-ROI steal. **Mechanics not products.** Markdown for Agents (`Accept: text/markdown` + token headers), wrangler `compatibility_date >= 2026-03-24` for Browser Run quickAction, AI crawl policy (public ALLOW / dashboard DENY), contextual 403 `documentation_url`. Linear **AGENT-490**.
+
+Does **not** clone Workers AI, AI Gateway, Vectorize, Agents SDK, Wallets, Flagship, Workflows, Sandbox, Cloudflare One. Does **not** enable billable traces. Does **not** restore Continuity / Mac-pair.
+
+### File claims
+- `tools/cloudflare-developer-stack.js` (new)
+- `tests/test-cloudflare-developer-stack.js` (new)
+- `.agents/skills/cloudflare-developer-stack/` (new)
+- `SKILLS.md` (append row)
+- `.agents/skills/sources.yml` (append in_repo name)
+- `plan.md` (this append)
