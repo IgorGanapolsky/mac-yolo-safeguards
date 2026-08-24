@@ -62,9 +62,73 @@ function parseInlineSpans(line: string): InlineSpan[] {
   return spans.filter((span) => span.text.length > 0);
 }
 
+/** Clean raw LLM DSML or tool-call tags into human-readable action summaries. */
+export function cleanToolMarkup(text: string): string {
+  if (!text) return text;
+  let cleaned = text;
+
+  // 1. Clean DSML tool_calls (< | DSML | tool_calls>...</ | DSML | tool_calls>)
+  cleaned = cleaned.replace(/<\s*\|\s*DSML\s*\|\s*tool_calls\s*>([\s\S]*?)<\s*\/\s*\|\s*DSML\s*\|\s*tool_calls\s*>/gi, (_match, body) => {
+    const invokeRegex = /<\s*\|\s*DSML\s*\|\s*invoke\s+name="([^"]+)"\s*>([\s\S]*?)<\s*\/\s*\|\s*DSML\s*\|\s*invoke\s*>/gi;
+    const parts: string[] = [];
+    let invokeMatch;
+    while ((invokeMatch = invokeRegex.exec(body)) !== null) {
+      const toolName = invokeMatch[1];
+      const paramsBody = invokeMatch[2];
+      const paramRegex = /<\s*\|\s*DSML\s*\|\s*parameter\s+name="([^"]+)"[^>]*>([\s\S]*?)<\s*\/\s*\|\s*DSML\s*\|\s*parameter\s*>/gi;
+      let command = "";
+      let description = "";
+      const otherParams: Record<string, string> = {};
+      let paramMatch;
+      while ((paramMatch = paramRegex.exec(paramsBody)) !== null) {
+        const pName = paramMatch[1];
+        const pVal = paramMatch[2].trim();
+        if (pName === "command") command = pVal;
+        else if (pName === "description") description = pVal;
+        else otherParams[pName] = pVal;
+      }
+      let summary = `⚡ \`${toolName}\``;
+      if (description) summary += ` — *${description}*`;
+      if (command) {
+        parts.push(`${summary}\n\`\`\`bash\n${command}\n\`\`\``);
+      } else if (Object.keys(otherParams).length) {
+        parts.push(`${summary}\n\`\`\`json\n${JSON.stringify(otherParams, null, 2)}\n\`\`\``);
+      } else {
+        parts.push(summary);
+      }
+    }
+    return parts.length ? '\n\n' + parts.join('\n\n') + '\n\n' : '';
+  });
+
+  // 2. Clean standard <tool_call> tags
+  cleaned = cleaned.replace(/<\s*tool_call\s*>([\s\S]*?)<\s*\/\s*tool_call\s*>/gi, (_match, body) => {
+    try {
+      const parsed = JSON.parse(body.trim());
+      const name = parsed.name || 'tool';
+      const args = parsed.arguments || parsed.parameters || parsed;
+      const cmd = typeof args === 'object' && args.command ? args.command : null;
+      if (cmd) {
+        return `\n\n⚡ Running \`${name}\`\n\`\`\`bash\n${cmd}\n\`\`\`\n\n`;
+      }
+      return `\n\n⚡ Running \`${name}\`\n\`\`\`json\n${JSON.stringify(args, null, 2)}\n\`\`\`\n\n`;
+    } catch {
+      return `\n\n\`\`\`json\n${body.trim()}\n\`\`\`\n\n`;
+    }
+  });
+
+  // 3. Strip any stray dangling DSML or tool call tags
+  cleaned = cleaned
+    .replace(/<\s*\/?\s*\|\s*DSML[\s\S]*?>/gi, '')
+    .replace(/<\s*\/?\s*tool_calls\s*>/gi, '')
+    .replace(/<\s*\/?\s*tool_call\s*>/gi, '');
+
+  return cleaned;
+}
+
 /** Normalize markdown spacing without stripping structure markers. */
 export function normalizeMarkdownSpacing(text: string): string {
-  return text
+  const cleaned = cleanToolMarkup(text);
+  return cleaned
     .replace(/\r\n/g, '\n')
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')

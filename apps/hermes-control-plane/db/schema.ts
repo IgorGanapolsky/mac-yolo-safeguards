@@ -189,7 +189,10 @@ export const auditEvents = sqliteTable("audit_events", {
   targetId: text("target_id"),
   metadata: text("metadata").notNull().default("{}"),
   createdAt: integer("created_at").notNull(),
-});
+}, (table) => [
+  index("audit_events_created_idx").on(table.createdAt),
+  index("audit_events_action_created_idx").on(table.action, table.createdAt),
+]);
 
 export const billingEvents = sqliteTable("billing_events", {
   eventId: text("event_id").primaryKey(),
