@@ -26,6 +26,8 @@ export interface PendingTaskRow {
   id: string;
   status: string;
   createdAt: number;
+  /** Refreshed every time the row re-enters a queued state. */
+  updatedAt?: number | null;
 }
 
 const UNCLAIMED = new Set<string>(UNCLAIMED_STATUSES);
@@ -40,6 +42,22 @@ const UNCLAIMED = new Set<string>(UNCLAIMED_STATUSES);
 export function staleUnclaimedTaskIds(rows: PendingTaskRow[], now: number = Date.now()): string[] {
   const cutoff = now - TASK_PICKUP_TIMEOUT_MS;
   return rows
-    .filter((row) => UNCLAIMED.has(row.status) && Number(row.createdAt) <= cutoff)
+    .filter((row) => UNCLAIMED.has(row.status) && queuedSince(row) <= cutoff)
     .map((row) => row.id);
+}
+
+/**
+ * The moment a row most recently *entered* an unclaimed state, which is what
+ * the timeout must be measured from.
+ *
+ * created_at is the wrong clock for a requeue. POST /api/tasks/failover moves
+ * an old 'needs_failover' task to 'cloud_pending' and refreshes updated_at; a
+ * device heartbeat requeue does the same. Judging those by original creation
+ * time cancels a failover the operator approved seconds ago, because the row
+ * was born hours earlier. updated_at is refreshed by every one of those
+ * transitions, so it is the age of the current wait.
+ */
+export function queuedSince(row: PendingTaskRow): number {
+  const updated = Number(row.updatedAt);
+  return Number.isFinite(updated) && updated > 0 ? updated : Number(row.createdAt);
 }
