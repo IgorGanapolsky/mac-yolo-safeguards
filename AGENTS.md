@@ -82,6 +82,8 @@ Tables and full protocol: [docs/agents/decision-stack.md](./docs/agents/decision
 
 Full policy (Dependabot, security alerts, CI queue storms, Code Quality): [docs/agents/shipping-and-hygiene.md](./docs/agents/shipping-and-hygiene.md).
 
+**CEO PR/system-hygiene closeout:** use the evidence contract in [docs/agents/shipping-and-hygiene.md](./docs/agents/shipping-and-hygiene.md#ceo-pr-and-system-hygiene-closeout); never replace it with a canned completion claim.
+
 ## Protected components (verify after each change)
 
 1. ThumbGate MCP retrieval — `mcp__thumbgate__recall` must return relevant results after each capture

@@ -4,6 +4,10 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 
 | Skill | Description | Definition | Source |
 | :--- | :--- | :--- | :--- |
+| `structural-refactoring-engine` | SWE-Bench ProMax-style Structural AST Refactoring, Concurrency Invariant Sentinel & Zero-Entropy Atomic Rollback Engine | `.agents/skills/structural-refactoring-engine/SKILL.md` | local |
+| `future-agi-self-healing-engine` | Future AGI Self-Healing Agent Engine, Adversarial Persona Simulation, OTel Span Tracing & Automated Guardrail Patch Synthesizer for all coding agents on Igor's Mac. | `.agents/skills/future-agi-self-healing-engine/SKILL.md` | local |
+| `local-first-sync-engine` | Local-First Sync Engine & Reactive Collection Architecture (ElectricSQL / TanStack DB style, query-driven sync, optimistic mutations with transactional rollback) for all coding agents on Igor's Mac. | `.agents/skills/local-first-sync-engine/SKILL.md` | local |
+| `nvidia-nemo-switchyard-engine` | NVIDIA Nemotron 3.5 Lightning & NeMo Switchyard Engine (30B MoE / 3B active parameters, step-level agentic routing, 77% cost reduction & 70% latency speedup) for all coding agents on Igor's Mac. | `.agents/skills/nvidia-nemo-switchyard-engine/SKILL.md` | local |
 | `solar-pro-workhorse-router` | Upstage Solar Pro 4 Workhorse Reliability & Economic Agent Router. Implements 3-tier model routing (Frontier vs Workhorse vs Local), 90% token cost reduction for document/schema tasks, and tabular extraction integrity verification (71 AA-LCR). | `.agents/skills/solar-pro-workhorse-router/SKILL.md` | local |
 | `shift-zero-production-engineering` | Production AI engineering disciplines (intentional multi-tenant DynamoDB/vector retrieval, shift-zero in-prompt threat modeling, and AI tech debt lifecycle governance) for autonomous coding agents. | `.agents/skills/shift-zero-production-engineering/SKILL.md` | local |
 | `teamviewer-dex-instruction-engine` | TeamViewer DEX (Digital Employee Experience) Instruction Runner, Dynamic Parameter Validator, Bounded Remote Target Guard & AI Session Summary Distiller stolen from TeamViewer. | `.agents/skills/teamviewer-dex-instruction-engine/SKILL.md` | local |
@@ -82,3 +86,7 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 *Last synchronized: 2026-08-18T19:10:00.000Z*
 *Last synchronized: 2026-08-18T20:05:00.000Z*
 | `agent-harness-router` | Agent harness router consolidating TrueFoundry TrueForge, Martech, GLM-5.3, and Futurism ideas: model routing by cost/latency/quality/privacy, $10/mo fail-closed budget enforcement, discovery capture of scattered AI wins, private benchmark validation, model portability scoring. Never captures keystrokes/clicks/local activity (fail-closed ChatGPT Computer History alternative). | `~/workspace/git/igor/mac-yolo-safeguards/.agents/skills/agent-harness-router/SKILL.md` | local |
+| `openbot-action-gateway` | CopilotKit OpenBot AG-UI Action Gateway, Per-Agent Sandboxed Coworkers & Deterministic Policy Interdiction Engine for ThumbGate. | `.agents/skills/openbot-action-gateway/SKILL.md` | local |
+| `explainx-trending-rag` | Autonomous ExplainX.ai Trending Ingestion, Data Science/ML TF-IDF Ranking & Agentic RAG Strategy Optimizer for ThumbGate. | `.agents/skills/explainx-trending-rag/SKILL.md` | local |
+| `self-healing-engine` | Autonomous Zero-Crash Self-Healing, Self-Improving & Self-Learning Engine for ThumbGate.app and Hermes Harnesses. | `.agents/skills/self-healing-engine/SKILL.md` | local |
+

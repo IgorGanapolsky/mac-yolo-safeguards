@@ -12,6 +12,7 @@ import {
 } from "./LandingAuthChrome";
 import { BrandMark } from "./BrandMark";
 import { StartSurfaces } from "./StartSurfaces";
+import { HostedCheckoutCta } from "./HostedCheckoutCta";
 import styles from "./landing.module.css";
 import {
   CONTINUITY_PRICE_TIERS,
@@ -333,7 +334,7 @@ export default function Home() {
           <article>
             <h3>Yes</h3>
             <p>Keep one agent alive 14 days on a VPS. Approve in the browser. If it dies when the laptop sleeps, the trial failed. Cancel anytime. No cash-ROI refund theater.</p>
-            <p><a href="/api/auth/login" className="button button-primary" data-funnel-event="hosted_checkout_click">{PRO_CTA}</a></p>
+            <p><HostedCheckoutCta>{PRO_CTA}</HostedCheckoutCta></p>
           </article>
           <article>
             <h3>No</h3>
@@ -388,6 +389,33 @@ export default function Home() {
           <li><span>02</span><div><h3>Start the $10 trial</h3><p>A paid plan unlocks the fenced cloud VPS runner under your plan caps.</p></div></li>
           <li><span>03</span><div><h3>Dispatch work</h3><p>Agents run on a fenced VPS with pre-action gates. Not on your laptop.</p></div></li>
         </ol>
+        <div className="quickstart-box" style={{
+          marginTop: "24px",
+          padding: "16px 20px",
+          borderRadius: "8px",
+          background: "rgba(0, 0, 0, 0.4)",
+          border: "1px solid var(--line)",
+          fontFamily: "monospace",
+          fontSize: "13px",
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", flexWrap: "wrap", gap: "8px" }}>
+            <span style={{ color: "var(--text-secondary)", fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              ⚡ 60-Second Quickstart (Zero-Install SDK)
+            </span>
+            <span style={{ color: "#10b981", fontSize: "11px", background: "rgba(16, 185, 129, 0.15)", padding: "2px 8px", borderRadius: "4px" }}>
+              OTel Tracing + 0ms Pre-Action WriteGuard
+            </span>
+          </div>
+          <pre style={{ margin: 0, color: "var(--brand-terminal)", overflowX: "auto", whiteSpace: "pre-wrap" }}>
+{`# 1. Initialize ThumbGate client
+npx @thumbgate/cli init
+
+# 2. Protect any agent with pre-action interdiction & OTel tracing
+import { ThumbGate } from "@thumbgate/sdk";
+const tg = new ThumbGate();
+await tg.protect(agentStep);`}
+          </pre>
+        </div>
       </section>
 
       <section id="how-it-works" className="section-block">
@@ -434,9 +462,9 @@ export default function Home() {
           </article>
         </div>
         <div className="hero-actions" style={{ marginTop: "32px" }}>
-          <a href="/api/auth/login" className="button button-primary" data-funnel-event="hosted_checkout_click">
+          <HostedCheckoutCta>
             {PRO_CTA} <span aria-hidden="true">→</span>
-          </a>
+          </HostedCheckoutCta>
         </div>
       </section>
 
@@ -587,7 +615,7 @@ export default function Home() {
         <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate <small>Hosted Hermes</small></span></Link>
         <p>Hosted Hermes on a fenced VPS · closed-system · flat $10/month · cancel anytime.</p>
         <p><Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link> · <Link href="/blog">Blog</Link></p>
-        <p><a href="/api/auth/login" className="button button-primary" data-funnel-event="hosted_checkout_click">{PRO_CTA}</a></p>
+        <p><HostedCheckoutCta>{PRO_CTA}</HostedCheckoutCta></p>
       </footer>
     </main>
   );
