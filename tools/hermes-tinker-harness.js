@@ -92,13 +92,40 @@ function parseSupportedModels(raw = process.env.TINKER_SUPPORTED_MODELS_JSON || 
   }
 }
 
+// Streamed count: captures can exceed Node's string cap (~512MB), so a
+// whole-file readFileSync('utf8') throws before the first row is counted.
+function countNonBlankLines(filePath) {
+  const fd = fs.openSync(filePath, 'r');
+  try {
+    const chunk = Buffer.alloc(1 << 20);
+    let rows = 0;
+    let lineHasContent = false;
+    let bytesRead;
+    while ((bytesRead = fs.readSync(fd, chunk, 0, chunk.length)) > 0) {
+      for (let i = 0; i < bytesRead; i += 1) {
+        const byte = chunk[i];
+        if (byte === 0x0a) {
+          if (lineHasContent) rows += 1;
+          lineHasContent = false;
+        } else if (byte !== 0x0d && byte !== 0x20 && byte !== 0x09) {
+          lineHasContent = true;
+        }
+      }
+    }
+    if (lineHasContent) rows += 1;
+    return rows;
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
 function datasetMetadata(filePath) {
   if (!fs.existsSync(filePath)) return { exists: false, rows: 0, bytes: 0, privateMode: false };
   const stat = fs.lstatSync(filePath);
   if (!stat.isFile() || stat.isSymbolicLink()) {
     return { exists: true, rows: 0, bytes: stat.size, privateMode: false, unsafeType: true };
   }
-  const rows = fs.readFileSync(filePath, 'utf8').split(/\r?\n/).filter((line) => line.trim()).length;
+  const rows = countNonBlankLines(filePath);
   return {
     exists: true,
     rows,
