@@ -3613,3 +3613,14 @@ Complement to AGENT-476 / PR #1984. Does **not** steal DashboardClient.tsx. Code
 ## 2. File Ownership Map (append-only lock table — claim before touching) [continued 2026-08-24]
 
 - `apps/hermes-control-plane/build/cloudflare-target.mjs`, `apps/hermes-control-plane/worker/index.ts`, `apps/hermes-control-plane/worker/edge-policy.ts`, `apps/hermes-control-plane/lib/cloudflare-edge-policy.test.ts`, `tests/test-hermes-cloudflare-deploy-config.js`, `plan.md` (append only) → **codex-cloudflare-edge-roi-2011** (GH #2011: Cloudflare-native write throttling, version-scoped anonymous public Cache API, Smart Placement; exclude PR #2010 Kitesurf/x402 files and all active dashboard/API-route claims) (2026-08-24T20:11:00Z)
+## T-HOSTED-VPS-DEFAULT-20260824 (append 2026-08-24T16:05:00Z) — agent `grok-hosted-vps-default`
+
+CEO: no Continuity option; UI forces Mac pairing. Product lock is hosted VPS. `pickDefaultDeviceId` + localStorage auto-selected a paired Mac so `createTask` sent `deviceId` despite `routePreference: "cloud"`.
+
+Does not add a Continuity/RUN ON picker. Hosted VPS is default; pairing is optional `<details>`.
+
+### File claims
+- `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx` (default device + Leash/Settings copy only) → **grok-hosted-vps-default** (AGENT-485)
+- `apps/hermes-control-plane/tests/hosted-vps-default.test.mjs` (new)
+- `apps/hermes-control-plane/tests/frictionless-onboarding.test.mjs` (hosted-default assertions only)
+- `plan.md` (this append)
