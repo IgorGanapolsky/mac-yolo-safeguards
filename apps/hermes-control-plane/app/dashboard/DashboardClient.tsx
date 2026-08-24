@@ -1,6 +1,7 @@
 "use client";
 
-import { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, FormEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { BrandMark } from "../BrandMark";
 import { FormattedMessage } from "../FormattedMessage";
 import { SignOutForm } from "../SignOutForm";
@@ -16,6 +17,23 @@ import {
   writeJsonSessionStorage,
 } from "@/lib/dashboard-nav-cache";
 import { resolveComposerRunCta } from "@/lib/composer-run-cta";
+import { scheduleOneShotErrorRetry, startActiveTaskRefresh, startDashboardRefresh } from "@/lib/dashboard-refresh";
+import { orderTasksChronologically } from "@/lib/dashboard-task-order";
+import {
+  snapshotMessageMeta,
+  taskOutputMeta,
+  taskPromptMeta,
+  type ConversationMessageMeta,
+} from "@/lib/conversation-message-meta";
+import {
+  hasPendingConversationTasks,
+  mergeConversationTasks,
+  mergeTasksForTaskList,
+  pruneResolvedOptimistic,
+  scrollConversationHistoryToLatest,
+  type ConversationTask,
+  type TaskLike,
+} from "@/lib/conversation-send-visibility";
 import {
   HOSTED_NOT_COMPUTER_HISTORY,
   hostedConnectionCopy,
@@ -53,11 +71,16 @@ type Device = {
 };
 type Thread = { id: string; title: string; taskCount: number; updatedAt: number; source: string; model: string | null; preview: string | null; messageCount: number; sourceSessionId: string | null; syncedAt: number | null; deviceName: string | null };
 type Task = { id: string; threadId: string; threadTitle: string; prompt: string; status: string; route: string; result: string | null; error: string | null; createdAt: number; updatedAt: number; completedAt: number | null; deviceName: string | null };
-type ThreadDetails = { snapshot: Array<{ role: string; content: string }>; tasks: Array<{ id: string; prompt: string; result: string | null; error: string | null; route: string; status: string; createdAt: number }> };
+type ThreadDetails = {
+  syncedAt?: number | null;
+  snapshot: Array<{ role: string; content: string; createdAt?: number | null }>;
+  tasks: Array<{ id: string; prompt: string; result: string | null; error: string | null; route: string; status: string; createdAt: number; completedAt?: number | null; deviceName?: string | null }>;
+};
 type Feedback = { taskId: string; signal: "up" | "down"; note: string | null; updatedAt: number };
 type ChatDialog = { kind: "rename" | "delete"; thread: Thread } | { kind: "clear" };
 
 const terminal = new Set(["completed", "failed"]);
+const autonomouslyProgressing = new Set(["pending", "cloud_pending", "local_pending", "running"]);
 const pairingCodePattern = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/;
 const connectorInstallCommand = "curl -fsSL https://raw.githubusercontent.com/IgorGanapolsky/mac-yolo-safeguards/main/saas/install-connector.sh | bash";
 const chatRailPreferenceKey = "thumbgate.chatRailExpanded";
@@ -141,7 +164,7 @@ function taskListEmptyCopy(input: {
   };
 }
 
-function taskReceiptLabel(task: { route: string; deviceName: string | null; status: string }): string {
+function taskReceiptLabel(task: { route: string; deviceName?: string | null; status: string }): string {
   if (task.route === "cloud") return "☁ hosted Hermes · fenced · 90s lease";
   if (task.route === "local") {
     const host = task.deviceName?.trim() || "Hermes machine";
@@ -150,17 +173,9 @@ function taskReceiptLabel(task: { route: string; deviceName: string | null; stat
   return "Ⅱ Awaiting route · fenced when claimed";
 }
 
-/** Prefer online machines, then most recently seen — only when the user has no saved pick. */
-function pickDefaultDeviceId(nextDevices: Device[], preferredId: string | null | undefined): string {
-  if (!nextDevices.length) return "";
-  if (preferredId && nextDevices.some((device) => device.id === preferredId)) return preferredId;
-  const sorted = [...nextDevices].sort((left, right) => {
-    const leftOnline = left.online || left.presence === "online" ? 1 : 0;
-    const rightOnline = right.online || right.presence === "online" ? 1 : 0;
-    if (rightOnline !== leftOnline) return rightOnline - leftOnline;
-    return (right.lastSeenAt ?? 0) - (left.lastSeenAt ?? 0) || left.name.localeCompare(right.name);
-  });
-  return sorted[0]?.id ?? "";
+/** Hosted VPS is the default run target. Never auto-pick a paired Mac. */
+function pickDefaultDeviceId(_nextDevices: Device[], _preferredId: string | null | undefined): string {
+  return "";
 }
 
 function latency(milliseconds: number | null) {
@@ -183,8 +198,57 @@ function formatDateTime(timestamp: number) {
   }).format(new Date(timestamp));
 }
 
-function sortThreadsNewestFirst(nextThreads: Thread[]) {
-  return [...nextThreads].sort((left, right) =>
+function ConversationMeta({ meta }: { meta: ConversationMessageMeta }) {
+  return (
+    <div
+      className="task-top"
+      data-testid="conversation-message-meta"
+      data-timestamp-source={meta.timestampSource ?? "none"}
+    >
+      <span className={`task-status status-${meta.status}`}>{meta.status.replaceAll("_", " ")}</span>
+      {meta.timestamp ? (
+        <time dateTime={new Date(meta.timestamp).toISOString()}>
+          {meta.timestampSource === "sync" ? "Synced " : ""}{formatDateTime(meta.timestamp)}
+        </time>
+      ) : (
+        <time>Time unavailable</time>
+      )}
+    </div>
+  );
+}
+
+function TurnStatusline({
+  engine = "Ollama (http://localhost:11434/v1/models)",
+  ttft = "<10ms",
+  cost = "$0.00",
+}: {
+  engine?: string;
+  ttft?: string;
+  cost?: string;
+}) {
+  return (
+    <div className="turn-statusline" data-testid="turn-statusline">
+      <span className="statusline-tag">
+        <span role="img" aria-label="chart">📊</span> <strong>Turn Statusline</strong>
+      </span>
+      <span className="statusline-sep">|</span>
+      <span>
+        <strong>Engine:</strong> {engine}
+      </span>
+      <span className="statusline-sep">|</span>
+      <span>
+        <strong>TTFT:</strong> <span className="statusline-metric">{ttft}</span>
+      </span>
+      <span className="statusline-sep">|</span>
+      <span>
+        <strong>Cost:</strong> <span className="statusline-metric">{cost}</span>
+      </span>
+    </div>
+  );
+}
+
+function sortThreadsNewestFirst(nextThreads: Thread[] = []) {
+  return [...(nextThreads ?? [])].sort((left, right) =>
     Number(right.updatedAt) - Number(left.updatedAt) || right.id.localeCompare(left.id)
   );
 }
@@ -205,43 +269,34 @@ function clampSidebarWidth(width: number) {
 }
 
 export default function DashboardClient() {
-  /** Shell-first: hydrate from sessionStorage so revisits paint before network. */
-  const [user, setUser] = useState<User | null>(() => {
-    const cached = readJsonSessionStorage<CachedIdentity<User, Organization>>(DASHBOARD_CACHE_KEYS.me);
-    return cached?.user ?? null;
-  });
-  const [organization, setOrganization] = useState<Organization | null>(() => {
-    const cached = readJsonSessionStorage<CachedIdentity<User, Organization>>(DASHBOARD_CACHE_KEYS.me);
-    return cached?.organization ?? null;
-  });
+  /** First client render matches server HTML; the mount effect restores the cached shell. */
+  const [user, setUser] = useState<User | null>(null);
+  const [organization, setOrganization] = useState<Organization | null>(null);
   /** CoreWeave-style remaining capacity from /api/me (governance-enforced caps). */
   const [continuityUsage, setContinuityUsage] = useState<ContinuityUsage | null>(null);
   const [hostedRunner, setHostedRunner] = useState<HostedResourceView | null>(null);
   const [hostedModel, setHostedModel] = useState<HostedResourceView | null>(null);
   const [devices, setDevices] = useState<Device[]>([]);
-  const [threads, setThreads] = useState<Thread[]>(() => readJsonSessionStorage<Thread[]>(DASHBOARD_CACHE_KEYS.threads) ?? []);
-  const [tasks, setTasks] = useState<Task[]>(() => readJsonSessionStorage<Task[]>(DASHBOARD_CACHE_KEYS.tasks) ?? []);
-  const [selectedThread, setSelectedThread] = useState<string | null>(() => {
-    // Lessons deep-links: list/filter modes must not auto-open a sticky thread.
-    if (typeof window !== "undefined") {
-      if (window.location.hash === "#chats") return null;
-      const filter = new URLSearchParams(window.location.search).get("filter");
-      if (filter === "completed" || filter === "unrated") return null;
-    }
-    const stored = readJsonSessionStorage<string>(DASHBOARD_CACHE_KEYS.selectedThread);
-    if (stored) return stored;
-    const cachedThreads = readJsonSessionStorage<Thread[]>(DASHBOARD_CACHE_KEYS.threads) ?? [];
-    return cachedThreads[0]?.id ?? null;
-  });
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [selectedThread, setSelectedThread] = useState<string | null>(null);
   /** Lessons → Hermes deep-link: ?filter=completed|unrated shows task receipts across chats. */
-  const [taskFilter, setTaskFilter] = useState<"all" | "completed" | "unrated">(() => {
-    if (typeof window === "undefined") return "all";
-    const filter = new URLSearchParams(window.location.search).get("filter");
-    if (filter === "completed" || filter === "unrated") return filter;
-    return "all";
-  });
+  const [taskFilter, setTaskFilter] = useState<"all" | "completed" | "unrated">("all");
   const [threadDetails, setThreadDetails] = useState<ThreadDetails | null>(null);
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const pending = window.sessionStorage.getItem("thumbgate_pending_prompt");
+        if (pending) {
+          window.sessionStorage.removeItem("thumbgate_pending_prompt");
+          return pending;
+        }
+      } catch {
+        /* private browsing */
+      }
+    }
+    return "";
+  });
   /**
    * Explicit user override for which hosted runner runs the next task.
    * Resolved selection is derived (useMemo) so we never setState inside an effect (eslint react-hooks/set-state-in-effect).
@@ -259,19 +314,10 @@ export default function DashboardClient() {
   const preheatInflightRef = useRef<Set<string>>(new Set());
 
   const selectedDeviceId = useMemo(() => {
-    if (!devices.length) return "";
     if (deviceOverrideId && devices.some((device) => device.id === deviceOverrideId)) {
       return deviceOverrideId;
     }
-    let stored: string | null = null;
-    if (typeof window !== "undefined") {
-      try {
-        stored = window.localStorage.getItem(preferredDevicePreferenceKey);
-      } catch {
-        stored = null;
-      }
-    }
-    return pickDefaultDeviceId(devices, stored);
+    return pickDefaultDeviceId(devices, null);
   }, [devices, deviceOverrideId]);
 
   const selectedDevice = devices.find((device) => device.id === selectedDeviceId) ?? null;
@@ -286,9 +332,18 @@ export default function DashboardClient() {
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const [threadSortOrder, setThreadSortOrder] = useState<ThreadSortOrder>("newest");
   const [resizing, setResizing] = useState(false);
-  const [threadMenu, setThreadMenu] = useState<string | null>(null);
+  /** Anchored ••• menu: fixed coords so sidebar overflow cannot detach it. */
+  const [threadMenu, setThreadMenu] = useState<{ id: string; top: number; left: number } | null>(null);
+  const threadMenuRef = useRef<HTMLDivElement | null>(null);
   const [chatDialog, setChatDialog] = useState<ChatDialog | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const conversationHistoryRef = useRef<HTMLDivElement | null>(null);
+  const scrollConversationToBottom = useCallback(() => {
+    const el = conversationHistoryRef.current;
+    if (el) {
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    }
+  }, []);
   const [chatOperationBusy, setChatOperationBusy] = useState(false);
   const [safetyExpanded, setSafetyExpanded] = useState(false);
   const [feedback, setFeedback] = useState<Record<string, Feedback>>({});
@@ -322,6 +377,33 @@ export default function DashboardClient() {
     });
     return () => window.cancelAnimationFrame(raf);
   }, [mobileTab]);
+
+
+  // Keep the ••• actions menu glued to its trigger; close on outside / Escape / scroll.
+  useEffect(() => {
+    if (!threadMenu) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setThreadMenu(null);
+    };
+    const onPointer = (event: Event) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (threadMenuRef.current?.contains(target)) return;
+      if (target instanceof Element && target.closest(".thread-menu-trigger")) return;
+      setThreadMenu(null);
+    };
+    const onRepositionClose = () => setThreadMenu(null);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onPointer, true);
+    window.addEventListener("resize", onRepositionClose);
+    window.addEventListener("scroll", onRepositionClose, true);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onPointer, true);
+      window.removeEventListener("resize", onRepositionClose);
+      window.removeEventListener("scroll", onRepositionClose, true);
+    };
+  }, [threadMenu]);
   const chatsListDeepLink =
     typeof window !== "undefined" && window.location.hash === "#chats";
   // True when we must not auto-pick nextThreads[0] (user already chose, or #chats list view).
@@ -333,6 +415,14 @@ export default function DashboardClient() {
   const openedChatsListFromUrl = useRef(false);
   const composerObserverRef = useRef<ResizeObserver | null>(null);
   const composerFormRef = useRef<HTMLFormElement | null>(null);
+  /** One restore per selected thread: a hard refresh opens at the newest output. */
+  const restoredThreadBottomRef = useRef<string | null>(null);
+  /** Optimistic web prompts waiting to appear in /api/thread-messages. */
+  const pendingConversationTasksRef = useRef<ConversationTask[]>([]);
+  // prefetchThreadDetails retries itself from a setTimeout inside its own
+  // useCallback body; calling through this ref satisfies the react-compiler
+  // access-before-declaration rule and keeps the retry on the latest instance.
+  const prefetchThreadDetailsRef = useRef<((threadId: string, opts?: { force?: boolean }) => Promise<void>) | null>(null);
   /**
    * Composer is in-flow (desktop) / sticky above mobile tab bar (document scroll).
    * Keep a real form ref so empty-state CTAs can focus the textarea.
@@ -436,6 +526,21 @@ export default function DashboardClient() {
         threadCacheRef.current.delete(threadId);
         if (selectedThreadRef.current === threadId) {
           if (detailResponse.status === 404) {
+            // A just-sent message creates a thread that may not be queryable at
+            // /api/thread-messages for a few hundred ms (server-side propagation).
+            // If there are pending optimistic tasks, retry instead of nuking the
+            // view — otherwise the sent message vanishes (2026-08-20 user report).
+            if (hasPendingConversationTasks(pendingConversationTasksRef.current)) {
+              // Schedule a single retry. prefetchThreadDetails with {force:true}
+              // will re-attempt; if it 404s again the pending check still
+              // protects the user's optimistic bubble for one more cycle.
+              window.setTimeout(() => {
+                if (selectedThreadRef.current === threadId) {
+                  void prefetchThreadDetailsRef.current?.(threadId, { force: true });
+                }
+              }, 500);
+              return;
+            }
             // Stale selection (deleted thread / wrong org id in sessionStorage).
             setSelectedThread(null);
             setThreadDetails(null);
@@ -448,12 +553,19 @@ export default function DashboardClient() {
         return;
       }
       const body = await detailResponse.json() as ThreadDetails & {
+        thread?: { syncedAt?: number | null };
         snapshot?: ThreadDetails["snapshot"];
         tasks?: ThreadDetails["tasks"];
       };
+      const serverTasks: ConversationTask[] = Array.isArray(body.tasks) ? body.tasks : [];
+      pendingConversationTasksRef.current = pruneResolvedOptimistic(
+        pendingConversationTasksRef.current,
+        serverTasks,
+      );
       const details: ThreadDetails = {
+        syncedAt: body.thread?.syncedAt ?? null,
         snapshot: Array.isArray(body.snapshot) ? body.snapshot : [],
-        tasks: Array.isArray(body.tasks) ? body.tasks : [],
+        tasks: mergeConversationTasks(serverTasks, pendingConversationTasksRef.current),
       };
       persistThreadDetails(threadId, details);
       if (selectedThreadRef.current === threadId) {
@@ -468,6 +580,10 @@ export default function DashboardClient() {
       preheatInflightRef.current.delete(threadId);
     }
   }, [persistThreadDetails, readCachedThreadDetails]);
+
+  useEffect(() => {
+    prefetchThreadDetailsRef.current = prefetchThreadDetails;
+  }, [prefetchThreadDetails]);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
@@ -574,15 +690,28 @@ export default function DashboardClient() {
   }
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    const timer = window.setTimeout(() => {
       try {
         window.sessionStorage.removeItem(DASHBOARD_CACHE_KEYS.devices);
         window.localStorage.removeItem(preferredDevicePreferenceKey);
       } catch {}
-    }
-    const pendingCode = new URLSearchParams(window.location.search).get("pair")?.toUpperCase() ?? "";
-    if (!pairingCodePattern.test(pendingCode)) return;
-    const timer = window.setTimeout(() => setPairCode(pendingCode), 0);
+      const cached = readJsonSessionStorage<CachedIdentity<User, Organization>>(DASHBOARD_CACHE_KEYS.me);
+      if (cached?.user) setUser(cached.user);
+      if (cached?.organization) setOrganization(cached.organization);
+      const cachedThreads = readJsonSessionStorage<Thread[]>(DASHBOARD_CACHE_KEYS.threads) ?? [];
+      const cachedTasks = readJsonSessionStorage<Task[]>(DASHBOARD_CACHE_KEYS.tasks) ?? [];
+      setThreads(cachedThreads);
+      setTasks(cachedTasks);
+
+      const params = new URLSearchParams(window.location.search);
+      const filter = params.get("filter");
+      if (filter === "completed" || filter === "unrated") setTaskFilter(filter);
+      else if (window.location.hash !== "#chats") {
+        setSelectedThread(readJsonSessionStorage<string>(DASHBOARD_CACHE_KEYS.selectedThread) ?? cachedThreads[0]?.id ?? null);
+      }
+      const pendingCode = params.get("pair")?.toUpperCase() ?? "";
+      if (pairingCodePattern.test(pendingCode)) setPairCode(pendingCode);
+    }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -650,13 +779,23 @@ export default function DashboardClient() {
           writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, null);
         }
       } else if (activeSelected && !nextThreads.some((t) => t.id === activeSelected)) {
-        // Auto-heal stale selection: if cached thread ID was deleted or not found in nextThreads
-        autoSelectedThread.current = true;
-        const fallbackId = nextThreads.length ? nextThreads[0].id : null;
-        activeSelected = fallbackId;
-        setSelectedThread(fallbackId);
-        setThreadDetails(null);
-        writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, fallbackId);
+        // Auto-heal stale selection: if cached thread ID was deleted or not found in nextThreads.
+        // BUT: if there are pending optimistic tasks for this thread (just-sent
+        // message still propagating server-side), preserve the selection and
+        // threadDetails — nuking them makes the sent message vanish
+        // (2026-08-20 user report: "don't see the message i inputted").
+        if (hasPendingConversationTasks(pendingConversationTasksRef.current)) {
+          // Thread likely just created — give it one more refresh cycle to appear.
+          // Keep current selection + threadDetails so the optimistic bubble survives.
+          void prefetchThreadDetails(activeSelected, { force: true });
+        } else {
+          autoSelectedThread.current = true;
+          const fallbackId = nextThreads.length ? nextThreads[0].id : null;
+          activeSelected = fallbackId;
+          setSelectedThread(fallbackId);
+          setThreadDetails(null);
+          writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.selectedThread, fallbackId);
+        }
       } else if (!autoSelectedThread.current && !activeSelected && nextThreads.length) {
         autoSelectedThread.current = true;
         activeSelected = nextThreads[0].id;
@@ -668,7 +807,15 @@ export default function DashboardClient() {
     }
     if (taskResponse.ok) {
       const nextTasks = (await taskResponse.json() as { tasks: Task[] }).tasks;
-      setTasks(nextTasks);
+      // Merge in optimistic tasks not yet confirmed by the server so the
+      // just-sent task row doesn't vanish from the list while loadWorkspace
+      // races with the optimistic render (2026-08-20 user report).
+      const mergedTasks = mergeTasksForTaskList(
+        nextTasks,
+        pendingConversationTasksRef.current,
+        activeSelected ?? "",
+      );
+      setTasks(mergedTasks);
       writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.tasks, nextTasks);
       if (!focusedTaskFromUrl.current && typeof window !== "undefined") {
         const focusTaskId = new URLSearchParams(window.location.search).get("task");
@@ -712,29 +859,62 @@ export default function DashboardClient() {
   }, [prefetchThreadDetails]);
 
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
+  const workspaceLoadInFlightRef = useRef<Promise<void> | null>(null);
+  const refreshWorkspaceOnce = useCallback(() => {
+    if (workspaceLoadInFlightRef.current) return workspaceLoadInFlightRef.current;
+    const pending = loadWorkspace().finally(() => {
+      if (workspaceLoadInFlightRef.current === pending) workspaceLoadInFlightRef.current = null;
+    });
+    workspaceLoadInFlightRef.current = pending;
+    return pending;
+  }, [loadWorkspace]);
+  const requestWorkspaceRefresh = useCallback(async () => {
+    // Visible feedback + a freshness stamp so a manual click is never a no-op.
+    // Idle dashboards do not poll; active work has its own bounded refresh loop.
+    setIsRefreshing(true);
+    setLoadState((prev) => (prev === "loaded" ? prev : "loading"));
+    try {
+      await refreshWorkspaceOnce();
+      setLastRefreshedAt(Date.now());
+    } catch {
+      setLoadState("error");
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refreshWorkspaceOnce]);
+  const errorRetryUsedRef = useRef(false);
+
   useEffect(() => {
-    // `void loadWorkspace()` swallowed rejections: a network failure left loadState at
-    // "loading" forever with no error shown and no retry signal.
-    const run = () => { void loadWorkspace().catch(() => setLoadState("error")); };
-    const initial = window.setTimeout(run, 0);
-    // 15s cadence, foreground-only: the old always-on 5s poll made every open
-    // dashboard tab cost ~17k Workers requests/day against the 100k free-tier
-    // daily cap (2026-08-19 quota incident). Hidden tabs stop polling; a fresh
-    // run fires immediately when the tab returns to the foreground.
-    let timer: number | undefined;
-    const start = () => { if (timer === undefined) timer = window.setInterval(run, 15000); };
-    const stop = () => { if (timer !== undefined) { window.clearInterval(timer); timer = undefined; } };
-    const onVisibility = () => { if (document.hidden) stop(); else { run(); start(); } };
-    if (!document.hidden) start();
-    document.addEventListener("visibilitychange", onVisibility);
+    // One-shot workspace load. Recurring poll is OFF by default — the old
+    // 5s/15s setInterval burned the Cloudflare Workers 100k free cap
+    // (~17k requests/day per open tab; 2026-08-19 quota incident).
+    // Opt-in only: ?poll=1 plus cursor/offset, or NEXT_PUBLIC_DASHBOARD_POLL=1
+    // (not the default). Minimum 15 minutes; poll-without-cursor fails closed.
+    const initial = window.setTimeout(requestWorkspaceRefresh, 0);
+    const params = new URLSearchParams(window.location.search);
+    const refresh = startDashboardRefresh({
+      run: requestWorkspaceRefresh,
+      search: window.location.search,
+      envPoll: process.env.NEXT_PUBLIC_DASHBOARD_POLL,
+      cursor: params.get("cursor") ?? params.get("offset"),
+    });
     return () => {
       window.clearTimeout(initial);
-      stop();
-      document.removeEventListener("visibilitychange", onVisibility);
+      refresh.stop();
     };
-    // Intentionally not re-binding when selectedThread flips — list poll stays stable.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- shell-first: one poller, not one-per-thread
+    // Intentionally not re-binding when selectedThread flips — one loader, not one-per-thread.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- shell-first: one loader, not one-per-thread
   }, []);
+
+  // One delayed retry after an initial-load error, then stop. Not a loop.
+  useEffect(() => {
+    if (loadState !== "error" || errorRetryUsedRef.current) return;
+    errorRetryUsedRef.current = true;
+    const retry = scheduleOneShotErrorRetry({ run: requestWorkspaceRefresh });
+    return () => retry.stop();
+  }, [loadState, requestWorkspaceRefresh]);
 
   // Persist selection + background revalidate. Instant paint is in openThread / deep-link handlers.
   useEffect(() => {
@@ -749,6 +929,16 @@ export default function DashboardClient() {
       cancelled = true;
     };
   }, [selectedThread, revalidateSelectedThread]);
+
+  useEffect(() => {
+    if (loadState !== "loaded" || !selectedThread || !threadDetails) return;
+    if (restoredThreadBottomRef.current === selectedThread) return;
+    restoredThreadBottomRef.current = selectedThread;
+    const raf = window.requestAnimationFrame(() => {
+      scrollConversationHistoryToLatest(document, "auto");
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [loadState, selectedThread, threadDetails]);
   useEffect(() => {
     if (!user || !pairingCodePattern.test(pairCode)) return;
     const currentUrl = new URL(window.location.href);
@@ -772,16 +962,35 @@ export default function DashboardClient() {
         : null,
   });
   const activeTasks = useMemo(() => tasks.filter((task) => !terminal.has(task.status)), [tasks]);
+  const hasProgressingTasks = tasks.some((task) => autonomouslyProgressing.has(task.status));
+  const hasProgressingTasksRef = useRef(hasProgressingTasks);
+  useEffect(() => {
+    hasProgressingTasksRef.current = hasProgressingTasks;
+  }, [hasProgressingTasks]);
+  const refreshActiveWork = useCallback(async () => {
+    await refreshWorkspaceOnce();
+    const activeThreadId = selectedThreadRef.current;
+    if (activeThreadId) await revalidateSelectedThread(activeThreadId);
+  }, [refreshWorkspaceOnce, revalidateSelectedThread]);
+  useEffect(() => {
+    const refresh = startActiveTaskRefresh({
+      run: refreshActiveWork,
+      isActive: () => hasProgressingTasksRef.current,
+    });
+    return () => refresh.stop();
+  }, [hasProgressingTasks, refreshActiveWork]);
   const visibleTasks = useMemo(() => {
+    let filtered: Task[];
     if (taskFilter === "completed") {
-      return tasks.filter((task) => task.status === "completed" && Boolean(task.result));
-    }
-    if (taskFilter === "unrated") {
-      return tasks.filter(
+      filtered = tasks.filter((task) => task.status === "completed" && Boolean(task.result));
+    } else if (taskFilter === "unrated") {
+      filtered = tasks.filter(
         (task) => task.status === "completed" && Boolean(task.result) && !feedback[task.id],
       );
+    } else {
+      filtered = selectedThread ? tasks.filter((task) => task.threadId === selectedThread) : tasks;
     }
-    return selectedThread ? tasks.filter((task) => task.threadId === selectedThread) : tasks;
+    return orderTasksChronologically(filtered);
   }, [tasks, selectedThread, taskFilter, feedback]);
   const onlineDevices = devices.filter((device) => device.online);
   const p95CompletionLatency = useMemo(() => {
@@ -805,7 +1014,13 @@ export default function DashboardClient() {
 
   async function createTask(event: FormEvent) {
     event.preventDefault();
-    const text = prompt.trim();
+    const form = event.currentTarget instanceof HTMLFormElement
+      ? event.currentTarget
+      : composerFormRef.current;
+    const liveValue = form?.querySelector("textarea") instanceof HTMLTextAreaElement
+      ? form.querySelector("textarea")!.value
+      : prompt;
+    const text = liveValue.trim();
     if (!text) {
       setNotice("Type a message first, then tap Run.");
       return;
@@ -831,7 +1046,9 @@ export default function DashboardClient() {
         body: JSON.stringify({
           prompt: text,
           threadId: selectedThread,
-          deviceId: selectedDeviceId || undefined,
+          ...(deviceOverrideId && devices.some((device) => device.id === deviceOverrideId)
+            ? { deviceId: deviceOverrideId }
+            : {}),
           idempotencyKey: crypto.randomUUID(),
           traceId: crypto.randomUUID(),
           routePreference: "cloud",
@@ -870,6 +1087,24 @@ export default function DashboardClient() {
           deviceName: null,
         };
         setTasks((prev) => [optimistic, ...prev.filter((task) => task.id !== optimistic.id)]);
+        const conversationTask: ConversationTask = {
+          id: optimistic.id,
+          prompt: optimistic.prompt,
+          result: null,
+          error: null,
+          route: optimistic.route,
+          status: optimistic.status,
+          createdAt: optimistic.createdAt,
+        };
+        pendingConversationTasksRef.current = [
+          ...pendingConversationTasksRef.current.filter((task) => task.id !== conversationTask.id),
+          conversationTask,
+        ];
+        setThreadDetails((prev) => ({
+          syncedAt: prev?.syncedAt ?? null,
+          snapshot: prev?.snapshot ?? [],
+          tasks: mergeConversationTasks(prev?.tasks ?? [], pendingConversationTasksRef.current),
+        }));
         const macName =
           devices.find((device) => device.id === (created.deviceId ?? selectedDeviceId))?.name
           ?? selectedDeviceLabel;
@@ -882,8 +1117,18 @@ export default function DashboardClient() {
         setSelectedThread(created.threadId);
         // Persist-before-live already wrote the row. Do not block the card on /api/me.
         void loadWorkspace();
+        // Tasks render chronologically with the newest row next to the bottom composer.
+        // Scroll to that exact row so the optimistic send is visibly confirmed even
+        // when a long result above it makes the timeline taller than the viewport.
         window.requestAnimationFrame(() => {
-          document.getElementById("run-output")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          // Chat bubbles live in conversation-history (separate from the task card
+          // list). Scroll both so Enter never looks like a silent no-op.
+          scrollConversationHistoryToLatest(document);
+          const target =
+            document.getElementById(`task-${optimistic.id}`)
+            ?? document.getElementById("task-activity")
+            ?? document.getElementById("run-output");
+          target?.scrollIntoView({ behavior: "smooth", block: "center" });
         });
       } else {
         if (body.code === "cloud_task_limit" || body.code === "cloud_entitlement_required") {
@@ -1030,6 +1275,31 @@ export default function DashboardClient() {
       return next;
     });
   }
+
+  function placeThreadMenu(threadId: string, trigger: HTMLElement) {
+    const rect = trigger.getBoundingClientRect();
+    const menuWidth = 168;
+    const menuHeight = 112;
+    const gutter = 8;
+    let left = Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - gutter);
+    left = Math.max(gutter, left);
+    let top = rect.bottom + 4;
+    if (top + menuHeight > window.innerHeight - gutter) {
+      top = Math.max(gutter, rect.top - menuHeight - 4);
+    }
+    setThreadMenu({ id: threadId, top, left });
+  }
+
+  function toggleThreadMenu(threadId: string, event: ReactMouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (threadMenu?.id === threadId) {
+      setThreadMenu(null);
+      return;
+    }
+    placeThreadMenu(threadId, event.currentTarget);
+  }
+
 
   function openRenameDialog(thread: Thread) {
     setThreadMenu(null);
@@ -1198,11 +1468,14 @@ export default function DashboardClient() {
           ) : visibleThreads.map((thread) => (
             <div key={thread.id} className="thread-row">
               <button title={`${thread.title} — ${formatDateTime(thread.updatedAt)}`} aria-current={selectedThread === thread.id ? "page" : undefined} className={selectedThread === thread.id ? "side-item thread-item active" : "side-item thread-item"} onClick={() => openThread(thread.id)} onPointerEnter={() => void prefetchThreadDetails(thread.id)} onFocus={() => void prefetchThreadDetails(thread.id)}><span className="thread-icon">{thread.sourceSessionId ? "⌘" : "›_"}</span><span className="thread-copy"><strong>{thread.title}</strong><time dateTime={new Date(thread.updatedAt).toISOString()}>{formatDateTime(thread.updatedAt)}</time></span><em>{thread.messageCount || thread.taskCount}</em></button>
-              <button type="button" className="thread-menu-trigger" aria-label={`Actions for ${thread.title}`} aria-haspopup="menu" aria-expanded={threadMenu === thread.id} onClick={() => setThreadMenu((current) => current === thread.id ? null : thread.id)}>•••</button>
-              {threadMenu === thread.id && <div className="thread-actions" role="menu" aria-label={`Actions for ${thread.title}`}>
-                <button type="button" className="thread-action" role="menuitem" onClick={() => openRenameDialog(thread)}><span aria-hidden="true">✎</span> Rename</button>
-                <button type="button" className="thread-action thread-action-danger" role="menuitem" onClick={() => openDeleteDialog(thread)}><span aria-hidden="true">⌫</span> Delete</button>
-              </div>}
+              <button type="button" className="thread-menu-trigger" aria-label={`Actions for ${thread.title}`} aria-haspopup="menu" aria-expanded={threadMenu?.id === thread.id} onClick={(event) => toggleThreadMenu(thread.id, event)}>•••</button>
+              {threadMenu?.id === thread.id && typeof document !== "undefined" && createPortal(
+                <div ref={threadMenuRef} className="thread-actions" role="menu" data-testid="thread-actions-menu" aria-label={`Actions for ${thread.title}`} style={{ top: threadMenu.top, left: threadMenu.left }}>
+                  <button type="button" className="thread-action" role="menuitem" onClick={() => openRenameDialog(thread)}><span aria-hidden="true">✎</span> Rename</button>
+                  <button type="button" className="thread-action thread-action-danger" role="menuitem" onClick={() => openDeleteDialog(thread)}><span aria-hidden="true">⌫</span> Delete</button>
+                </div>,
+                document.body,
+              )}
             </div>
           ))}</nav>
           <div className="sidebar-bottom"><div className="avatar">{user.name.slice(0, 1).toUpperCase()}</div><div><strong>{user.name}</strong><small>{accountPlan} plan</small></div><SignOutForm buttonClassName="sign-out-button" data-testid="dashboard-sign-out" /></div>
@@ -1269,7 +1542,28 @@ export default function DashboardClient() {
             </div>
           </div>
           <div className="header-actions">
-            <span className="status-chip online"><i /> ThumbGate online</span>
+            <button
+              type="button"
+              className="button button-small button-secondary"
+              data-testid="dashboard-refresh"
+              onClick={() => void requestWorkspaceRefresh()}
+              disabled={busy || isRefreshing || loadState === "loading"}
+              title="Fetch the latest chats, tasks, and runner status now. The dashboard does not auto-refresh while idle; active runs update automatically for up to three minutes."
+            >
+              {isRefreshing ? "↻ Refreshing…" : loadState === "error" ? "Retry" : "↻ Refresh"}
+            </button>
+            {lastRefreshedAt !== null && (
+              <span
+                className="refresh-timestamp"
+                data-testid="dashboard-refresh-timestamp"
+                aria-live="polite"
+                style={{ fontSize: "11px", opacity: 0.7, whiteSpace: "nowrap" }}
+              >
+                {isRefreshing
+                  ? "Updating…"
+                  : `Updated ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit" }).format(new Date(lastRefreshedAt))}`}
+              </span>
+            )}
             <button className="button button-small button-secondary" onClick={() => void (["pro", "team"].includes(organization.plan) ? manageBilling() : subscribe())} disabled={busy}>
               {["pro", "team"].includes(organization.plan) ? "Manage plan" : organization.cloudAccess ? "Keep cloud after trial" : "Add cloud failover"}
             </button>
@@ -1386,15 +1680,30 @@ export default function DashboardClient() {
               </span>
             </div>
             <div className="hermes-scroll-pane">
-            {selectedThread && <div className="conversation-history">
-              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><FormattedMessage text={message.content} /></article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. Retrying automatically.</div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
-              {threadDetails?.tasks.flatMap((task, index) => [
-                <article key={`task-user-${index}`} className="conversation-message role-user"><span>web</span><p>{task.prompt}</p></article>,
-                task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><FormattedMessage text={task.result} />{feedbackControls(task.id)}</article>
-                  : task.error ? <article key={`task-error-${index}`} className="conversation-message role-error"><span>failed</span><FormattedMessage text={task.error} /></article>
-                  : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><p>Waiting for the fenced VPS runner to pick this up…</p></article>
-                  : null,
-              ])}
+            {selectedThread && <div className="conversation-history" ref={conversationHistoryRef}>
+              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><ConversationMeta meta={snapshotMessageMeta(message, threadDetails.syncedAt)} /><FormattedMessage text={message.content} hideToolProtocol={message.role === "assistant"} />{message.role === "assistant" && <TurnStatusline engine="Ollama (http://localhost:11434/v1/models)" ttft="<10ms" cost="$0.00" />}</article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. <button type="button" className="task-filter-clear" data-testid="dashboard-retry" onClick={() => requestWorkspaceRefresh()}>Retry</button></div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
+              {[...(threadDetails?.tasks ?? [])].sort((left, right) => left.createdAt - right.createdAt).flatMap((task, index) => {
+                // Chronological: oldest exchange first, newest at the BOTTOM next to
+                // the composer — standard chat order (2026-08-21 user report: "latest
+                // output is not at the bottom"). Non-mutating sort; the tasks API is
+                // newest-first, so this reverses it for the conversation timeline.
+                if (!task.prompt.trim()) return [];
+                return [
+                  <article
+                    key={`task-user-${task.id || index}`}
+                    className="conversation-message role-user"
+                    data-testid="conversation-user-prompt"
+                  >
+                    <span>web</span>
+                    <ConversationMeta meta={taskPromptMeta(task)} />
+                    <p>{task.prompt}</p>
+                  </article>,
+                  task.result ? <article key={`task-result-${task.id || index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.result} hideToolProtocol /><TurnStatusline engine={task.deviceName || (task.route === "cloud" ? "Fenced VPS · Ollama (localhost:11434)" : "Ollama (http://localhost:11434/v1/models)")} ttft={task.completedAt && task.createdAt ? latency(task.completedAt - task.createdAt) : "<10ms"} cost="$0.00" />{feedbackControls(task.id)}</article>
+                    : task.error ? <article key={`task-error-${task.id || index}`} className="conversation-message role-error"><span>Hermes error</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.error} /></article>
+                    : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${task.id || index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><p>Waiting for the fenced VPS runner to pick this up…</p></article>
+                    : null,
+                ];
+              })}
             </div>}
             <div className="task-list" id="task-activity">
               {taskFilter !== "all" ? (
@@ -1428,7 +1737,15 @@ export default function DashboardClient() {
                 <div className="empty-state" data-state="error">
                   <Mark />
                   <h3>Could not load your workspace</h3>
-                  <p>The last refresh failed, so this list may be incomplete. Retrying automatically.</p>
+                  <p>The last refresh failed, so this list may be incomplete. Tap Retry to fetch once — no background poll.</p>
+                  <button
+                    type="button"
+                    className="button button-primary button-small empty-state-cta"
+                    data-testid="dashboard-retry"
+                    onClick={() => requestWorkspaceRefresh()}
+                  >
+                    Retry
+                  </button>
                 </div>
               ) : visibleTasks.length === 0 && loadState === "loaded" ? (
                 (() => {
@@ -1477,6 +1794,11 @@ export default function DashboardClient() {
                     {task.result && (
                       <>
                         <pre>{task.result}</pre>
+                        <TurnStatusline
+                          engine={task.deviceName || (task.route === "cloud" ? "Fenced VPS · Ollama (localhost:11434)" : "Ollama (http://localhost:11434/v1/models)")}
+                          ttft={task.completedAt && task.createdAt ? latency(task.completedAt - task.createdAt) : "<10ms"}
+                          cost="$0.00"
+                        />
                         {feedbackControls(task.id)}
                       </>
                     )}
@@ -1487,6 +1809,36 @@ export default function DashboardClient() {
             </div>
             </div>
             <form className="composer" ref={setComposerNode} onSubmit={(event) => void createTask(event)}>
+              <div className="quick-continuation-chips" role="toolbar" aria-label="Continuation prompts">
+                <span className="chips-label">⚡ 2-word prompts:</span>
+                <div className="chips-scroll">
+                  {[
+                    { label: "now what", desc: "Suggest 3-5 concrete next steps" },
+                    { label: "plz fix", desc: "Diagnose and fix error" },
+                    { label: "interview me", desc: "Ask targeted questions" },
+                    { label: "show receipts", desc: "Verifiable empirical receipts" },
+                    { label: "keep going!", desc: "Continue execution" },
+                    { label: "challenge me", desc: "Adversarial review for flaws" },
+                    { label: "simulate it", desc: "Edge case simulation" },
+                    { label: "elii elie", desc: "Executive vs intern breakdown" },
+                    { label: "audit it", desc: "Security & invariant audit" },
+                    { label: "do this", desc: "Replicate exact pattern" },
+                  ].map((item) => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      className="chip-button"
+                      title={item.desc}
+                      onClick={() => {
+                        setPrompt(item.label);
+                        focusComposer();
+                      }}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <textarea
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
@@ -1494,7 +1846,17 @@ export default function DashboardClient() {
                   if ((event.key === "Enter" || event.keyCode === 13) && !event.shiftKey) {
                     if (event.nativeEvent.isComposing) return;
                     event.preventDefault();
-                    if (prompt.trim() && !busy) {
+                    const live = event.currentTarget.value.trim();
+                    if (!hasCloudAccess) {
+                      if (live) {
+                        try { window.sessionStorage.setItem("thumbgate_pending_prompt", live); } catch {}
+                      }
+                      setNotice("Opening checkout to activate your trial and run your prompt…");
+                      void subscribe();
+                      return;
+                    }
+                    if (live && !busy) {
+                      if (live !== prompt) setPrompt(live);
                       const form = event.currentTarget.form;
                       if (form) {
                         if (typeof form.requestSubmit === "function") {
@@ -1507,6 +1869,8 @@ export default function DashboardClient() {
                           form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
                         }
                       }
+                    } else if (!live) {
+                      setNotice("Type a message first, then tap Run.");
                     }
                   }
                 }}
@@ -1518,7 +1882,8 @@ export default function DashboardClient() {
               />
               <div className="run-output" id="run-output" data-testid="run-output" role="status" aria-live="polite">
                 <p className="eyebrow">Output</p>
-                {notice ? <p>{notice}</p> : visibleTasks[0]?.result ? <p>{visibleTasks[0].result}</p> : visibleTasks[0]?.error ? <p>{visibleTasks[0].error}</p> : visibleTasks[0] ? <p>Running on the hosted VPS…</p> : <p>Results show here after you send.</p>}
+                {/* Notices + in-flight status only — completed results live in the task rows; echoing them here left stale agent output pinned under the composer. */}
+                {notice ? <p>{notice}</p> : visibleTasks[0] && !visibleTasks[0].result && !visibleTasks[0].error ? <p>Running on the hosted VPS…</p> : <p>Results show here after you send.</p>}
               </div>
               <div className="composer-actions">
                 {/* Fallback hidden submit button so form.requestSubmit() and soft keyboard Enter always find a submitter */}
@@ -1531,20 +1896,21 @@ export default function DashboardClient() {
                   if (cta.kind === "upgrade") {
                     return (
                       <button
-                        type="submit"
+                        type="button"
                         className="button button-primary button-small composer-run"
                         data-testid={cta.testId}
                         disabled={cta.disabled}
                         onClick={(e) => {
-                          if (!prompt.trim()) {
-                            e.preventDefault();
-                            setNotice("A trial or Pro plan is required to run on the hosted VPS. Open Manage plan.");
-                            document.getElementById("billing")?.scrollIntoView({ behavior: "smooth" });
-                            window.location.hash = "billing";
+                          e.preventDefault();
+                          const live = prompt.trim();
+                          if (live) {
+                            try { window.sessionStorage.setItem("thumbgate_pending_prompt", live); } catch {}
                           }
+                          setNotice("Opening checkout to activate your plan…");
+                          void subscribe();
                         }}
                       >
-                        {cta.label}
+                        {busy ? "Opening checkout…" : cta.label}
                       </button>
                     );
                   }
@@ -1588,18 +1954,22 @@ export default function DashboardClient() {
                 <li className="is-done"><span>2</span>LLM-as-a-Judge guardrails enabled</li>
                 <li className={hostedCopy.live ? "is-done" : ""}><span>3</span>{hostedCopy.live ? "Online & autonomous" : "Waiting until runner and model are healthy"}</li>
               </ol>
+              <p className="helper-copy" data-testid="hosted-run-default">
+                Tasks run on the hosted VPS. Pairing a computer is optional and never required to send.
+              </p>
               {devices.length > 0 ? (
-                <div className="leash-device-picker" data-testid="leash-device-picker">
+                <details className="leash-device-picker" data-testid="leash-device-picker">
+                  <summary>Optional: send the next task to a paired computer</summary>
                   <label htmlFor="leash-device-select" className="composer-where-label" style={{ margin: 0 }}>
-                    Run tasks on
+                    Hosted VPS is the default
                   </label>
                   <select
                     id="leash-device-select"
                     data-testid="leash-device-select"
-                    value={selectedDeviceId}
+                    value={selectedDeviceId || "cloud"}
                     onChange={(event) => chooseDevice(event.target.value)}
                     disabled={busy}
-                    aria-label="Which machine should run tasks"
+                    aria-label="Hosted VPS is the default run target"
                   >
                     <option value="cloud">☁ Hosted VPS (default)</option>
                     {devices.map((device) => (
@@ -1608,9 +1978,9 @@ export default function DashboardClient() {
                       </option>
                     ))}
                   </select>
-                </div>
+                </details>
               ) : null}
-              <div className="account-recovery" style={{ marginTop: "1rem" }}><p>Signed in as <strong>{user.email}</strong>. If your machines are paired to another email, switch accounts here.</p><SignOutForm buttonClassName="button button-secondary button-small" data-testid="dashboard-switch-account">Switch account</SignOutForm></div>
+              <div className="account-recovery" style={{ marginTop: "1rem" }}><p>Signed in as <strong>{user.email}</strong>. If this is the wrong workspace, switch accounts here.</p><SignOutForm buttonClassName="button button-secondary button-small" data-testid="dashboard-switch-account">Switch account</SignOutForm></div>
               <p className="privacy-boundary">Bounded Hermes thread context syncs to this control plane. Tasks execute in isolated serverless leases.</p>
               <p className="privacy-boundary" data-testid="hosted-not-computer-history">{HOSTED_NOT_COMPUTER_HISTORY} Least privilege: cannot read secrets. Private/incognito analogue: we do not ingest other people&apos;s Slack or DMs.</p>
             </section>
@@ -1630,9 +2000,9 @@ export default function DashboardClient() {
               </div>
             </details>
             <section className="panel" id="web-settings" tabIndex={-1}>
-              <div className="panel-heading"><div><p className="eyebrow">SETTINGS</p><h2>Paired Hermes connectors</h2></div></div>
+              <div className="panel-heading"><div><p className="eyebrow">SETTINGS</p><h2>Hosted VPS runner</h2></div></div>
               <p className="helper-copy">
-                ThumbGate executes tasks directly on our fenced serverless Cloud VPS runner (90s renewable lease). No local Mac software or background daemons are required.
+                ThumbGate executes tasks on the fenced Cloud VPS runner (90s renewable lease). No local Mac software is required. Pairing a computer stays optional below.
               </p>
               {devices.map((device) => {
                 const isPreferred = device.id === selectedDeviceId;

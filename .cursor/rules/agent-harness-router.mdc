@@ -1,0 +1,38 @@
+# Agent Harness Router — Auto-invocation Rule
+
+> Trigger: When an agent needs to select a model, enforce budget, or capture a useful AI pattern
+> This rule is loaded from .cursor/rules/ and is always active.
+
+## When to invoke agent-harness-router
+
+1. **Model selection** — Before calling any LLM API, run:
+   ```bash
+   node tools/agent-harness-router.js route '{"requiresTools":true,"category":"coding","preference":"balance"}'
+   ```
+   This enforces the $10/mo budget cap and selects the best model by cost/latency/quality.
+
+2. **Session start** — Automatically runs via `~/.claude/settings.json` SessionStart hook.
+   ```bash
+   node tools/agent-harness-router.js check --json
+   ```
+
+3. **Every user prompt** — Automatically runs via `~/.claude/settings.json` UserPromptSubmit hook.
+
+4. **Useful prompt discovery** — When a prompt/task produces good results, capture it:
+   ```bash
+   node tools/agent-harness-router.js discover "<prompt>" --model <modelId> --task <taskType> --tags <tag1,tag2>
+   ```
+
+## Safety guarantees
+
+- Never captures keystrokes, clicks, or local Mac activity (fail-closed)
+- Budget enforcement: $10/mo hard cap, fail-closed
+- Secret rejection: blocks AWS keys, GitHub PATs, JWTs, Bearer tokens in discoveries
+- Input-capture refusal: blocks Computer History / event_tap / keystroke data
+- Third-party models blocked when budget exhausted or sensitive data required
+
+## Related articles
+- TrueFoundry TrueForge (The NewStack): harness as control point
+- Martech: scattered AI discovery capture
+- GLM-5.3 (The NewStack): private benchmark validation, model portability
+- Futurism: ChatGPT Computer History fail-closed alternative

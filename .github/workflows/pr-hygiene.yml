@@ -12,7 +12,7 @@ name: PR hygiene
 
 on:
   schedule:
-    - cron: '17 */6 * * *'   # every 6h at :17 (off the hour to dodge cron congestion)
+    - cron: '0 6 * * *'   # once daily at 06:00 UTC
   workflow_dispatch: {}
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
@@ -51,7 +51,7 @@ jobs:
     name: Mark and close stale PRs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/stale@1e223db275d687790206a7acac4d1a11bd6fe629 # v10.4.0
+      - uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
         with:
           repo-token: ${{ github.token }}
           # ---- PRs only; issues untouched ----

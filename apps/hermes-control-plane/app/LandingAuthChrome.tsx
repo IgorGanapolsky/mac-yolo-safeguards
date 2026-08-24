@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { HostedCheckoutCta } from "./HostedCheckoutCta";
 import { SignOutForm } from "./SignOutForm";
 import styles from "./landing.module.css";
 
@@ -122,13 +123,9 @@ export function LandingAuthHero() {
         </>
       ) : (
         <>
-          <a
-            href="/api/auth/login"
-            className="button button-primary"
-            data-funnel-event="hosted_checkout_click"
-          >
+          <HostedCheckoutCta>
             Start hosted Hermes — $10/mo <span aria-hidden="true">→</span>
-          </a>
+          </HostedCheckoutCta>
           <a
             href="/api/auth/login"
             className="button button-secondary"
@@ -200,11 +197,10 @@ export function LandingPricingCtaFree() {
 }
 
 export function LandingPricingCtaPaid() {
-  const href = useSessionHref();
   return (
-    <a href={href} className="button button-primary" data-funnel-event="hosted_checkout_click">
+    <HostedCheckoutCta>
       Start hosted Hermes — $10/mo →
-    </a>
+    </HostedCheckoutCta>
   );
 }
 

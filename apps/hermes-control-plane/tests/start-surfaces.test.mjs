@@ -25,7 +25,8 @@ test("Qoder steal is zero-install, not a fake desktop download wall", () => {
 test("identity card has no invented traction and page mounts the section", () => {
   assert.match(surfaces, /Hosted Hermes/);
   assert.match(surfaces, /No invented onboard days/);
-  assert.match(surfaces, /data-funnel-event="hosted_checkout_click"/);
+  assert.match(surfaces, /<HostedCheckoutCta/);
+  assert.match(surfaces, /testId="start-browser"/);
   assert.match(page, /<StartSurfaces/);
   assert.match(page, /How do I get started\?/);
   assert.match(page, /There is no Mac, Windows, or Linux download/);

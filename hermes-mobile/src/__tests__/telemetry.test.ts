@@ -37,6 +37,8 @@ describe('telemetry', () => {
         expect.objectContaining({
           dsn: TEST_DSN,
           tracesSampleRate: 0.2,
+          replaysSessionSampleRate: 0,
+          replaysOnErrorSampleRate: 0,
           release: expect.stringMatching(/^hermes-mobile@/),
         }),
       );
