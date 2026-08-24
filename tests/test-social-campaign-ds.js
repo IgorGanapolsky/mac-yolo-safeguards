@@ -15,6 +15,18 @@ const {
   isLiveStatus,
 } = require(SCRIPT);
 
+const FIXTURE_NOW_MS = Date.parse('2026-07-26T00:00:00Z');
+
+function withFixtureClock(fn) {
+  const realDateNow = Date.now;
+  Date.now = () => FIXTURE_NOW_MS;
+  try {
+    return fn();
+  } finally {
+    Date.now = realDateNow;
+  }
+}
+
 function test(name, fn) {
   try {
     fn();
@@ -81,12 +93,14 @@ test('buildScoreboard ranks winner with enough attribution', () => {
       count: 1,
     },
   ];
-  const report = buildScoreboard({
-    contentRows,
-    attributionRows,
-    lookbackDays: 30,
-    minEvents: 5,
-  });
+  const report = withFixtureClock(() =>
+    buildScoreboard({
+      contentRows,
+      attributionRows,
+      lookbackDays: 30,
+      minEvents: 5,
+    }),
+  );
   assert.strictEqual(report.decision, 'WINNER', JSON.stringify(report, null, 2));
   assert.strictEqual(report.winner.campaign, 'evidence-installs-v1-20260725');
   assert.ok(report.winner.attributedTotal >= 16);
@@ -94,43 +108,47 @@ test('buildScoreboard ranks winner with enough attribution', () => {
 });
 
 test('buildScoreboard INSUFFICIENT_DATA when under min-events', () => {
-  const report = buildScoreboard({
-    contentRows: [
-      {
-        date: '2026-07-25',
-        platform: 'X',
-        hook: 'h',
-        campaign: 'tiny',
-        status: 'Published',
-        postUrl: 'https://x.com/1',
-        outcome: 'ok',
-      },
-    ],
-    attributionRows: [{ event: 'landing_view', utmCampaign: 'tiny', count: 2 }],
-    lookbackDays: 30,
-    minEvents: 5,
-  });
+  const report = withFixtureClock(() =>
+    buildScoreboard({
+      contentRows: [
+        {
+          date: '2026-07-25',
+          platform: 'X',
+          hook: 'h',
+          campaign: 'tiny',
+          status: 'Published',
+          postUrl: 'https://x.com/1',
+          outcome: 'ok',
+        },
+      ],
+      attributionRows: [{ event: 'landing_view', utmCampaign: 'tiny', count: 2 }],
+      lookbackDays: 30,
+      minEvents: 5,
+    }),
+  );
   assert.strictEqual(report.decision, 'INSUFFICIENT_DATA');
   assert.ok(report.nextExperiments.length >= 1);
 });
 
 test('LIVE posts with zero attribution produce lesson', () => {
-  const report = buildScoreboard({
-    contentRows: [
-      {
-        date: '2026-07-25',
-        platform: 'Bluesky',
-        hook: 'h',
-        campaign: 'lonely-live',
-        status: 'Published',
-        postUrl: 'https://bsky.app/x',
-        outcome: 'ok',
-      },
-    ],
-    attributionRows: [],
-    lookbackDays: 30,
-    minEvents: 5,
-  });
+  const report = withFixtureClock(() =>
+    buildScoreboard({
+      contentRows: [
+        {
+          date: '2026-07-25',
+          platform: 'Bluesky',
+          hook: 'h',
+          campaign: 'lonely-live',
+          status: 'Published',
+          postUrl: 'https://bsky.app/x',
+          outcome: 'ok',
+        },
+      ],
+      attributionRows: [],
+      lookbackDays: 30,
+      minEvents: 5,
+    }),
+  );
   assert.ok(report.lessons.some((l) => /zero attributed/i.test(l)));
 });
 

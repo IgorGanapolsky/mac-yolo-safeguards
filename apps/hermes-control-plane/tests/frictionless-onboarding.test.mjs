@@ -165,9 +165,7 @@ test("keeps the deployed web host DOM-native instead of adding a React Native We
   assert.match(globals, /\.dashboard-header\{[\s\S]*grid-template-columns:1fr/);
   // Chat-first workbench (DimAgent visual workbench steal, 2026-08-18):
   // messages fill remaining height; thin composer dock; not half-screen input.
-  assert.match(globals, /data-mobile-tab="hermes"\]\{[\s\S]*height:100dvh/);
-  assert.match(globals, /data-mobile-tab="hermes"\] \.task-panel\{[\s\S]*overflow:hidden !important/);
-  assert.match(globals, /data-mobile-tab="hermes"\] \.hermes-scroll-pane\{[\s\S]*height:clamp\(280px,46svh,520px\)[\s\S]*overflow-y:auto !important/);
+  assert.match(globals, /data-mobile-tab="hermes"\] \.hermes-scroll-pane\{[\s\S]*flex:1 1 0 !important[\s\S]*overflow-y:auto !important/);
   assert.match(globals, /task-panel \.composer[\s\S]*position:relative !important/);
   assert.match(globals, /composer textarea\{[\s\S]*min-height:40px/);
   assert.match(globals, /\.agent-activity/);

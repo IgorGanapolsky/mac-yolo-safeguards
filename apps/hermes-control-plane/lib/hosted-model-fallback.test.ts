@@ -57,7 +57,7 @@ describe("hosted provider fallback lock", () => {
     expect(route.vpsDead).toBe(false);
     expect(modelHealthy({
       lastError: QUOTA,
-      now: Date.now(),
+      now: Date.UTC(2026, 7, 22, 21, 7, 1),
       failedProviders: ["supergrok", "deepseek-free", "poolside"],
     })).toBe(false);
   });
