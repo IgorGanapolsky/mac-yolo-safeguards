@@ -27,6 +27,10 @@ check(
   'Dependabot must keep Jest types on the supported Jest major',
 );
 check(
+  /dependency-name: eslint\s+update-types: \["version-update:semver-major"\]/.test(dependabot),
+  'Dependabot must hold ESLint major upgrades until eslint-config-next supports them',
+);
+check(
   /dependency-name: react-test-renderer\s+\s*# v3 requires/.test(dependabot),
   'react-test-renderer must remain exactly aligned with the SDK-pinned React version',
 );

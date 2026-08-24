@@ -4,7 +4,7 @@ description: >
   Garry's List (garryslist.org) continuous intel + membership engage pipeline.
   Site is a California builder/civic publication (501c4), not a gig marketplace.
   Scrape public posts, score AI/tech high-value, stage comments/articles.
-  Login: Google SSO iganapolsky@gmail.com; LinkedIn verify for membership.
+  Login: Google SSO Igor's personal Gmail; LinkedIn verify for membership.
   Trigger: garryslist, Garry's List, garryslist.org, scrape garry, engage garry.
 ---
 

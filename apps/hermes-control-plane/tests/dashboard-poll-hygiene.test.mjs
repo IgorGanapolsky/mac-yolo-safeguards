@@ -4,8 +4,11 @@ import path from "node:path";
 import test from "node:test";
 import {
   MIN_DASHBOARD_POLL_INTERVAL_MS,
+  ACTIVE_TASK_REFRESH_DELAY_MS,
+  ACTIVE_TASK_REFRESH_MAX_MS,
   ERROR_RETRY_DELAY_MS,
   resolveDashboardRefresh,
+  startActiveTaskRefresh,
   startDashboardRefresh,
   scheduleOneShotErrorRetry,
 } from "../lib/dashboard-refresh.ts";
@@ -71,4 +74,49 @@ test("error retry is one 30s timeout, never a sub-60s loop", () => {
   assert.deepEqual(intervals, []);
   assert.match(source, /scheduleOneShotErrorRetry/);
   assert.match(source, /errorRetryUsedRef/);
+});
+
+test("active work uses a bounded chained timeout and stays off while idle", async () => {
+  const callbacks = [];
+  let active = false;
+  const idle = startActiveTaskRefresh({
+    run: () => {},
+    isActive: () => active,
+    setTimeoutFn: (fn, ms) => {
+      callbacks.push({ fn, ms });
+      return callbacks.length;
+    },
+  });
+  assert.equal(idle.started, false);
+  assert.deepEqual(callbacks, []);
+
+  active = true;
+  let runs = 0;
+  const live = startActiveTaskRefresh({
+    run: () => { runs += 1; active = false; },
+    isActive: () => active,
+    setTimeoutFn: (fn, ms) => {
+      callbacks.push({ fn, ms });
+      return callbacks.length;
+    },
+  });
+  assert.equal(live.started, true);
+  assert.equal(live.delayMs, ACTIVE_TASK_REFRESH_DELAY_MS);
+  assert.equal(live.maxDurationMs, ACTIVE_TASK_REFRESH_MAX_MS);
+  assert.ok(live.maxDurationMs / live.delayMs <= 18);
+  assert.equal(callbacks.length, 1);
+  assert.equal(callbacks[0].ms, 10_000);
+  await callbacks.shift().fn();
+  assert.equal(runs, 1);
+  assert.deepEqual(callbacks, []);
+});
+
+test("dashboard wires active-only refresh to the real workspace and selected conversation", () => {
+  assert.match(source, /startActiveTaskRefresh\(\{/);
+  assert.match(source, /autonomouslyProgressing/);
+  assert.match(source, /isActive: \(\) => hasProgressingTasksRef\.current/);
+  assert.match(source, /await refreshWorkspaceOnce\(\)/);
+  assert.match(source, /await revalidateSelectedThread\(activeThreadId\)/);
+  assert.match(source, /return \(\) => refresh\.stop\(\)/);
+  assert.doesNotMatch(source, /setInterval\(/);
 });

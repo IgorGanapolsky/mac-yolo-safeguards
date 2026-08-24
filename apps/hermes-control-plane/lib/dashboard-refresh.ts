@@ -17,6 +17,8 @@
 export const MIN_DASHBOARD_POLL_INTERVAL_MS = 15 * 60 * 1000;
 export const SUB_MINUTE_POLL_MS = 60_000;
 export const ERROR_RETRY_DELAY_MS = 30_000;
+export const ACTIVE_TASK_REFRESH_DELAY_MS = 10_000;
+export const ACTIVE_TASK_REFRESH_MAX_MS = 3 * 60 * 1000;
 
 export type DashboardRefreshInput = {
   search?: string | URLSearchParams | null;
@@ -122,6 +124,74 @@ export function scheduleOneShotErrorRetry(options: {
     delayMs: ERROR_RETRY_DELAY_MS,
     stop: () => {
       clearTimeoutFn(timeoutId);
+    },
+  };
+}
+
+export type ActiveTaskRefreshHandle = {
+  started: boolean;
+  delayMs: number;
+  maxDurationMs: number;
+  stop: () => void;
+};
+
+/**
+ * Refresh only while useful work is in flight. This is deliberately a chained
+ * timeout instead of an interval: the next request is not scheduled until the
+ * previous request settles, and the whole loop has a hard request-budget bound.
+ */
+export function startActiveTaskRefresh(options: {
+  run: () => void | Promise<void>;
+  isActive: () => boolean;
+  nowFn?: () => number;
+  setTimeoutFn?: typeof setTimeout;
+  clearTimeoutFn?: typeof clearTimeout;
+  delayMs?: number;
+  maxDurationMs?: number;
+}): ActiveTaskRefreshHandle {
+  const delayMs = Math.max(1, options.delayMs ?? ACTIVE_TASK_REFRESH_DELAY_MS);
+  const maxDurationMs = Math.max(delayMs, options.maxDurationMs ?? ACTIVE_TASK_REFRESH_MAX_MS);
+  const idle: ActiveTaskRefreshHandle = {
+    started: false,
+    delayMs,
+    maxDurationMs,
+    stop: () => {},
+  };
+  if (!options.isActive()) return idle;
+
+  const nowFn = options.nowFn ?? Date.now;
+  const setTimeoutFn = options.setTimeoutFn ?? setTimeout;
+  const clearTimeoutFn = options.clearTimeoutFn ?? clearTimeout;
+  const startedAt = nowFn();
+  let stopped = false;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  const schedule = () => {
+    const remainingMs = maxDurationMs - (nowFn() - startedAt);
+    if (stopped || !options.isActive() || remainingMs <= 0) return;
+    timeoutId = setTimeoutFn(async () => {
+      timeoutId = null;
+      if (stopped || !options.isActive() || nowFn() - startedAt >= maxDurationMs) return;
+      try {
+        await options.run();
+      } catch {
+        // A transient refresh failure must not create an unhandled rejection or
+        // overlap retries. The next bounded timeout is the retry.
+      } finally {
+        schedule();
+      }
+    }, Math.min(delayMs, remainingMs));
+  };
+
+  schedule();
+  return {
+    started: true,
+    delayMs,
+    maxDurationMs,
+    stop: () => {
+      stopped = true;
+      if (timeoutId !== null) clearTimeoutFn(timeoutId);
+      timeoutId = null;
     },
   };
 }
