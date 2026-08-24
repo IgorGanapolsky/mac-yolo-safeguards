@@ -15,6 +15,11 @@ const ALLOWED = { allowedDomains: ["example.com"] };
 // list. The real list is operator-supplied config.
 const GUARDED = { guardedLabels: ["GUARDED_ONE", "GUARDED_TWO"] };
 
+// Fixtures are assembled at run time so no token-shaped literal is committed.
+const b64url = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
+const FAKE_JWT = [b64url({ alg: "none" }), b64url({ sub: "fixture" }), "notasignature"].join(".");
+const OPAQUE = "FIXTUREVALUE1234567";
+
 test("an allowlisted host and its subdomains are reachable", () => {
   assert.equal(evaluateNavigation("https://example.com/docs", ["example.com"]).decision, "allow");
   assert.equal(evaluateNavigation("https://docs.example.com/x", ["example.com"]).decision, "allow");
@@ -138,16 +143,24 @@ test("navigation rules still apply through the composed entry point", () => {
 });
 
 test("values that authenticate something are stripped from untrusted output", () => {
-  const jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijk";
-  const opaque = "OPAQUEVALUE1234567";
-  const withHeader = redactUntrustedOutput("Authorization: Bearer " + opaque);
-  assert.ok(!withHeader.includes(opaque));
-  const withQuery = redactUntrustedOutput("GET https://api.example.com/me?access_token=" + opaque);
-  assert.ok(!withQuery.includes(opaque));
-  const withJwt = redactUntrustedOutput("header " + jwt);
-  assert.ok(!withJwt.includes(jwt));
-  const withPrefixed = redactUntrustedOutput("emitted " + ["sk", "-", opaque].join(""));
+  // Regression: the header rule once ended in \\S+, matched the scheme word and
+  // left the value in place. This asserts the value itself is gone.
+  const withHeader = redactUntrustedOutput("Authorization: Bearer " + OPAQUE);
+  assert.ok(!withHeader.includes(OPAQUE), withHeader);
+
+  const withQuery = redactUntrustedOutput("GET https://api.example.com/me?access_token=" + OPAQUE);
+  assert.ok(!withQuery.includes(OPAQUE), withQuery);
+
+  const withJwt = redactUntrustedOutput("header " + FAKE_JWT);
+  assert.ok(!withJwt.includes(FAKE_JWT), withJwt);
+
+  const withPrefixed = redactUntrustedOutput("emitted " + ["sk", "-", OPAQUE].join(""));
   assert.match(withPrefixed, /\[removed\]/);
+});
+
+test("a bare mention of bearer in prose is not mangled", () => {
+  const line = "the bearer expired";
+  assert.equal(redactUntrustedOutput(line), line);
 });
 
 test("ordinary log lines survive redaction unchanged", () => {
