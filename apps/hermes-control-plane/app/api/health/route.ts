@@ -2,6 +2,10 @@ import { currentAdminSession } from "@/lib/admin-auth";
 import { db, runtimeEnv } from "@/lib/runtime";
 import { publicHealthFromCache } from "@/lib/hosted-apphost";
 import { startSpan, endSpan, extractTraceContext, setAttribute, setError, traceparentFor } from "@/lib/tracing";
+import {
+  d1HealthSchemaOkCache,
+  d1HealthTelemetryCache,
+} from "@/lib/d1-read-cache";
 
 const SERVICE = "hosted-hermes";
 
@@ -130,20 +134,19 @@ export async function GET(request?: Request) {
 
   try {
     const now = Date.now();
-    await requireCurrentSchema();
     const { config, concerns, ready } = configState();
     const hosted = publicHealthFromCache({
       now,
       stripeConfigured: config.stripeCheckoutConfigured,
     });
 
-    setAttribute(span, "db.query.count", 1);
-    setAttribute(span, "health.ok", true);
-
-    const ended = endSpan(span, "ok");
-    const headers = traceHeaders(ended);
-
+    // Public liveness is worker+config+hosted cache only. Watchdogs have no
+    // admin cookie; hitting D1 here is what produced 865M rows read in 7d.
     if (!(await isAdmin())) {
+      setAttribute(span, "db.query.count", 0);
+      setAttribute(span, "health.ok", true);
+      setAttribute(span, "health.scope", "liveness");
+      const ended = endSpan(span, "ok");
       return Response.json({
         ok: true,
         ready,
@@ -151,10 +154,26 @@ export async function GET(request?: Request) {
         trust: hosted.trust,
         turningOn: hosted.turningOn,
         scope: "liveness",
-      }, { headers });
+      }, { headers: traceHeaders(ended) });
     }
 
-    const telemetry = await collectAdminHealthTelemetry(now);
+    let dbQueries = 0;
+    if (!d1HealthSchemaOkCache.get(now)) {
+      await requireCurrentSchema();
+      d1HealthSchemaOkCache.set(now, true);
+      dbQueries += 1;
+    }
+
+    let telemetry = d1HealthTelemetryCache.get(now);
+    if (!telemetry) {
+      telemetry = await collectAdminHealthTelemetry(now);
+      d1HealthTelemetryCache.set(now, telemetry);
+      dbQueries += 1;
+    }
+
+    setAttribute(span, "db.query.count", dbQueries);
+    setAttribute(span, "health.ok", true);
+    const ended = endSpan(span, "ok");
     return Response.json({
       ok: true,
       ready,
@@ -170,7 +189,7 @@ export async function GET(request?: Request) {
       config,
       concerns,
       telemetry,
-    }, { headers });
+    }, { headers: traceHeaders(ended) });
   } catch (error) {
     setError(span, error instanceof Error ? error : new Error(String(error)));
     const ended = endSpan(span, "error", error instanceof Error ? error.message : "unknown");
