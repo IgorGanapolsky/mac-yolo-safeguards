@@ -1,0 +1,527 @@
+{
+  "schemaVersion": "mac-yolo.synthetic-customer-panel.v1",
+  "decision": {
+    "intervention": "Which thumbgate.app/d Hermes-tab treatment on a signed-in phone",
+    "population": "Signed-in mobile users (~390x844) already in a Real Estate thread with synced assistant text and a 16/100 hosted-VPS meter",
+    "outcomeMetric": "qualified_hosted_vps_send",
+    "constraints": [
+      "Hosted VPS is the default Continuity-class path",
+      "Do not hero RUN ON / pair-Mac / Continuity picker",
+      "ECI pauses $499 paid-pilot outreach"
+    ]
+  },
+  "contexts": [
+    { "id": "first_paint", "label": "Opens /d on a phone" },
+    { "id": "thread_synced", "label": "Real Estate thread with synced bubble + empty-state CTA" },
+    { "id": "after_send", "label": "Just submitted a prompt; needs a reachable composer for the next turn" }
+  ],
+  "variants": [
+    {
+      "id": "clip-cta",
+      "shippable": true,
+      "name": "Live empty-state CTA (clips composer)",
+      "headline": "No web tasks in this chat yet",
+      "cta": "Write a task →",
+      "sourceUrl": "https://thumbgate.app/d",
+      "riskReversal": "None — the purple CTA and 100dvh shell steal the last flex row so there is no textarea",
+      "attributes": {
+        "composerVisible": 0.15,
+        "emptyStateCtaSpace": 0.95,
+        "hostedVpsDefault": 0.7,
+        "continuityPicker": 0.05,
+        "timeToFirstKeystroke": 0.1,
+        "noMacRequired": 0.7,
+        "hype": 0.2
+      }
+    },
+    {
+      "id": "composer-reachable",
+      "shippable": true,
+      "name": "Hide empty-state CTA; keep textarea in viewport",
+      "headline": "Type below to run the next step on the hosted VPS (fenced runner, 90s lease).",
+      "cta": "Send on hosted VPS",
+      "sourceUrl": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/2043",
+      "riskReversal": "The composer stays in the visual viewport without a Mac-pair or Continuity picker",
+      "attributes": {
+        "composerVisible": 0.95,
+        "emptyStateCtaSpace": 0.1,
+        "hostedVpsDefault": 0.95,
+        "continuityPicker": 0.05,
+        "timeToFirstKeystroke": 0.9,
+        "noMacRequired": 0.95,
+        "hype": 0.1
+      }
+    },
+    {
+      "id": "continuity-picker",
+      "shippable": false,
+      "name": "Restore Continuity / RUN ON / connect-Mac",
+      "headline": "Connect a Mac to continue this chat",
+      "cta": "Find computers",
+      "sourceUrl": null,
+      "riskReversal": "Routes work to a paired Mac instead of the fenced VPS — against the product lock",
+      "attributes": {
+        "composerVisible": 0.55,
+        "emptyStateCtaSpace": 0.35,
+        "hostedVpsDefault": 0.15,
+        "continuityPicker": 0.95,
+        "timeToFirstKeystroke": 0.25,
+        "noMacRequired": 0.1,
+        "hype": 0.35
+      }
+    }
+  ],
+  "evidence": [
+    {
+      "id": "ev-no-composer-screenshot",
+      "kind": "observed",
+      "sourceId": "ceo-phone-2026-08-24-1408",
+      "sourceUrl": null,
+      "observedAt": "2026-08-24T18:08:00Z",
+      "tags": ["mobile", "composer", "empty-state"],
+      "quote": "No option to input chat? Very unintuitive ux! Real Estate thread, 16/100 meter, empty-state Write a task, no textarea."
+    },
+    {
+      "id": "ev-cloud-pending-screenshot",
+      "kind": "observed",
+      "sourceId": "ceo-phone-2026-08-24-cloud-pending",
+      "sourceUrl": null,
+      "observedAt": "2026-08-24T16:00:00Z",
+      "tags": ["send", "pending", "hosted-vps"],
+      "quote": "I inputted a prompt, and it doesn't work????? UI stuck CLOUD PENDING after a completed hosted task."
+    },
+    {
+      "id": "ev-copy-write-a-task",
+      "kind": "observed",
+      "sourceId": "DashboardClient.emptyState",
+      "sourceUrl": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/blob/main/apps/hermes-control-plane/app/dashboard/DashboardClient.tsx",
+      "observedAt": "2026-08-24T00:00:00Z",
+      "tags": ["copy", "empty-state"],
+      "quote": "title: No web tasks in this chat yet; CTA: Write a task →"
+    },
+    {
+      "id": "ev-pr-2043",
+      "kind": "observed",
+      "sourceId": "pr-2043",
+      "sourceUrl": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/2043",
+      "observedAt": "2026-08-24T21:00:00Z",
+      "tags": ["composer", "css", "playwright"],
+      "quote": "390x844 Playwright keeps the prompt textarea in the visual viewport; empty-state CTA display:none on Hermes tab."
+    },
+    {
+      "id": "ev-hosted-vps-lock",
+      "kind": "observed",
+      "sourceId": "product-lock-hosted-vps",
+      "sourceUrl": null,
+      "observedAt": "2026-08-24T12:00:00Z",
+      "tags": ["hosted-vps", "continuity"],
+      "quote": "Hosted Hermes on a fenced VPS is the default Continuity-class path. Do not hero Continuity, Mac-pair, or a RUN ON picker."
+    }
+  ],
+  "holdoutPersonaIds": [
+    "p-phone-no-composer",
+    "p-cloud-pending",
+    "p-time-poor",
+    "p-continuity-loyalist",
+    "p-skeptical-vps"
+  ],
+  "personas": [
+    {
+      "id": "p-phone-no-composer",
+      "name": "Phone user who cannot find the prompt box",
+      "background": "Signed-in on a phone at 2:08, Real Estate thread already open.",
+      "goals": ["Type the next Real Estate prompt on hosted VPS"],
+      "currentContext": "Sees synced assistant text, 16/100 meter, Write a task CTA, no textarea.",
+      "constraints": ["One thumb", "390x844 viewport", "statusline eats ~6rem"],
+      "purchaseTriggers": ["Composer is actually visible"],
+      "objections": ["There is no box to type in"],
+      "historicalActions": ["Opened /d", "Switched Hermes tab", "Did not send"],
+      "preferences": ["Type immediately", "No extra taps"],
+      "statedBeliefs": ["The app should have a chat input"],
+      "observedVsStated": "Stated 'unintuitive UX'; observed bounce with zero send.",
+      "likelyResponseByOffer": {
+        "clip-cta": "bounce",
+        "composer-reachable": "send",
+        "continuity-picker": "object"
+      },
+      "weights": {
+        "composerVisible": 0.95,
+        "emptyStateCtaSpace": 0.2,
+        "hostedVpsDefault": 0.7,
+        "continuityPicker": 0.05,
+        "timeToFirstKeystroke": 0.9,
+        "noMacRequired": 0.8
+      },
+      "biases": {
+        "timePoverty": 0.85,
+        "noMacAllergy": 0.6,
+        "overclaimAllergy": 0.4,
+        "statusQuo": 0.2,
+        "ctaFollower": 0.3
+      },
+      "actionSpace": ["send", "tap_cta", "object", "bounce", "bookmark"],
+      "memory": ["saw empty-state Write a task with no textarea"],
+      "evidenceIds": ["ev-no-composer-screenshot", "ev-copy-write-a-task"],
+      "tags": ["mobile", "composer"]
+    },
+    {
+      "id": "p-cloud-pending",
+      "name": "User who already sent and got stuck pending",
+      "background": "Submitted a Real Estate prompt; D1 completed; UI stayed CLOUD PENDING.",
+      "goals": ["See the answer", "Send a follow-up on hosted VPS"],
+      "currentContext": "Composer may exist but trust is shot after a silent pending chip.",
+      "constraints": ["Will not wait 3 minutes", "Needs the next box now"],
+      "purchaseTriggers": ["Visible result plus a reachable composer"],
+      "objections": ["I already typed and nothing happened"],
+      "historicalActions": ["Sent one prompt", "Stared at CLOUD PENDING"],
+      "preferences": ["Hosted VPS without Mac"],
+      "statedBeliefs": ["The prompt was accepted"],
+      "observedVsStated": "Stated send worked; observed pending chip hid the completed result.",
+      "likelyResponseByOffer": {
+        "clip-cta": "object",
+        "composer-reachable": "send",
+        "continuity-picker": "object"
+      },
+      "weights": {
+        "composerVisible": 0.8,
+        "emptyStateCtaSpace": 0.25,
+        "hostedVpsDefault": 0.9,
+        "continuityPicker": 0.05,
+        "timeToFirstKeystroke": 0.7,
+        "noMacRequired": 0.85
+      },
+      "biases": {
+        "timePoverty": 0.7,
+        "noMacAllergy": 0.7,
+        "overclaimAllergy": 0.5,
+        "statusQuo": 0.3,
+        "ctaFollower": 0.2
+      },
+      "actionSpace": ["send", "tap_cta", "object", "bounce", "bookmark"],
+      "memory": ["sent a prompt that looked stuck"],
+      "evidenceIds": ["ev-cloud-pending-screenshot", "ev-hosted-vps-lock"],
+      "tags": ["send", "pending"]
+    },
+    {
+      "id": "p-time-poor",
+      "name": "30-second mobile operator",
+      "background": "Checks the dashboard between other apps.",
+      "goals": ["One follow-up send in under 30s"],
+      "currentContext": "Will not hunt Settings or Find computers.",
+      "constraints": ["Severe time poverty"],
+      "purchaseTriggers": ["Textarea already focused or at least visible"],
+      "objections": ["Too many taps"],
+      "historicalActions": ["Opened /d", "Left within a minute"],
+      "preferences": ["Hosted VPS, no picker"],
+      "statedBeliefs": ["I just want to type"],
+      "observedVsStated": "Stated 'I'll try later'; observed bounce.",
+      "likelyResponseByOffer": {
+        "clip-cta": "bounce",
+        "composer-reachable": "send",
+        "continuity-picker": "bounce"
+      },
+      "weights": {
+        "composerVisible": 0.9,
+        "emptyStateCtaSpace": 0.15,
+        "hostedVpsDefault": 0.75,
+        "continuityPicker": 0.05,
+        "timeToFirstKeystroke": 0.95,
+        "noMacRequired": 0.8
+      },
+      "biases": {
+        "timePoverty": 0.95,
+        "noMacAllergy": 0.5,
+        "overclaimAllergy": 0.3,
+        "statusQuo": 0.15,
+        "ctaFollower": 0.25
+      },
+      "actionSpace": ["send", "tap_cta", "object", "bounce", "bookmark"],
+      "memory": [],
+      "evidenceIds": ["ev-no-composer-screenshot", "ev-pr-2043"],
+      "tags": ["mobile"]
+    },
+    {
+      "id": "p-continuity-loyalist",
+      "name": "Wants the paired Mac",
+      "background": "Used Hermes on a Mac before; expects a machine picker.",
+      "goals": ["Route to my Mac"],
+      "currentContext": "Annoyed that hosted VPS is forced.",
+      "constraints": ["Mac may be asleep"],
+      "purchaseTriggers": ["Visible RUN ON / Continuity control"],
+      "objections": ["Why can't I pick my Mac?"],
+      "historicalActions": ["Asked why Continuity is missing"],
+      "preferences": ["Mac-pair"],
+      "statedBeliefs": ["Continuity should be an option"],
+      "observedVsStated": "Stated wants Continuity; product lock still hosted-VPS default.",
+      "likelyResponseByOffer": {
+        "clip-cta": "object",
+        "composer-reachable": "bookmark",
+        "continuity-picker": "send"
+      },
+      "weights": {
+        "composerVisible": 0.5,
+        "emptyStateCtaSpace": 0.2,
+        "hostedVpsDefault": 0.2,
+        "continuityPicker": 0.95,
+        "timeToFirstKeystroke": 0.4,
+        "noMacRequired": 0.1
+      },
+      "biases": {
+        "timePoverty": 0.3,
+        "noMacAllergy": 0.05,
+        "overclaimAllergy": 0.2,
+        "statusQuo": 0.7,
+        "ctaFollower": 0.2
+      },
+      "actionSpace": ["send", "tap_cta", "object", "bounce", "bookmark"],
+      "memory": ["asked for Continuity"],
+      "evidenceIds": ["ev-hosted-vps-lock", "ev-copy-write-a-task"],
+      "tags": ["continuity"]
+    },
+    {
+      "id": "p-skeptical-vps",
+      "name": "Skeptical comparison shopper",
+      "background": "Will not trust a purple empty-state button as the only input.",
+      "goals": ["Confirm hosted VPS is real, then send"],
+      "currentContext": "Reads the 16/100 meter as capacity, not as a CTA.",
+      "constraints": ["Needs receipts, not slogans"],
+      "purchaseTriggers": ["Visible composer + hosted VPS label"],
+      "objections": ["CTA instead of a text field looks like a landing page"],
+      "historicalActions": ["Read meter", "Did not tap Write a task"],
+      "preferences": ["Plain textarea"],
+      "statedBeliefs": ["If I can type, I'll try one task"],
+      "observedVsStated": "Stated 'maybe later'; observed no send.",
+      "likelyResponseByOffer": {
+        "clip-cta": "object",
+        "composer-reachable": "send",
+        "continuity-picker": "object"
+      },
+      "weights": {
+        "composerVisible": 0.85,
+        "emptyStateCtaSpace": 0.2,
+        "hostedVpsDefault": 0.85,
+        "continuityPicker": 0.1,
+        "timeToFirstKeystroke": 0.7,
+        "noMacRequired": 0.8
+      },
+      "biases": {
+        "timePoverty": 0.5,
+        "noMacAllergy": 0.75,
+        "overclaimAllergy": 0.8,
+        "statusQuo": 0.35,
+        "ctaFollower": 0.1
+      },
+      "actionSpace": ["send", "tap_cta", "object", "bounce", "bookmark"],
+      "memory": [],
+      "evidenceIds": ["ev-no-composer-screenshot", "ev-hosted-vps-lock"],
+      "tags": ["mobile", "hosted-vps"]
+    },
+    {
+      "id": "p-cta-follower",
+      "name": "Taps the purple button",
+      "background": "Treats primary buttons as the next step.",
+      "goals": ["Do whatever the big button says"],
+      "currentContext": "Write a task → looks tappable.",
+      "constraints": ["Won't hunt for a hidden textarea"],
+      "purchaseTriggers": ["CTA that actually focuses the composer"],
+      "objections": ["Button did nothing useful if composer is clipped"],
+      "historicalActions": ["Tapped Write a task"],
+      "preferences": ["Obvious buttons"],
+      "statedBeliefs": ["The purple button is the chat"],
+      "observedVsStated": "Stated the CTA is the input; observed tap with no send.",
+      "likelyResponseByOffer": {
+        "clip-cta": "tap_cta",
+        "composer-reachable": "send",
+        "continuity-picker": "tap_cta"
+      },
+      "weights": {
+        "composerVisible": 0.55,
+        "emptyStateCtaSpace": 0.8,
+        "hostedVpsDefault": 0.5,
+        "continuityPicker": 0.2,
+        "timeToFirstKeystroke": 0.5,
+        "noMacRequired": 0.5
+      },
+      "biases": {
+        "timePoverty": 0.4,
+        "noMacAllergy": 0.3,
+        "overclaimAllergy": 0.2,
+        "statusQuo": 0.3,
+        "ctaFollower": 0.95
+      },
+      "actionSpace": ["send", "tap_cta", "object", "bounce", "bookmark"],
+      "memory": [],
+      "evidenceIds": ["ev-copy-write-a-task", "ev-no-composer-screenshot"],
+      "tags": ["empty-state"]
+    },
+    {
+      "id": "p-real-estate-thread",
+      "name": "Already in Real Estate",
+      "background": "Thread exists; synced assistant text is visible.",
+      "goals": ["Continue the Real Estate conversation on VPS"],
+      "currentContext": "Empty-state copy says no web tasks even though the thread has text.",
+      "constraints": ["Does not want a new chat"],
+      "purchaseTriggers": ["Composer under the existing thread"],
+      "objections": ["Empty state lying about 'no tasks'"],
+      "historicalActions": ["Selected Real Estate"],
+      "preferences": ["Stay in this thread"],
+      "statedBeliefs": ["This is an ongoing chat"],
+      "observedVsStated": "Stated continue here; observed empty-state CTA.",
+      "likelyResponseByOffer": {
+        "clip-cta": "bounce",
+        "composer-reachable": "send",
+        "continuity-picker": "object"
+      },
+      "weights": {
+        "composerVisible": 0.88,
+        "emptyStateCtaSpace": 0.2,
+        "hostedVpsDefault": 0.8,
+        "continuityPicker": 0.1,
+        "timeToFirstKeystroke": 0.75,
+        "noMacRequired": 0.75
+      },
+      "biases": {
+        "timePoverty": 0.6,
+        "noMacAllergy": 0.55,
+        "overclaimAllergy": 0.45,
+        "statusQuo": 0.4,
+        "ctaFollower": 0.2
+      },
+      "actionSpace": ["send", "tap_cta", "object", "bounce", "bookmark"],
+      "memory": ["Real Estate selected"],
+      "evidenceIds": ["ev-no-composer-screenshot", "ev-copy-write-a-task"],
+      "tags": ["mobile", "thread"]
+    },
+    {
+      "id": "p-capacity-watcher",
+      "name": "Reads the 16/100 meter first",
+      "background": "Interprets HOSTED VPS CAPACITY as remaining budget.",
+      "goals": ["Spend remaining capacity on a real send"],
+      "currentContext": "Meter is visible; composer is not.",
+      "constraints": ["Will not burn capacity on a dead UI"],
+      "purchaseTriggers": ["Composer + meter both visible"],
+      "objections": ["Capacity shown but I cannot type"],
+      "historicalActions": ["Looked at meter"],
+      "preferences": ["Honest capacity"],
+      "statedBeliefs": ["I still have 84 slots"],
+      "observedVsStated": "Stated remaining capacity; observed no send path.",
+      "likelyResponseByOffer": {
+        "clip-cta": "object",
+        "composer-reachable": "send",
+        "continuity-picker": "object"
+      },
+      "weights": {
+        "composerVisible": 0.8,
+        "emptyStateCtaSpace": 0.25,
+        "hostedVpsDefault": 0.9,
+        "continuityPicker": 0.1,
+        "timeToFirstKeystroke": 0.65,
+        "noMacRequired": 0.7
+      },
+      "biases": {
+        "timePoverty": 0.45,
+        "noMacAllergy": 0.5,
+        "overclaimAllergy": 0.55,
+        "statusQuo": 0.25,
+        "ctaFollower": 0.2
+      },
+      "actionSpace": ["send", "tap_cta", "object", "bounce", "bookmark"],
+      "memory": ["16/100"],
+      "evidenceIds": ["ev-no-composer-screenshot", "ev-hosted-vps-lock"],
+      "tags": ["hosted-vps"]
+    },
+    {
+      "id": "p-new-thread",
+      "name": "No thread selected yet",
+      "background": "First visit after sign-in.",
+      "goals": ["Start one hosted VPS task"],
+      "currentContext": "Needs both a thread and a composer.",
+      "constraints": ["Does not know Leash vs Hermes tabs"],
+      "purchaseTriggers": ["Obvious type-and-send"],
+      "objections": ["Too many chrome tabs"],
+      "historicalActions": ["Signed in"],
+      "preferences": ["Simple"],
+      "statedBeliefs": ["This is a chat app"],
+      "observedVsStated": "Stated will try a task; observed empty list.",
+      "likelyResponseByOffer": {
+        "clip-cta": "tap_cta",
+        "composer-reachable": "send",
+        "continuity-picker": "object"
+      },
+      "weights": {
+        "composerVisible": 0.75,
+        "emptyStateCtaSpace": 0.4,
+        "hostedVpsDefault": 0.7,
+        "continuityPicker": 0.15,
+        "timeToFirstKeystroke": 0.7,
+        "noMacRequired": 0.7
+      },
+      "biases": {
+        "timePoverty": 0.55,
+        "noMacAllergy": 0.45,
+        "overclaimAllergy": 0.35,
+        "statusQuo": 0.2,
+        "ctaFollower": 0.55
+      },
+      "actionSpace": ["send", "tap_cta", "object", "bounce", "bookmark"],
+      "memory": [],
+      "evidenceIds": ["ev-copy-write-a-task", "ev-pr-2043"],
+      "tags": ["onboarding"]
+    },
+    {
+      "id": "p-playwright-regression",
+      "name": "QA persona matching the 390x844 fixture",
+      "background": "Contract: textarea in viewport, empty-state CTA hidden on Hermes tab.",
+      "goals": ["Pass the reachable-composer contract"],
+      "currentContext": "Same geometry as the CEO screenshot.",
+      "constraints": ["390x844", "statusline outside the shell"],
+      "purchaseTriggers": ["textarea.getBoundingClientRect inside visual viewport"],
+      "objections": ["CTA display not none"],
+      "historicalActions": ["Playwright 390x844"],
+      "preferences": ["Deterministic CSS contract"],
+      "statedBeliefs": ["Composer must remain reachable"],
+      "observedVsStated": "Stated contract; observed PR #2043 test, not live Workers.",
+      "likelyResponseByOffer": {
+        "clip-cta": "bounce",
+        "composer-reachable": "send",
+        "continuity-picker": "object"
+      },
+      "weights": {
+        "composerVisible": 0.98,
+        "emptyStateCtaSpace": 0.1,
+        "hostedVpsDefault": 0.8,
+        "continuityPicker": 0.05,
+        "timeToFirstKeystroke": 0.85,
+        "noMacRequired": 0.8
+      },
+      "biases": {
+        "timePoverty": 0.5,
+        "noMacAllergy": 0.6,
+        "overclaimAllergy": 0.7,
+        "statusQuo": 0.1,
+        "ctaFollower": 0.1
+      },
+      "actionSpace": ["send", "tap_cta", "object", "bounce", "bookmark"],
+      "memory": ["390x844 fixture"],
+      "evidenceIds": ["ev-pr-2043", "ev-no-composer-screenshot"],
+      "tags": ["composer", "playwright"]
+    }
+  ],
+  "observations": [
+    { "kind": "fixture", "personaId": "p-phone-no-composer", "variantId": "clip-cta", "outcome": 0.08, "sourceId": "ceo-phone-2026-08-24-1408", "observedAt": "2026-08-24T18:08:00Z" },
+    { "kind": "fixture", "personaId": "p-phone-no-composer", "variantId": "composer-reachable", "outcome": 0.82, "sourceId": "pr-2043-playwright", "observedAt": "2026-08-24T21:00:00Z" },
+    { "kind": "fixture", "personaId": "p-phone-no-composer", "variantId": "continuity-picker", "outcome": 0.22, "sourceId": "product-lock-hosted-vps", "observedAt": "2026-08-24T12:00:00Z" },
+    { "kind": "fixture", "personaId": "p-cloud-pending", "variantId": "clip-cta", "outcome": 0.2, "sourceId": "ceo-phone-2026-08-24-cloud-pending", "observedAt": "2026-08-24T16:00:00Z" },
+    { "kind": "fixture", "personaId": "p-cloud-pending", "variantId": "composer-reachable", "outcome": 0.74, "sourceId": "pr-2043-playwright", "observedAt": "2026-08-24T21:00:00Z" },
+    { "kind": "fixture", "personaId": "p-cloud-pending", "variantId": "continuity-picker", "outcome": 0.18, "sourceId": "product-lock-hosted-vps", "observedAt": "2026-08-24T12:00:00Z" },
+    { "kind": "fixture", "personaId": "p-time-poor", "variantId": "clip-cta", "outcome": 0.1, "sourceId": "ceo-phone-2026-08-24-1408", "observedAt": "2026-08-24T18:08:00Z" },
+    { "kind": "fixture", "personaId": "p-time-poor", "variantId": "composer-reachable", "outcome": 0.8, "sourceId": "pr-2043-playwright", "observedAt": "2026-08-24T21:00:00Z" },
+    { "kind": "fixture", "personaId": "p-time-poor", "variantId": "continuity-picker", "outcome": 0.12, "sourceId": "product-lock-hosted-vps", "observedAt": "2026-08-24T12:00:00Z" },
+    { "kind": "fixture", "personaId": "p-continuity-loyalist", "variantId": "clip-cta", "outcome": 0.25, "sourceId": "product-lock-hosted-vps", "observedAt": "2026-08-24T12:00:00Z" },
+    { "kind": "fixture", "personaId": "p-continuity-loyalist", "variantId": "composer-reachable", "outcome": 0.4, "sourceId": "product-lock-hosted-vps", "observedAt": "2026-08-24T12:00:00Z" },
+    { "kind": "fixture", "personaId": "p-continuity-loyalist", "variantId": "continuity-picker", "outcome": 0.7, "sourceId": "product-lock-hosted-vps", "observedAt": "2026-08-24T12:00:00Z" },
+    { "kind": "fixture", "personaId": "p-skeptical-vps", "variantId": "clip-cta", "outcome": 0.15, "sourceId": "ceo-phone-2026-08-24-1408", "observedAt": "2026-08-24T18:08:00Z" },
+    { "kind": "fixture", "personaId": "p-skeptical-vps", "variantId": "composer-reachable", "outcome": 0.78, "sourceId": "pr-2043-playwright", "observedAt": "2026-08-24T21:00:00Z" },
+    { "kind": "fixture", "personaId": "p-skeptical-vps", "variantId": "continuity-picker", "outcome": 0.2, "sourceId": "product-lock-hosted-vps", "observedAt": "2026-08-24T12:00:00Z" }
+  ]
+}

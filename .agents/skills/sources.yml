@@ -23,6 +23,7 @@ in_repo:
   - revenue-gap-tracker
   - skill-catalog-governance
   - cloudflare-developer-stack
+  - synthetic-customer-panel-not-digital-twin
 
 external:
   # Intentionally empty by default on Apple Silicon fleet.

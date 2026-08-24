@@ -4,6 +4,7 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 
 | Skill | Description | Definition | Source |
 | :--- | :--- | :--- | :--- |
+| `synthetic-customer-panel-not-digital-twin` | Narrow behavioral simulation for one hosted-VPS send decision. Rank composer treatments with 5–20 evidence-backed personas; never claim the agents picked a winner. Holdout ranking first. | `.agents/skills/synthetic-customer-panel-not-digital-twin/SKILL.md` | local |
 | `structural-refactoring-engine` | SWE-Bench ProMax-style Structural AST Refactoring, Concurrency Invariant Sentinel & Zero-Entropy Atomic Rollback Engine | `.agents/skills/structural-refactoring-engine/SKILL.md` | local |
 | `future-agi-self-healing-engine` | Future AGI Self-Healing Agent Engine, Adversarial Persona Simulation, OTel Span Tracing & Automated Guardrail Patch Synthesizer for all coding agents on Igor's Mac. | `.agents/skills/future-agi-self-healing-engine/SKILL.md` | local |
 | `local-first-sync-engine` | Local-First Sync Engine & Reactive Collection Architecture (ElectricSQL / TanStack DB style, query-driven sync, optimistic mutations with transactional rollback) for all coding agents on Igor's Mac. | `.agents/skills/local-first-sync-engine/SKILL.md` | local |
