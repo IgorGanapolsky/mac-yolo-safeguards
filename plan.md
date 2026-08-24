@@ -3717,3 +3717,7 @@ GH #2038 / Linear AGENT-510. Restore control-plane CI after PR #2000 merged ESLi
 - Fixed: required-check contract 41/41, Actionlint 2/2 workflows, Ruby YAML parse 2/2, dependency automation policy 16/16, CodeQL pattern gate 0 findings across 1,308 files, and `git diff --check` passed.
 - `gh copilot` review was attempted but the provider rejected it because the monthly quota is exhausted; no Copilot review claim.
 - Branch protection is intentionally unchanged until this workflow is merged and the irrelevant-path success route is observed on GitHub.
+
+### Provider probe (append 2026-08-24T21:57:00Z)
+
+- This `plan.md`-only commit intentionally changes no control-plane code. Its temporary PR proves GitHub emits `verify` and `unit-and-coverage` as explicit cheap-success checks on an irrelevant path before either context is required by branch protection.
