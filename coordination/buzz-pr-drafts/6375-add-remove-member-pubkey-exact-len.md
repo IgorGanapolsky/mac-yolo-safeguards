@@ -17,7 +17,7 @@ Switch both builders to `check_pubkey_hex` — the helper already used by `build
 ### Test plan
 
 - Added `add_member_lowercases_pubkey`, `add_member_rejects_overlong_pubkey`, `add_member_rejects_short_pubkey`, `remove_member_lowercases_pubkey`, `remove_member_rejects_overlong_pubkey`, `remove_member_rejects_short_pubkey` to `builders.rs`'s test module, mirroring the existing `moderation_ban_rejects_overlong_pubkey`/`moderation_ban_lowercases_pubkey` style already in this file.
-- Confirmed fail-before: with just the two builder bodies reverted (new tests kept in place), `add_member_rejects_overlong_pubkey`, `add_member_rejects_short_pubkey`, `remove_member_rejects_overlong_pubkey`, `remove_member_rejects_short_pubkey` all failed as expected — the `_short_pubkey`/`_overlong_pubkey` panics confirm `check_hex_len`'s "at least" bound accepts what it should reject.
+- Confirmed fail-before: with just the two builder bodies reverted (new tests kept in place), `add_member_rejects_overlong_pubkey` and `remove_member_rejects_overlong_pubkey` failed as expected — those panics are what confirm `check_hex_len`'s "at least 64" bound accepts an overlong pubkey it should reject. The two `_rejects_short_pubkey` tests passed both before and after: `check_hex_len(_, 64, _)` already rejects anything shorter than 64, so they are regression guards for the short case rather than reproductions of this defect.
 - `cargo test -p buzz-sdk --lib` → 268 passed, 0 failed (with the fix restored; up from 262 before the six new tests).
 - `cargo clippy -p buzz-sdk --lib --tests -- -D warnings` → clean.
 - `cargo fmt -p buzz-sdk -- --check` → clean.
