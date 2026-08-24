@@ -3609,3 +3609,7 @@ Complement to AGENT-476 / PR #1984. Does **not** steal DashboardClient.tsx. Code
 
 - PR #1986 merged commit `64a6e43d2` while PR #1983 was under review and retains active ownership of the dashboard statusline layout, component, API, tests, and intent contract.
 - T-AGENT-476 is blocked under the no-cross-owner-edit rule. PR #1983 now preserves PR #1986 files exactly and is narrowed to T-AGENT-476-INCIDENT: readable quick prompts/output, mobile overflow proof, generic `ThumbGate online` badge removal, and safe fenced-VPS execution for prompts containing a local path plus a GitHub repository URL.
+
+## 2. File Ownership Map (append-only lock table — claim before touching) [continued 2026-08-24]
+
+- `apps/hermes-control-plane/build/cloudflare-target.mjs`, `apps/hermes-control-plane/worker/index.ts`, `apps/hermes-control-plane/worker/edge-policy.ts`, `apps/hermes-control-plane/lib/cloudflare-edge-policy.test.ts`, `tests/test-hermes-cloudflare-deploy-config.js`, `plan.md` (append only) → **codex-cloudflare-edge-roi-2011** (GH #2011: Cloudflare-native write throttling, version-scoped anonymous public Cache API, Smart Placement; exclude PR #2010 Kitesurf/x402 files and all active dashboard/API-route claims) (2026-08-24T20:11:00Z)

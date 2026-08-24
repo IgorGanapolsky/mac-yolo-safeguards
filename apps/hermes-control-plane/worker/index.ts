@@ -1,10 +1,21 @@
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
+import {
+  cacheablePublicRoute,
+  createVersionedCacheKey,
+  enforceEdgeWriteRateLimit,
+  markPublicCacheHit,
+  preparePublicResponseForCache,
+} from "./edge-policy";
 
 interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
+  CF_VERSION_METADATA?: { id: string };
+  EDGE_WRITE_RATE_LIMITER?: {
+    limit(options: { key: string }): Promise<{ success: boolean }>;
+  };
   IMAGES: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {
@@ -55,7 +66,29 @@ const worker = {
       }, allowedWidths);
     }
 
-    const response = await handler.fetch(request, env, ctx);
+    const rateLimitResponse = await enforceEdgeWriteRateLimit(
+      request,
+      env.EDGE_WRITE_RATE_LIMITER,
+    );
+    if (rateLimitResponse) return rateLimitResponse;
+
+    const publicCachePolicy = cacheablePublicRoute(request);
+    const edgeCache = publicCachePolicy && typeof caches !== "undefined"
+      ? (caches as unknown as { default?: Cache }).default
+      : undefined;
+    const cacheKey = publicCachePolicy && edgeCache
+      ? createVersionedCacheKey(request, env.CF_VERSION_METADATA?.id ?? "unknown")
+      : null;
+    if (edgeCache && cacheKey) {
+      try {
+        const cached = await edgeCache.match(cacheKey);
+        if (cached) return markPublicCacheHit(cached);
+      } catch (error) {
+        console.warn("Cloudflare public cache lookup failed; origin remains available", error);
+      }
+    }
+
+    let response = await handler.fetch(request, env, ctx);
 
     // HTML cache policy (July 2026 blazing-fast research):
     // - Anonymous marketing GET / can be edge-cached briefly (static shell; auth via /api/me).
@@ -81,12 +114,28 @@ const worker = {
       } else {
         headers.set("cache-control", "no-store");
       }
-      return new Response(response.body, {
+      response = new Response(response.body, {
         status: response.status,
         statusText: response.statusText,
         headers,
       });
     }
+
+    if (publicCachePolicy && edgeCache && cacheKey) {
+      const prepared = preparePublicResponseForCache(
+        response,
+        publicCachePolicy.ttlSeconds,
+      );
+      if (prepared) {
+        ctx.waitUntil(
+          edgeCache.put(cacheKey, prepared.clone()).catch((error) => {
+            console.warn("Cloudflare public cache write failed; response remains available", error);
+          }),
+        );
+        return prepared;
+      }
+    }
+
     return response;
   },
 };
