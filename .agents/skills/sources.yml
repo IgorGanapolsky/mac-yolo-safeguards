@@ -22,6 +22,7 @@ in_repo:
   - live-dashboard-verify
   - revenue-gap-tracker
   - skill-catalog-governance
+  - cloudflare-developer-stack
   - cloudflare-kitesurf-browser
   - cloudflare-monetization-gateway
 
@@ -41,3 +42,7 @@ media_optional:
     docs: https://lemonade-server.ai
     probe: http://127.0.0.1:13305/api/v1/models
     install: optional
+
+- name: ai-native-sdlc
+  path: .agents/skills/ai-native-sdlc
+  source: local
