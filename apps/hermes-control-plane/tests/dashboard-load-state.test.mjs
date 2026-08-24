@@ -77,10 +77,13 @@ test("conversation empty states wait for load + details", () => {
 });
 
 test("workspace load failures still set error state", () => {
+  // Behaviour, not exact syntax: the refresh handler must catch a failed
+  // workspace load and surface it as error state. (2026-08-21: the handler moved
+  // from fire-and-forget `.catch()` to async try/catch to add progress feedback.)
   assert.match(
     dashboard,
-    /loadWorkspace\(\)\.catch\(\(\) => setLoadState\("error"\)\)/,
-    "workspace poll failures must be caught and surfaced",
+    /requestWorkspaceRefresh = useCallback\(async[\s\S]*?catch[\s\S]{0,80}setLoadState\("error"\)/,
+    "workspace refresh failures must be caught and surfaced",
   );
 });
 

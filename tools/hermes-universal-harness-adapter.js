@@ -54,26 +54,26 @@ const SUPPORTED_HARNESSES = {
     capabilities: ['zero_cost_local', 'offline_inference'],
     permissionModel: 'local_isolated',
   },
+  GROK: {
+    id: 'grok',
+    name: 'Grok Swarm',
+    defaultModel: 'grok-4.5',
+    capabilities: ['reasoning', 'agentic_swarm', 'tool_calling'],
+    permissionModel: 'workspace_scoped',
+  },
+  HERMES_YOLO: {
+    id: 'hermes-yolo',
+    name: 'Hermes YOLO',
+    defaultModel: 'glm-5.3',
+    capabilities: ['fast_execute', 'terminal', 'file_edit'],
+    permissionModel: 'agent_mode_always',
+  },
   ANTIGRAVITY: {
     id: 'antigravity',
     name: 'Google Antigravity SDK',
     defaultModel: 'gemini-2.5-pro',
     capabilities: ['multi_agent_swarm', 'tool_virtualization', 'memory_rag'],
     permissionModel: 'agent_mode_always',
-  },
-  GROK: {
-    id: 'grok',
-    name: 'Grok Build / xAI',
-    defaultModel: 'grok-4.5',
-    capabilities: ['file_edit', 'terminal', 'workflows', 'skills'],
-    permissionModel: 'agent_mode_always',
-  },
-  HERMES_YOLO: {
-    id: 'hermes-yolo',
-    name: 'Hermes YOLO (local Mac)',
-    defaultModel: 'local-fleet',
-    capabilities: ['local_tools', 'zero_marginal_cloud'],
-    permissionModel: 'local_isolated',
   },
 };
 
@@ -91,11 +91,11 @@ function resolveHarness(harnessName, options = {}) {
       };
     }
   }
-  // Fleet default: Grok / local — not Antigravity cloud
+  // Default to grok with fallback reason
   return {
     ...SUPPORTED_HARNESSES.GROK,
     selectedModel: options.modelOverride || SUPPORTED_HARNESSES.GROK.defaultModel,
-    endpoint: 'local-or-subscription',
+    endpoint: 'cloud',
     fallbackReason: 'unknown_harness_defaulted_to_grok',
   };
 }

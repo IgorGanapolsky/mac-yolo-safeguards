@@ -147,6 +147,37 @@ capabilities:
                 pattern: 'Vellum Cloud'
               - in: apps/hermes-control-plane/app/HostingSelector.tsx
                 pattern: 'Mac-pair|phone leash|RUN ON'
+      - key: HOST-002
+        title: Turn statusline is hosted Hermes, not Mac Ollama
+        actor: operator
+        goal: see Engine, TTFT, and Cost on thumbgate.app like an LLM turn footer
+        benefit: no invented localhost engine or fake sub-10ms TTFT
+        lifecycle: production
+        acceptance_criteria:
+          - key: HOST-002-AC1
+            criterion: Dashboard chrome must show a Turn Statusline whose default engine is hosted Hermes, not localhost Ollama.
+            implements:
+              - apps/hermes-control-plane/lib/turn-statusline.ts
+              - apps/hermes-control-plane/app/dashboard/layout.tsx
+              - apps/hermes-control-plane/app/dashboard/DashboardTurnChrome.tsx
+              - apps/hermes-control-plane/app/dashboard/TurnStatusline.tsx
+            tests:
+              - apps/hermes-control-plane/lib/turn-statusline.test.ts
+              - apps/hermes-control-plane/tests/turn-status-chrome.test.mjs
+            must_contain:
+              - in: apps/hermes-control-plane/lib/turn-statusline.ts
+                pattern: Hosted Hermes
+              - in: apps/hermes-control-plane/lib/turn-statusline.ts
+                pattern: unmeasured
+              - in: apps/hermes-control-plane/app/dashboard/layout.tsx
+                pattern: DashboardTurnChrome
+              - in: apps/hermes-control-plane/app/dashboard/layout.tsx
+                pattern: styles.frame
+            must_not_contain:
+              - in: apps/hermes-control-plane/lib/turn-statusline.ts
+                pattern: localhost:11434
+              - in: apps/hermes-control-plane/app/dashboard/DashboardTurnChrome.tsx
+                pattern: localhost:11434
   - key: START
     name: Zero-install start surfaces
     description: Browser start, optional stores, no fake desktop installers.

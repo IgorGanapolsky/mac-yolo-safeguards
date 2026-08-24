@@ -120,8 +120,10 @@ test("builds the public hosted Hermes landing page", async () => {
   assert.match(page, /Hosted Hermes/);
   // Pricing CTAs live in client chrome (static shell + /api/me personalization).
   const chrome = await readFile(new URL("../app/LandingAuthChrome.tsx", import.meta.url), "utf8");
+  const hostedCta = await readFile(new URL("../app/HostedCheckoutCta.tsx", import.meta.url), "utf8");
   assert.match(chrome, /data-funnel-event="free_control_click"/);
-  assert.match(chrome, /data-funnel-event="hosted_checkout_click"/);
+  assert.match(hostedCta, /data-funnel-event="hosted_checkout_click"/);
+  assert.match(chrome, /<HostedCheckoutCta>/);
   assert.match(chrome, /data-funnel-event="sign_in_click"/);
   assert.match(chrome, /Start hosted Hermes — \$10\/mo/);
   assert.match(chrome, /cancel anytime/);
@@ -280,7 +282,7 @@ test("conversion e2e: auth aliases, public health, no store 302, no invented tra
   }
   assert.match(checkout, /status:\s*307/);
   assert.match(checkout, /currentSession\(/);
-  assert.match(checkout, /\/api\/auth\/login\?return_to=\/dashboard/);
+  assert.match(checkout, /action="\/api\/billing\/checkout" method="POST"/);
   assert.match(checkout, /Location:\s*"\/dashboard"/);
   assert.doesNotMatch(health, /service:\s*"leash-control"/);
   assert.doesNotMatch(health, /LEASH_DATABASE_UNAVAILABLE/);

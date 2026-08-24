@@ -1,5 +1,7 @@
 See [AGENTS.md](./AGENTS.md) — canonical directive for all AI agents in this repo.
 
+For CEO PR, branch, and system-hygiene sessions, follow `docs/agents/shipping-and-hygiene.md` section “CEO PR and system-hygiene closeout”; do not replace its evidence gates with a canned completion claim.
+
 
 ## grepai - Semantic Code Search
 
@@ -68,4 +70,3 @@ grepai trace graph "ValidateToken" --depth 3 --json
 2. Use `grepai trace` to understand function relationships
 3. Use `Read` tool to examine files from results
 4. Only use Grep for exact string searches if needed
-

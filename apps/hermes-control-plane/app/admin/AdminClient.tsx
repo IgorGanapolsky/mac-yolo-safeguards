@@ -218,10 +218,33 @@ export function AdminClient(props: {
 
   useEffect(() => {
     if (!authed) return;
-    const id = window.setInterval(() => {
-      void refresh();
-    }, 15_000);
-    return () => window.clearInterval(id);
+    let id: number | undefined;
+    const start = () => {
+      if (id === undefined) {
+        id = window.setInterval(() => {
+          void refresh();
+        }, 30_000);
+      }
+    };
+    const stop = () => {
+      if (id !== undefined) {
+        window.clearInterval(id);
+        id = undefined;
+      }
+    };
+    const onVisibility = () => {
+      if (document.hidden) stop();
+      else {
+        void refresh();
+        start();
+      }
+    };
+    if (!document.hidden) start();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [authed, refresh]);
 
   async function fetchDetail(kind: string, id?: string): Promise<unknown> {

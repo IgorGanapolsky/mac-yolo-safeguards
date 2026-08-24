@@ -11,7 +11,7 @@ description: >
 
 # Screenpipe Activity — local fleet wiring
 
-**Source:** Screenpipe founder email 2026-08-19 (louis@screenpi.pe) + v2.6.56 Activity.  
+**Source:** Screenpipe founder email 2026-08-19 (louis (Screenpipe founder email)) + v2.6.56 Activity.  
 **Pitch we steal:** turn *chosen* work history into agent context; stay on-device by default; support any harness.
 
 ## Honest fit
