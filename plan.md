@@ -3629,3 +3629,6 @@ Does **not** clone Obscura/V8/Chromium, stealth fingerprinting, residential prox
 - `.agents/skills/sources.yml` (append in_repo name)
 - `plan.md` (this append)
 
+## 2. File Ownership Map (append-only lock table — claim before touching) [continued 2026-08-24]
+
+- `apps/hermes-control-plane/build/cloudflare-target.mjs`, `apps/hermes-control-plane/worker/index.ts`, `apps/hermes-control-plane/worker/edge-policy.ts`, `apps/hermes-control-plane/lib/cloudflare-edge-policy.test.ts`, `tests/test-hermes-cloudflare-deploy-config.js`, `plan.md` (append only) → **codex-cloudflare-edge-roi-2011** (GH #2011: Cloudflare-native write throttling, version-scoped anonymous public Cache API, Smart Placement; exclude PR #2010 Kitesurf/x402 files and all active dashboard/API-route claims) (2026-08-24T20:11:00Z)
