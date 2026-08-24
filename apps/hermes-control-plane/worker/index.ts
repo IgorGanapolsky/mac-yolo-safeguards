@@ -6,8 +6,12 @@ import {
   createVersionedCacheKey,
   enforceEdgeWriteRateLimit,
   markPublicCacheHit,
+  markPublicCacheMiss,
   preparePublicResponseForCache,
 } from "./edge-policy";
+
+const HOMEPAGE_BROWSER_CACHE_CONTROL =
+  "public, max-age=0, s-maxage=60, stale-while-revalidate=600";
 
 interface Env {
   ASSETS: Fetcher;
@@ -82,7 +86,12 @@ const worker = {
     if (edgeCache && cacheKey) {
       try {
         const cached = await edgeCache.match(cacheKey);
-        if (cached) return markPublicCacheHit(cached);
+        if (cached) {
+          return markPublicCacheHit(
+            cached,
+            url.pathname === "/" ? HOMEPAGE_BROWSER_CACHE_CONTROL : undefined,
+          );
+        }
       } catch (error) {
         console.warn("Cloudflare public cache lookup failed; origin remains available", error);
       }
@@ -109,7 +118,7 @@ const worker = {
       if (isPublicMarketing) {
         headers.set(
           "cache-control",
-          "public, max-age=0, s-maxage=60, stale-while-revalidate=600",
+          HOMEPAGE_BROWSER_CACHE_CONTROL,
         );
       } else {
         headers.set("cache-control", "no-store");
@@ -123,7 +132,7 @@ const worker = {
 
     if (publicCachePolicy && edgeCache && cacheKey) {
       const prepared = preparePublicResponseForCache(
-        response,
+        response.clone(),
         publicCachePolicy.ttlSeconds,
       );
       if (prepared) {
@@ -132,7 +141,7 @@ const worker = {
             console.warn("Cloudflare public cache write failed; response remains available", error);
           }),
         );
-        return prepared;
+        return markPublicCacheMiss(response);
       }
     }
 

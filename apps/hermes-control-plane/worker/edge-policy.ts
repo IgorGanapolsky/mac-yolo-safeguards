@@ -85,12 +85,28 @@ export function preparePublicResponseForCache(
   });
 }
 
-export function markPublicCacheHit(response: Response): Response {
+function markPublicCacheResult(
+  response: Response,
+  result: "HIT" | "MISS",
+  clientCacheControl?: string,
+): Response {
   const headers = new Headers(response.headers);
-  headers.set("x-thumbgate-edge-cache", "HIT");
+  headers.set("x-thumbgate-edge-cache", result);
+  if (clientCacheControl) headers.set("cache-control", clientCacheControl);
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
     headers,
   });
+}
+
+export function markPublicCacheHit(
+  response: Response,
+  clientCacheControl?: string,
+): Response {
+  return markPublicCacheResult(response, "HIT", clientCacheControl);
+}
+
+export function markPublicCacheMiss(response: Response): Response {
+  return markPublicCacheResult(response, "MISS");
 }

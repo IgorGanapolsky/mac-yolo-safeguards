@@ -5,6 +5,8 @@ import {
   createVersionedCacheKey,
   edgeWriteRateLimitGroup,
   enforceEdgeWriteRateLimit,
+  markPublicCacheHit,
+  markPublicCacheMiss,
   preparePublicResponseForCache,
 } from "../worker/edge-policy";
 
@@ -111,5 +113,19 @@ describe("version-scoped anonymous public cache", () => {
     expect(prepared?.headers.get("cache-control")).toBe("public, max-age=300");
     expect(prepared?.headers.get("x-thumbgate-edge-cache")).toBe("MISS");
     await expect(prepared?.text()).resolves.toBe("public");
+  });
+
+  it("keeps the positive TTL inside Cloudflare while browsers revalidate homepage HTML", () => {
+    const browserPolicy = "public, max-age=0, s-maxage=60, stale-while-revalidate=600";
+    const origin = new Response("homepage", {
+      headers: { "cache-control": browserPolicy },
+    });
+    const stored = preparePublicResponseForCache(origin.clone(), 60);
+
+    expect(stored?.headers.get("cache-control")).toBe("public, max-age=60");
+    expect(markPublicCacheMiss(origin.clone()).headers.get("cache-control")).toBe(browserPolicy);
+    expect(
+      markPublicCacheHit(stored as Response, browserPolicy).headers.get("cache-control"),
+    ).toBe(browserPolicy);
   });
 });
