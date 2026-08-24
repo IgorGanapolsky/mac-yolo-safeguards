@@ -3626,3 +3626,16 @@ Does **not** clone Workers AI, AI Gateway, Vectorize, Agents SDK, Wallets, Flags
 - `SKILLS.md` (append row)
 - `.agents/skills/sources.yml` (append in_repo name)
 - `plan.md` (this append)
+
+## T-MCP-PERSONA-ENTITLEMENTS-20260824 (append 2026-08-24T21:40:00Z) — agent `grok-mcp-persona-entitlements`
+
+TrueFoundry email “MCP and agents — beyond LLM routing” (2026-08-24). **Mechanics not products.** Curated MCP catalog from `.mcp.json`, persona RBAC (junior=read-only GitHub vs operator write), step-level workflow cost attribution. Linear **AGENT-502**.
+
+Does **not** clone TrueFoundry MCP Gateway / Agent Gateway, Okta, Azure AD, Virtual MCP, LangGraph/CrewAI. Does **not** dual-edit Codex AGENT-498 `tools/agent-action-trace.js`. Does **not** restore Continuity / Mac-pair. ECI: not a net-new governance SKU.
+
+### File claims (§2 append)
+- `tools/mcp-persona-entitlements.js` (new)
+- `tests/test-mcp-persona-entitlements.js` (new)
+- `.agents/skills/mcp-persona-entitlements/` (new)
+- `.agents/skills/sources.yml` (append in_repo name)
+- `plan.md` (this append)
