@@ -88,6 +88,43 @@ test('reports dataset metadata without retaining content', () => {
   assert.strictEqual(JSON.stringify(metadata).includes('content'), false);
 });
 
+test('streamed row count keeps trim() blank-line semantics', () => {
+  // The streamed counter replaced `line.trim()`. A raw byte allowlist of only
+  // CR/space/tab would count form feed, vertical tab, NBSP, the BOM and the
+  // Unicode space separators as content, inflating dataset.rows against both
+  // the previous implementation and tinker-yolo's scan_dataset().
+  const cases = [
+    ['plain rows', '{"a":1}\n{"a":2}\n'],
+    ['no trailing newline', '{"a":1}\n{"a":2}'],
+    ['empty file', ''],
+    ['blank lines', '{"a":1}\n\n\n{"a":2}\n'],
+    ['spaces and tabs', '{"a":1}\n   \n\t\t\n{"a":2}\n'],
+    ['CRLF', '{"a":1}\r\n{"a":2}\r\n'],
+    ['form feed only', '{"a":1}\n\f\n{"a":2}\n'],
+    ['vertical tab only', '{"a":1}\n\v\n{"a":2}\n'],
+    ['nbsp only', '{"a":1}\n\u00a0\n{"a":2}\n'],
+    ['BOM only', '{"a":1}\n\ufeff\n{"a":2}\n'],
+    ['ideographic space', '{"a":1}\n\u3000\n{"a":2}\n'],
+    ['en quad run', '{"a":1}\n\u2000\u2001\u2002\n{"a":2}\n'],
+    ['line separator', '{"a":1}\n\u2028\n{"a":2}\n'],
+    ['leading BOM then content', '\ufeff{"a":1}\n{"a":2}\n'],
+    ['multibyte content', '{"n":"caf\u00e9"}\n{"n":"\u65e5\u672c\u8a9e"}\n'],
+  ];
+
+  // A multi-byte character straddling the 1 MiB read boundary must not be
+  // split into replacement characters by the streaming decoder.
+  const filler = 'x'.repeat((1 << 20) - 2);
+  cases.push(['multibyte across chunk boundary', filler + '\u65e5\u672c\n{"a":2}\n']);
+  cases.push(['blank line past chunk boundary', filler + 'y\n\u00a0\n{"a":2}\n']);
+
+  const dataset = path.join(root, 'blank-semantics.jsonl');
+  for (const [label, content] of cases) {
+    fs.writeFileSync(dataset, content);
+    const expected = fs.readFileSync(dataset, 'utf8').split(/\r?\n/).filter((line) => line.trim()).length;
+    assert.strictEqual(datasetMetadata(dataset).rows, expected, label);
+  }
+});
+
 test('writes mode-0600 recommendation receipts', () => {
   const out = path.join(root, 'nested', 'latest.json');
   writePrivateJson(out, { schema: 'test' });
@@ -95,4 +132,4 @@ test('writes mode-0600 recommendation receipts', () => {
   assert.strictEqual(fs.statSync(path.dirname(out)).mode & 0o777, 0o700);
 });
 
-process.stdout.write(`PASS ${passed}/6 hermes-tinker-harness\n`);
+process.stdout.write(`PASS ${passed}/7 hermes-tinker-harness\n`);
