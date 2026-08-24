@@ -125,6 +125,23 @@ function evaluateLocalFirstRouting(workloads = []) {
   const candidatePasses = cases.filter((item) => item.candidate.passed).length;
   const baselineCostUsd = cases.reduce((sum, item) => sum + item.baseline.costUsd, 0);
   const candidateCostUsd = cases.reduce((sum, item) => sum + item.candidate.costUsd, 0);
+  if (baselineCostUsd <= 0) {
+    return {
+      name: 'AI cost and autonomy canary',
+      totalWorkloads: cases.length,
+      minimumCases: MIN_CANARY_CASES,
+      localOrPrivateRuns,
+      localRatioPercent: Number(((localOrPrivateRuns / cases.length) * 100).toFixed(2)),
+      baselinePassRatePercent: null,
+      candidatePassRatePercent: null,
+      baselineCostUsd: 0,
+      candidateCostUsd: Number(candidateCostUsd.toFixed(6)),
+      measuredCostReductionPercent: null,
+      recommendation: 'collect_nonzero_baseline_cost',
+      status: 'INSUFFICIENT_EVIDENCE',
+      invalidCaseIds: [],
+    };
+  }
   const baselinePassRatePercent = Number(((baselinePasses / cases.length) * 100).toFixed(2));
   const candidatePassRatePercent = Number(((candidatePasses / cases.length) * 100).toFixed(2));
   const measuredCostReductionPercent = percentReduction(baselineCostUsd, candidateCostUsd);
@@ -257,6 +274,7 @@ function runInfoQStealsSuite(evidence = {}, options = {}) {
   const hybridRag = evaluateHybridRrfRetrieval(evidence.retrieval || []);
   const ready = mcpAudit.status === 'MEASURED'
     && localRouting.status === 'MEASURED'
+    && localRouting.recommendation === 'promote_candidate_canary'
     && hybridRag.status === 'PASS';
 
   return {

@@ -78,6 +78,33 @@ function measuredEvidence() {
 }
 
 {
+  const zeroBaseline = measuredEvidence().workloads.map((item) => ({
+    ...item,
+    baseline: { ...item.baseline, costUsd: 0 },
+  }));
+  const routing = evaluateLocalFirstRouting(zeroBaseline);
+  const suite = runInfoQStealsSuite({ ...measuredEvidence(), workloads: zeroBaseline });
+  assert.strictEqual(routing.status, 'INSUFFICIENT_EVIDENCE');
+  assert.strictEqual(routing.measuredCostReductionPercent, null);
+  assert.strictEqual(routing.recommendation, 'collect_nonzero_baseline_cost');
+  assert.strictEqual(suite.ready, false);
+}
+
+{
+  const losingCandidate = measuredEvidence().workloads.map((item) => ({
+    ...item,
+    baseline: { costUsd: 0.01, passed: true },
+    candidate: { ...item.candidate, costUsd: 0.10, passed: false },
+  }));
+  const routing = evaluateLocalFirstRouting(losingCandidate);
+  const suite = runInfoQStealsSuite({ ...measuredEvidence(), workloads: losingCandidate });
+  assert.strictEqual(routing.status, 'MEASURED');
+  assert.strictEqual(routing.recommendation, 'keep_baseline');
+  assert.strictEqual(suite.ready, false);
+  assert.strictEqual(suite.overallStatus, 'INSUFFICIENT_OR_FAILED');
+}
+
+{
   const retrieval = evaluateHybridRrfRetrieval(measuredEvidence().retrieval);
   assert.strictEqual(retrieval.status, 'PASS');
   assert.strictEqual(retrieval.searchRecallPercent, 75);
@@ -115,6 +142,20 @@ function measuredEvidence() {
   ], { encoding: 'utf8' });
   assert.strictEqual(measured.status, 0, measured.stderr);
   assert.strictEqual(JSON.parse(measured.stdout).ready, true);
+
+  const losingEvidence = measuredEvidence();
+  losingEvidence.workloads = losingEvidence.workloads.map((item) => ({
+    ...item,
+    baseline: { costUsd: 0.01, passed: true },
+    candidate: { ...item.candidate, costUsd: 0.10, passed: false },
+  }));
+  fs.writeFileSync(evidenceFile, JSON.stringify(losingEvidence));
+  const losing = spawnSync(process.execPath, [
+    path.join(__dirname, '..', 'tools', 'infoq-high-roi-steals.js'),
+    '--evidence', evidenceFile, '--validate', '--json',
+  ], { encoding: 'utf8' });
+  assert.strictEqual(losing.status, 1, losing.stderr);
+  assert.strictEqual(JSON.parse(losing.stdout).localRouting.recommendation, 'keep_baseline');
 
   const missing = spawnSync(process.execPath, [
     path.join(__dirname, '..', 'tools', 'infoq-high-roi-steals.js'),
