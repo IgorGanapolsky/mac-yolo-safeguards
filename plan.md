@@ -3609,3 +3609,21 @@ Complement to AGENT-476 / PR #1984. Does **not** steal DashboardClient.tsx. Code
 
 - PR #1986 merged commit `64a6e43d2` while PR #1983 was under review and retains active ownership of the dashboard statusline layout, component, API, tests, and intent contract.
 - T-AGENT-476 is blocked under the no-cross-owner-edit rule. PR #1983 now preserves PR #1986 files exactly and is narrowed to T-AGENT-476-INCIDENT: readable quick prompts/output, mobile overflow proof, generic `ThumbGate online` badge removal, and safe fenced-VPS execution for prompts containing a local path plus a GitHub repository URL.
+
+## T-AI-NATIVE-SDLC-20260824 (append 2026-08-24T17:10:00Z) — agent `grok-ai-native-sdlc`
+
+Anthropic AI-native SDLC playbook steal (https://claude.com/blog/the-ai-native-sdlc-playbook). **Mechanics not Claude Code.** Committed artifact chain `intent.md` → `spec.md` → `plan.md` → tests/diff → `REVIEW.md` → incident draft. `AGENTS.md` is the CLAUDE.md analog. Production deploys humans-only (`productionGateWired: false`). Linear **AGENT-492**.
+
+Does **not** clone Claude Code evals YAML, MDM managed settings, Western Electric auto-quarantine, Claude Tag, or Continuity/Mac-pair/RUN ON. Does **not** dual-edit AGENT-407 `.intent/contract.yaml` / `scripts/intent-check.js`.
+
+### File claims
+- `tools/ai-native-sdlc.js` (new)
+- `tests/test-ai-native-sdlc.js` (new)
+- `.agents/skills/ai-native-sdlc/` (new)
+- `intent/TEMPLATE.md` (new; not `.intent/`)
+- `spec/TEMPLATE.md` (new)
+- `REVIEW.md` (new)
+- `SKILLS.md` (append row)
+- `.agents/skills/sources.yml` (append in_repo name)
+- `plan.md` (this append)
+
