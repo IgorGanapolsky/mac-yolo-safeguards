@@ -24,10 +24,13 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const args = process.argv.slice(2);
-const dir = args.find((a) => !a.startsWith('--')) || 'tests';
 const asJson = args.includes('--json');
 const maxIdx = args.indexOf('--max');
 const max = maxIdx >= 0 ? Number(args[maxIdx + 1]) : Infinity;
+// Consume the `--max <n>` value before resolving the positional directory.
+// Otherwise `--max 0` picks "0" as the scan dir and crashes with ENOENT.
+const positional = args.filter((a, i) => !a.startsWith('--') && !(maxIdx >= 0 && i === maxIdx + 1));
+const dir = positional[0] || 'tests';
 
 function walk(d, acc) {
   for (const name of fs.readdirSync(d)) {
