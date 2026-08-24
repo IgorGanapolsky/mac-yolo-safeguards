@@ -43,6 +43,22 @@ test("observability sets explicit logs sampling and leaves beta traces off", () 
   assert.equal(config.observability.traces, undefined);
 });
 
+test("high-ROI edge controls are explicit and bounded", () => {
+  const config = createDirectCloudflareConfig({});
+
+  assert.deepEqual(config.placement, { mode: "smart" });
+  assert.deepEqual(config.version_metadata, {
+    binding: "CF_VERSION_METADATA",
+  });
+  assert.deepEqual(config.ratelimits, [
+    {
+      name: "EDGE_WRITE_RATE_LIMITER",
+      namespace_id: "2011",
+      simple: { limit: 120, period: 60 },
+    },
+  ]);
+});
+
 test("production gate requires the owned domain and a real D1 UUID", () => {
   assert.throws(
     () => assertProductionCloudflareEnvironment({}),
