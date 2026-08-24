@@ -11,6 +11,7 @@ import { ackHostedSend, publicRunReceipt } from "@/lib/hosted-source-of-truth";
 import { admitHostedContext } from "@/lib/hosted-edit-anchor";
 import { jsonError } from "@/lib/security";
 import { decideTaskRoute, parseRoutePreference } from "@/lib/task-routing";
+import { expireUnclaimedTasks, staleUnclaimedTaskIds, TASK_PICKUP_TIMEOUT_ERROR } from "@/lib/task-leases";
 // A+ imports: runtime schema validation + rate limiting
 import { validateRoute, RouteSchemas } from "@/lib/schema-validator";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -37,7 +38,25 @@ export async function GET(request: Request) {
       WHERE k.organization_id = ? AND t.deleted_at IS NULL${whereThread}
       ORDER BY k.created_at DESC LIMIT 100`
   ).bind(...values).all();
-  return Response.json({ tasks: rows.results });
+  // A task nobody claimed has no lease and therefore no deadline of its own.
+  // Expire those here, reusing the rows already read so this costs zero extra
+  // D1 reads and issues a single write only when something is actually stale.
+  const tasks = rows.results as Array<{ id: string; status: string; createdAt: number; error: string | null; completedAt: number | null }>;
+  const staleIds = staleUnclaimedTaskIds(tasks);
+  if (staleIds.length) {
+    const now = Date.now();
+    const expired = await expireUnclaimedTasks(staleIds, now);
+    if (expired > 0) {
+      const stale = new Set(staleIds);
+      for (const task of tasks) {
+        if (!stale.has(task.id)) continue;
+        task.status = "failed";
+        task.error = TASK_PICKUP_TIMEOUT_ERROR;
+        task.completedAt = now;
+      }
+    }
+  }
+  return Response.json({ tasks });
 }
 
 export async function POST(request: Request) {

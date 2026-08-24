@@ -416,3 +416,31 @@ export async function completeTask(input: {
   });
   return true;
 }
+
+export {
+  TASK_PICKUP_TIMEOUT_MS,
+  TASK_PICKUP_TIMEOUT_ERROR,
+  staleUnclaimedTaskIds,
+  type PendingTaskRow,
+} from "./task-pickup";
+import { TASK_PICKUP_TIMEOUT_ERROR, TASK_PICKUP_TIMEOUT_MS } from "./task-pickup";
+
+/**
+ * Fail tasks that were never claimed. Fenced to the unclaimed status set with
+ * a NULL-lease predicate so it can never steal a task a runner is executing,
+ * and issues exactly one write, only when there is something to expire.
+ */
+export async function expireUnclaimedTasks(taskIds: string[], now = Date.now()): Promise<number> {
+  if (!taskIds.length) return 0;
+  const placeholders = taskIds.map(() => "?").join(", ");
+  const result = await db().prepare(
+    `UPDATE tasks SET status = 'failed', error = ?, completed_at = ?, updated_at = ?,
+            lease_owner = NULL, lease_token_hash = NULL, lease_expires_at = NULL
+      WHERE id IN (${placeholders})
+        AND status IN ('cloud_pending', 'local_pending')
+        AND lease_owner IS NULL
+        AND lease_expires_at IS NULL
+        AND created_at <= ?`
+  ).bind(TASK_PICKUP_TIMEOUT_ERROR, now, now, ...taskIds, now - TASK_PICKUP_TIMEOUT_MS).run();
+  return result.meta.changes ?? 0;
+}
