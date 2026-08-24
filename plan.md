@@ -3609,3 +3609,21 @@ Complement to AGENT-476 / PR #1984. Does **not** steal DashboardClient.tsx. Code
 
 - PR #1986 merged commit `64a6e43d2` while PR #1983 was under review and retains active ownership of the dashboard statusline layout, component, API, tests, and intent contract.
 - T-AGENT-476 is blocked under the no-cross-owner-edit rule. PR #1983 now preserves PR #1986 files exactly and is narrowed to T-AGENT-476-INCIDENT: readable quick prompts/output, mobile overflow proof, generic `ThumbGate online` badge removal, and safe fenced-VPS execution for prompts containing a local path plus a GitHub repository URL.
+
+## T-CF-KITESURF-X402-20260824 (append 2026-08-24T16:20:00Z) — agent `grok-cf-kitesurf-x402`
+
+InfoQ/Cloudflare Kitesurf + Monetization Gateway steal. **Mechanic not product.** Kitesurf via Browser Run `?browser=kitesurf`. x402 402 challenges while CF gateway is waitlist. Fail-closed: no fake READY, no fake USDC, no dashboard x402 copy (hosted-source-of-truth). Linear **AGENT-489**.
+
+Does not restore Continuity / Mac-pair / RUN ON. Does not charge strangers (ECI). Stripe $10 hosted remains the live cash path.
+
+### File claims
+- `tools/cloudflare-kitesurf-browser.js` (new)
+- `tools/cloudflare-monetization-gateway.js` (new)
+- `tests/test-cloudflare-kitesurf-browser.js` (new)
+- `tests/test-cloudflare-monetization-gateway.js` (new)
+- `.agents/skills/cloudflare-kitesurf-browser/` (new)
+- `.agents/skills/cloudflare-monetization-gateway/` (new)
+- `SKILLS.md` (append two rows)
+- `.agents/skills/sources.yml` (append two in_repo names)
+- `.gitignore` (ledger ignore)
+- `plan.md` (this append)

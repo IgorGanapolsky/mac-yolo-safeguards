@@ -89,4 +89,6 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 | `openbot-action-gateway` | CopilotKit OpenBot AG-UI Action Gateway, Per-Agent Sandboxed Coworkers & Deterministic Policy Interdiction Engine for ThumbGate. | `.agents/skills/openbot-action-gateway/SKILL.md` | local |
 | `explainx-trending-rag` | Autonomous ExplainX.ai Trending Ingestion, Data Science/ML TF-IDF Ranking & Agentic RAG Strategy Optimizer for ThumbGate. | `.agents/skills/explainx-trending-rag/SKILL.md` | local |
 | `self-healing-engine` | Autonomous Zero-Crash Self-Healing, Self-Improving & Self-Learning Engine for ThumbGate.app and Hermes Harnesses. | `.agents/skills/self-healing-engine/SKILL.md` | local |
+| `cloudflare-kitesurf-browser` | Fail-closed Cloudflare Kitesurf / Browser Run adapter (`?browser=kitesurf`). Never claims READY without CF creds. Slash: /cloudflare-kitesurf-browser. | `.agents/skills/cloudflare-kitesurf-browser/SKILL.md` | local |
+| `cloudflare-monetization-gateway` | Waitlist-honest x402 / Monetization Gateway policy CLI. HTTP 402 challenges; fake receipts rejected; capturedRevenueUsd=0. Slash: /cloudflare-monetization-gateway. | `.agents/skills/cloudflare-monetization-gateway/SKILL.md` | local |
 
