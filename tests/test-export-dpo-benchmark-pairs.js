@@ -4,21 +4,129 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
+const { spawnSync } = require('child_process');
 const { exportDpoPairs } = require('../tools/export-dpo-benchmark-pairs');
 
-test('exportDpoPairs creates JSONL DPO training pairs file', () => {
-  const root = path.join(__dirname, '..');
-  const tempOutput = path.join(root, '.thumbgate', 'test_dpo_pairs.jsonl');
+function makeTemp(t) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dpo-export-test-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  return dir;
+}
 
-  const res = exportDpoPairs({ cwd: root, outputPath: tempOutput });
+function observedPair(id) {
+  return {
+    id,
+    prompt: `prompt-${id}`,
+    chosen: `chosen-${id}`,
+    rejected: `rejected-${id}`,
+    source: 'thumbgate-explicit-pairwise-v1',
+    timestamp: '2026-08-24T12:00:00.000Z',
+    preferenceEvidence: {
+      eventId: `feedback-${id}`,
+      actorType: 'human',
+      collectionMethod: 'explicit_pairwise_choice',
+      chosenResponseId: `response-${id}-chosen`,
+      rejectedResponseId: `response-${id}-rejected`,
+    },
+  };
+}
 
-  assert.ok(res.totalExported > 0);
-  assert.ok(fs.existsSync(tempOutput));
+test('withholds output when no observed preference pairs exist', (t) => {
+  const root = makeTemp(t);
+  const inputPath = path.join(root, 'empty.json');
+  const outputPath = path.join(root, 'dpo.jsonl');
+  fs.writeFileSync(inputPath, '[]\n');
+  fs.writeFileSync(outputPath, '{"stale":true}\n');
 
-  const content = fs.readFileSync(tempOutput, 'utf8');
-  assert.ok(content.includes('prompt'));
-  assert.ok(content.includes('chosen'));
-  assert.ok(content.includes('rejected'));
+  const result = exportDpoPairs({ inputPath, outputPath, minPairs: 1 });
 
-  fs.unlinkSync(tempOutput);
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 'insufficient_pairs');
+  assert.equal(result.totalEligible, 0);
+  assert.equal(result.outputCreated, false);
+  assert.equal(result.staleOutputRemoved, true);
+  assert.equal(fs.existsSync(outputPath), false);
+});
+
+test('rejects labels that are not backed by the explicit human-comparison schema', (t) => {
+  const root = makeTemp(t);
+  const inputPath = path.join(root, 'forged.json');
+  const outputPath = path.join(root, 'dpo.jsonl');
+  fs.writeFileSync(inputPath, JSON.stringify([
+    { ...observedPair('model'), source: 'model-generated' },
+    { ...observedPair('label-only'), source: 'human-feedback', preferenceEvidence: undefined },
+    { ...observedPair('agent'), preferenceEvidence: { ...observedPair('agent').preferenceEvidence, actorType: 'agent' } },
+  ]));
+
+  const result = exportDpoPairs({ inputPath, outputPath, minPairs: 1 });
+
+  assert.equal(result.status, 'insufficient_pairs');
+  assert.equal(result.totalEligible, 0);
+  assert.equal(result.rejectedRecords, 3);
+  assert.equal(fs.existsSync(outputPath), false);
+});
+
+test('rejects malformed input without creating an output file', (t) => {
+  const root = makeTemp(t);
+  const inputPath = path.join(root, 'malformed.json');
+  const outputPath = path.join(root, 'dpo.jsonl');
+  fs.writeFileSync(inputPath, '{not-json');
+
+  const result = exportDpoPairs({ inputPath, outputPath, minPairs: 1 });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 'invalid_input');
+  assert.equal(result.outputCreated, false);
+  assert.equal(fs.existsSync(outputPath), false);
+});
+
+test('exports only deduplicated, provenance-bearing observed pairs', (t) => {
+  const root = makeTemp(t);
+  const inputPath = path.join(root, 'pairs.json');
+  const outputPath = path.join(root, 'nested', 'dpo.jsonl');
+  const first = observedPair('one');
+  fs.writeFileSync(inputPath, JSON.stringify([
+    first,
+    first,
+    observedPair('two'),
+    { prompt: 'missing provenance', chosen: 'yes', rejected: 'no' },
+  ]));
+
+  const result = exportDpoPairs({ inputPath, outputPath, minPairs: 2 });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.status, 'ready');
+  assert.equal(result.totalExported, 2);
+  assert.equal(result.duplicateRecords, 1);
+  assert.equal(result.rejectedRecords, 1);
+  assert.equal(fs.existsSync(outputPath), true);
+
+  const pairs = fs.readFileSync(outputPath, 'utf8').trim().split('\n').map(JSON.parse);
+  assert.equal(pairs.length, 2);
+  assert.equal(pairs[0].source, 'thumbgate-explicit-pairwise-v1');
+  assert.match(pairs[0].provenance.recordId, /one/);
+  assert.equal(pairs[0].provenance.eventId, 'feedback-one');
+  assert.equal(pairs[0].provenance.actorType, 'human');
+  assert.equal(pairs[0].provenance.collectionMethod, 'explicit_pairwise_choice');
+  assert.match(pairs[0].provenance.sha256, /^[a-f0-9]{64}$/);
+});
+
+test('--help is side-effect free', (t) => {
+  const root = makeTemp(t);
+  const home = path.join(root, 'home');
+  const cwd = path.join(root, 'cwd');
+  fs.mkdirSync(home);
+  fs.mkdirSync(cwd);
+
+  const result = spawnSync(process.execPath, [path.join(__dirname, '..', 'tools', 'export-dpo-benchmark-pairs.js'), '--help'], {
+    cwd,
+    env: { ...process.env, HOME: home },
+    encoding: 'utf8',
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /--min-pairs/);
+  assert.equal(fs.existsSync(path.join(cwd, '.thumbgate')), false);
+  assert.equal(fs.existsSync(path.join(home, '.thumbgate')), false);
 });
