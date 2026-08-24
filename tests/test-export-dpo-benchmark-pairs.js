@@ -20,8 +20,15 @@ function observedPair(id) {
     prompt: `prompt-${id}`,
     chosen: `chosen-${id}`,
     rejected: `rejected-${id}`,
-    source: 'human-thumb-feedback',
+    source: 'thumbgate-explicit-pairwise-v1',
     timestamp: '2026-08-24T12:00:00.000Z',
+    preferenceEvidence: {
+      eventId: `feedback-${id}`,
+      actorType: 'human',
+      collectionMethod: 'explicit_pairwise_choice',
+      chosenResponseId: `response-${id}-chosen`,
+      rejectedResponseId: `response-${id}-rejected`,
+    },
   };
 }
 
@@ -30,6 +37,7 @@ test('withholds output when no observed preference pairs exist', (t) => {
   const inputPath = path.join(root, 'empty.json');
   const outputPath = path.join(root, 'dpo.jsonl');
   fs.writeFileSync(inputPath, '[]\n');
+  fs.writeFileSync(outputPath, '{"stale":true}\n');
 
   const result = exportDpoPairs({ inputPath, outputPath, minPairs: 1 });
 
@@ -37,6 +45,25 @@ test('withholds output when no observed preference pairs exist', (t) => {
   assert.equal(result.status, 'insufficient_pairs');
   assert.equal(result.totalEligible, 0);
   assert.equal(result.outputCreated, false);
+  assert.equal(result.staleOutputRemoved, true);
+  assert.equal(fs.existsSync(outputPath), false);
+});
+
+test('rejects labels that are not backed by the explicit human-comparison schema', (t) => {
+  const root = makeTemp(t);
+  const inputPath = path.join(root, 'forged.json');
+  const outputPath = path.join(root, 'dpo.jsonl');
+  fs.writeFileSync(inputPath, JSON.stringify([
+    { ...observedPair('model'), source: 'model-generated' },
+    { ...observedPair('label-only'), source: 'human-feedback', preferenceEvidence: undefined },
+    { ...observedPair('agent'), preferenceEvidence: { ...observedPair('agent').preferenceEvidence, actorType: 'agent' } },
+  ]));
+
+  const result = exportDpoPairs({ inputPath, outputPath, minPairs: 1 });
+
+  assert.equal(result.status, 'insufficient_pairs');
+  assert.equal(result.totalEligible, 0);
+  assert.equal(result.rejectedRecords, 3);
   assert.equal(fs.existsSync(outputPath), false);
 });
 
@@ -77,8 +104,11 @@ test('exports only deduplicated, provenance-bearing observed pairs', (t) => {
 
   const pairs = fs.readFileSync(outputPath, 'utf8').trim().split('\n').map(JSON.parse);
   assert.equal(pairs.length, 2);
-  assert.equal(pairs[0].source, 'human-thumb-feedback');
+  assert.equal(pairs[0].source, 'thumbgate-explicit-pairwise-v1');
   assert.match(pairs[0].provenance.recordId, /one/);
+  assert.equal(pairs[0].provenance.eventId, 'feedback-one');
+  assert.equal(pairs[0].provenance.actorType, 'human');
+  assert.equal(pairs[0].provenance.collectionMethod, 'explicit_pairwise_choice');
   assert.match(pairs[0].provenance.sha256, /^[a-f0-9]{64}$/);
 });
 

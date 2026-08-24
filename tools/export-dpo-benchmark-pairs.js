@@ -7,6 +7,7 @@ const os = require('os');
 const path = require('path');
 
 const DEFAULT_MIN_PAIRS = 10;
+const OBSERVED_PREFERENCE_SOURCE = 'thumbgate-explicit-pairwise-v1';
 
 function nonEmptyString(value) {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
@@ -20,13 +21,19 @@ function normalizePair(item) {
   const rejected = nonEmptyString(item.rejected);
   const source = nonEmptyString(item.source);
   const timestamp = nonEmptyString(item.timestamp);
+  const evidence = item.preferenceEvidence;
+  const eventId = nonEmptyString(evidence?.eventId);
+  const chosenResponseId = nonEmptyString(evidence?.chosenResponseId);
+  const rejectedResponseId = nonEmptyString(evidence?.rejectedResponseId);
 
-  if (!prompt || !chosen || !rejected || !source || !timestamp) return null;
+  if (!prompt || !chosen || !rejected || source !== OBSERVED_PREFERENCE_SOURCE || !timestamp) return null;
   if (chosen === rejected || Number.isNaN(Date.parse(timestamp))) return null;
+  if (evidence?.actorType !== 'human' || evidence?.collectionMethod !== 'explicit_pairwise_choice') return null;
+  if (!eventId || !chosenResponseId || !rejectedResponseId || chosenResponseId === rejectedResponseId) return null;
 
   const fingerprint = crypto
     .createHash('sha256')
-    .update(JSON.stringify({ prompt, chosen, rejected, source, timestamp }))
+    .update(JSON.stringify({ prompt, chosen, rejected, source, timestamp, eventId, chosenResponseId, rejectedResponseId }))
     .digest('hex');
 
   return {
@@ -37,9 +44,28 @@ function normalizePair(item) {
     timestamp,
     provenance: {
       recordId: nonEmptyString(item.id) || fingerprint.slice(0, 16),
+      eventId,
+      actorType: 'human',
+      collectionMethod: 'explicit_pairwise_choice',
+      chosenResponseId,
+      rejectedResponseId,
       sha256: fingerprint,
     },
   };
+}
+
+function invalidateStaleOutput(outputPath) {
+  const existed = fs.existsSync(outputPath);
+  try {
+    fs.rmSync(outputPath, { force: true });
+    return { ok: true, staleOutputRemoved: existed };
+  } catch (error) {
+    return {
+      ok: false,
+      staleOutputRemoved: false,
+      reason: `could not invalidate stale output: ${error.message}`,
+    };
+  }
 }
 
 function loadRecords(inputPath) {
@@ -64,6 +90,19 @@ function exportDpoPairs(options = {}) {
   const inputPath = options.inputPath || options.memoriesPath || path.join(os.homedir(), '.thumbgate', 'memories.json');
   const outputPath = options.outputPath || path.join(root, '.thumbgate', 'dpo_pairs.jsonl');
   const minPairs = options.minPairs ?? DEFAULT_MIN_PAIRS;
+  const invalidation = invalidateStaleOutput(outputPath);
+
+  if (!invalidation.ok) {
+    return {
+      ok: false,
+      status: 'stale_output_removal_failed',
+      reason: invalidation.reason,
+      inputPath,
+      outputPath,
+      outputCreated: false,
+      staleOutputRemoved: false,
+    };
+  }
 
   if (!Number.isInteger(minPairs) || minPairs < 1) {
     return {
@@ -73,6 +112,7 @@ function exportDpoPairs(options = {}) {
       inputPath,
       outputPath,
       outputCreated: false,
+      staleOutputRemoved: invalidation.staleOutputRemoved,
     };
   }
 
@@ -85,6 +125,7 @@ function exportDpoPairs(options = {}) {
       inputPath,
       outputPath,
       outputCreated: false,
+      staleOutputRemoved: invalidation.staleOutputRemoved,
     };
   }
 
@@ -115,6 +156,7 @@ function exportDpoPairs(options = {}) {
       inputPath,
       outputPath,
       outputCreated: false,
+      staleOutputRemoved: invalidation.staleOutputRemoved,
       sourceStatus: loaded.sourceStatus,
       totalRecords: loaded.records.length,
       totalEligible: pairs.length,
@@ -138,6 +180,7 @@ function exportDpoPairs(options = {}) {
     inputPath,
     outputPath,
     outputCreated: true,
+    staleOutputRemoved: invalidation.staleOutputRemoved,
     totalRecords: loaded.records.length,
     totalEligible: pairs.length,
     totalExported: pairs.length,
@@ -212,7 +255,9 @@ if (require.main === module) process.exitCode = main();
 
 module.exports = {
   DEFAULT_MIN_PAIRS,
+  OBSERVED_PREFERENCE_SOURCE,
   exportDpoPairs,
+  invalidateStaleOutput,
   loadRecords,
   main,
   normalizePair,

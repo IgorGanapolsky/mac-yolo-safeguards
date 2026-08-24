@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { runEvalBenchmarkSuite } = require('../tools/eval-benchmark-suite');
+const { readE2eProof, runEvalBenchmarkSuite } = require('../tools/eval-benchmark-suite');
 
 function makeTemp(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'eval-benchmark-test-'));
@@ -19,8 +19,15 @@ function pair(id) {
     prompt: `prompt-${id}`,
     chosen: `chosen-${id}`,
     rejected: `rejected-${id}`,
-    source: 'human-feedback',
+    source: 'thumbgate-explicit-pairwise-v1',
     timestamp: '2026-08-24T12:00:00.000Z',
+    preferenceEvidence: {
+      eventId: `feedback-${id}`,
+      actorType: 'human',
+      collectionMethod: 'explicit_pairwise_choice',
+      chosenResponseId: `response-${id}-chosen`,
+      rejectedResponseId: `response-${id}-rejected`,
+    },
   };
 }
 
@@ -70,7 +77,11 @@ test('derives a ready disposition from explicit observed evidence', (t) => {
       { id: 'judge-2', grounded: true, helpful: true, source: 'reviewer-v1' },
     ],
   }));
-  fs.writeFileSync(e2eProofPath, JSON.stringify({ e2e: 'pass', capturedAt: '2026-08-24T12:00:00.000Z' }));
+  fs.writeFileSync(e2eProofPath, JSON.stringify({
+    updatedAt: new Date().toISOString(),
+    unit: 'pass',
+    e2e: 'pass',
+  }));
   fs.writeFileSync(passingTestPath, "'use strict'; require('node:test')('passes', () => {});\n");
 
   const result = runEvalBenchmarkSuite({
@@ -92,6 +103,26 @@ test('derives a ready disposition from explicit observed evidence', (t) => {
   assert.equal(result.metrics.dpoExport.totalExported, 2);
   assert.equal(result.metrics.domainMetrics.mobileE2e.status, 'pass');
   assert.equal(result.metrics.domainMetrics.revenue.status, 'not_measured');
+});
+
+test('rejects malformed and stale continuous-E2E proof records', (t) => {
+  const root = makeTemp(t);
+  const malformedPath = path.join(root, 'malformed-proof.json');
+  const stalePath = path.join(root, 'stale-proof.json');
+  fs.writeFileSync(malformedPath, JSON.stringify({ status: 'pass' }));
+  fs.writeFileSync(stalePath, JSON.stringify({
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    unit: 'pass',
+    e2e: 'pass',
+  }));
+
+  const malformed = readE2eProof(malformedPath);
+  const stale = readE2eProof(stalePath, 1);
+
+  assert.equal(malformed.status, 'fail');
+  assert.match(malformed.reason, /missing fields/);
+  assert.equal(stale.status, 'fail');
+  assert.match(stale.reason, /stale/);
 });
 
 test('an observed offline regression produces a failure', (t) => {

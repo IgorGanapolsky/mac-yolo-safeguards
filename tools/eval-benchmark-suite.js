@@ -6,6 +6,9 @@ const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { exportDpoPairs } = require('./export-dpo-benchmark-pairs');
+const { gate: gateMobileProof } = require('./hermes-mobile-ci-proof-gate');
+
+const DEFAULT_E2E_FRESH_HOURS = 168;
 
 function readJson(pathname) {
   if (!pathname || !fs.existsSync(pathname)) return { status: 'missing', value: null };
@@ -45,17 +48,22 @@ function measuredBinaryEvents(value, key, field) {
   };
 }
 
-function readE2eProof(proofPath) {
-  const loaded = readJson(proofPath);
-  if (loaded.status !== 'present') {
-    return { status: loaded.status === 'invalid' ? 'invalid' : 'not_measured', proofPath, reason: loaded.reason || null };
+function readE2eProof(proofPath, freshHours = DEFAULT_E2E_FRESH_HOURS) {
+  if (!Number.isFinite(freshHours) || freshHours <= 0) {
+    return { status: 'fail', proofPath, reason: 'e2eFreshHours must be a positive number' };
   }
-  const rawStatus = loaded.value?.e2e ?? loaded.value?.status;
-  const status = rawStatus === 'pass' ? 'pass' : rawStatus === 'fail' ? 'fail' : 'unknown';
+  if (!proofPath || !fs.existsSync(proofPath)) {
+    return { status: 'not_measured', proofPath, reason: 'continuous E2E proof is missing' };
+  }
+  const proof = gateMobileProof(proofPath, freshHours);
   return {
-    status,
+    status: proof.pass ? 'pass' : 'fail',
     proofPath,
-    capturedAt: loaded.value?.capturedAt || loaded.value?.timestamp || loaded.value?.updatedAt || null,
+    capturedAt: proof.updatedAt || null,
+    ageHours: proof.ageHours ?? null,
+    unit: proof.unit || null,
+    e2e: proof.e2e || null,
+    reason: proof.reason,
   };
 }
 
@@ -98,7 +106,7 @@ function runEvalBenchmarkSuite(options = {}) {
   const groundedness = measuredBinaryEvents(evidenceValue, 'judgeCases', 'grounded');
   const helpfulness = measuredBinaryEvents(evidenceValue, 'judgeCases', 'helpful');
   const regressionTesting = runRegressionTest(connectorTestPath);
-  const mobileE2e = readE2eProof(e2eProofPath);
+  const mobileE2e = readE2eProof(e2eProofPath, options.e2eFreshHours ?? DEFAULT_E2E_FRESH_HOURS);
 
   const hardFailure = [offlineEvals.status, regressionTesting.status, mobileE2e.status].includes('fail');
   const requiredEvidenceReady = offlineEvals.status === 'pass'
@@ -150,7 +158,7 @@ function parseArgs(argv) {
       json = true;
       continue;
     }
-    if (arg === '--evidence' || arg === '--input' || arg === '--output' || arg === '--min-pairs') {
+    if (arg === '--evidence' || arg === '--input' || arg === '--output' || arg === '--min-pairs' || arg === '--e2e-fresh-hours') {
       const value = argv[index + 1];
       if (!value || value.startsWith('--')) return { error: `${arg} requires a value` };
       index += 1;
@@ -158,6 +166,7 @@ function parseArgs(argv) {
       if (arg === '--input') options.inputPath = path.resolve(value);
       if (arg === '--output') options.outputPath = path.resolve(value);
       if (arg === '--min-pairs') options.minPairs = Number(value);
+      if (arg === '--e2e-fresh-hours') options.e2eFreshHours = Number(value);
       continue;
     }
     return { error: `unknown option: ${arg}` };
@@ -189,6 +198,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  DEFAULT_E2E_FRESH_HOURS,
   measuredBinaryEvents,
   measuredCases,
   readE2eProof,
