@@ -2,6 +2,7 @@
 'use strict';
 
 const fs = require('fs');
+const { StringDecoder } = require('string_decoder');
 const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -92,26 +93,44 @@ function parseSupportedModels(raw = process.env.TINKER_SUPPORTED_MODELS_JSON || 
   }
 }
 
+// Whitespace-only test with the exact semantics of String.prototype.trim():
+// JS \s covers \f, \v, NBSP (U+00A0), the U+2000-U+200A run, U+2028/U+2029,
+// U+202F, U+205F, U+3000 and the BOM (U+FEFF). A raw byte allowlist of only
+// CR/space/tab would count those lines as content and inflate dataset.rows
+// against the previous line.trim() implementation and tinker-yolo's
+// scan_dataset() line.strip().
+const BLANK_CHAR = /\s/;
+
 // Streamed count: captures can exceed Node's string cap (~512MB), so a
 // whole-file readFileSync('utf8') throws before the first row is counted.
+// Decoding per chunk (rather than per whole file) keeps that property while
+// still reasoning about characters instead of bytes, which is what the
+// Unicode blank-line semantics above require.
 function countNonBlankLines(filePath) {
   const fd = fs.openSync(filePath, 'r');
-  try {
-    const chunk = Buffer.alloc(1 << 20);
-    let rows = 0;
-    let lineHasContent = false;
-    let bytesRead;
-    while ((bytesRead = fs.readSync(fd, chunk, 0, chunk.length)) > 0) {
-      for (let i = 0; i < bytesRead; i += 1) {
-        const byte = chunk[i];
-        if (byte === 0x0a) {
-          if (lineHasContent) rows += 1;
-          lineHasContent = false;
-        } else if (byte !== 0x0d && byte !== 0x20 && byte !== 0x09) {
-          lineHasContent = true;
-        }
+  const decoder = new StringDecoder('utf8');
+  let rows = 0;
+  let lineHasContent = false;
+
+  const consume = (text) => {
+    for (let i = 0; i < text.length; i += 1) {
+      const ch = text[i];
+      if (ch === '\n') {
+        if (lineHasContent) rows += 1;
+        lineHasContent = false;
+      } else if (!lineHasContent && !BLANK_CHAR.test(ch)) {
+        lineHasContent = true;
       }
     }
+  };
+
+  try {
+    const chunk = Buffer.alloc(1 << 20);
+    let bytesRead;
+    while ((bytesRead = fs.readSync(fd, chunk, 0, chunk.length)) > 0) {
+      consume(decoder.write(chunk.subarray(0, bytesRead)));
+    }
+    consume(decoder.end());
     if (lineHasContent) rows += 1;
     return rows;
   } finally {
