@@ -3132,6 +3132,26 @@ Steal from Ona/OpenAI close email (Johannes 2026-08-14): persist-across-devices,
 - `tools/hermes-mobile-pair.js`, `tests/test-hermes-pair-lan-route.js` → **grok-pair-lan-alternates** (USB primary must still publish LAN/TS routes; Wi-Fi phone never gets 127.0.0.1) (2026-08-18)
 - 2026-08-13 hermes-yolo anti-gibberish: killed stale deepseek-v4-flash sessions (48x compression), quality-lock auto→hermes/glm-coding, strip free flash from inference chains, env pin HERMES_YOLO_BACKEND=hermes MODEL=glm-coding. PR agent/hermes-yolo-slop-fix-20260813.
 
+- 2026-08-18T17:05Z `grok-vellum-grok-bot-alt`: **T-VELLUM-GROK-BOT-ALT-20260818 claimed.** Vellum Assistant (vellum.ai Aug 2026) is a Grok Bot competitor. Implement Hermes-native alt: doctor/compare/identity/inventory/eval-gated promote; honest hybrid hosting (not ThumbGate, not official Vellum Cloud); research teardown. Isolated worktree. Do not touch PR #1808 control-plane copy.
+
+| T-VELLUM-GROK-BOT-ALT-20260818 | Hermes-native Vellum/Grok Bot alternative + Aug 2026 teardown | in_progress | grok-vellum-grok-bot-alt | `tools/vellum-grok-bot-alt.js`, `tools/vellum-hybrid-engine.js`, `tools/vellum-ai-engine.js`, `tests/test-vellum-*.js`, `bin/vellum-bot`, `bin/vellum-yolo`, `.agents/skills/vellum-*`, `docs/vault/Projects/Vellum-AI-Steals/`, `SKILLS.md` (append rows), `plan.md` | isolated worktree |
+
+### File claims (§2 append) 2026-08-18 grok-vellum-grok-bot-alt
+| File | Owner | Claimed |
+|------|-------|--------|
+| tools/vellum-grok-bot-alt.js | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
+| tools/vellum-hybrid-engine.js | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
+| tools/vellum-ai-engine.js | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
+| tests/test-vellum-grok-bot-alt.js | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
+| tests/test-vellum-hybrid-engine.js | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
+| tests/test-vellum-ai-engine.js | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
+| bin/vellum-bot | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
+| bin/vellum-yolo | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
+| .agents/skills/vellum-grok-bot-alt/** | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
+| .agents/skills/vellum-hybrid-engine/** | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
+| docs/vault/Projects/Vellum-AI-Steals/** | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
+| SKILLS.md (append rows only) | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
+| plan.md (append only) | grok-vellum-grok-bot-alt | 2026-08-18T17:05:00Z |
 - 2026-08-18T17:55Z `grok-qoder-start-surfaces`: **T-QODER-START-SURFACES-20260818 / AGENT-406 claimed.** Qoder download-page steal: zero-install start, always-on agent card, optional store badges. No fake desktop installers. No 1813 files.
 - 2026-08-18T18:25Z `grok-qoder-start-surfaces`: Raised StartSurfaces to two-panel Qoder invert (optional store badges + honest OS invert + identity card). Merged origin/main so HostingSelector stays. No fake Wake SKU, no invented 28/9/78 stats.
 - 2026-08-18T17:50Z `grok-thumbgate-hosting-picker`: **T-THUMBGATE-HOSTING-PICKER-20260818 / AGENT-405 claimed.** Chief: put Vellum Hosting picker on thumbgate.app. Cloud = fenced VPS always-on $10. Local = your machine. No Mac-pair. No second SKU.
@@ -3605,6 +3625,19 @@ Complement to AGENT-476 / PR #1984. Does **not** steal DashboardClient.tsx. Code
 | .intent/contract.yaml (HOST-002 append) | grok-hosted-turn-statusline | 2026-08-22T19:25:36Z |
 | plan.md (this append) | grok-hosted-turn-statusline | 2026-08-22T19:25:36Z |
 
+## Drop always-green ThumbGate online chip (append 2026-08-22T20:05:00Z) — agent `grok-drop-online-chip`
+
+Header chip is a static `className="status-chip online"` label. It does not probe the VPS, the runner, or billing. Signed-in is enough. Same one-line delete already sits in DIRTY #1984 / AGENT-476 hunks — land it on main without their Ollama footer.
+
+### Task
+| T-DROP-THUMBGATE-ONLINE-CHIP-20260822 | Remove the always-green "ThumbGate online" dashboard header chip | in_progress | grok-drop-online-chip | `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx` (header chip only), `apps/hermes-control-plane/tests/header-online-chip.test.mjs`, `plan.md` | source test: DashboardClient must not contain `ThumbGate online` |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| apps/hermes-control-plane/app/dashboard/DashboardClient.tsx (header `status-chip online` span only) | grok-drop-online-chip | 2026-08-22T20:05:00Z |
+| apps/hermes-control-plane/tests/header-online-chip.test.mjs | grok-drop-online-chip | 2026-08-22T20:05:00Z |
+| plan.md (this append) | grok-drop-online-chip | 2026-08-22T20:05:00Z |
 ## AGENT-476 coordination stop (append 2026-08-22T20:05:00Z) — agent `codex-agent-476-turn-statusline`
 
 - PR #1986 merged commit `64a6e43d2` while PR #1983 was under review and retains active ownership of the dashboard statusline layout, component, API, tests, and intent contract.
@@ -3625,6 +3658,16 @@ Does **not** clone Workers AI, AI Gateway, Vectorize, Agents SDK, Wallets, Flags
 - `.agents/skills/cloudflare-developer-stack/` (new)
 - `SKILLS.md` (append row)
 - `.agents/skills/sources.yml` (append in_repo name)
+## T-HOSTED-VPS-DEFAULT-20260824 (append 2026-08-24T16:05:00Z) — agent `grok-hosted-vps-default`
+
+CEO: no Continuity option; UI forces Mac pairing. Product lock is hosted VPS. `pickDefaultDeviceId` + localStorage auto-selected a paired Mac so `createTask` sent `deviceId` despite `routePreference: "cloud"`.
+
+Does not add a Continuity/RUN ON picker. Hosted VPS is default; pairing is optional `<details>`.
+
+### File claims
+- `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx` (default device + Leash/Settings copy only) → **grok-hosted-vps-default** (AGENT-485)
+- `apps/hermes-control-plane/tests/hosted-vps-default.test.mjs` (new)
+- `apps/hermes-control-plane/tests/frictionless-onboarding.test.mjs` (hosted-default assertions only)
 - `plan.md` (this append)
 
 ## T-MCP-PERSONA-ENTITLEMENTS-20260824 (append 2026-08-24T21:40:00Z) — agent `grok-mcp-persona-entitlements`
@@ -3639,3 +3682,51 @@ Does **not** clone TrueFoundry MCP Gateway / Agent Gateway, Okta, Azure AD, Virt
 - `.agents/skills/mcp-persona-entitlements/` (new)
 - `.agents/skills/sources.yml` (append in_repo name)
 - `plan.md` (this append)
+## T-AI-NATIVE-SDLC-20260824 (append 2026-08-24T17:10:00Z) — agent `grok-ai-native-sdlc`
+
+Anthropic AI-native SDLC playbook steal (https://claude.com/blog/the-ai-native-sdlc-playbook). **Mechanics not Claude Code.** Committed artifact chain `intent.md` → `spec.md` → `plan.md` → tests/diff → `REVIEW.md` → incident draft. `AGENTS.md` is the CLAUDE.md analog. Production deploys humans-only (`productionGateWired: false`). Linear **AGENT-492**.
+
+Does **not** clone Claude Code evals YAML, MDM managed settings, Western Electric auto-quarantine, Claude Tag, or Continuity/Mac-pair/RUN ON. Does **not** dual-edit AGENT-407 `.intent/contract.yaml` / `scripts/intent-check.js`.
+
+### File claims
+- `tools/ai-native-sdlc.js` (new)
+- `tests/test-ai-native-sdlc.js` (new)
+- `.agents/skills/ai-native-sdlc/` (new)
+- `intent/TEMPLATE.md` (new; not `.intent/`)
+- `spec/TEMPLATE.md` (new)
+- `REVIEW.md` (new)
+- `SKILLS.md` (append row)
+- `.agents/skills/sources.yml` (append in_repo name)
+- `plan.md` (this append)
+
+## Ownership audit and file claim (append 2026-08-24T21:27:00Z) — `codex-eslint10-hotfix`
+
+The July postcss task shipped in PR #930 at `41207d159`; its package manifest and lockfile claim is released. The July dependency-policy task has no live worktree or branch and its files are committed on `main`; that stale claim is released without deleting history.
+
+- `apps/hermes-control-plane/package.json` (ESLint pin only)
+- `apps/hermes-control-plane/package-lock.json` (ESLint resolution only)
+- `.github/dependabot.yml` (ESLint-major ignore only)
+- `tests/test-dependency-automation-policy.js` (ESLint assertion only)
+- `plan.md` (this append)
+
+GH #2038 / Linear AGENT-510. Restore control-plane CI after PR #2000 merged ESLint 10 despite failed `verify`; prevent automated ESLint semver-major recurrence.
+
+## Required-check integrity claim (append 2026-08-24T21:38:00Z) — `codex-required-check-integrity`
+
+| Task | Goal | Status | Owner | Files | AcceptanceCheck |
+|---|---|---|---|---|---|
+| T-AGENT-516-REQUIRED-CHECK-INTEGRITY | Prevent path-filtered control-plane checks from disappearing or being ignored by branch protection after PR #2000 merged with a red `verify` | in_progress | codex-required-check-integrity | `.github/workflows/hermes-control-plane.yml`, `.github/workflows/control-plane-tests.yml`, `tests/test-required-check-contract.js`, `plan.md` (append only) | GH #2042 / Linear AGENT-516; both checks are emitted for every PR, irrelevant changes take an explicit cheap success path, detector failure fails closed, focused contract tests pass, and provider readback proves strict branch protection requires both only after the workflow is merged |
+
+### File claims
+
+- `.github/workflows/hermes-control-plane.yml`
+- `.github/workflows/control-plane-tests.yml`
+- `tests/test-required-check-contract.js`
+- `plan.md` (this append only)
+
+### Local proof
+
+- Fail-first: baseline path-filtered workflow failed `tests/test-required-check-contract.js` at the missing universal PR context assertion.
+- Fixed: required-check contract 41/41, Actionlint 2/2 workflows, Ruby YAML parse 2/2, dependency automation policy 16/16, CodeQL pattern gate 0 findings across 1,308 files, and `git diff --check` passed.
+- `gh copilot` review was attempted but the provider rejected it because the monthly quota is exhausted; no Copilot review claim.
+- Branch protection is intentionally unchanged until this workflow is merged and the irrelevant-path success route is observed on GitHub.
