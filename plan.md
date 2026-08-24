@@ -3717,3 +3717,23 @@ GH #2038 / Linear AGENT-510. Restore control-plane CI after PR #2000 merged ESLi
 - Fixed: required-check contract 41/41, Actionlint 2/2 workflows, Ruby YAML parse 2/2, dependency automation policy 16/16, CodeQL pattern gate 0 findings across 1,308 files, and `git diff --check` passed.
 - `gh copilot` review was attempted but the provider rejected it because the monthly quota is exhausted; no Copilot review claim.
 - Branch protection is intentionally unchanged until this workflow is merged and the irrelevant-path success route is observed on GitHub.
+
+## Local-first delivery stack (append 2026-08-24T22:49:27Z) — agent `grok-local-first-delivery`
+
+Episode steal (YouTube Music hk-xqhRLTBA): repeatable local-first delivery, not “cancel Claude.” Hybrid routing already grok PR #2035 — **do not dual-edit** `tools/hermes-yolo-cost-autonomy.js` or `tools/hermes-yolo-route-policy.js`. This slice maps episode opportunities onto existing rails and fail-closes GPUs / invented $3000 / ThumbGate paid outreach.
+
+| Task | Goal | Status | Owner | Files | AcceptanceCheck |
+|---|---|---|---|---|---|
+| T-LOCAL-FIRST-DELIVERY-20260824 | Map episode opportunities to existing rails (AHLS $149, hosted VPS $10, hermes-yolo hybrid). inventedUsd always null. ECI pauses ThumbGate paid diagnostic. | done | grok-local-first-delivery | `tools/local-first-delivery-stack.js` (new), `tests/test-local-first-delivery-stack.js` (new), `bin/local-first-delivery` (new), `.agents/skills/local-first-delivery-not-cancel-claude/**` (new), `SKILLS.md` (one row), `.agents/skills/sources.yml` (one pin), `plan.md` (this append) | `node tests/test-local-first-delivery-stack.js` PASS; GPU/$3000/replace-all-hosted/$499/funnel denied; HVAC lead-intake → AHLS 149; private agent → hosted VPS $10; login → glm-coding; inventedUsd null |
+
+### File claims
+
+- `tools/local-first-delivery-stack.js` (new)
+- `tests/test-local-first-delivery-stack.js` (new)
+- `bin/local-first-delivery` (new)
+- `.agents/skills/local-first-delivery-not-cancel-claude/**` (new)
+- `SKILLS.md` (one row)
+- `.agents/skills/sources.yml` (one pin)
+- `plan.md` (this append)
+
+Do **not** touch: `tools/hermes-yolo-cost-autonomy.js`, `tools/hermes-yolo-route-policy.js`, `hermes-yolo-wrapper.js`, `apps/hermes-control-plane/app/page.tsx`, `DashboardClient.tsx`.
