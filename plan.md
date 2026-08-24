@@ -3686,3 +3686,14 @@ Does **not** clone Claude Code evals YAML, MDM managed settings, Western Electri
 - `.agents/skills/sources.yml` (append in_repo name)
 - `plan.md` (this append)
 
+## Ownership audit and file claim (append 2026-08-24T21:27:00Z) — `codex-eslint10-hotfix`
+
+The July postcss task shipped in PR #930 at `41207d159`; its package manifest and lockfile claim is released. The July dependency-policy task has no live worktree or branch and its files are committed on `main`; that stale claim is released without deleting history.
+
+- `apps/hermes-control-plane/package.json` (ESLint pin only)
+- `apps/hermes-control-plane/package-lock.json` (ESLint resolution only)
+- `.github/dependabot.yml` (ESLint-major ignore only)
+- `tests/test-dependency-automation-policy.js` (ESLint assertion only)
+- `plan.md` (this append)
+
+GH #2038 / Linear AGENT-510. Restore control-plane CI after PR #2000 merged ESLint 10 despite failed `verify`; prevent automated ESLint semver-major recurrence.
