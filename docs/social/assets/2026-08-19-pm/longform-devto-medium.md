@@ -44,5 +44,5 @@ If you review AI agent commands before approving them — laptop, phone, CI dash
 ---
 
 **Also available:**
-- Web: [thumbgate.app](https://thumbgate.app/?utm_source=devto&utm_medium=social&utm_campaign=2026-08-19-pm&cta_id=2026-08-19-pm_devto_home) — free approve/deny gating, Continuity available when your machine is offline (live pricing on the site)
+- Web: [thumbgate.app](https://thumbgate.app/?utm_source=devto&utm_medium=social&utm_campaign=2026-08-19-pm&cta_id=2026-08-19-pm_devto_home) — free approve/deny gating
 - Mobile (paid download): [Android](https://thumbgate.app/go/android) · [iOS](https://thumbgate.app/go/ios) — Hermes Mobile: Leash
