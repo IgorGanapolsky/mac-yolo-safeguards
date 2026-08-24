@@ -3645,4 +3645,14 @@ Does **not** clone Workers AI, AI Gateway, Vectorize, Agents SDK, Wallets, Flags
 - `.agents/skills/cloudflare-developer-stack/` (new)
 - `SKILLS.md` (append row)
 - `.agents/skills/sources.yml` (append in_repo name)
+## T-HOSTED-VPS-DEFAULT-20260824 (append 2026-08-24T16:05:00Z) — agent `grok-hosted-vps-default`
+
+CEO: no Continuity option; UI forces Mac pairing. Product lock is hosted VPS. `pickDefaultDeviceId` + localStorage auto-selected a paired Mac so `createTask` sent `deviceId` despite `routePreference: "cloud"`.
+
+Does not add a Continuity/RUN ON picker. Hosted VPS is default; pairing is optional `<details>`.
+
+### File claims
+- `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx` (default device + Leash/Settings copy only) → **grok-hosted-vps-default** (AGENT-485)
+- `apps/hermes-control-plane/tests/hosted-vps-default.test.mjs` (new)
+- `apps/hermes-control-plane/tests/frictionless-onboarding.test.mjs` (hosted-default assertions only)
 - `plan.md` (this append)
