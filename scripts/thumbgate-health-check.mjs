@@ -21,6 +21,22 @@ export function classifyHealth({ status, body }) {
   if (status >= 500) return { ok: false, level: 'server_error', detail: `HTTP ${status}` };
   if (status >= 400) return { ok: false, level: 'client_error', detail: `HTTP ${status}` };
   if (status !== 200) return { ok: false, level: 'unexpected', detail: `HTTP ${status}` };
+  // A 200 does not mean healthy. The control plane answers 200 with an explicit
+  // negative payload when production config is missing ({ ok: true, ready: false })
+  // or a dependency is down. Honour those BEFORE the positive fields, otherwise the
+  // monitor silently suppresses alerts during exactly the failures it exists to catch.
+  if (body && body.ok === false) {
+    return { ok: false, level: 'unhealthy', detail: 'HTTP 200 but body reports ok:false' };
+  }
+  if (body && body.healthy === false) {
+    return { ok: false, level: 'unhealthy', detail: 'HTTP 200 but body reports healthy:false' };
+  }
+  if (body && body.ready === false) {
+    return { ok: false, level: 'not_ready', detail: 'HTTP 200 but body reports ready:false (missing production config)' };
+  }
+  if (body && (body.status === 'error' || body.status === 'unhealthy' || body.status === 'degraded' || body.status === 'down')) {
+    return { ok: false, level: 'degraded', detail: `HTTP 200 but body status is "${body.status}"` };
+  }
   if (body && (body.status === 'ok' || body.ok === true || body.healthy === true)) {
     return { ok: true, level: 'healthy', detail: 'HTTP 200 + healthy body' };
   }
