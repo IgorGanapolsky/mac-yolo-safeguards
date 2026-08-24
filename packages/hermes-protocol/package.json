@@ -21,6 +21,6 @@
     "ci": "npm run test:coverage && npm run test:e2e"
   },
   "dependencies": {
-    "nostr-tools": "2.24.1"
+    "nostr-tools": "2.24.3"
   }
 }
