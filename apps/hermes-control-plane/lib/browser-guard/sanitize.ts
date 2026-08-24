@@ -8,10 +8,24 @@
  * reported inside browser_state.
  */
 
-/** Remove values that look like they authenticate something. */
+/** Roughly "an opaque value someone would authenticate with". */
+const TOKEN_LIKE = "[A-Za-z0-9._~+/-]{8,}=*";
+
+/**
+ * Remove values that look like they authenticate something.
+ *
+ * The header rule deliberately consumes an optional scheme word before the
+ * value. An earlier version ended in \S+, which matched the scheme instead of
+ * the token and turned "Authorization: Bearer SECRET" into
+ * "Authorization [removed] SECRET" - leaking the thing it was removing.
+ */
 export function redactUntrustedOutput(text: string): string {
   return text
-    .replace(/\b(authorization|bearer)\b\s*[:=]?\s*\S+/gi, "$1 [removed]")
+    .replace(
+      new RegExp(`\\b(authorization)\\s*[:=]\\s*(?:[A-Za-z]+\\s+)?${TOKEN_LIKE}`, "gi"),
+      "$1: [removed]",
+    )
+    .replace(new RegExp(`\\b(bearer)\\s+${TOKEN_LIKE}`, "gi"), "$1 [removed]")
     .replace(/([?&])([a-z_]*(?:token|signature|sig|passwd|apikey|api_key))=[^&\s]+/gi, "$1$2=[removed]")
     .replace(/\b(sk|pk|rk)-[A-Za-z0-9_-]{8,}/g, "[removed]")
     .replace(/\bgh[pousr]_[A-Za-z0-9]{8,}/g, "[removed]")
