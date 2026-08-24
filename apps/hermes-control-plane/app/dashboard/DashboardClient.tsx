@@ -290,8 +290,20 @@ export default function DashboardClient() {
   const [selectedThread, setSelectedThread] = useState<string | null>(null);
   /** Lessons → Hermes deep-link: ?filter=completed|unrated shows task receipts across chats. */
   const [taskFilter, setTaskFilter] = useState<"all" | "completed" | "unrated">("all");
-  const [threadDetails, setThreadDetails] = useState<ThreadDetails | null>(null);
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const pending = window.sessionStorage.getItem("thumbgate_pending_prompt");
+        if (pending) {
+          window.sessionStorage.removeItem("thumbgate_pending_prompt");
+          return pending;
+        }
+      } catch {
+        /* private browsing */
+      }
+    }
+    return "";
+  });
   /**
    * Explicit user override for which hosted runner runs the next task.
    * Resolved selection is derived (useMemo) so we never setState inside an effect (eslint react-hooks/set-state-in-effect).
@@ -382,20 +394,6 @@ export default function DashboardClient() {
     return () => window.cancelAnimationFrame(raf);
   }, [mobileTab]);
 
-  // Restore pending prompt after returning from Stripe checkout / plan activation
-  useEffect(() => {
-    if (hasCloudAccess) {
-      try {
-        const pending = window.sessionStorage.getItem("thumbgate_pending_prompt");
-        if (pending && !prompt) {
-          setPrompt(pending);
-          window.sessionStorage.removeItem("thumbgate_pending_prompt");
-        }
-      } catch {
-        /* private browsing */
-      }
-    }
-  }, [hasCloudAccess, prompt]);
 
   // Keep the ••• actions menu glued to its trigger; close on outside / Escape / scroll.
   useEffect(() => {
