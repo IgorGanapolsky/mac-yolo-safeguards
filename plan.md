@@ -3626,3 +3626,5 @@ Does **not** clone Workers AI, AI Gateway, Vectorize, Agents SDK, Wallets, Flags
 - `SKILLS.md` (append row)
 - `.agents/skills/sources.yml` (append in_repo name)
 - `plan.md` (this append)
+
+- `tools/browser-ref-action-gate.js` (new), `tests/test-browser-ref-action-gate.js` (new), `plan.md` (append only) → **codex-browser-ref-gate-2031** (GH #2031 / AGENT-501: bind browser actions to current accessibility-style refs, origin scope, explicit consequential-action approvals, and provider completion receipts; provider-neutral and separate from PR #2010 transport files) (2026-08-24T21:04:00Z)
