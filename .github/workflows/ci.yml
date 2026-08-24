@@ -268,6 +268,16 @@ jobs:
           node tools/context-vault.js validate --vault artifacts/context-vault.md
           node tools/context-vault.js --json
 
+      # Two-Word AI Prompts (Allie K. Miller pattern): 18 role-shifting shortcut
+      # prompts that steer conversations after context is established. Validates
+      # the registry, all repo_tool references resolve to existing files, and
+      # CodeQL pattern gate is clean.
+      - name: Two-Word AI Prompts — registry + tool validation
+        run: |
+          set -eu
+          node tools/two-word-prompts.js --json
+          node tools/codeql-pattern-gate.js --json tools/two-word-prompts.js
+
       # poolside-yolo asserts it runs fully autonomous. It shipped a --mode value
       # pool does not recognise, so pool silently reverted to approval prompts and
       # nobody noticed for days — this suite was never wired into CI. It is
@@ -496,12 +506,11 @@ jobs:
       - name: Upload coverage to GitHub Code Quality
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         continue-on-error: true
-        uses: actions/upload-code-coverage@1c15be36fc3733ba839b1dd643bd9556e4426dc1 # v1
+        uses: actions/upload-code-coverage@d8e329117199404bba6fc81efe8093dc7c015e34 # v1.4.2
         with:
           file: hermes-mobile/coverage/cobertura-coverage.xml
           language: TypeScript
           label: code-coverage/hermes-mobile-jest
-          fail-on-error: false
 
       - name: Export and scan public Android JavaScript
         env:

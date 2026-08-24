@@ -66,6 +66,10 @@ updates:
       # v14 makes render() async — requires rewriting every test suite (PR #54)
       - dependency-name: "@testing-library/react-native"
         update-types: ["version-update:semver-major"]
+      # eslint-config-next 16.2.6 pulls plugins that support ESLint through v9.
+      # PR #2000 proved ESLint 10 crashes before linting any source file.
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
     labels:
       - dependencies
   - package-ecosystem: github-actions
