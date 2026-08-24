@@ -197,6 +197,10 @@ function traverse(hits, index, options = {}) {
         const fromFile = normalizePath(from && from.source_file);
         const toFile = normalizePath(peer && peer.source_file);
         if (!toFile) continue;
+        const crossFile = Boolean(fromFile && toFile && fromFile !== toFile);
+        // Intra-file contains/defines edges are real but must not consume the
+        // hop budget — otherwise 1-hop never leaves the search hit (live graphify).
+        if (!crossFile && paths.length >= 4) continue;
         used += 1;
         const pathObj = {
           from: fromFile || id,
@@ -214,6 +218,7 @@ function traverse(hits, index, options = {}) {
             relation: edge.relation,
           });
         }
+        if (!crossFile) continue;
         if (!hitFiles.has(toFile)) {
           const prev = extraFiles.get(toFile);
           if (!prev || depth < prev.hop) extraFiles.set(toFile, { path: toFile, hop: depth });
