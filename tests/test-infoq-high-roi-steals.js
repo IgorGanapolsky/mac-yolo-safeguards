@@ -1,51 +1,169 @@
+#!/usr/bin/env node
 'use strict';
 
-/**
- * Unit Tests for InfoQ High-ROI Architectural Steals Harness (`tools/infoq-high-roi-steals.js`)
- * Compatible with node tests/test-*.js harness (uses node:assert).
- */
-
 const assert = require('assert');
+const { spawnSync } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const {
   runInfoQStealsSuite,
   auditMcpToolPruning,
   evaluateLocalFirstRouting,
-  evaluateHybridRrfRetrieval
+  evaluateHybridRrfRetrieval,
 } = require('../tools/infoq-high-roi-steals');
 
-console.log('Running test-infoq-high-roi-steals.js...');
-
-// Test 1: MCP Tool Pruning audit
-{
-  const mcpAudit = auditMcpToolPruning();
-  assert.strictEqual(mcpAudit.estimatedTokenSavingsPercent, 62, 'Expected 62% token savings from MCP pruning');
-  assert.strictEqual(mcpAudit.status, 'OPTIMIZED', 'Expected OPTIMIZED status');
+function measuredEvidence() {
+  return {
+    mcp: {
+      registeredTools: 80,
+      activeTools: 12,
+      beforePromptTokens: 10_000,
+      afterPromptTokens: 4_200,
+    },
+    workloads: [
+      { id: 'lead-triage', baseline: { costUsd: 0.10, passed: true }, candidate: { costUsd: 0.01, passed: true, route: 'local' } },
+      { id: 'support-label', baseline: { costUsd: 0.12, passed: true }, candidate: { costUsd: 0.02, passed: true, route: 'private' } },
+      { id: 'contract-check', baseline: { costUsd: 0.08, passed: false }, candidate: { costUsd: 0.03, passed: true, route: 'hosted' } },
+    ],
+    retrieval: [
+      {
+        id: 'multi-hop',
+        expectedEvidence: ['service-a', 'service-b'],
+        expectedPaths: ['service-a->calls->service-b'],
+        searchOnly: ['service-a'],
+        fusedEvidence: ['service-a', 'service-b'],
+        fusedPaths: ['service-a->calls->service-b'],
+      },
+      {
+        id: 'semantic',
+        expectedEvidence: ['runbook'],
+        expectedPaths: [],
+        searchOnly: ['runbook'],
+        fusedEvidence: ['runbook'],
+        fusedPaths: [],
+      },
+    ],
+  };
 }
 
-// Test 2: Local-First Deterministic Fallback Routing
-{
-  const workloads = [
-    { id: 'W1', isDeterministic: true, complexity: 'LOW' },
-    { id: 'W2', isDeterministic: true, complexity: 'LOW' },
-    { id: 'W3', isDeterministic: true, complexity: 'LOW' },
-    { id: 'W4', isDeterministic: false, complexity: 'HIGH' }
-  ];
-  const routing = evaluateLocalFirstRouting(workloads);
-  assert.strictEqual(routing.localRatioPercent, 75, 'Expected 75% local routing ratio');
-  assert.ok(routing.status.startsWith('PASS'), 'Expected PASS status for local routing');
-}
-
-// Test 3: Hybrid RAG RRF Fusion Evaluation
-{
-  const hybridRag = evaluateHybridRrfRetrieval('test query');
-  assert.ok(hybridRag.ndcgScore >= 0.95, 'Expected nDCG >= 0.95');
-  assert.strictEqual(hybridRag.status, 'A_PLUS (nDCG >= 0.95)', 'Expected A_PLUS rating');
-}
-
-// Test 4: Full suite execution
 {
   const suite = runInfoQStealsSuite();
-  assert.strictEqual(suite.overallScore, '10/10 (A+)', 'Expected 10/10 (A+) overall score');
+  assert.strictEqual(suite.ready, false);
+  assert.strictEqual(suite.overallStatus, 'INSUFFICIENT_OR_FAILED');
+  assert.strictEqual(suite.mcpAudit.measuredTokenSavingsPercent, null);
+  assert.strictEqual(suite.localRouting.measuredCostReductionPercent, null);
+  assert.strictEqual(suite.hybridRag.fusedRecallPercent, null);
+}
+
+{
+  const audit = auditMcpToolPruning(measuredEvidence().mcp);
+  assert.strictEqual(audit.status, 'MEASURED');
+  assert.strictEqual(audit.prunedToolCount, 68);
+  assert.strictEqual(audit.measuredTokenSavingsPercent, 58);
+}
+
+{
+  const routing = evaluateLocalFirstRouting(measuredEvidence().workloads);
+  assert.strictEqual(routing.status, 'MEASURED');
+  assert.strictEqual(routing.localRatioPercent, 66.67);
+  assert.strictEqual(routing.measuredCostReductionPercent, 80);
+  assert.strictEqual(routing.recommendation, 'promote_candidate_canary');
+}
+
+{
+  const routing = evaluateLocalFirstRouting(measuredEvidence().workloads.slice(0, 2));
+  assert.strictEqual(routing.status, 'INSUFFICIENT_EVIDENCE');
+  assert.strictEqual(routing.recommendation, 'collect_labeled_canary_evidence');
+}
+
+{
+  const zeroBaseline = measuredEvidence().workloads.map((item) => ({
+    ...item,
+    baseline: { ...item.baseline, costUsd: 0 },
+  }));
+  const routing = evaluateLocalFirstRouting(zeroBaseline);
+  const suite = runInfoQStealsSuite({ ...measuredEvidence(), workloads: zeroBaseline });
+  assert.strictEqual(routing.status, 'INSUFFICIENT_EVIDENCE');
+  assert.strictEqual(routing.measuredCostReductionPercent, null);
+  assert.strictEqual(routing.recommendation, 'collect_nonzero_baseline_cost');
+  assert.strictEqual(suite.ready, false);
+}
+
+{
+  const losingCandidate = measuredEvidence().workloads.map((item) => ({
+    ...item,
+    baseline: { costUsd: 0.01, passed: true },
+    candidate: { ...item.candidate, costUsd: 0.10, passed: false },
+  }));
+  const routing = evaluateLocalFirstRouting(losingCandidate);
+  const suite = runInfoQStealsSuite({ ...measuredEvidence(), workloads: losingCandidate });
+  assert.strictEqual(routing.status, 'MEASURED');
+  assert.strictEqual(routing.recommendation, 'keep_baseline');
+  assert.strictEqual(suite.ready, false);
+  assert.strictEqual(suite.overallStatus, 'INSUFFICIENT_OR_FAILED');
+}
+
+{
+  const retrieval = evaluateHybridRrfRetrieval(measuredEvidence().retrieval);
+  assert.strictEqual(retrieval.status, 'PASS');
+  assert.strictEqual(retrieval.searchRecallPercent, 75);
+  assert.strictEqual(retrieval.fusedRecallPercent, 100);
+  assert.strictEqual(retrieval.relationalPathRecallPercent, 100);
+  assert.strictEqual(retrieval.recallLiftPoints, 25);
+}
+
+{
+  const noLift = evaluateHybridRrfRetrieval([{
+    id: 'no-lift',
+    expectedEvidence: ['a'],
+    expectedPaths: [],
+    searchOnly: ['a'],
+    fusedEvidence: ['a'],
+    fusedPaths: [],
+  }]);
+  assert.strictEqual(noLift.status, 'FAIL');
+  assert.strictEqual(noLift.recommendation, 'fix_resolution_or_remove_graph_stage');
+}
+
+{
+  const suite = runInfoQStealsSuite(measuredEvidence());
+  assert.strictEqual(suite.ready, true);
+  assert.strictEqual(suite.overallStatus, 'MEASURED_PASS');
+}
+
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'roi-evidence-'));
+  const evidenceFile = path.join(tempDir, 'evidence.json');
+  fs.writeFileSync(evidenceFile, JSON.stringify(measuredEvidence()));
+  const measured = spawnSync(process.execPath, [
+    path.join(__dirname, '..', 'tools', 'infoq-high-roi-steals.js'),
+    '--evidence', evidenceFile, '--validate', '--json',
+  ], { encoding: 'utf8' });
+  assert.strictEqual(measured.status, 0, measured.stderr);
+  assert.strictEqual(JSON.parse(measured.stdout).ready, true);
+
+  const losingEvidence = measuredEvidence();
+  losingEvidence.workloads = losingEvidence.workloads.map((item) => ({
+    ...item,
+    baseline: { costUsd: 0.01, passed: true },
+    candidate: { ...item.candidate, costUsd: 0.10, passed: false },
+  }));
+  fs.writeFileSync(evidenceFile, JSON.stringify(losingEvidence));
+  const losing = spawnSync(process.execPath, [
+    path.join(__dirname, '..', 'tools', 'infoq-high-roi-steals.js'),
+    '--evidence', evidenceFile, '--validate', '--json',
+  ], { encoding: 'utf8' });
+  assert.strictEqual(losing.status, 1, losing.stderr);
+  assert.strictEqual(JSON.parse(losing.stdout).localRouting.recommendation, 'keep_baseline');
+
+  const missing = spawnSync(process.execPath, [
+    path.join(__dirname, '..', 'tools', 'infoq-high-roi-steals.js'),
+    '--validate', '--json',
+  ], { encoding: 'utf8' });
+  assert.strictEqual(missing.status, 1);
+  assert.strictEqual(JSON.parse(missing.stdout).ready, false);
+  fs.rmSync(tempDir, { recursive: true, force: true });
 }
 
 console.log('ok tests/test-infoq-high-roi-steals.js');
