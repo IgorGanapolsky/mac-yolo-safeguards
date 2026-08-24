@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# vellum-bot — Hermes-native Vellum / Grok Bot alternative
+set -euo pipefail
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec node "${REPO_ROOT}/tools/vellum-grok-bot-alt.js" "$@"

@@ -350,7 +350,7 @@ export function hostedConnectionCopy(input: {
   if (live) {
     return {
       headline: "Hosted Hermes live",
-      body: `ThumbGate runs on a fenced VPS — $10/mo. Approvals in thumbgate.app. The runner and model are healthy. ${HOSTED_NOT_COMPUTER_HISTORY}`,
+      body: `ThumbGate runs on a fenced VPS — $10/mo. Sensitive actions fail closed; this dashboard does not yet expose an approval inbox. The runner and model are healthy. ${HOSTED_NOT_COMPUTER_HISTORY}`,
       badge: "verified",
       live: true,
       trust,
@@ -358,7 +358,7 @@ export function hostedConnectionCopy(input: {
     };
   }
   const anyUnhealthy = input.runnerStatus === "unhealthy" || input.modelStatus === "unhealthy";
-  const product = `Hosted Hermes is on a fenced VPS ($10/mo). Approvals in thumbgate.app. ${HOSTED_NOT_COMPUTER_HISTORY}`;
+  const product = `Hosted Hermes is on a fenced VPS ($10/mo). Sensitive actions fail closed; this dashboard does not yet expose an approval inbox. ${HOSTED_NOT_COMPUTER_HISTORY}`;
   const detail = input.message?.trim();
   return {
     headline: anyUnhealthy ? "Hosted Hermes not ready" : "Hosted Hermes waiting",

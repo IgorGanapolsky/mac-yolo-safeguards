@@ -45,6 +45,10 @@ function connectorPollingSchedule(env = process.env) {
     idlePollMs,
     heartbeatMs: positiveMilliseconds(env.HERMES_CONNECTOR_HEARTBEAT_MS, 30_000),
     sessionSyncMs: positiveMilliseconds(env.HERMES_CONNECTOR_SESSION_SYNC_MS, 60_000),
+    // Human-in-the-loop pairing: a hardcoded 3s poll cost ~10k /api/pairing/status
+    // per day against the free Workers cap while a connector sat unpaired
+    // (2026-08-20 quota incident). 10s is imperceptible for approval; env-overridable.
+    pairPollMs: positiveMilliseconds(env.HERMES_CONNECTOR_PAIR_POLL_MS, 10_000),
   };
 }
 
@@ -211,8 +215,9 @@ async function startPairing(config, configPath) {
   const opened = openPairingDashboard(config.controlPlaneUrl, result.body.userCode);
   process.stdout.write(`\n${opened ? 'Opened the ThumbGate approval page in your browser.' : `Pair this Hermes machine at ${config.controlPlaneUrl}/dashboard`}\nCode: ${result.body.userCode}\nFingerprint: ${result.body.fingerprint}\n\n`);
   const deadline = Date.now() + result.body.expiresIn * 1000;
+  const { pairPollMs } = connectorPollingSchedule();
   while (Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, 3_000));
+    await new Promise((resolve) => setTimeout(resolve, pairPollMs));
     const response = await fetch(`${config.controlPlaneUrl}/api/pairing/status`, {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ deviceCode: config.deviceCode }),
     });
@@ -474,9 +479,12 @@ async function executeLocal(config, task) {
     recreated ? formatContextSnapshot(task) : '',
     formatHandoffBlock(task),
   ].filter(Boolean).join('\n\n');
+  // Hermes Bot Mode keeps one persistent Bot Chat: /new and /reset are routed
+  // through native /compact instead of forking another session.
+  const message = task.continuationCommand === 'compact_same_thread' ? '/compact' : task.prompt;
   const payload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodeURIComponent(task.sourceSessionId)}/chat`, {
     method: 'POST', gatewayEnvPath: config.gatewayEnvPath,
-    body: JSON.stringify({ message: task.prompt, ...(systemMessage ? { system_message: systemMessage } : {}) }),
+    body: JSON.stringify({ message, ...(systemMessage ? { system_message: systemMessage } : {}) }),
   });
   return contentText(payload.message?.content || payload.output || payload.content || payload.response) || JSON.stringify(payload);
 }
@@ -675,5 +683,5 @@ async function main() {
   }
 }
 
-module.exports = { adoptDiskPairing, retryWithBackoff, boundContextMessages, buildWebSessionSystemPrompt, canonicalRequest, claimAndExecuteThreadOperation, collectGatewaySessions, connectorPollingSchedule, contentText, createIdentity, executeLocal, executeThreadOperation, forgetDeadPairing, gatewayHeaders, isDeadDeviceAuthError, loadConfig, nextConnectorPollDelay, pairingDashboardUrl, pairingMatchesControlPlane, parseDotEnvValue, parseTerminalCwd, recoverDeadPairing, resolveGatewayApiKey, resolveWorkspacePath, saveConfig, selectContextSessionIds, signedHeaders, sha256, syncGatewaySessions, timestampMillis, withLeaseRenewal };
+module.exports = { connectorPollingSchedule, adoptDiskPairing, retryWithBackoff, boundContextMessages, buildWebSessionSystemPrompt, canonicalRequest, claimAndExecuteThreadOperation, collectGatewaySessions, connectorPollingSchedule, contentText, createIdentity, executeLocal, executeThreadOperation, forgetDeadPairing, gatewayHeaders, isDeadDeviceAuthError, loadConfig, nextConnectorPollDelay, pairingDashboardUrl, pairingMatchesControlPlane, parseDotEnvValue, parseTerminalCwd, recoverDeadPairing, resolveGatewayApiKey, resolveWorkspacePath, saveConfig, selectContextSessionIds, signedHeaders, sha256, syncGatewaySessions, timestampMillis, withLeaseRenewal };
 if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });

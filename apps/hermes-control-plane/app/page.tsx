@@ -389,6 +389,33 @@ export default function Home() {
           <li><span>02</span><div><h3>Start the $10 trial</h3><p>A paid plan unlocks the fenced cloud VPS runner under your plan caps.</p></div></li>
           <li><span>03</span><div><h3>Dispatch work</h3><p>Agents run on a fenced VPS with pre-action gates. Not on your laptop.</p></div></li>
         </ol>
+        <div className="quickstart-box" style={{
+          marginTop: "24px",
+          padding: "16px 20px",
+          borderRadius: "8px",
+          background: "rgba(0, 0, 0, 0.4)",
+          border: "1px solid var(--line)",
+          fontFamily: "monospace",
+          fontSize: "13px",
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", flexWrap: "wrap", gap: "8px" }}>
+            <span style={{ color: "var(--text-secondary)", fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              ⚡ 60-Second Quickstart (Zero-Install SDK)
+            </span>
+            <span style={{ color: "#10b981", fontSize: "11px", background: "rgba(16, 185, 129, 0.15)", padding: "2px 8px", borderRadius: "4px" }}>
+              OTel Tracing + 0ms Pre-Action WriteGuard
+            </span>
+          </div>
+          <pre style={{ margin: 0, color: "var(--brand-terminal)", overflowX: "auto", whiteSpace: "pre-wrap" }}>
+{`# 1. Initialize ThumbGate client
+npx @thumbgate/cli init
+
+# 2. Protect any agent with pre-action interdiction & OTel tracing
+import { ThumbGate } from "@thumbgate/sdk";
+const tg = new ThumbGate();
+await tg.protect(agentStep);`}
+          </pre>
+        </div>
       </section>
 
       <section id="how-it-works" className="section-block">
