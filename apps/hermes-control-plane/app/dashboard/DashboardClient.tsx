@@ -290,6 +290,7 @@ export default function DashboardClient() {
   const [selectedThread, setSelectedThread] = useState<string | null>(null);
   /** Lessons → Hermes deep-link: ?filter=completed|unrated shows task receipts across chats. */
   const [taskFilter, setTaskFilter] = useState<"all" | "completed" | "unrated">("all");
+  const [threadDetails, setThreadDetails] = useState<ThreadDetails | null>(null);
   const [prompt, setPrompt] = useState(() => {
     if (typeof window !== "undefined") {
       try {
