@@ -31,6 +31,23 @@ export function createDirectCloudflareConfig(environment = process.env) {
     main: "./worker/index.ts",
     compatibility_date: "2026-07-20",
     compatibility_flags: ["nodejs_compat"],
+    // Keep dynamic D1, WorkOS, Stripe, and hosted-runner calls near their
+    // upstreams. Cloudflare can move only the Worker invocation; static
+    // assets remain served from the edge.
+    placement: { mode: "smart" },
+    // Cache keys include the immutable Worker version so a deployment cannot
+    // serve an earlier HTML shell even while the previous TTL is alive.
+    version_metadata: { binding: "CF_VERSION_METADATA" },
+    // Per-location protection for the three expensive anonymous write paths.
+    // The application-level organization limiter remains the authoritative
+    // global policy; this binding is a low-latency abuse circuit breaker.
+    ratelimits: [
+      {
+        name: "EDGE_WRITE_RATE_LIMITER",
+        namespace_id: "2011",
+        simple: { limit: 120, period: 60 },
+      },
+    ],
     // Keep the Workers.dev origin as an independent fallback/probe while the
     // branded apex and app subdomain remain the user-facing entry points.
     workers_dev: true,

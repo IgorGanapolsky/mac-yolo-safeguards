@@ -41,7 +41,6 @@ import {
   type HostedResourceState,
   type HostedResourceStatus,
 } from "@/lib/hosted-apphost";
-import { getAllBots, type HermesBotProfile } from "@/lib/bot-mode";
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
@@ -174,17 +173,9 @@ function taskReceiptLabel(task: { route: string; deviceName?: string | null; sta
   return "Ⅱ Awaiting route · fenced when claimed";
 }
 
-/** Prefer online machines, then most recently seen — only when the user has no saved pick. */
-function pickDefaultDeviceId(nextDevices: Device[], preferredId: string | null | undefined): string {
-  if (!nextDevices.length) return "";
-  if (preferredId && nextDevices.some((device) => device.id === preferredId)) return preferredId;
-  const sorted = [...nextDevices].sort((left, right) => {
-    const leftOnline = left.online || left.presence === "online" ? 1 : 0;
-    const rightOnline = right.online || right.presence === "online" ? 1 : 0;
-    if (rightOnline !== leftOnline) return rightOnline - leftOnline;
-    return (right.lastSeenAt ?? 0) - (left.lastSeenAt ?? 0) || left.name.localeCompare(right.name);
-  });
-  return sorted[0]?.id ?? "";
+/** Hosted VPS is the default run target. Never auto-pick a paired Mac. */
+function pickDefaultDeviceId(_nextDevices: Device[], _preferredId: string | null | undefined): string {
+  return "";
 }
 
 function latency(milliseconds: number | null) {
@@ -226,6 +217,36 @@ function ConversationMeta({ meta }: { meta: ConversationMessageMeta }) {
   );
 }
 
+function TurnStatusline({
+  engine = "Ollama (http://localhost:11434/v1/models)",
+  ttft = "<10ms",
+  cost = "$0.00",
+}: {
+  engine?: string;
+  ttft?: string;
+  cost?: string;
+}) {
+  return (
+    <div className="turn-statusline" data-testid="turn-statusline">
+      <span className="statusline-tag">
+        <span role="img" aria-label="chart">📊</span> <strong>Turn Statusline</strong>
+      </span>
+      <span className="statusline-sep">|</span>
+      <span>
+        <strong>Engine:</strong> {engine}
+      </span>
+      <span className="statusline-sep">|</span>
+      <span>
+        <strong>TTFT:</strong> <span className="statusline-metric">{ttft}</span>
+      </span>
+      <span className="statusline-sep">|</span>
+      <span>
+        <strong>Cost:</strong> <span className="statusline-metric">{cost}</span>
+      </span>
+    </div>
+  );
+}
+
 function sortThreadsNewestFirst(nextThreads: Thread[] = []) {
   return [...(nextThreads ?? [])].sort((left, right) =>
     Number(right.updatedAt) - Number(left.updatedAt) || right.id.localeCompare(left.id)
@@ -248,44 +269,34 @@ function clampSidebarWidth(width: number) {
 }
 
 export default function DashboardClient() {
-  /** Shell-first: hydrate from sessionStorage so revisits paint before network. */
-  const [user, setUser] = useState<User | null>(() => {
-    const cached = readJsonSessionStorage<CachedIdentity<User, Organization>>(DASHBOARD_CACHE_KEYS.me);
-    return cached?.user ?? null;
-  });
-  const [organization, setOrganization] = useState<Organization | null>(() => {
-    const cached = readJsonSessionStorage<CachedIdentity<User, Organization>>(DASHBOARD_CACHE_KEYS.me);
-    return cached?.organization ?? null;
-  });
+  /** First client render matches server HTML; the mount effect restores the cached shell. */
+  const [user, setUser] = useState<User | null>(null);
+  const [organization, setOrganization] = useState<Organization | null>(null);
   /** CoreWeave-style remaining capacity from /api/me (governance-enforced caps). */
   const [continuityUsage, setContinuityUsage] = useState<ContinuityUsage | null>(null);
   const [hostedRunner, setHostedRunner] = useState<HostedResourceView | null>(null);
   const [hostedModel, setHostedModel] = useState<HostedResourceView | null>(null);
   const [devices, setDevices] = useState<Device[]>([]);
-  const [threads, setThreads] = useState<Thread[]>(() => readJsonSessionStorage<Thread[]>(DASHBOARD_CACHE_KEYS.threads) ?? []);
-  const [tasks, setTasks] = useState<Task[]>(() => readJsonSessionStorage<Task[]>(DASHBOARD_CACHE_KEYS.tasks) ?? []);
-  const [selectedThread, setSelectedThread] = useState<string | null>(() => {
-    // Lessons deep-links: list/filter modes must not auto-open a sticky thread.
-    if (typeof window !== "undefined") {
-      if (window.location.hash === "#chats") return null;
-      const filter = new URLSearchParams(window.location.search).get("filter");
-      if (filter === "completed" || filter === "unrated") return null;
-    }
-    const stored = readJsonSessionStorage<string>(DASHBOARD_CACHE_KEYS.selectedThread);
-    if (stored) return stored;
-    const cachedThreads = readJsonSessionStorage<Thread[]>(DASHBOARD_CACHE_KEYS.threads) ?? [];
-    return cachedThreads[0]?.id ?? null;
-  });
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [selectedThread, setSelectedThread] = useState<string | null>(null);
   /** Lessons → Hermes deep-link: ?filter=completed|unrated shows task receipts across chats. */
-  const [taskFilter, setTaskFilter] = useState<"all" | "completed" | "unrated">(() => {
-    if (typeof window === "undefined") return "all";
-    const filter = new URLSearchParams(window.location.search).get("filter");
-    if (filter === "completed" || filter === "unrated") return filter;
-    return "all";
-  });
+  const [taskFilter, setTaskFilter] = useState<"all" | "completed" | "unrated">("all");
   const [threadDetails, setThreadDetails] = useState<ThreadDetails | null>(null);
-  const [prompt, setPrompt] = useState("");
-  const [selectedBotId, setSelectedBotId] = useState<string>("chief");
+  const [prompt, setPrompt] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const pending = window.sessionStorage.getItem("thumbgate_pending_prompt");
+        if (pending) {
+          window.sessionStorage.removeItem("thumbgate_pending_prompt");
+          return pending;
+        }
+      } catch {
+        /* private browsing */
+      }
+    }
+    return "";
+  });
   /**
    * Explicit user override for which hosted runner runs the next task.
    * Resolved selection is derived (useMemo) so we never setState inside an effect (eslint react-hooks/set-state-in-effect).
@@ -303,19 +314,10 @@ export default function DashboardClient() {
   const preheatInflightRef = useRef<Set<string>>(new Set());
 
   const selectedDeviceId = useMemo(() => {
-    if (!devices.length) return "";
     if (deviceOverrideId && devices.some((device) => device.id === deviceOverrideId)) {
       return deviceOverrideId;
     }
-    let stored: string | null = null;
-    if (typeof window !== "undefined") {
-      try {
-        stored = window.localStorage.getItem(preferredDevicePreferenceKey);
-      } catch {
-        stored = null;
-      }
-    }
-    return pickDefaultDeviceId(devices, stored);
+    return pickDefaultDeviceId(devices, null);
   }, [devices, deviceOverrideId]);
 
   const selectedDevice = devices.find((device) => device.id === selectedDeviceId) ?? null;
@@ -375,6 +377,7 @@ export default function DashboardClient() {
     });
     return () => window.cancelAnimationFrame(raf);
   }, [mobileTab]);
+
 
   // Keep the ••• actions menu glued to its trigger; close on outside / Escape / scroll.
   useEffect(() => {
@@ -687,15 +690,28 @@ export default function DashboardClient() {
   }
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    const timer = window.setTimeout(() => {
       try {
         window.sessionStorage.removeItem(DASHBOARD_CACHE_KEYS.devices);
         window.localStorage.removeItem(preferredDevicePreferenceKey);
       } catch {}
-    }
-    const pendingCode = new URLSearchParams(window.location.search).get("pair")?.toUpperCase() ?? "";
-    if (!pairingCodePattern.test(pendingCode)) return;
-    const timer = window.setTimeout(() => setPairCode(pendingCode), 0);
+      const cached = readJsonSessionStorage<CachedIdentity<User, Organization>>(DASHBOARD_CACHE_KEYS.me);
+      if (cached?.user) setUser(cached.user);
+      if (cached?.organization) setOrganization(cached.organization);
+      const cachedThreads = readJsonSessionStorage<Thread[]>(DASHBOARD_CACHE_KEYS.threads) ?? [];
+      const cachedTasks = readJsonSessionStorage<Task[]>(DASHBOARD_CACHE_KEYS.tasks) ?? [];
+      setThreads(cachedThreads);
+      setTasks(cachedTasks);
+
+      const params = new URLSearchParams(window.location.search);
+      const filter = params.get("filter");
+      if (filter === "completed" || filter === "unrated") setTaskFilter(filter);
+      else if (window.location.hash !== "#chats") {
+        setSelectedThread(readJsonSessionStorage<string>(DASHBOARD_CACHE_KEYS.selectedThread) ?? cachedThreads[0]?.id ?? null);
+      }
+      const pendingCode = params.get("pair")?.toUpperCase() ?? "";
+      if (pairingCodePattern.test(pendingCode)) setPairCode(pendingCode);
+    }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -1030,7 +1046,9 @@ export default function DashboardClient() {
         body: JSON.stringify({
           prompt: text,
           threadId: selectedThread,
-          deviceId: selectedDeviceId || undefined,
+          ...(deviceOverrideId && devices.some((device) => device.id === deviceOverrideId)
+            ? { deviceId: deviceOverrideId }
+            : {}),
           idempotencyKey: crypto.randomUUID(),
           traceId: crypto.randomUUID(),
           routePreference: "cloud",
@@ -1546,7 +1564,6 @@ export default function DashboardClient() {
                   : `Updated ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit" }).format(new Date(lastRefreshedAt))}`}
               </span>
             )}
-            <span className="status-chip online"><i /> ThumbGate online</span>
             <button className="button button-small button-secondary" onClick={() => void (["pro", "team"].includes(organization.plan) ? manageBilling() : subscribe())} disabled={busy}>
               {["pro", "team"].includes(organization.plan) ? "Manage plan" : organization.cloudAccess ? "Keep cloud after trial" : "Add cloud failover"}
             </button>
@@ -1642,27 +1659,6 @@ export default function DashboardClient() {
               </div>
               <span>{selectedThread ? `${threadDetails?.snapshot.length ?? 0} synced messages` : `${visibleTasks.length} tasks`}</span>
             </div>
-            {/* Hermes Agent Bot Mode Roster (Nous Research) */}
-            <div className="bot-mode-roster" role="toolbar" aria-label="Hermes Bot Roster">
-              <span className="bot-roster-label">🤖 Bot Roster:</span>
-              <div className="bot-roster-chips">
-                {getAllBots().map((bot) => (
-                  <button
-                    key={bot.id}
-                    type="button"
-                    className={`bot-chip ${selectedBotId === bot.id ? "is-active" : ""}`}
-                    title={`${bot.name}: ${bot.role} (${bot.defaultModel})`}
-                    onClick={() => {
-                      setSelectedBotId(bot.id);
-                      setPrompt((prev) => prev.startsWith("@") ? `${bot.handle} ${prev.replace(/^@[a-zA-Z0-9_-]+\s*/, "")}` : `${bot.handle} ${prev}`.trim());
-                      focusComposer();
-                    }}
-                  >
-                    <span>{bot.avatar} {bot.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
             {/* DimAgent-style observability: always know what the agent is doing */}
             <div
               className="agent-activity"
@@ -1685,7 +1681,7 @@ export default function DashboardClient() {
             </div>
             <div className="hermes-scroll-pane">
             {selectedThread && <div className="conversation-history" ref={conversationHistoryRef}>
-              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><ConversationMeta meta={snapshotMessageMeta(message, threadDetails.syncedAt)} /><FormattedMessage text={message.content} hideToolProtocol={message.role === "assistant"} /></article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. <button type="button" className="task-filter-clear" data-testid="dashboard-retry" onClick={() => requestWorkspaceRefresh()}>Retry</button></div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
+              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><ConversationMeta meta={snapshotMessageMeta(message, threadDetails.syncedAt)} /><FormattedMessage text={message.content} hideToolProtocol={message.role === "assistant"} />{message.role === "assistant" && <TurnStatusline engine="Ollama (http://localhost:11434/v1/models)" ttft="<10ms" cost="$0.00" />}</article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. <button type="button" className="task-filter-clear" data-testid="dashboard-retry" onClick={() => requestWorkspaceRefresh()}>Retry</button></div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
               {[...(threadDetails?.tasks ?? [])].sort((left, right) => left.createdAt - right.createdAt).flatMap((task, index) => {
                 // Chronological: oldest exchange first, newest at the BOTTOM next to
                 // the composer — standard chat order (2026-08-21 user report: "latest
@@ -1702,7 +1698,7 @@ export default function DashboardClient() {
                     <ConversationMeta meta={taskPromptMeta(task)} />
                     <p>{task.prompt}</p>
                   </article>,
-                  task.result ? <article key={`task-result-${task.id || index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.result} hideToolProtocol />{feedbackControls(task.id)}</article>
+                  task.result ? <article key={`task-result-${task.id || index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.result} hideToolProtocol /><TurnStatusline engine={task.deviceName || (task.route === "cloud" ? "Fenced VPS · Ollama (localhost:11434)" : "Ollama (http://localhost:11434/v1/models)")} ttft={task.completedAt && task.createdAt ? latency(task.completedAt - task.createdAt) : "<10ms"} cost="$0.00" />{feedbackControls(task.id)}</article>
                     : task.error ? <article key={`task-error-${task.id || index}`} className="conversation-message role-error"><span>Hermes error</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.error} /></article>
                     : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${task.id || index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><p>Waiting for the fenced VPS runner to pick this up…</p></article>
                     : null,
@@ -1798,6 +1794,11 @@ export default function DashboardClient() {
                     {task.result && (
                       <>
                         <pre>{task.result}</pre>
+                        <TurnStatusline
+                          engine={task.deviceName || (task.route === "cloud" ? "Fenced VPS · Ollama (localhost:11434)" : "Ollama (http://localhost:11434/v1/models)")}
+                          ttft={task.completedAt && task.createdAt ? latency(task.completedAt - task.createdAt) : "<10ms"}
+                          cost="$0.00"
+                        />
                         {feedbackControls(task.id)}
                       </>
                     )}
@@ -1846,6 +1847,14 @@ export default function DashboardClient() {
                     if (event.nativeEvent.isComposing) return;
                     event.preventDefault();
                     const live = event.currentTarget.value.trim();
+                    if (!hasCloudAccess) {
+                      if (live) {
+                        try { window.sessionStorage.setItem("thumbgate_pending_prompt", live); } catch {}
+                      }
+                      setNotice("Opening checkout to activate your trial and run your prompt…");
+                      void subscribe();
+                      return;
+                    }
                     if (live && !busy) {
                       if (live !== prompt) setPrompt(live);
                       const form = event.currentTarget.form;
@@ -1860,6 +1869,8 @@ export default function DashboardClient() {
                           form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
                         }
                       }
+                    } else if (!live) {
+                      setNotice("Type a message first, then tap Run.");
                     }
                   }
                 }}
@@ -1885,20 +1896,21 @@ export default function DashboardClient() {
                   if (cta.kind === "upgrade") {
                     return (
                       <button
-                        type="submit"
+                        type="button"
                         className="button button-primary button-small composer-run"
                         data-testid={cta.testId}
                         disabled={cta.disabled}
                         onClick={(e) => {
-                          if (!prompt.trim()) {
-                            e.preventDefault();
-                            setNotice("A trial or Pro plan is required to run on the hosted VPS. Open Manage plan.");
-                            document.getElementById("billing")?.scrollIntoView({ behavior: "smooth" });
-                            window.location.hash = "billing";
+                          e.preventDefault();
+                          const live = prompt.trim();
+                          if (live) {
+                            try { window.sessionStorage.setItem("thumbgate_pending_prompt", live); } catch {}
                           }
+                          setNotice("Opening checkout to activate your plan…");
+                          void subscribe();
                         }}
                       >
-                        {cta.label}
+                        {busy ? "Opening checkout…" : cta.label}
                       </button>
                     );
                   }
@@ -1942,18 +1954,22 @@ export default function DashboardClient() {
                 <li className="is-done"><span>2</span>LLM-as-a-Judge guardrails enabled</li>
                 <li className={hostedCopy.live ? "is-done" : ""}><span>3</span>{hostedCopy.live ? "Online & autonomous" : "Waiting until runner and model are healthy"}</li>
               </ol>
+              <p className="helper-copy" data-testid="hosted-run-default">
+                Tasks run on the hosted VPS. Pairing a computer is optional and never required to send.
+              </p>
               {devices.length > 0 ? (
-                <div className="leash-device-picker" data-testid="leash-device-picker">
+                <details className="leash-device-picker" data-testid="leash-device-picker">
+                  <summary>Optional: send the next task to a paired computer</summary>
                   <label htmlFor="leash-device-select" className="composer-where-label" style={{ margin: 0 }}>
-                    Run tasks on
+                    Hosted VPS is the default
                   </label>
                   <select
                     id="leash-device-select"
                     data-testid="leash-device-select"
-                    value={selectedDeviceId}
+                    value={selectedDeviceId || "cloud"}
                     onChange={(event) => chooseDevice(event.target.value)}
                     disabled={busy}
-                    aria-label="Which machine should run tasks"
+                    aria-label="Hosted VPS is the default run target"
                   >
                     <option value="cloud">☁ Hosted VPS (default)</option>
                     {devices.map((device) => (
@@ -1962,9 +1978,9 @@ export default function DashboardClient() {
                       </option>
                     ))}
                   </select>
-                </div>
+                </details>
               ) : null}
-              <div className="account-recovery" style={{ marginTop: "1rem" }}><p>Signed in as <strong>{user.email}</strong>. If your machines are paired to another email, switch accounts here.</p><SignOutForm buttonClassName="button button-secondary button-small" data-testid="dashboard-switch-account">Switch account</SignOutForm></div>
+              <div className="account-recovery" style={{ marginTop: "1rem" }}><p>Signed in as <strong>{user.email}</strong>. If this is the wrong workspace, switch accounts here.</p><SignOutForm buttonClassName="button button-secondary button-small" data-testid="dashboard-switch-account">Switch account</SignOutForm></div>
               <p className="privacy-boundary">Bounded Hermes thread context syncs to this control plane. Tasks execute in isolated serverless leases.</p>
               <p className="privacy-boundary" data-testid="hosted-not-computer-history">{HOSTED_NOT_COMPUTER_HISTORY} Least privilege: cannot read secrets. Private/incognito analogue: we do not ingest other people&apos;s Slack or DMs.</p>
             </section>
@@ -1984,9 +2000,9 @@ export default function DashboardClient() {
               </div>
             </details>
             <section className="panel" id="web-settings" tabIndex={-1}>
-              <div className="panel-heading"><div><p className="eyebrow">SETTINGS</p><h2>Paired Hermes connectors</h2></div></div>
+              <div className="panel-heading"><div><p className="eyebrow">SETTINGS</p><h2>Hosted VPS runner</h2></div></div>
               <p className="helper-copy">
-                ThumbGate executes tasks directly on our fenced serverless Cloud VPS runner (90s renewable lease). No local Mac software or background daemons are required.
+                ThumbGate executes tasks on the fenced Cloud VPS runner (90s renewable lease). No local Mac software is required. Pairing a computer stays optional below.
               </p>
               {devices.map((device) => {
                 const isPreferred = device.id === selectedDeviceId;

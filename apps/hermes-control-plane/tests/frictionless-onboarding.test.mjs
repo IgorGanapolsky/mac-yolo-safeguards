@@ -165,9 +165,7 @@ test("keeps the deployed web host DOM-native instead of adding a React Native We
   assert.match(globals, /\.dashboard-header\{[\s\S]*grid-template-columns:1fr/);
   // Chat-first workbench (DimAgent visual workbench steal, 2026-08-18):
   // messages fill remaining height; thin composer dock; not half-screen input.
-  assert.match(globals, /data-mobile-tab="hermes"\]\{[\s\S]*height:100dvh/);
-  assert.match(globals, /data-mobile-tab="hermes"\] \.task-panel\{[\s\S]*overflow:hidden !important/);
-  assert.match(globals, /data-mobile-tab="hermes"\] \.hermes-scroll-pane\{[\s\S]*height:clamp\(280px,46svh,520px\)[\s\S]*overflow-y:auto !important/);
+  assert.match(globals, /data-mobile-tab="hermes"\] \.hermes-scroll-pane\{[\s\S]*flex:1 1 0 !important[\s\S]*overflow-y:auto !important/);
   assert.match(globals, /task-panel \.composer[\s\S]*position:relative !important/);
   assert.match(globals, /composer textarea\{[\s\S]*min-height:40px/);
   assert.match(globals, /\.agent-activity/);
@@ -223,10 +221,11 @@ test("mobile Settings/Leash use document scroll on .right-rail and machine pick 
     globals,
     /data-mobile-tab="leash"\] \.right-rail,[\s\S]*data-mobile-tab="settings"\] \.right-rail\{[\s\S]*overflow:visible !important/,
   );
-  // Machine pin: Leash select + Settings "Use for tasks"
+  // Hosted VPS is default; machine pick is optional behind details.
+  assert.match(dashboard, /data-testid="hosted-run-default"/);
   assert.match(dashboard, /data-testid="leash-device-select"/);
+  assert.match(dashboard, /<details className="leash-device-picker"/);
   assert.match(dashboard, /device-use-for-tasks/);
-  assert.match(dashboard, /is-preferred/);
   assert.match(dashboard, /className="right-rail"/);
 });
 
@@ -389,7 +388,7 @@ test("makes ThumbGate real with private thumbs feedback and a lessons dashboard"
 
 test("shows the signed-in email when a zero-device workspace may be the wrong account", () => {
   assert.match(dashboard, /Signed in as <strong>\{user\.email\}<\/strong>/);
-  assert.match(dashboard, /If your machines are paired to another email/);
+  assert.match(dashboard, /If this is the wrong workspace, switch accounts here/);
   assert.match(dashboard, /Switch account/);
   // Shared SignOutForm posts to /api/auth/logout (one-click, busy-safe).
   assert.match(dashboard, /SignOutForm/);
@@ -404,7 +403,7 @@ test("lists connectors not Tailscale peers and can revoke ghost machines", () =>
   const approveRoute = readFileSync(new URL("../app/api/pairing/approve/route.ts", import.meta.url), "utf8");
   const devicePairing = readFileSync(new URL("../lib/device-pairing.ts", import.meta.url), "utf8");
   const healthRoute = readFileSync(new URL("../app/api/health/route.ts", import.meta.url), "utf8");
-  assert.match(dashboard, /Paired Hermes connectors/);
+  assert.match(dashboard, /Hosted VPS runner/);
   assert.match(dashboard, /Remove machine/);
   assert.match(dashboard, /Remove stale machine/);
   assert.match(dashboard, /deviceStatusLabel/);
