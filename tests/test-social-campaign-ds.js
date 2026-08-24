@@ -38,9 +38,10 @@ test('isLiveStatus', () => {
 });
 
 test('buildScoreboard ranks winner with enough attribution', () => {
+  const today = new Date().toISOString().slice(0, 10);
   const contentRows = [
     {
-      date: '2026-07-25',
+      date: today,
       platform: 'LinkedIn',
       hook: 'Install is step 0',
       campaign: 'evidence-installs-v1-20260725',
@@ -49,7 +50,7 @@ test('buildScoreboard ranks winner with enough attribution', () => {
       outcome: 'ok',
     },
     {
-      date: '2026-07-25',
+      date: today,
       platform: 'X',
       hook: 'Other hook',
       campaign: 'other-campaign',
@@ -94,10 +95,11 @@ test('buildScoreboard ranks winner with enough attribution', () => {
 });
 
 test('buildScoreboard INSUFFICIENT_DATA when under min-events', () => {
+  const today = new Date().toISOString().slice(0, 10);
   const report = buildScoreboard({
     contentRows: [
       {
-        date: '2026-07-25',
+        date: today,
         platform: 'X',
         hook: 'h',
         campaign: 'tiny',
@@ -115,10 +117,11 @@ test('buildScoreboard INSUFFICIENT_DATA when under min-events', () => {
 });
 
 test('LIVE posts with zero attribution produce lesson', () => {
+  const today = new Date().toISOString().slice(0, 10);
   const report = buildScoreboard({
     contentRows: [
       {
-        date: '2026-07-25',
+        date: today,
         platform: 'Bluesky',
         hook: 'h',
         campaign: 'lonely-live',
