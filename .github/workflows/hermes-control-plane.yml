@@ -131,6 +131,9 @@ jobs:
         if: steps.scope.outputs.relevant == 'true'
         run: npm run build:cloudflare
         working-directory: apps/hermes-control-plane
+      - name: Hosted action approval E2E (signed runner + tenant browser + D1)
+        run: node tests/action-approval-e2e.mjs
+        working-directory: apps/hermes-control-plane
       - name: Run local Cloudflare Worker session-lifecycle E2E
         if: steps.scope.outputs.relevant == 'true'
         run: node tests/cloudflare-worker-smoke.mjs
