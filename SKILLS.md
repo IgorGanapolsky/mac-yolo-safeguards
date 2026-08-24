@@ -93,4 +93,5 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 | `self-healing-engine` | Autonomous Zero-Crash Self-Healing, Self-Improving & Self-Learning Engine for ThumbGate.app and Hermes Harnesses. | `.agents/skills/self-healing-engine/SKILL.md` | local |
 | `cloudflare-developer-stack` | Cloudflare developer-docs doctor: Markdown for Agents, wrangler/quickAction audit, AI crawl policy, 403 documentation_url. Never clone Workers AI/Agents/Wallets. Slash: /cloudflare-developer-stack. | `.agents/skills/cloudflare-developer-stack/SKILL.md` | local |
 | `ai-native-sdlc` | Anthropic AI-native SDLC doctor: committed artifact chain (intent→spec→plan→tests→REVIEW.md→incident draft). Maps onto AGENTS.md. Never clone Claude Code evals/MDM/auto-quarantine/Continuity. Slash: /ai-native-sdlc. | `.agents/skills/ai-native-sdlc/SKILL.md` | local |
+| `eval-observability-loop` | Asked-vs-served routing receipts + cheap-cascade quality gate + eval-gated remap proposals. Never auto-apply. Never clone OpenRouter. Slash: /eval-observability-loop. | `.agents/skills/eval-observability-loop/SKILL.md` | local |
 
