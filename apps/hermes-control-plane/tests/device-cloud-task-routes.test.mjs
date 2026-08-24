@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
+const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
 test("device submit/status routes exist for Hermes Mobile continuity client", () => {
   const submit = read("../app/api/device/tasks/submit/route.ts");
@@ -12,6 +12,6 @@ test("device submit/status routes exist for Hermes Mobile continuity client", ()
   assert.match(submit, /submitDeviceCloudTask/);
   assert.match(submit, /routePreference/);
   assert.match(status, /fetchDeviceCloudTaskStatus/);
-  assert.match(lib, /cloud_pending/);
+  assert.match(lib, /decisionRoute.status/);
   assert.match(lib, /ackHostedSend/);
 });
