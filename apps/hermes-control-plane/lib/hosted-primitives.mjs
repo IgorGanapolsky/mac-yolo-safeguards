@@ -5,11 +5,21 @@
  * Checkpoint and resume only fire on the hosted VPS.
  * Money, customer, and production actions never auto-run.
  * We do not train our models on your runs.
+ * Hosted `completed` is not quality (TINKER-DEPLOY-OK analog lives in distill).
  */
+
+import { distillHostedPrompt as distillPrompt, gradeHostedTask as gradeTask } from "./hosted-prompt-distill.mjs";
 
 export const HOSTED_PRIMITIVES = Object.freeze(["run", "approve", "checkpoint", "resume"]);
 export const TRAIN_ON_CUSTOMER_RUNS = false;
 export const GATED_ACTION_KINDS = Object.freeze(["money", "customer", "production"]);
+
+export {
+  HOSTED_COMPLETED_IS_NOT_QUALITY,
+  HOST_EXECUTES_TOOLS,
+  distillHostedPrompt,
+  gradeHostedTask,
+} from "./hosted-prompt-distill.mjs";
 
 export function mayUseRunForTraining() {
   return TRAIN_ON_CUSTOMER_RUNS;
@@ -38,7 +48,29 @@ export function runHosted(input = {}) {
   if (isGatedAction(input.kind)) {
     return { ok: false, reason: "needs_approval", workId, kind: normalizeKind(input.kind) };
   }
-  return { ok: true, primitive: "run", workId, runtime: "vps" };
+  if (input.system != null || input.context != null || input.source) {
+    const distilled = distillPrompt(input);
+    if (!distilled.ok) return distilled;
+    const graded = gradeTask({ status: "running" });
+    return {
+      ok: true,
+      primitive: "run",
+      workId,
+      runtime: "vps",
+      quality: graded.quality,
+      completedIsNotQuality: true,
+      distilled,
+    };
+  }
+  const graded = gradeTask({ status: "running" });
+  return {
+    ok: true,
+    primitive: "run",
+    workId,
+    runtime: "vps",
+    quality: graded.quality,
+    completedIsNotQuality: true,
+  };
 }
 
 export function approveHosted(input = {}) {

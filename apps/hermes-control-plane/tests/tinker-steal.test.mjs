@@ -28,3 +28,9 @@ test("keeps hosted Hermes as the only offer", () => {
   assert.doesNotMatch(stolen, /RUN ON|Team \$49/);
   assert.doesNotMatch(page, /data never leaves your computer/i);
 });
+
+test("hosted completed is not a quality certificate", () => {
+  assert.match(primitives, /HOSTED_COMPLETED_IS_NOT_QUALITY/);
+  assert.match(primitives, /gradeHostedTask/);
+  assert.match(primitives, /distillHostedPrompt/);
+});

@@ -3717,3 +3717,29 @@ GH #2038 / Linear AGENT-510. Restore control-plane CI after PR #2000 merged ESLi
 - Fixed: required-check contract 41/41, Actionlint 2/2 workflows, Ruby YAML parse 2/2, dependency automation policy 16/16, CodeQL pattern gate 0 findings across 1,308 files, and `git diff --check` passed.
 - `gh copilot` review was attempted but the provider rejected it because the monthly quota is exhausted; no Copilot review claim.
 - Branch protection is intentionally unchanged until this workflow is merged and the irrelevant-path success route is observed on GitHub.
+
+## Tinker → ThumbGate.app hosted steal (append 2026-08-24T22:28:13Z) — agent `grok-hosted-tinker-prompt-distill`
+
+thinking-machines-lab/tinker is a **cloud training API**, not a ThumbGate.app SKU. Complementary to grok PR #2026 (hermes-yolo prompt-distill; do not dual-edit) and AGENT-455 (`tools/hermes-cloud-connector.js`; do not edit). Do not edit `tinker-yolo`, `page.tsx` FAQ, or `DashboardClient.tsx`.
+
+| Task | Goal | Status | Owner | Files | AcceptanceCheck |
+|---|---|---|---|---|---|
+| T-HOSTED-TINKER-PROMPT-DISTILL-20260824 | Steal cookbook prompt-distillation + holdout honesty onto hosted VPS: strip long operator skill dumps without a training API; `completed` ≠ quality; never train on customer runs | in_progress | grok-hosted-tinker-prompt-distill | `apps/hermes-control-plane/lib/hosted-prompt-distill.mjs` (new), `apps/hermes-control-plane/lib/hosted-primitives.mjs` (re-export + quality fields on run), `apps/hermes-control-plane/tests/hosted-prompt-distill.test.mjs` (new), `apps/hermes-control-plane/tests/hosted-primitives.test.mjs`, `apps/hermes-control-plane/tests/tinker-steal.test.mjs`, `tools/hosted-prompt-distill.js` (new), `tests/test-hosted-prompt-distill.js` (new), `bin/hosted-prompt-distill` (new), `.agents/skills/hosted-prompt-distill-not-tinker/**` (new), `SKILLS.md` (one row), `.agents/skills/sources.yml` (one pin), `plan.md` (this append) | focused distill + primitives + tinker-steal tests pass; CLI `--doctor --json` costUsd=0; customer_run refused; teacher path unwritten; short hosted system prompt unchanged; no LoRA/Inkling/default-route switch |
+
+### File claims (§2 append)
+
+- `apps/hermes-control-plane/lib/hosted-prompt-distill.mjs` (new)
+- `apps/hermes-control-plane/lib/hosted-primitives.mjs` (quality + distill re-export only)
+- `apps/hermes-control-plane/tests/hosted-prompt-distill.test.mjs` (new)
+- `apps/hermes-control-plane/tests/hosted-primitives.test.mjs` (quality/distill assertions)
+- `apps/hermes-control-plane/tests/tinker-steal.test.mjs` (completed≠quality contract)
+- `tools/hosted-prompt-distill.js` (new)
+- `tests/test-hosted-prompt-distill.js` (new)
+- `bin/hosted-prompt-distill` (new)
+- `.agents/skills/hosted-prompt-distill-not-tinker/SKILL.md` (new)
+- `.agents/skills/hosted-prompt-distill-not-tinker/skill-card.md` (new)
+- `SKILLS.md` (one row)
+- `.agents/skills/sources.yml` (one in_repo pin)
+- `plan.md` (this append)
+
+Do **not** touch: `tinker-yolo`, `tools/hermes-yolo-tinker-prompt-distill.js`, `bin/tinker-prompt-distill`, `tools/hermes-cloud-connector.js`, `tools/tml-tinker-engage-loop.js`, `apps/hermes-control-plane/app/page.tsx`, `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx`, `apps/hermes-control-plane/lib/hosted-prompt-trim.js`.

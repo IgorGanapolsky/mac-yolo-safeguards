@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   GATED_ACTION_KINDS,
+  HOSTED_COMPLETED_IS_NOT_QUALITY,
   HOSTED_PRIMITIVES,
+  HOST_EXECUTES_TOOLS,
   TRAIN_ON_CUSTOMER_RUNS,
   approveHosted,
   checkpointHosted,
+  gradeHostedTask,
   mayUseRunForTraining,
   recordRecoveredRun,
   resumeHosted,
@@ -18,6 +21,8 @@ test("four hosted primitives and no training on customer runs", () => {
   assert.deepEqual([...HOSTED_PRIMITIVES], ["run", "approve", "checkpoint", "resume"]);
   assert.equal(TRAIN_ON_CUSTOMER_RUNS, false);
   assert.equal(mayUseRunForTraining(), false);
+  assert.equal(HOSTED_COMPLETED_IS_NOT_QUALITY, true);
+  assert.equal(HOST_EXECUTES_TOOLS, true);
   assert.deepEqual([...GATED_ACTION_KINDS], ["money", "customer", "production"]);
 });
 
@@ -30,7 +35,37 @@ test("run is VPS-only and pauses gated actions", () => {
     primitive: "run",
     workId: "w1",
     runtime: "vps",
+    quality: "unevaluated",
+    completedIsNotQuality: true,
   });
+});
+
+test("hosted completed is not quality until observed holdout", () => {
+  const done = gradeHostedTask({ status: "completed" });
+  assert.equal(done.lifecycle, "completed");
+  assert.equal(done.quality, "unevaluated");
+  assert.equal(done.shippable, false);
+  assert.equal(done.completedIsNotQuality, true);
+  const holdout = gradeHostedTask({
+    status: "completed",
+    kind: "observed",
+    holdoutPairs: 5,
+    holdoutAccuracy: 0.8,
+  });
+  assert.equal(holdout.quality, "holdout_pass");
+  assert.equal(holdout.shippable, true);
+});
+
+test("run refuses customer traces as training input", () => {
+  const denied = runHosted({
+    runtime: "vps",
+    workId: "w1",
+    source: "customer_run",
+    system: "hello",
+  });
+  assert.equal(denied.ok, false);
+  assert.equal(denied.reason, "train_on_customer_runs_forbidden");
+  assert.equal(denied.trained, false);
 });
 
 test("approve only counts in thumbgate.app", () => {
