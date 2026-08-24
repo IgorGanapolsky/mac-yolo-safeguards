@@ -55,7 +55,7 @@ verification against live production data.
 ## Unblock Checklist
 
 1. **BrowserOS → admin dashboard:** Navigate `app.thumbgate.app/dashboard` using
-   BrowserOS (Google SSO `iganapolsky@gmail.com` session) and read the live
+   BrowserOS (Google SSO Igor's personal Gmail session) and read the live
    `paidOrganizations` and `projectedMrrUsd` values.
 2. **BrowserOS → Stripe dashboard:** Navigate `dash.stripe.com` (same SSO) and
    verify MRR, churn rate, and billing event volume for the production account.

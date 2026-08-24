@@ -212,11 +212,23 @@ describe("hostedConnectionCopy", () => {
     expect(copy.headline).toBe("Hosted Hermes live");
     expect(copy.body).toContain("fenced VPS");
     expect(copy.body).toContain("$10");
+    expect(copy.body).toContain("does not yet expose an approval inbox");
+    expect(copy.body).not.toContain("Approvals in thumbgate.app");
     expect(copy.body.toLowerCase()).not.toContain("instantly");
     expect(copy.body).toContain("not ChatGPT Computer History");
     expect(copy.body).toContain("not Windows Recall");
     expect(copy.body).toContain("not a Mac keylogger");
     expect(copy.body).not.toMatch(/learn from everything you do on your computer/i);
+  });
+
+  it("does not imply an approval inbox exists while hosted resources are waiting", () => {
+    const copy = hostedConnectionCopy({
+      runnerStatus: "waiting",
+      modelStatus: "healthy",
+    });
+    expect(copy.body).toContain("Sensitive actions fail closed");
+    expect(copy.body).toContain("does not yet expose an approval inbox");
+    expect(copy.body).not.toContain("Approvals in thumbgate.app");
   });
 
   it("labels resources Waiting / Healthy / Unhealthy", () => {

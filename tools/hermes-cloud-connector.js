@@ -479,9 +479,12 @@ async function executeLocal(config, task) {
     recreated ? formatContextSnapshot(task) : '',
     formatHandoffBlock(task),
   ].filter(Boolean).join('\n\n');
+  // Hermes Bot Mode keeps one persistent Bot Chat: /new and /reset are routed
+  // through native /compact instead of forking another session.
+  const message = task.continuationCommand === 'compact_same_thread' ? '/compact' : task.prompt;
   const payload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodeURIComponent(task.sourceSessionId)}/chat`, {
     method: 'POST', gatewayEnvPath: config.gatewayEnvPath,
-    body: JSON.stringify({ message: task.prompt, ...(systemMessage ? { system_message: systemMessage } : {}) }),
+    body: JSON.stringify({ message, ...(systemMessage ? { system_message: systemMessage } : {}) }),
   });
   return contentText(payload.message?.content || payload.output || payload.content || payload.response) || JSON.stringify(payload);
 }
