@@ -22,23 +22,94 @@ export type ConversationTask = {
   createdAt: number;
 };
 
+export function normalizeTaskPrompt(prompt: string | null | undefined): string {
+  return String(prompt ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+export function taskProgressRank(task: {
+  status: string;
+  result?: string | null;
+  error?: string | null;
+}): number {
+  if ((task.result && String(task.result).trim()) || (task.error && String(task.error).trim())) return 3;
+  if (task.status === "completed" || task.status === "failed") return 2;
+  if (task.status === "running") return 1;
+  return 0;
+}
+
+export function preferRicherTask<T extends { status: string; result?: string | null; error?: string | null }>(
+  current: T,
+  incoming: T,
+): T {
+  return taskProgressRank(incoming) >= taskProgressRank(current) ? incoming : current;
+}
+
+export function preferRicherTaskList<T extends { id: string; status: string; result?: string | null; error?: string | null }>(
+  left: T[],
+  right: T[],
+): T[] {
+  const byId = new Map<string, T>();
+  for (const row of left) {
+    if (row?.id) byId.set(row.id, row);
+  }
+  for (const row of right) {
+    if (!row?.id) continue;
+    const prev = byId.get(row.id);
+    byId.set(row.id, prev ? preferRicherTask(prev, row) : row);
+  }
+  return [...byId.values()];
+}
+
+function promptKeySet<T extends { prompt?: string | null }>(rows: T[]): Set<string> {
+  const keys = new Set<string>();
+  for (const row of rows) {
+    const key = normalizeTaskPrompt(row.prompt);
+    if (key) keys.add(key);
+  }
+  return keys;
+}
+
 /** Append optimistic web tasks that the server response has not returned yet. */
 export function mergeConversationTasks(
   serverTasks: ConversationTask[],
   optimisticTasks: ConversationTask[],
+  previousTasks: ConversationTask[] = [],
 ): ConversationTask[] {
   const serverIds = new Set(serverTasks.map((task) => task.id));
-  const pending = optimisticTasks.filter((task) => task.id && !serverIds.has(task.id) && task.prompt.trim());
-  return pending.length ? [...serverTasks, ...pending] : serverTasks;
+  const optimisticIds = new Set(optimisticTasks.map((task) => task.id));
+  const optimisticPrompts = promptKeySet(optimisticTasks);
+  const retainedPrevious = previousTasks.filter((task) => {
+    if (!task.id) return false;
+    return (
+      serverIds.has(task.id)
+      || optimisticIds.has(task.id)
+      || optimisticPrompts.has(normalizeTaskPrompt(task.prompt))
+    );
+  });
+  const base = preferRicherTaskList(retainedPrevious, serverTasks);
+  const baseIds = new Set(base.map((task) => task.id));
+  const basePrompts = promptKeySet(base);
+  const pending = optimisticTasks.filter((task) => (
+    Boolean(task.id)
+    && Boolean(task.prompt.trim())
+    && !baseIds.has(task.id)
+    && !basePrompts.has(normalizeTaskPrompt(task.prompt))
+  ));
+  return pending.length ? [...base, ...pending] : base;
 }
 
-/** Drop optimistic rows once the server list includes the same id. */
+/** Drop optimistic rows once the server list includes the same id or prompt. */
 export function pruneResolvedOptimistic(
   optimisticTasks: ConversationTask[],
   serverTasks: ConversationTask[],
 ): ConversationTask[] {
   const serverIds = new Set(serverTasks.map((task) => task.id));
-  return optimisticTasks.filter((task) => task.id && !serverIds.has(task.id));
+  const serverPrompts = promptKeySet(serverTasks);
+  return optimisticTasks.filter((task) => (
+    Boolean(task.id)
+    && !serverIds.has(task.id)
+    && !serverPrompts.has(normalizeTaskPrompt(task.prompt))
+  ));
 }
 
 /**
@@ -79,10 +150,33 @@ export function mergeTasksForTaskList<T extends TaskLike & { threadTitle?: strin
   serverTasks: T[],
   optimisticTasks: ConversationTask[],
   threadId: string,
+  previousTasks: T[] = [],
 ): T[] {
-  const serverIds = new Set(serverTasks.map((task) => task.id));
+  const optimisticIds = new Set(optimisticTasks.map((task) => task.id));
+  const optimisticPrompts = promptKeySet(optimisticTasks);
+  const byId = new Map<string, T>();
+  for (const prev of previousTasks) {
+    if (!prev?.id) continue;
+    if (
+      optimisticIds.has(prev.id)
+      || optimisticPrompts.has(normalizeTaskPrompt(prev.prompt))
+    ) {
+      byId.set(prev.id, prev);
+    }
+  }
+  for (const server of serverTasks) {
+    const prev = byId.get(server.id);
+    byId.set(server.id, prev ? preferRicherTask(prev, server) : server);
+  }
+  const knownIds = new Set(byId.keys());
+  const knownPrompts = promptKeySet([...byId.values()]);
   const pending = optimisticTasks
-    .filter((task) => task.id && !serverIds.has(task.id) && task.prompt.trim())
+    .filter((task) => (
+      Boolean(task.id)
+      && Boolean(task.prompt.trim())
+      && !knownIds.has(task.id)
+      && !knownPrompts.has(normalizeTaskPrompt(task.prompt))
+    ))
     .map((task) => ({
       id: task.id,
       threadId,
@@ -97,7 +191,8 @@ export function mergeTasksForTaskList<T extends TaskLike & { threadTitle?: strin
       completedAt: null,
       deviceName: null,
     }) as T);
-  return pending.length ? [...serverTasks, ...pending] : serverTasks;
+  const merged = [...byId.values()];
+  return pending.length ? [...merged, ...pending] : merged;
 }
 
 export function scrollConversationHistoryToLatest(

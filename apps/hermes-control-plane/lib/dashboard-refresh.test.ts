@@ -6,6 +6,7 @@ import {
   scheduleOneShotErrorRetry,
   startActiveTaskRefresh,
   ACTIVE_TASK_REFRESH_DELAY_MS,
+  ACTIVE_TASK_REFRESH_FIRST_DELAY_MS,
   ACTIVE_TASK_REFRESH_MAX_MS,
   ERROR_RETRY_DELAY_MS,
 } from "./dashboard-refresh";
@@ -102,6 +103,7 @@ describe("startActiveTaskRefresh", () => {
       run: vi.fn(),
       isActive: () => false,
       setTimeoutFn: setTimeoutFn as unknown as typeof setTimeout,
+      document: null,
     });
     expect(handle.started).toBe(false);
     expect(setTimeoutFn).not.toHaveBeenCalled();
@@ -120,11 +122,12 @@ describe("startActiveTaskRefresh", () => {
       run,
       isActive: () => true,
       setTimeoutFn: setTimeoutFn as unknown as typeof setTimeout,
+      document: null,
     });
 
     expect(handle.started).toBe(true);
     expect(setTimeoutFn).toHaveBeenCalledTimes(1);
-    expect(setTimeoutFn.mock.calls[0]?.[1]).toBe(ACTIVE_TASK_REFRESH_DELAY_MS);
+    expect(setTimeoutFn.mock.calls[0]?.[1]).toBe(ACTIVE_TASK_REFRESH_FIRST_DELAY_MS);
     const first = callbacks.shift();
     const pending = first?.();
     expect(run).toHaveBeenCalledTimes(1);
@@ -132,6 +135,7 @@ describe("startActiveTaskRefresh", () => {
     finishRun?.();
     await pending;
     expect(setTimeoutFn).toHaveBeenCalledTimes(2);
+    expect(setTimeoutFn.mock.calls[1]?.[1]).toBe(ACTIVE_TASK_REFRESH_DELAY_MS);
     handle.stop();
   });
 
@@ -148,6 +152,7 @@ describe("startActiveTaskRefresh", () => {
       run,
       isActive: () => active,
       setTimeoutFn: setTimeoutFn as unknown as typeof setTimeout,
+      document: null,
     });
     await callbacks.shift()?.();
     expect(run).toHaveBeenCalledTimes(1);
@@ -168,6 +173,7 @@ describe("startActiveTaskRefresh", () => {
       isActive: () => true,
       nowFn: () => now,
       setTimeoutFn: setTimeoutFn as unknown as typeof setTimeout,
+      document: null,
     });
     expect(handle.maxDurationMs).toBe(ACTIVE_TASK_REFRESH_MAX_MS);
     now = ACTIVE_TASK_REFRESH_MAX_MS;
@@ -187,6 +193,7 @@ describe("startActiveTaskRefresh", () => {
       run: vi.fn(async () => { throw new Error("temporary network failure"); }),
       isActive: () => true,
       setTimeoutFn: setTimeoutFn as unknown as typeof setTimeout,
+      document: null,
     });
     await expect(callbacks.shift()?.()).resolves.toBeUndefined();
     expect(setTimeoutFn).toHaveBeenCalledTimes(2);
@@ -200,8 +207,33 @@ describe("startActiveTaskRefresh", () => {
       isActive: () => true,
       setTimeoutFn: vi.fn(() => 42 as unknown as ReturnType<typeof setTimeout>) as unknown as typeof setTimeout,
       clearTimeoutFn,
+      document: null,
     });
     handle.stop();
     expect(clearTimeoutFn).toHaveBeenCalledWith(42);
+  });
+
+  it("re-runs when the phone tab becomes visible again", () => {
+    const listeners = new Map<string, () => void>();
+    const fakeDocument = {
+      visibilityState: "visible" as string,
+      addEventListener(type: string, listener: () => void) {
+        listeners.set(type, listener);
+      },
+      removeEventListener(type: string) {
+        listeners.delete(type);
+      },
+    };
+    const run = vi.fn();
+    const handle = startActiveTaskRefresh({
+      run,
+      isActive: () => true,
+      setTimeoutFn: vi.fn(() => 1 as unknown as ReturnType<typeof setTimeout>) as unknown as typeof setTimeout,
+      document: fakeDocument,
+    });
+    listeners.get("visibilitychange")?.();
+    expect(run).toHaveBeenCalledTimes(1);
+    handle.stop();
+    expect(listeners.size).toBe(0);
   });
 });

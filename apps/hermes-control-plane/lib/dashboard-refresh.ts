@@ -18,6 +18,8 @@ export const MIN_DASHBOARD_POLL_INTERVAL_MS = 15 * 60 * 1000;
 export const SUB_MINUTE_POLL_MS = 60_000;
 export const ERROR_RETRY_DELAY_MS = 30_000;
 export const ACTIVE_TASK_REFRESH_DELAY_MS = 10_000;
+/** First tick after send — 10s felt like a hung CLOUD PENDING on the phone. */
+export const ACTIVE_TASK_REFRESH_FIRST_DELAY_MS = 1_000;
 export const ACTIVE_TASK_REFRESH_MAX_MS = 3 * 60 * 1000;
 
 export type DashboardRefreshInput = {
@@ -131,6 +133,7 @@ export function scheduleOneShotErrorRetry(options: {
 export type ActiveTaskRefreshHandle = {
   started: boolean;
   delayMs: number;
+  firstDelayMs: number;
   maxDurationMs: number;
   stop: () => void;
 };
@@ -147,13 +150,21 @@ export function startActiveTaskRefresh(options: {
   setTimeoutFn?: typeof setTimeout;
   clearTimeoutFn?: typeof clearTimeout;
   delayMs?: number;
+  firstDelayMs?: number;
   maxDurationMs?: number;
+  document?: {
+    visibilityState?: string;
+    addEventListener(type: string, listener: () => void): void;
+    removeEventListener(type: string, listener: () => void): void;
+  } | null;
 }): ActiveTaskRefreshHandle {
   const delayMs = Math.max(1, options.delayMs ?? ACTIVE_TASK_REFRESH_DELAY_MS);
+  const firstDelayMs = Math.max(1, options.firstDelayMs ?? ACTIVE_TASK_REFRESH_FIRST_DELAY_MS);
   const maxDurationMs = Math.max(delayMs, options.maxDurationMs ?? ACTIVE_TASK_REFRESH_MAX_MS);
   const idle: ActiveTaskRefreshHandle = {
     started: false,
     delayMs,
+    firstDelayMs,
     maxDurationMs,
     stop: () => {},
   };
@@ -165,10 +176,16 @@ export function startActiveTaskRefresh(options: {
   const startedAt = nowFn();
   let stopped = false;
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let first = true;
+  const visibilityTarget = options.document === undefined
+    ? (typeof document !== "undefined" ? document : null)
+    : options.document;
 
   const schedule = () => {
     const remainingMs = maxDurationMs - (nowFn() - startedAt);
     if (stopped || !options.isActive() || remainingMs <= 0) return;
+    const waitMs = first ? firstDelayMs : delayMs;
+    first = false;
     timeoutId = setTimeoutFn(async () => {
       timeoutId = null;
       if (stopped || !options.isActive() || nowFn() - startedAt >= maxDurationMs) return;
@@ -180,18 +197,37 @@ export function startActiveTaskRefresh(options: {
       } finally {
         schedule();
       }
-    }, Math.min(delayMs, remainingMs));
+    }, Math.min(waitMs, remainingMs));
   };
+
+  const onVisible = () => {
+    if (stopped || !options.isActive()) return;
+    if (visibilityTarget && "visibilityState" in visibilityTarget && visibilityTarget.visibilityState !== "visible") {
+      return;
+    }
+    if (nowFn() - startedAt >= maxDurationMs) return;
+    void Promise.resolve(options.run()).catch(() => {});
+  };
+
+  if (visibilityTarget) {
+    visibilityTarget.addEventListener("visibilitychange", onVisible);
+    visibilityTarget.addEventListener("pageshow", onVisible);
+  }
 
   schedule();
   return {
     started: true,
     delayMs,
+    firstDelayMs,
     maxDurationMs,
     stop: () => {
       stopped = true;
       if (timeoutId !== null) clearTimeoutFn(timeoutId);
       timeoutId = null;
+      if (visibilityTarget) {
+        visibilityTarget.removeEventListener("visibilitychange", onVisible);
+        visibilityTarget.removeEventListener("pageshow", onVisible);
+      }
     },
   };
 }

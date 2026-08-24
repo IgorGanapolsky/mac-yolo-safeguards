@@ -29,6 +29,7 @@ import {
   hasPendingConversationTasks,
   mergeConversationTasks,
   mergeTasksForTaskList,
+  preferRicherTaskList,
   pruneResolvedOptimistic,
   scrollConversationHistoryToLatest,
   type ConversationTask,
@@ -279,6 +280,8 @@ export default function DashboardClient() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const tasksRef = useRef<Task[]>([]);
+  tasksRef.current = tasks;
   const [selectedThread, setSelectedThread] = useState<string | null>(null);
   /** Lessons → Hermes deep-link: ?filter=completed|unrated shows task receipts across chats. */
   const [taskFilter, setTaskFilter] = useState<"all" | "completed" | "unrated">("all");
@@ -562,10 +565,15 @@ export default function DashboardClient() {
         pendingConversationTasksRef.current,
         serverTasks,
       );
+      const previousTasks = readCachedThreadDetails(threadId)?.tasks ?? [];
       const details: ThreadDetails = {
         syncedAt: body.thread?.syncedAt ?? null,
         snapshot: Array.isArray(body.snapshot) ? body.snapshot : [],
-        tasks: mergeConversationTasks(serverTasks, pendingConversationTasksRef.current),
+        tasks: mergeConversationTasks(
+          serverTasks,
+          pendingConversationTasksRef.current,
+          previousTasks,
+        ),
       };
       persistThreadDetails(threadId, details);
       if (selectedThreadRef.current === threadId) {
@@ -814,9 +822,43 @@ export default function DashboardClient() {
         nextTasks,
         pendingConversationTasksRef.current,
         activeSelected ?? "",
+        tasksRef.current,
       );
       setTasks(mergedTasks);
-      writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.tasks, nextTasks);
+      const conversationFromList: ConversationTask[] = mergedTasks
+        .filter((task) => !activeSelected || task.threadId === activeSelected)
+        .map((task) => ({
+          id: task.id,
+          prompt: task.prompt,
+          result: task.result,
+          error: task.error,
+          route: task.route,
+          status: task.status,
+          createdAt: task.createdAt,
+        }));
+      pendingConversationTasksRef.current = pruneResolvedOptimistic(
+        pendingConversationTasksRef.current,
+        conversationFromList,
+      );
+      if (activeSelected) {
+        const previousDetails = readCachedThreadDetails(activeSelected);
+        const overlay = preferRicherTaskList(previousDetails?.tasks ?? [], conversationFromList.filter((task) => {
+          const match = mergedTasks.find((row) => row.id === task.id);
+          return !match || match.threadId === activeSelected;
+        }));
+        const details: ThreadDetails = {
+          syncedAt: previousDetails?.syncedAt ?? null,
+          snapshot: previousDetails?.snapshot ?? [],
+          tasks: mergeConversationTasks(
+            overlay,
+            pendingConversationTasksRef.current,
+            previousDetails?.tasks ?? [],
+          ),
+        };
+        persistThreadDetails(activeSelected, details);
+        if (selectedThreadRef.current === activeSelected) setThreadDetails(details);
+      }
+      writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.tasks, mergedTasks);
       if (!focusedTaskFromUrl.current && typeof window !== "undefined") {
         const focusTaskId = new URLSearchParams(window.location.search).get("task");
         const focusThreadId = new URLSearchParams(window.location.search).get("thread");
@@ -849,7 +891,7 @@ export default function DashboardClient() {
       } else setFeedback({});
     }
     setLoadState("loaded");
-  }, [prefetchThreadDetails, readCachedThreadDetails]);
+  }, [prefetchThreadDetails, persistThreadDetails, readCachedThreadDetails]);
 
   // Async SWR only — no synchronous setState (eslint react-hooks/set-state-in-effect).
   const revalidateSelectedThread = useCallback(async (threadId: string) => {

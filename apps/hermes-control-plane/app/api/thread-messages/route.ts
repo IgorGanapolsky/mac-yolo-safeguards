@@ -1,4 +1,5 @@
 import { requireSession } from "@/lib/auth";
+import { THREAD_MESSAGES_TASK_VISIBILITY_SQL } from "@/lib/thread-messages-visibility";
 import { db } from "@/lib/runtime";
 import { jsonError } from "@/lib/security";
 
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
             d.name AS deviceName
        FROM tasks k
        LEFT JOIN devices d ON d.id = k.device_id
-      WHERE k.thread_id = ? AND k.organization_id = ? AND (? IS NULL OR k.created_at > ?)
+      WHERE k.thread_id = ? AND k.organization_id = ? AND ${THREAD_MESSAGES_TASK_VISIBILITY_SQL}
       ORDER BY k.created_at ASC LIMIT 100`
   ).bind(threadId, session.organizationId, thread.syncedAt, thread.syncedAt).all();
   return Response.json({ thread: { id: thread.id, title: thread.title, source: thread.source, syncedAt: thread.syncedAt }, snapshot, tasks: tasks.results });

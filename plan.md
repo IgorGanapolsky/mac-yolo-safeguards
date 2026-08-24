@@ -3686,3 +3686,22 @@ Does **not** clone Claude Code evals YAML, MDM managed settings, Western Electri
 - `.agents/skills/sources.yml` (append in_repo name)
 - `plan.md` (this append)
 
+## T-CLOUD-PENDING-RESULT-VISIBLE-20260824 (append 2026-08-24T21:40:00Z) — agent `grok-cloud-pending-result-visible`
+
+CEO phone: Real Estate prompt stayed **CLOUD PENDING** after send. D1 row `4b2e57f3-86c6-46b8-8916-b4f3e4366ce6` is **completed** with a 969-char result; `threads.synced_at` is later than `tasks.created_at`, so `/api/thread-messages` hid the hosted web run. Optimistic CLOUD PENDING never pruned. No Continuity / RUN ON / Mac-pair.
+
+Linear **AGENT-511**. Complement AGENT-476 (statusline still theirs). Minimal DashboardClient merge overlay only.
+
+### File claims
+- `apps/hermes-control-plane/lib/thread-messages-visibility.ts` (new)
+- `apps/hermes-control-plane/lib/thread-messages-visibility.test.ts` (new)
+- `apps/hermes-control-plane/app/api/thread-messages/route.ts` (visibility SQL only)
+- `apps/hermes-control-plane/lib/conversation-send-visibility.ts` (prefer richer / prompt prune)
+- `apps/hermes-control-plane/lib/conversation-send-visibility.test.ts`
+- `apps/hermes-control-plane/lib/dashboard-refresh.ts` (1s first tick + visibility resume)
+- `apps/hermes-control-plane/lib/dashboard-refresh.test.ts`
+- `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx` (merge previous tasks + overlay completed result; not statusline)
+- `apps/hermes-control-plane/tests/dashboard-send-visibility.test.mjs`
+- `tests/test-hermes-business-e2e.js` (thread-messages visibility contract only)
+- `plan.md` (this append)
+

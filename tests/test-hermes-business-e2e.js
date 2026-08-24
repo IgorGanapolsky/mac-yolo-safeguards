@@ -99,9 +99,12 @@ test('billing webhook contract persists events and gates access by payment state
 test('thread continuation only advances the sync boundary when context arrived', () => {
   const syncRoute = require('node:fs').readFileSync('apps/hermes-control-plane/app/api/device/sessions/sync/route.ts', 'utf8');
   const threadRoute = require('node:fs').readFileSync('apps/hermes-control-plane/app/api/thread-messages/route.ts', 'utf8');
+  const threadVisibility = require('node:fs').readFileSync('apps/hermes-control-plane/lib/thread-messages-visibility.ts', 'utf8');
   assert.match(syncRoute, /snapshot \? now : null/);
   assert.match(syncRoute, /synced_at = COALESCE\(excluded\.synced_at, threads\.synced_at\)/);
-  assert.match(threadRoute, /created_at > \?/);
+  assert.match(threadRoute, /THREAD_MESSAGES_TASK_VISIBILITY_SQL/);
+  assert.match(threadVisibility, /created_at > \?/);
+  assert.match(threadVisibility, /k\.route = 'cloud'/);
 });
 
 test('sellable failover has explicit abuse and inference-cost ceilings', () => {

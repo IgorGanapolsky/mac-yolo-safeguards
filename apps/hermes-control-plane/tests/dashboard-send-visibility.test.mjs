@@ -47,6 +47,25 @@ test("loadWorkspace preserves pending optimistic tasks instead of nuking threadD
     /setTasks\(nextTasks\)/,
     "loadWorkspace must not replace setTasks with bare server tasks",
   );
+  assert.match(
+    source,
+    /mergeTasksForTaskList\(\s*nextTasks,\s*pendingConversationTasksRef\.current,\s*activeSelected \?\? "",\s*tasksRef\.current,/,
+    "stale GET must merge against the in-memory task list so completed replies beat CLOUD PENDING",
+  );
+});
+
+test("thread-messages keeps hosted cloud runs after Mac snapshot sync", () => {
+  const route = fs.readFileSync(
+    path.join(import.meta.dirname, "../app/api/thread-messages/route.ts"),
+    "utf8",
+  );
+  const visibility = fs.readFileSync(
+    path.join(import.meta.dirname, "../lib/thread-messages-visibility.ts"),
+    "utf8",
+  );
+  assert.match(route, /THREAD_MESSAGES_TASK_VISIBILITY_SQL/);
+  assert.match(visibility, /created_at > \?/);
+  assert.match(visibility, /k\.route = 'cloud'/);
 });
 
 // 2026-08-19 user report: the composer's Output strip kept replaying the newest
