@@ -3666,6 +3666,41 @@ Header chip is a static `className="status-chip online"` label. It does not prob
 - PR #1986 merged commit `64a6e43d2` while PR #1983 was under review and retains active ownership of the dashboard statusline layout, component, API, tests, and intent contract.
 - T-AGENT-476 is blocked under the no-cross-owner-edit rule. PR #1983 now preserves PR #1986 files exactly and is narrowed to T-AGENT-476-INCIDENT: readable quick prompts/output, mobile overflow proof, generic `ThumbGate online` badge removal, and safe fenced-VPS execution for prompts containing a local path plus a GitHub repository URL.
 
+## T-CF-KITESURF-X402-20260824 (append 2026-08-24T16:20:00Z) — agent `grok-cf-kitesurf-x402`
+
+InfoQ/Cloudflare Kitesurf + Monetization Gateway steal. **Mechanic not product.** Kitesurf via Browser Run `?browser=kitesurf`. x402 402 challenges while CF gateway is waitlist. Fail-closed: no fake READY, no fake USDC, no dashboard x402 copy (hosted-source-of-truth). Linear **AGENT-489**.
+
+Does not restore Continuity / Mac-pair / RUN ON. Does not charge strangers (ECI). Stripe $10 hosted remains the live cash path.
+
+### File claims
+- `tools/cloudflare-kitesurf-browser.js` (new)
+- `tools/cloudflare-monetization-gateway.js` (new)
+- `tests/test-cloudflare-kitesurf-browser.js` (new)
+- `tests/test-cloudflare-monetization-gateway.js` (new)
+- `.agents/skills/cloudflare-kitesurf-browser/` (new)
+- `.agents/skills/cloudflare-monetization-gateway/` (new)
+- `SKILLS.md` (append two rows)
+- `.agents/skills/sources.yml` (append two in_repo names)
+- `.gitignore` (ledger ignore)
+- `plan.md` (this append)
+
+### Hardening append (2026-08-25) — agent `claude-cf-kitesurf-harden`
+
+Same task/PR (#2010). Additional claims, all new or already owned by this task:
+- `tools/lib/html-to-markdown.js` (new) — tokenizer-based HTML->Markdown helper
+- `tests/test-html-to-markdown.js` (new)
+
+Resolves the 5 CodeQL alerts (165-169) + 3 review findings the lead left unresolved:
+- Regex tag filtering replaced with a tokenizer (js/bad-tag-filter,
+  js/incomplete-multi-character-sanitization, js/double-escaping). AGENTS.md
+  already banned "naive script strip"; the PR had re-introduced it.
+- Screenshot/PDF bytes validated (magic bytes + content-type) before being
+  written with that extension; `liveClaim` only after validation passes.
+- Simulated x402 tokens bound to the issued challenge (id + resource + traffic
+  type + amount), single-use, expiring, and given a shape (`x402sim.v2.`) that
+  cannot be confused with a real one.
+- Transient upstream 429/503 on text actions now reaches the documented
+  plain-fetch fallback instead of returning early.
 ## 2. File Ownership Map (append-only lock table — claim before touching) [continued 2026-08-24]
 
 - `apps/hermes-control-plane/build/cloudflare-target.mjs`, `apps/hermes-control-plane/worker/index.ts`, `apps/hermes-control-plane/worker/edge-policy.ts`, `apps/hermes-control-plane/lib/cloudflare-edge-policy.test.ts`, `tests/test-hermes-cloudflare-deploy-config.js`, `plan.md` (append only) → **codex-cloudflare-edge-roi-2011** (GH #2011: Cloudflare-native write throttling, version-scoped anonymous public Cache API, Smart Placement; exclude PR #2010 Kitesurf/x402 files and all active dashboard/API-route claims) (2026-08-24T20:11:00Z)
@@ -3811,3 +3846,67 @@ GH #2034 / Linear AGENT-505. Remove fabricated fallback preference data and fixe
 - `apps/hermes-control-plane/app/api/device/tasks/submit/route.ts`, `apps/hermes-control-plane/lib/hermes-schema-validator.js`, `apps/hermes-control-plane/lib/schema-validator.ts`, `apps/hermes-control-plane/lib/schema-validator.test.ts`, `apps/hermes-control-plane/tests/device-cloud-task-routes.test.mjs`, `plan.md` (append only) → **codex-infoq-device-schema** (T-INFOQ-DEVICE-SUBMIT-SCHEMA-20260825 / GH #2077: strict shared schema validation before signed-device task admission while preserving compatible connector payloads and the downstream 48k aggregate context cap) (2026-08-25T15:36:00Z)
 
 - `apps/hermes-control-plane/app/api/device/tasks/submit/route.test.ts` (new) → **codex-infoq-device-schema** (T-INFOQ-DEVICE-SUBMIT-SCHEMA-20260825 / GH #2077: prove malformed signed-device bodies return HTTP 400 before `submitDeviceCloudTask`) (2026-08-25T15:42:00Z)
+
+## Claude Academy 4D steal (append 2026-08-25T16:40Z) — agent `grok-hosted-academy-4d-20260825`
+
+Source: https://academy.claude.com/ — AI Fluency 4D (Delegation, Description, Discernment, Diligence) + Cowork whole-task handoff. Not a course clone. Not Claude Cowork/Code/Tag. Complementary to fleet `/ai-fluency-4d-builder` (checklist) and PR #2052 completed≠quality. Do **not** dual-edit `tools/ai-native-sdlc.js`, InfoQ #2081 admission routes, or prompt-distill #2052.
+
+| T-HOSTED-ACADEMY-4D-20260825 | Steal Academy Description-before-execute, five-lens discernment, Cowork workspace+context+deliverable onto hosted VPS gates | in_progress | grok-hosted-academy-4d-20260825 | `tools/hosted-academy-4d.js`, `tests/test-hosted-academy-4d.js`, `bin/hosted-academy-4d`, `apps/hermes-control-plane/lib/hosted-academy-4d.ts`, `apps/hermes-control-plane/lib/hosted-academy-4d.test.ts`, `apps/hermes-control-plane/lib/execution-receipt.ts` (academy4d attach only), `apps/hermes-control-plane/lib/execution-receipt.test.ts` (academy4d only), `apps/hermes-control-plane/lib/hosted-session-handoff.ts` (whole-task cowork gate), `apps/hermes-control-plane/tests/hosted-session-handoff.test.mjs` (cowork cases), `.agents/skills/hosted-academy-4d/**`, `SKILLS.md` (append row), `plan.md` | Chat still skips ACs; execute/handoff fail closed without Description/Cowork fields; receipt.outcome `done` is not academy ship; workerLive=false until merge |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/hosted-academy-4d.js | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| tests/test-hosted-academy-4d.js | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| bin/hosted-academy-4d | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| apps/hermes-control-plane/lib/hosted-academy-4d.ts | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| apps/hermes-control-plane/lib/hosted-academy-4d.test.ts | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| apps/hermes-control-plane/lib/execution-receipt.ts (academy4d field only) | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| apps/hermes-control-plane/lib/execution-receipt.test.ts (academy4d cases) | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| apps/hermes-control-plane/lib/hosted-session-handoff.ts (wholeTask cowork) | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| apps/hermes-control-plane/tests/hosted-session-handoff.test.mjs (cowork cases) | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| .agents/skills/hosted-academy-4d/** | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| SKILLS.md (append row) | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| plan.md (this append) | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+
+Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` / `nostr/events` / `device-cloud-task.ts` (InfoQ #2081), `hosted-prompt-distill*` (#2052), or `tools/ai-native-sdlc.js`.
+
+## File claim (append 2026-08-25T16:30:00Z) — `grok-hosted-alert-correlate`
+
+| T-HOSTED-ALERT-CORRELATE-20260825 | Digitate/ignio process steal: suppress duplicate hosted signatures, correlate related Worker routes, precursor vs user-facing, validated-fix only | in_progress | grok-hosted-alert-correlate | `tools/hosted-alert-correlate.js`, `tests/test-hosted-alert-correlate.js`, `apps/hermes-control-plane/lib/hosted-alert-correlate.ts`, `apps/hermes-control-plane/lib/hosted-alert-correlate.test.ts`, `apps/hermes-control-plane/app/ClientErrorBeacon.tsx`, `apps/hermes-control-plane/lib/client-error-beacon.test.ts`, `.agents/skills/hosted-alert-correlate/**`, `bin/hosted-alert-correlate`, `SKILLS.md`, `plan.md` | Not ignio/CloudWatch; do not dual-edit rule-sprawl.js or analytics/event/route.ts |
+
+- `tools/hosted-alert-correlate.js` (new)
+- `tests/test-hosted-alert-correlate.js` (new)
+- `apps/hermes-control-plane/lib/hosted-alert-correlate.ts` (new)
+- `apps/hermes-control-plane/lib/hosted-alert-correlate.test.ts` (new)
+- `apps/hermes-control-plane/app/ClientErrorBeacon.tsx` (duplicate-signature suppress)
+- `apps/hermes-control-plane/lib/client-error-beacon.test.ts`
+- `.agents/skills/hosted-alert-correlate/` (new)
+- `bin/hosted-alert-correlate` (new)
+- `SKILLS.md` (append row)
+- `plan.md` (this append)
+
+## File claim (append 2026-08-25T17:55:00Z) — `grok-hosted-together-native-20260825`
+
+| T-HOSTED-TOGETHER-NATIVE-20260825 | Together AI Native Conf process steal: capacity ≠ frontier, serverless/batch/provisioned/dedicated honesty, research-to-production receipts | in_progress | grok-hosted-together-native-20260825 | `tools/hosted-together-native.js`, `tests/test-hosted-together-native.js`, `apps/hermes-control-plane/lib/hosted-together-native.ts`, `apps/hermes-control-plane/lib/hosted-together-native.test.ts`, `bin/hosted-together-native`, `.agents/skills/hosted-together-native/**`, `SKILLS.md` (one row), `plan.md` | Not Together Cloud / FA4 / ThunderAgent / Instant Clusters; do not dual-edit ai-native-sdlc, #2088 academy-4d/execution-receipt, or RESEARCH-together-cursor-decagon-hedra |
+
+- `tools/hosted-together-native.js` (new)
+- `tests/test-hosted-together-native.js` (new)
+- `apps/hermes-control-plane/lib/hosted-together-native.ts` (new)
+- `apps/hermes-control-plane/lib/hosted-together-native.test.ts` (new)
+- `bin/hosted-together-native` (new)
+- `.agents/skills/hosted-together-native/` (new)
+- `SKILLS.md` (one row append)
+- `plan.md` (this append)
+
+## Discovered / Decisions (append) — 2026-08-25T17:55Z — grok-hosted-together-native-20260825
+
+- Source: `~/Downloads/together.pdf` (Together Team → igor@ 2026-08-25, AI Native Conf promo) + https://www.together.ai/ainativeconf + https://www.together.ai/blog/ai-native-conf-research-and-product-announcements.
+- Transferable: leftover quota/VPS-up is capacity not frontier; batch complete ≠ LIVE; dedicated GPU claims are NOT_OFFERED; conference talks/vendor blogs are not production receipts.
+- Backlog: Instant Clusters, FlashAttention-4, ThunderAgent, RL API, together.compile, ATLAS-2, dedicated container inference (GPU cloud, not a $10 Worker).
+- Complementary to `/ai-native-sdlc` and OPEN #2088 academy-4d (completed ≠ quality). Did not edit those files.
+
+## Discovered / Decisions (append) — 2026-08-25T17:32Z — grok-hosted-together-native-20260825
+
+- PR **#2092** Codex P1/P2 on tip `d1ced6147`: (1) placeholder SHA / missing eval file must not grade LIVE; (2) `Boolean("false")` must not coerce proof flags; (3) `claimedClass=chat` must not hide overnight/batch prompts; (4) wire `attachTogetherNativeToReceipt` into `execution-receipt.ts` now that #2088 is on main.
+- SonarQube Cloud GitHub check-suite `89062269595` still **queued** with 0 check-runs / 0 public issues (mac-yolo is not a SonarCloud project). Fixes below are the live review findings on this PR.
