@@ -2039,7 +2039,23 @@ export default function DashboardClient() {
               <hr className="panel-divider" aria-hidden="true" />
               <div className="account-recovery" data-testid="dashboard-account-block" style={{ marginTop: "1rem" }}><h3 className="eyebrow" style={{ margin: "0 0 0.35rem" }}>Account</h3><p>Signed in as <strong>{user.email}</strong>. If this is the wrong workspace, switch accounts here.</p><SignOutForm buttonClassName="button button-secondary button-small" data-testid="dashboard-switch-account">Switch account</SignOutForm></div>
               <p className="privacy-boundary">Bounded Hermes thread context syncs to this control plane. Tasks execute in isolated serverless leases.</p>
-              <p className="privacy-boundary" data-testid="hosted-not-computer-history">{HOSTED_NOT_COMPUTER_HISTORY} Least privilege: cannot read secrets. Private/incognito analogue: we do not ingest other people&apos;s Slack or DMs.</p>
+              {/*
+                Collapsed, not cut. This paragraph is a list of things the
+                product is NOT -- not ChatGPT Computer History, not Windows
+                Recall, not a Mac keylogger -- and at panel width it ran past
+                the fold and truncated mid-sentence, which reads worse than
+                saying nothing: a half-finished denial invites the doubt it was
+                written to settle.
+
+                Every word is preserved behind a summary that names the
+                question a reader actually has. Nothing is removed, because
+                these are trust claims and quietly dropping one is not mine to
+                do.
+              */}
+              <details className="privacy-boundary" data-testid="hosted-not-computer-history">
+                <summary>What this can and cannot access</summary>
+                <p>{HOSTED_NOT_COMPUTER_HISTORY} Least privilege: cannot read secrets. Private/incognito analogue: we do not ingest other people&apos;s Slack or DMs.</p>
+              </details>
             </section>
             <details className="panel safety-panel" id="execution-safety" open={safetyExpanded} onToggle={(event) => setSafetyExpanded(event.currentTarget.open)}>
               <summary><span><span className="eyebrow">EXECUTION SAFETY</span><strong>What “Fenced” means</strong></span><span aria-hidden="true">⌄</span></summary>
