@@ -1,0 +1,11 @@
+CAPTION:
+A 40,000-run study on HN today: humans reviewing AI agent commands before approving missed 1 in 3 that were dangerous. 340 points and climbing.
+
+Skimming ≠ understanding. That's the real gap approve/deny gating has to work around.
+
+Building Leash around that, honestly — free forever, web + mobile. No claim it closes the gap yet.
+
+https://thumbgate.app/?utm_source=instagram&utm_medium=social&utm_campaign=2026-08-19-pm&cta_id=2026-08-19-pm_instagram_home
+
+MEME BRIEF (not generated — Gamma 402 insufficient credits, Higgsfield balance 0.5cr vs 2cr required, both retested live 2026-08-19T22:4x UTC, never-spend-money rule holds):
+Concept: split panel. Left: a thumb hovering over "Approve" on a phone lock screen, eyes half-closed, 6am light. Right: the same thumb, same screen, same command — this time zoomed into the actual text, which reads "rm -rf /prod-data". Caption overlay: "1 in 3 look the same at 6am." Original composition only — no film/TV stills, no trademarked templates. Dedup key: sixam-thumb-rm-rf (log so not reused within 30 days once actually generated).
