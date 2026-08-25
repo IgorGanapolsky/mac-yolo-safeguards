@@ -9,6 +9,7 @@ import { ackHostedSend, publicRunReceipt } from "./hosted-source-of-truth";
 import { admitHostedContext } from "./hosted-edit-anchor";
 import { db } from "./runtime";
 import { evaluateCloudPromptToolPolicy } from "./cloud-tool-policy";
+import { admitHostedInfoqCascade } from "./hosted-infoq-cascade";
 import { decideTaskRoute, parseRoutePreference } from "./task-routing";
 
 export type ContextMessage = { role: "user" | "assistant" | "system"; content: string };
@@ -105,6 +106,10 @@ export async function submitDeviceCloudTask(
     const toolPolicy = evaluateCloudPromptToolPolicy(prompt);
     if (!toolPolicy.allowed) {
       return Response.json({ error: toolPolicy.message }, { status: 409 });
+    }
+    const cascade = admitHostedInfoqCascade(prompt);
+    if (!cascade.allowed) {
+      return Response.json({ error: cascade.message }, { status: 409 });
     }
   }
 

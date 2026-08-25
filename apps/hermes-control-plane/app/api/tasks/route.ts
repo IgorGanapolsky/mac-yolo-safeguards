@@ -7,7 +7,7 @@ import {
 } from "@/lib/agent-governance";
 import { db } from "@/lib/runtime";
 import { evaluateCloudPromptToolPolicy } from "@/lib/cloud-tool-policy";
-import { evaluateHostedInfoqCascade } from "@/lib/hosted-infoq-cascade";
+import { admitHostedInfoqCascade } from "@/lib/hosted-infoq-cascade";
 import { ackHostedSend, publicRunReceipt } from "@/lib/hosted-source-of-truth";
 import { admitHostedContext } from "@/lib/hosted-edit-anchor";
 import { jsonError } from "@/lib/security";
@@ -148,7 +148,7 @@ export async function POST(request: Request) {
     if (!toolPolicy.allowed) {
       return jsonError(toolPolicy.message, 409);
     }
-    const cascade = evaluateHostedInfoqCascade(prompt);
+    const cascade = admitHostedInfoqCascade(prompt);
     if (!cascade.allowed) {
       return jsonError(cascade.message, 409);
     }

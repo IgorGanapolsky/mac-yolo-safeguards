@@ -30,6 +30,7 @@ function honesty() {
       'cheap deterministic filter before any expensive path',
       'MUST/SHOULD standards with guidance|observation|enforcement; only enforcement withholds',
       'critical write intents default-deny on the hosted VPS (WriteGuard mapping)',
+      'isolate admission steps so a filter throw fail-closes instead of cascading a Worker 500',
     ],
     skip: [
       'DoorDash SafeChat marketplace',
@@ -38,6 +39,7 @@ function honesty() {
       'Next.js 16.3 Instant Navigations upgrade (control-plane is 16.2.x)',
       'Kitesurf (sibling PRs #2010/#2079)',
       'hosted-resource-grant (PR #2069)',
+      'task-leases.ts claim-time cascade (Codex in_review; create-time still gated)',
     ],
   };
 }
@@ -97,7 +99,38 @@ const STANDARDS = Object.freeze([
     check: 'none',
     note: 'Next.js 16.3 Instant Navigations is guidance only; do not bump 16.2.x in this change.',
   },
+  {
+    id: 'isolate-admission-steps',
+    kind: 'MUST',
+    state: 'enforcement',
+    owner: 'hosted-vps',
+    check: 'fail_closed_isolate',
+    note: 'A throw in the cheap filter must fail-closed, not 500 the Worker (Newman progressive-collapse).',
+  },
 ]);
+
+const CASCADE_FAULT = Object.freeze({
+  schema: SCHEMA,
+  allowed: false,
+  stage: 'cheap_filter',
+  outcome: 'blocked',
+  code: 'cascade_fault',
+  message: 'Hosted safety cascade failed closed. Retry the send; the fenced VPS did not run it.',
+  axes: { secrets: 0, spend: 0, writeCritical: 0, localMessaging: 0 },
+  deviations: [{ id: 'isolate-admission-steps', kind: 'MUST', state: 'enforcement', blocks: true, reason: 'cascade_fault' }],
+});
+
+function isolateAdmissionStep(fn, onFault) {
+  try {
+    return fn();
+  } catch {
+    return onFault;
+  }
+}
+
+function admitHostedInfoqCascade(prompt) {
+  return isolateAdmissionStep(() => evaluateHostedInfoqCascade(prompt), CASCADE_FAULT);
+}
 
 function detectCritical(text) {
   const hits = [];
@@ -237,7 +270,7 @@ function main(argv = process.argv) {
   let result;
   if (args.honesty) result = catalog();
   else if (args.backtest) result = Object.assign(honesty(), backtest());
-  else if (args.evaluate || args.prompt) result = evaluateHostedInfoqCascade(args.prompt);
+  else if (args.evaluate || args.prompt) result = admitHostedInfoqCascade(args.prompt);
   else result = catalog();
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   if (result.ok === false || result.allowed === false) return 1;
@@ -252,6 +285,9 @@ module.exports = {
   honesty,
   evaluateStandards,
   evaluateHostedInfoqCascade,
+  admitHostedInfoqCascade,
+  isolateAdmissionStep,
+  CASCADE_FAULT,
   backtest,
   catalog,
   main,

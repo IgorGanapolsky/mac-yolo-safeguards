@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { evaluateHostedInfoqCascade } from "./hosted-infoq-cascade";
+import {
+  admitHostedInfoqCascade,
+  CASCADE_FAULT,
+  evaluateHostedInfoqCascade,
+  isolateAdmissionStep,
+} from "./hosted-infoq-cascade";
 
 describe("evaluateHostedInfoqCascade", () => {
   it("allows ordinary hosted chat and docs questions", () => {
@@ -31,5 +36,18 @@ describe("evaluateHostedInfoqCascade", () => {
       expect(r.code).toBe("secret_shape");
       expect(r.message).toMatch(/Rotate/);
     }
+  });
+
+  it("fail-closes an isolated admission step instead of cascading a throw", () => {
+    expect(
+      isolateAdmissionStep(() => {
+        throw new Error("filter boom");
+      }, CASCADE_FAULT),
+    ).toMatchObject({ allowed: false, code: "cascade_fault" });
+    expect(admitHostedInfoqCascade("git push --force origin main")).toMatchObject({
+      allowed: false,
+      code: "force_push",
+    });
+    expect(admitHostedInfoqCascade("Summarize the last commits and open a PR draft.").allowed).toBe(true);
   });
 });
