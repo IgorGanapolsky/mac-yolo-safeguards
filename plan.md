@@ -3740,3 +3740,13 @@ GH #2034 / Linear AGENT-505. Remove fabricated fallback preference data and fixe
 - A zero-dollar aggregate baseline is now `INSUFFICIENT_EVIDENCE`; it can no longer be labeled measured while producing a null cost-reduction percentage.
 - Readiness now requires the measured candidate to win the canary (`promote_candidate_canary`); a costlier, lower-quality candidate makes `--validate` exit nonzero.
 - Proof: ROI suite passes, append-only action-trace suite passes 17 assertions, both changed tools pass `node --check`, and `git diff --check` passes.
+
+## Discovered / Decisions (append) — 2026-08-24T23:54Z — grok-ops-pr2019-webhook-deploy-d1
+
+- PR **#2019** CLOSED 2026-08-24T21:27:22Z by Igor (`Superseded by #2040`); **not merged**. #2040 MERGED `ec512d0da`. Do not reopen/merge #2019.
+- Phantom BLOCKED: branch protection requires `unit-and-coverage` + `verify`; #2019 rollup was 21 SUCCESS / 0 failures and those two contexts were **absent**. `npm run pr:manage` is **not** a script in this repo (ThumbGate-only).
+- Stripe live destination `we_1TvM9OGGBpd520QYPvcHOx4m` `https://thumbgate.app/api/billing/webhook`: Dashboard signed deliveries today **HTTP 200** `{"received":true,"duplicate":true}` (evt `evt_1U7foLGGBpd520QYBYE4PLJO` resent 20:47Z). **Secret match.** Unsigned/fake-sig probes **401** `invalid signature` (expected). Historical overview still shows Failed/500 from earlier attempts — not the current mismatch hypothesis.
+- Deployed production Worker from clean detached `origin/main` `049bbc931` (17 commits ahead of previous live `65857beb5`, including #2021 D1 indexes + #2050 device submit + #2040 eval fail-closed). GitHub deployment **6073599735** state=success. Worker Version ID `efaf026a-93f8-474f-80f7-42fae6374899`. Skipped second `d1 export` (read budget; npm `predeploy:cloudflare` is a pre-hook on `deploy:cloudflare`). Remote D1: `No migrations to apply` (0007 already on the DB).
+- Post-deploy proof: `GET /api/health` 200 `scope=liveness`; `POST /api/billing/webhook` unsigned 401; `POST /api/device/tasks/submit` unsigned 401 `signed device headers are required`; lock UNLOCKED.
+- D1 pollers (this Mac): `com.igor.saas-watchdog` was 300s × ~3 `/api/health` + `/api/billing/plan` + `/api/me` + `/api/tasks`. Operator: local LaunchAgent `StartInterval` **300 → 1800** (loaded `run interval = 1800 seconds`). Do not pay for D1 upgrade yet. PR **#2028** still OPEN (`verify` **failure** run 32785552861) — did not dual-edit. GH **#2018** / AGENT-494 still owns `schema.ts` indexes. Public health remains 1 `sqlite_master` read/hit until #2028 lands.
+- Railway webhook `we_1Tg4eRGGBpd520QYVdc3L92o` still enabled — `pending_webhooks` on a paid event can stay >0 even when the CF destination 200s. Did not disable it.
