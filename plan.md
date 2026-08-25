@@ -21,6 +21,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 | T-THUMBGATE-LANDING-INTEGRITY-20260825 | P0: repair the production StartSurfaces spacing collapse and prevent active Pro subscribers from seeing another checkout CTA | in_progress | codex-thumbgate-landing-integrity | `apps/hermes-control-plane/app/start-surfaces.module.css`, `apps/hermes-control-plane/app/HostedCheckoutCta.tsx`, `apps/hermes-control-plane/app/LandingAuthChrome.tsx`, `apps/hermes-control-plane/app/useLandingAuth.ts`, `apps/hermes-control-plane/app/useLandingAuth.test.ts`, `apps/hermes-control-plane/tests/start-surfaces.test.mjs`, `apps/hermes-control-plane/tests/hosted-hermes-checkout-cta.test.mjs`, `plan.md` (append only) | GH #2071; Linear AGENT-406 regression follow-up; prove resolved spacing tokens plus 1536x768 and 390x844 geometry, and anonymous/free/paid CTA states; do not touch dashboard chronology files |
 | T-LANDING-SIGNED-IN-NO-REPAY-20260825 | Signed-in trial/paid users must not see another Start hosted Hermes $10/mo checkout wall on the public landing | in_progress | grok-landing-signed-in-cta | `apps/hermes-control-plane/app/LandingAuthChrome.tsx`, `apps/hermes-control-plane/tests/landing-signed-in-cta.test.mjs`, `plan.md` | Session with cloudAccess → Open dashboard / Continue; anon keeps $10 CTA; prove with focused tests |
+| T-INFOQ-DEVICE-SUBMIT-SCHEMA-20260825 | Apply the newsletter's deterministic-schema pattern at ThumbGate's signed-device task boundary | in_progress | codex-infoq-device-schema | `apps/hermes-control-plane/app/api/device/tasks/submit/route.ts`, `apps/hermes-control-plane/lib/hermes-schema-validator.js`, `apps/hermes-control-plane/lib/schema-validator.ts`, `apps/hermes-control-plane/lib/schema-validator.test.ts`, `apps/hermes-control-plane/tests/device-cloud-task-routes.test.mjs`, `plan.md` (append only) | GH #2077; accept current connector/mobile payloads; reject malformed, oversized, invalid-role, and unknown-field bodies before task admission/D1; preserve downstream 48k aggregate context budget |
 
 | T-DISCONNECTED-QUICK-STARTERS-20260825 | P0: remove Mac-dependent quick starters from the chat empty state whenever the selected Mac is disconnected or reconnecting | done | codex-disconnected-quick-starters | released; coordination record only | Superseded without overwrite by Hermes PR #177, merged as `8f3c378575209a7db79d72e920111c8b66cd7ea6`; Mac-only actions are removed offline and the remaining Continuity Cloud action opens the paid modal. Redundant PR #178 was closed and its remote branch deleted. Unit/typecheck/safety CI is green; exact-merge Android emulator E2E is still running and GH #176 remains open until its result is known. |
 | T-HERMES-CONTINUITY-PAID-ENTITLEMENT-20260824 | P0: remove every free Continuity activation path; require a verified store entitlement before selecting the cross-device thread while keeping direct single-computer chat free | done | codex-continuity-paid | `hermes-mobile/src/components/ConnectMacGate.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx`, `hermes-mobile/src/constants/monetization.ts`, `hermes-mobile/src/hooks/useHermesDeepLinks.ts`, `hermes-mobile/src/__tests__/ChatScreen.test.tsx`, `hermes-mobile/src/__tests__/ConnectMacGateComponent.test.tsx`, `hermes-mobile/src/__tests__/DeveloperLeashUnlockScreen.test.tsx`, `hermes-mobile/docs/THUMBGATE-ACCOUNT-CONTINUITY.md` (post-merge truth only), `hermes-mobile/src/__tests__/preventRecurrenceContract.test.ts` (S54 truth contract only), `plan.md` (append only) | Hermes PR #172 merged as `2a279f5` with the paid gate and production dev-link bypass block; QA truth-contract hotfix PR #174 merged as `da5e873`; release APK build/package/cold-start proof passes; focused physical-device paid-Continuity Maestro exits 0 and proves unpaid selection opens the $19/month Google Play paywall without activating Continuity. Full physical suite remains unverified because the Samsung disappeared from ADB during `e2e-prep`; both PR and post-merge emulator jobs failed before app execution because the GitHub runner exhausted disk installing the API 34 x86_64 image. Server-side store-receipt-to-org-entitlement wiring and Google base-plan activation remain separate required work before hosted paid GA. |
@@ -3665,6 +3666,41 @@ Header chip is a static `className="status-chip online"` label. It does not prob
 - PR #1986 merged commit `64a6e43d2` while PR #1983 was under review and retains active ownership of the dashboard statusline layout, component, API, tests, and intent contract.
 - T-AGENT-476 is blocked under the no-cross-owner-edit rule. PR #1983 now preserves PR #1986 files exactly and is narrowed to T-AGENT-476-INCIDENT: readable quick prompts/output, mobile overflow proof, generic `ThumbGate online` badge removal, and safe fenced-VPS execution for prompts containing a local path plus a GitHub repository URL.
 
+## T-CF-KITESURF-X402-20260824 (append 2026-08-24T16:20:00Z) — agent `grok-cf-kitesurf-x402`
+
+InfoQ/Cloudflare Kitesurf + Monetization Gateway steal. **Mechanic not product.** Kitesurf via Browser Run `?browser=kitesurf`. x402 402 challenges while CF gateway is waitlist. Fail-closed: no fake READY, no fake USDC, no dashboard x402 copy (hosted-source-of-truth). Linear **AGENT-489**.
+
+Does not restore Continuity / Mac-pair / RUN ON. Does not charge strangers (ECI). Stripe $10 hosted remains the live cash path.
+
+### File claims
+- `tools/cloudflare-kitesurf-browser.js` (new)
+- `tools/cloudflare-monetization-gateway.js` (new)
+- `tests/test-cloudflare-kitesurf-browser.js` (new)
+- `tests/test-cloudflare-monetization-gateway.js` (new)
+- `.agents/skills/cloudflare-kitesurf-browser/` (new)
+- `.agents/skills/cloudflare-monetization-gateway/` (new)
+- `SKILLS.md` (append two rows)
+- `.agents/skills/sources.yml` (append two in_repo names)
+- `.gitignore` (ledger ignore)
+- `plan.md` (this append)
+
+### Hardening append (2026-08-25) — agent `claude-cf-kitesurf-harden`
+
+Same task/PR (#2010). Additional claims, all new or already owned by this task:
+- `tools/lib/html-to-markdown.js` (new) — tokenizer-based HTML->Markdown helper
+- `tests/test-html-to-markdown.js` (new)
+
+Resolves the 5 CodeQL alerts (165-169) + 3 review findings the lead left unresolved:
+- Regex tag filtering replaced with a tokenizer (js/bad-tag-filter,
+  js/incomplete-multi-character-sanitization, js/double-escaping). AGENTS.md
+  already banned "naive script strip"; the PR had re-introduced it.
+- Screenshot/PDF bytes validated (magic bytes + content-type) before being
+  written with that extension; `liveClaim` only after validation passes.
+- Simulated x402 tokens bound to the issued challenge (id + resource + traffic
+  type + amount), single-use, expiring, and given a shape (`x402sim.v2.`) that
+  cannot be confused with a real one.
+- Transient upstream 429/503 on text actions now reaches the documented
+  plain-fetch fallback instead of returning early.
 ## 2. File Ownership Map (append-only lock table — claim before touching) [continued 2026-08-24]
 
 - `apps/hermes-control-plane/build/cloudflare-target.mjs`, `apps/hermes-control-plane/worker/index.ts`, `apps/hermes-control-plane/worker/edge-policy.ts`, `apps/hermes-control-plane/lib/cloudflare-edge-policy.test.ts`, `tests/test-hermes-cloudflare-deploy-config.js`, `plan.md` (append only) → **codex-cloudflare-edge-roi-2011** (GH #2011: Cloudflare-native write throttling, version-scoped anonymous public Cache API, Smart Placement; exclude PR #2010 Kitesurf/x402 files and all active dashboard/API-route claims) (2026-08-24T20:11:00Z)
@@ -3823,3 +3859,9 @@ GH #2034 / Linear AGENT-505. Remove fabricated fallback preference data and fixe
 - Claim add: `apps/hermes-control-plane/tests/conversation-chronological-order.test.mjs` (no live owner) → **grok-dashboard-latest-at-bottom-20260825**. Did not steal #2041/#1989 hunks.
 
 - `apps/hermes-control-plane/lib/dashboard-task-order.ts` (`mergeThreadTimeline`), `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx` (one timeline), `apps/hermes-control-plane/tests/conversation-chronological-order.test.mjs`, `plan.md` (append only) → **grok-dashboard-latest-at-bottom-20260825** (2026-08-25T13:10:00Z)
+
+## 2. File Ownership Map (append-only lock table — claim before touching) [continued 2026-08-25]
+
+- `apps/hermes-control-plane/app/api/device/tasks/submit/route.ts`, `apps/hermes-control-plane/lib/hermes-schema-validator.js`, `apps/hermes-control-plane/lib/schema-validator.ts`, `apps/hermes-control-plane/lib/schema-validator.test.ts`, `apps/hermes-control-plane/tests/device-cloud-task-routes.test.mjs`, `plan.md` (append only) → **codex-infoq-device-schema** (T-INFOQ-DEVICE-SUBMIT-SCHEMA-20260825 / GH #2077: strict shared schema validation before signed-device task admission while preserving compatible connector payloads and the downstream 48k aggregate context cap) (2026-08-25T15:36:00Z)
+
+- `apps/hermes-control-plane/app/api/device/tasks/submit/route.test.ts` (new) → **codex-infoq-device-schema** (T-INFOQ-DEVICE-SUBMIT-SCHEMA-20260825 / GH #2077: prove malformed signed-device bodies return HTTP 400 before `submitDeviceCloudTask`) (2026-08-25T15:42:00Z)
