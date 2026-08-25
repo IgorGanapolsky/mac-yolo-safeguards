@@ -63,9 +63,15 @@ test("a public address just outside a private range is not over-blocked", () => 
   assert.equal(evaluateNavigation("http://11.0.0.1/", ["11.0.0.1"]).decision, "allow");
 });
 
-test("history verbs bypass URL checks", () => {
+// This test previously asserted `allow`, pinning the bypass as intended
+// behaviour. Review was right that it is not: a history verb carries no URL to
+// check, and the entry it lands on may no longer be allowlisted, so allowing it
+// outright let an agent walk back into a page the guard would refuse today.
+test("history verbs are re-validated rather than allowed outright", () => {
   for (const verb of ["back", "forward", "reload"]) {
-    assert.equal(evaluateNavigation(verb, []).decision, "allow", verb);
+    const r = evaluateNavigation(verb, []);
+    assert.equal(r.decision, "confirm", verb);
+    assert.equal(r.code, "history_requires_revalidation", verb);
   }
 });
 
