@@ -19,6 +19,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 ## 1. Task Board
 
+| T-HERMES-CONTINUITY-PAID-ENTITLEMENT-20260824 | P0: remove every free Continuity activation path; require a verified store entitlement before selecting the cross-device thread while keeping direct single-computer chat free | done | codex-continuity-paid | `hermes-mobile/src/components/ConnectMacGate.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx`, `hermes-mobile/src/constants/monetization.ts`, `hermes-mobile/src/hooks/useHermesDeepLinks.ts`, `hermes-mobile/src/__tests__/ChatScreen.test.tsx`, `hermes-mobile/src/__tests__/ConnectMacGateComponent.test.tsx`, `hermes-mobile/src/__tests__/DeveloperLeashUnlockScreen.test.tsx`, `hermes-mobile/docs/THUMBGATE-ACCOUNT-CONTINUITY.md` (post-merge truth only), `hermes-mobile/src/__tests__/preventRecurrenceContract.test.ts` (S54 truth contract only), `plan.md` (append only) | Hermes PR #172 merged as `2a279f5` with the paid gate and production dev-link bypass block; QA truth-contract hotfix PR #174 merged as `da5e873`; release APK build/package/cold-start proof passes; focused physical-device paid-Continuity Maestro exits 0 and proves unpaid selection opens the $19/month Google Play paywall without activating Continuity. Full physical suite remains unverified because the Samsung disappeared from ADB during `e2e-prep`; both PR and post-merge emulator jobs failed before app execution because the GitHub runner exhausted disk installing the API 34 x86_64 image. Server-side store-receipt-to-org-entitlement wiring and Google base-plan activation remain separate required work before hosted paid GA. |
 | T-AGENT-467-SOCIAL-CAMPAIGN-DATE-FIXTURE | Repair the calendar-dated social campaign scoreboard fixture that started failing every macOS guard on 2026-08-24; keep production logic unchanged | in_progress | codex-agent-467-pr-hygiene | `tests/test-social-campaign-ds.js`, `plan.md` (append only) | Reproduce the current two-assertion failure, make fixture timestamps relative to one frozen test clock, prove focused fail-then-pass plus the exact main health gate, open a PR, and merge only after every required check and review thread is green |
 | T-STRIP-BOT-ROSTER-BANNER-20260823 | Strip clownish emoji bot roster banner from Thread Console header; simplify dashboard workbench layout | done | antigravity | `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx`, `apps/hermes-control-plane/app/globals.css`, `apps/hermes-control-plane/tests/dashboard-chips-layout.test.mjs`, `plan.md` | 100% green tests (247/247 unit tests, 19/19 context checks, 55/55 skills) |
 | T-AGENT-476 | Show a truthful turn statusline on the authenticated ThumbGate dashboard using persisted workspace evidence; remove the hard-coded “ThumbGate online” promise; never fabricate missing tokens, TTFT, model, or cost | blocked | codex-agent-476-turn-statusline | `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx`, `plan.md` (append only) | Blocked 2026-08-22: PR #1986 merged a competing statusline and retains active ownership of its layout/component/API/contract files; repo coordination forbids overwriting that owner. This branch preserves those files exactly and removes only the independent hard-coded whole-product badge. |
@@ -3736,3 +3737,48 @@ GH #2038 / Linear AGENT-510. Restore control-plane CI after PR #2000 merged ESLi
 - Fixed: required-check contract 41/41, Actionlint 2/2 workflows, Ruby YAML parse 2/2, dependency automation policy 16/16, CodeQL pattern gate 0 findings across 1,308 files, and `git diff --check` passed.
 - `gh copilot` review was attempted but the provider rejected it because the monthly quota is exhausted; no Copilot review claim.
 - Branch protection is intentionally unchanged until this workflow is merged and the irrelevant-path success route is observed on GitHub.
+
+## Paid Continuity entitlement closure (append 2026-08-25T01:05:00Z) — `codex-continuity-paid`
+
+- Hermes PR #172 merged at `2a279f5865f59911aa040576ba10de2772a58e61`; it removes unpaid Continuity activation paths and blocks the production developer entitlement deep link.
+- Hermes QA truth-contract hotfix PR #174 merged at `da5e8730df95514b8bfaf9108e8281fca487a1c1`. Local proof: full Jest 295/295 suites (2,084 pass, 1 intentional skip), release safety 6/6 suites (122 pass, 1 intentional skip), and TypeScript clean. Post-merge core CI, CodeQL, and Semgrep passed.
+- Physical Samsung `R3CY90QPM7E` focused Maestro proof exited 0: an unpaid account cannot select Continuity and sees the `$19/mo` paywall with Subscribe and Restore controls. The production release APK built, verified, installed, and cold-started before this test.
+- Full physical E2E did not complete because ADB lost the phone during `e2e-prep`; restarting ADB and mDNS discovery still found zero transports. Both emulator jobs on PR #174 and post-merge `main` failed before app execution with `No space left on device` while installing `system-images;android-34;default;x86_64`.
+- Hosted paid GA is not claimed: Apple product `thumbgate_leash_monthly` is approved, Google product/base plan remains draft, an actual Android purchase is not proven, and verified store receipt to server organization entitlement plus dashboard-to-mobile pull synchronization remain open.
+- Governance correction: `gh pr merge --auto` merged PR #174 immediately because required contexts were not enforced. Future lanes must inspect branch protection and required contexts before issuing auto-merge; this mistake is captured in ThumbGate RAG as `fb_1787618623176_too80a` / `mem_1787618623181_0wrz75`.
+## File claim (append 2026-08-24T21:18:00Z) — `codex-dpo-eval-integrity-2034`
+
+- `tools/export-dpo-benchmark-pairs.js`
+- `tests/test-export-dpo-benchmark-pairs.js`
+- `tools/eval-benchmark-suite.js`
+- `tests/test-eval-benchmark-suite.js`
+- `plan.md` (this append)
+
+GH #2034 / Linear AGENT-505. Remove fabricated fallback preference data and fixed green evaluation metrics; fail closed on absent evidence and keep CLI help side-effect free.
+## DPO/eval review remediation (append 2026-08-24T22:27:00Z) — `codex-dpo-eval-integrity-2034`
+
+- Stale DPO output is invalidated before every export attempt, including invalid and insufficient-evidence dispositions.
+- Eligibility now requires the concrete `thumbgate-explicit-pairwise-v1` human comparison schema with event and distinct chosen/rejected response identities; labels alone and agent/model evidence are rejected.
+- Mobile evidence reuses the durable freshness gate (`updatedAt`, `unit=pass`, `e2e=pass`) instead of accepting a bare or stale `status=pass` file.
+- Focused regression proof: 9/9 Node tests pass; both changed tools pass `node --check`; `git diff --check` passes.
+
+- `tools/infoq-high-roi-steals.js`, `tests/test-infoq-high-roi-steals.js`, `tools/agent-action-trace.js`, `tests/test-agent-action-trace.js`, `plan.md` (append only) → **codex-evidence-fusion-2027** (GH #2027 / AGENT-498: replace fixed savings/nDCG/A+ claims with measured local-first cost and search-vs-graph ablation evidence; make MCP action trace append-only while preserving legacy reads) (2026-08-24T20:55:00Z)
+## Evidence/ROI review remediation (append 2026-08-24T22:35:00Z) — `codex-evidence-fusion-2027`
+
+- A zero-dollar aggregate baseline is now `INSUFFICIENT_EVIDENCE`; it can no longer be labeled measured while producing a null cost-reduction percentage.
+- Readiness now requires the measured candidate to win the canary (`promote_candidate_canary`); a costlier, lower-quality candidate makes `--validate` exit nonzero.
+- Proof: ROI suite passes, append-only action-trace suite passes 17 assertions, both changed tools pass `node --check`, and `git diff --check` passes.
+
+## Discovered / Decisions (append) — 2026-08-24T23:54Z — grok-ops-pr2019-webhook-deploy-d1
+
+- PR **#2019** CLOSED 2026-08-24T21:27:22Z by Igor (`Superseded by #2040`); **not merged**. #2040 MERGED `ec512d0da`. Do not reopen/merge #2019.
+- Phantom BLOCKED: branch protection requires `unit-and-coverage` + `verify`; #2019 rollup was 21 SUCCESS / 0 failures and those two contexts were **absent**. `npm run pr:manage` is **not** a script in this repo (ThumbGate-only).
+- Stripe live destination `we_1TvM9OGGBpd520QYPvcHOx4m` `https://thumbgate.app/api/billing/webhook`: Dashboard signed deliveries today **HTTP 200** `{"received":true,"duplicate":true}` (evt `evt_1U7foLGGBpd520QYBYE4PLJO` resent 20:47Z). **Secret match.** Unsigned/fake-sig probes **401** `invalid signature` (expected). Historical overview still shows Failed/500 from earlier attempts — not the current mismatch hypothesis.
+- Deployed production Worker from clean detached `origin/main` `049bbc931` (17 commits ahead of previous live `65857beb5`, including #2021 D1 indexes + #2050 device submit + #2040 eval fail-closed). GitHub deployment **6073599735** state=success. Worker Version ID `efaf026a-93f8-474f-80f7-42fae6374899`. Skipped second `d1 export` (read budget; npm `predeploy:cloudflare` is a pre-hook on `deploy:cloudflare`). Remote D1: `No migrations to apply` (0007 already on the DB).
+- Post-deploy proof: `GET /api/health` 200 `scope=liveness`; `POST /api/billing/webhook` unsigned 401; `POST /api/device/tasks/submit` unsigned 401 `signed device headers are required`; lock UNLOCKED.
+- D1 pollers (this Mac): `com.igor.saas-watchdog` was 300s × ~3 `/api/health` + `/api/billing/plan` + `/api/me` + `/api/tasks`. Operator: local LaunchAgent `StartInterval` **300 → 1800** (loaded `run interval = 1800 seconds`). Do not pay for D1 upgrade yet. PR **#2028** still OPEN (`verify` **failure** run 32785552861) — did not dual-edit. GH **#2018** / AGENT-494 still owns `schema.ts` indexes. Public health remains 1 `sqlite_master` read/hit until #2028 lands.
+- Railway webhook `we_1Tg4eRGGBpd520QYVdc3L92o` still enabled — `pending_webhooks` on a paid event can stay >0 even when the CF destination 200s. Did not disable it.
+
+| T-SELF-IMPROVE-EVAL-NOT-AFFILIATE-20260824 | Episode Os-s26O_W08 residual: holdout-gated promote for prompt/workflow/tool changes; map opportunities onto AHLS/$10 VPS; deny affiliate SKU and headline bets. Complementary to PR #2046 router-receipt. | in_progress | grok-self-improve-eval-20260824 | `tools/self-improve-eval-loop.js`, `tests/test-self-improve-eval-loop.js`, `bin/self-improve-eval`, `.agents/skills/self-improve-eval-not-affiliate/**`, `SKILLS.md` (one row), `plan.md` | Fail-first: missing baseline/holdout cannot promote; affiliate intent denies; route kind defers to router-receipt; apply always false; inventedConversion always null |
+
+- `tools/self-improve-eval-loop.js` (new), `tests/test-self-improve-eval-loop.js` (new), `bin/self-improve-eval` (new), `.agents/skills/self-improve-eval-not-affiliate/**` (new), `SKILLS.md` (one row append), `plan.md` (append only) → **grok-self-improve-eval-20260824** (YouTube Music Os-s26O_W08: measurable output + eval feedback; do not dual-edit PR #2046 `tools/router-receipt.js` / `eval-observability-loop`) (2026-08-24T23:58:00Z)
