@@ -1,5 +1,5 @@
 import { StoreBadgeRow } from "./StoreBadges";
-import { HostedCheckoutCta } from "./HostedCheckoutCta";
+import { LandingPricingCtaPaid } from "./LandingAuthChrome";
 import styles from "./start-surfaces.module.css";
 
 /**
@@ -58,9 +58,9 @@ export function StartSurfaces() {
                 <span>No install script. Start in this tab.</span>
               </li>
             </ul>
-            <HostedCheckoutCta testId="start-browser">
+            <LandingPricingCtaPaid testId="start-browser">
               Start hosted Hermes — $10/mo
-            </HostedCheckoutCta>
+            </LandingPricingCtaPaid>
           </div>
 
           <aside className={styles.card} data-testid="agent-identity-card" aria-label="Hosted Hermes identity">

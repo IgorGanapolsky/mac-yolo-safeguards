@@ -83,7 +83,7 @@ test("390-wide landing keeps overflow-y scroll (hero is not a 685px trap)", () =
   assert.match(css, /@media\(max-width:700px\)[\s\S]{0,1200}?\.hero\{[^}]*min-height:\s*0/);
 
   // Money path: $10 CTAs POST Stripe Checkout (not WorkOS login).
-  assert.match(page, /<HostedCheckoutCta/);
+  assert.match(page, /<LandingPricingCtaPaid/);
   assert.match(page, /Start hosted Hermes — \$10\/mo/);
   assert.match(page, /Start hosted Hermes — \$10\/mo/);
   assert.match(page, /<StartSurfaces \/>/);
