@@ -386,13 +386,13 @@ test("makes ThumbGate real with private thumbs feedback and a lessons dashboard"
   assert.match(schema, /responseFeedback = sqliteTable\("response_feedback"/);
 });
 
-test("shows the signed-in email when a zero-device workspace may be the wrong account", () => {
+test("shows the signed-in email; sign-out lives in the header, not a pairing card", () => {
   assert.match(dashboard, /Signed in as <strong>\{user\.email\}<\/strong>/);
-  assert.match(dashboard, /If this is the wrong workspace, switch accounts here/);
-  assert.match(dashboard, /Switch account/);
-  // Shared SignOutForm posts to /api/auth/logout (one-click, busy-safe).
+  assert.doesNotMatch(dashboard, /wrong workspace/);
+  assert.doesNotMatch(dashboard, /Switch account/);
+  assert.doesNotMatch(dashboard, /dashboard-switch-account/);
   assert.match(dashboard, /SignOutForm/);
-  assert.match(dashboard, /dashboard-switch-account/);
+  assert.match(dashboard, /dashboard-sign-out/);
   const signOutForm = readFileSync(new URL("../app/SignOutForm.tsx", import.meta.url), "utf8");
   assert.match(signOutForm, /action="\/api\/auth\/logout" method="post"/);
   assert.match(signOutForm, /type="submit"/);

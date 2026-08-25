@@ -120,7 +120,8 @@ test("empty task copy is hosted VPS, not Mac-pair blame", () => {
   assert.match(dashboard, /run on the hosted VPS/);
   assert.match(dashboard, /data-pair-blame=\{devices\.length === 0 && taskFilter === "all" \? "1" : "0"\}/);
   assert.match(dashboard, /function taskReceiptLabel/);
-  assert.match(dashboard, /hosted Hermes · fenced · 90s lease/);
+  assert.match(dashboard, /return "Hermes"/);
+  assert.doesNotMatch(dashboard, /hosted Hermes · fenced · 90s lease/);
   assert.match(dashboard, /data-testid="task-receipt"/);
 });
 
