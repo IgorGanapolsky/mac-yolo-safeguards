@@ -22,15 +22,16 @@ console.log('Running test-cloudflare-kitesurf-browser.js...');
   );
 }
 
-// Health with creds can claim READY (presence only — not a live network proof)
+// Health with creds alone is CONFIGURED (unprobed) — never READY / liveClaim
 {
   const engine = new KitesurfEngine({
     accountId: 'acct_test',
     apiToken: 'tok_test',
   });
   const health = engine.getHealthStatus();
-  assert.strictEqual(health.kitesurfEngine, 'READY');
-  assert.strictEqual(health.liveClaim, true);
+  assert.strictEqual(health.kitesurfEngine, 'CONFIGURED');
+  assert.strictEqual(health.liveClaim, false);
+  assert.strictEqual(health.configured, true);
   assert.strictEqual(health.credentialSource, 'options');
 }
 
@@ -98,7 +99,7 @@ console.log('Running test-cloudflare-kitesurf-browser.js...');
   assert.strictEqual(video.recommendedEngine, 'browser_run_chromium');
 }
 
-// DOM distillation
+// DOM distillation uses shared tokenizer (malformed script must not leak)
 {
   const md = KitesurfEngine.distillDomToMarkdown(
     '<html><body><h1>Hi</h1><p>x <strong>y</strong></p><script>bad()</script></body></html>',
@@ -107,6 +108,13 @@ console.log('Running test-cloudflare-kitesurf-browser.js...');
   assert.ok(md.includes('# Hi'));
   assert.ok(md.includes('**y**') || md.includes('y'), 'Expected strong text retained');
   assert.ok(!md.includes('bad()'));
+
+  const leak = KitesurfEngine.distillDomToMarkdown(
+    '<p>keep</p><script>alert(1)',
+    'T',
+  );
+  assert.ok(leak.includes('keep'));
+  assert.ok(!leak.includes('alert(1)'), `script body leaked: ${leak}`);
 }
 
 (async () => {
@@ -168,6 +176,29 @@ console.log('Running test-cloudflare-kitesurf-browser.js...');
     const fs = require('fs');
     assert.ok(fs.existsSync(out));
     fs.unlinkSync(out);
+  }
+
+  // JSON/HTML error envelopes must not be written as PNG; liveClaim stays false
+  {
+    const engine = new KitesurfEngine({
+      accountId: 'acct',
+      apiToken: 'tok',
+      fetchImpl: async () => ({
+        ok: true,
+        arrayBuffer: async () => Buffer.from('{"success":false,"errors":["nope"]}'),
+        text: async () => '{"success":false,"errors":["nope"]}',
+        headers: { get: () => 'application/json' },
+      }),
+    });
+    const out = `/tmp/kitesurf-must-not-${Date.now()}.png`;
+    const res = await engine.render({
+      url: 'https://example.com',
+      action: 'screenshot',
+      output: out,
+    });
+    assert.strictEqual(res.status, 'ERROR');
+    assert.strictEqual(res.liveClaim, false);
+    assert.ok(!require('fs').existsSync(out));
   }
 
   console.log('ok tests/test-cloudflare-kitesurf-browser.js');

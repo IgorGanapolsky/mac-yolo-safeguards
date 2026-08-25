@@ -25,12 +25,15 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { htmlToMarkdown } = require('./lib/html-to-markdown');
 
 const BROWSER_RUN_BASE = 'https://api.cloudflare.com/client/v4/accounts';
 const DEFAULT_WRANGLER_CONFIG = path.join(
   os.homedir(),
   'Library/Preferences/.wrangler/config/default.toml',
 );
+const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const PDF_MAGIC = Buffer.from('%PDF');
 
 class KitesurfEngine {
   constructor(options = {}) {
@@ -113,16 +116,20 @@ class KitesurfEngine {
   }
 
   liveClaim() {
+    // Credential presence alone is never a live operational claim.
+    // liveClaim becomes true only after a successful Browser Run payload.
     if (!this.hasBrowserRunCreds()) {
       return {
         liveClaim: false,
+        configured: false,
         reason:
           'missing CLOUDFLARE_ACCOUNT_ID and bearer (wrangler OAuth or CLOUDFLARE_API_TOKEN)',
       };
     }
     return {
-      liveClaim: true,
-      reason: `Browser Run credentials present (${this.credentialSource})`,
+      liveClaim: false,
+      configured: true,
+      reason: `Browser Run credentials present (${this.credentialSource}) — unprobed; not READY until a live payload validates`,
     };
   }
 
@@ -161,119 +168,57 @@ class KitesurfEngine {
     if (!htmlString || typeof htmlString !== 'string') {
       return `# ${title}\n\n*No content extracted.*`;
     }
-
-    let cleaned = String(htmlString);
-    // Drop whole element blocks without regex (avoids incomplete multi-char sanitization)
-    cleaned = KitesurfEngine._stripHtmlBlocks(cleaned, [
-      ['<script', '</script'],
-      ['<style', '</style'],
-      ['<svg', '</svg'],
-    ]);
-    cleaned = KitesurfEngine._stripHtmlComments(cleaned);
-
-    cleaned = cleaned
-      .replace(/<h1\b[^>]*>/gi, '\n# ')
-      .replace(/<\/h1>/gi, '\n')
-      .replace(/<h2\b[^>]*>/gi, '\n## ')
-      .replace(/<\/h2>/gi, '\n')
-      .replace(/<h3\b[^>]*>/gi, '\n### ')
-      .replace(/<\/h3>/gi, '\n')
-      .replace(/<li\b[^>]*>/gi, '\n- ')
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<\/(p|div|tr|table|ul|ol)>/gi, '\n');
-
-    // Inline markdown markers before stripping remaining tags
-    cleaned = cleaned
-      .replace(/<strong\b[^>]*>/gi, '**')
-      .replace(/<\/strong>/gi, '**')
-      .replace(/<b\b[^>]*>/gi, '**')
-      .replace(/<\/b>/gi, '**')
-      .replace(/<em\b[^>]*>/gi, '*')
-      .replace(/<\/em>/gi, '*')
-      .replace(/<i\b[^>]*>/gi, '*')
-      .replace(/<\/i>/gi, '*')
-      .replace(/<code\b[^>]*>/gi, '`')
-      .replace(/<\/code>/gi, '`');
-      // <a> tags are stripped below; keep visible link text only
-
-    cleaned = cleaned
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/&nbsp;/gi, ' ')
-      .replace(/&lt;/gi, '<')
-      .replace(/&gt;/gi, '>')
-      .replace(/&quot;/gi, '"')
-      .replace(/&#39;/gi, "'")
-      .replace(/&amp;/gi, '&')
-      .replace(/[ \t]+\n/g, '\n')
-      .replace(/\n{3,}/g, '\n\n')
-      .replace(/[ \t]{2,}/g, ' ')
-      .trim();
-
-    return cleaned.length ? cleaned : `# ${title}\n\n*No content extracted.*`;
+    // Shared tokenizer — never hand-roll script/tag strip (AGENTS.md CodeQL hygiene).
+    const body = htmlToMarkdown(htmlString);
+    if (!body) return `# ${title}\n\n*No content extracted.*`;
+    return `# ${title}\n\n${body}`;
   }
 
-  /** Case-insensitive indexOf from offset. */
-  static _indexOfCi(haystack, needle, from = 0) {
-    return haystack.toLowerCase().indexOf(needle.toLowerCase(), from);
-  }
-
-  /** Remove <!-- ... --> comments without regex. */
-  static _stripHtmlComments(html) {
-    let out = '';
-    let i = 0;
-    while (i < html.length) {
-      const start = html.indexOf('<!--', i);
-      if (start === -1) {
-        out += html.slice(i);
-        break;
-      }
-      out += html.slice(i, start);
-      const end = html.indexOf('-->', start + 4);
-      if (end === -1) break;
-      i = end + 3;
+  static assertArtifactMagic(buf, kind) {
+    if (!Buffer.isBuffer(buf) || buf.length === 0) {
+      throw new Error(`Browser Run ${kind} returned empty body`);
     }
-    return out;
-  }
-
-  /**
-   * Remove <tag ...> ... </tag> blocks by scanning (not regex).
-   * pairs: [['<script','</script'], ...]
-   */
-  static _stripHtmlBlocks(html, pairs) {
-    let cleaned = html;
-    for (const [openTok, closeTok] of pairs) {
-      let guard = 0;
-      while (guard++ < 1000) {
-        const start = KitesurfEngine._indexOfCi(cleaned, openTok, 0);
-        if (start === -1) break;
-        const gt = cleaned.indexOf('>', start);
-        if (gt === -1) break;
-        const endOpen = KitesurfEngine._indexOfCi(cleaned, closeTok, gt + 1);
-        if (endOpen === -1) {
-          cleaned = cleaned.slice(0, start) + ' ' + cleaned.slice(gt + 1);
-          continue;
-        }
-        const endGt = cleaned.indexOf('>', endOpen);
-        if (endGt === -1) break;
-        cleaned = cleaned.slice(0, start) + ' ' + cleaned.slice(endGt + 1);
-      }
+    const head = buf.subarray(0, 16).toString('utf8');
+    if (head.trimStart().startsWith('{') || head.trimStart().startsWith('<')) {
+      throw new Error(
+        `Browser Run ${kind} returned non-binary envelope (${head.slice(0, 80).replace(/\s+/g, ' ')})`,
+      );
     }
-    return cleaned;
+    if (kind === 'pdf') {
+      if (!buf.subarray(0, 4).equals(PDF_MAGIC)) {
+        throw new Error('Browser Run pdf missing %PDF magic');
+      }
+      return;
+    }
+    if (buf.length < PNG_MAGIC.length || !buf.subarray(0, PNG_MAGIC.length).equals(PNG_MAGIC)) {
+      throw new Error('Browser Run screenshot missing PNG magic');
+    }
   }
 
   getHealthStatus() {
     const claim = this.liveClaim();
+    let status = 'UNAVAILABLE';
+    let browserRun = 'NO_CREDENTIALS';
+    if (claim.configured) {
+      status = 'CONFIGURED';
+      browserRun = 'CREDENTIALS_PRESENT_UNPROBED';
+    }
+    if (claim.liveClaim) {
+      status = 'READY';
+      browserRun = 'LIVE_VALIDATED';
+    }
     return {
-      kitesurfEngine: claim.liveClaim ? 'READY' : 'UNAVAILABLE',
-      version: '1.2.0',
+      kitesurfEngine: status,
+      version: '1.3.0',
       source: 'https://blog.cloudflare.com/kitesurf/',
-      browserRun: claim.liveClaim ? 'CREDENTIALS_PRESENT' : 'NO_CREDENTIALS',
+      browserRun,
       credentialSource: this.credentialSource,
       liveClaim: claim.liveClaim,
+      configured: Boolean(claim.configured),
       reason: claim.reason,
       htmlFallback: 'fetch',
       notes:
-        'Screenshot/PDF need Browser Run. Prefer wrangler OAuth (browser write). Without creds, html may still fetch; never invent a PNG.',
+        'Screenshot/PDF need Browser Run. Prefer wrangler OAuth (browser write). Creds alone → CONFIGURED (not READY). Never invent a PNG.',
     };
   }
 
@@ -380,7 +325,7 @@ class KitesurfEngine {
         engine: `browser_run_${browser}`,
         timingMs: Date.now() - startTime,
         error: err.message,
-        liveClaim: true,
+        liveClaim: false,
         credentialSource: this.credentialSource,
       };
     }
@@ -432,8 +377,15 @@ class KitesurfEngine {
       const body = await res.text().catch(() => '');
       throw new Error(`Browser Run ${kind} HTTP ${res.status}: ${body.slice(0, 240)}`);
     }
+    const ct = String(res.headers.get('content-type') || '').toLowerCase();
+    if (ct.includes('application/json') || ct.includes('text/html') || ct.includes('text/plain')) {
+      const body = await res.text().catch(() => '');
+      throw new Error(
+        `Browser Run ${kind} returned ${ct || 'unexpected'} envelope: ${body.slice(0, 160)}`,
+      );
+    }
     const buf = Buffer.from(await res.arrayBuffer());
-    if (!buf.length) throw new Error(`Browser Run ${kind} returned empty body`);
+    KitesurfEngine.assertArtifactMagic(buf, kind);
     return buf;
   }
 
