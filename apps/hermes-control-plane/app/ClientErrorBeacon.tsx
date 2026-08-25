@@ -2,9 +2,11 @@
 
 import { useEffect } from "react";
 import { captureFirstError } from "@/lib/sentry";
+import { shouldEmitDuplicate } from "@/lib/hosted-alert-correlate";
 
 const endpoint = "/api/analytics/event";
 const MAX_REPORTS_PER_SESSION = 8;
+const SIG_STORE_KEY = "tg_client_error_sigs";
 
 /** Allowlisted Error.name only — never free-form messages or stacks. */
 const ALLOWED_ERROR_NAMES = new Set([
@@ -20,7 +22,9 @@ const ALLOWED_ERROR_NAMES = new Set([
 
 /**
  * Content-free client error reporting for ThumbGate web.
- * - Always increments client_error (health.telemetry.clientErrorsToday).
+ * - Always increments client_error (health.telemetry.clientErrorsToday) unless
+ *   the same errorClass was already reported inside the duplicate window
+ *   (Digitate/ignio process steal: suppress duplicate signatures).
  * - Optionally attaches errorClass (allowlisted Error.name only) for triage.
  * Never sends stack, message text, URL query, or user content.
  */
@@ -45,13 +49,43 @@ function classifyError(input: unknown): string {
   }
 }
 
+function loadSignatureTimes(): Record<string, number> {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(SIG_STORE_KEY) || "{}") as unknown;
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, number>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function shouldReportClientError(
+  errorClass: string,
+  now: number,
+  lastBySignature: Record<string, number>,
+  sessionCount: number,
+): { emit: boolean; reason: string } {
+  if (sessionCount >= MAX_REPORTS_PER_SESSION) {
+    return { emit: false, reason: "session_cap" };
+  }
+  return shouldEmitDuplicate({
+    signature: `client_error:${errorClass}`,
+    now,
+    lastBySignature,
+  });
+}
+
 function reportClientError(input?: unknown) {
   try {
     const key = "tg_client_error_reports";
     const count = Number(sessionStorage.getItem(key) || "0");
-    if (count >= MAX_REPORTS_PER_SESSION) return;
-    sessionStorage.setItem(key, String(count + 1));
     const errorClass = classifyError(input);
+    const now = Date.now();
+    const lastBySignature = loadSignatureTimes();
+    const decision = shouldReportClientError(errorClass, now, lastBySignature, count);
+    if (!decision.emit) return;
+    lastBySignature[`client_error:${errorClass}`] = now;
+    sessionStorage.setItem(SIG_STORE_KEY, JSON.stringify(lastBySignature));
+    sessionStorage.setItem(key, String(count + 1));
     void captureFirstError({ name: errorClass });
     const body = JSON.stringify({
       schemaVersion: 1,
@@ -94,4 +128,9 @@ export function ClientErrorBeacon() {
 }
 
 /** Exported for unit tests only. */
-export const __test = { classifyError, ALLOWED_ERROR_NAMES };
+export const __test = {
+  classifyError,
+  ALLOWED_ERROR_NAMES,
+  shouldReportClientError,
+  MAX_REPORTS_PER_SESSION,
+};
