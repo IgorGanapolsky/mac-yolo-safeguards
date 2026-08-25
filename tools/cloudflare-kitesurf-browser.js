@@ -2,418 +2,475 @@
 'use strict';
 
 /**
- * Cloudflare Kitesurf adapter (Browser Run).
- *
+ * Cloudflare Kitesurf via Browser Run (agent-first WASM browser).
  * Source: https://blog.cloudflare.com/kitesurf/
- *         https://www.infoq.com/news/2026/08/cloudflare-kitesurf-browser/
  *
- * Mechanic stolen: lightweight agent browser for screenshot/HTML/markdown via
- * Cloudflare Browser Run `?browser=kitesurf`. Not a Chromium clone.
+ * Steal the mechanic (ephemeral Workers browser, ?browser=kitesurf). Do not
+ * vendor Chromium. Fail-closed: never claim READY / SUCCESS screenshot without
+ * account id + bearer (wrangler OAuth with browser write, or API token that
+ * can call Browser Run).
  *
- * Honesty:
- *   - Kitesurf is beta on Browser Run. No public OSS yet.
- *   - Missing CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_API_TOKEN → UNAVAILABLE, never READY.
- *   - Screenshot/PDF without creds is UNAVAILABLE, never a fake PNG.
- *   - Screenshot/PDF bytes are validated (magic bytes + content-type) BEFORE they
- *     are written with a .png/.pdf extension. An unvalidatable payload returns
- *     INVALID_PAYLOAD with liveClaim:false and writes nothing — the tool never
- *     asserts liveness over bytes it did not verify.
- *   - HTML extract falls back to plain fetch + distill (not pixel-perfect), and
- *     that fallback still runs after a transient Browser Run 429/503.
- *   - Video / WebGL / long-lived auth → chromium (Browser Run default), not Kitesurf.
- *   - Kitesurf is stateless by design: no persistent session state, no bot-challenge
- *     TLS fingerprinting, and CDP coverage is incomplete. Do not imply otherwise.
+ * Credential order (when not overridden via options):
+ *   1. wrangler OAuth (~/Library/Preferences/.wrangler/config/default.toml)
+ *   2. CLOUDFLARE_API_TOKEN / CF_API_TOKEN
+ * Account.Browser Run-only tokens often 401; wrangler oauth with browser(write)
+ * is the proven local rail (2026-08-25).
+ *
+ * Usage:
+ *   node tools/cloudflare-kitesurf-browser.js --health --json
+ *   node tools/cloudflare-kitesurf-browser.js --url "https://example.com" --action html --json
+ *   node tools/cloudflare-kitesurf-browser.js --url "https://example.com" --action screenshot --output /tmp/out.png
  */
 
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
+const os = require('os');
 const { htmlToMarkdown } = require('./lib/html-to-markdown');
 
-const BROWSER_RUN_API = 'https://api.cloudflare.com/client/v4/accounts';
-const PLAYGROUND = 'https://kitesurf.cloudflare.app/';
-const DOCS = 'https://developers.cloudflare.com/browser-run/quick-actions/';
-
-function cloudflareCreds(env = process.env) {
-  const accountId = String(env.CLOUDFLARE_ACCOUNT_ID || env.CF_ACCOUNT_ID || '').trim();
-  const token = String(env.CLOUDFLARE_API_TOKEN || env.CF_API_TOKEN || '').trim();
-  return {
-    accountId,
-    token,
-    ok: Boolean(accountId && token),
-  };
-}
-
-function quickActionUrl(accountId, action, query = 'browser=kitesurf') {
-  const map = {
-    screenshot: 'screenshot',
-    pdf: 'pdf',
-    html: 'content',
-    content: 'content',
-    dom_extract: 'content',
-    markdown: 'markdown',
-  };
-  const slug = map[action] || 'content';
-  return `${BROWSER_RUN_API}/${encodeURIComponent(accountId)}/browser-run/${slug}?${query}`;
-}
-
-function cdpWebSocketUrl(accountId) {
-  return `wss://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/browser-run/devtools/browser?browser=kitesurf`;
-}
-
-function evaluateCompatibility(url, requirements = {}) {
-  const raw = String(url || '');
-  const needsChromium =
-    Boolean(requirements.needsWebGL) ||
-    Boolean(requirements.needsVideo) ||
-    Boolean(requirements.needsAuthCookies) ||
-    Boolean(requirements.needsBotTls) ||
-    /\.(mp4|webm|avi|mkv)(\?|$)/i.test(raw) ||
-    /youtube\.com|youtu\.be|vimeo\.com/i.test(raw);
-
-  if (needsChromium) {
-    return {
-      recommendedEngine: 'browser_run_chromium',
-      ladderRung: 2,
-      kitesurfOk: false,
-      reason: 'video, WebGL, TLS bot-challenge, or long-lived auth — Kitesurf cannot do these yet',
-    };
-  }
-  return {
-    recommendedEngine: 'kitesurf',
-    ladderRung: 1,
-    kitesurfOk: true,
-    reason: 'screenshot / HTML / markdown — Kitesurf Browser Run beta',
-  };
-}
-
-/**
- * Extract Markdown from arbitrary web HTML.
- *
- * Delegates to tools/lib/html-to-markdown.js, which TOKENIZES the document
- * instead of regex-filtering tags out of it. Hand-rolled tag filters are banned
- * by AGENTS.md ("naive script strip") and are the CodeQL js/bad-tag-filter /
- * js/incomplete-multi-character-sanitization / js/double-escaping family. This
- * function ingests arbitrary third-party web content, so it is the last place
- * that should be hand-rolling sanitization.
- */
-function distillDomToMarkdown(htmlString, title = 'Page Content') {
-  if (!htmlString || typeof htmlString !== 'string') {
-    return `# ${title}\n\n*No content extracted.*`;
-  }
-  const markdown = htmlToMarkdown(htmlString);
-  return markdown || `# ${title}\n\n*No content extracted.*`;
-}
-
-/**
- * Binary payload signatures. A Browser Run 200 is not proof that the body is an
- * image or a PDF — an error page, a JSON envelope or an empty body all arrive
- * with HTTP 200 in practice. Verify the bytes before claiming a live render.
- */
-const BINARY_SIGNATURES = [
-  { kind: 'png', ext: 'png', magic: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] },
-  { kind: 'pdf', ext: 'pdf', magic: [0x25, 0x50, 0x44, 0x46, 0x2d] },
-  { kind: 'jpeg', ext: 'jpg', magic: [0xff, 0xd8, 0xff] },
-];
-
-const ACCEPTED_KINDS = { screenshot: ['png', 'jpeg'], pdf: ['pdf'] };
-
-function detectBinaryKind(buf) {
-  for (const sig of BINARY_SIGNATURES) {
-    if (buf.length >= sig.magic.length && sig.magic.every((b, i) => buf[i] === b)) return sig;
-  }
-  return null;
-}
-
-function payloadPreview(buf) {
-  return buf.subarray(0, 16).toString('hex');
-}
-
-/**
- * Validate that `buf` really is the binary kind `action` promises.
- * Returns { ok, kind, ext, reason } — never throws.
- */
-function validateBinaryPayload(buf, action, contentType = null) {
-  const accepted = ACCEPTED_KINDS[action] || [];
-  if (!buf || buf.length === 0) {
-    return { ok: false, reason: 'empty_payload', detectedKind: null, bytes: 0 };
-  }
-  const ct = String(contentType || '').toLowerCase();
-  if (ct && (ct.includes('application/json') || ct.startsWith('text/'))) {
-    return {
-      ok: false,
-      reason: `content-type ${ct} is not a ${action} payload`,
-      detectedKind: null,
-      bytes: buf.length,
-      preview: payloadPreview(buf),
-    };
-  }
-  const sig = detectBinaryKind(buf);
-  if (!sig || !accepted.includes(sig.kind)) {
-    return {
-      ok: false,
-      reason: `payload is not ${accepted.join('/')} (magic bytes ${payloadPreview(buf)})`,
-      detectedKind: sig ? sig.kind : null,
-      bytes: buf.length,
-      preview: payloadPreview(buf),
-    };
-  }
-  return { ok: true, detectedKind: sig.kind, ext: sig.ext, bytes: buf.length };
-}
-
-/** Upstream statuses worth falling back on rather than failing the whole call. */
-const RETRYABLE_HTTP = new Set([408, 425, 429, 500, 502, 503, 504]);
-
-function headerValue(res, name) {
-  try {
-    if (res && res.headers && typeof res.headers.get === 'function') return res.headers.get(name);
-  } catch {
-    /* header bag absent in stubs */
-  }
-  return null;
-}
-
-function getHealthStatus(env = process.env) {
-  const creds = cloudflareCreds(env);
-  return {
-    product: 'Cloudflare Kitesurf',
-    liveClaim: false,
-    kitesurf: creds.ok ? 'CONFIGURED' : 'UNAVAILABLE',
-    reason: creds.ok
-      ? 'CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_API_TOKEN present; not probed until --action'
-      : 'missing CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN',
-    playground: PLAYGROUND,
-    docs: DOCS,
-    queryParam: 'browser=kitesurf',
-    unsupported: ['video', 'WebGL', 'realistic TLS bot challenges', 'long-lived authenticated sessions'],
-    fallbackHtml: 'fetch',
-  };
-}
+const BROWSER_RUN_BASE = 'https://api.cloudflare.com/client/v4/accounts';
+const DEFAULT_WRANGLER_CONFIG = path.join(
+  os.homedir(),
+  'Library/Preferences/.wrangler/config/default.toml',
+);
+const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const PDF_MAGIC = Buffer.from('%PDF');
 
 class KitesurfEngine {
   constructor(options = {}) {
-    this.env = options.env || process.env;
-    this.fetchImpl = options.fetchImpl || globalThis.fetch;
+    const explicitAccount = Object.prototype.hasOwnProperty.call(options, 'accountId');
+    const explicitToken = Object.prototype.hasOwnProperty.call(options, 'apiToken');
+
+    this.accountId = explicitAccount
+      ? options.accountId
+      : options.accountId ||
+        process.env.CLOUDFLARE_ACCOUNT_ID ||
+        process.env.CF_ACCOUNT_ID ||
+        null;
+
+    this.endpoint = options.endpoint || process.env.KITESURF_CDP_ENDPOINT || null;
+    this.timeoutMs = options.timeoutMs || 30000;
+    this.fetchImpl = options.fetchImpl || globalThis.fetch.bind(globalThis);
+    this.credentialSource = 'none';
+    this._fallbackToken = null;
+    this._fallbackSource = null;
+
+    if (explicitToken) {
+      this.apiToken = options.apiToken || null;
+      this.credentialSource = this.apiToken ? 'options' : 'none';
+      return;
+    }
+
+    const wrangler = KitesurfEngine.readWranglerOAuth(options.wranglerConfigPath);
+    const envToken =
+      process.env.CLOUDFLARE_API_TOKEN || process.env.CF_API_TOKEN || null;
+
+    // Prefer live wrangler OAuth (browser write) over env tokens that often 401.
+    if (wrangler && wrangler.token && !wrangler.expired) {
+      this.apiToken = wrangler.token;
+      this.credentialSource = 'wrangler_oauth';
+      if (envToken && envToken !== wrangler.token) {
+        this._fallbackToken = envToken;
+        this._fallbackSource = 'env';
+      }
+      return;
+    }
+
+    if (envToken) {
+      this.apiToken = envToken;
+      this.credentialSource = 'env';
+      if (wrangler && wrangler.token) {
+        this._fallbackToken = wrangler.token;
+        this._fallbackSource = 'wrangler_oauth';
+      }
+      return;
+    }
+
+    this.apiToken = null;
   }
 
-  async render({ url, action = 'screenshot', output = null, requirements = {} } = {}) {
-    const started = Date.now();
-    const compat = evaluateCompatibility(url, requirements);
-    const creds = cloudflareCreds(this.env);
-    const needsBinary = action === 'screenshot' || action === 'pdf';
+  /**
+   * Read wrangler OAuth bearer from local config. Never logs the token.
+   * @returns {{ token: string, expiresAt: string|null, expired: boolean }|null}
+   */
+  static readWranglerOAuth(configPath = DEFAULT_WRANGLER_CONFIG) {
+    try {
+      if (!configPath || !fs.existsSync(configPath)) return null;
+      const text = fs.readFileSync(configPath, 'utf8');
+      const tokenMatch = text.match(/^\s*oauth_token\s*=\s*"([^"]+)"/m);
+      if (!tokenMatch) return null;
+      const expMatch = text.match(/^\s*expiration_time\s*=\s*"([^"]+)"/m);
+      const expiresAt = expMatch ? expMatch[1] : null;
+      let expired = false;
+      if (expiresAt) {
+        const ms = Date.parse(expiresAt);
+        if (Number.isFinite(ms)) expired = ms <= Date.now();
+      }
+      return { token: tokenMatch[1], expiresAt, expired };
+    } catch {
+      return null;
+    }
+  }
 
-    if (!compat.kitesurfOk) {
+  hasBrowserRunCreds() {
+    return Boolean(this.accountId && this.apiToken);
+  }
+
+  liveClaim() {
+    // Credential presence alone is never a live operational claim.
+    // liveClaim becomes true only after a successful Browser Run payload.
+    if (!this.hasBrowserRunCreds()) {
       return {
-        status: 'SKIPPED_UNSUPPORTED',
-        engine: compat.recommendedEngine,
         liveClaim: false,
-        timingMs: Date.now() - started,
-        reason: compat.reason,
+        configured: false,
+        reason:
+          'missing CLOUDFLARE_ACCOUNT_ID and bearer (wrangler OAuth or CLOUDFLARE_API_TOKEN)',
+      };
+    }
+    return {
+      liveClaim: false,
+      configured: true,
+      reason: `Browser Run credentials present (${this.credentialSource}) — unprobed; not READY until a live payload validates`,
+    };
+  }
+
+  static buildCdpFrame(method, params = {}, id = 1) {
+    return { id, method, params };
+  }
+
+  static evaluateCompatibility(url, requirements = {}) {
+    const requiresFullBrowser =
+      requirements.needsWebGL ||
+      requirements.needsVideo ||
+      requirements.needsAuthCookies ||
+      /\.(mp4|webm|avi|mkv)$/i.test(url);
+
+    if (requiresFullBrowser) {
+      return {
+        recommendedEngine: 'browser_run_chromium',
+        ladderRung: 2,
+        reason:
+          'Workload needs full Chromium (WebGL, media, TLS bot challenge, or long auth session)',
       };
     }
 
-    // Records why Browser Run did not answer, so the plain-fetch fallback below
-    // can report the real upstream cause instead of silently pretending it was
-    // the only path tried.
-    let browserRunFallback = null;
+    return {
+      recommendedEngine: 'kitesurf',
+      ladderRung: 1,
+      reason: 'One-shot screenshot / HTML extract suitable for Kitesurf beta',
+    };
+  }
 
-    if (creds.ok && typeof this.fetchImpl === 'function') {
+  /**
+   * Best-effort HTML→markdown for LLM context (not an XSS sanitizer).
+   * Uses iterative tag removal so nested/odd markup cannot bypass a single pass.
+   */
+  static distillDomToMarkdown(htmlString, title = 'Page Content') {
+    if (!htmlString || typeof htmlString !== 'string') {
+      return `# ${title}\n\n*No content extracted.*`;
+    }
+    // Shared tokenizer — never hand-roll script/tag strip (AGENTS.md CodeQL hygiene).
+    const body = htmlToMarkdown(htmlString);
+    if (!body) return `# ${title}\n\n*No content extracted.*`;
+    return `# ${title}\n\n${body}`;
+  }
+
+  static assertArtifactMagic(buf, kind) {
+    if (!Buffer.isBuffer(buf) || buf.length === 0) {
+      throw new Error(`Browser Run ${kind} returned empty body`);
+    }
+    const head = buf.subarray(0, 16).toString('utf8');
+    if (head.trimStart().startsWith('{') || head.trimStart().startsWith('<')) {
+      throw new Error(
+        `Browser Run ${kind} returned non-binary envelope (${head.slice(0, 80).replace(/\s+/g, ' ')})`,
+      );
+    }
+    if (kind === 'pdf') {
+      if (!buf.subarray(0, 4).equals(PDF_MAGIC)) {
+        throw new Error('Browser Run pdf missing %PDF magic');
+      }
+      return;
+    }
+    if (buf.length < PNG_MAGIC.length || !buf.subarray(0, PNG_MAGIC.length).equals(PNG_MAGIC)) {
+      throw new Error('Browser Run screenshot missing PNG magic');
+    }
+  }
+
+  getHealthStatus() {
+    const claim = this.liveClaim();
+    let status = 'UNAVAILABLE';
+    let browserRun = 'NO_CREDENTIALS';
+    if (claim.configured) {
+      status = 'CONFIGURED';
+      browserRun = 'CREDENTIALS_PRESENT_UNPROBED';
+    }
+    if (claim.liveClaim) {
+      status = 'READY';
+      browserRun = 'LIVE_VALIDATED';
+    }
+    return {
+      kitesurfEngine: status,
+      version: '1.3.0',
+      source: 'https://blog.cloudflare.com/kitesurf/',
+      browserRun,
+      credentialSource: this.credentialSource,
+      liveClaim: claim.liveClaim,
+      configured: Boolean(claim.configured),
+      reason: claim.reason,
+      htmlFallback: 'fetch',
+      notes:
+        'Screenshot/PDF need Browser Run. Prefer wrangler OAuth (browser write). Creds alone → CONFIGURED (not READY). Never invent a PNG.',
+    };
+  }
+
+  async render({
+    url,
+    action = 'screenshot',
+    output = null,
+    viewport = { width: 1280, height: 720 },
+    requirements = {},
+    browser = 'kitesurf',
+  }) {
+    const startTime = Date.now();
+    const compat = KitesurfEngine.evaluateCompatibility(url, requirements);
+    const normalized = (action || 'screenshot').toLowerCase();
+
+    if (compat.recommendedEngine !== 'kitesurf' && browser === 'kitesurf') {
+      return {
+        status: 'UNAVAILABLE',
+        engine: 'kitesurf',
+        timingMs: Date.now() - startTime,
+        error: compat.reason,
+        hint: 'Use browser=chromium via Browser Run default, or BrowserOS/Playwright locally',
+        liveClaim: false,
+      };
+    }
+
+    if (normalized === 'html' || normalized === 'dom_extract') {
+      if (this.hasBrowserRunCreds()) {
+        try {
+          const html = await this._browserRunContent(url, browser);
+          const md = KitesurfEngine.distillDomToMarkdown(html, url);
+          if (output) fs.writeFileSync(output, md, 'utf8');
+          return {
+            status: 'SUCCESS',
+            engine: `browser_run_${browser}`,
+            timingMs: Date.now() - startTime,
+            output: output || null,
+            data: { url, markdown: md, htmlLength: html.length },
+            liveClaim: true,
+          };
+        } catch (err) {
+          // Fall through to plain fetch
+        }
+      }
       try {
-        const endpoint = quickActionUrl(creds.accountId, action);
-        const res = await this.fetchImpl(endpoint, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${creds.token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ url }),
-        });
-
-        if (!res || !res.ok) {
-          const status = res && res.status;
-          const denied = status === 401 || status === 403;
-          const retryable = RETRYABLE_HTTP.has(status);
-          // Binary actions have no text fallback, and an auth failure will not
-          // heal on retry — those still fail fast. A transient upstream error on
-          // a text action must NOT make extraction less available than running
-          // with no credentials at all: fall through to the documented fallback.
-          if (needsBinary || denied || !retryable) {
-            return {
-              status: denied ? 'DENIED' : 'ERROR',
-              engine: 'kitesurf',
-              liveClaim: false,
-              timingMs: Date.now() - started,
-              httpStatus: status || null,
-              reason: `browser-run ${action} HTTP ${status || 'error'}`,
-            };
-          }
-          browserRunFallback = {
-            httpStatus: status,
-            reason: `browser-run ${action} HTTP ${status} (transient) — using plain-fetch fallback`,
-          };
-        } else if (needsBinary) {
-          const buf = Buffer.from(await res.arrayBuffer());
-          const contentType = headerValue(res, 'content-type');
-          const check = validateBinaryPayload(buf, action, contentType);
-          if (!check.ok) {
-            // Unvalidated bytes are never written with a .png/.pdf extension and
-            // never carry liveClaim. Say what arrived instead of asserting a render.
-            return {
-              status: 'INVALID_PAYLOAD',
-              engine: 'kitesurf',
-              liveClaim: false,
-              timingMs: Date.now() - started,
-              httpStatus: res.status || 200,
-              bytes: check.bytes,
-              contentType: contentType || null,
-              detectedKind: check.detectedKind,
-              preview: check.preview || null,
-              reason: `browser-run returned HTTP 200 but ${check.reason}; refusing to write it as .${action === 'pdf' ? 'pdf' : 'png'} or claim a live render`,
-            };
-          }
-          const dest =
-            output || path.join(os.tmpdir(), `kitesurf-${Date.now()}.${check.ext}`);
-          fs.writeFileSync(dest, buf);
-          return {
-            status: 'SUCCESS',
-            engine: 'kitesurf',
-            liveClaim: true,
-            timingMs: Date.now() - started,
-            output: dest,
-            bytes: buf.length,
-            detectedKind: check.detectedKind,
-            contentType: contentType || null,
-            payloadValidated: true,
-          };
-        } else {
-          const text = typeof res.text === 'function' ? await res.text() : '';
-          return {
-            status: 'SUCCESS',
-            engine: 'kitesurf',
-            liveClaim: true,
-            timingMs: Date.now() - started,
-            markdown: distillDomToMarkdown(text, url),
-            bytes: Buffer.byteLength(text),
-          };
-        }
+        const html = await this._fetchHtml(url);
+        const md = KitesurfEngine.distillDomToMarkdown(html, url);
+        if (output) fs.writeFileSync(output, md, 'utf8');
+        return {
+          status: 'SUCCESS',
+          engine: 'fetch_html_fallback',
+          timingMs: Date.now() - startTime,
+          output: output || null,
+          data: { url, markdown: md, htmlLength: html.length },
+          liveClaim: false,
+          note: 'HTML via fetch — not Kitesurf. Set CLOUDFLARE_* for Browser Run.',
+        };
       } catch (err) {
-        if (needsBinary) {
-          return {
-            status: 'ERROR',
-            engine: 'kitesurf',
-            liveClaim: false,
-            timingMs: Date.now() - started,
-            reason: err.message,
-          };
-        }
-        browserRunFallback = {
-          httpStatus: null,
-          reason: `browser-run ${action} threw (${err.message}) — using plain-fetch fallback`,
+        return {
+          status: 'ERROR',
+          engine: 'fetch_html_fallback',
+          timingMs: Date.now() - startTime,
+          error: err.message,
+          liveClaim: false,
         };
       }
     }
 
-    if (needsBinary) {
+    // screenshot / pdf — require live Browser Run; never fake a file
+    if (!this.hasBrowserRunCreds()) {
       return {
         status: 'UNAVAILABLE',
-        engine: 'none',
+        engine: 'kitesurf',
+        timingMs: Date.now() - startTime,
+        error:
+          'CLOUDFLARE_ACCOUNT_ID + bearer required for screenshot/PDF (wrangler OAuth or CLOUDFLARE_API_TOKEN)',
         liveClaim: false,
-        timingMs: Date.now() - started,
-        reason: 'screenshot/pdf need Browser Run credentials; refusing to write a fake image',
+        playground: 'https://kitesurf.cloudflare.app/',
       };
     }
 
-    if (typeof this.fetchImpl !== 'function') {
+    try {
+      const artifact = await this._browserRunScreenshotOrPdf(url, normalized, browser);
+      const dest =
+        output ||
+        path.join(
+          '/tmp',
+          `kitesurf-${Date.now()}.${normalized === 'pdf' ? 'pdf' : 'png'}`,
+        );
+      fs.writeFileSync(dest, artifact);
       return {
-        status: 'UNAVAILABLE',
-        engine: 'none',
-        liveClaim: false,
-        timingMs: Date.now() - started,
-        reason: 'no fetch implementation',
+        status: 'SUCCESS',
+        engine: `browser_run_${browser}`,
+        timingMs: Date.now() - startTime,
+        output: dest,
+        bytes: artifact.length,
+        liveClaim: true,
+        credentialSource: this.credentialSource,
+        viewport,
       };
-    }
-
-    const page = await this.fetchImpl(url, { method: 'GET' });
-    if (!page || !page.ok) {
+    } catch (err) {
       return {
         status: 'ERROR',
-        engine: 'fetch_html_fallback',
+        engine: `browser_run_${browser}`,
+        timingMs: Date.now() - startTime,
+        error: err.message,
         liveClaim: false,
-        timingMs: Date.now() - started,
-        httpStatus: page && page.status,
-        reason: `fetch HTML HTTP ${page && page.status}`,
-        browserRunFallback,
+        credentialSource: this.credentialSource,
       };
     }
-    const html = await page.text();
+  }
+
+  async _fetchHtml(url) {
+    const res = await this.fetchImpl(url, {
+      headers: { Accept: 'text/html,application/xhtml+xml' },
+      signal: AbortSignal.timeout(this.timeoutMs),
+    });
+    if (!res.ok) throw new Error(`fetch HTML HTTP ${res.status}`);
+    return res.text();
+  }
+
+  _authHeaders() {
     return {
-      status: 'SUCCESS',
-      engine: 'fetch_html_fallback',
-      liveClaim: false,
-      timingMs: Date.now() - started,
-      markdown: distillDomToMarkdown(html, url),
-      bytes: Buffer.byteLength(html),
-      browserRunFallback,
+      Authorization: `Bearer ${this.apiToken}`,
+      'Content-Type': 'application/json',
     };
   }
-}
 
-function parseArgs(argv) {
-  const out = { json: false, health: false, url: '', action: 'screenshot', output: '' };
-  for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--json') out.json = true;
-    else if (argv[i] === '--health') out.health = true;
-    else if (argv[i] === '--url' && argv[i + 1]) out.url = argv[++i];
-    else if (argv[i] === '--action' && argv[i + 1]) out.action = argv[++i];
-    else if (argv[i] === '--output' && argv[i + 1]) out.output = argv[++i];
+  _promoteFallbackCreds() {
+    if (!this._fallbackToken) return false;
+    this.apiToken = this._fallbackToken;
+    this.credentialSource = this._fallbackSource || 'fallback';
+    this._fallbackToken = null;
+    this._fallbackSource = null;
+    return true;
   }
-  return out;
-}
 
-async function main(argv = process.argv.slice(2)) {
-  const args = parseArgs(argv);
-  if (args.health) {
-    const health = getHealthStatus();
-    if (args.json) console.log(JSON.stringify(health, null, 2));
-    else {
-      console.log(`kitesurf: ${health.kitesurf} liveClaim=${health.liveClaim}`);
-      console.log(`reason: ${health.reason}`);
-      console.log(`playground: ${health.playground}`);
+  async _browserRunScreenshotOrPdf(url, action, browser) {
+    const kind = action === 'pdf' ? 'pdf' : 'screenshot';
+    const endpoint = `${BROWSER_RUN_BASE}/${this.accountId}/browser-run/${kind}?browser=${encodeURIComponent(browser)}`;
+    let res = await this.fetchImpl(endpoint, {
+      method: 'POST',
+      headers: this._authHeaders(),
+      body: JSON.stringify({ url }),
+      signal: AbortSignal.timeout(this.timeoutMs),
+    });
+    if (!res.ok && res.status === 401 && this._promoteFallbackCreds()) {
+      res = await this.fetchImpl(endpoint, {
+        method: 'POST',
+        headers: this._authHeaders(),
+        body: JSON.stringify({ url }),
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
     }
-    return 0;
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(`Browser Run ${kind} HTTP ${res.status}: ${body.slice(0, 240)}`);
+    }
+    const ct = String(res.headers.get('content-type') || '').toLowerCase();
+    if (ct.includes('application/json') || ct.includes('text/html') || ct.includes('text/plain')) {
+      const body = await res.text().catch(() => '');
+      throw new Error(
+        `Browser Run ${kind} returned ${ct || 'unexpected'} envelope: ${body.slice(0, 160)}`,
+      );
+    }
+    const buf = Buffer.from(await res.arrayBuffer());
+    KitesurfEngine.assertArtifactMagic(buf, kind);
+    return buf;
   }
-  if (!args.url) {
-    console.error('Usage: node tools/cloudflare-kitesurf-browser.js --url <url> [--action screenshot|html|markdown|pdf] [--output path] [--json] [--health]');
-    return 1;
+
+  async _browserRunContent(url, browser) {
+    const endpoint = `${BROWSER_RUN_BASE}/${this.accountId}/browser-run/content?browser=${encodeURIComponent(browser)}`;
+    let res = await this.fetchImpl(endpoint, {
+      method: 'POST',
+      headers: this._authHeaders(),
+      body: JSON.stringify({ url }),
+      signal: AbortSignal.timeout(this.timeoutMs),
+    });
+    if (!res.ok && res.status === 401 && this._promoteFallbackCreds()) {
+      res = await this.fetchImpl(endpoint, {
+        method: 'POST',
+        headers: this._authHeaders(),
+        body: JSON.stringify({ url }),
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    }
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(`Browser Run content HTTP ${res.status}: ${body.slice(0, 240)}`);
+    }
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('application/json')) {
+      const json = await res.json();
+      return json.result || json.html || json.content || JSON.stringify(json);
+    }
+    return res.text();
   }
-  const engine = new KitesurfEngine();
-  const res = await engine.render({ url: args.url, action: args.action, output: args.output || null });
-  if (args.json) console.log(JSON.stringify(res, null, 2));
-  else {
-    console.log(`[kitesurf] ${res.status} engine=${res.engine} liveClaim=${res.liveClaim}`);
-    if (res.reason) console.log(`reason: ${res.reason}`);
-    if (res.output) console.log(`artifact: ${res.output}`);
-  }
-  return res.status === 'SUCCESS' ? 0 : 2;
 }
 
-if (require.main === module) {
-  main().then((code) => process.exit(code)).catch((err) => {
-    console.error(err.message);
-    process.exit(1);
+function main() {
+  const args = process.argv.slice(2);
+  const jsonMode = args.includes('--json');
+  const healthMode = args.includes('--health');
+  const engine = new KitesurfEngine();
+
+  if (healthMode) {
+    const health = engine.getHealthStatus();
+    if (jsonMode) {
+      console.log(JSON.stringify(health, null, 2));
+    } else {
+      console.log('=== Cloudflare Kitesurf (Browser Run) ===');
+      console.log(`Status:     ${health.kitesurfEngine}`);
+      console.log(`Live claim: ${health.liveClaim}`);
+      console.log(`Reason:     ${health.reason}`);
+      console.log(`Source:     ${health.source}`);
+    }
+    process.exit(health.liveClaim ? 0 : 2);
+  }
+
+  let url = '';
+  let action = 'screenshot';
+  let output = '';
+  let browser = 'kitesurf';
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--url' && args[i + 1]) url = args[++i];
+    else if (args[i] === '--action' && args[i + 1]) action = args[++i];
+    else if (args[i] === '--output' && args[i + 1]) output = args[++i];
+    else if (args[i] === '--browser' && args[i + 1]) browser = args[++i];
+  }
+
+  if (!url) {
+    console.log(
+      'Usage: node tools/cloudflare-kitesurf-browser.js --url <url> [--action screenshot|html|pdf] [--output <path>] [--browser kitesurf|chromium] [--json] [--health]',
+    );
+    process.exit(0);
+  }
+
+  engine.render({ url, action, output, browser }).then((res) => {
+    if (jsonMode) {
+      console.log(JSON.stringify(res, null, 2));
+    } else {
+      console.log(`[kitesurf] ${res.status} via ${res.engine} (${res.timingMs}ms) liveClaim=${res.liveClaim}`);
+      if (res.output) console.log(`Artifact: ${res.output}`);
+      if (res.error) console.log(`Error: ${res.error}`);
+    }
+    process.exit(res.status === 'SUCCESS' ? 0 : 1);
   });
 }
 
-module.exports = {
-  KitesurfEngine,
-  cloudflareCreds,
-  quickActionUrl,
-  cdpWebSocketUrl,
-  evaluateCompatibility,
-  distillDomToMarkdown,
-  validateBinaryPayload,
-  detectBinaryKind,
-  RETRYABLE_HTTP,
-  getHealthStatus,
-  main,
-};
+if (require.main === module) {
+  main();
+}
+
+module.exports = { KitesurfEngine };

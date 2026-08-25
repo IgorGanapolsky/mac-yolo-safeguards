@@ -3849,6 +3849,30 @@ GH #2034 / Linear AGENT-505. Remove fabricated fallback preference data and fixe
 
 - `apps/hermes-control-plane/app/api/device/tasks/submit/route.test.ts` (new) → **codex-infoq-device-schema** (T-INFOQ-DEVICE-SUBMIT-SCHEMA-20260825 / GH #2077: prove malformed signed-device bodies return HTTP 400 before `submitDeviceCloudTask`) (2026-08-25T15:42:00Z)
 
+## Claude Academy 4D steal (append 2026-08-25T16:40Z) — agent `grok-hosted-academy-4d-20260825`
+
+Source: https://academy.claude.com/ — AI Fluency 4D (Delegation, Description, Discernment, Diligence) + Cowork whole-task handoff. Not a course clone. Not Claude Cowork/Code/Tag. Complementary to fleet `/ai-fluency-4d-builder` (checklist) and PR #2052 completed≠quality. Do **not** dual-edit `tools/ai-native-sdlc.js`, InfoQ #2081 admission routes, or prompt-distill #2052.
+
+| T-HOSTED-ACADEMY-4D-20260825 | Steal Academy Description-before-execute, five-lens discernment, Cowork workspace+context+deliverable onto hosted VPS gates | in_progress | grok-hosted-academy-4d-20260825 | `tools/hosted-academy-4d.js`, `tests/test-hosted-academy-4d.js`, `bin/hosted-academy-4d`, `apps/hermes-control-plane/lib/hosted-academy-4d.ts`, `apps/hermes-control-plane/lib/hosted-academy-4d.test.ts`, `apps/hermes-control-plane/lib/execution-receipt.ts` (academy4d attach only), `apps/hermes-control-plane/lib/execution-receipt.test.ts` (academy4d only), `apps/hermes-control-plane/lib/hosted-session-handoff.ts` (whole-task cowork gate), `apps/hermes-control-plane/tests/hosted-session-handoff.test.mjs` (cowork cases), `.agents/skills/hosted-academy-4d/**`, `SKILLS.md` (append row), `plan.md` | Chat still skips ACs; execute/handoff fail closed without Description/Cowork fields; receipt.outcome `done` is not academy ship; workerLive=false until merge |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/hosted-academy-4d.js | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| tests/test-hosted-academy-4d.js | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| bin/hosted-academy-4d | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| apps/hermes-control-plane/lib/hosted-academy-4d.ts | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| apps/hermes-control-plane/lib/hosted-academy-4d.test.ts | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| apps/hermes-control-plane/lib/execution-receipt.ts (academy4d field only) | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| apps/hermes-control-plane/lib/execution-receipt.test.ts (academy4d cases) | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| apps/hermes-control-plane/lib/hosted-session-handoff.ts (wholeTask cowork) | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| apps/hermes-control-plane/tests/hosted-session-handoff.test.mjs (cowork cases) | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| .agents/skills/hosted-academy-4d/** | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| SKILLS.md (append row) | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| plan.md (this append) | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+
+Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` / `nostr/events` / `device-cloud-task.ts` (InfoQ #2081), `hosted-prompt-distill*` (#2052), or `tools/ai-native-sdlc.js`.
+
 ## File claim (append 2026-08-25T16:30:00Z) — `grok-hosted-alert-correlate`
 
 | T-HOSTED-ALERT-CORRELATE-20260825 | Digitate/ignio process steal: suppress duplicate hosted signatures, correlate related Worker routes, precursor vs user-facing, validated-fix only | in_progress | grok-hosted-alert-correlate | `tools/hosted-alert-correlate.js`, `tests/test-hosted-alert-correlate.js`, `apps/hermes-control-plane/lib/hosted-alert-correlate.ts`, `apps/hermes-control-plane/lib/hosted-alert-correlate.test.ts`, `apps/hermes-control-plane/app/ClientErrorBeacon.tsx`, `apps/hermes-control-plane/lib/client-error-beacon.test.ts`, `.agents/skills/hosted-alert-correlate/**`, `bin/hosted-alert-correlate`, `SKILLS.md`, `plan.md` | Not ignio/CloudWatch; do not dual-edit rule-sprawl.js or analytics/event/route.ts |
