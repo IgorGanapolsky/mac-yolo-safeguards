@@ -6,6 +6,19 @@ import test from "node:test";
 const root = path.join(import.meta.dirname, "..");
 const surfaces = fs.readFileSync(path.join(root, "app/StartSurfaces.tsx"), "utf8");
 const page = fs.readFileSync(path.join(root, "app/page.tsx"), "utf8");
+const styles = fs.readFileSync(path.join(root, "app/start-surfaces.module.css"), "utf8");
+const globals = fs.readFileSync(path.join(root, "app/globals.css"), "utf8");
+
+test("every StartSurfaces spacing token resolves locally or globally", () => {
+  const referenced = [...styles.matchAll(/var\((--space-[\w-]+)/g)].map((match) => match[1]);
+  const declared = new Set(
+    [...`${globals}\n${styles}`.matchAll(/(--space-[\w-]+)\s*:/g)].map((match) => match[1]),
+  );
+  const unresolved = [...new Set(referenced)].filter((token) => !declared.has(token));
+  assert.deepEqual(unresolved, []);
+  assert.match(styles, /\.panel\s*\{[\s\S]*padding:\s*var\(--space-lg\)/);
+  assert.match(styles, /\.panel\s*\{[\s\S]*gap:\s*var\(--space-md\)/);
+});
 
 test("Qoder steal is zero-install, not a fake desktop download wall", () => {
   assert.match(surfaces, /No desktop install/);
