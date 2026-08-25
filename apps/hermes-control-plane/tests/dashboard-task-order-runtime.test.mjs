@@ -1,0 +1,32 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  hideDuplicateTaskList,
+  latestChronologicalTask,
+  orderSnapshotChronologically,
+  orderTasksChronologically,
+} from "../lib/dashboard-task-order.ts";
+
+test("newest-first snapshot is reversed so the latest user turn is last", () => {
+  const ordered = orderSnapshotChronologically([
+    { role: "user", content: "today", createdAt: 300 },
+    { role: "assistant", content: "yesterday", createdAt: 200 },
+    { role: "user", content: "older", createdAt: 100 },
+  ]);
+  assert.deepEqual(ordered.map((message) => message.content), ["older", "yesterday", "today"]);
+});
+
+test("hideDuplicateTaskList is true only for an open thread on the default filter", () => {
+  assert.equal(hideDuplicateTaskList({ selectedThread: "t1", taskFilter: "all" }), true);
+  assert.equal(hideDuplicateTaskList({ selectedThread: null, taskFilter: "all" }), false);
+  assert.equal(hideDuplicateTaskList({ selectedThread: "t1", taskFilter: "unrated" }), false);
+});
+
+test("latestChronologicalTask is the last oldest-first row, not visibleTasks[0]", () => {
+  const tasks = orderTasksChronologically([
+    { id: "new", createdAt: 300 },
+    { id: "old", createdAt: 100 },
+  ]);
+  assert.equal(tasks[0].id, "old");
+  assert.equal(latestChronologicalTask(tasks)?.id, "new");
+});
