@@ -13,12 +13,14 @@ test("hosted VPS is the default run target and never auto-picks a paired Mac", (
   assert.match(dashboard, /deviceOverrideId && devices\.some/);
   assert.doesNotMatch(dashboard, /deviceId: selectedDeviceId \|\| undefined/);
   assert.match(dashboard, /data-testid="hosted-run-default"/);
-  assert.match(dashboard, /Pairing a computer is optional and never required to send/);
+  assert.match(dashboard, /Pairing a Mac is optional/);
   assert.doesNotMatch(dashboard, /Which machine should run tasks/);
   assert.match(dashboard, /aria-label="Hosted VPS is the default run target"/);
   assert.match(dashboard, /<h2>Hosted VPS runner<\/h2>/);
   assert.doesNotMatch(dashboard, /<h2>Paired Hermes connectors<\/h2>/);
   assert.match(dashboard, /<details className="leash-device-picker"/);
-  assert.match(dashboard, /<summary>Optional: send the next task to a paired computer<\/summary>/);
-  assert.match(dashboard, /<option value="cloud">☁ Hosted VPS \(default\)<\/option>/);
+  assert.match(dashboard, /<summary>Send to a paired Mac instead<\/summary>/);
+  assert.match(dashboard, /<option value="cloud">Hosted VPS \(default\)<\/option>/);
+  assert.doesNotMatch(dashboard, /HOSTED VPS IS THE DEFAULT/);
+  assert.doesNotMatch(dashboard, /Hosted VPS is the default<\/label>/);
 });

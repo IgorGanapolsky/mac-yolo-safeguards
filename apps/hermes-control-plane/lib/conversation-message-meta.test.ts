@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { snapshotMessageMeta, taskOutputMeta, taskPromptMeta } from "./conversation-message-meta";
+import { chatOutputStatus, pendingWaitCopy, snapshotMessageMeta, taskOutputMeta, taskPromptMeta } from "./conversation-message-meta";
 
 describe("snapshotMessageMeta", () => {
   it("marks assistant snapshots completed and prefers their exact timestamp", () => {
@@ -62,7 +62,21 @@ describe("task message metadata", () => {
   });
 
   it("keeps a running output truthful", () => {
-    expect(taskOutputMeta(base)).toEqual({ status: "running", timestamp: 100, timestampSource: "task" });
+    expect(taskOutputMeta(base)).toEqual({ status: "working", timestamp: 100, timestampSource: "task" });
+  });
+
+  it("never dumps cloud_pending into the chat chip", () => {
+    expect(chatOutputStatus("cloud_pending")).toBe("waiting");
+    expect(chatOutputStatus("local_pending")).toBe("waiting");
+    expect(chatOutputStatus("pending")).toBe("waiting");
+    expect(chatOutputStatus("running")).toBe("working");
+    expect(pendingWaitCopy()).toBe("Hermes hasn't started this yet.");
+    expect(taskOutputMeta({ ...base, status: "cloud_pending" })).toEqual({
+      status: "waiting",
+      timestamp: 100,
+      timestampSource: "task",
+    });
+    expect(taskPromptMeta({ ...base, status: "cloud_pending" }).status).toBe("sent");
   });
 
   it("does not label leaked provider tool protocol as completed", () => {

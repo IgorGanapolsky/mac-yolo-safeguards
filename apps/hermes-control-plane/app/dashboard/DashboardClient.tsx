@@ -26,6 +26,8 @@ import {
 } from "@/lib/dashboard-task-order";
 import {
   snapshotMessageMeta,
+  chatOutputStatus,
+  pendingWaitCopy,
   taskOutputMeta,
   taskPromptMeta,
   type ConversationMessageMeta,
@@ -170,12 +172,11 @@ function taskListEmptyCopy(input: {
 }
 
 function taskReceiptLabel(task: { route: string; deviceName?: string | null; status: string }): string {
-  if (task.route === "cloud") return "☁ hosted Hermes · fenced · 90s lease";
+  if (task.route === "cloud") return "Hermes";
   if (task.route === "local") {
-    const host = task.deviceName?.trim() || "Hermes machine";
-    return `⌘ ${host} · fenced · 90s lease`;
+    return task.deviceName?.trim() || "This Mac";
   }
-  return "Ⅱ Awaiting route · fenced when claimed";
+  return "Queued";
 }
 
 /** Hosted VPS is the default run target. Never auto-pick a paired Mac. */
@@ -1725,17 +1726,13 @@ export default function DashboardClient() {
                     data-testid="conversation-user-prompt"
                     data-timeline-index={index}
                   >
-                    <div className="task-top">
-                      <span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span>
-                      <time dateTime={new Date(task.createdAt).toISOString()}>{formatDateTime(task.createdAt)}</time>
-                    </div>
-                    <span>web</span>
+                    <span>You</span>
                     <ConversationMeta meta={taskPromptMeta(task)} />
                     <p>{task.prompt}</p>
                   </article>,
-                  task.result ? <article key={`task-result-${task.id || index}`} className="dashboard-task conversation-message role-assistant" data-testid="conversation-assistant-result"><div className="task-top"><span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span><time dateTime={new Date((task.completedAt ?? task.createdAt)).toISOString()}>{formatDateTime(task.completedAt ?? task.createdAt)}</time></div><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.result} hideToolProtocol /><TurnStatusline engine={task.deviceName || (task.route === "cloud" ? "Fenced VPS · Ollama (localhost:11434)" : "Ollama (http://localhost:11434/v1/models)")} ttft={task.completedAt && task.createdAt ? latency(task.completedAt - task.createdAt) : "<10ms"} cost="$0.00" />{feedbackControls(task.id)}</article>
+                  task.result ? <article key={`task-result-${task.id || index}`} className="dashboard-task conversation-message role-assistant" data-testid="conversation-assistant-result"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.result} hideToolProtocol /><TurnStatusline engine={task.deviceName || (task.route === "cloud" ? "Fenced VPS · Ollama (localhost:11434)" : "Ollama (http://localhost:11434/v1/models)")} ttft={task.completedAt && task.createdAt ? latency(task.completedAt - task.createdAt) : "<10ms"} cost="$0.00" />{feedbackControls(task.id)}</article>
                     : task.error ? <article key={`task-error-${task.id || index}`} className="conversation-message role-error"><span>Hermes error</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.error} /></article>
-                    : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${task.id || index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><p>Waiting for the fenced VPS runner to pick this up…</p></article>
+                    : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${task.id || index}`} className="conversation-message role-pending" data-testid="conversation-pending"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><p>{pendingWaitCopy()}</p></article>
                     : null,
                 ];
               }) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. <button type="button" className="task-filter-clear" data-testid="dashboard-retry" onClick={() => requestWorkspaceRefresh()}>Retry</button></div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
@@ -1815,7 +1812,7 @@ export default function DashboardClient() {
                 visibleTasks.map((task) => (
                   <article key={task.id} id={`task-${task.id}`} className="dashboard-task">
                     <div className="task-top">
-                      <span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span>
+                      <span className={`task-status status-${chatOutputStatus(task.status)}`}>{chatOutputStatus(task.status).replaceAll("_", " ")}</span>
                       <time dateTime={new Date(task.createdAt).toISOString()}>{formatDateTime(task.createdAt)}</time>
                     </div>
                     <h3>{task.threadTitle}</h3>
@@ -1990,13 +1987,13 @@ export default function DashboardClient() {
                 <li className={hostedCopy.live ? "is-done" : ""}><span>3</span>{hostedCopy.live ? "Online & autonomous" : "Waiting until runner and model are healthy"}</li>
               </ol>
               <p className="helper-copy" data-testid="hosted-run-default">
-                Tasks run on the hosted VPS. Pairing a computer is optional and never required to send.
+                Sends go to Hosted VPS. Pairing a Mac is optional.
               </p>
               {devices.length > 0 ? (
                 <details className="leash-device-picker" data-testid="leash-device-picker">
-                  <summary>Optional: send the next task to a paired computer</summary>
-                  <label htmlFor="leash-device-select" className="composer-where-label" style={{ margin: 0 }}>
-                    Hosted VPS is the default
+                  <summary>Send to a paired Mac instead</summary>
+                  <label htmlFor="leash-device-select" className="leash-device-label">
+                    Run next task on
                   </label>
                   <select
                     id="leash-device-select"
@@ -2006,7 +2003,7 @@ export default function DashboardClient() {
                     disabled={busy}
                     aria-label="Hosted VPS is the default run target"
                   >
-                    <option value="cloud">☁ Hosted VPS (default)</option>
+                    <option value="cloud">Hosted VPS (default)</option>
                     {devices.map((device) => (
                       <option key={device.id} value={device.id}>
                         {machineDisplayName(device)} · {deviceStatusLabel(device)}
@@ -2015,15 +2012,16 @@ export default function DashboardClient() {
                   </select>
                 </details>
               ) : null}
-              <div className="account-recovery" style={{ marginTop: "1rem" }}><p>Signed in as <strong>{user.email}</strong>. If this is the wrong workspace, switch accounts here.</p><SignOutForm buttonClassName="button button-secondary button-small" data-testid="dashboard-switch-account">Switch account</SignOutForm></div>
-              <p className="privacy-boundary">Bounded Hermes thread context syncs to this control plane. Tasks execute in isolated serverless leases.</p>
-              <p className="privacy-boundary" data-testid="hosted-not-computer-history">{HOSTED_NOT_COMPUTER_HISTORY} Least privilege: cannot read secrets. Private/incognito analogue: we do not ingest other people&apos;s Slack or DMs.</p>
+              <div className="account-recovery">
+                <p>Signed in as <strong>{user.email}</strong></p>
+                <SignOutForm buttonClassName="button button-secondary button-small" data-testid="dashboard-switch-account">Switch account</SignOutForm>
+              </div>
             </section>
             <details className="panel safety-panel" id="execution-safety" open={safetyExpanded} onToggle={(event) => setSafetyExpanded(event.currentTarget.open)}>
               <summary><span><span className="eyebrow">EXECUTION SAFETY</span><strong>What “Fenced” means</strong></span><span aria-hidden="true">⌄</span></summary>
               <div className="safety-explanation">
                 <p>ThumbGate gives each task to one signed runner at a time. Its 90-second lease must keep renewing; if that runner disappears, the lease expires before another runner can take over.</p>
-                <ul><li>Prevents duplicate or stale runners from continuing work.</li><li>Rejects completion receipts from an expired lease.</li><li>All tasks run in isolated serverless cloud sandboxes.</li><li>Not ChatGPT Computer History, not Windows Recall, not a Mac keylogger — the isolated fenced VPS does not grab the cursor.</li></ul>
+                <ul><li>Prevents duplicate or stale runners from continuing work.</li><li>Rejects completion receipts from an expired lease.</li><li>All tasks run in isolated serverless cloud sandboxes.</li><li data-testid="hosted-not-computer-history">{HOSTED_NOT_COMPUTER_HISTORY} Least privilege: cannot read secrets. We do not ingest other people&apos;s Slack or DMs.</li></ul>
                 <button
                   type="button"
                   className="button button-secondary button-small"

@@ -388,7 +388,8 @@ test("makes ThumbGate real with private thumbs feedback and a lessons dashboard"
 
 test("shows the signed-in email when a zero-device workspace may be the wrong account", () => {
   assert.match(dashboard, /Signed in as <strong>\{user\.email\}<\/strong>/);
-  assert.match(dashboard, /If this is the wrong workspace, switch accounts here/);
+  assert.match(dashboard, /Signed in as/);
+  assert.doesNotMatch(dashboard, /wrong workspace/);
   assert.match(dashboard, /Switch account/);
   // Shared SignOutForm posts to /api/auth/logout (one-click, busy-safe).
   assert.match(dashboard, /SignOutForm/);
