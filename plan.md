@@ -3804,3 +3804,19 @@ GH #2034 / Linear AGENT-505. Remove fabricated fallback preference data and fixe
 - Claim add: `apps/hermes-control-plane/tests/conversation-chronological-order.test.mjs` (no live owner) → **grok-dashboard-latest-at-bottom-20260825**. Did not steal #2041/#1989 hunks.
 
 - `apps/hermes-control-plane/lib/dashboard-task-order.ts` (`mergeThreadTimeline`), `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx` (one timeline), `apps/hermes-control-plane/tests/conversation-chronological-order.test.mjs`, `plan.md` (append only) → **grok-dashboard-latest-at-bottom-20260825** (2026-08-25T13:10:00Z)
+
+## File claim (append 2026-08-25T16:30:00Z) — `grok-infoq-aug2026-hosted-cascade`
+
+| T-INFOQ-AUG2026-HOSTED-CASCADE | Steal InfoQ 2026-08-25 SafeChat cheap-filter + Cloudflare MUST/SHOULD lifecycle + WriteGuard critical-deny onto hosted VPS admission | in_progress | grok-infoq-aug2026-hosted-cascade | `tools/hosted-infoq-cascade.js`, `tests/test-hosted-infoq-cascade.js`, `apps/hermes-control-plane/lib/hosted-infoq-cascade.ts`, `apps/hermes-control-plane/lib/hosted-infoq-cascade.test.ts`, `apps/hermes-control-plane/app/api/tasks/route.ts` (cascade call only), `apps/hermes-control-plane/app/api/nostr/events/route.ts` (cascade call only), `.agents/skills/hosted-infoq-aug2026/**`, `bin/hosted-infoq-cascade`, `SKILLS.md`, `plan.md` | Holdout 7/7; vitest cascade; no Next 16.3 bump; no Codex/WriteGuard portal clone; do not dual-edit #2010/#2079/#2069 or cloud-tool-policy.ts |
+
+- `tools/hosted-infoq-cascade.js` (new)
+- `tests/test-hosted-infoq-cascade.js` (new)
+- `apps/hermes-control-plane/lib/hosted-infoq-cascade.ts` (new)
+- `apps/hermes-control-plane/lib/hosted-infoq-cascade.test.ts` (new)
+- `apps/hermes-control-plane/app/api/tasks/route.ts` (cascade call only)
+- `apps/hermes-control-plane/app/api/nostr/events/route.ts` (cascade call only)
+- `.agents/skills/hosted-infoq-aug2026/` (new)
+- `bin/hosted-infoq-cascade` (new)
+- `SKILLS.md` (append row)
+- `plan.md` (this append)
+

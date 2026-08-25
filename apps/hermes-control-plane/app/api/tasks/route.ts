@@ -7,6 +7,7 @@ import {
 } from "@/lib/agent-governance";
 import { db } from "@/lib/runtime";
 import { evaluateCloudPromptToolPolicy } from "@/lib/cloud-tool-policy";
+import { evaluateHostedInfoqCascade } from "@/lib/hosted-infoq-cascade";
 import { ackHostedSend, publicRunReceipt } from "@/lib/hosted-source-of-truth";
 import { admitHostedContext } from "@/lib/hosted-edit-anchor";
 import { jsonError } from "@/lib/security";
@@ -146,6 +147,10 @@ export async function POST(request: Request) {
     const toolPolicy = evaluateCloudPromptToolPolicy(prompt);
     if (!toolPolicy.allowed) {
       return jsonError(toolPolicy.message, 409);
+    }
+    const cascade = evaluateHostedInfoqCascade(prompt);
+    if (!cascade.allowed) {
+      return jsonError(cascade.message, 409);
     }
     // Persist-before-live: do not await Fly probes here. An 8s force probe 409s
     // the create and swallows the task from the dashboard (E2E + real /d).
