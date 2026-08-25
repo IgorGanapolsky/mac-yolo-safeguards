@@ -96,12 +96,15 @@ export function mergeThreadTimeline<
       message,
     }),
   );
+  const latestSnapshotAt = clocks.length ? Math.max(...clocks) : 0;
   const tasks = orderTasksChronologically(input.tasks).filter((task) => {
     const prompt = typeof task.prompt === "string" ? task.prompt.trim() : "";
     if (!prompt || !snapshotUser.has(prompt)) return true;
     // Keep in-flight work visible even when a synced bubble already shows the prompt.
     const status = (task.status ?? "").toLowerCase();
-    return status !== "completed" && status !== "failed";
+    if (status !== "completed" && status !== "failed") return true;
+    // Distinct later turns that reuse the same text (e.g. "try again") must stay.
+    return task.createdAt > latestSnapshotAt;
   });
   const taskItems: Array<ThreadTimelineItem<TMessage, TTask>> = tasks.map((task, index) => ({
     kind: "task",

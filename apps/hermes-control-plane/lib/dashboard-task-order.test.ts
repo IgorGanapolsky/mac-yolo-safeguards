@@ -125,4 +125,12 @@ describe("mergeThreadTimeline", () => {
       "pending",
     ]);
   });
+
+  it("keeps a later completed turn that reuses earlier prompt text", () => {
+    const timeline = mergeThreadTimeline({
+      snapshot: [{ role: "user", content: "try again", createdAt: 100 }],
+      tasks: [{ id: "later", prompt: "try again", createdAt: 500, status: "completed", result: "ok" } as never],
+    });
+    expect(timeline.some((item) => item.kind === "task" && item.task.id === "later")).toBe(true);
+  });
 });

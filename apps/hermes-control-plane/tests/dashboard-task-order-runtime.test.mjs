@@ -45,3 +45,11 @@ test("mergeThreadTimeline puts today's user turn after an older completed card",
   assert.equal(timeline[timeline.length - 1].kind, "snapshot");
   assert.equal(timeline[timeline.length - 1].kind === "snapshot" && timeline[timeline.length - 1].message.content, "today");
 });
+
+test("later completed turn that reuses earlier prompt text stays visible", () => {
+  const timeline = mergeThreadTimeline({
+    snapshot: [{ role: "user", content: "try again", createdAt: 100 }],
+    tasks: [{ id: "later", prompt: "try again", createdAt: 500, status: "completed" }],
+  });
+  assert.equal(timeline.some((item) => item.kind === "task" && item.task.id === "later"), true);
+});
