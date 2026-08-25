@@ -3811,3 +3811,14 @@ GH #2034 / Linear AGENT-505. Remove fabricated fallback preference data and fixe
 - `apps/hermes-control-plane/app/api/device/tasks/submit/route.ts`, `apps/hermes-control-plane/lib/hermes-schema-validator.js`, `apps/hermes-control-plane/lib/schema-validator.ts`, `apps/hermes-control-plane/lib/schema-validator.test.ts`, `apps/hermes-control-plane/tests/device-cloud-task-routes.test.mjs`, `plan.md` (append only) → **codex-infoq-device-schema** (T-INFOQ-DEVICE-SUBMIT-SCHEMA-20260825 / GH #2077: strict shared schema validation before signed-device task admission while preserving compatible connector payloads and the downstream 48k aggregate context cap) (2026-08-25T15:36:00Z)
 
 - `apps/hermes-control-plane/app/api/device/tasks/submit/route.test.ts` (new) → **codex-infoq-device-schema** (T-INFOQ-DEVICE-SUBMIT-SCHEMA-20260825 / GH #2077: prove malformed signed-device bodies return HTTP 400 before `submitDeviceCloudTask`) (2026-08-25T15:42:00Z)
+
+## File claim (append 2026-08-25T16:00:00Z) — `grok-kitesurf-account-rail`
+
+| T-KITESURF-ACCOUNT-RAIL-20260825 | Auto-fill Cloudflare account id so Browser Run `?browser=kitesurf` is actually used for public one-shot captures; fail-closed PNG magic; do not dual-edit #2010/#2079 | in_progress | grok-kitesurf-account-rail | `tools/kitesurf-account-rail.js`, `tests/test-kitesurf-account-rail.js`, `.agents/skills/kitesurf-account-rail/**`, `bin/kitesurf-account-rail`, `SKILLS.md`, `plan.md` | Complementary to OPEN #2079/#2010; hosted Worker still does not call Kitesurf |
+
+- `tools/kitesurf-account-rail.js` (new)
+- `tests/test-kitesurf-account-rail.js` (new)
+- `.agents/skills/kitesurf-account-rail/` (new)
+- `bin/kitesurf-account-rail` (new)
+- `SKILLS.md` (append row)
+- `plan.md` (this append)
