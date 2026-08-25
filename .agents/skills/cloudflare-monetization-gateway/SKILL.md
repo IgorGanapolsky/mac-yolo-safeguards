@@ -23,10 +23,12 @@ HMAC simulate only with `X402_HMAC_SECRET` and `--simulate` / `X402_ALLOW_SIMULA
 
 | NEVER | ALWAYS |
 |-------|--------|
-| Accept `x402_…` as payment | HMAC over challenge id |
+| Accept `x402_…` as payment | HMAC BOUND to the issued challenge (id + resource + traffic type + amount), verified against the persisted issuance record, single-use |
 | Claim merchant-of-record / live USDC | `status: WAITLIST` `liveClaim: false` |
 | Put x402/USDC in dashboard or landing | Keep it in this CLI + skill (hosted-source-of-truth) |
 | Execute x402 spend from the economic router | Existing approval gate in `hermes-economic-router.js` |
+| Honour a token whose challenge was never issued, is expired, or was already used | Reject: `challenge_not_issued` / `challenge_expired` / `challenge_already_consumed` |
+| Let simulated and real tokens share a shape | Simulated ones carry the `x402sim.v2.` prefix — nothing real is shaped like that |
 | Buyer outreach / new SKU (ECI) | Waitlist URL only |
 
 Waitlist: https://blog.cloudflare.com/monetization-gateway/  
