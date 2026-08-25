@@ -3883,6 +3883,14 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - `apps/hermes-control-plane/lib/client-error-beacon.test.ts`
 - `.agents/skills/hosted-alert-correlate/` (new)
 - `bin/hosted-alert-correlate` (new)
+## File claim (append 2026-08-25T16:00:00Z) — `grok-kitesurf-account-rail`
+
+| T-KITESURF-ACCOUNT-RAIL-20260825 | Auto-fill Cloudflare account id so Browser Run `?browser=kitesurf` is actually used for public one-shot captures; fail-closed PNG magic; do not dual-edit #2010/#2079 | in_progress | grok-kitesurf-account-rail | `tools/kitesurf-account-rail.js`, `tests/test-kitesurf-account-rail.js`, `.agents/skills/kitesurf-account-rail/**`, `bin/kitesurf-account-rail`, `SKILLS.md`, `plan.md` | Complementary to OPEN #2079/#2010; hosted Worker still does not call Kitesurf |
+
+- `tools/kitesurf-account-rail.js` (new)
+- `tests/test-kitesurf-account-rail.js` (new)
+- `.agents/skills/kitesurf-account-rail/` (new)
+- `bin/kitesurf-account-rail` (new)
 - `SKILLS.md` (append row)
 - `plan.md` (this append)
 
