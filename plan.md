@@ -3932,3 +3932,9 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 
 - Leash still dumped HOSTED_NOT_COMPUTER_HISTORY via `hostedCopy.body` at 9px even after privacy-boundary removal. Summary stays $10/fenced/no-inbox; denial stays in execution-safety accordion.
 - Hidden task-list chips now use chatOutputStatus so CLOUD PENDING cannot reappear if the duplicate list is shown.
+
+## Discovered / Decisions (append) — 2026-08-25T18:45Z — grok-dashboard-chat-status-copy-20260825
+
+- Production still shows `origin/main` Leash: `<summary>Optional: send the next task to a paired computer</summary>` plus “wrong workspace / Switch account” plus “Bounded Hermes … isolated serverless leases.” That is a sign-out control + operator dump sitting under Mac pairing — not a second Google workspace. Header already has Sign out (`dashboard-sign-out`).
+- Drop the Leash `account-recovery` card. Keep one-line `leash-signed-in` email. Sign-out stays in header/sidebar.
+- Codex P2 on #2095: `pendingWaitCopy(task.status)` — `running` → “Hermes is working on this.”; pending → “hasn't started.” Do not dual-edit #2041 result-replace or AGENT-476 TurnStatusline.

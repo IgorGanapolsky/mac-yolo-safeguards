@@ -60,7 +60,8 @@ export function chatOutputStatus(status: string): string {
   return status;
 }
 
-export function pendingWaitCopy(): string {
+export function pendingWaitCopy(status?: string): string {
+  if (status === "running") return "Hermes is working on this.";
   return "Hermes hasn't started this yet.";
 }
 

@@ -1732,7 +1732,7 @@ export default function DashboardClient() {
                   </article>,
                   task.result ? <article key={`task-result-${task.id || index}`} className="dashboard-task conversation-message role-assistant" data-testid="conversation-assistant-result"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.result} hideToolProtocol /><TurnStatusline engine={task.deviceName || (task.route === "cloud" ? "Fenced VPS · Ollama (localhost:11434)" : "Ollama (http://localhost:11434/v1/models)")} ttft={task.completedAt && task.createdAt ? latency(task.completedAt - task.createdAt) : "<10ms"} cost="$0.00" />{feedbackControls(task.id)}</article>
                     : task.error ? <article key={`task-error-${task.id || index}`} className="conversation-message role-error"><span>Hermes error</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.error} /></article>
-                    : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${task.id || index}`} className="conversation-message role-pending" data-testid="conversation-pending"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><p>{pendingWaitCopy()}</p></article>
+                    : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${task.id || index}`} className="conversation-message role-pending" data-testid="conversation-pending"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><p>{pendingWaitCopy(task.status)}</p></article>
                     : null,
                 ];
               }) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. <button type="button" className="task-filter-clear" data-testid="dashboard-retry" onClick={() => requestWorkspaceRefresh()}>Retry</button></div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
@@ -2012,10 +2012,9 @@ export default function DashboardClient() {
                   </select>
                 </details>
               ) : null}
-              <div className="account-recovery">
-                <p>Signed in as <strong>{user.email}</strong></p>
-                <SignOutForm buttonClassName="button button-secondary button-small" data-testid="dashboard-switch-account">Switch account</SignOutForm>
-              </div>
+              <p className="helper-copy" data-testid="leash-signed-in">
+                Signed in as <strong>{user.email}</strong>
+              </p>
             </section>
             <details className="panel safety-panel" id="execution-safety" open={safetyExpanded} onToggle={(event) => setSafetyExpanded(event.currentTarget.open)}>
               <summary><span><span className="eyebrow">EXECUTION SAFETY</span><strong>What “Fenced” means</strong></span><span aria-hidden="true">⌄</span></summary>

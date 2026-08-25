@@ -70,6 +70,8 @@ describe("task message metadata", () => {
     expect(chatOutputStatus("local_pending")).toBe("waiting");
     expect(chatOutputStatus("pending")).toBe("waiting");
     expect(chatOutputStatus("running")).toBe("working");
+    expect(pendingWaitCopy("cloud_pending")).toBe("Hermes hasn't started this yet.");
+    expect(pendingWaitCopy("running")).toBe("Hermes is working on this.");
     expect(pendingWaitCopy()).toBe("Hermes hasn't started this yet.");
     expect(taskOutputMeta({ ...base, status: "cloud_pending" })).toEqual({
       status: "waiting",
