@@ -30,6 +30,8 @@ export const HERMES_THREAD_LIST_CANDIDATES = [
 export const DASHBOARD_TASK_CANDIDATES_FOR = (prompt) => [
   { css: ".dashboard-task", hasText: prompt },
   { testid: "dashboard-task" },
+  { css: ".conversation-message.role-user", hasText: prompt },
+  { testid: "conversation-user-prompt" },
   { text: prompt },
 ];
 
