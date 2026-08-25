@@ -25,6 +25,6 @@ test("restored threads still move the newest message into the phone viewport", (
     dashboard,
     /loadState !== "loaded"[\s\S]*?scrollConversationHistoryToLatest\(document, "auto"\)/,
   );
-  assert.match(dashboard, /className="conversation-message role-assistant"/);
+  assert.match(dashboard, /className="(?:dashboard-task )?conversation-message role-assistant"/);
   assert.match(dashboard, /<ConversationMeta meta=\{taskOutputMeta\(task\)\}/);
 });
