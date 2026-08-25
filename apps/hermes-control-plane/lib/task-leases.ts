@@ -131,8 +131,9 @@ export async function claimTask(input: {
        LEFT JOIN devices d ON d.id = k.device_id
       WHERE ${routeClause}
         AND (k.lease_expires_at IS NULL OR k.lease_expires_at <= ?)
+        AND (k.status = 'running' OR COALESCE(k.updated_at, k.created_at) > ?)
       ORDER BY k.created_at ASC LIMIT 1`
-  ).bind(now - 30 * 24 * 60 * 60 * 1000, ...params).first<TaskCandidate>();
+  ).bind(now - 30 * 24 * 60 * 60 * 1000, ...params, now - TASK_PICKUP_TIMEOUT_MS).first<TaskCandidate>();
   if (!candidate) return null;
 
   const prior = await db().prepare(
@@ -251,12 +252,13 @@ export async function claimTask(input: {
     `UPDATE tasks SET status = 'running', route = ?, lease_owner = ?, lease_token_hash = ?,
             lease_generation = lease_generation + 1, lease_expires_at = ?, updated_at = ?
       WHERE id = ? AND lease_generation = ? AND (lease_expires_at IS NULL OR lease_expires_at <= ?)
+        AND (status = 'running' OR COALESCE(updated_at, created_at) > ?)
         AND (? <> 'cloud' OR route = 'cloud' OR
           (SELECT COUNT(*) FROM tasks AS cloud_budget
             WHERE cloud_budget.organization_id = ? AND cloud_budget.route = 'cloud'
               AND cloud_budget.created_at >= ?) < ?)`
   ).bind(input.route, input.owner, await sha256(leaseToken), leaseExpiresAt, now,
-    candidate.id, candidate.leaseGeneration, now, input.route, candidate.organizationId,
+    candidate.id, candidate.leaseGeneration, now, now - TASK_PICKUP_TIMEOUT_MS, input.route, candidate.organizationId,
     now - 30 * 24 * 60 * 60 * 1000, cloudDecision?.limit ?? 0).run();
   if (update.meta.changes !== 1) return null;
   await audit({
@@ -415,4 +417,42 @@ export async function completeTask(input: {
     },
   });
   return true;
+}
+
+export {
+  TASK_PICKUP_TIMEOUT_MS,
+  TASK_PICKUP_TIMEOUT_ERROR,
+  staleUnclaimedTaskIds,
+  queuedSince,
+  type PendingTaskRow,
+} from "./task-pickup";
+import { TASK_PICKUP_TIMEOUT_ERROR, TASK_PICKUP_TIMEOUT_MS } from "./task-pickup";
+
+/**
+ * Fail tasks that were never claimed. Fenced to the unclaimed status set with
+ * a NULL-lease predicate so it can never steal a task a runner is executing,
+ * and issues exactly one write, only when there is something to expire.
+ */
+export async function expireUnclaimedTasks(taskIds: string[], now = Date.now()): Promise<string[]> {
+  if (!taskIds.length) return [];
+  const placeholders = taskIds.map(() => "?").join(", ");
+  const result = await db().prepare(
+    `UPDATE tasks SET status = 'failed', error = ?, completed_at = ?, updated_at = ?,
+            lease_owner = NULL, lease_token_hash = NULL, lease_expires_at = NULL
+      WHERE id IN (${placeholders})
+        AND status IN ('cloud_pending', 'local_pending')
+        AND lease_owner IS NULL
+        AND lease_expires_at IS NULL
+        AND COALESCE(updated_at, created_at) <= ?`
+  ).bind(TASK_PICKUP_TIMEOUT_ERROR, now, now, ...taskIds, now - TASK_PICKUP_TIMEOUT_MS).run();
+  if ((result.meta.changes ?? 0) === 0) return [];
+  // Report the rows this update actually changed, not the candidate list. A
+  // runner can win the race for one candidate id while the rest expire: the
+  // aggregate change count is still positive, but that task is legitimately
+  // running under a valid lease and must not be rewritten as failed.
+  const changed = await db().prepare(
+    `SELECT id FROM tasks
+      WHERE id IN (${placeholders}) AND status = 'failed' AND completed_at = ? AND error = ?`
+  ).bind(...taskIds, now, TASK_PICKUP_TIMEOUT_ERROR).all<{ id: string }>();
+  return (changed.results ?? []).map((row) => row.id);
 }
