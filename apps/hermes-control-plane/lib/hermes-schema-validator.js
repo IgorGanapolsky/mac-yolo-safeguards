@@ -88,6 +88,9 @@ function validateString(value, schema) {
     return { ok: false, error: `${schema.label || 'Field'} is required` };
   }
   if (schema.max && v.length > schema.max) {
+    if (schema.truncate === false) {
+      return { ok: false, error: `${schema.label || 'Field'} must be at most ${schema.max} characters` };
+    }
     v = v.slice(0, schema.max);
   }
   if (schema.min !== undefined && v.length < schema.min) {
@@ -197,6 +200,25 @@ const RouteSchemas = {
     traceId: Schema.string({ required: false, max: 64, label: 'traceId' }),
     routePreference: Schema.enum(['local', 'cloud', 'auto'], { required: false, label: 'routePreference' }),
   }),
+  deviceSubmitTask: Schema.object({
+    prompt: Schema.string({ required: true, max: 24000, truncate: false, label: 'prompt' }),
+    threadId: Schema.string({ required: false, max: 160, truncate: false, label: 'threadId' }),
+    routePreference: Schema.enum(['local', 'cloud', 'auto'], {
+      required: false,
+      default: 'cloud',
+      label: 'routePreference',
+    }),
+    contextMessages: Schema.array(
+      Schema.object({
+        role: Schema.enum(['user', 'assistant', 'system'], { required: true, label: 'role' }),
+        content: Schema.string({ required: true, max: 8000, truncate: false, label: 'content' }),
+      }, { strict: true }),
+      { required: false, max: 60 },
+    ),
+    idempotencyKey: Schema.string({ required: false, max: 120, truncate: false, label: 'idempotencyKey' }),
+    traceId: Schema.string({ required: false, max: 64, truncate: false, label: 'traceId' }),
+    source: Schema.string({ required: false, max: 40, truncate: false, label: 'source' }),
+  }, { strict: true }),
   feedback: Schema.object({
     taskId: Schema.string({ required: true, max: 160, label: 'taskId' }),
     signal: Schema.enum(['up', 'down'], { required: true, label: 'signal' }),

@@ -136,3 +136,6 @@ node_modules/
 
 # install-grok-yolo SuperGrok recovery temp
 .hermes-yolo-wrapper.from-main.js
+
+# Local x402 simulate ledger — never commit fake or real settlement rows
+.ai/monetization-gateway-ledger.json
