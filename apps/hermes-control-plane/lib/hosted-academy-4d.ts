@@ -120,6 +120,26 @@ export function admitDescriptionChain(input: {
   };
 }
 
+const EXECUTE_KINDS = new Set(["execute", "run", "agent", "task"]);
+
+/**
+ * Admission-path wrapper. Composer/chat clients omit `kind` and stay on
+ * chat_skip. Explicit execute-class kinds must pass done + ACs before persist.
+ */
+export function admitHostedTaskDescription(input: {
+  kind?: string;
+  done?: string;
+  acceptance?: Array<{ criterion?: string; proofSurface?: string; proof?: string }>;
+} = {}): DescriptionAdmission {
+  const raw = String(input.kind || "chat").toLowerCase();
+  const kind = EXECUTE_KINDS.has(raw) ? "execute" : raw;
+  return admitDescriptionChain({
+    kind,
+    done: input.done,
+    acceptance: input.acceptance,
+  });
+}
+
 export function requireCoworkHandoff(input: {
   workspace?: string;
   context?: string;

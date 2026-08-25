@@ -106,6 +106,18 @@ function admitDescriptionChain(input) {
   };
 }
 
+const EXECUTE_KINDS = new Set(['execute', 'run', 'agent', 'task']);
+
+function admitHostedTaskDescription(input) {
+  const raw = String((input && input.kind) || 'chat').toLowerCase();
+  const kind = EXECUTE_KINDS.has(raw) ? 'execute' : raw;
+  return admitDescriptionChain({
+    kind,
+    done: input && input.done,
+    acceptance: input && input.acceptance,
+  });
+}
+
 function requireCoworkHandoff(input) {
   const workspace = String((input && input.workspace) || '').trim();
   const context = String((input && input.context) || '').trim();
@@ -291,6 +303,7 @@ module.exports = {
   LENSES,
   honesty,
   admitDescriptionChain,
+  admitHostedTaskDescription,
   requireCoworkHandoff,
   gradeDiscernment,
   attachAcademyDiscernment,

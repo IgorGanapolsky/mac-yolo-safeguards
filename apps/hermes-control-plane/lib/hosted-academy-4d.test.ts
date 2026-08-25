@@ -1,6 +1,8 @@
+import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import {
   admitDescriptionChain,
+  admitHostedTaskDescription,
   attachAcademyDiscernment,
   gradeDiscernment,
   requireCoworkHandoff,
@@ -94,5 +96,30 @@ describe("hosted-academy-4d", () => {
     });
     expect(attached.liveClaim).toBe(false);
     expect(attached.diligenceCall).toBe("fix");
+  });
+
+  it("keeps omitted kind as chat so the dashboard composer still admits", () => {
+    const chat = admitHostedTaskDescription({ kind: undefined });
+    expect(chat.ok).toBe(true);
+    if (chat.ok) expect(chat.reason).toBe("chat_skip");
+  });
+
+  it("refuses execute-class kinds without done + ACs before persist", () => {
+    for (const kind of ["execute", "run", "agent", "task"]) {
+      const denied = admitHostedTaskDescription({ kind });
+      expect(denied.ok).toBe(false);
+      if (!denied.ok) expect(denied.reason).toBe("description_missing");
+    }
+  });
+
+  it("wires the description gate into both production admission paths", async () => {
+    const [tasksRoute, deviceCloud] = await Promise.all([
+      readFile(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8"),
+      readFile(new URL("./device-cloud-task.ts", import.meta.url), "utf8"),
+    ]);
+    expect(tasksRoute).toContain("admitHostedTaskDescription");
+    expect(tasksRoute).toContain("if (!descriptionAdmit.ok)");
+    expect(deviceCloud).toContain("admitHostedTaskDescription");
+    expect(deviceCloud).toContain("if (!descriptionAdmit.ok)");
   });
 });

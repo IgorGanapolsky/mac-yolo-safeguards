@@ -8,6 +8,7 @@ const path = require('path');
 const {
   honesty,
   admitDescriptionChain,
+  admitHostedTaskDescription,
   requireCoworkHandoff,
   gradeDiscernment,
   attachAcademyDiscernment,
@@ -112,6 +113,25 @@ const attached = attachAcademyDiscernment({
 });
 assert.strictEqual(attached.liveClaim, false);
 assert.strictEqual(attached.diligenceCall, 'fix');
+
+const omittedKind = admitHostedTaskDescription({});
+assert.strictEqual(omittedKind.ok, true);
+assert.strictEqual(omittedKind.reason, 'chat_skip');
+for (const kind of ['execute', 'run', 'agent', 'task']) {
+  const denied = admitHostedTaskDescription({ kind });
+  assert.strictEqual(denied.ok, false, kind);
+  assert.strictEqual(denied.reason, 'description_missing', kind);
+}
+const tasksRoute = fs.readFileSync(
+  path.join(__dirname, '../apps/hermes-control-plane/app/api/tasks/route.ts'),
+  'utf8',
+);
+const deviceCloud = fs.readFileSync(
+  path.join(__dirname, '../apps/hermes-control-plane/lib/device-cloud-task.ts'),
+  'utf8',
+);
+assert.match(tasksRoute, /admitHostedTaskDescription/);
+assert.match(deviceCloud, /admitHostedTaskDescription/);
 
 const handoffDenied = evaluateTask({ kind: 'handoff', done: 'x', acceptance: [{ criterion: 'c', proofSurface: 't' }] });
 assert.strictEqual(handoffDenied.status, 'DENIED');
