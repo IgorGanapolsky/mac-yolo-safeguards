@@ -3910,3 +3910,24 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 
 - PR **#2092** Codex P1/P2 on tip `d1ced6147`: (1) placeholder SHA / missing eval file must not grade LIVE; (2) `Boolean("false")` must not coerce proof flags; (3) `claimedClass=chat` must not hide overnight/batch prompts; (4) wire `attachTogetherNativeToReceipt` into `execution-receipt.ts` now that #2088 is on main.
 - SonarQube Cloud GitHub check-suite `89062269595` still **queued** with 0 check-runs / 0 public issues (mac-yolo is not a SonarCloud project). Fixes below are the live review findings on this PR.
+
+## File claim (append 2026-08-25T18:20:00Z) — `grok-hosted-agentic-watt-20260825`
+
+| T-HOSTED-AGENTIC-WATT-20260825 | NVIDIA AgentX process steal: replay agentic turns, tool-gap ≠ decode, context-reuse analog, tokens-per-watt vs 90s interactivity | in_progress | grok-hosted-agentic-watt-20260825 | `tools/hosted-agentic-watt.js`, `tests/test-hosted-agentic-watt.js`, `apps/hermes-control-plane/lib/hosted-agentic-watt.ts`, `apps/hermes-control-plane/lib/hosted-agentic-watt.test.ts`, `apps/hermes-control-plane/lib/execution-receipt.ts` (watt attach only), `bin/hosted-agentic-watt`, `.agents/skills/hosted-agentic-watt/**`, `SKILLS.md` (one row), `plan.md` | Not Vera Rubin / AgentX / Dynamo / NVL72; do not dual-edit nvidia-nemo-switchyard, nvidia-skill-evaluator, or DashboardClient |
+
+- `tools/hosted-agentic-watt.js` (new)
+- `tests/test-hosted-agentic-watt.js` (new)
+- `apps/hermes-control-plane/lib/hosted-agentic-watt.ts` (new)
+- `apps/hermes-control-plane/lib/hosted-agentic-watt.test.ts` (new)
+- `apps/hermes-control-plane/lib/execution-receipt.ts` (watt attach only)
+- `bin/hosted-agentic-watt` (new)
+- `.agents/skills/hosted-agentic-watt/` (new)
+- `SKILLS.md` (one row append)
+- `plan.md` (this append)
+
+## Discovered / Decisions (append) — 2026-08-25T18:20Z — grok-hosted-agentic-watt-20260825
+
+- Source: https://developer.nvidia.com/blog/nvidia-vera-rubin-and-blackwell-set-a-new-standard-for-agentic-ai-performance-per-watt/
+- Transferable: replay tool/context-growing sessions instead of 8K/1K chat; keep tool-call gaps out of decode; credit overlapping prompt tokens as reuse analog; tokens/watt is UNUSABLE if E2E exceeds the 90s lease. 15W VPS proxy, never NVIDIA MW.
+- Backlog: AgentX/AIPerf replay client, Dynamo prefill/decode pools, NVFP4, WideEP, Groq 3 LPX, rack-scale KV offload.
+- GATE: employment_ip_counsel — hosted honesty receipts on the existing $10 VPS, not paid outreach and not net-new governance SKU.

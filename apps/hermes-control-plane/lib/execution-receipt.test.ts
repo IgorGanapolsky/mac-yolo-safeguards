@@ -15,6 +15,8 @@ describe("buildTaskCompletionReceipt", () => {
     expect(r.note).toBe("self_reported_only");
     expect(r.togetherNative?.liveClaim).toBe(false);
     expect(r.togetherNative?.capacityIsNotFrontier).toBe(true);
+    expect(r.agenticWatt?.liveClaim).toBe(false);
+    expect(r.agenticWatt?.notTokensPerMegawatt).toBe(true);
   });
 
   it("marks external-verified success as done", () => {

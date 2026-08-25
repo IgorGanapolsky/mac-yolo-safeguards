@@ -3,6 +3,10 @@ import {
   attachTogetherNativeToReceipt,
   type TogetherNativeAttach,
 } from "./hosted-together-native";
+import {
+  attachAgenticWattToReceipt,
+  type AgenticWattAttach,
+} from "./hosted-agentic-watt";
 
 /**
  * Five-field execution receipts (inspired by reliability practice + SeqPU-style
@@ -40,6 +44,8 @@ export type ExecutionReceipt = {
   academy4d?: DiscernmentGrade;
   /** Together Native: capacity ≠ frontier. Never LIVE from leftover quota. */
   togetherNative?: TogetherNativeAttach;
+  /** Agentic watt: tool-gap vs decode, context-reuse analog. Not NVIDIA MW. */
+  agenticWatt?: AgenticWattAttach;
 };
 
 export function buildTaskCompletionReceipt(input: {
@@ -54,6 +60,7 @@ export function buildTaskCompletionReceipt(input: {
   externalEvidenceId?: string | null;
   now?: number;
   together?: Parameters<typeof attachTogetherNativeToReceipt>[1];
+  watt?: Parameters<typeof attachAgenticWattToReceipt>[1];
 }): ExecutionReceipt {
   const timestamp = input.now ?? Date.now();
   const hasExternal =
@@ -90,6 +97,7 @@ export function buildTaskCompletionReceipt(input: {
   };
   receipt.academy4d = attachAcademyDiscernment(receipt);
   receipt.togetherNative = attachTogetherNativeToReceipt(receipt, input.together);
+  receipt.agenticWatt = attachAgenticWattToReceipt(receipt, input.watt);
   return receipt;
 }
 
@@ -117,6 +125,15 @@ export function receiptAuditMetadata(receipt: ExecutionReceipt): Record<string, 
             status: receipt.togetherNative.status,
             capacityIsNotFrontier: receipt.togetherNative.capacityIsNotFrontier,
             workloadClass: receipt.togetherNative.workloadClass,
+          }
+        : undefined,
+      agenticWatt: receipt.agenticWatt
+        ? {
+            liveClaim: receipt.agenticWatt.liveClaim,
+            status: receipt.agenticWatt.status,
+            sessionClass: receipt.agenticWatt.sessionClass,
+            usable: receipt.agenticWatt.usable,
+            notTokensPerMegawatt: receipt.agenticWatt.notTokensPerMegawatt,
           }
         : undefined,
     },
