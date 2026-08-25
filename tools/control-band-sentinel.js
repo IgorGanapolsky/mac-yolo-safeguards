@@ -209,13 +209,25 @@ function runSentinel(metricData, configPath = path.join(__dirname, '../bands.yam
 
   for (const metric of config.metrics || []) {
     const samples = metricData[metric.id] || [];
-    if (samples.length === 0) continue;
 
+    // A configured metric with no observations is NOT the same as a metric
+    // nobody configured, and the difference is the one a reader cares about:
+    // silence here usually means the collector broke, not that the system is
+    // healthy. Skipping it made evaluateWesternElectric's NO_DATA branch
+    // unreachable through this runner, so the absence looked identical to
+    // "nothing to report".
     const evaluation = evaluateWesternElectric(samples, metric.baseline_mean, metric.baseline_std);
     const tierConfig = metric.tiers?.[evaluation.tier] || {};
 
+    // `report` means "file something a human can triage". Keying artifact
+    // generation off a separate `auto_intent` flag meant it never fired: no
+    // tier in bands.yaml defines that key, so generateIncidentIntent was dead
+    // code and the committed config promised an artifact that never appeared.
+    // `auto_intent` still works as an explicit opt-in where a tier sets it.
+    const wantsArtifact = tierConfig.action === 'report' || tierConfig.auto_intent === true;
+
     let generatedIntent = null;
-    if (evaluation.breached && tierConfig.auto_intent && !options.dryRun) {
+    if (evaluation.breached && wantsArtifact && !options.dryRun) {
       generatedIntent = generateIncidentIntent(metric, evaluation, options.intentDir);
     }
 

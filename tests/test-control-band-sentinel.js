@@ -11,7 +11,13 @@
  */
 
 const assert = require('assert');
-const { evaluateWesternElectric } = require('../tools/control-band-sentinel');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const {
+  evaluateWesternElectric,
+  runSentinel,
+} = require('../tools/control-band-sentinel');
 
 let passed = 0;
 function ok(name) {
@@ -99,8 +105,6 @@ const at = (sigmas) => MEAN + sigmas * STD;
 // auto-quarantine. Detection is in scope; acting on a breach is not. These
 // assertions keep that boundary from eroding by config edit or by fallback.
 
-const fs = require('fs');
-const path = require('path');
 const { loadConfig } = require('../tools/control-band-sentinel');
 
 const ACTING = ['propose_and_revert', 'trigger_rollback', 'quarantine', 'revert', 'rollback'];
@@ -141,6 +145,105 @@ const bandsPath = path.join(__dirname, '..', 'bands.yaml');
     assert.ok(Number.isFinite(m.baseline_std), `${m.id} has a baseline std`);
   }
   ok('every configured metric parses with usable baselines');
+}
+
+// --------------------------------------------------------------------------
+// runSentinel: the two defects review found on PR #2051. Both were reachable
+// only through the public runner, which is why unit tests on
+// evaluateWesternElectric alone did not catch them.
+// --------------------------------------------------------------------------
+
+// A tiny config written to disk, so these assertions pin runSentinel's real
+// YAML path rather than a hand-built object it would never see in production.
+function withConfig(yaml, run) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cbs-test-'));
+  const configPath = path.join(dir, 'bands.yaml');
+  fs.writeFileSync(configPath, yaml);
+  try {
+    return run(configPath, dir);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+const CONFIG = `metrics:
+  - id: ci_pass_rate
+    name: CI pass rate
+    baseline_mean: 90
+    baseline_std: 2
+    tiers:
+      1sigma:
+        action: log
+      3sigma:
+        action: report
+`;
+
+{
+  // Was: `if (samples.length === 0) continue`, which dropped the metric
+  // entirely. A broken collector then looked exactly like a healthy system.
+  const results = withConfig(CONFIG, (configPath) =>
+    runSentinel({}, configPath, { dryRun: true }));
+
+  assert.strictEqual(results.length, 1, 'a configured metric must not vanish when it has no samples');
+  assert.strictEqual(results[0].metricId, 'ci_pass_rate');
+  assert.strictEqual(results[0].evaluation.status, 'NO_DATA', 'missing telemetry must surface as NO_DATA');
+  ok('a configured metric with no samples reports NO_DATA instead of disappearing');
+}
+
+{
+  const results = withConfig(CONFIG, (configPath) =>
+    runSentinel({ ci_pass_rate: [] }, configPath, { dryRun: true }));
+  assert.strictEqual(results.length, 1, 'an explicitly empty series must also survive');
+  assert.strictEqual(results[0].evaluation.status, 'NO_DATA');
+  ok('an explicitly empty sample array is preserved, not skipped');
+}
+
+{
+  // Was gated on `tierConfig.auto_intent`, a key no tier in bands.yaml
+  // defines, so generateIncidentIntent was dead code while the committed
+  // config advertised `action: report`.
+  const { results, dir } = withConfig(CONFIG, (configPath, dir) => ({
+    results: runSentinel(
+      // Eight points, all well below the mean: a sustained one-sided breach.
+      { ci_pass_rate: [80, 79, 78, 80, 77, 79, 78, 76] },
+      configPath,
+      { intentDir: dir },
+    ),
+    dir,
+  }));
+
+  assert.strictEqual(results[0].evaluation.breached, true, 'a sustained drift must breach');
+  assert.strictEqual(results[0].action, 'report');
+  assert.ok(
+    results[0].autoIntentGenerated,
+    'a report-tier breach must produce the artifact the config promises',
+  );
+  void dir;
+  ok('a report-tier breach generates the promised artifact');
+}
+
+{
+  // The safety half: dryRun must still write nothing.
+  const results = withConfig(CONFIG, (configPath, dir) =>
+    runSentinel(
+      { ci_pass_rate: [80, 79, 78, 80, 77, 79, 78, 76] },
+      configPath,
+      { dryRun: true, intentDir: dir },
+    ));
+  assert.strictEqual(results[0].evaluation.breached, true);
+  assert.strictEqual(results[0].autoIntentGenerated, null, 'dryRun must not write an artifact');
+  ok('dryRun still suppresses artifact generation on a breach');
+}
+
+{
+  // Detection must not have become action: a breach reports, it does not act.
+  const results = withConfig(CONFIG, (configPath) =>
+    runSentinel({ ci_pass_rate: [80, 79, 78, 80, 77, 79, 78, 76] }, configPath, { dryRun: true }));
+  assert.ok(
+    ['log', 'diagnose', 'report'].includes(results[0].action),
+    `sentinel must stay non-acting, got action=${results[0].action}`,
+  );
+  ok('the sentinel reports and diagnoses but never auto-acts');
 }
 
 console.log(`\n1..${passed}`);
