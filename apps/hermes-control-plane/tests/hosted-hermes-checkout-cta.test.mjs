@@ -18,7 +18,8 @@ test("primary $10 hosted Hermes CTAs POST Stripe Checkout, not WorkOS login", ()
 
   assert.match(cta, /action="\/api\/billing\/checkout"/);
   assert.match(cta, /method="POST"/);
-  assert.match(cta, /data-funnel-event="hosted_checkout_click"/);
+  assert.match(cta, /funnelEvent = "hosted_checkout_click"/);
+  assert.match(cta, /data-funnel-event=\{funnelEvent\}/);
   assert.doesNotMatch(cta, /\/api\/auth\/login/);
 
   assert.equal(

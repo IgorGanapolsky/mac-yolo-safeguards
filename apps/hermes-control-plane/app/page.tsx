@@ -311,7 +311,11 @@ export default function Home() {
           </article>
         </div>
         <div className="hero-actions" style={{ marginTop: "32px" }}>
-          <LandingPricingCtaPaid testId="give-work-cta">
+          <LandingPricingCtaPaid
+            testId="give-work-cta"
+            funnelEvent="give_work_click"
+            ctaId="put-hosted-hermes-to-work"
+          >
             {PRO_CTA} <span aria-hidden="true">→</span>
           </LandingPricingCtaPaid>
         </div>

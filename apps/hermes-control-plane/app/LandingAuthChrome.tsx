@@ -230,33 +230,54 @@ export function LandingPricingCtaFree() {
 /**
  * Primary paid CTA used across pricing / qualifier / footer / StartSurfaces.
  * Entitled sessions open the dashboard — never another $10 checkout wall.
+ *
+ * Important: when entitled, ignore `children` so call sites that still pass
+ * "Start hosted Hermes — $10/mo" do not re-paint a pay wall for trial/pro users.
+ * While /api/me is loading, render a disabled placeholder — never checkout.
  */
 export function LandingPricingCtaPaid({
   children,
   testId,
+  funnelEvent,
+  ctaId,
 }: {
   children?: ReactNode;
   testId?: string;
+  /** Optional funnel id for anon checkout / entitled continue (e.g. give_work_click). */
+  funnelEvent?: string;
+  /** Optional data-cta-id for analytics (e.g. put-hosted-hermes-to-work). */
+  ctaId?: string;
 } = {}) {
   const session = useLandingAuth();
+  if (session.mode === "loading") {
+    return (
+      <button
+        type="button"
+        className="button button-primary"
+        disabled
+        aria-busy="true"
+        data-testid={testId ?? "landing-cta-loading"}
+        {...(ctaId ? { "data-cta-id": ctaId } : {})}
+      >
+        Checking session…
+      </button>
+    );
+  }
   if (hasHostedEntitlement(session)) {
     return (
       <a
         href="/dashboard"
         className="button button-primary"
-        data-funnel-event="dashboard_open_click"
+        data-funnel-event={funnelEvent ?? "dashboard_open_click"}
         data-testid={testId ?? "landing-continue-hosted"}
+        {...(ctaId ? { "data-cta-id": ctaId } : {})}
       >
-        {children ?? (
-          <>
-            Continue hosted Hermes <span aria-hidden="true">→</span>
-          </>
-        )}
+        Continue hosted Hermes <span aria-hidden="true">→</span>
       </a>
     );
   }
   return (
-    <HostedCheckoutCta testId={testId}>
+    <HostedCheckoutCta testId={testId} funnelEvent={funnelEvent} ctaId={ctaId}>
       {children ?? (
         <>
           Start hosted Hermes — $10/mo →
