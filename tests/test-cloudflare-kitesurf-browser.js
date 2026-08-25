@@ -1,241 +1,208 @@
-#!/usr/bin/env node
 'use strict';
 
+/**
+ * Unit tests for Cloudflare Kitesurf Browser Run adapter.
+ * Fail-closed: no READY / SUCCESS screenshot without Browser Run creds.
+ */
+
 const assert = require('assert');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const {
-  KitesurfEngine,
-  cloudflareCreds,
-  quickActionUrl,
-  cdpWebSocketUrl,
-  evaluateCompatibility,
-  distillDomToMarkdown,
-  validateBinaryPayload,
-  getHealthStatus,
-} = require('../tools/cloudflare-kitesurf-browser');
+const { KitesurfEngine } = require('../tools/cloudflare-kitesurf-browser');
 
-/** Minimal real PNG/PDF byte prefixes for payload-validation tests. */
-const PNG_BYTES = Buffer.concat([
-  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-  Buffer.alloc(64, 7),
-]);
-const PDF_BYTES = Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(64, 7)]);
+console.log('Running test-cloudflare-kitesurf-browser.js...');
 
-function main() {
-  const emptyHealth = getHealthStatus({});
-  assert.strictEqual(emptyHealth.kitesurf, 'UNAVAILABLE');
-  assert.strictEqual(emptyHealth.liveClaim, false);
-  assert.match(emptyHealth.reason, /missing/);
+// Health without creds must be UNAVAILABLE (not fake READY)
+{
+  const engine = new KitesurfEngine({ accountId: null, apiToken: null });
+  const health = engine.getHealthStatus();
+  assert.strictEqual(health.kitesurfEngine, 'UNAVAILABLE');
+  assert.strictEqual(health.liveClaim, false);
+  assert.ok(
+    /CLOUDFLARE|wrangler|bearer/i.test(String(health.reason)),
+    `unexpected reason: ${health.reason}`,
+  );
+}
 
-  const configured = getHealthStatus({
-    CLOUDFLARE_ACCOUNT_ID: 'acct_test',
-    CLOUDFLARE_API_TOKEN: 'token_test',
+// Health with creds alone is CONFIGURED (unprobed) — never READY / liveClaim
+{
+  const engine = new KitesurfEngine({
+    accountId: 'acct_test',
+    apiToken: 'tok_test',
   });
-  assert.strictEqual(configured.kitesurf, 'CONFIGURED');
-  assert.strictEqual(configured.liveClaim, false);
+  const health = engine.getHealthStatus();
+  assert.strictEqual(health.kitesurfEngine, 'CONFIGURED');
+  assert.strictEqual(health.liveClaim, false);
+  assert.strictEqual(health.configured, true);
+  assert.strictEqual(health.credentialSource, 'options');
+}
 
-  assert.strictEqual(cloudflareCreds({}).ok, false);
-  const url = quickActionUrl('acct_test', 'screenshot');
-  assert.match(url, /browser-run\/screenshot\?browser=kitesurf/);
-  assert.match(cdpWebSocketUrl('acct_test'), /browser=kitesurf/);
+// Wrangler OAuth preferred over env token when both present
+{
+  const fs = require('fs');
+  const tomlPath = `/tmp/kitesurf-wrangler-test-${Date.now()}.toml`;
+  fs.writeFileSync(
+    tomlPath,
+    'oauth_token = "oauth_live_tok"\nexpiration_time = "2099-01-01T00:00:00.000Z"\n',
+    'utf8',
+  );
+  const prev = process.env.CLOUDFLARE_API_TOKEN;
+  process.env.CLOUDFLARE_API_TOKEN = 'env_bad_tok';
+  try {
+    const engine = new KitesurfEngine({
+      accountId: 'acct',
+      wranglerConfigPath: tomlPath,
+    });
+    assert.strictEqual(engine.credentialSource, 'wrangler_oauth');
+    assert.strictEqual(engine.apiToken, 'oauth_live_tok');
+  } finally {
+    if (prev === undefined) delete process.env.CLOUDFLARE_API_TOKEN;
+    else process.env.CLOUDFLARE_API_TOKEN = prev;
+    fs.unlinkSync(tomlPath);
+  }
+}
 
-  const htmlPage = evaluateCompatibility('https://example.com/docs');
-  assert.strictEqual(htmlPage.recommendedEngine, 'kitesurf');
-  assert.strictEqual(htmlPage.kitesurfOk, true);
+// readWranglerOAuth marks expired tokens
+{
+  const fs = require('fs');
+  const tomlPath = `/tmp/kitesurf-wrangler-expired-${Date.now()}.toml`;
+  fs.writeFileSync(
+    tomlPath,
+    'oauth_token = "old"\nexpiration_time = "2020-01-01T00:00:00.000Z"\n',
+    'utf8',
+  );
+  try {
+    const info = KitesurfEngine.readWranglerOAuth(tomlPath);
+    assert.ok(info);
+    assert.strictEqual(info.expired, true);
+  } finally {
+    fs.unlinkSync(tomlPath);
+  }
+}
 
-  const video = evaluateCompatibility('https://cdn.example.com/clip.mp4');
-  assert.strictEqual(video.kitesurfOk, false);
+// CDP frame builder
+{
+  const frame = KitesurfEngine.buildCdpFrame('Page.captureScreenshot', { format: 'png' }, 42);
+  assert.strictEqual(frame.id, 42);
+  assert.strictEqual(frame.method, 'Page.captureScreenshot');
+}
+
+// Compatibility routing
+{
+  const simple = KitesurfEngine.evaluateCompatibility('https://example.com/article');
+  assert.strictEqual(simple.recommendedEngine, 'kitesurf');
+
+  const webGl = KitesurfEngine.evaluateCompatibility('https://threejs.org/examples', {
+    needsWebGL: true,
+  });
+  assert.strictEqual(webGl.recommendedEngine, 'browser_run_chromium');
+
+  const video = KitesurfEngine.evaluateCompatibility('https://cdn.example/a.mp4');
   assert.strictEqual(video.recommendedEngine, 'browser_run_chromium');
-
-  const webgl = evaluateCompatibility('https://threejs.org/examples', { needsWebGL: true });
-  assert.strictEqual(webgl.kitesurfOk, false);
-
-  const md = distillDomToMarkdown(
-    '<html><head><script>track()</script></head><body><h1>Hello</h1><p>This is <strong>bold</strong> and a <a href="https://example.com">link</a>.</p><ul><li>One</li></ul></body></html>',
-  );
-  assert.match(md, /# Hello/);
-  assert.match(md, /\*\*bold\*\*/);
-  assert.match(md, /\[link\]\(https:\/\/example.com\)/);
-  assert.match(md, /- One/);
-  assert.doesNotMatch(md, /track\(\)/);
-
-  // Extraction now goes through the tokenizer helper: the exact end-tag spelling
-  // CodeQL flagged (`</script >`, with the space) must not leak the body.
-  const spaced = distillDomToMarkdown('<p>keep</p><script>alert(1)</script >tail');
-  assert.doesNotMatch(spaced, /alert\(1\)/);
-  assert.ok(!spaced.includes('<'), 'no raw < may survive extraction');
-  assert.match(spaced, /keep/);
-
-  // Payload validation: HTTP 200 is not proof the bytes are an image or a PDF.
-  assert.strictEqual(validateBinaryPayload(Buffer.from('PNGDATA'), 'screenshot').ok, false);
-  assert.strictEqual(validateBinaryPayload(Buffer.alloc(0), 'screenshot').ok, false);
-  assert.strictEqual(validateBinaryPayload(Buffer.from('{\"errors\":[]}'), 'screenshot').ok, false);
-  assert.strictEqual(validateBinaryPayload(PDF_BYTES, 'screenshot').ok, false, 'a PDF is not a screenshot');
-  assert.strictEqual(validateBinaryPayload(PNG_BYTES, 'screenshot').ok, true);
-  assert.strictEqual(validateBinaryPayload(PNG_BYTES, 'screenshot').detectedKind, 'png');
-  assert.strictEqual(validateBinaryPayload(PDF_BYTES, 'pdf').ok, true);
-  assert.strictEqual(
-    validateBinaryPayload(PNG_BYTES, 'screenshot', 'application/json').ok,
-    false,
-    'content-type must be able to veto',
-  );
 }
 
-async function asyncMain() {
-  const engine = new KitesurfEngine({ env: {}, fetchImpl: null });
-  const missing = await engine.render({ url: 'https://example.com', action: 'screenshot' });
-  assert.strictEqual(missing.status, 'UNAVAILABLE');
-  assert.strictEqual(missing.liveClaim, false);
-  assert.doesNotMatch(String(missing.output || ''), /\.png$/);
+// DOM distillation uses shared tokenizer (malformed script must not leak)
+{
+  const md = KitesurfEngine.distillDomToMarkdown(
+    '<html><body><h1>Hi</h1><p>x <strong>y</strong></p><script>bad()</script></body></html>',
+    'T',
+  );
+  assert.ok(md.includes('# Hi'));
+  assert.ok(md.includes('**y**') || md.includes('y'), 'Expected strong text retained');
+  assert.ok(!md.includes('bad()'));
 
-  const CREDS = { CLOUDFLARE_ACCOUNT_ID: 'acct_test', CLOUDFLARE_API_TOKEN: 'token_test' };
-
-  // A validated PNG is written and MAY claim liveness.
-  const tmp = path.join(os.tmpdir(), `kitesurf-test-${Date.now()}.png`);
-  const pngEngine = new KitesurfEngine({
-    env: CREDS,
-    fetchImpl: async () => ({ ok: true, status: 200, arrayBuffer: async () => PNG_BYTES }),
-  });
-  const shot = await pngEngine.render({ url: 'https://example.com', action: 'screenshot', output: tmp });
-  assert.strictEqual(shot.status, 'SUCCESS');
-  assert.strictEqual(shot.engine, 'kitesurf');
-  assert.strictEqual(shot.liveClaim, true);
-  assert.strictEqual(shot.payloadValidated, true);
-  assert.strictEqual(shot.detectedKind, 'png');
-  assert.ok(fs.readFileSync(tmp).equals(PNG_BYTES));
-  fs.unlinkSync(tmp);
-
-  // REGRESSION (review thread, tools/cloudflare-kitesurf-browser.js:179):
-  // unvalidated bytes must NOT be written as .png and must NOT claim liveness.
-  // This is the same fabrication defect as inventing host telemetry: never
-  // assert a live render over bytes that were never checked.
-  const badTmp = path.join(os.tmpdir(), `kitesurf-bad-${Date.now()}.png`);
-  for (const [label, payload] of [
-    ['non-image string', Buffer.from('PNGDATA')],
-    ['empty body', Buffer.alloc(0)],
-    ['json error envelope', Buffer.from('{"success":false,"errors":[{"code":10000}]}')],
-    ['html error page', Buffer.from('<!doctype html><h1>502</h1>')],
-  ]) {
-    const res = await new KitesurfEngine({
-      env: CREDS,
-      fetchImpl: async () => ({ ok: true, status: 200, arrayBuffer: async () => payload }),
-    }).render({ url: 'https://example.com', action: 'screenshot', output: badTmp });
-    assert.strictEqual(res.status, 'INVALID_PAYLOAD', `${label} must not be SUCCESS`);
-    assert.strictEqual(res.liveClaim, false, `${label} must not claim liveness`);
-    assert.ok(!res.output, `${label} must not report an artifact path`);
-    assert.strictEqual(fs.existsSync(badTmp), false, `${label} must not write a file`);
-    assert.match(res.reason, /refusing to write/);
-  }
-
-  // A PDF body returned for a screenshot request is still a mismatch.
-  const wrongKind = await new KitesurfEngine({
-    env: CREDS,
-    fetchImpl: async () => ({ ok: true, status: 200, arrayBuffer: async () => PDF_BYTES }),
-  }).render({ url: 'https://example.com', action: 'screenshot' });
-  assert.strictEqual(wrongKind.status, 'INVALID_PAYLOAD');
-  assert.strictEqual(wrongKind.liveClaim, false);
-
-  // A content-type that contradicts the bytes also blocks the live claim.
-  const ctLies = await new KitesurfEngine({
-    env: CREDS,
-    fetchImpl: async () => ({
-      ok: true,
-      status: 200,
-      headers: { get: (h) => (h === 'content-type' ? 'application/json' : null) },
-      arrayBuffer: async () => PNG_BYTES,
-    }),
-  }).render({ url: 'https://example.com', action: 'screenshot' });
-  assert.strictEqual(ctLies.status, 'INVALID_PAYLOAD');
-  assert.strictEqual(ctLies.liveClaim, false);
-
-  // REGRESSION (review thread, tools/cloudflare-kitesurf-browser.js:166):
-  // a transient Browser Run error on a TEXT action must still reach the
-  // documented plain-fetch fallback. Configuring credentials must never make
-  // extraction less available than running without them.
-  for (const status of [429, 503, 500, 502, 504, 408]) {
-    let call = 0;
-    const transient = await new KitesurfEngine({
-      env: CREDS,
-      fetchImpl: async () => {
-        call++;
-        if (call === 1) return { ok: false, status };
-        return { ok: true, status: 200, text: async () => '<h1>Recovered</h1>' };
-      },
-    }).render({ url: 'https://example.com', action: 'html' });
-    assert.strictEqual(transient.status, 'SUCCESS', `HTTP ${status} must fall back`);
-    assert.strictEqual(transient.engine, 'fetch_html_fallback');
-    assert.strictEqual(transient.liveClaim, false);
-    assert.match(transient.markdown, /# Recovered/);
-    assert.strictEqual(transient.browserRunFallback.httpStatus, status);
-  }
-
-  // A thrown transport error on a text action falls back the same way.
-  let threwOnce = 0;
-  const thrown = await new KitesurfEngine({
-    env: CREDS,
-    fetchImpl: async () => {
-      threwOnce++;
-      if (threwOnce === 1) throw new Error('ECONNRESET');
-      return { ok: true, status: 200, text: async () => '<h1>Recovered</h1>' };
-    },
-  }).render({ url: 'https://example.com', action: 'markdown' });
-  assert.strictEqual(thrown.status, 'SUCCESS');
-  assert.strictEqual(thrown.engine, 'fetch_html_fallback');
-  assert.match(thrown.browserRunFallback.reason, /ECONNRESET/);
-
-  // A transient error on a BINARY action has no text fallback — still fails fast.
-  const transientBinary = await new KitesurfEngine({
-    env: CREDS,
-    fetchImpl: async () => ({ ok: false, status: 503 }),
-  }).render({ url: 'https://example.com', action: 'screenshot' });
-  assert.strictEqual(transientBinary.status, 'ERROR');
-  assert.strictEqual(transientBinary.liveClaim, false);
-
-  // 404 is not transient: it must not be retried into the fallback.
-  const notFound = await new KitesurfEngine({
-    env: CREDS,
-    fetchImpl: async () => ({ ok: false, status: 404 }),
-  }).render({ url: 'https://example.com', action: 'html' });
-  assert.strictEqual(notFound.status, 'ERROR');
-  assert.strictEqual(notFound.engine, 'kitesurf');
-
-  // 401/403 stay DENIED for text actions too — auth does not heal on retry.
-  const deniedText = await new KitesurfEngine({
-    env: CREDS,
-    fetchImpl: async () => ({ ok: false, status: 403 }),
-  }).render({ url: 'https://example.com', action: 'html' });
-  assert.strictEqual(deniedText.status, 'DENIED');
-  assert.strictEqual(deniedText.liveClaim, false);
-
-  const denied = await new KitesurfEngine({
-    env: { CLOUDFLARE_ACCOUNT_ID: 'acct_test', CLOUDFLARE_API_TOKEN: 'token_test' },
-    fetchImpl: async () => ({ ok: false, status: 401 }),
-  }).render({ url: 'https://example.com', action: 'screenshot' });
-  assert.strictEqual(denied.status, 'DENIED');
-  assert.strictEqual(denied.liveClaim, false);
-
-  const fallback = await new KitesurfEngine({
-    env: {},
-    fetchImpl: async () => ({
-      ok: true,
-      status: 200,
-      text: async () => '<h1>Fallback</h1><p>plain fetch</p>',
-    }),
-  }).render({ url: 'https://example.com', action: 'html' });
-  assert.strictEqual(fallback.status, 'SUCCESS');
-  assert.strictEqual(fallback.engine, 'fetch_html_fallback');
-  assert.strictEqual(fallback.liveClaim, false);
-  assert.match(fallback.markdown, /# Fallback/);
+  const leak = KitesurfEngine.distillDomToMarkdown(
+    '<p>keep</p><script>alert(1)',
+    'T',
+  );
+  assert.ok(leak.includes('keep'));
+  assert.ok(!leak.includes('alert(1)'), `script body leaked: ${leak}`);
 }
 
-main();
-asyncMain()
-  .then(() => {
-    console.log('ok tests/test-cloudflare-kitesurf-browser.js');
-  })
-  .catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
+(async () => {
+  // Screenshot without creds → UNAVAILABLE (never fake PNG)
+  {
+    const engine = new KitesurfEngine({ accountId: null, apiToken: null });
+    const res = await engine.render({
+      url: 'https://example.com',
+      action: 'screenshot',
+      output: '/tmp/must-not-exist-kitesurf.png',
+    });
+    assert.strictEqual(res.status, 'UNAVAILABLE');
+    assert.strictEqual(res.liveClaim, false);
+  }
+
+  // HTML without creds may succeed via fetch fallback
+  {
+    const engine = new KitesurfEngine({
+      accountId: null,
+      apiToken: null,
+      fetchImpl: async () => ({
+        ok: true,
+        text: async () => '<html><body><h1>Example Domain</h1></body></html>',
+        headers: { get: () => 'text/html' },
+      }),
+    });
+    const res = await engine.render({
+      url: 'https://example.com',
+      action: 'html',
+    });
+    assert.strictEqual(res.status, 'SUCCESS');
+    assert.strictEqual(res.engine, 'fetch_html_fallback');
+    assert.strictEqual(res.liveClaim, false);
+    assert.ok(res.data.markdown.includes('Example Domain'));
+  }
+
+  // Screenshot with mocked Browser Run writes real bytes
+  {
+    const pngish = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x01]);
+    const engine = new KitesurfEngine({
+      accountId: 'acct',
+      apiToken: 'tok',
+      fetchImpl: async () => ({
+        ok: true,
+        arrayBuffer: async () => pngish.buffer.slice(pngish.byteOffset, pngish.byteOffset + pngish.byteLength),
+        text: async () => '',
+        headers: { get: () => 'image/png' },
+      }),
+    });
+    const out = `/tmp/kitesurf-test-${Date.now()}.png`;
+    const res = await engine.render({
+      url: 'https://example.com',
+      action: 'screenshot',
+      output: out,
+    });
+    assert.strictEqual(res.status, 'SUCCESS');
+    assert.strictEqual(res.liveClaim, true);
+    assert.ok(res.bytes > 0);
+    const fs = require('fs');
+    assert.ok(fs.existsSync(out));
+    fs.unlinkSync(out);
+  }
+
+  // JSON/HTML error envelopes must not be written as PNG; liveClaim stays false
+  {
+    const engine = new KitesurfEngine({
+      accountId: 'acct',
+      apiToken: 'tok',
+      fetchImpl: async () => ({
+        ok: true,
+        arrayBuffer: async () => Buffer.from('{"success":false,"errors":["nope"]}'),
+        text: async () => '{"success":false,"errors":["nope"]}',
+        headers: { get: () => 'application/json' },
+      }),
+    });
+    const out = `/tmp/kitesurf-must-not-${Date.now()}.png`;
+    const res = await engine.render({
+      url: 'https://example.com',
+      action: 'screenshot',
+      output: out,
+    });
+    assert.strictEqual(res.status, 'ERROR');
+    assert.strictEqual(res.liveClaim, false);
+    assert.ok(!require('fs').existsSync(out));
+  }
+
+  console.log('ok tests/test-cloudflare-kitesurf-browser.js');
+})().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

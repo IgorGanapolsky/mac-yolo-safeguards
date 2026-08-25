@@ -1,3 +1,5 @@
+import { attachAcademyDiscernment, type DiscernmentGrade } from "./hosted-academy-4d";
+
 /**
  * Five-field execution receipts (inspired by reliability practice + SeqPU-style
  * closed logs, 2026-07-23 Reddit peer exchange).
@@ -6,6 +8,7 @@
  *
  * Critical rule: outcome is only "done" when an *external* check the executor
  * cannot self-sign passes. Self-reported model text is "claimed_*" never "done".
+ * Academy 4D: even outcome=done is not a quality ship without five supported lenses.
  */
 
 export type ReceiptOutcome =
@@ -29,6 +32,8 @@ export type ExecutionReceipt = {
   } | null;
   /** Short, non-proprietary note — never chat bodies. */
   note?: string;
+  /** Academy discernment — completed ≠ quality. Never a LIVE Worker claim by itself. */
+  academy4d?: DiscernmentGrade;
 };
 
 export function buildTaskCompletionReceipt(input: {
@@ -57,7 +62,7 @@ export function buildTaskCompletionReceipt(input: {
     outcome = "claimed_done";
   }
 
-  return {
+  const receipt: ExecutionReceipt = {
     actor: `${input.actorType}:${input.actorId}`,
     verb: input.route === "cloud" ? "task.complete.cloud" : "task.complete.local",
     target: `task:${input.taskId}`,
@@ -76,6 +81,8 @@ export function buildTaskCompletionReceipt(input: {
         ? "external_check"
         : "self_reported_only",
   };
+  receipt.academy4d = attachAcademyDiscernment(receipt);
+  return receipt;
 }
 
 export function receiptAuditMetadata(receipt: ExecutionReceipt): Record<string, unknown> {
@@ -88,6 +95,14 @@ export function receiptAuditMetadata(receipt: ExecutionReceipt): Record<string, 
       outcome: receipt.outcome,
       externalCheck: receipt.externalCheck,
       note: receipt.note,
+      academy4d: receipt.academy4d
+        ? {
+            diligenceCall: receipt.academy4d.diligenceCall,
+            liveClaim: receipt.academy4d.liveClaim,
+            completedIsNotQuality: receipt.academy4d.completedIsNotQuality,
+            quality: receipt.academy4d.quality,
+          }
+        : undefined,
     },
   };
 }
