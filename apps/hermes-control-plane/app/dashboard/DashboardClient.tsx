@@ -1708,7 +1708,7 @@ export default function DashboardClient() {
                 // the composer — standard chat order (2026-08-21 user report: "latest
                 // output is not at the bottom"). Non-mutating sort; the tasks API is
                 // newest-first, so this reverses it for the conversation timeline.
-                if (!task.prompt?.trim()) return [];
+                if (!task.prompt.trim()) return [];
                 return [
                   <article
                     key={`task-user-${task.id || index}`}
