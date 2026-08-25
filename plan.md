@@ -3809,3 +3809,5 @@ GH #2034 / Linear AGENT-505. Remove fabricated fallback preference data and fixe
 ## 2. File Ownership Map (append-only lock table — claim before touching) [continued 2026-08-25]
 
 - `apps/hermes-control-plane/app/api/device/tasks/submit/route.ts`, `apps/hermes-control-plane/lib/hermes-schema-validator.js`, `apps/hermes-control-plane/lib/schema-validator.ts`, `apps/hermes-control-plane/lib/schema-validator.test.ts`, `apps/hermes-control-plane/tests/device-cloud-task-routes.test.mjs`, `plan.md` (append only) → **codex-infoq-device-schema** (T-INFOQ-DEVICE-SUBMIT-SCHEMA-20260825 / GH #2077: strict shared schema validation before signed-device task admission while preserving compatible connector payloads and the downstream 48k aggregate context cap) (2026-08-25T15:36:00Z)
+
+- `apps/hermes-control-plane/app/api/device/tasks/submit/route.test.ts` (new) → **codex-infoq-device-schema** (T-INFOQ-DEVICE-SUBMIT-SCHEMA-20260825 / GH #2077: prove malformed signed-device bodies return HTTP 400 before `submitDeviceCloudTask`) (2026-08-25T15:42:00Z)
