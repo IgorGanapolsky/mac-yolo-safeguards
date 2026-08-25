@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   hideDuplicateTaskList,
   latestChronologicalTask,
+  mergeThreadTimeline,
   orderSnapshotChronologically,
   orderTasksChronologically,
 } from "../lib/dashboard-task-order.ts";
@@ -29,4 +30,14 @@ test("latestChronologicalTask is the last oldest-first row, not visibleTasks[0]"
   ]);
   assert.equal(tasks[0].id, "old");
   assert.equal(latestChronologicalTask(tasks)?.id, "new");
+});
+
+test("mergeThreadTimeline puts today's user turn after an older completed card", () => {
+  const timeline = mergeThreadTimeline({
+    snapshot: [{ role: "user", content: "today", createdAt: 1800 }],
+    tasks: [{ id: "old", prompt: "aug 23 card", createdAt: 100 }],
+  });
+  assert.equal(timeline[0].kind, "task");
+  assert.equal(timeline[timeline.length - 1].kind, "snapshot");
+  assert.equal(timeline[timeline.length - 1].kind === "snapshot" && timeline[timeline.length - 1].message.content, "today");
 });
