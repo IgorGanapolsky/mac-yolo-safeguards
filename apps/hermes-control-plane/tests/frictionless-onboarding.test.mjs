@@ -403,7 +403,7 @@ test("lists connectors not Tailscale peers and can revoke ghost machines", () =>
   const approveRoute = readFileSync(new URL("../app/api/pairing/approve/route.ts", import.meta.url), "utf8");
   const devicePairing = readFileSync(new URL("../lib/device-pairing.ts", import.meta.url), "utf8");
   const healthRoute = readFileSync(new URL("../app/api/health/route.ts", import.meta.url), "utf8");
-  assert.match(dashboard, /Hosted VPS runner/);
+  assert.match(dashboard, /Paired computers/);
   assert.match(dashboard, /Remove machine/);
   assert.match(dashboard, /Remove stale machine/);
   assert.match(dashboard, /deviceStatusLabel/);

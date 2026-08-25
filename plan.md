@@ -3938,3 +3938,7 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - Production still shows `origin/main` Leash: `<summary>Optional: send the next task to a paired computer</summary>` plus “wrong workspace / Switch account” plus “Bounded Hermes … isolated serverless leases.” That is a sign-out control + operator dump sitting under Mac pairing — not a second Google workspace. Header already has Sign out (`dashboard-sign-out`).
 - Drop the Leash `account-recovery` card. Keep one-line `leash-signed-in` email. Sign-out stays in header/sidebar.
 - Codex P2 on #2095: `pendingWaitCopy(task.status)` — `running` → “Hermes is working on this.”; pending → “hasn't started.” Do not dual-edit #2041 result-replace or AGENT-476 TurnStatusline.
+
+
+### Discovered — 2026-08-25T19:25Z (grok-hosted-vps-not-macbook)
+- Defect: Settings h2 Hosted VPS runner + metric Hosted VPS=devices.length made MacBook Pro look like the VPS. Claude #2098 had the fix but mergeStateStatus=CONFLICTING; shipping successor.
