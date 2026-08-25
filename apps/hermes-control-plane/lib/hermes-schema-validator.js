@@ -199,6 +199,8 @@ const RouteSchemas = {
     idempotencyKey: Schema.string({ required: false, max: 120, label: 'idempotencyKey' }),
     traceId: Schema.string({ required: false, max: 64, label: 'traceId' }),
     routePreference: Schema.enum(['local', 'cloud', 'auto'], { required: false, label: 'routePreference' }),
+    kind: Schema.string({ required: false, max: 40, label: 'kind' }),
+    done: Schema.string({ required: false, max: 500, label: 'done' }),
   }),
   deviceSubmitTask: Schema.object({
     prompt: Schema.string({ required: true, max: 24000, truncate: false, label: 'prompt' }),
@@ -218,6 +220,8 @@ const RouteSchemas = {
     idempotencyKey: Schema.string({ required: false, max: 120, truncate: false, label: 'idempotencyKey' }),
     traceId: Schema.string({ required: false, max: 64, truncate: false, label: 'traceId' }),
     source: Schema.string({ required: false, max: 40, truncate: false, label: 'source' }),
+    kind: Schema.string({ required: false, max: 40, truncate: false, label: 'kind' }),
+    done: Schema.string({ required: false, max: 500, truncate: false, label: 'done' }),
   }, { strict: true }),
   feedback: Schema.object({
     taskId: Schema.string({ required: true, max: 160, label: 'taskId' }),
