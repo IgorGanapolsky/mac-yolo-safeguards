@@ -1994,10 +1994,22 @@ export default function DashboardClient() {
               </p>
               {devices.length > 0 ? (
                 <details className="leash-device-picker" data-testid="leash-device-picker">
-                  <summary>Optional: send the next task to a paired computer</summary>
-                  <label htmlFor="leash-device-select" className="composer-where-label" style={{ margin: 0 }}>
-                    Hosted VPS is the default
-                  </label>
+                  {/*
+                    Short label on purpose. The previous wording -- "Optional:
+                    send the next task to a paired computer" -- wrapped to two
+                    lines at phone width and rendered at heading weight for a
+                    secondary control, so it read as the section title for
+                    everything below it.
+                  */}
+                  <summary>Use a paired computer (optional)</summary>
+                  {/*
+                    The old label here said "Hosted VPS is the default", which
+                    was the fourth statement of that same fact in eight lines:
+                    the paragraph above says pairing is never required, the
+                    summary said "Optional", this label said it again, and the
+                    select's own first option reads "Hosted VPS (default)".
+                    The option carries it; the rest was noise.
+                  */}
                   <select
                     id="leash-device-select"
                     data-testid="leash-device-select"
@@ -2015,7 +2027,17 @@ export default function DashboardClient() {
                   </select>
                 </details>
               ) : null}
-              <div className="account-recovery" style={{ marginTop: "1rem" }}><p>Signed in as <strong>{user.email}</strong>. If this is the wrong workspace, switch accounts here.</p><SignOutForm buttonClassName="button button-secondary button-small" data-testid="dashboard-switch-account">Switch account</SignOutForm></div>
+              {/*
+                Who you are signed in as is not part of task routing. This sat
+                directly beneath the collapsed device-picker summary, so with
+                the picker closed -- its normal state -- it read as content
+                belonging to "send the next task to a paired computer". A rule
+                and its own heading separate the two concerns, so the answer to
+                "which account am I in?" is not hidden behind a disclosure
+                about paired computers.
+              */}
+              <hr className="panel-divider" aria-hidden="true" />
+              <div className="account-recovery" data-testid="dashboard-account-block" style={{ marginTop: "1rem" }}><h3 className="eyebrow" style={{ margin: "0 0 0.35rem" }}>Account</h3><p>Signed in as <strong>{user.email}</strong>. If this is the wrong workspace, switch accounts here.</p><SignOutForm buttonClassName="button button-secondary button-small" data-testid="dashboard-switch-account">Switch account</SignOutForm></div>
               <p className="privacy-boundary">Bounded Hermes thread context syncs to this control plane. Tasks execute in isolated serverless leases.</p>
               <p className="privacy-boundary" data-testid="hosted-not-computer-history">{HOSTED_NOT_COMPUTER_HISTORY} Least privilege: cannot read secrets. Private/incognito analogue: we do not ingest other people&apos;s Slack or DMs.</p>
             </section>
