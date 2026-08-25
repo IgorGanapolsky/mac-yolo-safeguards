@@ -3667,6 +3667,41 @@ Header chip is a static `className="status-chip online"` label. It does not prob
 - PR #1986 merged commit `64a6e43d2` while PR #1983 was under review and retains active ownership of the dashboard statusline layout, component, API, tests, and intent contract.
 - T-AGENT-476 is blocked under the no-cross-owner-edit rule. PR #1983 now preserves PR #1986 files exactly and is narrowed to T-AGENT-476-INCIDENT: readable quick prompts/output, mobile overflow proof, generic `ThumbGate online` badge removal, and safe fenced-VPS execution for prompts containing a local path plus a GitHub repository URL.
 
+## T-CF-KITESURF-X402-20260824 (append 2026-08-24T16:20:00Z) — agent `grok-cf-kitesurf-x402`
+
+InfoQ/Cloudflare Kitesurf + Monetization Gateway steal. **Mechanic not product.** Kitesurf via Browser Run `?browser=kitesurf`. x402 402 challenges while CF gateway is waitlist. Fail-closed: no fake READY, no fake USDC, no dashboard x402 copy (hosted-source-of-truth). Linear **AGENT-489**.
+
+Does not restore Continuity / Mac-pair / RUN ON. Does not charge strangers (ECI). Stripe $10 hosted remains the live cash path.
+
+### File claims
+- `tools/cloudflare-kitesurf-browser.js` (new)
+- `tools/cloudflare-monetization-gateway.js` (new)
+- `tests/test-cloudflare-kitesurf-browser.js` (new)
+- `tests/test-cloudflare-monetization-gateway.js` (new)
+- `.agents/skills/cloudflare-kitesurf-browser/` (new)
+- `.agents/skills/cloudflare-monetization-gateway/` (new)
+- `SKILLS.md` (append two rows)
+- `.agents/skills/sources.yml` (append two in_repo names)
+- `.gitignore` (ledger ignore)
+- `plan.md` (this append)
+
+### Hardening append (2026-08-25) — agent `claude-cf-kitesurf-harden`
+
+Same task/PR (#2010). Additional claims, all new or already owned by this task:
+- `tools/lib/html-to-markdown.js` (new) — tokenizer-based HTML->Markdown helper
+- `tests/test-html-to-markdown.js` (new)
+
+Resolves the 5 CodeQL alerts (165-169) + 3 review findings the lead left unresolved:
+- Regex tag filtering replaced with a tokenizer (js/bad-tag-filter,
+  js/incomplete-multi-character-sanitization, js/double-escaping). AGENTS.md
+  already banned "naive script strip"; the PR had re-introduced it.
+- Screenshot/PDF bytes validated (magic bytes + content-type) before being
+  written with that extension; `liveClaim` only after validation passes.
+- Simulated x402 tokens bound to the issued challenge (id + resource + traffic
+  type + amount), single-use, expiring, and given a shape (`x402sim.v2.`) that
+  cannot be confused with a real one.
+- Transient upstream 429/503 on text actions now reaches the documented
+  plain-fetch fallback instead of returning early.
 ## 2. File Ownership Map (append-only lock table — claim before touching) [continued 2026-08-24]
 
 - `apps/hermes-control-plane/build/cloudflare-target.mjs`, `apps/hermes-control-plane/worker/index.ts`, `apps/hermes-control-plane/worker/edge-policy.ts`, `apps/hermes-control-plane/lib/cloudflare-edge-policy.test.ts`, `tests/test-hermes-cloudflare-deploy-config.js`, `plan.md` (append only) → **codex-cloudflare-edge-roi-2011** (GH #2011: Cloudflare-native write throttling, version-scoped anonymous public Cache API, Smart Placement; exclude PR #2010 Kitesurf/x402 files and all active dashboard/API-route claims) (2026-08-24T20:11:00Z)
