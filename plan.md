@@ -3912,7 +3912,7 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - SonarQube Cloud GitHub check-suite `89062269595` still **queued** with 0 check-runs / 0 public issues (mac-yolo is not a SonarCloud project). Fixes below are the live review findings on this PR.
 ## File claim (append 2026-08-25T16:30:00Z) — `grok-infoq-aug2026-hosted-cascade`
 
-| T-INFOQ-AUG2026-HOSTED-CASCADE | Steal InfoQ 2026-08-25 SafeChat cheap-filter + Cloudflare MUST/SHOULD lifecycle + WriteGuard critical-deny onto hosted VPS admission | in_progress | grok-infoq-aug2026-hosted-cascade | `tools/hosted-infoq-cascade.js`, `tests/test-hosted-infoq-cascade.js`, `apps/hermes-control-plane/lib/hosted-infoq-cascade.ts`, `apps/hermes-control-plane/lib/hosted-infoq-cascade.test.ts`, `apps/hermes-control-plane/app/api/tasks/route.ts` (cascade call only), `apps/hermes-control-plane/app/api/nostr/events/route.ts` (cascade call only), `.agents/skills/hosted-infoq-aug2026/**`, `bin/hosted-infoq-cascade`, `SKILLS.md`, `plan.md` | Holdout 7/7; vitest cascade; no Next 16.3 bump; no Codex/WriteGuard portal clone; do not dual-edit #2010/#2079/#2069 or cloud-tool-policy.ts |
+| T-INFOQ-AUG2026-HOSTED-CASCADE | Steal InfoQ 2026-08-25 SafeChat cheap-filter + Cloudflare MUST/SHOULD lifecycle + WriteGuard critical-deny onto hosted VPS admission | in_progress | grok-infoq-aug2026-hosted-cascade | `tools/hosted-infoq-cascade.js`, `tests/test-hosted-infoq-cascade.js`, `apps/hermes-control-plane/lib/hosted-infoq-cascade.ts`, `apps/hermes-control-plane/lib/hosted-infoq-cascade.test.ts`, `apps/hermes-control-plane/app/api/tasks/route.ts` (cascade call only), `apps/hermes-control-plane/app/api/nostr/events/route.ts` (cascade call only), `apps/hermes-control-plane/lib/device-cloud-task.ts` (cascade call only), `.agents/skills/hosted-infoq-aug2026/**`, `bin/hosted-infoq-cascade`, `SKILLS.md`, `plan.md` | Holdout 7/7; vitest cascade; fail-closed isolate; no Next 16.3 bump; no Codex/WriteGuard portal clone; do not dual-edit #2010/#2079/#2069 or cloud-tool-policy.ts / task-leases.ts |
 
 - `tools/hosted-infoq-cascade.js` (new)
 - `tests/test-hosted-infoq-cascade.js` (new)
@@ -3920,6 +3920,7 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - `apps/hermes-control-plane/lib/hosted-infoq-cascade.test.ts` (new)
 - `apps/hermes-control-plane/app/api/tasks/route.ts` (cascade call only)
 - `apps/hermes-control-plane/app/api/nostr/events/route.ts` (cascade call only)
+- `apps/hermes-control-plane/lib/device-cloud-task.ts` (cascade call only; signed-device cloud create was skipping the cheap filter)
 - `.agents/skills/hosted-infoq-aug2026/` (new)
 - `bin/hosted-infoq-cascade` (new)
 - `SKILLS.md` (append row)

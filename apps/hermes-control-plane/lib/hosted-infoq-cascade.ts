@@ -1,9 +1,22 @@
 /**
  * Hosted InfoQ Aug 25 2026 process steal — cheap filter + MUST enforcement.
  * Keep in lockstep with tools/hosted-infoq-cascade.js. Not Cloudflare Codex.
+ *
+ * Residual from the same newsletter: isolate each admission step (Newman
+ * progressive-collapse) so a throw in the cheap filter fail-closes instead of
+ * 500ing the Worker. Durable-step analog — not Cloudflare CI.
  */
 
 export const HOSTED_INFOQ_CASCADE_SCHEMA = "hosted-infoq-cascade/v1";
+
+export const CASCADE_FAULT = {
+  allowed: false as const,
+  stage: "cheap_filter" as const,
+  outcome: "blocked" as const,
+  code: "cascade_fault",
+  message:
+    "Hosted safety cascade failed closed. Retry the send; the fenced VPS did not run it.",
+};
 
 const CRITICAL_INTENTS = [
   {
@@ -72,4 +85,18 @@ export function evaluateHostedInfoqCascade(prompt: string): HostedInfoqCascadeDe
     }
   }
   return { allowed: true, stage: "pass", outcome: "successful" };
+}
+
+/** Isolate one admission step: throw → onFault, never bubble to the Worker. */
+export function isolateAdmissionStep<T>(fn: () => T, onFault: T): T {
+  try {
+    return fn();
+  } catch {
+    return onFault;
+  }
+}
+
+/** Live admission entry: cheap cascade, fail-closed on throw. */
+export function admitHostedInfoqCascade(prompt: string): HostedInfoqCascadeDecision {
+  return isolateAdmissionStep(() => evaluateHostedInfoqCascade(prompt), CASCADE_FAULT);
 }

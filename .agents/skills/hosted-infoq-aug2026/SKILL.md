@@ -27,6 +27,7 @@ node tests/test-hosted-infoq-cascade.js
 1. Cheap deterministic filter before any expensive path (DoorDash SafeChat *shape*).
 2. Standards are MUST/SHOULD with lifecycle `guidance` → `observation` → `enforcement`. Only `enforcement` withholds.
 3. Critical writes (spend, force-push, production deploy, Photon/iMessage) default-deny on the fenced VPS.
+4. Isolate each admission step so a throw fail-closes (Newman progressive-collapse). Durable-step analog — not Cloudflare CI.
 
 ## Skip
 
@@ -38,5 +39,6 @@ node tests/test-hosted-infoq-cascade.js
 | Next.js 16.3 Instant Navigations | Control-plane is 16.2.x; upgrade is not this PR |
 | Kitesurf | Sibling PRs #2010 / #2079 |
 | hosted-resource-grant | OPEN PR #2069 |
+| task-leases.ts claim-time cascade | Codex in_review; create-time still gated |
 
-Live admission: `evaluateHostedInfoqCascade` after `evaluateCloudPromptToolPolicy` on cloud tasks.
+Live admission: `admitHostedInfoqCascade` after `evaluateCloudPromptToolPolicy` on `/api/tasks`, `/api/nostr/events`, and signed-device cloud create.

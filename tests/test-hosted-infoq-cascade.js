@@ -5,6 +5,9 @@ const assert = require('assert');
 const {
   honesty,
   evaluateHostedInfoqCascade,
+  admitHostedInfoqCascade,
+  isolateAdmissionStep,
+  CASCADE_FAULT,
   backtest,
   STANDARDS,
 } = require('../tools/hosted-infoq-cascade');
@@ -41,6 +44,19 @@ assert.strictEqual(bt.total, 7);
 assert.strictEqual(bt.failed, 0);
 
 assert.ok(STANDARDS.some((s) => s.id === 'next-instant-navigations' && s.state === 'guidance'));
+assert.ok(STANDARDS.some((s) => s.id === 'isolate-admission-steps' && s.state === 'enforcement'));
 assert.ok(STANDARDS.every((s) => s.kind === 'MUST' || s.kind === 'SHOULD'));
+
+assert.strictEqual(admitHostedInfoqCascade('git push --force origin main').allowed, false);
+assert.strictEqual(admitHostedInfoqCascade('Summarize the last commits and open a PR draft.').allowed, true);
+const isolated = isolateAdmissionStep(() => {
+  throw new Error('filter boom');
+}, CASCADE_FAULT);
+assert.strictEqual(isolated.allowed, false);
+assert.strictEqual(isolated.code, 'cascade_fault');
+assert.strictEqual(
+  isolateAdmissionStep(() => evaluateHostedInfoqCascade('open a PR draft'), CASCADE_FAULT).allowed,
+  true,
+);
 
 console.log('ok tests/test-hosted-infoq-cascade.js');
