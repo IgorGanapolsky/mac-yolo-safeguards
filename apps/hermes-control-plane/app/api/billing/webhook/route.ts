@@ -1,25 +1,20 @@
 import { db, runtimeEnv } from "@/lib/runtime";
-
-function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let index = 0; index < bytes.length; index += 1) bytes[index] = Number.parseInt(hex.slice(index * 2, index * 2 + 2), 16);
-  return bytes;
-}
-
-async function verifyStripeSignature(payload: string, header: string, secret: string): Promise<boolean> {
-  const parts = Object.fromEntries(header.split(",").map((item) => item.split("=", 2)));
-  const timestamp = parts.t;
-  const signature = parts.v1;
-  if (!timestamp || !signature || Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) return false;
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["verify"]);
-  return crypto.subtle.verify("HMAC", key, hexToBytes(signature), new TextEncoder().encode(`${timestamp}.${payload}`));
-}
+import { verifyWebhookSignature } from "@/lib/webhook-signature";
 
 export async function POST(request: Request) {
   const secret = runtimeEnv().STRIPE_WEBHOOK_SECRET;
   const signature = request.headers.get("stripe-signature");
   const body = await request.text();
-  if (!secret || !signature || !(await verifyStripeSignature(body, signature, secret))) return new Response("invalid signature", { status: 401 });
+  const verified = await verifyWebhookSignature(body, signature, secret);
+  if (!verified.ok) {
+    // A missing signing secret is a server misconfiguration, not a rejected
+    // caller. Reporting it as 401 made an unset secret look identical to an
+    // attack in the provider dashboard and hid a total delivery outage.
+    if (verified.reason === "not_configured") {
+      return new Response("webhook signing secret is not configured", { status: 500 });
+    }
+    return new Response(`invalid signature: ${verified.reason}`, { status: 401 });
+  }
   let event: {
     id: string;
     type: string;
