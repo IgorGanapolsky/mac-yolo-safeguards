@@ -25,11 +25,28 @@ interface SessionInput {
   preview?: string;
   messageCount?: number;
   updatedAt?: number;
-  messages?: Array<{ role?: string; content?: string }>;
+  messages?: Array<{
+    role?: string;
+    content?: string;
+    createdAt?: number | string | null;
+    timestamp?: number | string | null;
+  }>;
 }
 
 function cleanText(value: unknown, limit: number): string {
   return typeof value === "string" ? value.replaceAll("\u0000", "").trim().slice(0, limit) : "";
+}
+
+function messageCreatedAt(
+  message: { createdAt?: number | string | null; timestamp?: number | string | null } | undefined,
+): number | null {
+  for (const raw of [message?.createdAt, message?.timestamp]) {
+    const value = typeof raw === "string" ? Number(raw) : raw;
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+      return Math.floor(value);
+    }
+  }
+  return null;
 }
 
 function contextSnapshot(messages: SessionInput["messages"]): string | null {
@@ -37,7 +54,9 @@ function contextSnapshot(messages: SessionInput["messages"]): string | null {
   const cleaned = messages.slice(-MAX_CONTEXT_MESSAGES).flatMap((message) => {
     const role = ["user", "assistant", "system"].includes(message?.role ?? "") ? message.role! : "";
     const content = cleanText(message?.content, 8_000);
-    return role && content ? [{ role, content }] : [];
+    if (!role || !content) return [];
+    const createdAt = messageCreatedAt(message);
+    return createdAt != null ? [{ role, content, createdAt }] : [{ role, content }];
   });
   let total = 0;
   const bounded: typeof cleaned = [];

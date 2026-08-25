@@ -18,7 +18,8 @@ test("primary $10 hosted Hermes CTAs POST Stripe Checkout, not WorkOS login", ()
 
   assert.match(cta, /action="\/api\/billing\/checkout"/);
   assert.match(cta, /method="POST"/);
-  assert.match(cta, /data-funnel-event="hosted_checkout_click"/);
+  assert.match(cta, /funnelEvent = "hosted_checkout_click"/);
+  assert.match(cta, /data-funnel-event=\{funnelEvent\}/);
   assert.doesNotMatch(cta, /\/api\/auth\/login/);
 
   assert.equal(
@@ -29,24 +30,24 @@ test("primary $10 hosted Hermes CTAs POST Stripe Checkout, not WorkOS login", ()
     (page.match(/href="\/api\/auth\/login" className="button button-primary" data-funnel-event="hosted_checkout_click"/g) ?? []).length,
     0,
   );
-  assert.equal((page.match(/<HostedCheckoutCta/g) ?? []).length, 3);
-
+  // Page/StartSurfaces go through session-aware LandingPricingCtaPaid (anon → HostedCheckoutCta).
+  assert.equal((page.match(/<LandingPricingCtaPaid/g) ?? []).length >= 3, true);
   assert.match(chrome, /<HostedCheckoutCta>/);
   assert.doesNotMatch(
     chrome,
     /href="\/api\/auth\/login"\s+className="button button-primary"\s+data-funnel-event="hosted_checkout_click"/,
   );
   assert.doesNotMatch(chrome, /href="#pricing"\s+className="button button-primary"/);
-  assert.match(chrome, /mode === "session" \? "\/dashboard" : "\/api\/auth\/login"/);
+  assert.match(chrome, /session\.mode === "session" \? "\/dashboard" : "\/api\/auth\/login"/);
 
-  assert.match(surfaces, /<HostedCheckoutCta/);
+  assert.match(surfaces, /LandingPricingCtaPaid/);
   assert.match(surfaces, /testId="start-browser"/);
   assert.doesNotMatch(surfaces, /href="\/api\/auth\/login"/);
   assert.doesNotMatch(surfaces, /href="#pricing"/);
 
-  // See-pricing secondary stays a hash jump. Sign-in stays WorkOS.
+  // Pricing nav stays a hash jump. Sign-in stays WorkOS for strangers.
   assert.match(chrome, /href="#pricing" className="nav-link">Pricing<\/a>/);
-  assert.match(chrome, /className="landing-action" href="#pricing"/);
+  assert.match(chrome, /className="landing-action" href=\{isSession \? "\/dashboard" : "#pricing"\}/);
   assert.equal((chrome.match(/"sign_in_click"/g) ?? []).length, 1);
 });
 
@@ -60,6 +61,7 @@ test("signin and login aliases 307 to WorkOS; /checkout auto-POSTs Stripe for st
   }
   const checkout = read("app/checkout/route.ts");
   assert.match(checkout, /currentSession/);
+  assert.match(checkout, /hasCloudContinuationAccess/);
   assert.match(checkout, /Location: "\/dashboard"/);
   assert.match(checkout, /action="\/api\/billing\/checkout" method="POST"/);
   assert.doesNotMatch(checkout, /\/api\/auth\/login\?return_to=\/dashboard/);
