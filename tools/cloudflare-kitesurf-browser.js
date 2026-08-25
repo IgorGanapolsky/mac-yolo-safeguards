@@ -78,38 +78,111 @@ class KitesurfEngine {
     };
   }
 
+  /**
+   * Best-effort HTML→markdown for LLM context (not an XSS sanitizer).
+   * Uses iterative tag removal so nested/odd markup cannot bypass a single pass.
+   */
   static distillDomToMarkdown(htmlString, title = 'Page Content') {
     if (!htmlString || typeof htmlString !== 'string') {
       return `# ${title}\n\n*No content extracted.*`;
     }
 
-    let cleaned = htmlString
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-      .replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '[SVG Icon]')
-      .replace(/<!--[\s\S]*?-->/g, '');
+    let cleaned = String(htmlString);
+    // Drop whole element blocks without regex (avoids incomplete multi-char sanitization)
+    cleaned = KitesurfEngine._stripHtmlBlocks(cleaned, [
+      ['<script', '</script'],
+      ['<style', '</style'],
+      ['<svg', '</svg'],
+    ]);
+    cleaned = KitesurfEngine._stripHtmlComments(cleaned);
 
     cleaned = cleaned
-      .replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, '\n# $1\n')
-      .replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, '\n## $1\n')
-      .replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, '\n### $1\n')
-      .replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, '\n$1\n')
-      .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '\n- $1')
-      .replace(/<a\s+[^>]*href=["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi, '[$2]($1)')
-      .replace(/<strong[^>]*>([\s\S]*?)<\/strong>/gi, '**$1**')
-      .replace(/<em[^>]*>([\s\S]*?)<\/em>/gi, '*$1*')
-      .replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, '`$1`')
+      .replace(/<h1\b[^>]*>/gi, '\n# ')
+      .replace(/<\/h1>/gi, '\n')
+      .replace(/<h2\b[^>]*>/gi, '\n## ')
+      .replace(/<\/h2>/gi, '\n')
+      .replace(/<h3\b[^>]*>/gi, '\n### ')
+      .replace(/<\/h3>/gi, '\n')
+      .replace(/<li\b[^>]*>/gi, '\n- ')
       .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/(p|div|tr|table|ul|ol)>/gi, '\n');
+
+    // Inline markdown markers before stripping remaining tags
+    cleaned = cleaned
+      .replace(/<strong\b[^>]*>/gi, '**')
+      .replace(/<\/strong>/gi, '**')
+      .replace(/<b\b[^>]*>/gi, '**')
+      .replace(/<\/b>/gi, '**')
+      .replace(/<em\b[^>]*>/gi, '*')
+      .replace(/<\/em>/gi, '*')
+      .replace(/<i\b[^>]*>/gi, '*')
+      .replace(/<\/i>/gi, '*')
+      .replace(/<code\b[^>]*>/gi, '`')
+      .replace(/<\/code>/gi, '`');
+      // <a> tags are stripped below; keep visible link text only
+
+    cleaned = cleaned
       .replace(/<[^>]+>/g, ' ')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/\n\s+\n/g, '\n\n')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
+      .replace(/&amp;/gi, '&')
+      .replace(/[ \t]+\n/g, '\n')
       .replace(/\n{3,}/g, '\n\n')
+      .replace(/[ \t]{2,}/g, ' ')
       .trim();
 
+    return cleaned.length ? cleaned : `# ${title}\n\n*No content extracted.*`;
+  }
+
+  /** Case-insensitive indexOf from offset. */
+  static _indexOfCi(haystack, needle, from = 0) {
+    return haystack.toLowerCase().indexOf(needle.toLowerCase(), from);
+  }
+
+  /** Remove <!-- ... --> comments without regex. */
+  static _stripHtmlComments(html) {
+    let out = '';
+    let i = 0;
+    while (i < html.length) {
+      const start = html.indexOf('<!--', i);
+      if (start === -1) {
+        out += html.slice(i);
+        break;
+      }
+      out += html.slice(i, start);
+      const end = html.indexOf('-->', start + 4);
+      if (end === -1) break;
+      i = end + 3;
+    }
+    return out;
+  }
+
+  /**
+   * Remove <tag ...> ... </tag> blocks by scanning (not regex).
+   * pairs: [['<script','</script'], ...]
+   */
+  static _stripHtmlBlocks(html, pairs) {
+    let cleaned = html;
+    for (const [openTok, closeTok] of pairs) {
+      let guard = 0;
+      while (guard++ < 1000) {
+        const start = KitesurfEngine._indexOfCi(cleaned, openTok, 0);
+        if (start === -1) break;
+        const gt = cleaned.indexOf('>', start);
+        if (gt === -1) break;
+        const endOpen = KitesurfEngine._indexOfCi(cleaned, closeTok, gt + 1);
+        if (endOpen === -1) {
+          cleaned = cleaned.slice(0, start) + ' ' + cleaned.slice(gt + 1);
+          continue;
+        }
+        const endGt = cleaned.indexOf('>', endOpen);
+        if (endGt === -1) break;
+        cleaned = cleaned.slice(0, start) + ' ' + cleaned.slice(endGt + 1);
+      }
+    }
     return cleaned;
   }
 
@@ -122,9 +195,6 @@ class KitesurfEngine {
       browserRun: claim.liveClaim ? 'CREDENTIALS_PRESENT' : 'NO_CREDENTIALS',
       liveClaim: claim.liveClaim,
       reason: claim.reason,
-      accountIdPresent: Boolean(this.accountId),
-      apiTokenPresent: Boolean(this.apiToken),
-      cdpEndpointPresent: Boolean(this.endpoint),
       htmlFallback: 'fetch',
       notes:
         'Screenshot/PDF need Browser Run. Without creds, html action may still fetch; never invent a PNG.',
