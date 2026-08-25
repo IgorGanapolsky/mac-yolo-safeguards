@@ -13,6 +13,8 @@ describe("buildTaskCompletionReceipt", () => {
     expect(r.outcome).toBe("claimed_done");
     expect(r.externalCheck).toBeNull();
     expect(r.note).toBe("self_reported_only");
+    expect(r.togetherNative?.liveClaim).toBe(false);
+    expect(r.togetherNative?.capacityIsNotFrontier).toBe(true);
   });
 
   it("marks external-verified success as done", () => {
@@ -53,5 +55,34 @@ describe("buildTaskCompletionReceipt", () => {
       now: 4000,
     });
     expect(r.outcome).toBe("claimed_failed");
+  });
+
+  it("does not treat claimed_done as academy quality", () => {
+    const r = buildTaskCompletionReceipt({
+      actorType: "runner",
+      actorId: "fly-1",
+      taskId: "t5",
+      route: "cloud",
+      now: 5000,
+    });
+    expect(r.outcome).toBe("claimed_done");
+    expect(r.academy4d?.liveClaim).toBe(false);
+    expect(r.academy4d?.completedIsNotQuality).toBe(true);
+    expect(r.academy4d?.diligenceCall).toBe("fix");
+  });
+
+  it("keeps outcome=done from becoming academy ship without five lenses", () => {
+    const r = buildTaskCompletionReceipt({
+      actorType: "device",
+      actorId: "mac-1",
+      taskId: "t6",
+      route: "local",
+      externalCheckPassed: true,
+      externalCheckKind: "provider_receipt",
+      now: 6000,
+    });
+    expect(r.outcome).toBe("done");
+    expect(r.academy4d?.liveClaim).toBe(false);
+    expect(r.academy4d?.diligenceCall).toBe("fix");
   });
 });
