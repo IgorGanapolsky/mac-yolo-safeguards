@@ -437,7 +437,7 @@ test("keeps every workspace telemetry value behind authentication", () => {
   assert.doesNotMatch(chrome, /After you sign in|Sign in to private dashboard|Open private dashboard|Sign in to Hermes Web|Open Hermes on the web/);
   // Continuity is fenced VPS only — no #pair Mac product path on the public landing.
   assert.doesNotMatch(chrome, /href="#pair"/);
-  assert.match(chrome, /className="landing-action" href="#pricing"/);
+  assert.match(chrome, /className="landing-action" href=\{isSession \? "\/dashboard" : "#pricing"\}/);
   assert.match(chrome, /className="landing-action" href="#closed-system"/);
   assert.doesNotMatch(chrome, /href="#mobile"|Phone Leash/);
   assert.match(chrome, /No workspace telemetry is fetched or rendered on this public page/);
