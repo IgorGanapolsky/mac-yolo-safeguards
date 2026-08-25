@@ -181,6 +181,52 @@ test('full lifecycle: start → decision → end → show', () => {
   cleanupScope(scope);
 });
 
+test('lifecycle is append-only and preserves all earlier bytes', () => {
+  const scope = makeTempScope();
+  const opts = { traceFile: scope.traceFile };
+  const trace = mod.startTrace({ trigger: 'append-proof' }, opts);
+  const afterStart = fs.readFileSync(scope.traceFile, 'utf8');
+  mod.recordDecision({ traceId: trace.id, decision: 'retain evidence' }, opts);
+  const afterDecision = fs.readFileSync(scope.traceFile, 'utf8');
+  assert.ok(afterDecision.startsWith(afterStart));
+  mod.endTrace({ traceId: trace.id, result: 'verified' }, opts);
+  const afterEnd = fs.readFileSync(scope.traceFile, 'utf8');
+  assert.ok(afterEnd.startsWith(afterDecision));
+  const events = mod.readLines(opts);
+  assert.deepStrictEqual(events.map((event) => event.event), ['start', 'decision', 'end']);
+  assert.ok(events.every((event) => event.schema === mod.EVENT_SCHEMA));
+  cleanupScope(scope);
+});
+
+test('legacy snapshot remains readable and can receive v2 events', () => {
+  const scope = makeTempScope();
+  const legacy = {
+    id: 'trace_legacy',
+    startedAt: '2026-08-24T12:00:00.000Z',
+    endedAt: null,
+    status: 'running',
+    trigger: 'legacy',
+    context: ['plan.md'],
+    decisions: [],
+    result: null,
+    durationMs: null,
+  };
+  fs.writeFileSync(scope.traceFile, `${JSON.stringify(legacy)}\n`);
+  const prefix = fs.readFileSync(scope.traceFile, 'utf8');
+  mod.recordDecision({ traceId: legacy.id, decision: 'migrated without rewrite' }, { traceFile: scope.traceFile });
+  const contents = fs.readFileSync(scope.traceFile, 'utf8');
+  assert.ok(contents.startsWith(prefix));
+  const shown = mod.showTrace(legacy.id, { traceFile: scope.traceFile });
+  assert.strictEqual(shown.decisions[0].decision, 'migrated without rewrite');
+  cleanupScope(scope);
+});
+
+test('CLI parser recognizes lifecycle commands instead of defaulting to list', () => {
+  assert.strictEqual(mod.parseArgs(['start', '--trigger', 'cli']).cmd, 'start');
+  assert.strictEqual(mod.parseArgs(['decision', '--trace-id', 'x']).cmd, 'decision');
+  assert.strictEqual(mod.parseArgs([]).cmd, 'list');
+});
+
 test('readTraces returns empty array when file does not exist', () => {
   const scope = makeTempScope();
   const traces = mod.readTraces({ traceFile: path.join(scope.dir, 'nonexistent.jsonl') });
