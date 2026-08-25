@@ -1655,7 +1655,7 @@ export default function DashboardClient() {
         )}
 
         <nav className="metric-grid metric-grid-four" aria-label="Workspace status shortcuts">
-          <a className="metric-card" href="#web-settings" onClick={(event) => { event.preventDefault(); openSettingsPanel(); }} aria-label={`View ${devices.length} hosted runners in settings`}><span>Hosted VPS</span><strong>{devices.length}</strong><small>{onlineDevices.length} online now</small><b>View runner →</b></a>
+          <a className="metric-card" href="#web-settings" onClick={(event) => { event.preventDefault(); openSettingsPanel(); }} aria-label={`View ${devices.length} paired computers in settings`}><span>Paired computers</span><strong>{devices.length}</strong><small>{onlineDevices.length} online now</small><b>Manage →</b></a>
           <a className="metric-card" href="#task-activity" aria-label={`View ${activeTasks.length} active tasks`}><span>Active tasks</span><strong>{activeTasks.length}</strong><small>{tasks.filter((task) => task.route === "cloud" && !terminal.has(task.status)).length} routed to cloud</small><b>View activity →</b></a>
           <a className="metric-card" href="#task-activity" aria-label={`View task receipts; P95 completion is ${latency(p95CompletionLatency)}`}><span>P95 completion</span><strong>{latency(p95CompletionLatency)}</strong><small>{p95CompletionLatency === null ? "Waiting for completed runs" : "Measured from real task receipts"}</small><b>View receipts →</b></a>
           <a className="metric-card" href="#execution-safety" aria-label="Explain fenced execution safety" onClick={() => setSafetyExpanded(true)}><span>Execution safety</span><strong className="safe-copy">Fenced</strong><small>One signed runner; 90-second lease</small><b>Explain safety →</b></a>
@@ -2057,7 +2057,19 @@ export default function DashboardClient() {
               </div>
             </details>
             <section className="panel" id="web-settings" tabIndex={-1}>
-              <div className="panel-heading"><div><p className="eyebrow">SETTINGS</p><h2>Hosted VPS runner</h2></div></div>
+              {/*
+                This panel lists `devices`, which are PAIRED LOCAL MACHINES --
+                they carry pairing codes, a "Remove machine" action, and an
+                "if <machine> goes offline" failover. It was titled "Hosted VPS
+                runner", so a user's own laptop rendered underneath a heading
+                claiming it was the hosted runner. The fenced cloud runner is
+                not in this list at all.
+
+                That is the one distinction the product cannot afford to blur:
+                whether work executes in the fenced cloud or on the user's own
+                machine. The helper copy below already states it correctly.
+              */}
+              <div className="panel-heading"><div><p className="eyebrow">SETTINGS</p><h2>Paired computers</h2></div></div>
               <p className="helper-copy">
                 ThumbGate executes tasks on the fenced Cloud VPS runner (90s renewable lease). No local Mac software is required. Pairing a computer stays optional below.
               </p>

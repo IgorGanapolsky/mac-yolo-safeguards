@@ -71,6 +71,56 @@ test("the default run target is stated once, not four times", () => {
   );
 });
 
+// ---------------------------------------------------------------------------
+// Cloud vs local is the one distinction this product cannot blur. `devices`
+// are PAIRED LOCAL MACHINES; the fenced cloud runner is not in that list.
+// ---------------------------------------------------------------------------
+
+test("a paired Mac is never presented as the hosted VPS runner", () => {
+  // The settings panel renders devices.map(...) under its heading. Titling it
+  // "Hosted VPS runner" put the user's own laptop under a claim that it was
+  // the hosted runner.
+  const heading = /<h2>([^<]*)<\/h2>/g;
+  const headings = [...SOURCE.matchAll(heading)].map((m) => m[1]);
+  const deviceListHeading = headings.find((h) => /Hosted VPS runner/i.test(h));
+  assert.equal(
+    deviceListHeading,
+    undefined,
+    'no panel listing paired machines may be titled "Hosted VPS runner"',
+  );
+  assert.ok(
+    headings.some((h) => /Paired computers/i.test(h)),
+    "the paired-machine panel must say what it lists",
+  );
+});
+
+test("the metric card counting devices is not labelled Hosted VPS", () => {
+  // `devices.length` is a count of paired Macs. Labelling that number
+  // "Hosted VPS" told the user they had N hosted runners when they may have
+  // none, and made local execution indistinguishable from fenced execution.
+  // Anchored on the aria-label rather than the opening tag: the tag contains an
+  // inline onClick arrow function, so a [^>]* scan stops at the arrow's ">".
+  const aria = /aria-label=\{`View \$\{devices\.length\}([^`]*)`\}/.exec(SOURCE);
+  assert.ok(aria, "the devices metric card must be identifiable");
+  assert.doesNotMatch(aria[1], /hosted runner/i, "aria-label must not call paired Macs hosted runners");
+
+  const card = SOURCE.slice(aria.index, aria.index + 300);
+  assert.doesNotMatch(
+    card,
+    /<span>Hosted VPS<\/span>/,
+    "the visible label on a devices count must not read Hosted VPS",
+  );
+  assert.match(card, /<span>Paired computers<\/span>/);
+  assert.match(card, /<strong>\{devices\.length\}<\/strong>/, "still the devices count");
+});
+
+test("the helper copy still states that tasks run on the fenced cloud runner", () => {
+  // Renaming the panel must not weaken the actual claim: the default execution
+  // target is the fenced cloud runner, and pairing stays optional.
+  assert.match(SOURCE, /executes tasks on the fenced Cloud VPS runner/);
+  assert.match(SOURCE, /No local Mac software is required/);
+});
+
 test("the picker still works: a hosted default option and a device list", () => {
   // Tightening copy must not remove the control itself.
   assert.match(SOURCE, /<option value="cloud">[^<]*Hosted VPS \(default\)<\/option>/);
