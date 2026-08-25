@@ -74,13 +74,18 @@ test("a task submitted through the real composer round-trips through the real co
   expect(cycle.status, `connector --once failed:\n${cycle.stderr}`).toBe(0);
 
   await page.reload();
-  const completedHit = await locateWithHeal(page, DASHBOARD_TASK_CANDIDATES_FOR(prompt), {
+  const completedHit = await locateWithHeal(page, [
+    ...DASHBOARD_TASK_CANDIDATES_FOR(prompt),
+    { css: ".conversation-message.role-assistant", hasText: "fake-gateway E2E reply" },
+    { testid: "conversation-assistant-result" },
+  ], {
     step: "dashboard.task-card.completed",
     timeout: 10_000,
   });
   const completedCard = completedHit.locator;
-  await expect(completedCard.locator(".status-completed")).toBeVisible({ timeout: 10_000 });
-  await expect(completedCard.locator("pre")).toContainText("fake-gateway E2E reply");
+  await expect(page.locator(".status-completed").first()).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("fake-gateway E2E reply").first()).toBeVisible({ timeout: 10_000 });
+  await expect(completedCard).toBeVisible();
 });
 
 test("composer has no RUN ON picker and shows Output after send", async ({ page }) => {
@@ -123,12 +128,17 @@ test("composer has no RUN ON picker and shows Output after send", async ({ page 
   expect(cycle.status, `connector --once failed:\n${cycle.stderr}`).toBe(0);
 
   await page.reload();
-  const completedHit = await locateWithHeal(page, DASHBOARD_TASK_CANDIDATES_FOR(prompt), {
+  const completedHit = await locateWithHeal(page, [
+    ...DASHBOARD_TASK_CANDIDATES_FOR(prompt),
+    { css: ".conversation-message.role-assistant", hasText: "fake-gateway E2E reply" },
+    { testid: "conversation-assistant-result" },
+  ], {
     step: "dashboard.task-card.completed",
     timeout: 10_000,
   });
-  const completedCard = completedHit.locator;
-  await expect(completedCard.locator(".status-completed")).toBeVisible({ timeout: 10_000 });
+  await expect(completedHit.locator).toBeVisible();
+  await expect(page.locator(".status-completed").first()).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("fake-gateway E2E reply").first()).toBeVisible({ timeout: 10_000 });
   await expect(page.locator('[data-testid="run-output"]')).toBeVisible();
   await expect(page.locator('[data-testid="run-output"] .eyebrow')).toContainText(/Output/i);
 });
