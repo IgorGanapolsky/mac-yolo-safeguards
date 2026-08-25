@@ -1,4 +1,8 @@
 import { attachAcademyDiscernment, type DiscernmentGrade } from "./hosted-academy-4d";
+import {
+  attachTogetherNativeToReceipt,
+  type TogetherNativeAttach,
+} from "./hosted-together-native";
 
 /**
  * Five-field execution receipts (inspired by reliability practice + SeqPU-style
@@ -34,6 +38,8 @@ export type ExecutionReceipt = {
   note?: string;
   /** Academy discernment — completed ≠ quality. Never a LIVE Worker claim by itself. */
   academy4d?: DiscernmentGrade;
+  /** Together Native: capacity ≠ frontier. Never LIVE from leftover quota. */
+  togetherNative?: TogetherNativeAttach;
 };
 
 export function buildTaskCompletionReceipt(input: {
@@ -47,6 +53,7 @@ export function buildTaskCompletionReceipt(input: {
   externalCheckKind?: string | null;
   externalEvidenceId?: string | null;
   now?: number;
+  together?: Parameters<typeof attachTogetherNativeToReceipt>[1];
 }): ExecutionReceipt {
   const timestamp = input.now ?? Date.now();
   const hasExternal =
@@ -82,6 +89,7 @@ export function buildTaskCompletionReceipt(input: {
         : "self_reported_only",
   };
   receipt.academy4d = attachAcademyDiscernment(receipt);
+  receipt.togetherNative = attachTogetherNativeToReceipt(receipt, input.together);
   return receipt;
 }
 
@@ -101,6 +109,14 @@ export function receiptAuditMetadata(receipt: ExecutionReceipt): Record<string, 
             liveClaim: receipt.academy4d.liveClaim,
             completedIsNotQuality: receipt.academy4d.completedIsNotQuality,
             quality: receipt.academy4d.quality,
+          }
+        : undefined,
+      togetherNative: receipt.togetherNative
+        ? {
+            liveClaim: receipt.togetherNative.liveClaim,
+            status: receipt.togetherNative.status,
+            capacityIsNotFrontier: receipt.togetherNative.capacityIsNotFrontier,
+            workloadClass: receipt.togetherNative.workloadClass,
           }
         : undefined,
     },
