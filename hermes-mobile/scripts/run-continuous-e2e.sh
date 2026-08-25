@@ -179,6 +179,7 @@ guard_active_physical_phone() {
       return 0
     fi
     detail="skipped continuous E2E: physical phone is awake and actively in use"
+    E2E_SKIP_DETAIL="$detail"
     echo "$detail"
     write_status "$proof_unit_status" "skipped" "$detail"
     return 1
@@ -188,6 +189,7 @@ guard_active_physical_phone() {
       return 0
     fi
     detail="skipped continuous E2E: could not verify exclusive physical-phone access"
+    E2E_SKIP_DETAIL="$detail"
     echo "$detail"
     write_status "$proof_unit_status" "skipped" "$detail"
     return 1
@@ -252,7 +254,7 @@ guard_system_pressure() {
   # phone_lease_busy_reason (agent-phone-lease.js) ignores its own ancestor's mkdir lock
   # when HERMES_PHONE_PIPELINE_LEASE_HELD=1 (run_once_with_global_phone_lease already
   # holds it for this whole process tree) while still honoring a human hold mid-cycle.
-  lease_reason="$(phone_lease_busy_reason)"
+  lease_reason="$(phone_lease_busy_reason)" || true
   if [[ -n "$lease_reason" ]]; then
     detail="skipped continuous E2E: phone lease busy (${lease_reason})"
     echo "$detail"
@@ -426,6 +428,8 @@ run_e2e_flow() {
 }
 
 run_e2e_suite() {
+  local proof_unit_status="${1:-skipped}"
+  E2E_SKIP_DETAIL=""
   if ! command -v maestro >/dev/null 2>&1; then
     echo "Maestro not installed — skipping E2E"
     return 2
@@ -457,6 +461,20 @@ run_e2e_suite() {
 
   wait_for_adb 2 >/dev/null || true
   ensure_metro || true
+
+  # Metro startup can take long enough for Igor to begin using the physical
+  # phone after run_cycle's post-unit probe. Re-check at the actual device
+  # boundary before run-e2e.sh can stop, clear, relaunch, or replace the app.
+  local device_boundary_lease_reason=""
+  device_boundary_lease_reason="$(phone_lease_busy_reason)" || true
+  if [[ -n "$device_boundary_lease_reason" ]]; then
+    E2E_SKIP_DETAIL="skipped continuous E2E at device boundary: phone lease busy (${device_boundary_lease_reason})"
+    return 4
+  fi
+  if ! guard_active_physical_phone "$proof_unit_status"; then
+    E2E_SKIP_DETAIL="${E2E_SKIP_DETAIL:-skipped continuous E2E at device boundary: physical phone became active while preparing Metro}"
+    return 4
+  fi
 
   if has_usb_adb_device; then
     export HERMES_E2E_ANDROID_ONLY=1
@@ -549,7 +567,7 @@ run_cycle() {
     # Re-check both an explicit human hold and live foreground use immediately
     # before Maestro can stop, relaunch, clear, or replace the paid app.
     local pre_e2e_lease_reason
-    pre_e2e_lease_reason="$(phone_lease_busy_reason)"
+    pre_e2e_lease_reason="$(phone_lease_busy_reason)" || true
     if [[ -n "$pre_e2e_lease_reason" ]]; then
       e2e_status="skipped"
       detail="skipped continuous E2E before device stage: phone lease busy (${pre_e2e_lease_reason})"
@@ -576,7 +594,7 @@ run_cycle() {
     fi
 
     set +e
-    run_e2e_suite
+    run_e2e_suite "$unit_status"
     local e2e_rc=$?
     set -e
     case $e2e_rc in
@@ -589,6 +607,11 @@ run_cycle() {
           e2e_status="skipped"
           detail="maestro or java unavailable"
         fi
+        ;;
+      4)
+        e2e_status="skipped"
+        detail="${E2E_SKIP_DETAIL:-skipped continuous E2E at device boundary}"
+        echo "E2E: SKIPPED (${detail})"
         ;;
       *) e2e_status="fail"; detail="one or more Maestro flows failed" ;;
     esac
