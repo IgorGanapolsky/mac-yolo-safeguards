@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { HostedCheckoutCta } from "./HostedCheckoutCta";
 import { SignOutForm } from "./SignOutForm";
 import styles from "./landing.module.css";
@@ -58,6 +58,18 @@ function useLandingAuth(): AuthSession {
   return session;
 }
 
+function hasHostedEntitlement(session: AuthSession): boolean {
+  // Trust /api/me cloudAccess (includes live trial expiry). Do not treat a stale
+  // plan label alone as entitlement — expired trials stay on plan=trial.
+  if (session.mode !== "session") return false;
+  if (session.cloudAccess) return true;
+  return session.plan === "pro" || session.plan === "team";
+}
+
+function isPaidPlan(session: AuthSession): boolean {
+  return session.mode === "session" && (session.plan === "pro" || session.plan === "team");
+}
+
 /** Nav session chrome — after paint via /api/me (keeps public HTML static). */
 export function LandingAuthNav() {
   const session = useLandingAuth();
@@ -70,6 +82,9 @@ export function LandingAuthNav() {
       <a href="#pricing" className="nav-link">Pricing</a>
       {isSession ? (
         <div className={styles.sessionNav} aria-label="Authenticated session actions">
+          <a href="/dashboard" className="button button-small button-secondary" data-funnel-event="dashboard_open_click">
+            Open dashboard
+          </a>
           <SignOutForm buttonClassName={`button button-small ${styles.signOutButton}`} data-testid="landing-sign-out" />
         </div>
       ) : null}
@@ -80,26 +95,36 @@ export function LandingAuthNav() {
 /**
  * Hosted-Hermes hero CTAs. Product is hosted Hermes on a fenced VPS — not Mac pairing.
  * Do not market a phone leash or Hermes Mobile on this page.
+ *
+ * Signed-in users with trial/pro must NOT see another $10 checkout wall.
  */
 export function LandingAuthHero() {
   const session = useLandingAuth();
   const isSession = session.mode === "session";
-  const isPaid = isSession && (session.plan === "pro" || session.plan === "team" || session.cloudAccess);
+  const entitled = hasHostedEntitlement(session);
+  const paid = isPaidPlan(session);
 
   return (
-    <div className="hero-actions" data-landing-hero-auth={session.mode}>
-      {isPaid ? (
+    <div className="hero-actions" data-landing-hero-auth={session.mode} data-landing-entitled={entitled ? "1" : "0"}>
+      {entitled ? (
         <>
           <a
             href="/dashboard"
             className="button button-primary"
             data-funnel-event="dashboard_open_click"
+            data-testid="landing-open-hosted"
           >
-            Open hosted Hermes <span aria-hidden="true">→</span>
+            Continue hosted Hermes <span aria-hidden="true">→</span>
           </a>
-          <a href="/api/billing/portal" className="button button-secondary" data-funnel-event="manage_billing_click">
-            You&apos;re on Pro · Manage billing
-          </a>
+          {paid ? (
+            <a href="/api/billing/portal" className="button button-secondary" data-funnel-event="manage_billing_click">
+              You&apos;re on {session.plan === "team" ? "Team" : "Pro"} · Manage billing
+            </a>
+          ) : (
+            <a href="/dashboard" className="button button-secondary" data-funnel-event="dashboard_open_click">
+              Trial active · Open dashboard
+            </a>
+          )}
         </>
       ) : isSession ? (
         <>
@@ -118,7 +143,7 @@ export function LandingAuthHero() {
             className="button button-secondary"
             data-funnel-event="dashboard_open_click"
           >
-            Open hosted Hermes
+            Open dashboard
           </a>
         </>
       ) : (
@@ -143,8 +168,8 @@ export function LandingAuthHero() {
  * Private-workspace panel: hosted Hermes first (keeps public HTML free of telemetry).
  */
 export function LandingAuthPanel() {
-  const mode = useLandingAuth();
-  const isSession = mode === "session";
+  const session = useLandingAuth();
+  const isSession = session.mode === "session";
   return (
     <>
       <div className="console-header">
@@ -153,15 +178,19 @@ export function LandingAuthPanel() {
           <img className="brand-mark" src="/brand/thumbgate-mark-inline-v3.svg" alt="" width={22} height={22} decoding="async" /> Your workspace is private
         </span>
         <span className="action-label">
-          {mode === "loading" ? "Checking session…" : isSession ? "Session active" : "Sign-in required"}
+          {session.mode === "loading" ? "Checking session…" : isSession ? "Session active" : "Sign-in required"}
         </span>
       </div>
       <div className="landing-action-list">
-        <a className="landing-action" href="#pricing">
+        <a className="landing-action" href={isSession ? "/dashboard" : "#pricing"}>
           <span className="action-icon" aria-hidden="true">☁</span>
           <span>
             <strong>Hosted Hermes</strong>
-            <small>Fenced cloud runner with 90s leases. 14 days free, cancel anytime. No Mac pair step.</small>
+            <small>
+              {hasHostedEntitlement(session)
+                ? "Your trial/plan is active. Open the dashboard to keep working."
+                : "Fenced cloud runner with 90s leases. 14 days free, cancel anytime. No Mac pair step."}
+            </small>
           </span>
           <b aria-hidden="true">→</b>
         </a>
@@ -183,24 +212,77 @@ export function LandingAuthPanel() {
 }
 
 function useSessionHref(): string {
-  const mode = useLandingAuth();
-  return mode === "session" ? "/dashboard" : "/api/auth/login";
+  const session = useLandingAuth();
+  return session.mode === "session" ? "/dashboard" : "/api/auth/login";
 }
 
 export function LandingPricingCtaFree() {
+  const session = useLandingAuth();
   const href = useSessionHref();
+  const label = session.mode === "session" ? "Open dashboard →" : "Sign in →";
   return (
     <a href={href} className="button button-secondary" data-funnel-event="free_control_click">
-      Sign in →
+      {label}
     </a>
   );
 }
 
-export function LandingPricingCtaPaid() {
+/**
+ * Primary paid CTA used across pricing / qualifier / footer / StartSurfaces.
+ * Entitled sessions open the dashboard — never another $10 checkout wall.
+ *
+ * Important: when entitled, ignore `children` so call sites that still pass
+ * "Start hosted Hermes — $10/mo" do not re-paint a pay wall for trial/pro users.
+ * While /api/me is loading, render a disabled placeholder — never checkout.
+ */
+export function LandingPricingCtaPaid({
+  children,
+  testId,
+  funnelEvent,
+  ctaId,
+}: {
+  children?: ReactNode;
+  testId?: string;
+  /** Optional funnel id for anon checkout / entitled continue (e.g. give_work_click). */
+  funnelEvent?: string;
+  /** Optional data-cta-id for analytics (e.g. put-hosted-hermes-to-work). */
+  ctaId?: string;
+} = {}) {
+  const session = useLandingAuth();
+  if (session.mode === "loading") {
+    return (
+      <button
+        type="button"
+        className="button button-primary"
+        disabled
+        aria-busy="true"
+        data-testid={testId ?? "landing-cta-loading"}
+        {...(ctaId ? { "data-cta-id": ctaId } : {})}
+      >
+        Checking session…
+      </button>
+    );
+  }
+  if (hasHostedEntitlement(session)) {
+    return (
+      <a
+        href="/dashboard"
+        className="button button-primary"
+        data-funnel-event={funnelEvent ?? "dashboard_open_click"}
+        data-testid={testId ?? "landing-continue-hosted"}
+        {...(ctaId ? { "data-cta-id": ctaId } : {})}
+      >
+        Continue hosted Hermes <span aria-hidden="true">→</span>
+      </a>
+    );
+  }
   return (
-    <HostedCheckoutCta>
-      Start hosted Hermes — $10/mo →
+    <HostedCheckoutCta testId={testId} funnelEvent={funnelEvent} ctaId={ctaId}>
+      {children ?? (
+        <>
+          Start hosted Hermes — $10/mo →
+        </>
+      )}
     </HostedCheckoutCta>
   );
 }
-

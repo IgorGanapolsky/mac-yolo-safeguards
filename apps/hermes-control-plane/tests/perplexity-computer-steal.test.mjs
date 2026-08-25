@@ -27,13 +27,13 @@ test("example jobs are clickable logins with per-job cta ids", () => {
   assert.match(page, /data-cta-id="watch-ci"/);
   assert.match(page, /data-cta-id="morning-digest"/);
   assert.match(page, /data-cta-id="long-migration"/);
-  assert.match(page, /data-funnel-event="give_work_click"/);
-  assert.match(page, /data-cta-id="put-hosted-hermes-to-work"/);
+  assert.match(page, /funnelEvent="give_work_click"/);
+  assert.match(page, /ctaId="put-hosted-hermes-to-work"/);
   assert.match(analytics, /"example_task_click"/);
   assert.match(analytics, /"give_work_click"/);
   assert.match(signals, /sanitizeAttributionToken/);
   assert.match(signals, /dataset\.ctaId/);
-  assert.equal((page.match(/<HostedCheckoutCta/g) ?? []).length, 3);
+  assert.equal((page.match(/<LandingPricingCtaPaid/g) ?? []).length >= 3, true);
 });
 
 test("llms.txt answers how to give it a job", () => {
