@@ -3861,3 +3861,23 @@ GH #2034 / Linear AGENT-505. Remove fabricated fallback preference data and fixe
 - `bin/hosted-alert-correlate` (new)
 - `SKILLS.md` (append row)
 - `plan.md` (this append)
+
+## File claim (append 2026-08-25T17:55:00Z) — `grok-hosted-together-native-20260825`
+
+| T-HOSTED-TOGETHER-NATIVE-20260825 | Together AI Native Conf process steal: capacity ≠ frontier, serverless/batch/provisioned/dedicated honesty, research-to-production receipts | in_progress | grok-hosted-together-native-20260825 | `tools/hosted-together-native.js`, `tests/test-hosted-together-native.js`, `apps/hermes-control-plane/lib/hosted-together-native.ts`, `apps/hermes-control-plane/lib/hosted-together-native.test.ts`, `bin/hosted-together-native`, `.agents/skills/hosted-together-native/**`, `SKILLS.md` (one row), `plan.md` | Not Together Cloud / FA4 / ThunderAgent / Instant Clusters; do not dual-edit ai-native-sdlc, #2088 academy-4d/execution-receipt, or RESEARCH-together-cursor-decagon-hedra |
+
+- `tools/hosted-together-native.js` (new)
+- `tests/test-hosted-together-native.js` (new)
+- `apps/hermes-control-plane/lib/hosted-together-native.ts` (new)
+- `apps/hermes-control-plane/lib/hosted-together-native.test.ts` (new)
+- `bin/hosted-together-native` (new)
+- `.agents/skills/hosted-together-native/` (new)
+- `SKILLS.md` (one row append)
+- `plan.md` (this append)
+
+## Discovered / Decisions (append) — 2026-08-25T17:55Z — grok-hosted-together-native-20260825
+
+- Source: `~/Downloads/together.pdf` (Together Team → igor@ 2026-08-25, AI Native Conf promo) + https://www.together.ai/ainativeconf + https://www.together.ai/blog/ai-native-conf-research-and-product-announcements.
+- Transferable: leftover quota/VPS-up is capacity not frontier; batch complete ≠ LIVE; dedicated GPU claims are NOT_OFFERED; conference talks/vendor blogs are not production receipts.
+- Backlog: Instant Clusters, FlashAttention-4, ThunderAgent, RL API, together.compile, ATLAS-2, dedicated container inference (GPU cloud, not a $10 Worker).
+- Complementary to `/ai-native-sdlc` and OPEN #2088 academy-4d (completed ≠ quality). Did not edit those files.
