@@ -4,7 +4,11 @@ import { db, runtimeEnv } from "@/lib/runtime";
 import { jsonError } from "@/lib/security";
 
 const GUEST_ORG_NAME = "hosted-pending";
-const TRIAL_MS = 14 * 24 * 60 * 60 * 1000;
+/** Public offer lock: hosted Hermes on a fenced VPS, $10/mo, 14-day Stripe trial. */
+const TRIAL_DAYS = 14;
+const TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
+const CHECKOUT_SUBMIT_COPY =
+  "14-day trial of hosted Hermes on a fenced VPS. Then $10/month. Cancel anytime. Approvals stay in thumbgate.app.";
 
 async function recordCheckout(input: {
   organizationId: string;
@@ -102,6 +106,9 @@ export async function POST(request: Request) {
   body.set("client_reference_id", organizationId);
   body.set("metadata[organization_id]", organizationId);
   body.set("subscription_data[metadata][organization_id]", organizationId);
+  body.set("subscription_data[trial_period_days]", String(TRIAL_DAYS));
+  body.set("custom_text[submit][message]", CHECKOUT_SUBMIT_COPY);
+  body.set("payment_method_collection", "always");
   body.set("line_items[0][price]", current.STRIPE_PRICE_ID);
   body.set("line_items[0][quantity]", "1");
   const stripe = await fetch("https://api.stripe.com/v1/checkout/sessions", {
