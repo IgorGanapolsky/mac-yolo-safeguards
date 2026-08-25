@@ -113,17 +113,45 @@ function openPrNumbers() {
   return JSON.parse(out).map((p) => p.number);
 }
 
+/**
+ * Read one PR, following thread pagination to the end.
+ *
+ * The page size is not a display cap: a PR with 101 threads must not report as
+ * clear because the 101st was never fetched. This whole tool exists because
+ * tooling reported "no threads" when threads existed, so truncating silently
+ * here would reproduce the defect it was written to expose.
+ */
 function fetchRow(number) {
-  const query =
-    '{ repository(owner:"' + OWNER + '", name:"' + REPO + '") {' +
-    ' pullRequest(number:' + number + ') {' +
-    ' number title mergeStateStatus' +
-    ' commits(last:1){ nodes { commit { statusCheckRollup { state } } } }' +
-    ' reviewThreads(first:100){ nodes {' +
-    ' id isResolved isOutdated path' +
-    ' comments(first:1){ nodes { author { login } body } }' +
-    ' } } } } }';
-  return toRow(graphql(query).data.repository.pullRequest);
+  let after = null;
+  let page = null;
+  const nodes = [];
+
+  for (;;) {
+    const cursor = after ? ', after:"' + after + '"' : '';
+    const query =
+      '{ repository(owner:"' + OWNER + '", name:"' + REPO + '") {' +
+      ' pullRequest(number:' + number + ') {' +
+      ' number title mergeStateStatus' +
+      ' commits(last:1){ nodes { commit { statusCheckRollup { state } } } }' +
+      ' reviewThreads(first:100' + cursor + '){' +
+      ' pageInfo { hasNextPage endCursor }' +
+      ' nodes {' +
+      ' id isResolved isOutdated path' +
+      ' comments(first:1){ nodes { author { login } body } }' +
+      ' } } } } }';
+
+    const pr = graphql(query).data.repository.pullRequest;
+    if (!pr) throw new Error('PR #' + number + ' returned no data');
+    page = pr;
+    nodes.push(...(pr.reviewThreads.nodes || []));
+
+    const info = pr.reviewThreads.pageInfo || {};
+    if (!info.hasNextPage) break;
+    if (!info.endCursor) throw new Error('PR #' + number + ' paginated without a cursor');
+    after = info.endCursor;
+  }
+
+  return toRow({ ...page, reviewThreads: { nodes } });
 }
 
 function main(argv) {
@@ -133,19 +161,30 @@ function main(argv) {
   const numbers = explicit.length ? explicit : openPrNumbers();
 
   const rows = [];
+  const unreadable = [];
   for (const number of numbers) {
     try {
       rows.push(fetchRow(number));
     } catch (error) {
-      process.stderr.write('  (could not read #' + number + ')\n');
+      // A PR we could not query is UNKNOWN, never clear. Previously this
+      // printed a stderr note and dropped the PR from the report, so an
+      // expired token turned every PR into "no threads" - the precise
+      // false-clear this tool was built to eliminate.
+      unreadable.push({ number, reason: (error && error.message) || String(error) });
     }
   }
   rows.sort((a, b) => a.unresolved.length - b.unresolved.length || a.number - b.number);
   const shown = blockingOnly ? rows.filter(isBlockedByThreads) : rows;
 
   if (json) {
-    console.log(JSON.stringify({ rows: shown, severityTally: severityTally(rows) }, null, 2));
-    return 0;
+    console.log(
+      JSON.stringify(
+        { rows: shown, severityTally: severityTally(rows), unreadable },
+        null,
+        2,
+      ),
+    );
+    return unreadable.length ? 2 : 0;
   }
 
   console.log('Unresolved review threads - ' + OWNER + '/' + REPO + '\n');
@@ -172,8 +211,19 @@ function main(argv) {
   console.log('PRs: ' + rows.length + ' | blocked by threads: ' + blocked.length);
   console.log('CI-green: ' + green.length + ' | CI-green AND thread-blocked: ' + greenBlocked.length);
   console.log('unresolved by severity: ' + JSON.stringify(severityTally(rows)));
+
+  // Loud, and non-zero on exit. An unread PR is UNKNOWN, not clear, and a
+  // caller scripting this must be able to tell the difference.
+  if (unreadable.length) {
+    console.log('\nCOULD NOT READ ' + unreadable.length + ' PR(s) - status UNKNOWN, not clear:');
+    for (const item of unreadable) {
+      console.log('  #' + item.number + '  ' + item.reason);
+    }
+    console.log('Re-run after fixing the above before treating any PR as unblocked.');
+  }
+
   console.log('\nResolve one at a time; a joined multi-line id yields NOT_FOUND.');
-  return 0;
+  return unreadable.length ? 2 : 0;
 }
 
 if (require.main === module) {
