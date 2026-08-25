@@ -122,7 +122,8 @@ test("builds the public hosted Hermes landing page", async () => {
   const chrome = await readFile(new URL("../app/LandingAuthChrome.tsx", import.meta.url), "utf8");
   const hostedCta = await readFile(new URL("../app/HostedCheckoutCta.tsx", import.meta.url), "utf8");
   assert.match(chrome, /data-funnel-event="free_control_click"/);
-  assert.match(hostedCta, /data-funnel-event="hosted_checkout_click"/);
+  assert.match(hostedCta, /funnelEvent = "hosted_checkout_click"/);
+  assert.match(hostedCta, /data-funnel-event=\{funnelEvent\}/);
   assert.match(chrome, /<HostedCheckoutCta>/);
   assert.match(chrome, /data-funnel-event="sign_in_click"/);
   assert.match(chrome, /Start hosted Hermes — \$10\/mo/);
