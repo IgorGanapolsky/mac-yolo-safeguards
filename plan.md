@@ -3940,3 +3940,26 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - Production still shows `origin/main` Leash: `<summary>Optional: send the next task to a paired computer</summary>` plus “wrong workspace / Switch account” plus “Bounded Hermes … isolated serverless leases.” That is a sign-out control + operator dump sitting under Mac pairing — not a second Google workspace. Header already has Sign out (`dashboard-sign-out`).
 - Drop the Leash `account-recovery` card. Keep one-line `leash-signed-in` email. Sign-out stays in header/sidebar.
 - Codex P2 on #2095: `pendingWaitCopy(task.status)` — `running` → “Hermes is working on this.”; pending → “hasn't started.” Do not dual-edit #2041 result-replace or AGENT-476 TurnStatusline.
+## File claim (append 2026-08-25T18:44:03Z) — `codex-agentx-metrics-20260825`
+
+| T-AGENTX-TASK-METRICS-20260825 | Repair `/api/llm-metrics` with bounded, content-free task-run observability; exact E2E percentiles, success/session/throughput/concurrency, and explicit unmeasured TTFT/cache/power | in_progress | codex-agentx-metrics-20260825 | `apps/hermes-control-plane/app/api/llm-metrics/route.ts`, `apps/hermes-control-plane/lib/agentx-task-metrics.ts`, `apps/hermes-control-plane/lib/agentx-task-metrics.test.ts`, `apps/hermes-control-plane/tests/llm-metrics-route.test.mjs`, `plan.md` (this append) | GH #2096; Linear AGENT-517; independent from PR #2097 and does not edit its files |
+
+- `apps/hermes-control-plane/app/api/llm-metrics/route.ts`
+- `apps/hermes-control-plane/lib/agentx-task-metrics.ts` (new)
+- `apps/hermes-control-plane/lib/agentx-task-metrics.test.ts` (new)
+- `apps/hermes-control-plane/tests/llm-metrics-route.test.mjs` (new)
+- `plan.md` (this append)
+
+## Discovered / Decisions (append) — 2026-08-25T18:44:03Z — `codex-agentx-metrics-20260825`
+
+- NVIDIA AgentX's transferable mechanic is production-style agent-session replay with real E2E/TTFT/interactivity measurements, not Rubin/Blackwell hardware claims.
+- Current `/api/llm-metrics` queries an undeployed/unwritten `llm_calls` table and labels `AVG(latency_ms)` as p50 plus `MAX(latency_ms)` as p99. This task uses existing task lifecycle metadata and marks unavailable telemetry unmeasured rather than inventing proxies.
+- PR #2097 owns its watt-receipt files and remains untouched. Runner, task leases, schema, and `DashboardClient.tsx` are also out of scope.
+
+## Verification / Incident (append) — 2026-08-25T18:56:47Z — `codex-agentx-metrics-20260825`
+
+- Fail-first: `tests/llm-metrics-route.test.mjs` failed 3/3 against `origin/main` because the route used `llm_calls`, read no task metadata, and lacked the private helper-backed response.
+- Focused proof: AgentX helper 5/5; route contract 3/3. Full control-plane proof: Vitest 383/383 with 96.11% statements; Node route contracts 337/337; production build green; lint 0 errors / 25 pre-existing warnings; explicit four-file CodeQL pattern gate 0 findings.
+- `tsc --noEmit` remains red on pre-existing repository errors; after removing this task's test-only `.ts` import suffix, the compiler output contains 0 errors in `agentx-task-metrics` or `/api/llm-metrics`.
+- Protected context health: 4/4 gates pass, hook JSON valid, five MCP servers present, continuous E2E LaunchAgent running. Device E2E is unknown, so this task makes no device/live UX claim.
+- CEO screenshot incident: `#web-settings` labels an `Igors-MacBook-Pro` device card as “Hosted VPS runner” and exposes “Use for tasks.” Root cause and hosted-only acceptance criteria are recorded on GH #2094 and PR #2095; this branch preserves the active DashboardClient owner lock.
