@@ -1,0 +1,11 @@
+A study making the rounds on Hacker News today (340 points, HN thread id 49195468) ran 40,000 approval decisions through a game where players had to review AI agent commands before letting them run. Humans missed 1 in 3 that were actually dangerous.
+
+That's not a knock on the players. It's the honest failure mode of any "human in the loop" gate: reading a command isn't the same as understanding what it does, especially when you're tired, moving fast, or approving from a phone screen instead of a terminal.
+
+I've been building Leash — a free approve/deny gate for AI coding agents — around the assumption that the human reviewing the command is the last line of defense and an imperfect one. I don't have data yet proving Leash closes that 1-in-3 gap. I don't think anyone building in this space does. What I can say honestly: it's free forever on web and mobile, it's built by one person shipping in public, and today's HN thread is exactly the kind of evidence I want to keep testing it against.
+
+If you review AI agent commands before approving them — on a laptop, on a phone, anywhere — I'd like to hear what actually slows you down enough to catch the bad one.
+
+https://thumbgate.app/?utm_source=linkedin&utm_medium=social&utm_campaign=2026-08-19-pm&cta_id=2026-08-19-pm_linkedin_home
+
+First comment (store link): Also on mobile — https://thumbgate.app/go/android · https://thumbgate.app/go/ios (paid download, Hermes Mobile: Leash)
