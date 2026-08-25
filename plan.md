@@ -3915,3 +3915,31 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 
 - PR **#2092** Codex P1/P2 on tip `d1ced6147`: (1) placeholder SHA / missing eval file must not grade LIVE; (2) `Boolean("false")` must not coerce proof flags; (3) `claimedClass=chat` must not hide overnight/batch prompts; (4) wire `attachTogetherNativeToReceipt` into `execution-receipt.ts` now that #2088 is on main.
 - SonarQube Cloud GitHub check-suite `89062269595` still **queued** with 0 check-runs / 0 public issues (mac-yolo is not a SonarCloud project). Fixes below are the live review findings on this PR.
+
+## File claim (append 2026-08-25T17:48:00Z) — `grok-dashboard-chat-status-copy-20260825`
+
+| T-DASHBOARD-CHAT-STATUS-COPY-20260825 | Humanize chat SENT/waiting chips; stop dumping cloud_pending + fenced-lease jargon; compact Leash account/run-target panel | in_progress | grok-dashboard-chat-status-copy-20260825 | `apps/hermes-control-plane/lib/conversation-message-meta.ts`, `apps/hermes-control-plane/lib/conversation-message-meta.test.ts`, `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx` (conversation pending/user chips + leash-control panel only), `apps/hermes-control-plane/app/globals.css` (leash-device-picker, account-recovery, status-waiting), `apps/hermes-control-plane/tests/dashboard-chat-status-copy.test.mjs`, `plan.md` | CEO screenshots: CLOUD PENDING+SENT on one send; Leash tab legal dump. Do not dual-edit #2041 result-replace hunks or AGENT-476 TurnStatusline. |
+
+## Discovered / Decisions (append) — 2026-08-25T17:48Z — grok-dashboard-chat-status-copy-20260825
+
+- User bubble had a raw `task.status` chip (CLOUD PENDING) plus ConversationMeta SENT — same send, two statuses. Remove the raw chip; keep SENT.
+- Pending copy "Waiting for the fenced VPS runner…" and receipt "fenced · 90s lease" are operator jargon in chat. Use waiting/Hermes/hasn't started.
+- Leash panel stacked run-target, account switch, and HOSTED_NOT_COMPUTER_HISTORY. Keep picker + signed-in strip; move legal line into existing safety panel.
+- Complementary to OPEN #2041 (replace pending when result arrives). This PR does not steal that result-merge logic.
+
+## File claim (append 2026-08-25T18:20:00Z) — `grok-dashboard-chat-status-copy-20260825`
+
+- `apps/hermes-control-plane/tests/not-computer-history.test.mjs` (dashboard uses HOSTED_NOT_COMPUTER_HISTORY constant; literals stay in hosted-apphost.ts)
+- `apps/hermes-control-plane/lib/hosted-apphost.ts` (hostedConnectionCopy body only — drop Computer History essay from Leash summary)
+- `apps/hermes-control-plane/lib/hosted-apphost.test.ts` (same body copy)
+
+## Discovered / Decisions (append) — 2026-08-25T18:20Z — grok-dashboard-chat-status-copy-20260825
+
+- Leash still dumped HOSTED_NOT_COMPUTER_HISTORY via `hostedCopy.body` at 9px even after privacy-boundary removal. Summary stays $10/fenced/no-inbox; denial stays in execution-safety accordion.
+- Hidden task-list chips now use chatOutputStatus so CLOUD PENDING cannot reappear if the duplicate list is shown.
+
+## Discovered / Decisions (append) — 2026-08-25T18:45Z — grok-dashboard-chat-status-copy-20260825
+
+- Production still shows `origin/main` Leash: `<summary>Optional: send the next task to a paired computer</summary>` plus “wrong workspace / Switch account” plus “Bounded Hermes … isolated serverless leases.” That is a sign-out control + operator dump sitting under Mac pairing — not a second Google workspace. Header already has Sign out (`dashboard-sign-out`).
+- Drop the Leash `account-recovery` card. Keep one-line `leash-signed-in` email. Sign-out stays in header/sidebar.
+- Codex P2 on #2095: `pendingWaitCopy(task.status)` — `running` → “Hermes is working on this.”; pending → “hasn't started.” Do not dual-edit #2041 result-replace or AGENT-476 TurnStatusline.
