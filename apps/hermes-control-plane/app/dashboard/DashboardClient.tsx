@@ -1005,10 +1005,10 @@ export default function DashboardClient() {
       }),
     [threadDetails?.snapshot, threadDetails?.tasks],
   );
-  const [urlFocusedTaskId, setUrlFocusedTaskId] = useState<string | null>(null);
-  useEffect(() => {
-    setUrlFocusedTaskId(new URLSearchParams(window.location.search).get("task"));
-  }, []);
+  const [urlFocusedTaskId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("task");
+  });
   const duplicateTaskListHidden = hideDuplicateTaskList({
     selectedThread,
     taskFilter,
@@ -1722,7 +1722,7 @@ export default function DashboardClient() {
                     key={`task-user-${task.id || index}`}
                     id={duplicateTaskListHidden ? `task-${task.id}` : undefined}
                     className="dashboard-task conversation-message role-user"
-                    data-testid="dashboard-task"
+                    data-testid="conversation-user-prompt"
                     data-timeline-index={index}
                   >
                     <div className="task-top">
