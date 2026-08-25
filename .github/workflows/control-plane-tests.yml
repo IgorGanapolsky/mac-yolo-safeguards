@@ -6,9 +6,6 @@ concurrency:
 
 on:
   pull_request:
-    paths:
-      - "apps/hermes-control-plane/**"
-      - ".github/workflows/control-plane-tests.yml"
   push:
     branches: [main]
     paths:
@@ -26,13 +23,51 @@ jobs:
         working-directory: apps/hermes-control-plane
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect control-plane test relevance
+        id: scope
+        shell: bash
+        working-directory: .
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [[ "$EVENT_NAME" != "pull_request" ]]; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ -z "$BASE_SHA" || -z "$HEAD_SHA" ]]; then
+            echo "Missing pull-request revisions" >&2
+            exit 1
+          fi
+          set +e
+          git diff --quiet "$BASE_SHA...$HEAD_SHA" -- \
+            apps/hermes-control-plane/ \
+            .github/workflows/control-plane-tests.yml
+          diff_status=$?
+          set -e
+          case "$diff_status" in
+            0) echo "relevant=false" >> "$GITHUB_OUTPUT" ;;
+            1) echo "relevant=true" >> "$GITHUB_OUTPUT" ;;
+            *) exit "$diff_status" ;;
+          esac
+      - name: No control-plane test changes
+        if: steps.scope.outputs.relevant != 'true'
+        working-directory: .
+        run: echo "Control-plane unit verification is not required for this pull request."
       - uses: actions/setup-node@v7.0.0
+        if: steps.scope.outputs.relevant == 'true'
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: apps/hermes-control-plane/package-lock.json
       - run: npm ci
+        if: steps.scope.outputs.relevant == 'true'
       - name: Unit tests with coverage gates (80% lines/functions, 70% branches)
+        if: steps.scope.outputs.relevant == 'true'
         run: npm run test:unit
       - name: Build + rendered-HTML tests
+        if: steps.scope.outputs.relevant == 'true'
         run: npm run test
