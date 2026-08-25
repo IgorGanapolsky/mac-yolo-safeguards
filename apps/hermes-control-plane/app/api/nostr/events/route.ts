@@ -15,6 +15,7 @@ import {
   governanceError,
 } from "@/lib/agent-governance";
 import { evaluateCloudPromptToolPolicy } from "@/lib/cloud-tool-policy";
+import { evaluateHostedInfoqCascade } from "@/lib/hosted-infoq-cascade";
 import { ingressNostrEvent } from "@/lib/nostr-ingress";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { db } from "@/lib/runtime";
@@ -135,6 +136,10 @@ export async function POST(request: Request) {
     const toolPolicy = evaluateCloudPromptToolPolicy(prompt);
     if (!toolPolicy.allowed) {
       return jsonError(toolPolicy.message, 409);
+    }
+    const cascade = evaluateHostedInfoqCascade(prompt);
+    if (!cascade.allowed) {
+      return jsonError(cascade.message, 409);
     }
   }
 
