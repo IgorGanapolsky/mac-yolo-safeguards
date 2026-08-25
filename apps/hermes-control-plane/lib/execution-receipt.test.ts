@@ -13,6 +13,8 @@ describe("buildTaskCompletionReceipt", () => {
     expect(r.outcome).toBe("claimed_done");
     expect(r.externalCheck).toBeNull();
     expect(r.note).toBe("self_reported_only");
+    expect(r.togetherNative?.liveClaim).toBe(false);
+    expect(r.togetherNative?.capacityIsNotFrontier).toBe(true);
   });
 
   it("marks external-verified success as done", () => {
