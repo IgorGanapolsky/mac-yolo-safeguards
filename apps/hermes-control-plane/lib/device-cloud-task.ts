@@ -6,6 +6,7 @@ import {
 } from "./agent-governance";
 import type { DeviceIdentity } from "./device-auth";
 import { ackHostedSend, publicRunReceipt } from "./hosted-source-of-truth";
+import { admitHostedTaskDescription } from "./hosted-academy-4d";
 import { admitHostedContext } from "./hosted-edit-anchor";
 import { db } from "./runtime";
 import { evaluateCloudPromptToolPolicy } from "./cloud-tool-policy";
@@ -47,6 +48,9 @@ export type SubmitDeviceCloudTaskInput = {
   idempotencyKey?: string;
   traceId?: string;
   source?: string;
+  kind?: string;
+  done?: string;
+  acceptance?: Array<{ criterion?: string; proofSurface?: string; proof?: string }>;
 };
 
 export type DeviceCloudTaskRow = {
@@ -100,6 +104,15 @@ export async function submitDeviceCloudTask(
   const decisionRoute = decideTaskRoute({ preference, device });
   const status = decisionRoute.status;
   const route = decisionRoute.route;
+
+  const descriptionAdmit = admitHostedTaskDescription({
+    kind: input.kind,
+    done: input.done,
+    acceptance: input.acceptance,
+  });
+  if (!descriptionAdmit.ok) {
+    return Response.json({ error: descriptionAdmit.message }, { status: 409 });
+  }
 
   if (route === "cloud") {
     const toolPolicy = evaluateCloudPromptToolPolicy(prompt);
