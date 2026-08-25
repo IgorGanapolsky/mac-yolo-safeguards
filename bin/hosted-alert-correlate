@@ -1,0 +1,4 @@
+#!/usr/bin/env node
+'use strict';
+const { main } = require('../tools/hosted-alert-correlate');
+process.exit(main(process.argv.slice(2)));

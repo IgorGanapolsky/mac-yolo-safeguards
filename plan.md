@@ -3865,3 +3865,18 @@ GH #2034 / Linear AGENT-505. Remove fabricated fallback preference data and fixe
 - `apps/hermes-control-plane/app/api/device/tasks/submit/route.ts`, `apps/hermes-control-plane/lib/hermes-schema-validator.js`, `apps/hermes-control-plane/lib/schema-validator.ts`, `apps/hermes-control-plane/lib/schema-validator.test.ts`, `apps/hermes-control-plane/tests/device-cloud-task-routes.test.mjs`, `plan.md` (append only) → **codex-infoq-device-schema** (T-INFOQ-DEVICE-SUBMIT-SCHEMA-20260825 / GH #2077: strict shared schema validation before signed-device task admission while preserving compatible connector payloads and the downstream 48k aggregate context cap) (2026-08-25T15:36:00Z)
 
 - `apps/hermes-control-plane/app/api/device/tasks/submit/route.test.ts` (new) → **codex-infoq-device-schema** (T-INFOQ-DEVICE-SUBMIT-SCHEMA-20260825 / GH #2077: prove malformed signed-device bodies return HTTP 400 before `submitDeviceCloudTask`) (2026-08-25T15:42:00Z)
+
+## File claim (append 2026-08-25T16:30:00Z) — `grok-hosted-alert-correlate`
+
+| T-HOSTED-ALERT-CORRELATE-20260825 | Digitate/ignio process steal: suppress duplicate hosted signatures, correlate related Worker routes, precursor vs user-facing, validated-fix only | in_progress | grok-hosted-alert-correlate | `tools/hosted-alert-correlate.js`, `tests/test-hosted-alert-correlate.js`, `apps/hermes-control-plane/lib/hosted-alert-correlate.ts`, `apps/hermes-control-plane/lib/hosted-alert-correlate.test.ts`, `apps/hermes-control-plane/app/ClientErrorBeacon.tsx`, `apps/hermes-control-plane/lib/client-error-beacon.test.ts`, `.agents/skills/hosted-alert-correlate/**`, `bin/hosted-alert-correlate`, `SKILLS.md`, `plan.md` | Not ignio/CloudWatch; do not dual-edit rule-sprawl.js or analytics/event/route.ts |
+
+- `tools/hosted-alert-correlate.js` (new)
+- `tests/test-hosted-alert-correlate.js` (new)
+- `apps/hermes-control-plane/lib/hosted-alert-correlate.ts` (new)
+- `apps/hermes-control-plane/lib/hosted-alert-correlate.test.ts` (new)
+- `apps/hermes-control-plane/app/ClientErrorBeacon.tsx` (duplicate-signature suppress)
+- `apps/hermes-control-plane/lib/client-error-beacon.test.ts`
+- `.agents/skills/hosted-alert-correlate/` (new)
+- `bin/hosted-alert-correlate` (new)
+- `SKILLS.md` (append row)
+- `plan.md` (this append)
