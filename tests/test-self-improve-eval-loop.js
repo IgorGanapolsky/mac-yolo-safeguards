@@ -60,6 +60,13 @@ assert.equal(promoteChange({
   candidate: { metric: 'conversion_rate', value: 0.4, n: 3 },
 }).deny, 'insufficient_evidence');
 
+assert.equal(promoteChange({
+  kind: 'prompt',
+  baseline: { metric: 'conversion_rate', value: 0.2, n: 20 },
+  candidate: { metric: 'conversion_rate', value: 0.9, n: 0 },
+  holdout: { metric: 'conversion_rate', value: 0.8, n: 20 },
+}).deny, 'insufficient_evidence');
+
 const noHold = promoteChange({
   kind: 'workflow',
   baseline: { metric: 'conversion_rate', value: 0.2, n: 20 },
@@ -126,5 +133,19 @@ assert.equal(promoted.status, 0);
 const p = JSON.parse(promoted.stdout);
 assert.equal(p.promote, true);
 assert.equal(p.apply, false);
+
+const payload = JSON.stringify({
+  kind: 'tool',
+  direction: 'lower',
+  baseline: { metric: 'latency_s', value: 2, n: 10 },
+  candidate: { metric: 'latency_s', value: 1.2, n: 10 },
+  holdout: { metric: 'latency_s', value: 1.4, n: 10 },
+});
+const fromPayload = run(TOOL, ['--promote', '--payload', payload, '--json']);
+assert.equal(fromPayload.status, 0, fromPayload.stderr || fromPayload.stdout);
+const fp = JSON.parse(fromPayload.stdout);
+assert.equal(fp.direction, 'lower');
+assert.equal(fp.promote, true);
+assert.equal(fp.apply, false);
 
 console.log('PASS');

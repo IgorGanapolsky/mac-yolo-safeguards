@@ -210,6 +210,9 @@ function promoteChange(input) {
   if (candidate.metric !== baseline.metric) {
     return deny('metric_mismatch', 'candidate metric must match baseline', { kind });
   }
+  if (candidate.n < MIN_N) {
+    return deny('insufficient_evidence', `candidate n<${MIN_N}`, { kind, evidence: 'INSUFFICIENT_EVIDENCE' });
+  }
   if (!holdout) {
     return Object.assign(base(), {
       ok: true,
@@ -289,7 +292,7 @@ function catalog() {
 }
 
 function parseArgs(argv) {
-  const out = { json: false, honesty: false, map: false, promote: false, catalog: false, intent: '', kind: '', payload: null, direction: 'higher' };
+  const out = { json: false, honesty: false, map: false, promote: false, catalog: false, intent: '', kind: '', payload: null, direction: null };
   const baseline = {};
   const candidate = {};
   const holdout = {};
