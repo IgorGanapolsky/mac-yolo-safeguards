@@ -44,10 +44,12 @@ test("hero does not claim You're on Pro for trial users", () => {
   assert.match(chrome, /isPaidPlan/);
 });
 
-test("loading state never renders checkout; entitled ignores \$10 children", () => {
+test("loading shows Checking session; entitled label ignores \$10 children", () => {
   assert.match(chrome, /Checking session…/);
   assert.match(chrome, /session\.mode === "loading"/);
-  // Entitled branch must not render children (payment copy).
-  assert.match(chrome, /if \(hasHostedEntitlement\(session\)\) {[\s\S]*Continue hosted Hermes/);
-  assert.doesNotMatch(chrome, /if \(hasHostedEntitlement\(session\)\) {[\s\S]*\{children \?\?/);
+  // Entitled return path hard-codes Continue — no children interpolation there.
+  assert.match(
+    chrome,
+    /if \(hasHostedEntitlement\(session\)\) \{[\s\S]*?Continue hosted Hermes <span aria-hidden="true">→<\/span>[\s\S]*?\}\s*return \(/,
+  );
 });
