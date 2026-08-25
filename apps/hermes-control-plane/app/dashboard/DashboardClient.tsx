@@ -21,7 +21,7 @@ import { scheduleOneShotErrorRetry, startActiveTaskRefresh, startDashboardRefres
 import {
   hideDuplicateTaskList,
   latestChronologicalTask,
-  orderSnapshotChronologically,
+  mergeThreadTimeline,
   orderTasksChronologically,
 } from "@/lib/dashboard-task-order";
 import {
@@ -997,9 +997,13 @@ export default function DashboardClient() {
     }
     return orderTasksChronologically(filtered);
   }, [tasks, selectedThread, taskFilter, feedback]);
-  const orderedSnapshot = useMemo(
-    () => orderSnapshotChronologically(threadDetails?.snapshot ?? []),
-    [threadDetails?.snapshot],
+  const threadTimeline = useMemo(
+    () =>
+      mergeThreadTimeline({
+        snapshot: threadDetails?.snapshot ?? [],
+        tasks: threadDetails?.tasks ?? [],
+      }),
+    [threadDetails?.snapshot, threadDetails?.tasks],
   );
   const duplicateTaskListHidden = hideDuplicateTaskList({ selectedThread, taskFilter });
   const latestVisibleTask = latestChronologicalTask(visibleTasks);
@@ -1692,13 +1696,19 @@ export default function DashboardClient() {
             </div>
             <div className="hermes-scroll-pane">
             {selectedThread && <div className="conversation-history" ref={conversationHistoryRef} data-testid="conversation-history">
-              {orderedSnapshot.length ? orderedSnapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`} data-timeline-index={index}><span>{message.role}</span><ConversationMeta meta={snapshotMessageMeta(message, threadDetails?.syncedAt)} /><FormattedMessage text={message.content} hideToolProtocol={message.role === "assistant"} />{message.role === "assistant" && <TurnStatusline engine="Ollama (http://localhost:11434/v1/models)" ttft="<10ms" cost="$0.00" />}</article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. <button type="button" className="task-filter-clear" data-testid="dashboard-retry" onClick={() => requestWorkspaceRefresh()}>Retry</button></div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
-              {orderTasksChronologically(threadDetails?.tasks ?? []).flatMap((task, index) => {
+              {threadDetails && threadTimeline.length ? threadTimeline.flatMap((item, index) => {
+                if (item.kind === "snapshot") {
+                  const message = item.message;
+                  return [
+                    <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`} data-timeline-index={index}><span>{message.role}</span><ConversationMeta meta={snapshotMessageMeta(message, threadDetails.syncedAt)} /><FormattedMessage text={message.content} hideToolProtocol={message.role === "assistant"} />{message.role === "assistant" && <TurnStatusline engine="Ollama (http://localhost:11434/v1/models)" ttft="<10ms" cost="$0.00" />}</article>,
+                  ];
+                }
+                const task = item.task;
                 // Chronological: oldest exchange first, newest at the BOTTOM next to
                 // the composer — standard chat order (2026-08-21 user report: "latest
                 // output is not at the bottom"). Non-mutating sort; the tasks API is
                 // newest-first, so this reverses it for the conversation timeline.
-                if (!task.prompt.trim()) return [];
+                if (!task.prompt?.trim()) return [];
                 return [
                   <article
                     key={`task-user-${task.id || index}`}
@@ -1714,7 +1724,7 @@ export default function DashboardClient() {
                     : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${task.id || index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><p>Waiting for the fenced VPS runner to pick this up…</p></article>
                     : null,
                 ];
-              })}
+              }) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. <button type="button" className="task-filter-clear" data-testid="dashboard-retry" onClick={() => requestWorkspaceRefresh()}>Retry</button></div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
             </div>}
             <div className="task-list" id="task-activity" hidden={duplicateTaskListHidden} data-testid="task-activity">
               {taskFilter !== "all" ? (

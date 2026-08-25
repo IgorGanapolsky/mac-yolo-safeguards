@@ -27,6 +27,7 @@ for the chat *list*. The *thread* must be chronological.
 
 ## Required fix
 
+- `mergeThreadTimeline` interleaves snapshot + tasks by `createdAt` (do not stack two lists)
 - `orderSnapshotChronologically` + `orderTasksChronologically` (oldest first)
 - `hideDuplicateTaskList` when a thread is selected and filter is `all`
 - Desktop CSS: `.task-panel .conversation-history { max-height: none }`

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   hideDuplicateTaskList,
   latestChronologicalTask,
+  mergeThreadTimeline,
   orderSnapshotChronologically,
   orderTasksChronologically,
 } from "./dashboard-task-order";
@@ -80,5 +81,27 @@ describe("latestChronologicalTask", () => {
   it("returns the last chronological task, not the oldest", () => {
     expect(latestChronologicalTask([{ id: "old" }, { id: "new" }])?.id).toBe("new");
     expect(latestChronologicalTask([])).toBeNull();
+  });
+});
+
+describe("mergeThreadTimeline", () => {
+  it("puts today's snapshot after an older completed task so the latest sits on the composer", () => {
+    const timeline = mergeThreadTimeline({
+      snapshot: [{ role: "user", content: "we need to reach our goal", createdAt: 1_800 }],
+      tasks: [{ id: "aug23", prompt: "old real estate card", createdAt: 100 }],
+    });
+    expect(timeline.map((item) => (item.kind === "snapshot" ? item.message.content : item.task.id))).toEqual([
+      "aug23",
+      "we need to reach our goal",
+    ]);
+  });
+
+  it("drops a web task whose prompt already appears as a snapshot user bubble", () => {
+    const timeline = mergeThreadTimeline({
+      snapshot: [{ role: "user", content: "same prompt", createdAt: 200 }],
+      tasks: [{ id: "dup", prompt: "same prompt", createdAt: 200 }],
+    });
+    expect(timeline).toHaveLength(1);
+    expect(timeline[0].kind).toBe("snapshot");
   });
 });

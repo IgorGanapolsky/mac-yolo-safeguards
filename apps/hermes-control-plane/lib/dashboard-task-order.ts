@@ -1,6 +1,7 @@
 export type TimestampedTask = {
   id: string;
   createdAt: number;
+  prompt?: string;
 };
 
 export type SnapshotMessage = {
@@ -8,6 +9,13 @@ export type SnapshotMessage = {
   content?: string;
   createdAt?: number | null;
 };
+
+export type ThreadTimelineItem<
+  TMessage extends SnapshotMessage = SnapshotMessage,
+  TTask extends TimestampedTask = TimestampedTask,
+> =
+  | { kind: "snapshot"; at: number; index: number; message: TMessage }
+  | { kind: "task"; at: number; index: number; task: TTask };
 
 /** Chat chronology: oldest first, so the newest prompt/result sits by the composer. */
 export function orderTasksChronologically<T extends TimestampedTask>(tasks: readonly T[]): T[] {
@@ -41,6 +49,70 @@ export function orderSnapshotChronologically<T extends SnapshotMessage>(messages
 /** Newest chronological task — the one that should sit by the composer. */
 export function latestChronologicalTask<T>(tasks: readonly T[]): T | null {
   return tasks.length ? tasks[tasks.length - 1] : null;
+}
+
+function snapshotClocks(messages: readonly SnapshotMessage[]): number[] {
+  const raw = messages.map((message) => validClock(message.createdAt));
+  const out: Array<number | null> = raw.slice();
+  let last: number | null = null;
+  for (let index = 0; index < out.length; index += 1) {
+    if (out[index] != null) last = out[index];
+    else if (last != null) out[index] = last;
+  }
+  last = null;
+  for (let index = out.length - 1; index >= 0; index -= 1) {
+    if (out[index] != null) last = out[index];
+    else if (last != null) out[index] = last;
+  }
+  return out.map((value, index) => value ?? index);
+}
+
+/**
+ * One chat stream: snapshot bubbles and web tasks interleaved by createdAt.
+ * Stacking snapshot then tasks is the 2026-08-25 “latest is in the middle” bug.
+ */
+export function mergeThreadTimeline<
+  TMessage extends SnapshotMessage,
+  TTask extends TimestampedTask,
+>(input: {
+  snapshot: readonly TMessage[];
+  tasks: readonly TTask[];
+}): Array<ThreadTimelineItem<TMessage, TTask>> {
+  const snapshot = orderSnapshotChronologically(input.snapshot);
+  const snapshotUser = new Set(
+    snapshot
+      .filter((message) => (message.role ?? "").toLowerCase() === "user")
+      .map((message) => (message.content ?? "").trim())
+      .filter(Boolean),
+  );
+  const dated = snapshot.some((message) => validClock(message.createdAt) != null);
+  const clocks = snapshotClocks(snapshot);
+  const snapshotItems: Array<ThreadTimelineItem<TMessage, TTask>> = snapshot.map(
+    (message, index) => ({
+      kind: "snapshot",
+      at: clocks[index],
+      index,
+      message,
+    }),
+  );
+  const tasks = orderTasksChronologically(input.tasks).filter((task) => {
+    const prompt = typeof task.prompt === "string" ? task.prompt.trim() : "";
+    return !prompt || !snapshotUser.has(prompt);
+  });
+  const taskItems: Array<ThreadTimelineItem<TMessage, TTask>> = tasks.map((task, index) => ({
+    kind: "task",
+    at: task.createdAt,
+    index,
+    task,
+  }));
+  if (!dated) {
+    return [...taskItems, ...snapshotItems];
+  }
+  return [...snapshotItems, ...taskItems].sort((left, right) => {
+    if (left.at !== right.at) return left.at - right.at;
+    if (left.kind === right.kind) return left.index - right.index;
+    return left.kind === "snapshot" ? -1 : 1;
+  });
 }
 
 /**
