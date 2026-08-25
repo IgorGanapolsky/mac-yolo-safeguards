@@ -1,3 +1,5 @@
+import { buildFutureAgiInteropMetadata } from "./future-agi-interop";
+
 /**
  * Five-field execution receipts (inspired by reliability practice + SeqPU-style
  * closed logs, 2026-07-23 Reddit peer exchange).
@@ -89,5 +91,6 @@ export function receiptAuditMetadata(receipt: ExecutionReceipt): Record<string, 
       externalCheck: receipt.externalCheck,
       note: receipt.note,
     },
+    futureAgiInterop: buildFutureAgiInteropMetadata(receipt),
   };
 }
