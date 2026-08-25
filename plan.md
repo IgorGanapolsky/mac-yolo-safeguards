@@ -3905,3 +3905,8 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - Transferable: leftover quota/VPS-up is capacity not frontier; batch complete ≠ LIVE; dedicated GPU claims are NOT_OFFERED; conference talks/vendor blogs are not production receipts.
 - Backlog: Instant Clusters, FlashAttention-4, ThunderAgent, RL API, together.compile, ATLAS-2, dedicated container inference (GPU cloud, not a $10 Worker).
 - Complementary to `/ai-native-sdlc` and OPEN #2088 academy-4d (completed ≠ quality). Did not edit those files.
+
+## Discovered / Decisions (append) — 2026-08-25T17:32Z — grok-hosted-together-native-20260825
+
+- PR **#2092** Codex P1/P2 on tip `d1ced6147`: (1) placeholder SHA / missing eval file must not grade LIVE; (2) `Boolean("false")` must not coerce proof flags; (3) `claimedClass=chat` must not hide overnight/batch prompts; (4) wire `attachTogetherNativeToReceipt` into `execution-receipt.ts` now that #2088 is on main.
+- SonarQube Cloud GitHub check-suite `89062269595` still **queued** with 0 check-runs / 0 public issues (mac-yolo is not a SonarCloud project). Fixes below are the live review findings on this PR.

@@ -8,6 +8,7 @@ import {
 } from "./hosted-together-native";
 
 const FAKE_SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const EXAMPLE_SHA = "d1ced6147a909de93aafd05b096585e3e6d0ab69";
 
 describe("hosted-together-native", () => {
   it("treats leftover quota as capacity, not a LIVE frontier claim", () => {
@@ -39,13 +40,45 @@ describe("hosted-together-native", () => {
   it("marks batch completions as BATCH_COMPLETE, never LIVE", () => {
     const grade = gradeHostedClaim({
       claimedClass: "batch",
-      evalArtifact: "evals/hosted-together-native.json",
-      deploySha: FAKE_SHA,
+      evalArtifact: "tests/test-hosted-together-native.js",
+      deploySha: EXAMPLE_SHA,
       testsPass: true,
       workerLive: true,
     });
     expect(grade.status).toBe("BATCH_COMPLETE");
     expect(grade.liveClaim).toBe(false);
+  });
+
+  it("does not let claimedClass=chat hide overnight/batch prompts", () => {
+    const grade = gradeHostedClaim({
+      claimedClass: "chat",
+      prompt: "run the overnight eval",
+      evalArtifact: "tests/test-hosted-together-native.js",
+      deploySha: EXAMPLE_SHA,
+      testsPass: true,
+      workerLive: true,
+    });
+    expect(grade.status).toBe("BATCH_COMPLETE");
+    expect(grade.liveClaim).toBe(false);
+  });
+
+  it("rejects placeholder SHAs and stringly-typed proof flags", () => {
+    expect(
+      researchToProduction({
+        evalArtifact: "tests/test-hosted-together-native.js",
+        deploySha: FAKE_SHA,
+        testsPass: true,
+      }).reason,
+    ).toBe("deploy_sha_placeholder");
+    const coerced = gradeHostedClaim({
+      claimedClass: "serverless",
+      evalArtifact: "tests/test-hosted-together-native.js",
+      deploySha: EXAMPLE_SHA,
+      testsPass: "false" as unknown as boolean,
+      workerLive: "false" as unknown as boolean,
+    });
+    expect(coerced.liveClaim).toBe(false);
+    expect(coerced.reasons).toContain("tests_not_pass");
   });
 
   it("rejects conference talks and vendor blogs as production receipts", () => {
@@ -65,7 +98,7 @@ describe("hosted-together-native", () => {
     const missingWorker = gradeHostedClaim({
       claimedClass: "serverless",
       evalArtifact: "tests/test-hosted-together-native.js",
-      deploySha: FAKE_SHA,
+      deploySha: EXAMPLE_SHA,
       testsPass: true,
       workerLive: false,
     });
@@ -73,7 +106,7 @@ describe("hosted-together-native", () => {
     const ok = gradeHostedClaim({
       claimedClass: "serverless",
       evalArtifact: "tests/test-hosted-together-native.js",
-      deploySha: FAKE_SHA,
+      deploySha: EXAMPLE_SHA,
       testsPass: true,
       workerLive: true,
     });
@@ -95,7 +128,7 @@ describe("hosted-together-native", () => {
     const unpaid = gradeHostedClaim({
       claimedClass: "provisioned",
       evalArtifact: "tests/test-hosted-together-native.js",
-      deploySha: FAKE_SHA,
+      deploySha: EXAMPLE_SHA,
       testsPass: true,
       workerLive: true,
     });
@@ -104,7 +137,7 @@ describe("hosted-together-native", () => {
     const paid = gradeHostedClaim({
       claimedClass: "provisioned",
       evalArtifact: "tests/test-hosted-together-native.js",
-      deploySha: FAKE_SHA,
+      deploySha: EXAMPLE_SHA,
       testsPass: true,
       workerLive: true,
       stripePaid: true,

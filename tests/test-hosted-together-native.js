@@ -7,7 +7,9 @@ const os = require('os');
 const path = require('path');
 const {
   FAKE_SHA,
+  EXAMPLE_SHA,
   honesty,
+  isTrueFlag,
   classifyWorkload,
   capacityIsNotFrontier,
   researchToProduction,
@@ -37,6 +39,17 @@ assert.strictEqual(batch.class, 'batch');
 
 const promptBatch = classifyWorkload({ prompt: 'run the overnight eval on the VPS' });
 assert.strictEqual(promptBatch.class, 'batch');
+
+const chatOvernight = classifyWorkload({
+  claimedClass: 'chat',
+  prompt: 'run the overnight eval',
+});
+assert.strictEqual(chatOvernight.class, 'batch');
+
+assert.strictEqual(isTrueFlag(true), true);
+assert.strictEqual(isTrueFlag('false'), false);
+assert.strictEqual(isTrueFlag('true'), false);
+assert.strictEqual(isTrueFlag(1), false);
 
 const dedicated = classifyWorkload({ claimedClass: 'gpu' });
 assert.strictEqual(dedicated.class, 'dedicated');
@@ -79,14 +92,36 @@ assert.strictEqual(missingSha.reason, 'deploy_sha_missing');
 
 const testsFail = researchToProduction({
   evalArtifact: 'tests/test-hosted-together-native.js',
-  deploySha: FAKE_SHA,
+  deploySha: EXAMPLE_SHA,
   testsPass: false,
 });
 assert.strictEqual(testsFail.reason, 'tests_not_pass');
 
-const researchOk = researchToProduction({
+const placeholderSha = researchToProduction({
   evalArtifact: 'tests/test-hosted-together-native.js',
   deploySha: FAKE_SHA,
+  testsPass: true,
+});
+assert.strictEqual(placeholderSha.ok, false);
+assert.strictEqual(placeholderSha.reason, 'deploy_sha_placeholder');
+
+const missingFile = researchToProduction({
+  evalArtifact: 'tests/does-not-exist-together-native.js',
+  deploySha: EXAMPLE_SHA,
+  testsPass: true,
+});
+assert.strictEqual(missingFile.reason, 'eval_artifact_not_found');
+
+const stringFalse = researchToProduction({
+  evalArtifact: 'tests/test-hosted-together-native.js',
+  deploySha: EXAMPLE_SHA,
+  testsPass: 'false',
+});
+assert.strictEqual(stringFalse.reason, 'tests_not_pass');
+
+const researchOk = researchToProduction({
+  evalArtifact: 'tests/test-hosted-together-native.js',
+  deploySha: EXAMPLE_SHA,
   testsPass: true,
 });
 assert.strictEqual(researchOk.ok, true);
@@ -108,8 +143,8 @@ assert.strictEqual(gpuGrade.liveClaim, false);
 
 const batchGrade = gradeHostedClaim({
   claimedClass: 'batch',
-  evalArtifact: 'evals/hosted-together-native.json',
-  deploySha: FAKE_SHA,
+  evalArtifact: 'tests/test-hosted-together-native.js',
+  deploySha: EXAMPLE_SHA,
   testsPass: true,
   workerLive: true,
 });
@@ -117,10 +152,21 @@ assert.strictEqual(batchGrade.status, 'BATCH_COMPLETE');
 assert.strictEqual(batchGrade.liveClaim, false);
 assert.ok(batchGrade.reasons.includes('batch_is_not_live'));
 
+const chatLabeledBatch = gradeHostedClaim({
+  claimedClass: 'chat',
+  prompt: 'run the overnight eval',
+  evalArtifact: 'tests/test-hosted-together-native.js',
+  deploySha: EXAMPLE_SHA,
+  testsPass: true,
+  workerLive: true,
+});
+assert.strictEqual(chatLabeledBatch.status, 'BATCH_COMPLETE');
+assert.strictEqual(chatLabeledBatch.liveClaim, false);
+
 const unpaidSla = gradeHostedClaim({
   claimedClass: 'provisioned',
   evalArtifact: 'tests/test-hosted-together-native.js',
-  deploySha: FAKE_SHA,
+  deploySha: EXAMPLE_SHA,
   testsPass: true,
   workerLive: true,
   stripePaid: false,
@@ -131,7 +177,7 @@ assert.ok(unpaidSla.reasons.includes('provisioned_requires_paid'));
 const paidSla = gradeHostedClaim({
   claimedClass: 'provisioned',
   evalArtifact: 'tests/test-hosted-together-native.js',
-  deploySha: FAKE_SHA,
+  deploySha: EXAMPLE_SHA,
   testsPass: true,
   workerLive: true,
   stripePaid: true,
@@ -143,7 +189,7 @@ assert.strictEqual(paidSla.workerLive, false);
 const frontier = gradeHostedClaim({
   claimedClass: 'serverless',
   evalArtifact: 'tests/test-hosted-together-native.js',
-  deploySha: FAKE_SHA,
+  deploySha: EXAMPLE_SHA,
   testsPass: true,
   workerLive: true,
 });
@@ -151,10 +197,20 @@ assert.strictEqual(frontier.liveClaim, true);
 assert.strictEqual(frontier.status, 'LIVE');
 assert.strictEqual(frontier.workerLive, false);
 
+const coercedFalse = gradeHostedClaim({
+  claimedClass: 'serverless',
+  evalArtifact: 'tests/test-hosted-together-native.js',
+  deploySha: EXAMPLE_SHA,
+  testsPass: 'false',
+  workerLive: 'false',
+});
+assert.strictEqual(coercedFalse.liveClaim, false);
+assert.ok(coercedFalse.reasons.includes('tests_not_pass'));
+
 const unwired = gradeHostedClaim({
   claimedClass: 'serverless',
   evalArtifact: 'tests/test-hosted-together-native.js',
-  deploySha: FAKE_SHA,
+  deploySha: EXAMPLE_SHA,
   testsPass: true,
   workerLive: false,
 });
@@ -173,7 +229,7 @@ const attachedLive = attachTogetherNative(
   {
     claimedClass: 'serverless',
     evalArtifact: 'tests/test-hosted-together-native.js',
-    deploySha: FAKE_SHA,
+    deploySha: EXAMPLE_SHA,
     testsPass: true,
     workerLive: true,
   },

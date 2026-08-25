@@ -13,12 +13,15 @@
  * docs/RESEARCH-together-cursor-decagon-hedra-2026-07.md.
  */
 
-const fs = require('fs');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const SOURCE =
   'Together AI Native Conf promo (2026-08-25 Gmail) + together.ai/ainativeconf';
 const SCHEMA = 'hosted-together-native/v1';
 const DEPLOY_SHA_RE = /^[0-9a-f]{40}$/;
+const PLACEHOLDER_SHA_RE = /^(.)\1{39}$/;
+const REPO_ROOT = path.join(__dirname, '..');
 const VENDOR_PROMO_RE = /together\.ai|ainativeconf|flashattention|thunderagent|thunderkittens|instant clusters?/i;
 const DEDICATED_RE =
   /\b(gpu clusters?|instant clusters?|dedicated (gpu|model|container|inference)|together cloud)\b/i;
@@ -82,6 +85,36 @@ function isVendorPromo(value) {
   return VENDOR_PROMO_RE.test(String(value || ''));
 }
 
+function isTrueFlag(value) {
+  return value === true;
+}
+
+function isPlaceholderSha(sha) {
+  return PLACEHOLDER_SHA_RE.test(String(sha || ''));
+}
+
+function isSafeRepoPath(artifact) {
+  if (!artifact || typeof artifact !== 'string') return false;
+  if (path.isAbsolute(artifact)) return false;
+  if (artifact.includes('\0')) return false;
+  const parts = artifact.split(/[\\/]/);
+  if (parts.some((part) => part === '..' || part === '')) return false;
+  return true;
+}
+
+function artifactExists(artifact) {
+  if (!isSafeRepoPath(artifact)) return false;
+  const full = path.resolve(REPO_ROOT, artifact);
+  const rel = path.relative(REPO_ROOT, full);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) return false;
+  try {
+    return fs.statSync(full).isFile();
+  } catch (err) {
+    if (err && err.code === 'ENOENT') return false;
+    return false;
+  }
+}
+
 function classifyWorkload(input) {
   const claimed = String((input && (input.claimedClass || input.class || input.kind)) || '')
     .toLowerCase()
@@ -96,7 +129,7 @@ function classifyWorkload(input) {
     };
   }
   const aliased = CLASS_ALIASES[claimed];
-  if (aliased === 'batch' || (!aliased && BATCH_RE.test(prompt))) {
+  if (aliased === 'batch' || BATCH_RE.test(prompt)) {
     return {
       class: 'batch',
       offered: true,
@@ -138,10 +171,11 @@ function capacityIsNotFrontier(input) {
   };
 }
 
-function researchToProduction(input) {
+function researchToProduction(input, opts) {
+  const checkFs = !(opts && opts.checkFs === false);
   const artifact = String((input && (input.evalArtifact || input.researchArtifact)) || '').trim();
   const sha = String((input && input.deploySha) || '').trim();
-  const testsPass = Boolean(input && input.testsPass);
+  const testsPass = isTrueFlag(input && input.testsPass);
   const blog = String((input && (input.blogUrl || input.talkUrl)) || '').trim();
   if (isVendorPromo(artifact) || isVendorPromo(blog)) {
     return {
@@ -159,8 +193,17 @@ function researchToProduction(input) {
   if (/^https?:\/\//i.test(artifact)) {
     return { ok: false, reason: 'url_is_not_eval_artifact', liveClaim: false };
   }
+  if (!isSafeRepoPath(artifact)) {
+    return { ok: false, reason: 'eval_artifact_unsafe_path', liveClaim: false };
+  }
+  if (checkFs && !artifactExists(artifact)) {
+    return { ok: false, reason: 'eval_artifact_not_found', liveClaim: false };
+  }
   if (!DEPLOY_SHA_RE.test(sha)) {
     return { ok: false, reason: 'deploy_sha_missing', liveClaim: false };
+  }
+  if (isPlaceholderSha(sha)) {
+    return { ok: false, reason: 'deploy_sha_placeholder', liveClaim: false, artifact, deploySha: sha };
   }
   if (!testsPass) {
     return { ok: false, reason: 'tests_not_pass', liveClaim: false, artifact, deploySha: sha };
@@ -168,23 +211,23 @@ function researchToProduction(input) {
   return { ok: true, reason: 'ok', liveClaim: false, artifact, deploySha: sha };
 }
 
-function gradeHostedClaim(input) {
-  const body = input && typeof input === 'object' ? input : {};
+function gradeHostedClaim(input, opts) {
+  const body = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
   const workload = classifyWorkload(body);
   const capacity = capacityIsNotFrontier(body);
-  const research = researchToProduction(body);
+  const research = researchToProduction(body, opts);
   const reasons = [];
   if (workload.class === 'dedicated') reasons.push('dedicated_not_offered');
   if (workload.class === 'batch') reasons.push('batch_is_not_live');
-  if (workload.class === 'provisioned' && !body.stripePaid) {
+  if (workload.class === 'provisioned' && !isTrueFlag(body.stripePaid)) {
     reasons.push('provisioned_requires_paid');
   }
   if (!research.ok) reasons.push(research.reason);
   if (capacity.capacity && !research.ok) reasons.push('capacity_is_not_frontier');
-  const workerLive = Boolean(body.workerLive);
+  const workerLive = isTrueFlag(body.workerLive);
   const classAllowsLive =
     workload.class === 'serverless' ||
-    (workload.class === 'provisioned' && Boolean(body.stripePaid));
+    (workload.class === 'provisioned' && isTrueFlag(body.stripePaid));
   const liveClaim = reasons.length === 0 && workerLive && research.ok && classAllowsLive;
   let status = 'NOT_LIVE';
   if (liveClaim) status = 'LIVE';
@@ -221,6 +264,7 @@ function attachTogetherNative(receipt, input) {
 }
 
 const FAKE_SHA = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+const EXAMPLE_SHA = 'd1ced6147a909de93aafd05b096585e3e6d0ab69';
 
 const DEMO_CASES = [
   {
@@ -242,8 +286,8 @@ const DEMO_CASES = [
     name: 'batch_eval',
     input: {
       claimedClass: 'batch',
-      evalArtifact: 'evals/hosted-together-native.json',
-      deploySha: FAKE_SHA,
+      evalArtifact: 'tests/test-hosted-together-native.js',
+      deploySha: EXAMPLE_SHA,
       testsPass: true,
       workerLive: true,
     },
@@ -253,7 +297,7 @@ const DEMO_CASES = [
     input: {
       claimedClass: 'serverless',
       evalArtifact: 'tests/test-hosted-together-native.js',
-      deploySha: FAKE_SHA,
+      deploySha: EXAMPLE_SHA,
       testsPass: true,
       workerLive: true,
     },
@@ -329,7 +373,9 @@ module.exports = {
   SCHEMA,
   SOURCE,
   FAKE_SHA,
+  EXAMPLE_SHA,
   honesty,
+  isTrueFlag,
   classifyWorkload,
   capacityIsNotFrontier,
   researchToProduction,
