@@ -12,7 +12,6 @@ import {
 } from "./LandingAuthChrome";
 import { BrandMark } from "./BrandMark";
 import { StartSurfaces } from "./StartSurfaces";
-import { HostedCheckoutCta } from "./HostedCheckoutCta";
 import styles from "./landing.module.css";
 import {
   CONTINUITY_PRICE_TIERS,
@@ -312,15 +311,9 @@ export default function Home() {
           </article>
         </div>
         <div className="hero-actions" style={{ marginTop: "32px" }}>
-          <a
-            href="/api/auth/login"
-            className="button button-primary"
-            data-funnel-event="give_work_click"
-            data-cta-id="put-hosted-hermes-to-work"
-            data-testid="give-work-cta"
-          >
+          <LandingPricingCtaPaid testId="give-work-cta">
             {PRO_CTA} <span aria-hidden="true">→</span>
-          </a>
+          </LandingPricingCtaPaid>
         </div>
       </section>
 
@@ -334,7 +327,7 @@ export default function Home() {
           <article>
             <h3>Yes</h3>
             <p>Keep one agent alive 14 days on a VPS. Approve in the browser. If it dies when the laptop sleeps, the trial failed. Cancel anytime. No cash-ROI refund theater.</p>
-            <p><HostedCheckoutCta>{PRO_CTA}</HostedCheckoutCta></p>
+            <p><LandingPricingCtaPaid>{PRO_CTA}</LandingPricingCtaPaid></p>
           </article>
           <article>
             <h3>No</h3>
@@ -462,9 +455,9 @@ await tg.protect(agentStep);`}
           </article>
         </div>
         <div className="hero-actions" style={{ marginTop: "32px" }}>
-          <HostedCheckoutCta>
+          <LandingPricingCtaPaid>
             {PRO_CTA} <span aria-hidden="true">→</span>
-          </HostedCheckoutCta>
+          </LandingPricingCtaPaid>
         </div>
       </section>
 
@@ -615,7 +608,7 @@ await tg.protect(agentStep);`}
         <Link href="/" className="brand"><BrandMark title="" /><span>ThumbGate <small>Hosted Hermes</small></span></Link>
         <p>Hosted Hermes on a fenced VPS · closed-system · flat $10/month · cancel anytime.</p>
         <p><Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link> · <Link href="/blog">Blog</Link></p>
-        <p><HostedCheckoutCta>{PRO_CTA}</HostedCheckoutCta></p>
+        <p><LandingPricingCtaPaid>{PRO_CTA}</LandingPricingCtaPaid></p>
       </footer>
     </main>
   );
