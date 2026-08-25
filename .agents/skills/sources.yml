@@ -23,6 +23,8 @@ in_repo:
   - revenue-gap-tracker
   - skill-catalog-governance
   - cloudflare-developer-stack
+  - cloudflare-kitesurf-browser
+  - cloudflare-monetization-gateway
 
 external:
   # Intentionally empty by default on Apple Silicon fleet.
