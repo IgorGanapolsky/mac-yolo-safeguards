@@ -22,7 +22,12 @@
 export const HOSTED_PROVIDER_FALLBACK = Object.freeze([
   { id: "supergrok", label: "SuperGrok", model: "grok-4.5" },
   { id: "deepseek-free", label: "DeepSeek free", model: "deepseek-v4-flash" },
-  { id: "poolside", label: "Poolside", model: "poolside/laguna-s-2.1" },
+  {
+    id: "poolside",
+    label: "Poolside",
+    model: "poolside/laguna-xs-2.1",
+    deepModel: "poolside/laguna-s-2.1",
+  },
 ]);
 
 export const GATEWAY_BUDGET = "gateway-budget";
@@ -105,6 +110,22 @@ export function inferFailedProvider(text) {
 }
 
 /**
+ * Poolside is a text-only coding specialist. Keep normal coding on fast XS and
+ * reserve S for explicit long-horizon/high-complexity or >256K-context work.
+ * An omitted category preserves legacy hosted health checks; an explicit
+ * non-coding, vision, sensitive, or local-only task is not eligible.
+ */
+export function selectPoolsideHostedModel(input = {}) {
+  if (input.taskCategory && input.taskCategory !== "coding") return null;
+  if (input.requiresVision === true || input.sensitive === true || input.privacyRequired === "local") return null;
+  const maxTokens = Number(input.maxTokens);
+  const deep = input.longHorizon === true
+    || input.complexity === "high"
+    || (Number.isFinite(maxTokens) && maxTokens > 262_144);
+  return deep ? "poolside/laguna-s-2.1" : "poolside/laguna-xs-2.1";
+}
+
+/**
  * Pick the next explicit provider. Quota/FAILED on hop 1 fails over.
  * Never reports vpsDead=true for a provider miss.
  */
@@ -116,7 +137,13 @@ export function resolveHostedFallback(input = {}) {
   if (lastError && isQuotaOrFailedRow(lastError)) {
     failedIds.add(inferFailedProvider(lastError));
   }
-  const remaining = HOSTED_PROVIDER_FALLBACK.filter((provider) => !failedIds.has(provider.id));
+  const remaining = HOSTED_PROVIDER_FALLBACK
+    .filter((provider) => !failedIds.has(provider.id))
+    .flatMap((provider) => {
+      if (provider.id !== "poolside") return [provider];
+      const model = selectPoolsideHostedModel(input);
+      return model ? [{ ...provider, model }] : [];
+    });
   const selected = remaining[0] ?? null;
   const failover = failedIds.size > 0 && selected != null;
   return {

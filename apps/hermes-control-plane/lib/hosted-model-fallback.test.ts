@@ -12,6 +12,7 @@ import {
   paidMetersForJob,
   resolveHostedFallback,
   resolveNamedRunnerIdentity,
+  selectPoolsideHostedModel,
   shouldFirePaidMeter,
   shouldKeepCallingRoute,
   hostedModelCost,
@@ -60,6 +61,32 @@ describe("hosted provider fallback lock", () => {
       now: Date.UTC(2026, 7, 22, 21, 7, 1),
       failedProviders: ["supergrok", "deepseek-free", "poolside"],
     })).toBe(false);
+  });
+
+  it("delegates normal coding to Laguna XS and long-horizon coding to Laguna S", () => {
+    expect(selectPoolsideHostedModel({ taskCategory: "coding" })).toBe("poolside/laguna-xs-2.1");
+    expect(selectPoolsideHostedModel({ taskCategory: "coding", complexity: "high" })).toBe("poolside/laguna-s-2.1");
+    expect(selectPoolsideHostedModel({ taskCategory: "coding", maxTokens: 262_145 })).toBe("poolside/laguna-s-2.1");
+    expect(resolveHostedFallback({
+      taskCategory: "coding",
+      failedProviders: ["supergrok", "deepseek-free"],
+    }).selected?.model).toBe("poolside/laguna-xs-2.1");
+    expect(resolveHostedFallback({
+      taskCategory: "coding",
+      complexity: "high",
+      failedProviders: ["supergrok", "deepseek-free"],
+    }).selected?.model).toBe("poolside/laguna-s-2.1");
+  });
+
+  it("excludes Poolside for explicit non-coding, vision, sensitive, or local-only work", () => {
+    expect(selectPoolsideHostedModel({ taskCategory: "summarization" })).toBeNull();
+    expect(selectPoolsideHostedModel({ taskCategory: "coding", requiresVision: true })).toBeNull();
+    expect(selectPoolsideHostedModel({ taskCategory: "coding", sensitive: true })).toBeNull();
+    expect(selectPoolsideHostedModel({ taskCategory: "coding", privacyRequired: "local" })).toBeNull();
+    expect(resolveHostedFallback({
+      taskCategory: "summarization",
+      failedProviders: ["supergrok", "deepseek-free"],
+    }).exhausted).toBe(true);
   });
 });
 
