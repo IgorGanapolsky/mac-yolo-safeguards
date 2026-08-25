@@ -16,7 +16,10 @@ console.log('Running test-cloudflare-kitesurf-browser.js...');
   const health = engine.getHealthStatus();
   assert.strictEqual(health.kitesurfEngine, 'UNAVAILABLE');
   assert.strictEqual(health.liveClaim, false);
-  assert.ok(String(health.reason).includes('CLOUDFLARE'));
+  assert.ok(
+    /CLOUDFLARE|wrangler|bearer/i.test(String(health.reason)),
+    `unexpected reason: ${health.reason}`,
+  );
 }
 
 // Health with creds can claim READY (presence only — not a live network proof)
@@ -28,6 +31,50 @@ console.log('Running test-cloudflare-kitesurf-browser.js...');
   const health = engine.getHealthStatus();
   assert.strictEqual(health.kitesurfEngine, 'READY');
   assert.strictEqual(health.liveClaim, true);
+  assert.strictEqual(health.credentialSource, 'options');
+}
+
+// Wrangler OAuth preferred over env token when both present
+{
+  const fs = require('fs');
+  const tomlPath = `/tmp/kitesurf-wrangler-test-${Date.now()}.toml`;
+  fs.writeFileSync(
+    tomlPath,
+    'oauth_token = "oauth_live_tok"\nexpiration_time = "2099-01-01T00:00:00.000Z"\n',
+    'utf8',
+  );
+  const prev = process.env.CLOUDFLARE_API_TOKEN;
+  process.env.CLOUDFLARE_API_TOKEN = 'env_bad_tok';
+  try {
+    const engine = new KitesurfEngine({
+      accountId: 'acct',
+      wranglerConfigPath: tomlPath,
+    });
+    assert.strictEqual(engine.credentialSource, 'wrangler_oauth');
+    assert.strictEqual(engine.apiToken, 'oauth_live_tok');
+  } finally {
+    if (prev === undefined) delete process.env.CLOUDFLARE_API_TOKEN;
+    else process.env.CLOUDFLARE_API_TOKEN = prev;
+    fs.unlinkSync(tomlPath);
+  }
+}
+
+// readWranglerOAuth marks expired tokens
+{
+  const fs = require('fs');
+  const tomlPath = `/tmp/kitesurf-wrangler-expired-${Date.now()}.toml`;
+  fs.writeFileSync(
+    tomlPath,
+    'oauth_token = "old"\nexpiration_time = "2020-01-01T00:00:00.000Z"\n',
+    'utf8',
+  );
+  try {
+    const info = KitesurfEngine.readWranglerOAuth(tomlPath);
+    assert.ok(info);
+    assert.strictEqual(info.expired, true);
+  } finally {
+    fs.unlinkSync(tomlPath);
+  }
 }
 
 // CDP frame builder

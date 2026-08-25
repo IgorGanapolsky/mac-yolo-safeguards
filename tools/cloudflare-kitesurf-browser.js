@@ -7,7 +7,14 @@
  *
  * Steal the mechanic (ephemeral Workers browser, ?browser=kitesurf). Do not
  * vendor Chromium. Fail-closed: never claim READY / SUCCESS screenshot without
- * CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_API_TOKEN (Browser Rendering - Edit).
+ * account id + bearer (wrangler OAuth with browser write, or API token that
+ * can call Browser Run).
+ *
+ * Credential order (when not overridden via options):
+ *   1. wrangler OAuth (~/Library/Preferences/.wrangler/config/default.toml)
+ *   2. CLOUDFLARE_API_TOKEN / CF_API_TOKEN
+ * Account.Browser Run-only tokens often 401; wrangler oauth with browser(write)
+ * is the proven local rail (2026-08-25).
  *
  * Usage:
  *   node tools/cloudflare-kitesurf-browser.js --health --json
@@ -17,24 +24,88 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 const BROWSER_RUN_BASE = 'https://api.cloudflare.com/client/v4/accounts';
+const DEFAULT_WRANGLER_CONFIG = path.join(
+  os.homedir(),
+  'Library/Preferences/.wrangler/config/default.toml',
+);
 
 class KitesurfEngine {
   constructor(options = {}) {
-    this.accountId =
-      options.accountId ||
-      process.env.CLOUDFLARE_ACCOUNT_ID ||
-      process.env.CF_ACCOUNT_ID ||
-      null;
-    this.apiToken =
-      options.apiToken ||
-      process.env.CLOUDFLARE_API_TOKEN ||
-      process.env.CF_API_TOKEN ||
-      null;
+    const explicitAccount = Object.prototype.hasOwnProperty.call(options, 'accountId');
+    const explicitToken = Object.prototype.hasOwnProperty.call(options, 'apiToken');
+
+    this.accountId = explicitAccount
+      ? options.accountId
+      : options.accountId ||
+        process.env.CLOUDFLARE_ACCOUNT_ID ||
+        process.env.CF_ACCOUNT_ID ||
+        null;
+
     this.endpoint = options.endpoint || process.env.KITESURF_CDP_ENDPOINT || null;
     this.timeoutMs = options.timeoutMs || 30000;
     this.fetchImpl = options.fetchImpl || globalThis.fetch.bind(globalThis);
+    this.credentialSource = 'none';
+    this._fallbackToken = null;
+    this._fallbackSource = null;
+
+    if (explicitToken) {
+      this.apiToken = options.apiToken || null;
+      this.credentialSource = this.apiToken ? 'options' : 'none';
+      return;
+    }
+
+    const wrangler = KitesurfEngine.readWranglerOAuth(options.wranglerConfigPath);
+    const envToken =
+      process.env.CLOUDFLARE_API_TOKEN || process.env.CF_API_TOKEN || null;
+
+    // Prefer live wrangler OAuth (browser write) over env tokens that often 401.
+    if (wrangler && wrangler.token && !wrangler.expired) {
+      this.apiToken = wrangler.token;
+      this.credentialSource = 'wrangler_oauth';
+      if (envToken && envToken !== wrangler.token) {
+        this._fallbackToken = envToken;
+        this._fallbackSource = 'env';
+      }
+      return;
+    }
+
+    if (envToken) {
+      this.apiToken = envToken;
+      this.credentialSource = 'env';
+      if (wrangler && wrangler.token) {
+        this._fallbackToken = wrangler.token;
+        this._fallbackSource = 'wrangler_oauth';
+      }
+      return;
+    }
+
+    this.apiToken = null;
+  }
+
+  /**
+   * Read wrangler OAuth bearer from local config. Never logs the token.
+   * @returns {{ token: string, expiresAt: string|null, expired: boolean }|null}
+   */
+  static readWranglerOAuth(configPath = DEFAULT_WRANGLER_CONFIG) {
+    try {
+      if (!configPath || !fs.existsSync(configPath)) return null;
+      const text = fs.readFileSync(configPath, 'utf8');
+      const tokenMatch = text.match(/^\s*oauth_token\s*=\s*"([^"]+)"/m);
+      if (!tokenMatch) return null;
+      const expMatch = text.match(/^\s*expiration_time\s*=\s*"([^"]+)"/m);
+      const expiresAt = expMatch ? expMatch[1] : null;
+      let expired = false;
+      if (expiresAt) {
+        const ms = Date.parse(expiresAt);
+        if (Number.isFinite(ms)) expired = ms <= Date.now();
+      }
+      return { token: tokenMatch[1], expiresAt, expired };
+    } catch {
+      return null;
+    }
   }
 
   hasBrowserRunCreds() {
@@ -45,10 +116,14 @@ class KitesurfEngine {
     if (!this.hasBrowserRunCreds()) {
       return {
         liveClaim: false,
-        reason: 'missing CLOUDFLARE_ACCOUNT_ID and/or CLOUDFLARE_API_TOKEN (Browser Rendering - Edit)',
+        reason:
+          'missing CLOUDFLARE_ACCOUNT_ID and bearer (wrangler OAuth or CLOUDFLARE_API_TOKEN)',
       };
     }
-    return { liveClaim: true, reason: 'Browser Run credentials present' };
+    return {
+      liveClaim: true,
+      reason: `Browser Run credentials present (${this.credentialSource})`,
+    };
   }
 
   static buildCdpFrame(method, params = {}, id = 1) {
@@ -190,14 +265,15 @@ class KitesurfEngine {
     const claim = this.liveClaim();
     return {
       kitesurfEngine: claim.liveClaim ? 'READY' : 'UNAVAILABLE',
-      version: '1.1.0',
+      version: '1.2.0',
       source: 'https://blog.cloudflare.com/kitesurf/',
       browserRun: claim.liveClaim ? 'CREDENTIALS_PRESENT' : 'NO_CREDENTIALS',
+      credentialSource: this.credentialSource,
       liveClaim: claim.liveClaim,
       reason: claim.reason,
       htmlFallback: 'fetch',
       notes:
-        'Screenshot/PDF need Browser Run. Without creds, html action may still fetch; never invent a PNG.',
+        'Screenshot/PDF need Browser Run. Prefer wrangler OAuth (browser write). Without creds, html may still fetch; never invent a PNG.',
     };
   }
 
@@ -273,7 +349,7 @@ class KitesurfEngine {
         engine: 'kitesurf',
         timingMs: Date.now() - startTime,
         error:
-          'CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_API_TOKEN required for screenshot/PDF (Browser Rendering - Edit)',
+          'CLOUDFLARE_ACCOUNT_ID + bearer required for screenshot/PDF (wrangler OAuth or CLOUDFLARE_API_TOKEN)',
         liveClaim: false,
         playground: 'https://kitesurf.cloudflare.app/',
       };
@@ -295,6 +371,7 @@ class KitesurfEngine {
         output: dest,
         bytes: artifact.length,
         liveClaim: true,
+        credentialSource: this.credentialSource,
         viewport,
       };
     } catch (err) {
@@ -304,6 +381,7 @@ class KitesurfEngine {
         timingMs: Date.now() - startTime,
         error: err.message,
         liveClaim: true,
+        credentialSource: this.credentialSource,
       };
     }
   }
@@ -324,15 +402,32 @@ class KitesurfEngine {
     };
   }
 
+  _promoteFallbackCreds() {
+    if (!this._fallbackToken) return false;
+    this.apiToken = this._fallbackToken;
+    this.credentialSource = this._fallbackSource || 'fallback';
+    this._fallbackToken = null;
+    this._fallbackSource = null;
+    return true;
+  }
+
   async _browserRunScreenshotOrPdf(url, action, browser) {
     const kind = action === 'pdf' ? 'pdf' : 'screenshot';
     const endpoint = `${BROWSER_RUN_BASE}/${this.accountId}/browser-run/${kind}?browser=${encodeURIComponent(browser)}`;
-    const res = await this.fetchImpl(endpoint, {
+    let res = await this.fetchImpl(endpoint, {
       method: 'POST',
       headers: this._authHeaders(),
       body: JSON.stringify({ url }),
       signal: AbortSignal.timeout(this.timeoutMs),
     });
+    if (!res.ok && res.status === 401 && this._promoteFallbackCreds()) {
+      res = await this.fetchImpl(endpoint, {
+        method: 'POST',
+        headers: this._authHeaders(),
+        body: JSON.stringify({ url }),
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    }
     if (!res.ok) {
       const body = await res.text().catch(() => '');
       throw new Error(`Browser Run ${kind} HTTP ${res.status}: ${body.slice(0, 240)}`);
@@ -344,12 +439,20 @@ class KitesurfEngine {
 
   async _browserRunContent(url, browser) {
     const endpoint = `${BROWSER_RUN_BASE}/${this.accountId}/browser-run/content?browser=${encodeURIComponent(browser)}`;
-    const res = await this.fetchImpl(endpoint, {
+    let res = await this.fetchImpl(endpoint, {
       method: 'POST',
       headers: this._authHeaders(),
       body: JSON.stringify({ url }),
       signal: AbortSignal.timeout(this.timeoutMs),
     });
+    if (!res.ok && res.status === 401 && this._promoteFallbackCreds()) {
+      res = await this.fetchImpl(endpoint, {
+        method: 'POST',
+        headers: this._authHeaders(),
+        body: JSON.stringify({ url }),
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    }
     if (!res.ok) {
       const body = await res.text().catch(() => '');
       throw new Error(`Browser Run content HTTP ${res.status}: ${body.slice(0, 240)}`);
