@@ -1,5 +1,12 @@
 .wrap {
   width: min(1180px, calc(100% - 40px));
+  /* Keep this component intact if a global theme rewrite drops spacing tokens. */
+  --space-3xs: .25rem;
+  --space-2xs: .5rem;
+  --space-xs: .75rem;
+  --space-sm: 1rem;
+  --space-md: 1.5rem;
+  --space-lg: 2rem;
 }
 
 .stack {

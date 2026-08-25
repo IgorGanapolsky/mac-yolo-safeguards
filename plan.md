@@ -19,6 +19,10 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 ## 1. Task Board
 
+| T-THUMBGATE-LANDING-INTEGRITY-20260825 | P0: repair the production StartSurfaces spacing collapse and prevent active Pro subscribers from seeing another checkout CTA | in_progress | codex-thumbgate-landing-integrity | `apps/hermes-control-plane/app/start-surfaces.module.css`, `apps/hermes-control-plane/app/HostedCheckoutCta.tsx`, `apps/hermes-control-plane/app/LandingAuthChrome.tsx`, `apps/hermes-control-plane/app/useLandingAuth.ts`, `apps/hermes-control-plane/app/useLandingAuth.test.ts`, `apps/hermes-control-plane/tests/start-surfaces.test.mjs`, `apps/hermes-control-plane/tests/hosted-hermes-checkout-cta.test.mjs`, `plan.md` (append only) | GH #2071; Linear AGENT-406 regression follow-up; prove resolved spacing tokens plus 1536x768 and 390x844 geometry, and anonymous/free/paid CTA states; do not touch dashboard chronology files |
+| T-LANDING-SIGNED-IN-NO-REPAY-20260825 | Signed-in trial/paid users must not see another Start hosted Hermes $10/mo checkout wall on the public landing | in_progress | grok-landing-signed-in-cta | `apps/hermes-control-plane/app/LandingAuthChrome.tsx`, `apps/hermes-control-plane/tests/landing-signed-in-cta.test.mjs`, `plan.md` | Session with cloudAccess → Open dashboard / Continue; anon keeps $10 CTA; prove with focused tests |
+| T-INFOQ-DEVICE-SUBMIT-SCHEMA-20260825 | Apply the newsletter's deterministic-schema pattern at ThumbGate's signed-device task boundary | in_progress | codex-infoq-device-schema | `apps/hermes-control-plane/app/api/device/tasks/submit/route.ts`, `apps/hermes-control-plane/lib/hermes-schema-validator.js`, `apps/hermes-control-plane/lib/schema-validator.ts`, `apps/hermes-control-plane/lib/schema-validator.test.ts`, `apps/hermes-control-plane/tests/device-cloud-task-routes.test.mjs`, `plan.md` (append only) | GH #2077; accept current connector/mobile payloads; reject malformed, oversized, invalid-role, and unknown-field bodies before task admission/D1; preserve downstream 48k aggregate context budget |
+
 | T-DISCONNECTED-QUICK-STARTERS-20260825 | P0: remove Mac-dependent quick starters from the chat empty state whenever the selected Mac is disconnected or reconnecting | done | codex-disconnected-quick-starters | released; coordination record only | Superseded without overwrite by Hermes PR #177, merged as `8f3c378575209a7db79d72e920111c8b66cd7ea6`; Mac-only actions are removed offline and the remaining Continuity Cloud action opens the paid modal. Redundant PR #178 was closed and its remote branch deleted. Unit/typecheck/safety CI is green; exact-merge Android emulator E2E is still running and GH #176 remains open until its result is known. |
 | T-HERMES-CONTINUITY-PAID-ENTITLEMENT-20260824 | P0: remove every free Continuity activation path; require a verified store entitlement before selecting the cross-device thread while keeping direct single-computer chat free | done | codex-continuity-paid | `hermes-mobile/src/components/ConnectMacGate.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx`, `hermes-mobile/src/constants/monetization.ts`, `hermes-mobile/src/hooks/useHermesDeepLinks.ts`, `hermes-mobile/src/__tests__/ChatScreen.test.tsx`, `hermes-mobile/src/__tests__/ConnectMacGateComponent.test.tsx`, `hermes-mobile/src/__tests__/DeveloperLeashUnlockScreen.test.tsx`, `hermes-mobile/docs/THUMBGATE-ACCOUNT-CONTINUITY.md` (post-merge truth only), `hermes-mobile/src/__tests__/preventRecurrenceContract.test.ts` (S54 truth contract only), `plan.md` (append only) | Hermes PR #172 merged as `2a279f5` with the paid gate and production dev-link bypass block; QA truth-contract hotfix PR #174 merged as `da5e873`; release APK build/package/cold-start proof passes; focused physical-device paid-Continuity Maestro exits 0 and proves unpaid selection opens the $19/month Google Play paywall without activating Continuity. Full physical suite remains unverified because the Samsung disappeared from ADB during `e2e-prep`; both PR and post-merge emulator jobs failed before app execution because the GitHub runner exhausted disk installing the API 34 x86_64 image. Server-side store-receipt-to-org-entitlement wiring and Google base-plan activation remain separate required work before hosted paid GA. |
 | T-AGENT-467-SOCIAL-CAMPAIGN-DATE-FIXTURE | Repair the calendar-dated social campaign scoreboard fixture that started failing every macOS guard on 2026-08-24; keep production logic unchanged | in_progress | codex-agent-467-pr-hygiene | `tests/test-social-campaign-ds.js`, `plan.md` (append only) | Reproduce the current two-assertion failure, make fixture timestamps relative to one frozen test clock, prove focused fail-then-pass plus the exact main health gate, open a PR, and merge only after every required check and review thread is green |
@@ -857,6 +861,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 | T-MCP-CONNECTOR-GOVERNANCE-20260819 | NewStack Mistral MCP connector migration article: build MCP connector governance checker with server risk assessment + prompt injection scanner (no auto-migration, operator trust, caching/perms unclear) | in_progress | claude-code | `tools/mcp-connector-gate.js` (new), `tests/test-mcp-connector-gate.js` (new), `plan.md` | Implementing from origin/main at 548e33710 |
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
+- `apps/hermes-control-plane/app/start-surfaces.module.css`, `apps/hermes-control-plane/app/HostedCheckoutCta.tsx`, `apps/hermes-control-plane/app/LandingAuthChrome.tsx`, `apps/hermes-control-plane/app/useLandingAuth.ts`, `apps/hermes-control-plane/app/useLandingAuth.test.ts`, `apps/hermes-control-plane/tests/start-surfaces.test.mjs`, `apps/hermes-control-plane/tests/hosted-hermes-checkout-cta.test.mjs`, `plan.md` (append only) → **codex-thumbgate-landing-integrity** (T-THUMBGATE-LANDING-INTEGRITY-20260825 / GH #2071 / Linear AGENT-406: restore production landing spacing and make checkout surfaces paid-plan aware through one shared auth-state decision without touching dashboard chronology files) (2026-08-25T14:47:00Z)
 - `tests/test-social-campaign-ds.js`, `plan.md` (append only) → **codex-agent-467-pr-hygiene** (T-AGENT-467-SOCIAL-CAMPAIGN-DATE-FIXTURE: fix the 2026-08-24 calendar rollover in test fixtures only; production scoreboard remains untouched) (2026-08-24T15:30:00Z)
 - `apps/hermes-control-plane/app/dashboard/layout.tsx`, `apps/hermes-control-plane/app/dashboard/ExecutionStatusline.tsx`, `apps/hermes-control-plane/app/dashboard/execution-statusline.module.css`, `apps/hermes-control-plane/app/api/execution-statusline/route.ts`, `apps/hermes-control-plane/lib/execution-statusline.ts`, `apps/hermes-control-plane/lib/execution-statusline.test.ts`, `apps/hermes-control-plane/tests/execution-statusline-contract.test.mjs`, `plan.md` → **codex-agent-476-turn-statusline** (T-AGENT-476: authenticated truthful latest-turn engine/model/duration/tokens/TTFT/cost statusline; unavailable metrics render as em dash) (2026-08-22T19:14:00Z)
 - Coordination correction: `.intent/contract.yaml` was removed from T-AGENT-476 scope and reverted because `grok-tieline-intent-contract-20260818` owns that file; task IDs were normalized to the parser-required `T-` prefix. (2026-08-22T19:51:00Z)
@@ -3661,6 +3666,41 @@ Header chip is a static `className="status-chip online"` label. It does not prob
 - PR #1986 merged commit `64a6e43d2` while PR #1983 was under review and retains active ownership of the dashboard statusline layout, component, API, tests, and intent contract.
 - T-AGENT-476 is blocked under the no-cross-owner-edit rule. PR #1983 now preserves PR #1986 files exactly and is narrowed to T-AGENT-476-INCIDENT: readable quick prompts/output, mobile overflow proof, generic `ThumbGate online` badge removal, and safe fenced-VPS execution for prompts containing a local path plus a GitHub repository URL.
 
+## T-CF-KITESURF-X402-20260824 (append 2026-08-24T16:20:00Z) — agent `grok-cf-kitesurf-x402`
+
+InfoQ/Cloudflare Kitesurf + Monetization Gateway steal. **Mechanic not product.** Kitesurf via Browser Run `?browser=kitesurf`. x402 402 challenges while CF gateway is waitlist. Fail-closed: no fake READY, no fake USDC, no dashboard x402 copy (hosted-source-of-truth). Linear **AGENT-489**.
+
+Does not restore Continuity / Mac-pair / RUN ON. Does not charge strangers (ECI). Stripe $10 hosted remains the live cash path.
+
+### File claims
+- `tools/cloudflare-kitesurf-browser.js` (new)
+- `tools/cloudflare-monetization-gateway.js` (new)
+- `tests/test-cloudflare-kitesurf-browser.js` (new)
+- `tests/test-cloudflare-monetization-gateway.js` (new)
+- `.agents/skills/cloudflare-kitesurf-browser/` (new)
+- `.agents/skills/cloudflare-monetization-gateway/` (new)
+- `SKILLS.md` (append two rows)
+- `.agents/skills/sources.yml` (append two in_repo names)
+- `.gitignore` (ledger ignore)
+- `plan.md` (this append)
+
+### Hardening append (2026-08-25) — agent `claude-cf-kitesurf-harden`
+
+Same task/PR (#2010). Additional claims, all new or already owned by this task:
+- `tools/lib/html-to-markdown.js` (new) — tokenizer-based HTML->Markdown helper
+- `tests/test-html-to-markdown.js` (new)
+
+Resolves the 5 CodeQL alerts (165-169) + 3 review findings the lead left unresolved:
+- Regex tag filtering replaced with a tokenizer (js/bad-tag-filter,
+  js/incomplete-multi-character-sanitization, js/double-escaping). AGENTS.md
+  already banned "naive script strip"; the PR had re-introduced it.
+- Screenshot/PDF bytes validated (magic bytes + content-type) before being
+  written with that extension; `liveClaim` only after validation passes.
+- Simulated x402 tokens bound to the issued challenge (id + resource + traffic
+  type + amount), single-use, expiring, and given a shape (`x402sim.v2.`) that
+  cannot be confused with a real one.
+- Transient upstream 429/503 on text actions now reaches the documented
+  plain-fetch fallback instead of returning early.
 ## 2. File Ownership Map (append-only lock table — claim before touching) [continued 2026-08-24]
 
 - `apps/hermes-control-plane/build/cloudflare-target.mjs`, `apps/hermes-control-plane/worker/index.ts`, `apps/hermes-control-plane/worker/edge-policy.ts`, `apps/hermes-control-plane/lib/cloudflare-edge-policy.test.ts`, `tests/test-hermes-cloudflare-deploy-config.js`, `plan.md` (append only) → **codex-cloudflare-edge-roi-2011** (GH #2011: Cloudflare-native write throttling, version-scoped anonymous public Cache API, Smart Placement; exclude PR #2010 Kitesurf/x402 files and all active dashboard/API-route claims) (2026-08-24T20:11:00Z)
@@ -3789,3 +3829,84 @@ GH #2034 / Linear AGENT-505. Remove fabricated fallback preference data and fixe
 - Decision D-2026-08-25-DISCONNECTED-STARTERS: Mac diagnostics, git review, security audit, and CI actions are executable only when `effectiveMacChatLive` is true. Disconnected and reconnecting states render none of those cards and no orphan `Quick starters` header; the existing connection greeting remains the single recovery signal.
 - SOW correction (2026-08-25): implementation is frontend-only. The gateway-owned action service and its test remain untouched; ChatScreen gates the presentation at the live-connectivity boundary.
 - Release (2026-08-25): concurrent Hermes PR #177 landed the same outcome first as `8f3c378575209a7db79d72e920111c8b66cd7ea6`, with the paid Continuity Cloud action as the only offline card. Redundant PR #178 was closed, its remote branch deleted, and this claim is released; GH #176 remains open pending exact-merge Android emulator E2E.
+| T-DASHBOARD-LATEST-AT-BOTTOM-20260825 | thumbgate.app thread console: chronological chat (newest by composer); hide duplicate oldest-first task dump while a thread is open; lift desktop 460px history cap | in_progress | grok-dashboard-latest-at-bottom-20260825 | `apps/hermes-control-plane/lib/dashboard-task-order.ts`, `apps/hermes-control-plane/lib/dashboard-task-order.test.ts`, `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx` (timeline + hide list only), `apps/hermes-control-plane/app/globals.css` (append thread-console rules), `apps/hermes-control-plane/tests/dashboard-conversation-latest-at-bottom.test.mjs`, `.agents/skills/thumbgate-dashboard-latest-at-bottom/**`, `SKILLS.md`, `plan.md` | Fail-first: newest-first snapshot reversed; hideDuplicateTaskList true when thread open; visibleTasks[0] is not the running notice |
+
+- `apps/hermes-control-plane/lib/dashboard-task-order.ts`, `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx` (snapshot order + hide duplicate task-list only), `apps/hermes-control-plane/app/globals.css` (append), `plan.md` (append only) → **grok-dashboard-latest-at-bottom-20260825** (CEO: latest chat not at the bottom; complementary to OPEN #2041/#1989 — do not steal CLOUD PENDING / composer-honesty hunks) (2026-08-25T12:40:00Z)
+
+## Discovered / Decisions (append) — 2026-08-25T13:10Z — grok-dashboard-latest-at-bottom-20260825
+
+- PR **#2067** OPEN `a99c97e52` failed required `verify` + `unit-and-coverage` on first-fail steps **Run npm test** / **Build + rendered-HTML tests**. TAP: `conversation timeline sorts tasks oldest-to-newest before rendering` still wanted the inline `[...(threadDetails?.tasks ?? [])].sort((left, right) => left.createdAt - right.createdAt)` after we moved sort into `orderTasksChronologically`.
+- Stacking snapshot then tasks still puts today's USER SENT above an Aug 23 COMPLETED card. Follow-up: `mergeThreadTimeline` interleaves by createdAt; hideDuplicateTaskList unchanged.
+- Claim add: `apps/hermes-control-plane/tests/conversation-chronological-order.test.mjs` (no live owner) → **grok-dashboard-latest-at-bottom-20260825**. Did not steal #2041/#1989 hunks.
+
+- `apps/hermes-control-plane/lib/dashboard-task-order.ts` (`mergeThreadTimeline`), `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx` (one timeline), `apps/hermes-control-plane/tests/conversation-chronological-order.test.mjs`, `plan.md` (append only) → **grok-dashboard-latest-at-bottom-20260825** (2026-08-25T13:10:00Z)
+
+## 2. File Ownership Map (append-only lock table — claim before touching) [continued 2026-08-25]
+
+- `apps/hermes-control-plane/app/api/device/tasks/submit/route.ts`, `apps/hermes-control-plane/lib/hermes-schema-validator.js`, `apps/hermes-control-plane/lib/schema-validator.ts`, `apps/hermes-control-plane/lib/schema-validator.test.ts`, `apps/hermes-control-plane/tests/device-cloud-task-routes.test.mjs`, `plan.md` (append only) → **codex-infoq-device-schema** (T-INFOQ-DEVICE-SUBMIT-SCHEMA-20260825 / GH #2077: strict shared schema validation before signed-device task admission while preserving compatible connector payloads and the downstream 48k aggregate context cap) (2026-08-25T15:36:00Z)
+
+- `apps/hermes-control-plane/app/api/device/tasks/submit/route.test.ts` (new) → **codex-infoq-device-schema** (T-INFOQ-DEVICE-SUBMIT-SCHEMA-20260825 / GH #2077: prove malformed signed-device bodies return HTTP 400 before `submitDeviceCloudTask`) (2026-08-25T15:42:00Z)
+
+## Claude Academy 4D steal (append 2026-08-25T16:40Z) — agent `grok-hosted-academy-4d-20260825`
+
+Source: https://academy.claude.com/ — AI Fluency 4D (Delegation, Description, Discernment, Diligence) + Cowork whole-task handoff. Not a course clone. Not Claude Cowork/Code/Tag. Complementary to fleet `/ai-fluency-4d-builder` (checklist) and PR #2052 completed≠quality. Do **not** dual-edit `tools/ai-native-sdlc.js`, InfoQ #2081 admission routes, or prompt-distill #2052.
+
+| T-HOSTED-ACADEMY-4D-20260825 | Steal Academy Description-before-execute, five-lens discernment, Cowork workspace+context+deliverable onto hosted VPS gates | in_progress | grok-hosted-academy-4d-20260825 | `tools/hosted-academy-4d.js`, `tests/test-hosted-academy-4d.js`, `bin/hosted-academy-4d`, `apps/hermes-control-plane/lib/hosted-academy-4d.ts`, `apps/hermes-control-plane/lib/hosted-academy-4d.test.ts`, `apps/hermes-control-plane/lib/execution-receipt.ts` (academy4d attach only), `apps/hermes-control-plane/lib/execution-receipt.test.ts` (academy4d only), `apps/hermes-control-plane/lib/hosted-session-handoff.ts` (whole-task cowork gate), `apps/hermes-control-plane/tests/hosted-session-handoff.test.mjs` (cowork cases), `.agents/skills/hosted-academy-4d/**`, `SKILLS.md` (append row), `plan.md` | Chat still skips ACs; execute/handoff fail closed without Description/Cowork fields; receipt.outcome `done` is not academy ship; workerLive=false until merge |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/hosted-academy-4d.js | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| tests/test-hosted-academy-4d.js | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| bin/hosted-academy-4d | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| apps/hermes-control-plane/lib/hosted-academy-4d.ts | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| apps/hermes-control-plane/lib/hosted-academy-4d.test.ts | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| apps/hermes-control-plane/lib/execution-receipt.ts (academy4d field only) | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| apps/hermes-control-plane/lib/execution-receipt.test.ts (academy4d cases) | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| apps/hermes-control-plane/lib/hosted-session-handoff.ts (wholeTask cowork) | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| apps/hermes-control-plane/tests/hosted-session-handoff.test.mjs (cowork cases) | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| .agents/skills/hosted-academy-4d/** | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| SKILLS.md (append row) | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| plan.md (this append) | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+
+Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` / `nostr/events` / `device-cloud-task.ts` (InfoQ #2081), `hosted-prompt-distill*` (#2052), or `tools/ai-native-sdlc.js`.
+
+## File claim (append 2026-08-25T16:30:00Z) — `grok-hosted-alert-correlate`
+
+| T-HOSTED-ALERT-CORRELATE-20260825 | Digitate/ignio process steal: suppress duplicate hosted signatures, correlate related Worker routes, precursor vs user-facing, validated-fix only | in_progress | grok-hosted-alert-correlate | `tools/hosted-alert-correlate.js`, `tests/test-hosted-alert-correlate.js`, `apps/hermes-control-plane/lib/hosted-alert-correlate.ts`, `apps/hermes-control-plane/lib/hosted-alert-correlate.test.ts`, `apps/hermes-control-plane/app/ClientErrorBeacon.tsx`, `apps/hermes-control-plane/lib/client-error-beacon.test.ts`, `.agents/skills/hosted-alert-correlate/**`, `bin/hosted-alert-correlate`, `SKILLS.md`, `plan.md` | Not ignio/CloudWatch; do not dual-edit rule-sprawl.js or analytics/event/route.ts |
+
+- `tools/hosted-alert-correlate.js` (new)
+- `tests/test-hosted-alert-correlate.js` (new)
+- `apps/hermes-control-plane/lib/hosted-alert-correlate.ts` (new)
+- `apps/hermes-control-plane/lib/hosted-alert-correlate.test.ts` (new)
+- `apps/hermes-control-plane/app/ClientErrorBeacon.tsx` (duplicate-signature suppress)
+- `apps/hermes-control-plane/lib/client-error-beacon.test.ts`
+- `.agents/skills/hosted-alert-correlate/` (new)
+- `bin/hosted-alert-correlate` (new)
+- `SKILLS.md` (append row)
+- `plan.md` (this append)
+
+## File claim (append 2026-08-25T17:55:00Z) — `grok-hosted-together-native-20260825`
+
+| T-HOSTED-TOGETHER-NATIVE-20260825 | Together AI Native Conf process steal: capacity ≠ frontier, serverless/batch/provisioned/dedicated honesty, research-to-production receipts | in_progress | grok-hosted-together-native-20260825 | `tools/hosted-together-native.js`, `tests/test-hosted-together-native.js`, `apps/hermes-control-plane/lib/hosted-together-native.ts`, `apps/hermes-control-plane/lib/hosted-together-native.test.ts`, `bin/hosted-together-native`, `.agents/skills/hosted-together-native/**`, `SKILLS.md` (one row), `plan.md` | Not Together Cloud / FA4 / ThunderAgent / Instant Clusters; do not dual-edit ai-native-sdlc, #2088 academy-4d/execution-receipt, or RESEARCH-together-cursor-decagon-hedra |
+
+- `tools/hosted-together-native.js` (new)
+- `tests/test-hosted-together-native.js` (new)
+- `apps/hermes-control-plane/lib/hosted-together-native.ts` (new)
+- `apps/hermes-control-plane/lib/hosted-together-native.test.ts` (new)
+- `bin/hosted-together-native` (new)
+- `.agents/skills/hosted-together-native/` (new)
+- `SKILLS.md` (one row append)
+- `plan.md` (this append)
+
+## Discovered / Decisions (append) — 2026-08-25T17:55Z — grok-hosted-together-native-20260825
+
+- Source: `~/Downloads/together.pdf` (Together Team → igor@ 2026-08-25, AI Native Conf promo) + https://www.together.ai/ainativeconf + https://www.together.ai/blog/ai-native-conf-research-and-product-announcements.
+- Transferable: leftover quota/VPS-up is capacity not frontier; batch complete ≠ LIVE; dedicated GPU claims are NOT_OFFERED; conference talks/vendor blogs are not production receipts.
+- Backlog: Instant Clusters, FlashAttention-4, ThunderAgent, RL API, together.compile, ATLAS-2, dedicated container inference (GPU cloud, not a $10 Worker).
+- Complementary to `/ai-native-sdlc` and OPEN #2088 academy-4d (completed ≠ quality). Did not edit those files.
+
+## Discovered / Decisions (append) — 2026-08-25T17:32Z — grok-hosted-together-native-20260825
+
+- PR **#2092** Codex P1/P2 on tip `d1ced6147`: (1) placeholder SHA / missing eval file must not grade LIVE; (2) `Boolean("false")` must not coerce proof flags; (3) `claimedClass=chat` must not hide overnight/batch prompts; (4) wire `attachTogetherNativeToReceipt` into `execution-receipt.ts` now that #2088 is on main.
+- SonarQube Cloud GitHub check-suite `89062269595` still **queued** with 0 check-runs / 0 public issues (mac-yolo is not a SonarCloud project). Fixes below are the live review findings on this PR.

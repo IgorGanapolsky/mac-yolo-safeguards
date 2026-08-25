@@ -12,10 +12,19 @@ const source = fs.readFileSync(
 // The tasks API + optimistic state are newest-first. The conversation timeline must
 // render oldest→newest so the latest exchange sits at the BOTTOM next to the composer.
 test("conversation timeline sorts tasks oldest-to-newest before rendering", () => {
+  const helper = fs.readFileSync(
+    path.join(import.meta.dirname, "../lib/dashboard-task-order.ts"),
+    "utf8",
+  );
   assert.match(
     source,
-    /\[\.\.\.\(threadDetails\?\.tasks \?\? \[\]\)\]\.sort\(\(left, right\) => left\.createdAt - right\.createdAt\)/,
+    /mergeThreadTimeline\(\{[\s\S]*snapshot: threadDetails\?\.snapshot \?\? \[\][\s\S]*tasks: threadDetails\?\.tasks \?\? \[\]/,
     "conversation must derive an ascending-by-createdAt timeline",
+  );
+  assert.match(
+    helper,
+    /left\.createdAt - right\.createdAt/,
+    "task order helper must sort ascending by createdAt",
   );
 });
 
