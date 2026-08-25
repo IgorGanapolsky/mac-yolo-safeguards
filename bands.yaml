@@ -1,0 +1,66 @@
+# bands.yaml - statistical control bands for CI and production signals.
+#
+# DETECTION ONLY, DELIBERATELY.
+#
+# tools/ai-native-sdlc.js records the decision not to clone "Western Electric
+# auto-quarantine" from the source playbook. That constraint is about the
+# auto-ACTING half: a breach must not revert a deploy, open a rollback or
+# quarantine a test on its own. This file honours that - the most severe tier
+# here still only diagnoses and files an artifact for a human to triage.
+#
+# The detection half is worth having on its own: without it a breach is not
+# noticed at all. Adding an `act` tier later is a deliberate decision that
+# needs its own review, not a config edit.
+
+version: 1.1
+evaluation_window: 30d
+
+metrics:
+  - id: ci_test_failure_rate
+    name: CI test suite failure rate
+    unit: ratio
+    baseline_mean: 0.02
+    baseline_std: 0.008
+    rules: western_electric
+    tiers:
+      1sigma:
+        action: log
+        description: "Normal variance. Log only."
+      2sigma:
+        action: diagnose
+        tools: ["Read", "Grep", "git log"]
+        description: "Elevated. Summarise likely cause; take no action."
+      3sigma:
+        action: report
+        description: "Breached. File an artifact for human triage. Does not act."
+
+  - id: post_deploy_5xx_rate
+    name: Post-deploy HTTP 5xx rate
+    unit: ratio
+    baseline_mean: 0.001
+    baseline_std: 0.0005
+    rules: western_electric
+    tiers:
+      1sigma:
+        action: log
+      2sigma:
+        action: diagnose
+        tools: ["Read", "logs"]
+      3sigma:
+        action: report
+        description: "Error surge. File an artifact and page a human. Does not roll back."
+
+  - id: pr_cycle_time_hours
+    name: PR lead time to merge
+    unit: hours
+    baseline_mean: 4.5
+    baseline_std: 1.2
+    rules: western_electric
+    tiers:
+      1sigma:
+        action: log
+      2sigma:
+        action: diagnose
+      3sigma:
+        action: report
+        description: "Process drift. File an artifact for review."
