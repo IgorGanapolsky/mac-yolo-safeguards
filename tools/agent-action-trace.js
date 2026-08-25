@@ -2,33 +2,10 @@
 'use strict';
 
 /**
- * agent-action-trace.js — Visible end-to-end agent observability.
+ * Append-only agent action observability.
  *
- * Stolen from Screenpipe's "agent run · visible end to end":
- * "See the trigger, context, decision, and result instead of trusting a
- * black box."
- *
- * Records an immutable audit trail for each agent action:
- *   - trigger: what caused the agent to act (event + source)
- *   - context: which files/patterns were read for context
- *   - decision: the key decision point or branch
- *   - result: what files were changed / what was output
- *
- * Stored as JSONL (append-only, never modified) at:
- *   ~/.mac-yolo-safeguards/harness-router/agent-action-traces.jsonl
- *
- * Usage:
- *   node tools/agent-action-trace.js start    --trigger "github_webhook" --context "plan.md"
- *   node tools/agent-action-trace.js decision --trace-id <id> --decision "chose approach A"
- *   node tools/agent-action-trace.js end      --trace-id <id> --result "files modified, tests pass"
- *   node tools/agent-action-trace.js list     --limit 20 [--json]
- *   node tools/agent-action-trace.js show     --trace-id <id>
- *
- * Usage from scripts/tools:
- *   const { startTrace, recordDecision, endTrace } = require('./agent-action-trace');
- *   const trace = startTrace({ trigger: 'webhook', context: ['plan.md'] });
- *   recordDecision(trace.id, 'chose Approach A over B');
- *   endTrace(trace.id, { changedFiles: ['tools/foo.js'], testResult: 'pass' });
+ * Each lifecycle transition is a new JSONL event. Existing v1 snapshot lines
+ * remain readable, but this implementation never rewrites earlier bytes.
  */
 
 const fs = require('fs');
@@ -37,6 +14,7 @@ const path = require('path');
 
 const STORAGE_DIR = path.join(os.homedir(), '.mac-yolo-safeguards', 'harness-router');
 const TRACE_FILE = path.join(STORAGE_DIR, 'agent-action-traces.jsonl');
+const EVENT_SCHEMA = 'agent-action-trace-event/v2';
 
 function ensureDir(file) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -46,39 +24,111 @@ function shortId(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function readTraces(opts = {}) {
+function readLines(opts = {}) {
   const file = opts.traceFile || TRACE_FILE;
   if (!fs.existsSync(file)) return [];
   return fs.readFileSync(file, 'utf8')
-    .trim().split('\n')
+    .split('\n')
     .filter(Boolean)
-    .map((line) => { try { return JSON.parse(line); } catch { return null; } })
+    .map((line) => {
+      try { return JSON.parse(line); } catch { return null; }
+    })
     .filter(Boolean);
 }
 
-function appendTrace(entry, opts = {}) {
+function appendEvent(event, opts = {}) {
   const file = opts.traceFile || TRACE_FILE;
   ensureDir(file);
-  fs.appendFileSync(file, JSON.stringify(entry, null, 0) + '\n');
-  return entry;
+  fs.appendFileSync(file, `${JSON.stringify(event)}\n`, 'utf8');
+  return event;
 }
 
-function startTrace(args, opts = {}) {
-  const id = shortId('trace');
-  const entry = {
+function emptyTrace(id, at) {
+  return {
     id,
-    startedAt: new Date().toISOString(),
+    startedAt: at || null,
     endedAt: null,
     status: 'running',
+    trigger: 'manual',
+    triggerSource: null,
+    context: [],
+    decisions: [],
+    result: null,
+    resultFiles: [],
+    durationMs: null,
+  };
+}
+
+function applyEvent(state, event) {
+  const id = event.traceId || event.id;
+  if (!id) return state;
+  const current = state.get(id) || emptyTrace(id, event.at);
+
+  if (!event.event && event.id) {
+    // Legacy v1 snapshot. A later v2 event for the same trace can extend it.
+    state.set(id, {
+      ...emptyTrace(id, event.startedAt),
+      ...event,
+      decisions: Array.isArray(event.decisions) ? event.decisions : [],
+      resultFiles: Array.isArray(event.resultFiles) ? event.resultFiles : [],
+    });
+    return state;
+  }
+
+  if (event.event === 'start') {
+    state.set(id, {
+      ...emptyTrace(id, event.at),
+      trigger: event.trigger || 'manual',
+      triggerSource: event.triggerSource || null,
+      context: Array.isArray(event.context) ? event.context : [],
+    });
+  } else if (event.event === 'decision') {
+    current.decisions.push({
+      at: event.at,
+      decision: event.decision,
+      detail: event.detail || null,
+    });
+    state.set(id, current);
+  } else if (event.event === 'end') {
+    current.endedAt = event.at;
+    current.status = event.status || 'completed';
+    current.result = event.result || null;
+    current.resultFiles = Array.isArray(event.resultFiles) ? event.resultFiles : [];
+    current.durationMs = Number.isFinite(event.durationMs)
+      ? event.durationMs
+      : Math.max(0, Date.parse(event.at) - Date.parse(current.startedAt));
+    state.set(id, current);
+  }
+  return state;
+}
+
+function readTraces(opts = {}) {
+  const state = readLines(opts).reduce(applyEvent, new Map());
+  return [...state.values()].sort((left, right) => Date.parse(left.startedAt) - Date.parse(right.startedAt));
+}
+
+function startTrace(args = {}, opts = {}) {
+  const id = shortId('trace');
+  const at = new Date().toISOString();
+  appendEvent({
+    schema: EVENT_SCHEMA,
+    event: 'start',
+    traceId: id,
+    at,
     trigger: args.trigger || 'manual',
     triggerSource: args.triggerSource || null,
     context: args.context || [],
-    decisions: [],
-    result: null,
-    durationMs: null,
-  };
-  appendTrace(entry, opts);
-  return entry;
+  }, opts);
+  return showTrace(id, opts);
+}
+
+function requireRunning(traceId, opts) {
+  const trace = readTraces(opts).find((item) => item.id === traceId);
+  if (!trace || trace.status !== 'running') {
+    console.error(`Trace ${traceId} not found or already ended`);
+    process.exit(1);
+  }
+  return trace;
 }
 
 function recordDecision(args, opts = {}) {
@@ -86,19 +136,16 @@ function recordDecision(args, opts = {}) {
     console.error('recordDecision requires --trace-id');
     process.exit(1);
   }
-  const traces = readTraces(opts);
-  const idx = traces.findIndex((t) => t.id === args.traceId && t.status === 'running');
-  if (idx === -1) {
-    console.error(`Trace ${args.traceId} not found or already ended`);
-    process.exit(1);
-  }
-  traces[idx].decisions.push({
+  requireRunning(args.traceId, opts);
+  appendEvent({
+    schema: EVENT_SCHEMA,
+    event: 'decision',
+    traceId: args.traceId,
     at: new Date().toISOString(),
     decision: args.decision,
     detail: args.detail || null,
-  });
-  rewriteTraces(traces, opts);
-  return traces[idx];
+  }, opts);
+  return showTrace(args.traceId, opts);
 }
 
 function endTrace(args, opts = {}) {
@@ -106,38 +153,29 @@ function endTrace(args, opts = {}) {
     console.error('endTrace requires --trace-id');
     process.exit(1);
   }
-  const traces = readTraces(opts);
-  const idx = traces.findIndex((t) => t.id === args.traceId && t.status === 'running');
-  if (idx === -1) {
-    console.error(`Trace ${args.traceId} not found or already ended`);
-    process.exit(1);
-  }
-  const started = Date.parse(traces[idx].startedAt);
-  traces[idx].endedAt = new Date().toISOString();
-  traces[idx].status = args.status || 'completed';
-  traces[idx].result = args.result || null;
-  traces[idx].resultFiles = args.resultFiles || [];
-  traces[idx].durationMs = Date.now() - started;
-  rewriteTraces(traces, opts);
-  return traces[idx];
-}
-
-function rewriteTraces(traces, opts = {}) {
-  const file = opts.traceFile || TRACE_FILE;
-  ensureDir(file);
-  fs.writeFileSync(file, traces.map((e) => JSON.stringify(e, null, 0)).join('\n') + '\n');
+  const trace = requireRunning(args.traceId, opts);
+  const at = new Date().toISOString();
+  appendEvent({
+    schema: EVENT_SCHEMA,
+    event: 'end',
+    traceId: args.traceId,
+    at,
+    status: args.status || 'completed',
+    result: args.result || null,
+    resultFiles: args.resultFiles || [],
+    durationMs: Math.max(0, Date.parse(at) - Date.parse(trace.startedAt)),
+  }, opts);
+  return showTrace(args.traceId, opts);
 }
 
 function listTraces(args = {}) {
   const traces = readTraces({ traceFile: args.traceFile });
   const limit = args.limit || 20;
-  const filtered = traces.slice(-limit).reverse();
-  return { traces: filtered, total: traces.length };
+  return { traces: traces.slice(-limit).reverse(), total: traces.length };
 }
 
 function showTrace(traceId, opts = {}) {
-  const traces = readTraces(opts);
-  const found = traces.find((t) => t.id === traceId);
+  const found = readTraces(opts).find((trace) => trace.id === traceId);
   if (!found) {
     console.error(`Trace ${traceId} not found`);
     process.exit(1);
@@ -146,115 +184,81 @@ function showTrace(traceId, opts = {}) {
 }
 
 function parseArgs(argv) {
-  const out = { cmd: 'list', json: false, traceId: null };
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === '--json') out.json = true;
-    else if (a === '--trace-id') out.traceId = argv[++i];
-    else if (a === '--trigger') out.trigger = argv[++i];
-    else if (a === '--trigger-source') out.triggerSource = argv[++i];
-    else if (a === '--context') out.context = (argv[++i] || '').split(',').map((s) => s.trim()).filter(Boolean);
-    else if (a === '--decision') out.decision = argv[++i];
-    else if (a === '--detail') out.detail = argv[++i];
-    else if (a === '--result') out.result = argv[++i];
-    else if (a === '--result-files') out.resultFiles = (argv[++i] || '').split(',').map((s) => s.trim()).filter(Boolean);
-    else if (a === '--status') out.status = argv[++i];
-    else if (a === '--limit') out.limit = parseInt(argv[++i], 10);
-    else if (!a.startsWith('-') && !out.cmd) out.cmd = a;
+  const out = { cmd: null, json: false, traceId: null };
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === '--json') out.json = true;
+    else if (arg === '--trace-id') out.traceId = argv[++index];
+    else if (arg === '--trigger') out.trigger = argv[++index];
+    else if (arg === '--trigger-source') out.triggerSource = argv[++index];
+    else if (arg === '--context') out.context = (argv[++index] || '').split(',').map((item) => item.trim()).filter(Boolean);
+    else if (arg === '--decision') out.decision = argv[++index];
+    else if (arg === '--detail') out.detail = argv[++index];
+    else if (arg === '--result') out.result = argv[++index];
+    else if (arg === '--result-files') out.resultFiles = (argv[++index] || '').split(',').map((item) => item.trim()).filter(Boolean);
+    else if (arg === '--status') out.status = argv[++index];
+    else if (arg === '--limit') out.limit = Number.parseInt(argv[++index], 10);
+    else if (!arg.startsWith('-') && !out.cmd) out.cmd = arg;
   }
+  out.cmd ||= 'list';
   return out;
+}
+
+function renderTrace(trace) {
+  const lines = [
+    `Trace: ${trace.id}`,
+    `  Status: ${trace.status}`,
+    `  Trigger: ${trace.trigger}${trace.triggerSource ? ` (${trace.triggerSource})` : ''}`,
+    `  Started: ${trace.startedAt}`,
+  ];
+  if (trace.endedAt) lines.push(`  Ended: ${trace.endedAt} (${trace.durationMs}ms)`);
+  lines.push(`  Context: ${trace.context?.join(', ') || '(none)'}`);
+  lines.push(`  Decisions (${trace.decisions?.length || 0}):`);
+  for (const decision of trace.decisions || []) {
+    lines.push(`    - [${decision.at}] ${decision.decision}${decision.detail ? ` — ${decision.detail}` : ''}`);
+  }
+  if (trace.result) lines.push(`  Result: ${trace.result}`);
+  if (trace.resultFiles?.length) lines.push(`  Files changed: ${trace.resultFiles.join(', ')}`);
+  return lines.join('\n');
 }
 
 function main() {
   const argv = process.argv.slice(2);
-  if (argv.length === 0 || argv[0] === '--help' || argv[0] === '-h') {
-    console.log(`agent-action-trace — visible end-to-end agent observability
-
-Stolen from Screenpipe: "See the trigger, context, decision, and result
-instead of trusting a black box."
-
-Usage:
-  node tools/agent-action-trace.js start    --trigger "github_webhook" --context "plan.md,tools/foo.js" [--trigger-source url]
-  node tools/agent-action-trace.js decision --trace-id <id> --decision "chose approach A" [--detail "..."]
-  node tools/agent-action-trace.js end      --trace-id <id> [--status completed|failed|cancelled] --result "tests pass" [--result-files foo.js,bar.ts]
-  node tools/agent-action-trace.js list     [--limit 20] [--json]
-  node tools/agent-action-trace.js show     --trace-id <id>
-
-Use in scripts:
-  const { startTrace, recordDecision, endTrace } = require('./agent-action-trace');
-`);
+  if (argv[0] === '--help' || argv[0] === '-h') {
+    console.log('agent-action-trace start|decision|end|list|show [options]');
     return;
   }
-
   const args = parseArgs(argv);
-  let out;
-
-  switch (args.cmd) {
-    case 'start':
-      out = startTrace(args);
-      if (args.json) console.log(JSON.stringify(out, null, 2));
-      else console.log(`TRACE STARTED: ${out.id} (trigger: ${out.trigger})`);
-      break;
-
-    case 'decision':
-      out = recordDecision(args);
-      if (args.json) console.log(JSON.stringify({ traceId: args.traceId, decisions: out.decisions }, null, 2));
-      else console.log(`Decision recorded for trace ${args.traceId} (${out.decisions.length} total)`);
-      break;
-
-    case 'end':
-      out = endTrace(args);
-      if (args.json) console.log(JSON.stringify(out, null, 2));
-      else console.log(`TRACE ENDED: ${out.id} (status: ${out.status}, duration: ${out.durationMs}ms)`);
-      break;
-
-    case 'list':
-      out = listTraces(args);
-      if (args.json) console.log(JSON.stringify(out, null, 2));
-      else {
-        console.log(`Agent action traces (${out.total} total, showing ${out.traces.length}):`);
-        for (const t of out.traces) {
-          const dur = t.durationMs != null ? `${t.durationMs}ms` : 'running';
-          const decs = t.decisions?.length || 0;
-          console.log(`  ${t.status === 'running' ? '⚙' : '✓'} ${t.id} | ${t.trigger} | ${dur} | decisions:${decs}`);
-        }
-      }
-      break;
-
-    case 'show':
-      out = showTrace(args.traceId);
-      if (args.json) console.log(JSON.stringify(out, null, 2));
-      else {
-        console.log(`Trace: ${out.id}`);
-        console.log(`  Status: ${out.status}`);
-        console.log(`  Trigger: ${out.trigger}${out.triggerSource ? ` (${out.triggerSource})` : ''}`);
-        console.log(`  Started: ${out.startedAt}`);
-        if (out.endedAt) console.log(`  Ended: ${out.endedAt} (${out.durationMs}ms)`);
-        console.log(`  Context: ${out.context?.join(', ') || '(none)'}`);
-        console.log(`  Decisions (${out.decisions?.length || 0}):`);
-        for (const d of out.decisions || []) {
-          console.log(`    - [${d.at}] ${d.decision}${d.detail ? ` — ${d.detail}` : ''}`);
-        }
-        if (out.result) console.log(`  Result: ${out.result}`);
-        if (out.resultFiles?.length) console.log(`  Files changed: ${out.resultFiles.join(', ')}`);
-      }
-      break;
-
-    default:
-      console.error(`Unknown command: ${args.cmd}`);
-      process.exit(1);
+  let output;
+  if (args.cmd === 'start') output = startTrace(args);
+  else if (args.cmd === 'decision') output = recordDecision(args);
+  else if (args.cmd === 'end') output = endTrace(args);
+  else if (args.cmd === 'list') output = listTraces(args);
+  else if (args.cmd === 'show') output = showTrace(args.traceId);
+  else {
+    console.error(`Unknown command: ${args.cmd}`);
+    process.exit(1);
   }
+
+  if (args.json) console.log(JSON.stringify(output, null, 2));
+  else if (args.cmd === 'list') {
+    console.log(`Agent action traces (${output.total} total, showing ${output.traces.length}):`);
+    for (const trace of output.traces) console.log(`  ${trace.status === 'running' ? '⚙' : '✓'} ${trace.id} | ${trace.trigger}`);
+  } else console.log(renderTrace(output));
 }
 
 if (require.main === module) main();
 
 module.exports = {
-  startTrace,
-  recordDecision,
-  endTrace,
-  listTraces,
-  showTrace,
+  EVENT_SCHEMA,
   STORAGE_DIR,
   TRACE_FILE,
+  endTrace,
+  listTraces,
+  parseArgs,
+  readLines,
   readTraces,
+  recordDecision,
+  showTrace,
+  startTrace,
 };
