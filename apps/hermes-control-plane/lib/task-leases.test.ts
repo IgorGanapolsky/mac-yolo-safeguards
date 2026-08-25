@@ -42,7 +42,7 @@ vi.mock("./security", () => ({
   sha256: async (value: string) => `hash:${value}`,
 }));
 
-import { claimTask, completeTask, renewTask, TASK_LEASE_MS } from "./task-leases";
+import { claimTask, completeTask, renewTask, TASK_LEASE_MS, TASK_PICKUP_TIMEOUT_MS } from "./task-leases";
 
 beforeEach(() => {
   mocks.state.existing = null;
@@ -241,13 +241,17 @@ describe("fenced task leases", () => {
     const select = mocks.state.selects.find((s) => s.sql.includes("k.status = 'running' AND d.failover_mode = 'auto'"));
     expect(select).toBeDefined();
     // cloudTasks 30-day window, then two staleness thresholds (local_pending clause,
-    // running-recovery clause), then the trailing lease_expires_at check — all four
-    // must bind positionally in the exact order their `?` placeholders appear in the SQL.
+    // running-recovery clause), then the lease_expires_at check, then the pickup-age
+    // floor — all five must bind positionally in the exact order their `?`
+    // placeholders appear in the SQL. The last one keeps a runner from claiming a
+    // task that has already aged past the pickup timeout, which would race the
+    // expiry sweep for the same row.
     expect(select!.args).toEqual([
       100_000 - 30 * 24 * 60 * 60 * 1000,
       100_000 - 60_000,
       100_000 - 60_000,
       100_000,
+      100_000 - TASK_PICKUP_TIMEOUT_MS,
     ]);
   });
 

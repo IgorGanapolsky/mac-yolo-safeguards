@@ -11,6 +11,7 @@ import { ackHostedSend, publicRunReceipt } from "@/lib/hosted-source-of-truth";
 import { admitHostedContext } from "@/lib/hosted-edit-anchor";
 import { jsonError } from "@/lib/security";
 import { decideTaskRoute, parseRoutePreference } from "@/lib/task-routing";
+import { expireUnclaimedTasks, staleUnclaimedTaskIds, TASK_PICKUP_TIMEOUT_ERROR, TASK_PICKUP_TIMEOUT_MS } from "@/lib/task-leases";
 // A+ imports: runtime schema validation + rate limiting
 import { validateRoute, RouteSchemas } from "@/lib/schema-validator";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -37,7 +38,28 @@ export async function GET(request: Request) {
       WHERE k.organization_id = ? AND t.deleted_at IS NULL${whereThread}
       ORDER BY k.created_at DESC LIMIT 100`
   ).bind(...values).all();
-  return Response.json({ tasks: rows.results });
+  // A task nobody claimed has no lease and therefore no deadline of its own.
+  // Expire those here, reusing the rows already read so this costs zero extra
+  // D1 reads and issues a single write only when something is actually stale.
+  const tasks = rows.results as Array<{ id: string; status: string; createdAt: number; updatedAt: number | null; error: string | null; completedAt: number | null }>;
+  const staleIds = staleUnclaimedTaskIds(tasks);
+  if (staleIds.length) {
+    const now = Date.now();
+    // Rewrite only the rows the update actually changed. A runner can claim one
+    // of the candidates mid-flight, and marking every candidate failed from a
+    // positive aggregate count alone would show a false failure for a task now
+    // running under a valid lease -- visible until a manual reload, because
+    // polling stops after the bounded active refresh.
+    const expiredIds = new Set(await expireUnclaimedTasks(staleIds, now));
+    for (const task of tasks) {
+      if (!expiredIds.has(task.id)) continue;
+      task.status = "failed";
+      task.error = TASK_PICKUP_TIMEOUT_ERROR;
+      task.completedAt = now;
+      task.updatedAt = now;
+    }
+  }
+  return Response.json({ tasks });
 }
 
 export async function POST(request: Request) {
@@ -134,10 +156,14 @@ export async function POST(request: Request) {
   const usage = await db().prepare(
     `SELECT
        SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) AS dailyTasks,
-       SUM(CASE WHEN status NOT IN ('completed', 'failed') THEN 1 ELSE 0 END) AS activeTasks,
+       SUM(CASE WHEN status NOT IN ('completed', 'failed')
+                 AND NOT (status IN ('cloud_pending', 'local_pending')
+                          AND lease_owner IS NULL
+                          AND COALESCE(updated_at, created_at) <= ?)
+                THEN 1 ELSE 0 END) AS activeTasks,
        SUM(CASE WHEN route = 'cloud' AND created_at >= ? THEN 1 ELSE 0 END) AS cloudTasks
      FROM tasks WHERE organization_id = ?`
-  ).bind(now - 24 * 60 * 60 * 1000, now - 30 * 24 * 60 * 60 * 1000, session.organizationId)
+  ).bind(now - 24 * 60 * 60 * 1000, now - TASK_PICKUP_TIMEOUT_MS, now - 30 * 24 * 60 * 60 * 1000, session.organizationId)
     .first<{ dailyTasks: number | null; activeTasks: number | null; cloudTasks: number | null }>();
   const decision = evaluateTaskAdmission({
     organization: org,
