@@ -3871,3 +3871,17 @@ Source: https://academy.claude.com/ — AI Fluency 4D (Delegation, Description, 
 
 Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` / `nostr/events` / `device-cloud-task.ts` (InfoQ #2081), `hosted-prompt-distill*` (#2052), or `tools/ai-native-sdlc.js`.
 
+## File claim (append 2026-08-25T16:30:00Z) — `grok-hosted-alert-correlate`
+
+| T-HOSTED-ALERT-CORRELATE-20260825 | Digitate/ignio process steal: suppress duplicate hosted signatures, correlate related Worker routes, precursor vs user-facing, validated-fix only | in_progress | grok-hosted-alert-correlate | `tools/hosted-alert-correlate.js`, `tests/test-hosted-alert-correlate.js`, `apps/hermes-control-plane/lib/hosted-alert-correlate.ts`, `apps/hermes-control-plane/lib/hosted-alert-correlate.test.ts`, `apps/hermes-control-plane/app/ClientErrorBeacon.tsx`, `apps/hermes-control-plane/lib/client-error-beacon.test.ts`, `.agents/skills/hosted-alert-correlate/**`, `bin/hosted-alert-correlate`, `SKILLS.md`, `plan.md` | Not ignio/CloudWatch; do not dual-edit rule-sprawl.js or analytics/event/route.ts |
+
+- `tools/hosted-alert-correlate.js` (new)
+- `tests/test-hosted-alert-correlate.js` (new)
+- `apps/hermes-control-plane/lib/hosted-alert-correlate.ts` (new)
+- `apps/hermes-control-plane/lib/hosted-alert-correlate.test.ts` (new)
+- `apps/hermes-control-plane/app/ClientErrorBeacon.tsx` (duplicate-signature suppress)
+- `apps/hermes-control-plane/lib/client-error-beacon.test.ts`
+- `.agents/skills/hosted-alert-correlate/` (new)
+- `bin/hosted-alert-correlate` (new)
+- `SKILLS.md` (append row)
+- `plan.md` (this append)
