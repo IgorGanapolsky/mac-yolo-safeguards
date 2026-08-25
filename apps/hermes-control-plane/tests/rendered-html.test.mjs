@@ -108,7 +108,7 @@ test("builds the public hosted Hermes landing page", async () => {
   assert.match(checkoutRoute, /subscription already active; use billing management/);
   assert.match(portalRoute, /subscription\.metadata\?\.organization_id === session\.organizationId/);
   assert.match(portalRoute, /item\.price\?\.id === current\.STRIPE_PRICE_ID/);
-  assert.match(portalRoute, /\/\^\(ThumbGate\|Leash\)\\b\/i\.test\(productName\)/);
+  assert.match(portalRoute, /\/\^\(ThumbGate\|Leash\|Hosted Hermes\)\\b\/i\.test\(productName\)/);
   assert.match(portalRoute, /\/v1\/billing_portal\/sessions/);
   assert.match(portalRoute, /billing\.portal\.created/);
   // Landing "Manage billing" is a GET link — must not 405.
