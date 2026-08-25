@@ -22,12 +22,22 @@ test("unsigned stranger can start Stripe Checkout without a 401", () => {
   assert.doesNotMatch(checkout, /live\s*:\s*true/);
   assert.doesNotMatch(checkout, /HostingSelector|dual-route|route picker/);
   assert.doesNotMatch(checkout, /Continuity Cloud|pairComputerLabel/);
+  assert.match(checkout, /TRIAL_DAYS = 14/);
+  assert.match(checkout, /subscription_data\[trial_period_days\]/);
+  assert.match(checkout, /custom_text\[submit\]\[message\]/);
+  assert.match(checkout, /hosted Hermes on a fenced VPS/);
+  assert.match(checkout, /payment_method_collection/);
+  assert.doesNotMatch(checkout, /Leash Cloud Runner/);
+  assert.doesNotMatch(checkout, /paired Hermes/);
+  assert.doesNotMatch(checkout, /local machine is offline/);
 });
 
 test("webhook binds guest checkout to payer email; login claims pending:email", () => {
   assert.match(webhook, /customer_details\?\.email/);
   assert.match(webhook, /pending:\$\{payerEmail\}/);
   assert.match(webhook, /name = 'hosted-pending'/);
+  assert.match(webhook, /\["active", "trialing"\]/);
+  assert.match(webhook, /\["paid", "no_payment_required"\]/);
   assert.match(callback, /pending:\$\{normalizedEmail\}/);
   assert.match(callback, /pendingPaid/);
 });
