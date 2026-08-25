@@ -10,36 +10,26 @@ description: >
 
 # Cloudflare Kitesurf (Browser Run adapter)
 
-Sources: https://blog.cloudflare.com/kitesurf/ · https://www.infoq.com/news/2026/08/cloudflare-kitesurf-browser/
+Sources: https://blog.cloudflare.com/kitesurf/ · https://developers.cloudflare.com/browser-run/
 
-Steal the **mechanic** (stateless browser for agents running on Cloudflare Workers, CDP-compatible, `browser=kitesurf`). Do **not** vendor Chromium. Kitesurf is **free beta** with per-account limits — not GA, no SLA.
-
-**Does:** HTML/DOM parsing, JS execution, CSS via Stylo, screenshots, PDFs, CORS enforcement; passes 215,000+ WPT tests. Drop-in for Puppeteer / Playwright / chrome-remote-interface.
-
-**Resource profile vs Chromium:** 3.1-3.8x less CPU, 4.7-7.0x lower memory, but **1.7-1.8x SLOWER wall time**. It is a resource lever, not a speed lever.
-
-**Hard limits — do not design around capabilities that do not exist:**
-- No video or WebGL rendering.
-- No bot-challenge TLS fingerprinting.
-- **No persistent session state (stateless by design)** — no long-lived logins.
-- **Incomplete CDP coverage** — do not assume a CDP domain is implemented.
-- Requires compatible websites.
+Steal the **mechanic** (ephemeral WASM browser for agents, CDP-compatible, `browser=kitesurf`). Do **not** vendor Chromium. Kitesurf is beta; not open source yet.
 
 ```bash
+cd ~/workspace/git/igor/mac-yolo-safeguards
 node tools/cloudflare-kitesurf-browser.js --health --json
 node tools/cloudflare-kitesurf-browser.js --url "https://example.com" --action html --json
+node tools/cloudflare-kitesurf-browser.js --url "https://example.com" --action screenshot --output /tmp/ks.png
 node tests/test-cloudflare-kitesurf-browser.js
 ```
 
-Needs `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN` (Browser Rendering - Edit) for screenshot/PDF. Without them, screenshot returns `UNAVAILABLE` — never a fake file.
+Needs `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN` (**Browser Rendering - Edit**) for screenshot/PDF. Wrangler OAuth alone is not enough (no Browser Run scope). Without them, screenshot returns `UNAVAILABLE` — never a fake file. HTML may still succeed via `fetch` with `liveClaim=false`.
 
 | NEVER | ALWAYS |
 |-------|--------|
-| Claim READY / SUCCESS screenshot with no creds | Probe health; `liveClaim` only after the payload VALIDATES (magic bytes + content-type), never on HTTP 200 alone |
-| Use Kitesurf for video, WebGL, TLS bot challenges, long auth | Route those to Browser Run Chromium |
-| Regex-strip tags out of fetched HTML | `tools/lib/html-to-markdown.js` (tokenizer) — AGENTS.md bans naive script strip |
-| Skip the fetch fallback on a transient 429/503 | Fall back for text actions; fail fast only on binary or 401/403 |
+| Claim READY / SUCCESS screenshot with no creds | Probe health; `liveClaim` only with Browser Run creds |
+| Use Kitesurf for video, WebGL, TLS bot challenges, long auth | Route those to Browser Run Chromium or BrowserOS |
 | Hero Continuity / Mac-pair | Hosted VPS remains the product lock |
 
-Playground: https://kitesurf.cloudflare.app/  
-Quick Actions: https://developers.cloudflare.com/browser-run/quick-actions/
+Account (Igor): wrangler whoami → `0cae7e525b9750f258704159b9bba785`. Mint API token in Cloudflare dashboard with Browser Rendering edit, store via `/credentials-secure-store-and-skill`.
+
+Playground: https://kitesurf.cloudflare.app/
