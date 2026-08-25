@@ -107,7 +107,7 @@ async function handlePortalRequest(request: Request) {
         if (!item.price?.id) continue;
         const price = await stripeGet<StripePrice>(`/v1/prices/${encodeURIComponent(item.price.id)}?expand[]=product`, secret);
         const productName = typeof price.payload?.product === "object" ? price.payload.product.name ?? "" : "";
-        if (price.response.ok && /^(ThumbGate|Leash)\b/i.test(productName)) {
+        if (price.response.ok && /^(ThumbGate|Leash|Hosted Hermes)\b/i.test(productName)) {
           matchesOrganization = true;
           break;
         }
