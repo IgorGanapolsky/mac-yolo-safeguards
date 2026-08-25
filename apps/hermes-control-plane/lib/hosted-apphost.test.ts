@@ -210,9 +210,7 @@ describe("hostedConnectionCopy", () => {
     expect(copy.body).toContain("does not yet expose an approval inbox");
     expect(copy.body).not.toContain("Approvals in thumbgate.app");
     expect(copy.body.toLowerCase()).not.toContain("instantly");
-    expect(copy.body).toContain("not ChatGPT Computer History");
-    expect(copy.body).toContain("not Windows Recall");
-    expect(copy.body).toContain("not a Mac keylogger");
+    expect(copy.body).not.toContain("ChatGPT Computer History");
     expect(copy.body).not.toMatch(/learn from everything you do on your computer/i);
   });
 
