@@ -3736,3 +3736,26 @@ GH #2038 / Linear AGENT-510. Restore control-plane CI after PR #2000 merged ESLi
 - Fixed: required-check contract 41/41, Actionlint 2/2 workflows, Ruby YAML parse 2/2, dependency automation policy 16/16, CodeQL pattern gate 0 findings across 1,308 files, and `git diff --check` passed.
 - `gh copilot` review was attempted but the provider rejected it because the monthly quota is exhausted; no Copilot review claim.
 - Branch protection is intentionally unchanged until this workflow is merged and the irrelevant-path success route is observed on GitHub.
+
+## File claim (append 2026-08-24T21:18:00Z) — `codex-dpo-eval-integrity-2034`
+
+- `tools/export-dpo-benchmark-pairs.js`
+- `tests/test-export-dpo-benchmark-pairs.js`
+- `tools/eval-benchmark-suite.js`
+- `tests/test-eval-benchmark-suite.js`
+- `plan.md` (this append)
+
+GH #2034 / Linear AGENT-505. Remove fabricated fallback preference data and fixed green evaluation metrics; fail closed on absent evidence and keep CLI help side-effect free.
+## DPO/eval review remediation (append 2026-08-24T22:27:00Z) — `codex-dpo-eval-integrity-2034`
+
+- Stale DPO output is invalidated before every export attempt, including invalid and insufficient-evidence dispositions.
+- Eligibility now requires the concrete `thumbgate-explicit-pairwise-v1` human comparison schema with event and distinct chosen/rejected response identities; labels alone and agent/model evidence are rejected.
+- Mobile evidence reuses the durable freshness gate (`updatedAt`, `unit=pass`, `e2e=pass`) instead of accepting a bare or stale `status=pass` file.
+- Focused regression proof: 9/9 Node tests pass; both changed tools pass `node --check`; `git diff --check` passes.
+
+- `tools/infoq-high-roi-steals.js`, `tests/test-infoq-high-roi-steals.js`, `tools/agent-action-trace.js`, `tests/test-agent-action-trace.js`, `plan.md` (append only) → **codex-evidence-fusion-2027** (GH #2027 / AGENT-498: replace fixed savings/nDCG/A+ claims with measured local-first cost and search-vs-graph ablation evidence; make MCP action trace append-only while preserving legacy reads) (2026-08-24T20:55:00Z)
+## Evidence/ROI review remediation (append 2026-08-24T22:35:00Z) — `codex-evidence-fusion-2027`
+
+- A zero-dollar aggregate baseline is now `INSUFFICIENT_EVIDENCE`; it can no longer be labeled measured while producing a null cost-reduction percentage.
+- Readiness now requires the measured candidate to win the canary (`promote_candidate_canary`); a costlier, lower-quality candidate makes `--validate` exit nonzero.
+- Proof: ROI suite passes, append-only action-trace suite passes 17 assertions, both changed tools pass `node --check`, and `git diff --check` passes.
