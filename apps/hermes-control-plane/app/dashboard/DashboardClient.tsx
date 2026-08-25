@@ -18,7 +18,12 @@ import {
 } from "@/lib/dashboard-nav-cache";
 import { resolveComposerRunCta } from "@/lib/composer-run-cta";
 import { scheduleOneShotErrorRetry, startActiveTaskRefresh, startDashboardRefresh } from "@/lib/dashboard-refresh";
-import { orderTasksChronologically } from "@/lib/dashboard-task-order";
+import {
+  hideDuplicateTaskList,
+  latestChronologicalTask,
+  mergeThreadTimeline,
+  orderTasksChronologically,
+} from "@/lib/dashboard-task-order";
 import {
   snapshotMessageMeta,
   taskOutputMeta,
@@ -1034,6 +1039,24 @@ export default function DashboardClient() {
     }
     return orderTasksChronologically(filtered);
   }, [tasks, selectedThread, taskFilter, feedback]);
+  const threadTimeline = useMemo(
+    () =>
+      mergeThreadTimeline({
+        snapshot: threadDetails?.snapshot ?? [],
+        tasks: threadDetails?.tasks ?? [],
+      }),
+    [threadDetails?.snapshot, threadDetails?.tasks],
+  );
+  const [urlFocusedTaskId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("task");
+  });
+  const duplicateTaskListHidden = hideDuplicateTaskList({
+    selectedThread,
+    taskFilter,
+    focusedTaskId: urlFocusedTaskId,
+  });
+  const latestVisibleTask = latestChronologicalTask(visibleTasks);
   const onlineDevices = devices.filter((device) => device.online);
   const p95CompletionLatency = useMemo(() => {
     const durations = tasks
@@ -1722,9 +1745,15 @@ export default function DashboardClient() {
               </span>
             </div>
             <div className="hermes-scroll-pane">
-            {selectedThread && <div className="conversation-history" ref={conversationHistoryRef}>
-              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><ConversationMeta meta={snapshotMessageMeta(message, threadDetails.syncedAt)} /><FormattedMessage text={message.content} hideToolProtocol={message.role === "assistant"} />{message.role === "assistant" && <TurnStatusline engine="Ollama (http://localhost:11434/v1/models)" ttft="<10ms" cost="$0.00" />}</article>) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. <button type="button" className="task-filter-clear" data-testid="dashboard-retry" onClick={() => requestWorkspaceRefresh()}>Retry</button></div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
-              {[...(threadDetails?.tasks ?? [])].sort((left, right) => left.createdAt - right.createdAt).flatMap((task, index) => {
+            {selectedThread && <div className="conversation-history" ref={conversationHistoryRef} data-testid="conversation-history">
+              {threadDetails && threadTimeline.length ? threadTimeline.flatMap((item, index) => {
+                if (item.kind === "snapshot") {
+                  const message = item.message;
+                  return [
+                    <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`} data-timeline-index={index}><span>{message.role}</span><ConversationMeta meta={snapshotMessageMeta(message, threadDetails.syncedAt)} /><FormattedMessage text={message.content} hideToolProtocol={message.role === "assistant"} />{message.role === "assistant" && <TurnStatusline engine="Ollama (http://localhost:11434/v1/models)" ttft="<10ms" cost="$0.00" />}</article>,
+                  ];
+                }
+                const task = item.task;
                 // Chronological: oldest exchange first, newest at the BOTTOM next to
                 // the composer — standard chat order (2026-08-21 user report: "latest
                 // output is not at the bottom"). Non-mutating sort; the tasks API is
@@ -1733,21 +1762,27 @@ export default function DashboardClient() {
                 return [
                   <article
                     key={`task-user-${task.id || index}`}
-                    className="conversation-message role-user"
+                    id={duplicateTaskListHidden ? `task-${task.id}` : undefined}
+                    className="dashboard-task conversation-message role-user"
                     data-testid="conversation-user-prompt"
+                    data-timeline-index={index}
                   >
+                    <div className="task-top">
+                      <span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span>
+                      <time dateTime={new Date(task.createdAt).toISOString()}>{formatDateTime(task.createdAt)}</time>
+                    </div>
                     <span>web</span>
                     <ConversationMeta meta={taskPromptMeta(task)} />
                     <p>{task.prompt}</p>
                   </article>,
-                  task.result ? <article key={`task-result-${task.id || index}`} className="conversation-message role-assistant"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.result} hideToolProtocol /><TurnStatusline engine={task.deviceName || (task.route === "cloud" ? "Fenced VPS · Ollama (localhost:11434)" : "Ollama (http://localhost:11434/v1/models)")} ttft={task.completedAt && task.createdAt ? latency(task.completedAt - task.createdAt) : "<10ms"} cost="$0.00" />{feedbackControls(task.id)}</article>
+                  task.result ? <article key={`task-result-${task.id || index}`} className="dashboard-task conversation-message role-assistant" data-testid="conversation-assistant-result"><div className="task-top"><span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span><time dateTime={new Date((task.completedAt ?? task.createdAt)).toISOString()}>{formatDateTime(task.completedAt ?? task.createdAt)}</time></div><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.result} hideToolProtocol /><TurnStatusline engine={task.deviceName || (task.route === "cloud" ? "Fenced VPS · Ollama (localhost:11434)" : "Ollama (http://localhost:11434/v1/models)")} ttft={task.completedAt && task.createdAt ? latency(task.completedAt - task.createdAt) : "<10ms"} cost="$0.00" />{feedbackControls(task.id)}</article>
                     : task.error ? <article key={`task-error-${task.id || index}`} className="conversation-message role-error"><span>Hermes error</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.error} /></article>
                     : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${task.id || index}`} className="conversation-message role-pending"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><p>Waiting for the fenced VPS runner to pick this up…</p></article>
                     : null,
                 ];
-              })}
+              }) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. <button type="button" className="task-filter-clear" data-testid="dashboard-retry" onClick={() => requestWorkspaceRefresh()}>Retry</button></div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
             </div>}
-            <div className="task-list" id="task-activity">
+            <div className="task-list" id="task-activity" hidden={duplicateTaskListHidden} data-testid="task-activity">
               {taskFilter !== "all" ? (
                 <div className="task-filter-banner" role="status">
                   Showing{" "}
@@ -1925,7 +1960,7 @@ export default function DashboardClient() {
               <div className="run-output" id="run-output" data-testid="run-output" role="status" aria-live="polite">
                 <p className="eyebrow">Output</p>
                 {/* Notices + in-flight status only — completed results live in the task rows; echoing them here left stale agent output pinned under the composer. */}
-                {notice ? <p>{notice}</p> : visibleTasks[0] && !visibleTasks[0].result && !visibleTasks[0].error ? <p>Running on the hosted VPS…</p> : <p>Results show here after you send.</p>}
+                {notice ? <p>{notice}</p> : latestVisibleTask && !latestVisibleTask.result && !latestVisibleTask.error ? <p>Running on the hosted VPS…</p> : <p>Results show here after you send.</p>}
               </div>
               <div className="composer-actions">
                 {/* Fallback hidden submit button so form.requestSubmit() and soft keyboard Enter always find a submitter */}
