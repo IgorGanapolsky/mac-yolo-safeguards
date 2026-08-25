@@ -1,0 +1,4 @@
+#!/usr/bin/env node
+'use strict';
+
+process.exit(require('../tools/hosted-resource-grant').main() ?? 0);
