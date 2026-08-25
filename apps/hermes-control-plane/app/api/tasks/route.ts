@@ -8,6 +8,7 @@ import {
 import { db } from "@/lib/runtime";
 import { evaluateCloudPromptToolPolicy } from "@/lib/cloud-tool-policy";
 import { ackHostedSend, publicRunReceipt } from "@/lib/hosted-source-of-truth";
+import { admitHostedTaskDescription } from "@/lib/hosted-academy-4d";
 import { admitHostedContext } from "@/lib/hosted-edit-anchor";
 import { jsonError } from "@/lib/security";
 import { decideTaskRoute, parseRoutePreference } from "@/lib/task-routing";
@@ -96,6 +97,9 @@ export async function POST(request: Request) {
     idempotencyKey?: string;
     traceId?: string;
     routePreference?: string;
+    kind?: string;
+    done?: string;
+    acceptance?: Array<{ criterion?: string; proofSurface?: string; proof?: string }>;
   };
   // A+ Multi-tenancy: enforce per-organization rate limit before task creation
   const rateLimitResult = checkRateLimit(`org:${session.organizationId}`, org.plan);
@@ -141,6 +145,15 @@ export async function POST(request: Request) {
   const decisionRoute = decideTaskRoute({ preference, device: device ?? null });
   const status = decisionRoute.status;
   const route = decisionRoute.route;
+
+  const descriptionAdmit = admitHostedTaskDescription({
+    kind: payload.kind,
+    done: payload.done,
+    acceptance: payload.acceptance,
+  });
+  if (!descriptionAdmit.ok) {
+    return jsonError(descriptionAdmit.message, 409);
+  }
 
   if (route === "cloud") {
     const toolPolicy = evaluateCloudPromptToolPolicy(prompt);

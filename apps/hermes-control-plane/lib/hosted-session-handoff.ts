@@ -3,6 +3,7 @@
  * Handoff keeps history, memory, and tool policy; swaps the opaque route id.
  */
 
+import { requireCoworkHandoff } from "./hosted-academy-4d.ts";
 import { appendHistory, distillFacts } from "./hosted-memory-tiers.ts";
 import { publicRunReceipt } from "./hosted-source-of-truth.ts";
 import type { HostedToolPolicy } from "./hosted-tool-approvals.ts";
@@ -39,11 +40,40 @@ export function stripSecrets(value: unknown): unknown {
 
 export function handoffSession(
   session: HostedSession,
-  input: { fromRoute?: string; toRoute: string; reason: string },
+  input: {
+    fromRoute?: string;
+    toRoute: string;
+    reason: string;
+    wholeTask?: boolean;
+    workspace?: string;
+    context?: string;
+    deliverable?: string;
+  },
 ): {
   session: HostedSession;
   receipt: ReturnType<typeof publicRunReceipt> & { route?: string };
+  denied?: boolean;
+  reason?: string;
+  missing?: string[];
 } {
+  if (input.wholeTask) {
+    const cowork = requireCoworkHandoff(input);
+    if (!cowork.ok) {
+      const receipt = publicRunReceipt({
+        taskId: session.taskId,
+        route: session.route,
+        status: "handoff_denied",
+        prompt: undefined,
+      });
+      return {
+        session,
+        receipt,
+        denied: true,
+        reason: cowork.reason,
+        missing: cowork.missing,
+      };
+    }
+  }
   const toRoute = String(input.toRoute ?? "").trim();
   const reason = String(input.reason ?? "").trim() || "route changed";
   const history = appendHistory(session.history, `fact: route changed because ${reason}`);
