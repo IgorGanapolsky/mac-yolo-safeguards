@@ -55,4 +55,47 @@ assert.strictEqual(
   'duplicate_suppressed',
 );
 
+const split = correlate(
+  [
+    { ts: 1000, method: 'POST', path: '/api/tasks', status: 500 },
+    { ts: 3_601_000, method: 'POST', path: '/api/tasks', status: 500 },
+  ],
+  { windowMs: 60_000, precursorCount: 3 },
+);
+assert.strictEqual(split.incidentCount, 2);
+
+const { main } = require('../tools/hosted-alert-correlate');
+const fs = require('fs');
+const path = require('path');
+const origWrite = process.stdout.write.bind(process.stdout);
+let buf = '';
+process.stdout.write = (chunk) => {
+  buf += String(chunk);
+  return true;
+};
+const missingCode = main(['--json']);
+process.stdout.write = origWrite;
+const missing = JSON.parse(buf);
+assert.strictEqual(missingCode, 1);
+assert.strictEqual(missing.status, 'UNAVAILABLE');
+assert.strictEqual(missing.liveClaim, false);
+
+const tmp = path.join(require('os').tmpdir(), 'hosted-alert-events.json');
+fs.writeFileSync(
+  tmp,
+  JSON.stringify([{ ts: 1, method: 'POST', path: '/api/tasks', status: 500 }]),
+);
+buf = '';
+process.stdout.write = (chunk) => {
+  buf += String(chunk);
+  return true;
+};
+const fileCode = main(['--json', '--events', tmp]);
+process.stdout.write = origWrite;
+const fromFile = JSON.parse(buf);
+assert.strictEqual(fileCode, 0);
+assert.strictEqual(fromFile.status, 'SUCCESS');
+assert.strictEqual(fromFile.liveClaim, true);
+assert.strictEqual(fromFile.rawCount, 1);
+
 process.stdout.write('ok tests/test-hosted-alert-correlate.js\n');

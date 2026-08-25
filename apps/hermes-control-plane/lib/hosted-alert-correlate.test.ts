@@ -54,6 +54,18 @@ describe("hosted-alert-correlate", () => {
     expect(ok.autoApply).toBe(false);
   });
 
+  it("does not merge same-family 5xx across the correlation window", () => {
+    const report = correlate(
+      [
+        { ts: 1_000, method: "POST", path: "/api/tasks", status: 500 },
+        { ts: 3_601_000, method: "POST", path: "/api/tasks", status: 500 },
+      ],
+      { windowMs: 60_000, precursorCount: 3 },
+    );
+    expect(report.incidentCount).toBe(2);
+    expect(report.incidents.every((inc) => inc.userFacing === false)).toBe(true);
+  });
+
   it("duplicate window suppresses client_error class", () => {
     const last: Record<string, number> = {};
     const first = shouldEmitDuplicate({

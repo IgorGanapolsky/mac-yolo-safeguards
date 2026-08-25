@@ -77,15 +77,19 @@ export function correlate(
   const precursorCount = Number.isFinite(opts.precursorCount)
     ? Number(opts.precursorCount)
     : PRECURSOR_COUNT;
-  const errorEvents = (events || []).filter((ev) => {
-    const status = Number(ev.status) || 0;
-    return status >= 500 || Boolean(ev.errorClass);
-  });
+  const errorEvents = (events || [])
+    .filter((ev) => {
+      const status = Number(ev.status) || 0;
+      return status >= 500 || Boolean(ev.errorClass);
+    })
+    .slice()
+    .sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0));
   const lastBySignature: Record<string, number> = Object.create(null);
   const groups: Record<
     string,
     { id: string; signature: string; family: string; count: number; firstTs: number; lastTs: number }
   > = Object.create(null);
+  const finished: Array<(typeof groups)[string]> = [];
   let suppressed = 0;
 
   for (const ev of errorEvents) {
@@ -93,6 +97,10 @@ export function correlate(
     const sig = eventSignature(ev);
     const family = familyForPath(ev.path || "");
     const key = family === "other" ? sig : family;
+    if (groups[key] && ts - groups[key].lastTs >= windowMs) {
+      finished.push(groups[key]);
+      delete groups[key];
+    }
     const dup = shouldEmitDuplicate({
       signature: `${key}:${sig}`,
       now: ts,
@@ -113,7 +121,7 @@ export function correlate(
     }
   }
 
-  const incidents = Object.values(groups).map((g) => {
+  const incidents = finished.concat(Object.values(groups)).map((g) => {
     const userFacing = g.count >= precursorCount;
     return {
       ...g,

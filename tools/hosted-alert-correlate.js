@@ -89,12 +89,16 @@ function correlate(events, opts = {}) {
   const windowMs = Number.isFinite(opts.windowMs) ? opts.windowMs : DUPLICATE_WINDOW_MS;
   const precursorCount = Number.isFinite(opts.precursorCount) ? opts.precursorCount : PRECURSOR_COUNT;
   const list = Array.isArray(events) ? events : [];
-  const errorEvents = list.filter((ev) => {
-    const status = Number(ev && ev.status) || 0;
-    return status >= 500 || Boolean(ev && ev.errorClass);
-  });
+  const errorEvents = list
+    .filter((ev) => {
+      const status = Number(ev && ev.status) || 0;
+      return status >= 500 || Boolean(ev && ev.errorClass);
+    })
+    .slice()
+    .sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0));
   const lastBySignature = Object.create(null);
   const groups = Object.create(null);
+  const finished = [];
   let suppressed = 0;
 
   for (const ev of errorEvents) {
@@ -102,6 +106,10 @@ function correlate(events, opts = {}) {
     const sig = eventSignature(ev);
     const family = familyForPath(ev.path || '');
     const key = family === 'other' ? sig : family;
+    if (groups[key] && ts - groups[key].lastTs >= windowMs) {
+      finished.push(groups[key]);
+      delete groups[key];
+    }
     const dup = shouldEmitDuplicate({
       signature: `${key}:${sig}`,
       now: ts,
@@ -129,7 +137,7 @@ function correlate(events, opts = {}) {
     }
   }
 
-  const incidents = Object.values(groups).map((g) => {
+  const incidents = finished.concat(Object.values(groups)).map((g) => {
     const userFacing = g.count >= precursorCount;
     return {
       ...g,
@@ -156,21 +164,55 @@ function correlate(events, opts = {}) {
   };
 }
 
+const DEMO_EVENTS = [
+  { ts: 1_000, method: 'POST', path: '/api/tasks', status: 500 },
+  { ts: 1_100, method: 'POST', path: '/api/tasks', status: 500 },
+  { ts: 1_200, method: 'POST', path: '/api/tasks', status: 500 },
+  { ts: 1_300, method: 'POST', path: '/api/nostr/events', status: 500 },
+  { ts: 1_400, method: 'POST', path: '/api/tasks', status: 500 },
+  { ts: 1_500, method: 'GET', path: '/api/health', status: 200 },
+];
+
+function loadEvents(args) {
+  if ((args || []).includes('--demo')) return { events: DEMO_EVENTS, source: 'demo' };
+  const idx = (args || []).indexOf('--events');
+  if (idx >= 0) {
+    const fs = require('fs');
+    const file = args[idx + 1];
+    if (!file) return { events: null, source: 'missing_path' };
+    const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (!Array.isArray(parsed)) return { events: null, source: 'not_array' };
+    return { events: parsed, source: file };
+  }
+  return { events: null, source: 'none' };
+}
+
 function main(argv) {
   const args = argv || process.argv.slice(2);
   const json = args.includes('--json');
-  const demo = correlate(
-    [
-      { ts: 1_000, method: 'POST', path: '/api/tasks', status: 500 },
-      { ts: 1_100, method: 'POST', path: '/api/tasks', status: 500 },
-      { ts: 1_200, method: 'POST', path: '/api/tasks', status: 500 },
-      { ts: 1_300, method: 'POST', path: '/api/nostr/events', status: 500 },
-      { ts: 1_400, method: 'POST', path: '/api/tasks', status: 500 },
-      { ts: 1_500, method: 'GET', path: '/api/health', status: 200 },
-    ],
-    { windowMs: 60_000, precursorCount: 3, testsPass: false, receiptOk: false },
-  );
-  process.stdout.write(`${JSON.stringify(demo, null, json ? 2 : 0)}\n`);
+  const loaded = loadEvents(args);
+  if (!loaded.events) {
+    const report = {
+      ...honesty(),
+      status: 'UNAVAILABLE',
+      liveClaim: false,
+      reason: 'pass --events FILE.json (array of {ts,method,path,status}) or --demo',
+    };
+    process.stdout.write(`${JSON.stringify(report, null, json ? 2 : 0)}\n`);
+    return 1;
+  }
+  const report = {
+    ...correlate(loaded.events, {
+      windowMs: 60_000,
+      precursorCount: 3,
+      testsPass: false,
+      receiptOk: false,
+    }),
+    status: 'SUCCESS',
+    liveClaim: loaded.source !== 'demo',
+    eventSource: loaded.source,
+  };
+  process.stdout.write(`${JSON.stringify(report, null, json ? 2 : 0)}\n`);
   return 0;
 }
 
@@ -187,5 +229,6 @@ module.exports = {
   shouldEmitDuplicate,
   suggestValidatedFix,
   correlate,
+  loadEvents,
   main,
 };
