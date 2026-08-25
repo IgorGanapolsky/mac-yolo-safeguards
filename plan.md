@@ -3883,6 +3883,15 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - `apps/hermes-control-plane/lib/client-error-beacon.test.ts`
 - `.agents/skills/hosted-alert-correlate/` (new)
 - `bin/hosted-alert-correlate` (new)
+## File claim (append 2026-08-25T16:20:00Z) — `grok-explainx-trending-honest`
+
+| T-EXPLAINX-TRENDING-HONEST-20260825 | Honest ingest of explainx.ai/trending page-view rankings; map onto existing skills; fail-closed empty parse; do not dual-edit rag-engine | in_progress | grok-explainx-trending-honest | `tools/explainx-trending-honest.js`, `tests/test-explainx-trending-honest.js`, `tests/fixtures/explainx-trending-rsc-snippet.html`, `.agents/skills/explainx-trending-honest/**`, `bin/explainx-trending-honest`, `SKILLS.md`, `plan.md` | Complementary to done T-EXPLAINX-TRENDING-RAG-20260821 (theater catalog); not an ExplainX clone |
+
+- `tools/explainx-trending-honest.js` (new)
+- `tests/test-explainx-trending-honest.js` (new)
+- `tests/fixtures/explainx-trending-rsc-snippet.html` (new)
+- `.agents/skills/explainx-trending-honest/` (new)
+- `bin/explainx-trending-honest` (new)
 - `SKILLS.md` (append row)
 - `plan.md` (this append)
 
