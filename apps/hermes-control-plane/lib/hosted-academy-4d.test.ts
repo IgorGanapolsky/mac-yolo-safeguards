@@ -70,6 +70,23 @@ describe("hosted-academy-4d", () => {
     ).toBe("stop");
   });
 
+  it("does not ship a failed execution even when an external check passed", () => {
+    const grade = gradeDiscernment({
+      status: "failed",
+      externalCheckPassed: true,
+      lenses: {
+        correctness: "supported",
+        quality: "supported",
+        fit: "supported",
+        experience: "supported",
+        responsibility: "supported",
+      },
+    });
+    expect(grade.diligenceCall).toBe("fix");
+    expect(grade.liveClaim).toBe(false);
+    expect(grade.outcome).not.toBe("done");
+  });
+
   it("does not treat receipt outcome done as academy ship without lenses", () => {
     const attached = attachAcademyDiscernment({
       outcome: "done",

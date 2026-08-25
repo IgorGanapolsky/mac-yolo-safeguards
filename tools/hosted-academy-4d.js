@@ -144,14 +144,19 @@ function gradeDiscernment(input) {
   }
   const externalCheckPassed = Boolean(input && input.externalCheckPassed);
   const status = String((input && input.status) || '');
-  const completed =
-    status === 'completed' || status === 'done' || status === 'claimed_done';
+  const failed = status === 'failed' || status === 'claimed_failed';
+  const completed = status === 'completed' || status === 'done';
 
   let diligenceCall = 'fix';
   if (lenses.responsibility === 'unsupported') diligenceCall = 'stop';
-  else if (unsupported.length === 0 && externalCheckPassed) diligenceCall = 'ship';
+  else if (failed) diligenceCall = 'fix';
+  else if (completed && unsupported.length === 0 && externalCheckPassed) diligenceCall = 'ship';
 
   const liveClaim = diligenceCall === 'ship';
+  let outcome = 'open';
+  if (failed) outcome = 'open';
+  else if (liveClaim) outcome = 'done';
+  else if (completed || status === 'claimed_done') outcome = 'claimed_done';
   return {
     ok: true,
     completedIsNotQuality: true,
@@ -161,12 +166,7 @@ function gradeDiscernment(input) {
     diligenceCall,
     liveClaim,
     quality: liveClaim ? 'supported' : 'claimed_only',
-    outcome:
-      externalCheckPassed && unsupported.length === 0
-        ? 'done'
-        : completed
-          ? 'claimed_done'
-          : 'open',
+    outcome,
   };
 }
 

@@ -76,6 +76,21 @@ const stop = gradeDiscernment({
 });
 assert.strictEqual(stop.diligenceCall, 'stop');
 
+const failedShip = gradeDiscernment({
+  status: 'failed',
+  externalCheckPassed: true,
+  lenses: {
+    correctness: 'supported',
+    quality: 'supported',
+    fit: 'supported',
+    experience: 'supported',
+    responsibility: 'supported',
+  },
+});
+assert.strictEqual(failedShip.diligenceCall, 'fix');
+assert.strictEqual(failedShip.liveClaim, false);
+assert.notStrictEqual(failedShip.outcome, 'done');
+
 const ship = gradeDiscernment({
   status: 'completed',
   externalCheckPassed: true,
