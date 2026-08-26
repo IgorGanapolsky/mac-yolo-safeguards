@@ -9,7 +9,7 @@ tags:
   - context-engineering
   - agent-onboarding
   - skill-catalog
-version: 1.0.0
+version: 1.1.0
 health_check: node tools/context-vault.js --json
 source: https://www.alliekmiller.com/resources
 ---
@@ -31,13 +31,16 @@ goals, constraints, and current work state without reading every file.
 
 - 8 prompts covering: identity, values, workflow, tools, current state, constraints, prior knowledge, next action.
 - Generated from AGENTS.md, plan.md, SKILLS.md, and docs/agents/.
+- Repo-local paths are grounded against the checkout; invented tools fail validation.
+- The live coding context pack compiles the vault into six bounded decision blocks
+  and puts its evaluation rubric before agent generation.
 - All prompts validated in CI (tests/test-context-vault.js).
 
 ## Verification
 
 ```
-node tests/test-context-vault.js       # 22 assertions
+node tests/test-context-vault.js       # 24 assertions
 node tools/context-vault.js generate   # generates artifacts/context-vault.md
-node tools/context-vault.js validate   # validates all 8 prompts present
+node tools/context-vault.js validate   # validates prompts and grounded local paths
 node tools/codeql-pattern-gate.js --json tools/context-vault.js  # ok=true, 0 findings
 ```

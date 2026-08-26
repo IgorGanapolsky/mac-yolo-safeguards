@@ -12,6 +12,7 @@ const {
   generateVault,
   validateVault,
   validateContent,
+  findUngroundedRepoPaths,
   listPrompts,
   DEFAULT_REPO,
   DEFAULT_OUT,
@@ -127,7 +128,7 @@ check('generateVault produces valid content', () => {
   const result = generateVault(DEFAULT_REPO);
   assert.ok(result.content, 'no content generated');
   assert.ok(result.content.length > 500, 'content too short');
-  const validation = validateContent(result.content);
+  const validation = validateContent(result.content, { repoPath: DEFAULT_REPO });
   assert.strictEqual(validation.ok, true, `validation failed: ${JSON.stringify(validation.errors)}`);
   assert.strictEqual(validation.promptCount, PROMPT_COUNT);
 });
@@ -177,6 +178,21 @@ check('validateContent flags unresolved template variables', () => {
     'should detect unresolved template variables');
 });
 
+check('generated vault contains only grounded repo-local paths', () => {
+  const result = generateVault(DEFAULT_REPO);
+  const missing = findUngroundedRepoPaths(result.content, DEFAULT_REPO);
+  assert.deepStrictEqual(missing, []);
+  assert.ok(!result.content.includes('tools/ground-truth-receipt-auditor.js'));
+});
+
+check('grounding detects an invented repo-local tool path', () => {
+  const missing = findUngroundedRepoPaths(
+    'Run `node tools/this-tool-does-not-exist.js --json` before claiming success.',
+    DEFAULT_REPO,
+  );
+  assert.deepStrictEqual(missing, ['tools/this-tool-does-not-exist.js']);
+});
+
 // --- Tier 5: CLI behavior ---
 
 check('listPrompts returns all 8 prompts with metadata', () => {
@@ -219,7 +235,7 @@ check('prompts cover core AGENTS.md themes (MUST/SHOULD, safety, shipping)', () 
 check('generateVault --json mode produces valid JSON output', () => {
   // Simulate what CI would do
   const result = generateVault(DEFAULT_REPO);
-  const validation = validateContent(result.content);
+  const validation = validateContent(result.content, { repoPath: DEFAULT_REPO });
   const json = {
     ok: validation.ok,
     promptCount: validation.promptCount,
@@ -235,7 +251,8 @@ check('generateVault --json mode produces valid JSON output', () => {
 check('all source_files reference real repo paths', () => {
   for (const p of CONTEXT_PROMPTS) {
     for (const sf of p.source_files) {
-      assert.ok(sf.trim(), `prompt ${p.id} has empty source_file`);
+      assert.ok(fs.existsSync(path.join(DEFAULT_REPO, sf)),
+        `prompt ${p.id} source_file does not exist: ${sf}`);
     }
   }
 });

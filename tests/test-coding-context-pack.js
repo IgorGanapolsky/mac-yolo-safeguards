@@ -14,6 +14,11 @@ const {
   shipClaimGate,
   extractAcceptanceHints,
   parseArgs,
+  buildContextContract,
+  buildVerificationContract,
+  validateVerificationReceipt,
+  formatMinimal,
+  parseLinearMapText,
 } = require('../tools/coding-context-pack.js');
 
 function testParseArgs() {
@@ -24,6 +29,8 @@ function testParseArgs() {
   const b = parseArgs(['--issue=141', '--minimal']);
   assert.strictEqual(b.issue, 141);
   assert.strictEqual(b.minimal, true);
+  const c = parseArgs(['--verify-receipt', '/tmp/receipt.json', '--json']);
+  assert.strictEqual(c.verifyReceipt, '/tmp/receipt.json');
 }
 
 function testPrTouches() {
@@ -104,6 +111,136 @@ function testAcHints() {
   assert.ok(hints.some((h) => /unit tests/.test(h)));
 }
 
+function testSixBlockContextContract() {
+  const generatedAt = '2026-08-26T18:00:00.000Z';
+  const focus = {
+    number: 2116,
+    title: 'Context contract',
+    url: 'https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/2116',
+    labels: [{ name: 'priority:p1' }],
+    linear_id: 'AGENT-544',
+  };
+  const contract = buildContextContract({
+    repo: 'IgorGanapolsky/mac-yolo-safeguards',
+    generatedAt,
+    focus,
+    acceptanceHints: ['- [ ] six blocks', '- [ ] exact-head CI'],
+    skills: [{ id: 'context-vault', path: '.agents/skills/context-vault/SKILL.md' }],
+    e2e: { unit: 'pass', e2e: 'skipped', updatedAt: generatedAt },
+    shipGate: { ok: false, blockers: ['e2e=skipped'] },
+  });
+
+  assert.deepStrictEqual(
+    contract.blocks.map((block) => block.id),
+    ['objective', 'evidence', 'examples', 'procedure', 'constraints', 'rubric'],
+  );
+  assert.ok(contract.blocks.every((block) => block.provenance?.length > 0));
+  assert.strictEqual(contract.budget.within_budget, true);
+  assert.ok(contract.budget.estimated_tokens > 0);
+  const examples = contract.blocks.find((block) => block.id === 'examples');
+  assert.ok(examples.items.some((item) => item.kind === 'good'));
+  assert.ok(examples.items.some((item) => item.kind === 'bad'));
+  const rubric = contract.blocks.find((block) => block.id === 'rubric');
+  assert.ok(rubric.items.some((item) => /behave as intended/i.test(item)));
+  const evidence = contract.blocks.find((block) => block.id === 'evidence');
+  assert.ok(evidence.items.some((item) => item.linear_id === 'AGENT-544'));
+}
+
+function testMinimalPackKeepsContractWithoutFocus() {
+  const output = formatMinimal({
+    focus: null,
+    context_contract: { blocks: new Array(6), budget: { estimated_tokens: 900, max_estimated_tokens: 1600 } },
+    verification_contract: { layers: new Array(4) },
+  });
+  assert.match(output, /no open issues/);
+  assert.match(output, /context=6\/6 blocks/);
+  assert.match(output, /verify=4 layers/);
+}
+
+function testContextContractBoundsAdversarialInputs() {
+  const huge = 'x'.repeat(5000);
+  const contract = buildContextContract({
+    repo: huge,
+    focus: { number: 1, title: huge, url: `https://example.com/${huge}`, linear_id: 'AGENT-1' },
+    acceptanceHints: new Array(8).fill(huge),
+    skills: new Array(8).fill(null).map(() => ({ id: huge, path: huge })),
+    e2e: { unit: huge, e2e: huge, updatedAt: huge, path: huge },
+    shipGate: { ok: false, blockers: [huge, huge] },
+  });
+  assert.strictEqual(contract.budget.within_budget, true);
+  assert.ok(contract.budget.estimated_tokens <= contract.budget.max_estimated_tokens);
+}
+
+function testLinearClaimMirrorMapsGitHubIssue() {
+  const map = {};
+  parseLinearMapText(`---\nlinear_id: AGENT-544\n---\n# Linear claim AGENT-544\n\n- **Title:** GH #2116: grounded context`, map);
+  assert.strictEqual(map[2116], 'AGENT-544');
+}
+
+function goodMergeReceipt(now) {
+  const head = 'a'.repeat(40);
+  return {
+    schema: 'agent-verification-receipt/v1',
+    stage: 'merge',
+    claims: ['code_change'],
+    issue_url: 'https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/2116',
+    linear_id: 'AGENT-544',
+    plan_claim: 'codex-context-contract',
+    changed_files: ['tools/coding-context-pack.js'],
+    head_sha: head,
+    tests: [{ command: 'node tests/test-coding-context-pack.js', exit_code: 0 }],
+    pull_request: {
+      url: 'https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/2117',
+      head_sha: head,
+    },
+    ci: {
+      status: 'pass',
+      head_sha: head,
+      observed_at: now,
+      run_url: 'https://github.com/IgorGanapolsky/mac-yolo-safeguards/actions/runs/123',
+      required_checks: [{ name: 'CodeQL', conclusion: 'SUCCESS' }],
+    },
+    uncertainties: [],
+  };
+}
+
+function testLayeredVerificationContract() {
+  const contract = buildVerificationContract();
+  assert.deepStrictEqual(contract.surfaces, ['cli', 'ide']);
+  assert.deepStrictEqual(
+    contract.layers.map((layer) => layer.id),
+    ['local', 'repository_pr', 'ci', 'runtime_provider'],
+  );
+  assert.ok(contract.review_questions.some((item) => /secure|reliability/i.test(item)));
+  assert.ok(contract.metrics.includes('first_attempt_ci_pass'));
+}
+
+function testVerificationReceiptValidator() {
+  const now = '2026-08-26T18:00:00.000Z';
+  const good = goodMergeReceipt(now);
+  assert.strictEqual(validateVerificationReceipt(good, { now }).ok, true);
+
+  const missingTests = { ...good, tests: [] };
+  const missingTestsResult = validateVerificationReceipt(missingTests, { now });
+  assert.strictEqual(missingTestsResult.ok, false);
+  assert.ok(missingTestsResult.errors.some((error) => error.code === 'TEST_EVIDENCE_MISSING'));
+
+  const wrongHead = { ...good, ci: { ...good.ci, head_sha: 'b'.repeat(40) } };
+  const wrongHeadResult = validateVerificationReceipt(wrongHead, { now });
+  assert.strictEqual(wrongHeadResult.ok, false);
+  assert.ok(wrongHeadResult.errors.some((error) => error.code === 'CI_HEAD_MISMATCH'));
+
+  const stale = { ...good, ci: { ...good.ci, observed_at: '2026-08-24T17:59:59.000Z' } };
+  const staleResult = validateVerificationReceipt(stale, { now });
+  assert.strictEqual(staleResult.ok, false);
+  assert.ok(staleResult.errors.some((error) => error.code === 'CI_STALE'));
+
+  const liveWithoutRuntime = { ...good, stage: 'runtime', claims: ['live'] };
+  const liveResult = validateVerificationReceipt(liveWithoutRuntime, { now });
+  assert.strictEqual(liveResult.ok, false);
+  assert.ok(liveResult.errors.some((error) => error.code === 'RUNTIME_PROOF_MISSING'));
+}
+
 function main() {
   testParseArgs();
   testPrTouches();
@@ -111,6 +248,12 @@ function main() {
   testSkills();
   testShipGate();
   testAcHints();
+  testSixBlockContextContract();
+  testMinimalPackKeepsContractWithoutFocus();
+  testContextContractBoundsAdversarialInputs();
+  testLinearClaimMirrorMapsGitHubIssue();
+  testLayeredVerificationContract();
+  testVerificationReceiptValidator();
   console.log('test-coding-context-pack: ok');
 }
 
