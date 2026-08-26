@@ -4023,3 +4023,9 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - The earlier focused-audit line was a false green: 11 assertions printed PASS, but the test process exited 1 because its final guard still expected 10. Automated review comment `discussion_r3867001337` caught the mismatch.
 - Removed the duplicate hard-coded total; thrown assertions now determine failure. Exact rerun printed 11 passed and `FOCUSED_TEST_EXIT=0`; release readiness also remained green.
 - Captured the mistake in ThumbGate RAG as `fb_1787781166442_2mkoab` with the prevention rule to assert exit codes independently of success-looking stdout.
+
+## Strict-main refresh receipt (append 2026-08-26T22:01:00Z) - `codex/google-play-quality-20260826`
+
+- `main` advanced to `78dd6ff11` while required checks ran. The repository automation merged it into this branch as `ebceaa6be`; `git diff origin/main...HEAD` still contains only this task's four claimed paths.
+- The bot-created refresh head received only a dynamic CodeQL run while all nine strict required contexts were absent. This append-only receipt is pushed by the authenticated owner to trigger required checks on the exact refreshed head.
+- After fast-forwarding locally, the focused audit again printed 11 passed with exit 0 and release readiness remained green.
