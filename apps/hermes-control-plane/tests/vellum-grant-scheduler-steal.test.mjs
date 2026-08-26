@@ -17,6 +17,8 @@ const NOW = 1_800_000_000_000;
 const grantSrc = readFileSync(new URL("../lib/grant-duration.ts", import.meta.url), "utf8");
 const schedSrc = readFileSync(new URL("../lib/vps-unfinished-check.ts", import.meta.url), "utf8");
 const landing = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
+const faq = readFileSync(new URL("../app/landing-content.ts", import.meta.url), "utf8");
+const publicCopy = `${landing}\n${faq}`;
 
 test("steals Vellum once / 10m / always and keeps default deny", () => {
   assert.deepEqual([...GRANT_DURATIONS], ["once", "10m", "always"]);
@@ -72,6 +74,6 @@ test("does not steal Continuity, Cloud vs Local, or a phone leash", () => {
   assert.match(stolen, /laptop sleep is the fail/i);
   assert.doesNotMatch(stolen, /RUN ON|Cloud vs Local|phone leash|Team \$49|Data never leaves your computer/i);
   assert.doesNotMatch(stolen, /8 memory types|episodic, semantic|Continuity as a public/i);
-  assert.doesNotMatch(landing, /Cloud vs Local|RUN ON/);
-  assert.match(landing, /There is no phone leash/);
+  assert.doesNotMatch(publicCopy, /Cloud vs Local|RUN ON/);
+  assert.match(publicCopy, /There is no phone leash/);
 });

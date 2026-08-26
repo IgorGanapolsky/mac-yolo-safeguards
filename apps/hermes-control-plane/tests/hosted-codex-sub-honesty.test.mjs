@@ -9,18 +9,20 @@ import {
 } from "../lib/hosted-model-fallback.js";
 
 const page = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
+const faq = readFileSync(new URL("../app/landing-content.ts", import.meta.url), "utf8");
+const publicCopy = `${page}\n${faq}`;
 const llms = readFileSync(new URL("../app/llms.txt/route.ts", import.meta.url), "utf8");
 const publicLlms = readFileSync(new URL("../../../public/llms.txt", import.meta.url), "utf8");
 
 test("honesty: laptop subscription runner still dies; hosted Hermes is the $10 VPS", () => {
-  assert.match(page, /use the plan you already pay for/);
-  assert.match(page, /still dies when the laptop sleeps/);
-  assert.match(page, /always-on fenced VPS at \$10\/mo \(14-day trial\)/);
-  assert.match(page, /Approvals in thumbgate\.app/);
-  assert.match(page, /Codex-sub-on-laptop path is not this product/);
-  assert.doesNotMatch(page, /Is this Continuity|Continuity wants|Cloud continuity/);
-  assert.doesNotMatch(page, /Codex SDK/);
-  assert.doesNotMatch(page, /Gumroad|OpenClaw|Prompt Advisers|HVAC/i);
+  assert.match(publicCopy, /use the plan you already pay for/);
+  assert.match(publicCopy, /still dies when the laptop sleeps/);
+  assert.match(publicCopy, /always-on fenced VPS at \$10\/mo \(14-day trial\)/);
+  assert.match(publicCopy, /Approvals in thumbgate\.app/);
+  assert.match(publicCopy, /Codex-sub-on-laptop path is not this product/);
+  assert.doesNotMatch(publicCopy, /Is this Continuity|Continuity wants|Cloud continuity/);
+  assert.doesNotMatch(publicCopy, /Codex SDK/);
+  assert.doesNotMatch(publicCopy, /Gumroad|OpenClaw|Prompt Advisers|HVAC/i);
 });
 
 test("llms.txt: Codex-sub-on-laptop is not the $10 offer", () => {

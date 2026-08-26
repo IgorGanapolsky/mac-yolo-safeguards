@@ -84,10 +84,12 @@ test("glob session match and unmatched window", () => {
 
 test("landing keeps desktop-app no and adds fail-closed browser FAQ", () => {
   const page = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
-  assert.match(page, /Do I install a desktop app\?/);
-  assert.match(page, /Does the browser get full VPS access\?/);
-  assert.match(page, /session with no matching capability cannot reach core commands/);
-  assert.doesNotMatch(page, /create-tauri-app|Chrome extension|RUN ON picker|Cloud vs Local/i);
+  const faq = readFileSync(new URL("../app/landing-content.ts", import.meta.url), "utf8");
+  const publicCopy = `${page}\n${faq}`;
+  assert.match(publicCopy, /Do I install a desktop app\?/);
+  assert.match(publicCopy, /Does the browser get full VPS access\?/);
+  assert.match(publicCopy, /session with no matching capability cannot reach core commands/);
+  assert.doesNotMatch(publicCopy, /create-tauri-app|Chrome extension|RUN ON picker|Cloud vs Local/i);
 });
 
 test("capability source does not restore leftover product nouns", () => {

@@ -7,6 +7,7 @@ const dashboardPage = readFileSync(new URL("../app/dashboard/page.tsx", import.m
 const globals = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
 const layout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
 const landing = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
+const howItWorks = readFileSync(new URL("../app/how-it-works/page.tsx", import.meta.url), "utf8");
 const billingPlan = readFileSync(new URL("../app/BillingPlan.tsx", import.meta.url), "utf8");
 const threadsRoute = readFileSync(new URL("../app/api/threads/route.ts", import.meta.url), "utf8");
 const sessionSyncRoute = readFileSync(new URL("../app/api/device/sessions/sync/route.ts", import.meta.url), "utf8");
@@ -444,10 +445,10 @@ test("keeps every workspace telemetry value behind authentication", () => {
   assert.doesNotMatch(chrome, /getPublicTelemetry|Live production telemetry|Machines online now/);
   assert.doesNotMatch(landing, /getPublicTelemetry|Live production telemetry|Machines online now|P95 task completion|LAST CLOUD CONTINUATION|cloudRunsCompleted|machinesOnlineNow/);
   // Public pricing shows CoreWeave-style capacity matrix; live usage stays behind auth.
-  assert.match(landing, /data-testid="hosted-capacity-matrix"/);
-  assert.match(landing, /Transparent hosted capacity/);
-  assert.doesNotMatch(landing, /data-testid="continuity-execution-modes"/);
-  assert.match(landing, /data-testid="hosted-zero-egress"/);
+  assert.match(howItWorks, /data-testid="hosted-capacity-matrix"/);
+  assert.match(howItWorks, /Transparent hosted capacity/);
+  assert.doesNotMatch(howItWorks, /data-testid="continuity-execution-modes"/);
+  assert.match(howItWorks, /data-testid="hosted-zero-egress"/);
   assert.match(dashboard, /data-testid="continuity-usage-meter"/);
   assert.match(dashboard, /continuityUsage/);
   assert.match(dashboard, /data-testid="continuity-upgrade-hint"/);
@@ -455,9 +456,10 @@ test("keeps every workspace telemetry value behind authentication", () => {
 
 test("explains the failover path with an interactive approve/deny demo", () => {
   const failoverDemo = readFileSync(new URL("../app/FailoverPathDemo.tsx", import.meta.url), "utf8");
-  assert.match(landing, /<FailoverPathDemo \/>/);
-  // Landing markets Continuity as fenced VPS (not Mac-pair chat continuity).
-  assert.match(landing, /Fenced VPS execution with renewable leases/);
+  assert.doesNotMatch(landing, /<FailoverPathDemo \/>/);
+  assert.match(landing, /href="\/how-it-works"/);
+  assert.match(howItWorks, /<FailoverPathDemo \/>/);
+  assert.match(howItWorks, /Fenced VPS execution with renewable leases/);
   assert.match(failoverDemo, /Deny call/);
   assert.match(failoverDemo, /Approve call/);
   assert.match(failoverDemo, /Drop VPS runner/);
