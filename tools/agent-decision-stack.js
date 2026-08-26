@@ -12,6 +12,7 @@
 const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { blockedReceipt, selectPatterns } = require('./agentic-pattern-selector');
 
 const REPO = path.resolve(__dirname, '..');
 
@@ -33,6 +34,8 @@ Options:
   --skip-governance    Skip semantic-governance / context-definition gate.
   --governance TEXT    Optional governance domain (e.g. 'revenue', 'mobile', 'public-api').
   --evidence TEXT      Concrete signal that justifies a revenue/growth decision.
+  --pattern-manifest PATH
+                       Optional typed task manifest for deterministic pattern selection.
   --json               Print structured brief only.`;
 
 function parseArgs(argv) {
@@ -42,6 +45,7 @@ function parseArgs(argv) {
     graphifyQuery: '',
     governance: '',
     evidence: '',
+    patternManifest: '',
     skipThumbgate: false,
     skipGraphify: false,
     skipLocalRetrieval: false,
@@ -58,6 +62,12 @@ function parseArgs(argv) {
     else if (arg === '--graphify-query') args.graphifyQuery = argv[++i] || '';
     else if (arg === '--governance') args.governance = argv[++i] || '';
     else if (arg === '--evidence') args.evidence = argv[++i] || '';
+    else if (arg === '--pattern-manifest') {
+      const value = argv[i + 1];
+      if (!value || value.startsWith('--')) throw new Error('--pattern-manifest requires a path');
+      args.patternManifest = value;
+      i += 1;
+    }
     else if (arg === '--skip-thumbgate') args.skipThumbgate = true;
     else if (arg === '--skip-graphify') args.skipGraphify = true;
     else if (arg === '--skip-local-retrieval') args.skipLocalRetrieval = true;
@@ -540,7 +550,22 @@ function mlSystemScoresBrief() {
   }
 }
 
+function loadPatternReceipt(manifestPath) {
+  const resolved = path.resolve(String(manifestPath || ''));
+  try {
+    const stat = fs.statSync(resolved);
+    if (!stat.isFile()) throw new Error('pattern manifest must be a regular file');
+    if (stat.size > 256 * 1024) throw new Error('pattern manifest exceeds 256 KiB');
+    return selectPatterns(JSON.parse(fs.readFileSync(resolved, 'utf8')));
+  } catch (error) {
+    return blockedReceipt(null, [`pattern manifest load failed: ${error.message}`]);
+  }
+}
+
 function recommendNextAction(brief) {
+  if (brief.patterns && !brief.patterns.skipped && brief.patterns.status === 'block') {
+    return `BLOCKED by agentic pattern contract: ${brief.patterns.errors[0] || 'invalid pattern manifest'}.`;
+  }
   const gov = brief.governance;
   if (gov && gov.status === 'block') {
     return `BLOCKED by semantic governance: ${gov.reason}. Provide --governance <domain> and a measurable success metric before proceeding.`;
@@ -586,14 +611,26 @@ function buildBrief(args) {
   const task = args.task.trim();
   if (!task) throw new Error('--task is required');
 
+  const patterns = args.patternManifest
+    ? loadPatternReceipt(args.patternManifest)
+    : { skipped: true, reason: 'no --pattern-manifest supplied' };
   const brief = {
     checkedAt: new Date().toISOString(),
     task,
-    governance: args.skipGovernance ? { skipped: true } : semanticGovernanceGate(args),
+    patterns,
+    governance: { skipped: true, reason: 'not evaluated yet' },
     rag: {},
     telemetry: {},
     recommendation: '',
   };
+
+  if (!patterns.skipped && patterns.status === 'block') {
+    brief.governance = { skipped: true, reason: 'blocked by agentic pattern contract' };
+    brief.recommendation = recommendNextAction(brief);
+    return brief;
+  }
+
+  brief.governance = args.skipGovernance ? { skipped: true } : semanticGovernanceGate(args);
 
   if (!args.skipThumbgate) {
     brief.rag.thumbgate = thumbgateLessons(task);
@@ -627,13 +664,25 @@ function main() {
     process.exit(0);
   }
   const brief = buildBrief(args);
-  const exitCode = brief.governance && !brief.governance.skipped && brief.governance.status === 'block' ? 1 : 0;
+  const patternBlocked = brief.patterns && !brief.patterns.skipped && brief.patterns.status === 'block';
+  const governanceBlocked = brief.governance && !brief.governance.skipped && brief.governance.status === 'block';
+  const exitCode = patternBlocked || governanceBlocked ? 1 : 0;
   if (args.json) {
     console.log(JSON.stringify(brief, null, 2));
     process.exit(exitCode);
   }
   console.log(`# Agent decision stack — ${brief.checkedAt}`);
   console.log(`Task: ${brief.task}\n`);
+  if (brief.patterns && !brief.patterns.skipped) {
+    console.log('## Agentic pattern receipt');
+    console.log(`status=${brief.patterns.status} hash=${brief.patterns.receiptHash || '-'}`);
+    if (brief.patterns.errors?.length) console.log(`errors=${brief.patterns.errors.join('; ')}`);
+    if (brief.patterns.selected?.length) {
+      console.log(`selected=${brief.patterns.selected.map((entry) => entry.id).join(',')}`);
+      console.log(`gates=${brief.patterns.gates.join(',')}`);
+    }
+    console.log('');
+  }
   if (brief.governance && !brief.governance.skipped) {
     console.log(`## Semantic governance (${brief.governance.schemaVersion || GOVERNANCE_SCHEMA_VERSION})`);
     console.log(`status=${brief.governance.status}${brief.governance.domain ? ` domain=${brief.governance.domain}` : ''}`);
@@ -718,6 +767,7 @@ module.exports = {
   buildBrief,
   extractGhRunFeatures,
   graphifyQuery,
+  loadPatternReceipt,
   localRetrieval,
   parseArgs,
   readContinuousDeviceVerified,
