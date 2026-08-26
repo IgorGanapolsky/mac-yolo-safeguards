@@ -3865,6 +3865,17 @@ GH #2034 / Linear AGENT-505. Remove fabricated fallback preference data and fixe
 
 - `apps/hermes-control-plane/app/api/device/tasks/submit/route.test.ts` (new) → **codex-infoq-device-schema** (T-INFOQ-DEVICE-SUBMIT-SCHEMA-20260825 / GH #2077: prove malformed signed-device bodies return HTTP 400 before `submitDeviceCloudTask`) (2026-08-25T15:42:00Z)
 
+## File claim (append 2026-08-25T16:20:00Z) — `grok-explainx-trending-honest`
+
+| T-EXPLAINX-TRENDING-HONEST-20260825 | Honest ingest of explainx.ai/trending page-view rankings; map onto existing skills; fail-closed empty parse; do not dual-edit rag-engine | in_progress | grok-explainx-trending-honest | `tools/explainx-trending-honest.js`, `tests/test-explainx-trending-honest.js`, `tests/fixtures/explainx-trending-rsc-snippet.html`, `.agents/skills/explainx-trending-honest/**`, `bin/explainx-trending-honest`, `SKILLS.md`, `plan.md` | Complementary to done T-EXPLAINX-TRENDING-RAG-20260821 (theater catalog); not an ExplainX clone |
+
+- `tools/explainx-trending-honest.js` (new)
+- `tests/test-explainx-trending-honest.js` (new)
+- `tests/fixtures/explainx-trending-rsc-snippet.html` (new)
+- `.agents/skills/explainx-trending-honest/` (new)
+- `bin/explainx-trending-honest` (new)
+- `SKILLS.md` (append row)
+- `plan.md` (this append)
 ## Claude Academy 4D steal (append 2026-08-25T16:40Z) — agent `grok-hosted-academy-4d-20260825`
 
 Source: https://academy.claude.com/ — AI Fluency 4D (Delegation, Description, Discernment, Diligence) + Cowork whole-task handoff. Not a course clone. Not Claude Cowork/Code/Tag. Complementary to fleet `/ai-fluency-4d-builder` (checklist) and PR #2052 completed≠quality. Do **not** dual-edit `tools/ai-native-sdlc.js`, InfoQ #2081 admission routes, or prompt-distill #2052.
@@ -3901,6 +3912,15 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - `apps/hermes-control-plane/lib/client-error-beacon.test.ts`
 - `.agents/skills/hosted-alert-correlate/` (new)
 - `bin/hosted-alert-correlate` (new)
+## File claim (append 2026-08-25T16:20:00Z) — `grok-explainx-trending-honest`
+
+| T-EXPLAINX-TRENDING-HONEST-20260825 | Honest ingest of explainx.ai/trending page-view rankings; map onto existing skills; fail-closed empty parse; do not dual-edit rag-engine | in_progress | grok-explainx-trending-honest | `tools/explainx-trending-honest.js`, `tests/test-explainx-trending-honest.js`, `tests/fixtures/explainx-trending-rsc-snippet.html`, `.agents/skills/explainx-trending-honest/**`, `bin/explainx-trending-honest`, `SKILLS.md`, `plan.md` | Complementary to done T-EXPLAINX-TRENDING-RAG-20260821 (theater catalog); not an ExplainX clone |
+
+- `tools/explainx-trending-honest.js` (new)
+- `tests/test-explainx-trending-honest.js` (new)
+- `tests/fixtures/explainx-trending-rsc-snippet.html` (new)
+- `.agents/skills/explainx-trending-honest/` (new)
+- `bin/explainx-trending-honest` (new)
 - `SKILLS.md` (append row)
 - `plan.md` (this append)
 - `hermes-mobile/scripts/run-continuous-e2e.sh`, `tests/test-hermes-phone-user-activity-guard.js`, `plan.md` (append only) → **codex-hermes-phone-midcycle-guard** (T-HERMES-PHONE-MIDCYCLE-HUMAN-GUARD-20260825: close the cycle-start TOCTOU window that allowed the 12:23 scheduled runner to seize and later uninstall Igor's paid app after he began using the phone at 12:31) (2026-08-25T16:39:00Z)
@@ -3957,3 +3977,28 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - Production still shows `origin/main` Leash: `<summary>Optional: send the next task to a paired computer</summary>` plus “wrong workspace / Switch account” plus “Bounded Hermes … isolated serverless leases.” That is a sign-out control + operator dump sitting under Mac pairing — not a second Google workspace. Header already has Sign out (`dashboard-sign-out`).
 - Drop the Leash `account-recovery` card. Keep one-line `leash-signed-in` email. Sign-out stays in header/sidebar.
 - Codex P2 on #2095: `pendingWaitCopy(task.status)` — `running` → “Hermes is working on this.”; pending → “hasn't started.” Do not dual-edit #2041 result-replace or AGENT-476 TurnStatusline.
+
+## File claim (append 2026-08-26T16:00:00Z) — `grok/context-six-block-20260826`
+
+| T-CONTEXT-SIX-BLOCK-20260826 | Operationalize Everyday AI Ep 710 six-block + four-layer FORMAT onto existing rails | in_progress | grok/context-six-block-20260826 | `tools/context-six-block.js`, `tests/test-context-six-block.js`, `bin/context-six-block`, `.agents/skills/context-six-block/**`, `SKILLS.md`, `plan.md` | Pack validates 6 blocks + gold example + rubric; Continuity-hero copy fails grade; no ChatGPT connector SKU; do not dual-edit context-vault.js |
+
+## Discovered / Decisions (append) — 2026-08-26T16:00Z — grok/context-six-block-20260826
+
+- Episode six blocks: Goal, Constraints, Reference, Examples, Procedures, Rubric. Four layers: Personal, Team, Company, Market.
+- Cheap steal: local assembler + deterministic rubric. Skip Everyday AI course, Prime Prompt Polish, ChatGPT Apps connectors.
+- Complementary to `tools/context-vault.js` (Allie 8 prompts) and `tools/coding-context-pack.js` (issue-first).
+- 2026-08-26T17:10Z CodeQL `js/incomplete-sanitization` on `tests/test-context-six-block.js:70` `.includes('chatgpt.com')` is REAL (1 high, PR annotation). Replaced with `tools/lib/safe-url-host.js` hostname parse + token equality. Expo Doctor 18/19 on this PR is the SDK pin wall (`expo 55.0.29` vs `~55.0.30`) owned by #2103 — do not pile pins onto this PR. CodeQL is not a required context; Hermes Mobile typecheck is.
+- 2026-08-26T17:40Z Required job "Hermes Mobile typecheck and tests" first failing STEP is Expo Doctor (run 32991643615 job 98250332767). Skip Expo Doctor when `git diff base...HEAD` has no `hermes-mobile/` paths. Do not skip the job (required name must report). Do not steal #2103 pins. `.github/workflows/ci.yml` Expo Doctor step + detect step only.
+
+## File claim (append 2026-08-26T18:15:00Z) — `grok/gitbutler-fleet-automations-20260826`
+
+| T-GITBUTLER-FLEET-AUTOMATIONS-20260826 | GitButler automations doing-layer: classifier + skills (automations, isolated MCP, session absorb, Google SSO). Complementary to Codex #2119 gitbutler-route. | in_progress | grok/gitbutler-fleet-automations-20260826 | `tools/gitbutler-fleet-automations.js`, `tests/test-gitbutler-fleet-automations.js`, `bin/gitbutler-fleet-automations`, `.agents/skills/gitbutler-fleet-automations/**`, `.agents/skills/gitbutler-mcp-isolated/**`, `.agents/skills/gitbutler-session-absorb/**`, `.agents/skills/gitbutler-google-sso/**`, `SKILLS.md`, `plan.md` | Doctor + classifier refuse setup/land/MCP on shared primaries; no global Grok GitButler MCP; no Cursor hooks.json for missing `but cursor`. Do **not** edit `tools/gitbutler-route.js` or `.agents/skills/gitbutler-fleet-safe/**` (Codex PR #2119 / AGENT-538). |
+
+## Discovered / Decisions (append) — 2026-08-26T18:15Z — grok/gitbutler-fleet-automations-20260826
+
+- Official `but` skill is overwritten by `but skill check --update`. Fleet rules live in overlay skills, never in `~/.grok/skills/gitbutler/SKILL.md`.
+- `but cursor` is unrecognized on CLI 0.22.1. Do not write `~/.cursor/hooks.json` for it.
+- `but mcp serve` is workspace-mode. Wrapper `mcp_isolated.sh` requires `assert_but_setup_safe.sh` exit 0. Never `[mcp_servers.gitbutler]` in global `~/.grok/config.toml`.
+- `but land` on ThumbGate / mac-yolo `main` is REFUSE — `npm run pr:manage` / `gh pr merge --auto`.
+- Linked worktrees (this repo, 80+ trees) use git. Official GitButler exception: never `but setup` from a linked worktree.
+- Complementary to OPEN Codex PR #2119 (`tools/gitbutler-route.js`). This PR does not steal AGENT-538.
