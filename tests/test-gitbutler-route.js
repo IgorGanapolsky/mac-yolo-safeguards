@@ -8,6 +8,7 @@ const {
   sanitizeAuthState,
   selectMergeRail,
   selectWriteRail,
+  writeRailAllowsCurrentDirectory,
 } = require('../tools/gitbutler-route');
 
 let passed = 0;
@@ -143,6 +144,32 @@ test('foreign active file claim blocks readiness', () => {
   assert.deepStrictEqual(result.collisions, [
     { file: 'tools/route.js', owners: ['other-agent'] },
   ]);
+});
+
+test('append-only plan claims remain shared while ordinary files stay exclusive', () => {
+  const plan = [
+    '| T-ONE | route | in_progress | codex-route | `tools/route.js`, `plan.md` (append only) | checks |',
+    '| T-TWO | other | blocked | other-agent | `plan.md` | checks |',
+  ].join('\n');
+  const result = evaluateOwnership({
+    agent: 'codex-route',
+    requestedBranch: 'codex/route',
+    currentBranch: 'codex/route',
+    files: ['tools/route.js', 'plan.md'],
+    claims: parseActivePlanClaims(plan),
+  });
+
+  assert.strictEqual(result.ok, true);
+  assert.deepStrictEqual(result.collisions, []);
+});
+
+test('isolated-worktree-required is a stop in the current directory', () => {
+  assert.strictEqual(
+    writeRailAllowsCurrentDirectory({ rail: 'git-isolated-worktree-required' }),
+    false,
+  );
+  assert.strictEqual(writeRailAllowsCurrentDirectory({ rail: 'git-linked-worktree' }), true);
+  assert.strictEqual(writeRailAllowsCurrentDirectory({ rail: 'gitbutler-workspace' }), true);
 });
 
 test('auth receipt exposes status but never credential material', () => {

@@ -198,10 +198,18 @@ function parseActivePlanClaims(planText) {
     const status = String(columns[3] || '').toLowerCase();
     const owner = columns[4];
     if (!/^T-/i.test(taskId) || !ACTIVE_PLAN_STATES.has(status) || !owner) continue;
-    const files = Array.from(String(columns[5] || '').matchAll(/`([^`]+)`/g))
+    const filesCell = String(columns[5] || '');
+    const fileMatches = Array.from(filesCell.matchAll(/`([^`]+)`/g));
+    const files = fileMatches.map((match) => normalizeClaimedPath(match[1])).filter(Boolean);
+    const nonExclusiveFiles = fileMatches
+      .filter((match) => {
+        const after = filesCell.slice(Number(match.index) + match[0].length);
+        const annotation = (after.match(/^\s*\(([^)]*)\)/) || [])[1] || '';
+        return /append|one row|rows only/i.test(annotation);
+      })
       .map((match) => normalizeClaimedPath(match[1]))
       .filter(Boolean);
-    claims.push({ taskId, status, owner, files });
+    claims.push({ taskId, status, owner, files, nonExclusiveFiles });
   }
   return claims;
 }
@@ -226,12 +234,22 @@ function evaluateOwnership(input) {
   const collisions = [];
 
   for (const file of files) {
+    const globallyAppendOnly = file === 'plan.md';
     const matching = (input.claims || []).filter((claim) =>
       (claim.files || []).some((claimed) => claimMatchesFile(claimed, file)),
     );
     const own = matching.some((claim) => claim.owner === input.agent);
     const foreignOwners = Array.from(
-      new Set(matching.filter((claim) => claim.owner !== input.agent).map((claim) => claim.owner)),
+      new Set(
+        matching
+          .filter(
+            (claim) =>
+              claim.owner !== input.agent &&
+              !globallyAppendOnly &&
+              !(claim.nonExclusiveFiles || []).some((claimed) => claimMatchesFile(claimed, file)),
+          )
+          .map((claim) => claim.owner),
+      ),
     ).sort();
     if (!own) missing.push(file);
     if (foreignOwners.length) collisions.push({ file, owners: foreignOwners });
@@ -247,6 +265,10 @@ function evaluateOwnership(input) {
     missing,
     collisions,
   };
+}
+
+function writeRailAllowsCurrentDirectory(writeRail) {
+  return ['git-linked-worktree', 'gitbutler-workspace'].includes(writeRail?.rail);
 }
 
 function officialSkillPath() {
@@ -450,7 +472,7 @@ function buildReport(options) {
   const gitButler = inspectGitButlerHealth();
   gitButler.legacySetupGuard = inspectLegacySetupGuard(repo.repoRoot);
   const auth = inspectAuthState();
-  const writeRailReady = !writeRail.rail.startsWith('blocked-');
+  const writeRailReady = writeRailAllowsCurrentDirectory(writeRail);
   const mergeReady = options.operation !== 'merge' || (mergeRail.ready && auth.githubCli.authenticated);
   const ready = ownership.ok && writeRailReady && gitButler.ok && mergeReady;
 
@@ -544,4 +566,5 @@ module.exports = {
   sanitizeAuthState,
   selectMergeRail,
   selectWriteRail,
+  writeRailAllowsCurrentDirectory,
 };
