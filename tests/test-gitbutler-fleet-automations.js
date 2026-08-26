@@ -138,12 +138,27 @@ assert.match(mcp, /assert_but_setup_safe/);
 assert.match(mcp, /but mcp serve/);
 
 const { spawnSync } = require('child_process');
+const os = require('os');
 const mcpScript = path.join(skillDir, 'gitbutler-fleet-automations/scripts/mcp_isolated.sh');
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gb-mcp-'));
+const stubGuard = path.join(tmp, 'assert_but_setup_safe.sh');
+fs.writeFileSync(stubGuard, '#!/bin/bash\necho "REFUSE: stub worktree" >&2\nexit 1\n');
+fs.chmodSync(stubGuard, 0o755);
 const refuse = spawnSync('bash', [mcpScript, path.join(__dirname, '..')], {
   encoding: 'utf8',
-  timeout: 45000,
+  timeout: 15000,
+  env: { ...process.env, GITBUTLER_SETUP_GUARD: stubGuard },
 });
-assert.notStrictEqual(refuse.status, 0, 'mcp_isolated.sh must refuse this linked worktree');
+assert.notStrictEqual(refuse.status, 0, 'mcp_isolated.sh must refuse when the setup guard refuses');
 assert.match(`${refuse.stdout || ''}\n${refuse.stderr || ''}`, /refused|REFUSE|worktree|setup guard/i);
+
+const missingGuard = path.join(tmp, 'does-not-exist.sh');
+const missing = spawnSync('bash', [mcpScript, path.join(__dirname, '..')], {
+  encoding: 'utf8',
+  timeout: 15000,
+  env: { ...process.env, GITBUTLER_SETUP_GUARD: missingGuard, HOME: tmp },
+});
+assert.notStrictEqual(missing.status, 0, 'mcp_isolated.sh must fail closed when the guard file is missing');
+assert.match(`${missing.stdout || ''}\n${missing.stderr || ''}`, /missing/i);
 
 console.log('test-gitbutler-fleet-automations: PASS');
