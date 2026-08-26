@@ -3979,3 +3979,7 @@ Audit evidence: the exporter advertises missing `tools/linear-agent-telemetry-en
 - `tests/test-linear-agent-bridge.js` — behavioral regression for paginated label resolution; a successful claim must contain both `agent-lock` and the agent attribution label.
 
 Provider evidence: AGENT currently has 59 issue labels; `team.labels { nodes }` omitted `agent-lock`, so duplicate creation failed silently and AGENT-535 received only `agent-codex-linear-basic-2111`.
+
+### Stale closeout-doc claim append (2026-08-26T16:32:00Z)
+
+- `docs/agents/linear-closeout-telemetry.md` — mark the historical contract unavailable on current `main` because `tools/linear-closeout-telemetry.js` is absent; point agents to the implemented evidence-backed bridge closeout without invented cycle metrics.
