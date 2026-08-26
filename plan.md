@@ -3940,3 +3940,16 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - Production still shows `origin/main` Leash: `<summary>Optional: send the next task to a paired computer</summary>` plus “wrong workspace / Switch account” plus “Bounded Hermes … isolated serverless leases.” That is a sign-out control + operator dump sitting under Mac pairing — not a second Google workspace. Header already has Sign out (`dashboard-sign-out`).
 - Drop the Leash `account-recovery` card. Keep one-line `leash-signed-in` email. Sign-out stays in header/sidebar.
 - Codex P2 on #2095: `pendingWaitCopy(task.status)` — `running` → “Hermes is working on this.”; pending → “hasn't started.” Do not dual-edit #2041 result-replace or AGENT-476 TurnStatusline.
+
+## 2. File Ownership Map (append-only) — grok-linear-basic-full-use-20260826
+
+- `tools/linear-basic-full-use.js` (new), `tests/test-linear-basic-full-use.js` (new), `bin/linear-basic-full-use` (new), `.agents/skills/linear-basic-full-use/**`, `.agents/skills/linear-basic-cycles-triage/**`, `.agents/skills/linear-basic-agent-mcp/**`, `.agents/skills/linear-basic-customers-evidence/**`, `SKILLS.md` (append), `plan.md` (append) → **grok-linear-basic-full-use-20260826** (T-LINEAR-BASIC-FULL-USE-20260826: use every Linear Basic capability; classifier+skills; prune unused labels/projects without stealing Codex #2121 or live agent-codex session-suffix locks) (2026-08-26T17:20:00Z)
+
+## Discovered / Decisions (append) — 2026-08-26T17:20Z — grok-linear-basic-full-use-20260826
+
+- Live `organization.subscription.type=basic_monthly_12` seats=1 issues=600. AGENT cycles+triage cooldown=0; Cycle 1 starts 2026-08-31 (do not start early). customers/pulse/linearAgent/codingAgent true. codeIntel/releases false. gitBranchFormat `{issueIdentifier}`; public linkbacks off.
+- Labels 53 empty=0. Session-suffix labels all sit on **started** Codex issues (AGENT-535/547/541/…) — KEEP. Canonical lock family KEEP.
+- `projectDelete` already applied to empty trash Cortiqa duplicate `a608dbed-…` and Interview Agentic Personas `67f4fbcb-…` (recoverable trash still listed). KEEP trash-with-issues: Storefront Debugging, Agentic Personas Storefront Debugging, MoodTracker Launch (IGO backlog). All live product projects KEEP.
+- App users: Linear Agent KEEP; Cursor OAuth KEEP even if inactive; Devin inactive created=0 — API cannot revoke (PLAN_WALL settings-UI only).
+- Complementary to Codex PR #2121. Do not edit `tools/linear-workspace-hygiene.js` or `tools/linear-agent-skill-exporter.js`.
+- Coding sessions exist on Basic but draw AI credits — fail closed at $0 remaining; never auto-buy. Loops stay Business.
