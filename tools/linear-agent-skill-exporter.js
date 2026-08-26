@@ -4,8 +4,9 @@
 /**
  * linear-agent-skill-exporter.js — Export Custom Linear Agent Skills for Linear Agent UI.
  *
- * Generates copy-pasteable custom skill definitions for the Linear Agent interface
- * (https://linear.app/igorganapolsky/agent -> "+ Create skill").
+ * Generates copy-pasteable skill definitions for Linear Agent. The catalog is
+ * intentionally limited to native Linear operations and repository commands
+ * that exist. It never grants merge, archive, or delete authority.
  *
  * Usage:
  *   node tools/linear-agent-skill-exporter.js --export
@@ -17,36 +18,54 @@ const path = require('path');
 
 const LINEAR_SKILLS = [
   {
-    name: 'Claim Task & Apply Agent Attribution Tag',
-    description: 'Claims an open Linear ticket, sets state to In Progress, and tags issue with agent:<agent-name> label.',
-    prompt: `When an issue is claimed or assigned to an AI agent:
-1. Update state to "In Progress".
-2. Add label "agent:<agent-name>" (e.g. agent:antigravity, agent:claude-code, agent:cursor, agent:codex).
-3. Execute: node tools/linear-agent-telemetry-engine.js --track <ISSUE_ID> --agent <AGENT_NAME>`,
+    name: 'Claim Task with Evidence and Agent Attribution',
+    description: 'Claims one issue, preserves the human owner, records the agent and file scope, and verifies provider readback.',
+    prompt: `When a coding agent takes ownership of a Linear issue:
+1. Confirm the issue includes the matching GitHub issue URL and concrete acceptance checks.
+2. In a repository coding session, run: node tools/linear-agent-bridge.js --claim <ISSUE_ID> --agent <AGENT_NAME> --files <COMMA_SEPARATED_FILES> --comment "<GITHUB_ISSUE_URL>" --json
+3. Verify the returned issue is In Progress, has an agent attribution label, and has a canonical Obsidian claim path.
+4. Keep the human as Linear assignee. Do not claim files already owned in plan.md or the vault.
+5. If repository tools or provider readback are unavailable, report the exact blocker and do not claim ownership.`,
   },
   {
-    name: 'Cycle-Time Telemetry & Velocity Post-Mortem',
-    description: 'Calculates resolution duration from claim to merge and posts velocity post-mortem comment on Linear issue.',
-    prompt: `When completing a Linear issue or merging a PR:
-1. Calculate total duration from start timestamp to merge timestamp.
-2. Execute: node tools/linear-agent-telemetry-engine.js --complete <ISSUE_ID> --pr-number <PR_NUM> --bottleneck "<BOTTLENECK>" --recommendation "<OPTIMIZATION>"
-3. Append formatted post-mortem breakdown comment to the issue on Linear.`,
+    name: 'Basic Workspace Hygiene Preview',
+    description: 'Inventories Basic-plan projects, labels, cycles, statuses, agents, and locks without mutating provider state.',
+    prompt: `When reviewing workspace hygiene:
+1. In a repository coding session, run: node tools/linear-workspace-hygiene.js --dry-run --stale-days 90 --json
+2. Report provider counts, the deterministic fingerprint, and review-only candidates with every blocker.
+3. Treat active issues, current/future cycles, GitHub-linked history, Obsidian claims, and agent-lock/agent attribution labels as protected.
+4. Never delete or archive a project, label, cycle, user, agent, or lock from this skill. A separate explicitly authorized operator must re-read the provider immediately before any mutation.
+5. If the provider read fails, fail closed; never substitute cached or invented inventory.`,
   },
   {
-    name: 'Hermes-YOLO Self-Healing Context Reset',
-    description: 'Auto-resets high-compression sessions (>=15 compressions) and recalibrates line-shift anchors.',
-    prompt: `When hermes-yolo experiences high compression warnings (Session compressed >= 15 times):
-1. Execute checkAndHealSelfHealingHarness() in hermes-yolo-wrapper.js.
-2. Save task checkpoint to .ai/hermes-yolo-task-state.json.
-3. Refresh session context (/new) to maintain 100% precision & zero line anchor degradation.`,
+    name: 'Evidence-Based Project and Cycle Update',
+    description: 'Drafts a concise project or cycle update from current Linear issues without inventing health or progress.',
+    prompt: `When asked for a project or cycle update:
+1. Read the current project, current cycle, issue statuses, blockers, owners, latest project update, and linked GitHub work.
+2. Separate progress, risks, decisions, and next actions. Cite the Linear issue identifiers and provider links behind each claim.
+3. Mark health on track, at risk, or off track only when the cited issue evidence supports it; otherwise say health is unmeasured.
+4. Publish the update only when the user explicitly asked to publish. Otherwise return a draft.
+5. Do not use Loops on the Basic plan; scheduled Loops are a Business-plan capability.`,
   },
   {
-    name: 'GSD Green PR Auto-Merger',
-    description: 'Scans green PRs, updates branch with main, and enables squash auto-merge to close Linear issue.',
-    prompt: `When a PR passes all CI checks:
-1. Verify 100% CI pass rate in scripts/verify.sh.
-2. Enable squash auto-merge: gh pr merge <PR_NUM> --squash --auto.
-3. Automatically transition corresponding Linear issue to Done.`,
+    name: 'Verified Closeout Evidence',
+    description: 'Closes an issue only after live GitHub evidence exists, then verifies the resulting Linear and Obsidian state.',
+    prompt: `When a repository issue is ready to close:
+1. Verify the PR is merged and record its commit SHA and exact-head CI URL; a green open PR is not completion.
+2. Close only after that proof exists: node tools/linear-agent-bridge.js --done <ISSUE_ID> --agent <AGENT_NAME> --comment "<PR_URL> <MERGE_SHA> <CI_URL>" --json
+3. Re-read Linear and verify Done state, the agent attribution label, the evidence comment, and the Obsidian receipt.
+4. Record the observed bottleneck and one testable next improvement in the evidence comment; do not invent cycle-time telemetry that the current bridge does not compute.
+5. Never merge a PR, bypass required checks, or infer a duration from prose.`,
+  },
+  {
+    name: 'GitHub Linear Obsidian Handoff',
+    description: 'Keeps the task, code, and file-claim buses linked with evidence and explicit unknowns.',
+    prompt: `When handing work to another agent:
+1. Add the GitHub issue or PR URL, commit SHA, CI status URL, changed-file scope, and remaining blockers to the Linear issue.
+2. Verify the matching Obsidian claim path under Handoffs/linear-claims/ exists before citing it.
+3. Keep provider state, git state, and vault state separate; do not call one proof of another.
+4. Do not claim a deployment, device result, external action, or revenue without its independent provider receipt.
+5. The receiving agent must re-read Linear, plan.md, and the vault before editing.`,
   },
 ];
 
@@ -78,7 +97,7 @@ async function main() {
   });
 
   console.log('--------------------------------------------------');
-  console.log('✅ Linear Agent Skills Ready for UI Import (+ Create skill)!');
+  console.log('Linear Agent skills exported for review. No provider mutation was performed.');
 }
 
 if (require.main === module) {

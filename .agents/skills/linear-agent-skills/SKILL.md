@@ -1,95 +1,124 @@
 ---
 name: linear-agent-skills
-description: Complete skill suite for Linear AI Agent workspace automation, multi-agent tagging, cycle-time telemetry, automated project health updates, and ThumbGate RAG retrospective promotion.
+description: Use Linear Basic as the issue and planning bus with provider-readback claims, projects, cycles, statuses, GitHub links, Obsidian file claims, and read-only workspace hygiene.
 ---
 
-# Linear Agent Skills & Automation Suite (August 2026 Edition)
+# Linear Basic operations
 
-This skill equips coding agents (Antigravity, Claude Code, Cursor, Codex, Gemini, Herdr) to interact autonomously with the Linear Agent interface (`https://linear.app/docs/linear-agent`), manage issue locks, record resolution cycle metrics, generate automated project health reports, and auto-promote retrospective learnings to ThumbGate RAG memory.
+Use this skill for Linear issue ownership, project/cycle status, agent attribution, GitHub evidence links, Obsidian handoffs, or workspace hygiene. Linear owns task state; the canonical Obsidian vault owns live file/WIP claims; git owns code.
 
----
+## Verified Basic surface
 
-## Skill Components
+The live command reads `organization.subscription.type`; do not assume the plan from prose. Linear's official pricing currently gives Basic five teams, unlimited issues and file uploads, admin roles, core issues/projects/cycles/initiatives, API/webhook access, Agent platform, MCP access, and Linear Agent. Loops, Insights, Triage Intelligence, Code Intelligence, and Linear Asks are Business-plan features.
 
-### 1. `linear-agent-closeout`
-**Trigger**: When closing or marking a Linear issue as `Done`.
-**Command**:
+Official references:
+
+- https://linear.app/pricing
+- https://linear.app/docs/linear-agent
+- https://linear.app/developers/graphql
+- https://linear.app/docs/github-integration
+
+## Session start
+
+```bash
+node tools/linear-agent-bridge.js --doctor --json
+node tools/linear-agent-bridge.js --coord-status --json
+node tools/linear-workspace-hygiene.js --dry-run --stale-days 90 --json
+```
+
+Stop if provider readback fails. Do not substitute cached counts or a local vault note for Linear state.
+
+## Claim one issue
+
+Create the public-safe GitHub issue first, then create/claim its Linear issue and name the files:
+
+```bash
+node tools/linear-agent-bridge.js --create \
+  --title "<TITLE>" \
+  --description "GitHub #<NUMBER>; <ACCEPTANCE>" \
+  --team AGENT \
+  --json
+
+node tools/linear-agent-bridge.js --claim <ISSUE_ID> \
+  --agent <AGENT_NAME> \
+  --files <FILE_A>,<FILE_B> \
+  --comment "https://github.com/<OWNER>/<REPO>/issues/<NUMBER>" \
+  --json
+```
+
+A successful claim must read back all of these:
+
+- `state=In Progress`;
+- human Linear assignee retained;
+- `agent-lock` and `agent-<name>` labels;
+- vault receipt under `Handoffs/linear-claims/`;
+- matching append-only `plan.md` file claim.
+
+The bridge paginates all team labels. If either required label is missing, it fails closed before writing a vault claim.
+
+## Inventory and hygiene
+
+```bash
+node tools/linear-workspace-hygiene.js --inventory --json
+node tools/linear-workspace-hygiene.js --dry-run --stale-days 90 --json
+```
+
+The command paginates and deduplicates provider projects, cycles, labels, workflow states, users/agents, teams, and issues. It joins GitHub issue/PR URLs from Linear descriptions with canonical Obsidian claim receipts and emits a stable SHA-256 fingerprint.
+
+It is read-only. There is no `--apply`, `--archive`, or `--delete` mode.
+
+| Object | Review candidate only when | Hard blockers |
+|---|---|---|
+| Project | completed/canceled, stale, zero open issues | active/recent, GitHub-linked history, Obsidian claim history, already archived |
+| Label | stale and zero issue references | any issue reference, recent use, agent-lock/attribution protocol label |
+| Cycle | past, stale, zero open issues | current/future, GitHub/Obsidian history, already archived |
+| Agent lock | issue closed, stale, vault claim inactive | open issue, recent activity, active vault claim |
+| User/provider agent | never automatic | always manual review |
+
+Any provider archive/delete decision belongs to a separately authorized operator who re-runs the dry-run immediately before mutation. This skill never deletes live Linear objects.
+
+## Projects, cycles, and status
+
+- Assign issues to projects/cycles with native Linear fields; do not encode them as one-off labels.
+- Draft project updates from current issue statuses, blockers, owners, latest update, and GitHub evidence.
+- Publish an update only when requested. Set health only when cited evidence supports `on track`, `at risk`, or `off track`; otherwise report it as unmeasured.
+- Do not schedule Loops on Basic. Keep repeated local automation in repository tooling or upgrade deliberately to Business.
+
+## GitHub and Obsidian links
+
+- Put the GitHub issue URL in the Linear description or claim comment.
+- Put PR URL, merge SHA, and exact-head CI URL in the Linear closeout comment.
+- Cite an Obsidian path only after the bridge returns it; never infer vault sync from Linear success.
+- Never collapse provider state, vault state, git state, deploy state, device proof, or revenue into one claim.
+
+## Closeout
+
+After the PR is actually merged and exact-head CI is verified:
+
 ```bash
 node tools/linear-agent-bridge.js --done <ISSUE_ID> \
-  --agent <PRIMARY_AGENT> \
-  --co-agents <SECONDARY_AGENTS> \
-  --duration "<CYCLE_TIME>" \
-  --bottleneck "<BOTTLENECK_DESCRIPTION>" \
-  --improvement "<ACTIONABLE_STRATEGY>" \
-  --comment "<PR_OR_SHA_PROOF>"
+  --agent <AGENT_NAME> \
+  --comment "<PR_URL> <MERGE_SHA> <CI_URL>; bottleneck=<OBSERVED>; next=<TESTABLE_CHANGE>" \
+  --json
 ```
-**Effect**:
-- Sets Linear issue state to `Done`.
-- Attaches labels: `agent:<primary>`, `agent:<co-agent>`, and `agents-multi` (if multiple agents).
-- Posts structured **Agent Completion & Cycle Time Report** markdown comment.
-- Auto-promotes `--improvement` strategy to **ThumbGate RAG memory** via `npx thumbgate capture`.
-- Writes mirror claim note in Obsidian Vault (`~/Documents/AI-Agent-Sync/Handoffs/linear-claims/`).
 
----
+Re-read the issue and vault receipt. The current bridge does not compute cycle-time telemetry; do not invent it.
 
-### 2. `linear-agent-project-health`
-**Trigger**: At session end, weekly review, or when updating Linear project status.
-**Command**:
+## Linear Agent UI skills
+
+Export the reviewed native/repository skill prompts:
+
 ```bash
-node tools/linear-project-update.js
+node tools/linear-agent-skill-exporter.js --json
 ```
-**Effect**:
-- Queries live GitHub open PR count, auto-merge queue state, CI test suite pass rate, and physical device E2E proofs.
-- Publishes an updated `ProjectUpdate` to Linear GraphQL API (`health: onTrack`).
-- Updates project overview dashboard on `linear.app`.
 
----
+The exporter references only commands present in the repository and delegates no PR merge or workspace deletion authority.
 
-### 3. `linear-agent-swarm-lock`
-**Trigger**: Before starting multi-file work on a new ticket.
-**Command**:
+## Verification
+
 ```bash
-node tools/linear-agent-bridge.js --claim <ISSUE_ID> \
-  --agent <PRIMARY_AGENT> \
-  --co-agents <SECONDARY_AGENTS> \
-  --files <FILE_LIST>
-```
-**Effect**:
-- Sets Linear issue state to `In Progress`.
-- Attaches `agent-lock` and agent attribution labels.
-- Creates local WIP lock in Obsidian Vault (`~/Documents/AI-Agent-Sync/Handoffs/linear-claims/`).
-- Verifies zero file-contention collisions across active agent worktrees.
-
----
-
-## Linear Agent Workspace Prompt Template
-
-When configuring custom skills in the Linear Agent UI (`linear.app` -> `Agent` -> `Skills` -> `+ Create skill`), use the following system prompt definitions:
-
-### Skill: **Closeout & Cycle Time Telemetry**
-```text
-When an issue is completed or resolved:
-1. Verify PR commit SHA or CI test proof.
-2. Label issue with agent attribution (agent:<name>, agents-multi).
-3. Compute cycle time from claim timestamp to closure.
-4. Extract bottlenecks and retrospective improvement strategy.
-5. Post completion report comment and sync to Obsidian Vault + RAG memory.
-```
-
-### Skill: **Project Health Auditor**
-```text
-When drafting a project status update:
-1. Audit open PRs, auto-merge queue, and CI build status.
-2. Verify physical device E2E pass rates (Android Galaxy & iPad).
-3. Mark project health as onTrack (or atRisk/offTrack if blockers exist).
-4. Publish formatted status update to Linear project overview.
-```
-
----
-
-## Verification & Health Check
-
-Run the coordination health check at any time:
-```bash
-node tools/linear-agent-bridge.js --coord-status
+node tests/test-linear-agent-bridge.js
+node tests/test-linear-agent-skill-exporter.js
+node --test tests/test-linear-workspace-hygiene.js
+node tools/skill-card-validate.js --dir .agents/skills --strict
 ```

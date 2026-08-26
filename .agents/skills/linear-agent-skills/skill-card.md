@@ -2,7 +2,7 @@
 
 ## Description
 
-Complete skill suite for Linear AI Agent workspace automation, multi-agent tagging, cycle-time telemetry, automated project health updates, and ThumbGate RAG retrospective promotion.
+Linear Basic issue and planning operations with provider-readback claims, deterministic read-only hygiene, GitHub evidence links, and canonical Obsidian file-claim receipts.
 
 ## Owner
 
