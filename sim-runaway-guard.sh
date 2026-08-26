@@ -354,6 +354,71 @@ if [ -z "$REASON" ]; then
     echo 0 > "$CODEQL_STATE_FILE"
   fi
 
+  # BrowserOS's BrowserClaw server is a stateless agent-control helper, not a
+  # tab renderer or GUI process. A 2026-08-26 incident left it spinning at
+  # 98-99% of one core for almost two days; the generic 150% threshold below
+  # can never see that failure class. Recover only this exact helper after a
+  # five-minute consecutive streak. BrowserOS itself, its renderers/tabs, user
+  # Chrome, and every IDE remain outside the kill target.
+  if [ "${YOLO_RECLAIM_BROWSERCLAW:-1}" = "1" ]; then
+    BROWSERCLAW_CPU_PCT_THRESHOLD=${YOLO_BROWSERCLAW_CPU_PCT_THRESHOLD:-80}
+    BROWSERCLAW_CPU_SUSTAINED_FIRES=${YOLO_BROWSERCLAW_CPU_SUSTAINED_FIRES:-5}
+    BROWSERCLAW_MIN_AGE_SEC=${YOLO_BROWSERCLAW_MIN_AGE_SEC:-600}
+    BROWSERCLAW_TERM_GRACE_SEC=${YOLO_BROWSERCLAW_TERM_GRACE_SEC:-3}
+    BROWSERCLAW_STATE_FILE=${YOLO_BROWSERCLAW_CPU_STATE_FILE:-/tmp/yolo-browserclaw-cpu-state}
+    BROWSERCLAW_CMD_PATTERN=${YOLO_BROWSERCLAW_CMD_PATTERN:-BrowserClaw/.browseros/BrowserClawServer/versions/}
+    BROWSERCLAW_HOT_LINE=$(/bin/ps -axo user,pid,pcpu,etime,command -r | /usr/bin/awk \
+      -v u="$USER" -v t="$BROWSERCLAW_CPU_PCT_THRESHOLD" \
+      -v minage="$BROWSERCLAW_MIN_AGE_SEC" -v pattern="$BROWSERCLAW_CMD_PATTERN" '
+      function etsec(e, d,a,p,n) {
+        d=0
+        if(index(e,"-")>0){split(e,a,"-");d=a[1];e=a[2]}
+        n=split(e,p,":")
+        if(n==3)return d*86400+p[1]*3600+p[2]*60+p[3]
+        if(n==2)return d*86400+p[1]*60+p[2]
+        return d*86400+p[1]
+      }
+      NR>1 && $1==u && $0 !~ /\/usr\/bin\/awk/ && index($0, pattern) && $0 ~ /browseros-claw-server([[:space:]]|$)/ {
+        pcpu=$3+0
+        if (pcpu>=t && etsec($4)>=minage) {
+          printf "%s %d %s\n", $2, pcpu, $4
+          exit
+        }
+      }')
+    if [ -n "$BROWSERCLAW_HOT_LINE" ]; then
+      BROWSERCLAW_PID=$(printf '%s\n' "$BROWSERCLAW_HOT_LINE" | /usr/bin/awk '{print $1}')
+      BROWSERCLAW_CPU=$(printf '%s\n' "$BROWSERCLAW_HOT_LINE" | /usr/bin/awk '{print $2}')
+      BROWSERCLAW_AGE=$(printf '%s\n' "$BROWSERCLAW_HOT_LINE" | /usr/bin/awk '{print $3}')
+      BROWSERCLAW_PREV_PID=$(/usr/bin/awk 'NR==1 {print $1}' "$BROWSERCLAW_STATE_FILE" 2>/dev/null)
+      BROWSERCLAW_PREV_STREAK=$(/usr/bin/awk 'NR==1 {print $2}' "$BROWSERCLAW_STATE_FILE" 2>/dev/null)
+      case "$BROWSERCLAW_PREV_STREAK" in (*[!0-9]*|'') BROWSERCLAW_PREV_STREAK=0 ;; esac
+      if [ "$BROWSERCLAW_PREV_PID" = "$BROWSERCLAW_PID" ]; then
+        BROWSERCLAW_STREAK=$((BROWSERCLAW_PREV_STREAK + 1))
+      else
+        BROWSERCLAW_STREAK=1
+      fi
+      if [ "$BROWSERCLAW_STREAK" -ge "$BROWSERCLAW_CPU_SUSTAINED_FIRES" ]; then
+        if /bin/kill -TERM "$BROWSERCLAW_PID" 2>/dev/null; then
+          /bin/sleep "$BROWSERCLAW_TERM_GRACE_SEC"
+          BROWSERCLAW_SIGNAL=TERM
+          if /bin/ps -p "$BROWSERCLAW_PID" >/dev/null 2>&1; then
+            /bin/kill -KILL "$BROWSERCLAW_PID" 2>/dev/null || true
+            BROWSERCLAW_SIGNAL=TERM+KILL
+          fi
+          notify "yolo-guard: reclaimed BrowserClaw helper" "Stopped stateless BrowserClaw PID $BROWSERCLAW_PID after $BROWSERCLAW_STREAK hot checks at ${BROWSERCLAW_CPU}% CPU. BrowserOS tabs and IDEs were untouched."
+          echo "$(date) BROWSERCLAW_RECLAIM: killed pid=$BROWSERCLAW_PID cpu=${BROWSERCLAW_CPU}% age=$BROWSERCLAW_AGE streak=$BROWSERCLAW_STREAK signal=$BROWSERCLAW_SIGNAL" >> "$LOG"
+        else
+          echo "$(date) BROWSERCLAW_RECLAIM: skip vanished pid=$BROWSERCLAW_PID cpu=${BROWSERCLAW_CPU}% streak=$BROWSERCLAW_STREAK" >> "$LOG"
+        fi
+        : > "$BROWSERCLAW_STATE_FILE"
+      else
+        printf '%s %s\n' "$BROWSERCLAW_PID" "$BROWSERCLAW_STREAK" > "$BROWSERCLAW_STATE_FILE"
+      fi
+    else
+      : > "$BROWSERCLAW_STATE_FILE"
+    fi
+  fi
+
   # All user-owned procs at/above threshold, as "pid pcpu" lines (desc by CPU).
   # Detection uses only user/pid/pcpu so executable paths with spaces can't
   # break field-splitting; names are resolved per-PID via `ps -o comm=` below.
@@ -710,7 +775,8 @@ CPU_HOT_EOF
     APP_AGG_LINE=$(/bin/ps -axo rss,command | /usr/bin/awk -v t="$MEM_APP_AGG_MB_THRESHOLD" '
       NR>1 {
         app=""
-        if ($0 ~ /Google Chrome Canary\.app/) app="Chrome Canary"
+        if ($0 ~ /BrowserOS neo\.app|BrowserClaw\/\.browseros\/BrowserClawServer/) app="BrowserOS"
+        else if ($0 ~ /Google Chrome Canary\.app/) app="Chrome Canary"
         else if ($0 ~ /Google Chrome\.app/) app="Chrome"
         else if ($0 ~ /Cursor\.app/) app="Cursor"
         else if ($0 ~ /Comet\.app/) app="Comet"
@@ -724,7 +790,8 @@ CPU_HOT_EOF
     APP_AGG_ROLLUP=$(/bin/ps -axo rss,command | /usr/bin/awk '
       NR>1 {
         app=""
-        if ($0 ~ /Google Chrome Canary\.app/) app="Chrome Canary"
+        if ($0 ~ /BrowserOS neo\.app|BrowserClaw\/\.browseros\/BrowserClawServer/) app="BrowserOS"
+        else if ($0 ~ /Google Chrome Canary\.app/) app="Chrome Canary"
         else if ($0 ~ /Google Chrome\.app/) app="Chrome"
         else if ($0 ~ /Cursor\.app/) app="Cursor"
         else if ($0 ~ /Comet\.app/) app="Comet"

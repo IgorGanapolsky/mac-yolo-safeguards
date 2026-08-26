@@ -112,6 +112,7 @@ host_check "launchctl print gui/\$(id -u)/$GUARD_LABEL 2>/dev/null | grep -q 'ru
 check "grep -q 'memory hog' '$GUARD_SCRIPT'"                            "memory-hog branch present"
 check "grep -q 'YOLO_RECLAIM_OLLAMA' '$GUARD_SCRIPT'"                   "Ollama worker reclaim present"
 check "grep -q 'YOLO_CODEQL_CPU_TOTAL_THRESHOLD' '$GUARD_SCRIPT'"        "CodeQL aggregate CPU guard present"
+check "grep -q 'YOLO_BROWSERCLAW_CPU_PCT_THRESHOLD' '$GUARD_SCRIPT'"     "BrowserClaw single-core recovery present"
 
 echo ""
 echo "=== Mac text hotkeys ==="
@@ -141,12 +142,25 @@ printf "  Booted simulators:     %s\n" "$BOOTED"
 printf "  agy processes:         %s\n" "$AGY_PROCS"
 printf "  agy-yolo lock held:    %s\n" "$LOCK_HELD"
 printf "  hermes-yolo lock held: %s\n" "$HERMES_LOCK_HELD"
+BROWSERCLAW_LIVE=$(/bin/ps -axo pid,pcpu,etime,command -r | /usr/bin/awk '
+  NR>1 && $0 ~ /BrowserClaw\/\.browseros\/BrowserClawServer\/versions\// && $0 ~ /browseros-claw-server([[:space:]]|$)/ {
+    printf "PID %s at %s%% CPU (age %s)", $1, $2, $3
+    exit
+  }')
+[ -z "$BROWSERCLAW_LIVE" ] && BROWSERCLAW_LIVE="not running"
+printf "  BrowserClaw helper:    %s\n" "$BROWSERCLAW_LIVE"
 
 echo ""
 echo "=== Memory state (informational; kit only auto-reclaims known-safe memory hogs) ==="
 FREE_PCT=$(/usr/bin/memory_pressure -Q 2>/dev/null | /usr/bin/awk -F': ' '/free percentage/ {gsub("%",""); print $2; exit}')
 [ -z "$FREE_PCT" ] && FREE_PCT="?"
 printf "  Free memory:           %s%%\n" "$FREE_PCT"
+BROWSEROS_MEMORY=$(/bin/ps -axo rss,command | /usr/bin/awk '
+  NR>1 && ($0 ~ /BrowserOS neo\.app/ || $0 ~ /BrowserClaw\/\.browseros\/BrowserClawServer/) {
+    rss+=$1; n++
+  }
+  END { printf "%.0f MB across %d processes", rss/1024, n+0 }')
+printf "  BrowserOS aggregate:   %s\n" "$BROWSEROS_MEMORY"
 printf "  Top 3 AI memory hogs:\n"
 /bin/ps -axo rss,command -m | /usr/bin/awk '
   NR>1 {

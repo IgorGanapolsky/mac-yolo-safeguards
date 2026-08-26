@@ -3940,3 +3940,26 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - Production still shows `origin/main` Leash: `<summary>Optional: send the next task to a paired computer</summary>` plus “wrong workspace / Switch account” plus “Bounded Hermes … isolated serverless leases.” That is a sign-out control + operator dump sitting under Mac pairing — not a second Google workspace. Header already has Sign out (`dashboard-sign-out`).
 - Drop the Leash `account-recovery` card. Keep one-line `leash-signed-in` email. Sign-out stays in header/sidebar.
 - Codex P2 on #2095: `pendingWaitCopy(task.status)` — `running` → “Hermes is working on this.”; pending → “hasn't started.” Do not dual-edit #2041 result-replace or AGENT-476 TurnStatusline.
+
+## File claim (append 2026-08-26T15:37:46Z) — `codex-mac-browser-heal`
+
+| T-AGENT-467-BROWSEROS-SELF-HEAL-20260826 | Prevent the live BrowserOS single-core runaway and memory-thrash recurrence without terminating active IDEs or normal browser tabs | in_progress | codex-mac-browser-heal | `sim-runaway-guard.sh`, `yolo-health` (BrowserOS health evidence only), `tests/test-browseros-runaway-reclaim.sh` (new), `tests/test-thumbgate-self-healing-engine.js` (test invocation only if needed), `plan.md` (append only) | GH #2104; Linear AGENT-467. Fail-first prove the current 150% threshold misses a sustained ~99% BrowserClaw helper and memory attribution omits BrowserOS; add bounded consecutive-sample recovery of only the known helper, include BrowserOS memory/process evidence, preserve active BrowserOS renderers/tabs and IDEs, pass focused + self-healing + macOS guard tests, deploy the installed symlinked guard, and verify CPU/memory/HTTP/network responsiveness after recovery. |
+
+## Discovered / Decisions (append) — 2026-08-26T15:37:46Z — `codex-mac-browser-heal`
+
+- Live incident evidence: `browseros-claw-server` PID 84596 held 98–99% CPU for 1d23h, BrowserOS used ~7.35 GB across 54 processes, swap was 14.7/16 GB, and Apple `networkQuality` measured 106 RPM / 565 ms loaded responsiveness despite 214 Mbps down.
+- Existing guard is loaded, runs every 60 seconds, and reports 27/27 health checks, but its generic CPU notification threshold starts above 150% and the memory-pressure app rollup names Comet while omitting BrowserOS.
+- Safety boundary: do not auto-quit BrowserOS, user Chrome, Comet, or an IDE. Recovery may target only the known BrowserClaw helper after multiple consecutive hot samples; the parent browser remains alive and must restart or continue safely.
+- Linear rejected a new issue with `USAGE_LIMIT_EXCEEDED`; this session's already-owned AGENT-467 lock was re-scoped with the exact files and mirrored into Obsidian.
+
+## File claim correction (append 2026-08-26T15:39:00Z) — `codex-mac-browser-heal`
+
+- Replace the proposed new `tests/test-browseros-runaway-reclaim.sh` with the already-CI-wired `tests/test-secondary-browser-reclaim.sh` for BrowserClaw sustained-CPU and BrowserOS aggregate-memory regression cases. No workflow or `scripts/ci-verify.sh` edit is required. Final owned files: `sim-runaway-guard.sh`, `yolo-health` (BrowserOS evidence only), `tests/test-secondary-browser-reclaim.sh`, and `plan.md` (append only).
+
+## Verification / Discovered (append 2026-08-26T15:48:00Z) — `codex-mac-browser-heal`
+
+- Fail-first: `tests/test-secondary-browser-reclaim.sh` exited 1 with 24 pass / 3 fail (missing sustained BrowserClaw reclaim, receipt, and BrowserOS aggregate attribution). Unchanged regression after implementation exits 0 with 29 pass / 0 fail, including first-sample preservation, exact-helper reclaim, non-match protection, explicit opt-out, BrowserOS attribution, and BrowserOS-app survival.
+- `node tests/test-thumbgate-self-healing-engine.js` passes 6/6; `node tests/test-session-context.js` passes 19/19 with 8 host-setup warnings; `node tools/agent-swarm-harness.js --json` reports `ok=true` and the diff has zero megafiles.
+- `tests/test-mac-freeze-prevention-install.sh` is 9 pass / 1 fail on both this branch and untouched `origin/main@9bbcd326d`: the pre-existing gateway-service forced-residency assertion is unrelated to the claimed guard files.
+- Full `scripts/ci-verify.sh` clears syntax, Python, guard E2E, governance, public-funnel, release-readiness, and TypeScript, then exits 1 at Expo Doctor because the registry now expects 13 SDK 55 patch releases one newer than exact-main pins. This branch has zero diffs in `hermes-mobile/package.json` or `hermes-mobile/package-lock.json`; Expo dependency edits remain out of scope and ownership.
+- GitHub Copilot CLI review was attempted and returned monthly quota exceeded; no second-model review claim is made.

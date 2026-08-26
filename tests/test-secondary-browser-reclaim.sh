@@ -88,6 +88,7 @@ run_guard() {
     YOLO_CPU_STATE_FILE="$TMP/cpu-state" \
     YOLO_CPU_LAST_FILE="$TMP/cpu-last" \
     YOLO_CPU_STATUS_FILE="$TMP/cpu-status.txt" \
+    YOLO_BROWSERCLAW_CPU_STATE_FILE="$TMP/browserclaw-cpu-state" \
     YOLO_CODEQL_STATE_FILE="$TMP/codeql-state" \
     YOLO_CODEQL_EXTENSION_DIRS="$TMP/cursor-codeql $TMP/ag-codeql" \
     YOLO_BOOTED_SIM_STATE_FILE="$TMP/booted-sim-state" \
@@ -304,6 +305,97 @@ if [ -n "$CDP_ACTIVE_PID" ]; then
     && ok "T12: active-client skip logged" || bad "T12: missing active-client skip log"
   kill -9 "$CDP_ACTIVE_PID" 2>/dev/null
 fi
+
+# --- T13: BrowserClaw gets a lower, sustained single-core threshold. The first
+#          hot sample must preserve it; the second proves bounded recovery of
+#          only the exact helper signature. ---
+BROWSERCLAW="$TMP/Library/Application Support/BrowserClaw/.browseros/BrowserClawServer/versions/test/resources/bin/browseros-claw-server"
+BROWSERCLAW_PID=$(mkbusyfake "$BROWSERCLAW")
+sleep 2
+run_guard \
+  YOLO_BROWSERCLAW_CPU_PCT_THRESHOLD="1" \
+  YOLO_BROWSERCLAW_CPU_SUSTAINED_FIRES="2" \
+  YOLO_BROWSERCLAW_MIN_AGE_SEC="0" \
+  YOLO_BROWSERCLAW_TERM_GRACE_SEC="0" \
+  YOLO_BROWSERCLAW_CMD_PATTERN="BrowserClaw/.browseros/BrowserClawServer/versions/test/resources/bin/browseros-claw-server" \
+  YOLO_CPU_PCT_THRESHOLD="9999" \
+  YOLO_CODEQL_CPU_PCT_THRESHOLD="9999" \
+  YOLO_MEM_FREE_PCT_THRESHOLD="0" \
+  YOLO_SWAP_PCT_THRESHOLD="999"
+alive "$BROWSERCLAW_PID" \
+  && ok "T13: first BrowserClaw hot sample is preserved" \
+  || bad "T13: BrowserClaw was killed without a sustained streak"
+run_guard \
+  YOLO_BROWSERCLAW_CPU_PCT_THRESHOLD="1" \
+  YOLO_BROWSERCLAW_CPU_SUSTAINED_FIRES="2" \
+  YOLO_BROWSERCLAW_MIN_AGE_SEC="0" \
+  YOLO_BROWSERCLAW_TERM_GRACE_SEC="0" \
+  YOLO_BROWSERCLAW_CMD_PATTERN="BrowserClaw/.browseros/BrowserClawServer/versions/test/resources/bin/browseros-claw-server" \
+  YOLO_CPU_PCT_THRESHOLD="9999" \
+  YOLO_CODEQL_CPU_PCT_THRESHOLD="9999" \
+  YOLO_MEM_FREE_PCT_THRESHOLD="0" \
+  YOLO_SWAP_PCT_THRESHOLD="999"
+sleep 1
+alive "$BROWSERCLAW_PID" \
+  && bad "T13: sustained BrowserClaw single-core runaway was not reclaimed" \
+  || ok "T13: sustained BrowserClaw single-core runaway reclaimed"
+grep -q "BROWSERCLAW_RECLAIM: killed pid=$BROWSERCLAW_PID" "$TMP/guard.log" \
+  && ok "T13: exact BrowserClaw recovery logged" \
+  || bad "T13: missing BROWSERCLAW_RECLAIM log"
+kill -9 "$BROWSERCLAW_PID" 2>/dev/null
+
+# --- T14: aggregate memory reporting must include the dedicated agent browser.
+#          It stays notify-only; this assertion never closes tabs or the app. ---
+BROWSEROS="$TMP/BrowserOS neo.app/Contents/MacOS/BrowserOS neo"
+BROWSEROS_PID=$(mkfake "$BROWSEROS")
+sleep 1
+run_guard \
+  YOLO_MEM_APP_AGG_MB_THRESHOLD="0" \
+  YOLO_MEM_APP_LAST_FILE="$TMP/mem-app-last-browseros" \
+  YOLO_MEM_APP_STATUS_FILE="$TMP/mem-app-status-browseros.txt"
+grep -q "App:   BrowserOS" "$TMP/mem-app-status-browseros.txt" \
+  && ok "T14: aggregate memory report includes BrowserOS" \
+  || bad "T14: BrowserOS missing from aggregate memory report"
+alive "$BROWSEROS_PID" \
+  && ok "T14: BrowserOS app remains protected from memory reclaim" \
+  || bad "T14: BrowserOS app was killed by the memory report path"
+kill -9 "$BROWSEROS_PID" 2>/dev/null
+
+# --- T15: near-name processes and the explicit opt-out remain protected. ---
+NOT_BROWSERCLAW="$TMP/not-browserclaw/browseros-claw-server"
+NOT_BROWSERCLAW_PID=$(mkbusyfake "$NOT_BROWSERCLAW")
+sleep 2
+run_guard \
+  YOLO_BROWSERCLAW_CPU_PCT_THRESHOLD="1" \
+  YOLO_BROWSERCLAW_CPU_SUSTAINED_FIRES="1" \
+  YOLO_BROWSERCLAW_MIN_AGE_SEC="0" \
+  YOLO_BROWSERCLAW_CMD_PATTERN="$TMP/exact-browserclaw-signature" \
+  YOLO_CPU_PCT_THRESHOLD="9999" \
+  YOLO_CODEQL_CPU_PCT_THRESHOLD="9999" \
+  YOLO_MEM_FREE_PCT_THRESHOLD="0" \
+  YOLO_SWAP_PCT_THRESHOLD="999"
+alive "$NOT_BROWSERCLAW_PID" \
+  && ok "T15: hot non-matching process remains protected" \
+  || bad "T15: BrowserClaw governor killed a non-matching process"
+kill -9 "$NOT_BROWSERCLAW_PID" 2>/dev/null
+
+OPT_BROWSERCLAW="$TMP/exact-browserclaw-signature/browseros-claw-server"
+OPT_BROWSERCLAW_PID=$(mkbusyfake "$OPT_BROWSERCLAW")
+sleep 2
+run_guard \
+  YOLO_RECLAIM_BROWSERCLAW="0" \
+  YOLO_BROWSERCLAW_CPU_PCT_THRESHOLD="1" \
+  YOLO_BROWSERCLAW_CPU_SUSTAINED_FIRES="1" \
+  YOLO_BROWSERCLAW_MIN_AGE_SEC="0" \
+  YOLO_BROWSERCLAW_CMD_PATTERN="$TMP/exact-browserclaw-signature" \
+  YOLO_CPU_PCT_THRESHOLD="9999" \
+  YOLO_CODEQL_CPU_PCT_THRESHOLD="9999" \
+  YOLO_MEM_FREE_PCT_THRESHOLD="0" \
+  YOLO_SWAP_PCT_THRESHOLD="999"
+alive "$OPT_BROWSERCLAW_PID" \
+  && ok "T15: BrowserClaw recovery opt-out is honored" \
+  || bad "T15: BrowserClaw recovery ignored explicit opt-out"
+kill -9 "$OPT_BROWSERCLAW_PID" 2>/dev/null
 
 echo ""
 echo "=== $pass passed, $fail failed ==="
