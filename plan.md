@@ -3966,3 +3966,14 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - **Dependency:** open PR #2118 owns the disjoint mobile footer CSS/test fix. This branch intentionally does not touch `globals.css`, `tests/landing-footer-mobile.test.mjs`, PR #2118's branch, or its dirty detached worktree. Review and release remain pending; do not merge from this task.
 - **Review:** PR #2130 (`codex/2115-mobile-landing`) opened at head `8b7d13e2de6ec2d5729c023b2d49241166c6cb8a`. It is open, mergeable, and blocked only while required checks/review are pending; this task's stop condition is reached without merge or deploy.
 - **Intent follow-up (2026-08-26):** exact-head CI failed `OFFER-002-AC1` and `OFFER-004-AC1` after the long tour moved off-home. The concise hero now retains the exact approval sentence and its single secondary CTA links directly to `/how-it-works#example-tasks` with the existing `watch-ci` attribution; it does not restore the long example/approval sequence. Local `tests/test-intent-check.js` passed 13/13, `scripts/intent-check.js --json` returned `ok=true`, focused landing tests passed 5/5, and exact-tree `npm test` passed 337/337.
+## File claim (append 2026-08-26T16:00:00Z) — `grok/context-six-block-20260826`
+
+| T-CONTEXT-SIX-BLOCK-20260826 | Operationalize Everyday AI Ep 710 six-block + four-layer FORMAT onto existing rails | in_progress | grok/context-six-block-20260826 | `tools/context-six-block.js`, `tests/test-context-six-block.js`, `bin/context-six-block`, `.agents/skills/context-six-block/**`, `SKILLS.md`, `plan.md` | Pack validates 6 blocks + gold example + rubric; Continuity-hero copy fails grade; no ChatGPT connector SKU; do not dual-edit context-vault.js |
+
+## Discovered / Decisions (append) — 2026-08-26T16:00Z — grok/context-six-block-20260826
+
+- Episode six blocks: Goal, Constraints, Reference, Examples, Procedures, Rubric. Four layers: Personal, Team, Company, Market.
+- Cheap steal: local assembler + deterministic rubric. Skip Everyday AI course, Prime Prompt Polish, ChatGPT Apps connectors.
+- Complementary to `tools/context-vault.js` (Allie 8 prompts) and `tools/coding-context-pack.js` (issue-first).
+- 2026-08-26T17:10Z CodeQL `js/incomplete-sanitization` on `tests/test-context-six-block.js:70` `.includes('chatgpt.com')` is REAL (1 high, PR annotation). Replaced with `tools/lib/safe-url-host.js` hostname parse + token equality. Expo Doctor 18/19 on this PR is the SDK pin wall (`expo 55.0.29` vs `~55.0.30`) owned by #2103 — do not pile pins onto this PR. CodeQL is not a required context; Hermes Mobile typecheck is.
+- 2026-08-26T17:40Z Required job "Hermes Mobile typecheck and tests" first failing STEP is Expo Doctor (run 32991643615 job 98250332767). Skip Expo Doctor when `git diff base...HEAD` has no `hermes-mobile/` paths. Do not skip the job (required name must report). Do not steal #2103 pins. `.github/workflows/ci.yml` Expo Doctor step + detect step only.
