@@ -141,6 +141,20 @@ test('multi-agent requires multiple explicit specialized roles', () => {
   }));
   assert.strictEqual(aliases.status, 'block');
   assert(aliases.errors.some((error) => error.includes('unique')));
+
+  for (const specializedRoles of [
+    ['Security Reviewer', 'security  reviewer'],
+    ['Reviewer', 'Ｒｅｖｉｅｗｅｒ'],
+    ['Reviewer', 'reviewer\u200b'],
+  ]) {
+    const normalizedAlias = selectPatterns(manifest({
+      independentWorkstreams: 2,
+      disjointResources: true,
+      specializedRoles,
+    }));
+    assert.strictEqual(normalizedAlias.status, 'block', JSON.stringify(specializedRoles));
+    assert(normalizedAlias.errors.some((error) => error.includes('unique')));
+  }
 });
 
 test('cross-session feedback loops select durable memory, goals, reflection, and adaptation', () => {
@@ -224,6 +238,12 @@ test('receipt hash is stable across input key order and excludes generated time'
   assert.strictEqual(first.receiptHash, second.receiptHash);
   assert.strictEqual(stableStringify(first), stableStringify(second));
   assert(!Object.hasOwn(first, 'generatedAt'));
+
+  const invalidA = selectPatterns({ unknownA: 1, unknownB: 2 });
+  const invalidB = selectPatterns({ unknownB: 2, unknownA: 1 });
+  assert.strictEqual(invalidA.status, 'block');
+  assert.strictEqual(invalidA.receiptHash, invalidB.receiptHash);
+  assert.deepStrictEqual(invalidA.errors, invalidB.errors);
 });
 
 test('CLI emits a deterministic receipt and returns nonzero for invalid input', () => {

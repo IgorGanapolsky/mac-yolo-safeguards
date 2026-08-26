@@ -75,6 +75,15 @@ function stableStringify(value) {
   return JSON.stringify(stableValue(value));
 }
 
+function normalizeRole(role) {
+  return role
+    .normalize('NFKC')
+    .replace(/\p{Cf}/gu, '')
+    .trim()
+    .replace(/\s+/gu, ' ')
+    .toLowerCase();
+}
+
 function validateManifest(input) {
   const errors = [];
   if (!isPlainObject(input)) return ['manifest must be an object'];
@@ -126,7 +135,7 @@ function validateManifest(input) {
     );
     if (invalidRole) errors.push('specializedRoles entries must contain 2-80 characters');
     const normalizedRoles = input.specializedRoles.map((role) =>
-      typeof role === 'string' ? role.trim().toLowerCase() : role,
+      typeof role === 'string' ? normalizeRole(role) : role,
     );
     if (new Set(normalizedRoles).size !== normalizedRoles.length) {
       errors.push('specializedRoles entries must be unique');
@@ -153,7 +162,7 @@ function validateManifest(input) {
     errors.push('successMetrics entries must contain 3-160 characters');
   }
 
-  return [...new Set(errors)];
+  return [...new Set(errors)].sort();
 }
 
 function conditionsFor(manifest) {
@@ -332,11 +341,12 @@ function blockedReceipt(input, errors) {
     schema: RECEIPT_SCHEMA,
     taskId: isPlainObject(input) && typeof input.taskId === 'string' ? input.taskId : null,
     status: 'block',
-    errors,
+    errors: [...new Set(errors)].sort(),
     selected: [],
     rejected: [],
     gates: [],
     complexity: { selectedCount: 0, level: 'invalid' },
+    inputHash: crypto.createHash('sha256').update(stableStringify(input ?? null)).digest('hex'),
   };
   return { ...base, receiptHash: crypto.createHash('sha256').update(stableStringify(base)).digest('hex') };
 }
@@ -444,6 +454,7 @@ module.exports = {
   RECEIPT_SCHEMA,
   MAX_MANIFEST_BYTES,
   blockedReceipt,
+  normalizeRole,
   readBoundedManifest,
   selectPatterns,
   stableStringify,
