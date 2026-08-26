@@ -3940,3 +3940,16 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - Production still shows `origin/main` Leash: `<summary>Optional: send the next task to a paired computer</summary>` plus “wrong workspace / Switch account” plus “Bounded Hermes … isolated serverless leases.” That is a sign-out control + operator dump sitting under Mac pairing — not a second Google workspace. Header already has Sign out (`dashboard-sign-out`).
 - Drop the Leash `account-recovery` card. Keep one-line `leash-signed-in` email. Sign-out stays in header/sidebar.
 - Codex P2 on #2095: `pendingWaitCopy(task.status)` — `running` → “Hermes is working on this.”; pending → “hasn't started.” Do not dual-edit #2041 result-replace or AGENT-476 TurnStatusline.
+
+## 1. Task Board (append 2026-08-26) — grok-ibm-granite-yolo-20260826
+
+| T-IBM-GRANITE-YOLO-20260826 | Catalog-backed IBM Granite routing for hermes-yolo (cheap OpenRouter 4.1-8b until 4.2 is listed; thinking modes; $10 fail-closed). Do not steal AGENT-542 wrapper/smart-router files | in_progress | grok-ibm-granite-yolo-20260826 | `tools/ibm-granite-yolo-router.js`, `tests/test-ibm-granite-yolo-router.js`, `bin/ibm-granite-yolo`, `.agents/skills/ibm-granite-yolo/**`, `SKILLS.md` (append row), `plan.md` (append only) | Complementary leaf for GH #2117; coding stays glm-coding; never invent 4.2 OpenRouter ids; no hermes-yolo-wrapper.js edit |
+
+## 2. File Ownership Map (append) — grok-ibm-granite-yolo-20260826
+
+- `tools/ibm-granite-yolo-router.js`, `tests/test-ibm-granite-yolo-router.js`, `bin/ibm-granite-yolo`, `.agents/skills/ibm-granite-yolo/**`, `SKILLS.md` (append row only), `plan.md` (append only) → **grok-ibm-granite-yolo-20260826** (T-IBM-GRANITE-YOLO-20260826: granite catalog + thinking dial; does not edit Codex AGENT-542 files or PR #2035 route-policy) (2026-08-26T16:40:00Z)
+
+## Discovered / Decisions (append) — 2026-08-26T16:40Z — grok-ibm-granite-yolo-20260826
+
+- TNS Granite 4.2 (3B/8B/30B dense reasoning, thinking/low-effort/none). OpenRouter public catalog 2026-08-26 has `ibm-granite/granite-4.1-8b` ($0.05/$0.10 per M) and `ibm-granite/granite-4.0-h-micro` only — no 4.2, no :free granite.
+- Codex AGENT-542 claimed `hermes-yolo-wrapper.js` + `tools/hermes-yolo-smart-router.js` for GH #2117 but the worktree only has a plan.md claim commit. Grok ships the granite catalog leaf on new files so Codex can import it. Coding stays glm-coding (TNS: Granite coding is average).
