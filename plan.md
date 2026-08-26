@@ -3940,3 +3940,14 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - Production still shows `origin/main` Leash: `<summary>Optional: send the next task to a paired computer</summary>` plus “wrong workspace / Switch account” plus “Bounded Hermes … isolated serverless leases.” That is a sign-out control + operator dump sitting under Mac pairing — not a second Google workspace. Header already has Sign out (`dashboard-sign-out`).
 - Drop the Leash `account-recovery` card. Keep one-line `leash-signed-in` email. Sign-out stays in header/sidebar.
 - Codex P2 on #2095: `pendingWaitCopy(task.status)` — `running` → “Hermes is working on this.”; pending → “hasn't started.” Do not dual-edit #2041 result-replace or AGENT-476 TurnStatusline.
+
+## File claim (append 2026-08-26T16:50:00Z) — `grok-motherduck-cost-isolation-20260826`
+
+| T-HOSTED-MOTHERDUCK-COST-ISOLATION-20260826 | MotherDuck homepage process steal: hosted-10 cannot escalate to Giga/warehouse; isolation is shared fenced VPS not a Duckling; honest agent catalog | in_progress | grok-motherduck-cost-isolation-20260826 | `tools/hosted-motherduck-cost-isolation.js` (new), `tests/test-hosted-motherduck-cost-isolation.js` (new), `bin/hosted-motherduck-cost-isolation` (new), `apps/hermes-control-plane/lib/hosted-cost-isolation.ts` (new), `apps/hermes-control-plane/lib/hosted-cost-isolation.test.ts` (new), `.agents/skills/hosted-motherduck-cost-isolation/**`, `SKILLS.md` (one row), `plan.md` | Not Ducklings / Flights / Dives / JWT mint. Do not dual-edit PR #2123 last-mile, hosted-source-of-truth, or llms.txt route. ECI pauses warehouse SKU. |
+
+## Discovered / Decisions (append) — 2026-08-26T16:50Z — grok-motherduck-cost-isolation-20260826
+
+- Source: https://motherduck.com/ — “an agent querying a Standard Duckling cannot run up Giga prices”; every agent gets an isolated Duckling with 100ms idle-shutdown; MCP fuzzy catalog + SUMMARIZE/COMMENT; POST new.motherduck.com ephemeral JWT.
+- Transferable: bound $10 SKU cannot escalate; isolation honesty is shared VPS not per-agent Duckling; catalog lists hosted chat/approvals only.
+- Backlog: Duckling millsecond idle-shutdown, Dives viz, warehouse MCP, JWT trial mint, attaching this receipt onto publicRunReceipt after #2123 lands.
+- Did not edit `tools/hosted-tower-last-mile.js`, `hosted-source-of-truth.ts`, or `app/llms.txt/route.ts`.

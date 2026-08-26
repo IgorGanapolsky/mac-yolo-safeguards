@@ -1,0 +1,4 @@
+#!/usr/bin/env node
+'use strict';
+const { main } = require('../tools/hosted-motherduck-cost-isolation');
+process.exit(main(process.argv.slice(2)));
