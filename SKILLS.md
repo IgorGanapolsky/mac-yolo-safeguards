@@ -106,4 +106,4 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 | `gitbutler-mcp-isolated` | GitButler MCP (`but mcp serve`) only behind assert_but_setup_safe.sh on a single-owner clone. Never add [mcp_servers.gitbutler] to global ~/.grok/config.toml. Slash: /gitbutler-mcp-isolated. | `.agents/skills/gitbutler-mcp-isolated/SKILL.md` | local |
 | `gitbutler-session-absorb` | One GitButler agent/<slug> session branch; absorb unpublished own hunks only. Linked worktrees stay on git. Slash: /gitbutler-session-absorb. | `.agents/skills/gitbutler-session-absorb/SKILL.md` | local |
 | `gitbutler-google-sso` | GitButler Cloud login is Google SSO (personal Gmail via /igor-login-accounts). Never GitHub for the Cloud account. Forge GitHub IgorGanapolsky is separate. Slash: /gitbutler-google-sso. | `.agents/skills/gitbutler-google-sso/SKILL.md` | local |
-
+| `webmcp-agent-readiness` | Design and audit bounded WebMCP quote, booking, support, or commerce journeys with fail-closed static and runtime evidence. Never claim runtime readiness from a schema alone. Slash: /webmcp-agent-readiness. | `.agents/skills/webmcp-agent-readiness/SKILL.md` | local |
