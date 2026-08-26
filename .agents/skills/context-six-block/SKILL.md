@@ -24,19 +24,45 @@ show don't tell, rubric-first, or reusable context vaults.
 
 Layers: personal (this agent/worktree), team (AGENTS.md), company (Chief), market ($10 fenced VPS).
 
-## Do not
+## Constraints
 
-- Clone Everyday AI / Prime Prompt Polish
-- Add ChatGPT/Claude/Gemini connector SKUs
-- Dual-edit `tools/context-vault.js`
-- Claim LIVE from this pack (`liveClaim` is always false)
+NEVER clone Everyday AI / Prime Prompt Polish. NEVER add ChatGPT/Claude/Gemini connector SKUs.
+ALWAYS steal FORMAT only (six named blocks + gold + rubric-first). HARD fail closed on heading-only
+"show, don't tell". REFUSE to dual-edit `tools/context-six-block.js` or Codex #2126 `tools/context-vault.js`.
 
-## Proof
+## Examples (show, don't tell)
 
+Weak: Write well.
+
+Gold:
+
+```bash
+$ node tools/context-six-block.js --grade "Hosted Hermes is $10/mo chat on a fenced VPS."
+$ node tools/audit-six-block.js --doctor --json
 ```
+
+A heading that says "show, don't tell" with no Weak/Gold pair is a FAIL.
+
+## Procedures
+
+1. Assemble a pack: `node tools/context-six-block.js --json`
+2. Grade hosted copy before ship
+3. Audit the skill file itself
+
+```bash
 node tests/test-context-six-block.js
-node tools/context-six-block.js --json
-node tools/context-six-block.js --grade "Hosted Hermes is $10/mo chat on a fenced VPS."
+node tests/test-audit-six-block.js
+node tools/audit-six-block.js --doctor --json
 ```
+
+## Rubric
+
+- assembler gold hosted copy → grade ok
+- Continuity-hero copy → grade fail
+- this SKILL.md `audit-six-block` → ok=true
+- heading-only examples → ok=false
+- clonedEverydayAi true → ok=false
+- doctor_exit=0
+- evidence: test-audit-six-block PASS; dualEditContextSixBlockJs2114=false
 
 Business-data "connectors" map to `coding-context-pack`, recall, and SKILLS.md.

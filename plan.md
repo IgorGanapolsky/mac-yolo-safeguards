@@ -3972,3 +3972,13 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - Complementary to `tools/context-vault.js` (Allie 8 prompts) and `tools/coding-context-pack.js` (issue-first).
 - 2026-08-26T17:10Z CodeQL `js/incomplete-sanitization` on `tests/test-context-six-block.js:70` `.includes('chatgpt.com')` is REAL (1 high, PR annotation). Replaced with `tools/lib/safe-url-host.js` hostname parse + token equality. Expo Doctor 18/19 on this PR is the SDK pin wall (`expo 55.0.29` vs `~55.0.30`) owned by #2103 — do not pile pins onto this PR. CodeQL is not a required context; Hermes Mobile typecheck is.
 - 2026-08-26T17:40Z Required job "Hermes Mobile typecheck and tests" first failing STEP is Expo Doctor (run 32991643615 job 98250332767). Skip Expo Doctor when `git diff base...HEAD` has no `hermes-mobile/` paths. Do not skip the job (required name must report). Do not steal #2103 pins. `.github/workflows/ci.yml` Expo Doctor step + detect step only.
+
+## File claim (append 2026-08-26T18:20:00Z) — `grok/six-block-audit-20260826`
+
+| T-SIX-BLOCK-AUDIT-20260826 | Everyday AI Ep 710 residual: fail-closed six-block SKILL auditor + gold examples. Assembler already on main (#2114). | in_progress | grok/six-block-audit-20260826 | `tools/audit-six-block.js`, `tests/test-audit-six-block.js`, `bin/audit-six-block`, `.agents/skills/context-six-block/SKILL.md` (gold/rubric only), `SKILLS.md`, `plan.md` | Heading-only show-dont-tell fails; context-six-block SKILL.md audits ok=true; do **not** edit `tools/context-six-block.js` or Codex #2126 `tools/context-vault.js` / `tools/coding-context-pack.js`. No ChatGPT connector SKU. |
+
+## Discovered / Decisions (append) — 2026-08-26T18:20Z — grok/six-block-audit-20260826
+
+- #2114 already shipped the six-block assembler. Remaining ROI is grading live SKILL.md files so "show, don't tell" is not a heading.
+- AGENT-540 canceled; AGENT-544 / PR #2126 owns context-vault + coding-context-pack — do not steal.
+- ChatGPT/Claude/Gemini connectors stay mapped onto coding-context-pack / recall / SKILLS.md.
