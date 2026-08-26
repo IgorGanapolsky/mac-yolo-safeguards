@@ -14,7 +14,9 @@ Our high-ROI transfer is a deterministic selection contract, not another agent f
 
 ## Fail-closed boundaries
 
-- Unknown or secret-shaped fields are rejected.
+- Unknown fields plus credential-shaped field names or string values are rejected without echoing attacker-controlled content.
+- Input must be valid UTF-8; decoding is fatal rather than replacement-based.
+- Valid JSON hashes its canonical parsed value, so whitespace and key order do not change the receipt. Malformed encoding/JSON hashes the original bytes.
 - Consequential external writes and high-risk internal writes cannot opt out of human confirmation.
 - Parallelization is not justified by workload size alone; workstreams must be independent and use disjoint resources.
 - Multi-agent execution additionally requires distinct specialist roles and an ownership map.

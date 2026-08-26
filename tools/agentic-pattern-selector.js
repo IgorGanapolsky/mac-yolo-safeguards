@@ -3,6 +3,7 @@
 
 const crypto = require('crypto');
 const fs = require('fs');
+const { TextDecoder } = require('util');
 
 const SCHEMA = 'agentic-pattern-task/v1';
 const RECEIPT_SCHEMA = 'agentic-pattern-receipt/v1';
@@ -58,6 +59,7 @@ const ALLOWED_FIELDS = new Set([
 ]);
 
 const SECRET_FIELD = /(?:api.?key|authorization|bearer|credential|password|secret|token)/i;
+const SECRET_VALUE = /(?:authorization\s*[:=]\s*bearer\s+\S{6,}|(?:api.?key|credential|password|secret|token)\s*[:=]\s*\S{6,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{20,})/i;
 
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -119,12 +121,29 @@ function inspectStructure(input) {
   return null;
 }
 
+function containsSecretShapedValue(input) {
+  const stack = [input];
+  const seen = new WeakSet();
+  let nodes = 0;
+  while (stack.length) {
+    const value = stack.pop();
+    if (typeof value === 'string' && SECRET_VALUE.test(value)) return true;
+    if (value === null || typeof value !== 'object') continue;
+    nodes += 1;
+    if (nodes > MAX_STRUCTURE_NODES || seen.has(value)) continue;
+    seen.add(value);
+    for (const child of Array.isArray(value) ? value : Object.values(value)) stack.push(child);
+  }
+  return false;
+}
+
 function validateManifest(input) {
   const errors = [];
   if (!isPlainObject(input)) return ['manifest must be an object'];
 
   const structureError = inspectStructure(input);
   if (structureError) errors.push(structureError);
+  if (containsSecretShapedValue(input)) errors.push('secret-shaped values are forbidden');
 
   for (const key of Object.keys(input)) {
     if (SECRET_FIELD.test(key)) errors.push('secret-shaped fields are forbidden');
@@ -440,13 +459,21 @@ function selectPatterns(input, inputHashOverride = null) {
 
 function selectPatternsFromRaw(raw) {
   const bytes = Buffer.isBuffer(raw) ? raw : Buffer.from(raw);
+  let decoded;
+  try {
+    decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch (_error) {
+    return blockedReceiptFromRaw(bytes, ['manifest encoding is invalid']);
+  }
   let input;
   try {
-    input = JSON.parse(bytes.toString('utf8'));
+    input = JSON.parse(decoded);
   } catch (_error) {
     return blockedReceiptFromRaw(bytes, ['manifest JSON is invalid']);
   }
-  const inputHash = crypto.createHash('sha256').update(bytes).digest('hex');
+  const inputHash = inspectStructure(input)
+    ? crypto.createHash('sha256').update(bytes).digest('hex')
+    : canonicalInputHash(input);
   return selectPatterns(input, inputHash);
 }
 

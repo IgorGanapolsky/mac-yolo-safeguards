@@ -36,7 +36,9 @@ node tools/agent-decision-stack.js \
 - Multi-agent requires parallel eligibility plus at least two explicit specialist roles.
 - Retrieval work requires source provenance and unsupported-claim checks.
 - Simple deterministic work should normally select only evaluation/monitoring.
-- Never place secrets, credentials, tokens, or API keys in a task manifest.
+- Credential-shaped field names or string values are rejected without echoing attacker-controlled content.
+- Input must be valid UTF-8; decoding is fatal rather than replacement-based.
+- Valid JSON hashes its canonical parsed value, so whitespace and key order do not change the receipt. Malformed encoding/JSON hashes the original bytes.
 - A receipt explains architecture; it does not prove execution. Execute every returned gate and retain its evidence separately.
 
 ## Verification

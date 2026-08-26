@@ -205,6 +205,18 @@ test('unknown fields and secret-shaped fields are rejected', () => {
   const deepBlocked = selectPatterns(deeplyNested);
   assert.strictEqual(deepBlocked.status, 'block');
   assert.match(deepBlocked.receiptHash, /^[a-f0-9]{64}$/);
+
+  const valueSentinel = ['VALUE', 'SECRET', 'SENTINEL', '86420'].join('_');
+  for (const secretValueManifest of [
+    manifest({ successMetrics: [`authorization: Bearer ${valueSentinel}`] }),
+    manifest({ goal: `Analyze evidence without token=${valueSentinel}` }),
+    manifest({ specializedRoles: [`password=${valueSentinel}`] }),
+  ]) {
+    const secretValueReceipt = selectPatterns(secretValueManifest);
+    assert.strictEqual(secretValueReceipt.status, 'block');
+    assert(secretValueReceipt.errors.includes('secret-shaped values are forbidden'));
+    assert(!JSON.stringify(secretValueReceipt).includes(valueSentinel));
+  }
 });
 
 test('validation rejects duplicate roles and invalid metric values', () => {
@@ -347,8 +359,36 @@ test('CLI help, argument errors, and malformed files are bounded', () => {
   });
   const invalidByteReceiptA = JSON.parse(invalidByteA.stdout);
   const invalidByteReceiptB = JSON.parse(invalidByteB.stdout);
-  assert.deepStrictEqual(invalidByteReceiptA.errors, ['manifest JSON is invalid']);
+  assert.deepStrictEqual(invalidByteReceiptA.errors, ['manifest encoding is invalid']);
   assert.notStrictEqual(invalidByteReceiptA.inputHash, invalidByteReceiptB.inputHash);
+
+  const validManifest = manifest({ taskId: 'canonical-cli-proof' });
+  const reversedManifest = Object.fromEntries(Object.entries(validManifest).reverse());
+  const canonicalA = spawnSync(process.execPath, [cli, '--manifest', '-'], {
+    encoding: 'utf8',
+    input: JSON.stringify(validManifest),
+  });
+  const canonicalB = spawnSync(process.execPath, [cli, '--manifest', '-'], {
+    encoding: 'utf8',
+    input: JSON.stringify(reversedManifest, null, 2),
+  });
+  assert.strictEqual(canonicalA.status, 0);
+  assert.strictEqual(canonicalB.status, 0);
+  assert.strictEqual(JSON.parse(canonicalA.stdout).inputHash, JSON.parse(canonicalB.stdout).inputHash);
+  assert.strictEqual(JSON.parse(canonicalA.stdout).receiptHash, JSON.parse(canonicalB.stdout).receiptHash);
+
+  const utf8Manifest = Buffer.from(JSON.stringify(manifest({
+    goal: 'Validate UTF8_MARKER safely without replacement decoding',
+  })));
+  const markerIndex = utf8Manifest.indexOf('UTF8_MARKER');
+  assert(markerIndex > 0);
+  utf8Manifest[markerIndex] = 0x80;
+  const invalidUtf8 = spawnSync(process.execPath, [cli, '--manifest', '-'], {
+    encoding: 'utf8',
+    input: utf8Manifest,
+  });
+  assert.strictEqual(invalidUtf8.status, 2);
+  assert.deepStrictEqual(JSON.parse(invalidUtf8.stdout).errors, ['manifest encoding is invalid']);
 
   const deepJson = `${'{"nested":'.repeat(10_000)}0${'}'.repeat(10_000)}`;
   assert(Buffer.byteLength(deepJson) < 256 * 1024);

@@ -102,6 +102,46 @@ const deepPattern = loadPatternReceipt(deepPatternPath);
 assert.strictEqual(deepPattern.status, 'block');
 assert.match(deepPattern.receiptHash, /^[a-f0-9]{64}$/);
 
+const canonicalManifest = {
+  schema: 'agentic-pattern-task/v1',
+  taskId: 'canonical-stack-proof',
+  goal: 'Verify semantic manifest hashing through decision stack loading',
+  risk: 'low',
+  effect: 'read',
+  uncertainty: 'low',
+  independentWorkstreams: 1,
+  disjointResources: false,
+  specializedRoles: [],
+  crossSession: false,
+  recurringFeedback: false,
+  retrievalNeeded: false,
+  dynamicRouting: false,
+  resourceConstrained: false,
+  humanConfirmation: 'not_required',
+  successMetrics: ['semantic hashes match'],
+};
+const canonicalPathA = path.join(patternDir, 'canonical-a.json');
+const canonicalPathB = path.join(patternDir, 'canonical-b.json');
+fs.writeFileSync(canonicalPathA, JSON.stringify(canonicalManifest));
+fs.writeFileSync(
+  canonicalPathB,
+  JSON.stringify(Object.fromEntries(Object.entries(canonicalManifest).reverse()), null, 2),
+);
+const canonicalPatternA = loadPatternReceipt(canonicalPathA);
+const canonicalPatternB = loadPatternReceipt(canonicalPathB);
+assert.strictEqual(canonicalPatternA.inputHash, canonicalPatternB.inputHash);
+assert.strictEqual(canonicalPatternA.receiptHash, canonicalPatternB.receiptHash);
+
+const invalidUtf8Path = path.join(patternDir, 'invalid-utf8.json');
+const invalidUtf8Manifest = Buffer.from(JSON.stringify(canonicalManifest));
+const utf8GoalIndex = invalidUtf8Manifest.indexOf('Verify semantic');
+assert(utf8GoalIndex > 0);
+invalidUtf8Manifest[utf8GoalIndex] = 0x80;
+fs.writeFileSync(invalidUtf8Path, invalidUtf8Manifest);
+const invalidUtf8Pattern = loadPatternReceipt(invalidUtf8Path);
+assert.strictEqual(invalidUtf8Pattern.status, 'block');
+assert.deepStrictEqual(invalidUtf8Pattern.errors, ['manifest encoding is invalid']);
+
 const blockedBrief = buildBrief({
   task: 'Do not execute work after an invalid pattern manifest',
   patternManifest: badPatternPath,
