@@ -120,7 +120,8 @@ function validRuntime(manifest) {
           { need: 'consultation' },
           { slot: 'tomorrow' },
         ],
-        confirmationObserved: true,
+        confirmationRequired: true,
+        confirmationObserved: false,
         sideEffect: 'not_executed',
         durationMs: 1200,
         estimatedCostUsd: 0.01,
@@ -277,12 +278,23 @@ function validRuntime(manifest) {
   const manifest = validManifest();
   const runtime = validRuntime(manifest);
   runtime.journeys['book-consult-preview'].confirmationObserved = false;
+  runtime.journeys['book-consult-preview'].confirmationRequired = false;
   runtime.journeys['book-consult-preview'].sideEffect = 'verified';
   const result = auditReadiness(manifest, runtime, { now, artifactSha256: captureDigest });
   assert.strictEqual(result.status, 'UNVERIFIED');
-  assert.match(result.runtimeErrors.join('\n'), /confirmationObserved/);
+  assert.match(result.runtimeErrors.join('\n'), /confirmationRequired/);
   assert.match(result.runtimeErrors.join('\n'), /not_executed/);
   ok('production preview cannot finalize a consequential action');
+}
+
+{
+  const manifest = validManifest();
+  const runtime = validRuntime(manifest);
+  runtime.journeys['book-consult-preview'].confirmationObserved = true;
+  const result = auditReadiness(manifest, runtime, { now, artifactSha256: captureDigest });
+  assert.strictEqual(result.status, 'UNVERIFIED');
+  assert.match(result.runtimeErrors.join('\n'), /preview.*confirmationObserved=false/i);
+  ok('preview evidence cannot claim a confirmation that never executes');
 }
 
 {

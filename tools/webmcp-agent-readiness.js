@@ -401,13 +401,21 @@ function validateRuntime(manifest, runtime, options = {}) {
 
     const effects = journey.expectedCalls.map((name) => manifest.policies[name].effect);
     const hasConsequential = effects.includes('consequential');
-    if (hasConsequential && evidence.confirmationObserved !== true) {
-      errors.push(`journey ${journey.id} must record confirmationObserved=true`);
-    }
-    if (journey.mode === 'preview' && hasConsequential && evidence.sideEffect !== 'not_executed') {
-      errors.push(`journey ${journey.id} preview sideEffect must be not_executed`);
+    if (journey.mode === 'preview' && hasConsequential) {
+      if (evidence.confirmationRequired !== true) {
+        errors.push(`journey ${journey.id} preview must record confirmationRequired=true`);
+      }
+      if (evidence.confirmationObserved !== false) {
+        errors.push(`journey ${journey.id} preview must record confirmationObserved=false`);
+      }
+      if (evidence.sideEffect !== 'not_executed') {
+        errors.push(`journey ${journey.id} preview sideEffect must be not_executed`);
+      }
     }
     if (journey.mode === 'sandbox' && hasConsequential) {
+      if (evidence.confirmationObserved !== true) {
+        errors.push(`journey ${journey.id} sandbox must record confirmationObserved=true`);
+      }
       if (runtime.environment !== 'sandbox') {
         errors.push(`journey ${journey.id} sandbox verification requires runtime environment=sandbox`);
       }

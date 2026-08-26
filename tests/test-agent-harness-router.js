@@ -689,6 +689,11 @@ function validAuthorityRequest(overrides = {}) {
   };
   const policy = {
     allowedTools: ['git_status', 'write_patch', 'cloud_advice'],
+    toolEffects: {
+      git_status: 'read',
+      write_patch: 'write',
+      cloud_advice: 'consequential',
+    },
     allowedProcesses: ['git'],
     allowedFileRoots: ['/workspace'],
     allowedNetworkOrigins: ['https://api.openai.com'],
@@ -763,7 +768,7 @@ test('HarnessAuthorityGuard blocks process, filesystem, and network scope escape
   assertTrue(result.reasons.some((reason) => reason.includes('network origin')));
 });
 
-test('HarnessAuthorityGuard requires action-bound approval for writes', () => {
+test('HarnessAuthorityGuard requires proposal-digest-bound approval for writes', () => {
   const write = validAuthorityRequest({
     proposal: {
       actionId: 'action-write-1',
@@ -774,11 +779,51 @@ test('HarnessAuthorityGuard requires action-bound approval for writes', () => {
   });
   const blocked = MOD.authorizeAction(write);
   assertEqual(blocked.status, 'BLOCKED');
-  assertTrue(blocked.reasons.some((reason) => reason.includes('action-bound approval')));
+  assertTrue(blocked.reasons.some((reason) => reason.includes('proposal-digest-bound approval')));
 
-  write.approval = { granted: true, actionId: 'action-write-1' };
+  write.approval = {
+    granted: true,
+    actionId: 'action-write-1',
+    proposalSha256: MOD.sha256Canonical(write.proposal),
+  };
   const authorized = MOD.authorizeAction(write);
   assertEqual(authorized.status, 'AUTHORIZED');
+});
+
+test('HarnessAuthorityGuard derives effect from trusted policy and blocks relabelled writes', () => {
+  const disguisedWrite = validAuthorityRequest({
+    proposal: {
+      actionId: 'action-disguised-write-1',
+      tool: 'write_patch',
+      effect: 'read',
+      process: null,
+    },
+  });
+  const result = MOD.authorizeAction(disguisedWrite);
+  assertEqual(result.status, 'BLOCKED');
+  assertTrue(result.reasons.some((reason) => reason.includes('trusted policy effect')));
+  assertTrue(result.reasons.some((reason) => reason.includes('proposal-digest-bound approval')));
+});
+
+test('HarnessAuthorityGuard rejects approval replay after proposal mutation', () => {
+  const write = validAuthorityRequest({
+    proposal: {
+      actionId: 'action-write-replay-1',
+      tool: 'write_patch',
+      effect: 'write',
+      process: null,
+      filePaths: ['/workspace/project/approved.txt'],
+    },
+  });
+  write.approval = {
+    granted: true,
+    actionId: write.proposal.actionId,
+    proposalSha256: MOD.sha256Canonical(write.proposal),
+  };
+  write.proposal.filePaths = ['/workspace/project/different.txt'];
+  const result = MOD.authorizeAction(write);
+  assertEqual(result.status, 'BLOCKED');
+  assertTrue(result.reasons.some((reason) => reason.includes('proposal-digest-bound approval')));
 });
 
 test('HarnessAuthorityGuard requires disclosed, bounded context before cloud advice', () => {
@@ -787,7 +832,7 @@ test('HarnessAuthorityGuard requires disclosed, bounded context before cloud adv
       actionId: 'cloud-advice-1',
       kind: 'cloud_advice',
       tool: 'cloud_advice',
-      effect: 'read',
+      effect: 'consequential',
       process: null,
       filePaths: [],
       networkOrigins: ['https://api.openai.com'],
@@ -809,7 +854,11 @@ test('HarnessAuthorityGuard requires disclosed, bounded context before cloud adv
     contextSha256: MOD.sha256Canonical(cloud.proposal.context),
     sensitiveItemIds: ['customer-token'],
   };
-  cloud.approval = { granted: true, actionId: 'cloud-advice-1' };
+  cloud.approval = {
+    granted: true,
+    actionId: 'cloud-advice-1',
+    proposalSha256: MOD.sha256Canonical(cloud.proposal),
+  };
   const authorized = MOD.authorizeAction(cloud);
   assertEqual(authorized.status, 'AUTHORIZED');
 });

@@ -45,6 +45,22 @@ node tools/agent-harness-router.js check --json
 # Exit code 1 = budget exhausted (fail-closed)
 ```
 
+## Tool-capable execution
+
+Use `executeRoutedTask(taskSpec, executor)` from
+`tools/hermes-gateway-router-bridge.js` for any caller that will actually invoke
+a tool-capable executor. `routeForTask()` only selects a route; it executes
+nothing.
+
+The authority request must include trusted policy metadata:
+
+- `policy.toolEffects[tool]` is the host-owned `read`, `write`, or
+  `consequential` classification. A proposal cannot lower it.
+- Write and consequential approvals must contain the exact
+  `proposalSha256`; changing arguments, paths, origins, or context invalidates
+  the approval.
+- The executor is never called when authority or sandbox evidence fails.
+
 ## Architecture
 - **MODEL_REGISTRY**: 9 models with cost/latency/quality/privacy metadata
 - **routeModel()**: Optimal model for a task based on 5 routing preferences
@@ -61,6 +77,8 @@ node tools/agent-harness-router.js check --json
 - Secret detection rejects AWS keys, GitHub PATs, JWTs, Bearer tokens in captured discoveries
 - Input-capture detection refuses Computer History / event_tap / keystroke data
 - Third-party models blocked when budget exhausted or sensitive data required
+- Tool effects come from trusted policy, not a model-provided label
+- Mutating approvals are bound to the canonical proposal digest
 - No privacy-violating fallback when no model meets the route contract
 - Tool-capable gateway routes require a hash-bound deterministic authority receipt
 - Cloud advice requires bounded classified context, a matching disclosure digest,

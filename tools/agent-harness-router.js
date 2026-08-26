@@ -903,6 +903,7 @@ function authorizeAction(request) {
   const approval = isObject(input.approval) ? input.approval : {};
   const disclosure = isObject(input.disclosure) ? input.disclosure : {};
   const reasons = [];
+  const proposalSha256 = sha256Canonical(proposal);
 
   if (typeof proposal.actionId !== 'string' || proposal.actionId.length === 0) {
     reasons.push('proposal.actionId is required');
@@ -923,6 +924,10 @@ function authorizeAction(request) {
   }
 
   if (!stringArray(policy.allowedTools)) reasons.push('policy.allowedTools must be a non-empty string array');
+  const toolEffects = isObject(policy.toolEffects) ? policy.toolEffects : {};
+  if (!isObject(policy.toolEffects)) {
+    reasons.push('policy.toolEffects must map every allowed tool to a trusted effect');
+  }
   if (!stringArray(runtime.registeredTools)) reasons.push('runtime.registeredTools must be a non-empty string array');
   if (stringArray(policy.allowedTools) && !policy.allowedTools.includes(proposal.tool)) {
     reasons.push(`tool ${proposal.tool || '<missing>'} is outside policy.allowedTools`);
@@ -934,6 +939,19 @@ function authorizeAction(request) {
     for (const tool of runtime.registeredTools) {
       if (!policy.allowedTools.includes(tool)) reasons.push(`registered tool ${tool} is outside policy.allowedTools`);
     }
+  }
+  if (stringArray(policy.allowedTools)) {
+    for (const tool of policy.allowedTools) {
+      if (!ACTION_EFFECTS.has(toolEffects[tool])) {
+        reasons.push(`policy.toolEffects.${tool} must be read, write, or consequential`);
+      }
+    }
+  }
+  const trustedEffect = toolEffects[proposal.tool];
+  if (ACTION_EFFECTS.has(trustedEffect) && proposal.effect !== trustedEffect) {
+    reasons.push(
+      `proposal.effect ${proposal.effect || '<missing>'} does not match trusted policy effect ${trustedEffect} for ${proposal.tool || '<missing>'}`,
+    );
   }
 
   if (policy.skillLoading !== 'on_demand') {
@@ -978,9 +996,13 @@ function authorizeAction(request) {
     }
   }
 
-  if (['write', 'consequential'].includes(proposal.effect)) {
-    if (approval.granted !== true || approval.actionId !== proposal.actionId) {
-      reasons.push('write and consequential actions require action-bound approval');
+  if (['write', 'consequential'].includes(trustedEffect)) {
+    if (
+      approval.granted !== true ||
+      approval.actionId !== proposal.actionId ||
+      approval.proposalSha256 !== proposalSha256
+    ) {
+      reasons.push('write and consequential actions require proposal-digest-bound approval');
     }
   }
 
@@ -1020,12 +1042,15 @@ function authorizeAction(request) {
     if (JSON.stringify(disclosedSensitive) !== JSON.stringify(sensitiveItemIds.sort())) {
       reasons.push('cloud disclosure must identify every sensitive context item');
     }
-    if (approval.granted !== true || approval.actionId !== proposal.actionId) {
-      reasons.push('cloud approval must be explicit and action-bound');
+    if (
+      approval.granted !== true ||
+      approval.actionId !== proposal.actionId ||
+      approval.proposalSha256 !== proposalSha256
+    ) {
+      reasons.push('cloud approval must be explicit and proposal-digest-bound');
     }
   }
 
-  const proposalSha256 = sha256Canonical(proposal);
   const policySha256 = sha256Canonical(policy);
   const runtimeSha256 = sha256Canonical(runtime);
   const approvalSha256 = sha256Canonical(approval);
@@ -1036,6 +1061,7 @@ function authorizeAction(request) {
     status,
     allowed: status === 'AUTHORIZED',
     reasons,
+    effectiveEffect: ACTION_EFFECTS.has(trustedEffect) ? trustedEffect : null,
     proposalSha256,
     policySha256,
     runtimeSha256,

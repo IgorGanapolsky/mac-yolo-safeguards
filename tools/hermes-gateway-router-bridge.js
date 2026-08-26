@@ -5,16 +5,17 @@
  * hermes-gateway-router-bridge.js — Active integration between agent-harness-router
  * and hermes-inference-gateway.
  *
- * This bridge (a NEW file) wires the harness-router's budget enforcement, model
- * routing, and discovery capture into the gateway's trace/record pipeline WITHOUT
- * editing the existing hermes-inference-gateway.js (which is owned by T-INFERENCE-GATEWAY-ROI-20260728).
+ * The inference gateway is an observability recorder, not a provider dispatcher.
+ * This bridge adds budget-aware routing plus an executeRoutedTask() boundary that
+ * performs deterministic authorization immediately before a caller-supplied
+ * tool-capable executor is invoked.
  *
  * Three integrations:
  *   1. bridgeRecord()  — wraps gateway.record(): enforces $10/mo budget, auto-captures
  *      successful patterns, fail-closed on budget exhaustion
- *   2. routeForTask()  — uses harness-router's routeModel() to select the optimal model
- *      before the gateway forwards a request to the upstream provider
- *   3. bridgeSummary() — augments gateway.summary() with harness-router budget + discovery metrics
+ *   2. routeForTask()  — selects a model without executing anything
+ *   3. executeRoutedTask() — authorizes then invokes a tool-capable executor
+ *   4. bridgeSummary() — augments gateway.summary() with harness-router budget + discovery metrics
  *
  * Usage as middleware (require from other tools):
  *   const bridge = require('./hermes-gateway-router-bridge.js');
@@ -192,6 +193,36 @@ function routeForTask(taskSpec = {}, opts = {}) {
   return authority ? { ...result, authority } : result;
 }
 
+/**
+ * Execute a tool-capable task through the authority boundary. This is the only
+ * bridge API that invokes caller code: routing must produce a fresh authorized
+ * receipt before the executor is called.
+ *
+ * @param {Object} taskSpec routing fields plus authorityRequest
+ * @param {Function} executor async function receiving the authorized route
+ * @param {Object} opts bridge options such as storageDir
+ * @returns {Promise<{routing: Object, execution: unknown}>}
+ */
+async function executeRoutedTask(taskSpec = {}, executor, opts = {}) {
+  if (typeof executor !== 'function') {
+    throw new TypeError('executeRoutedTask requires an executor function');
+  }
+  const routing = routeForTask({ ...taskSpec, requiresTools: true }, opts);
+  if (routing.blocked || !routing.authority?.allowed) {
+    const error = new Error(routing.reason || 'Action authority blocked before execution');
+    error.code = 'ACTION_AUTHORITY_BLOCKED';
+    error.routing = routing;
+    throw error;
+  }
+  const execution = await executor({
+    modelId: routing.modelId,
+    metadata: routing.metadata,
+    authority: routing.authority,
+    taskSpec,
+  });
+  return { routing, execution };
+}
+
 // ─── Bridge: enriched summary ─────────────────────────────────────
 
 /**
@@ -321,6 +352,7 @@ function main() {
 module.exports = {
   bridgeRecord,
   routeForTask,
+  executeRoutedTask,
   bridgeSummary,
   main,
   GATEWAY,

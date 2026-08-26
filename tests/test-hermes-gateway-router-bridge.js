@@ -41,6 +41,7 @@ function authorityRequest() {
     },
     policy: {
       allowedTools: ['repo_read'],
+      toolEffects: { repo_read: 'read' },
       allowedProcesses: ['git'],
       allowedFileRoots: ['/workspace'],
       allowedNetworkOrigins: [],
@@ -114,6 +115,39 @@ test('routeForTask blocks tool-capable routing without deterministic authority e
   assert.strictEqual(result.blocked, true);
   assert.strictEqual(result.modelId, null);
   assert.match(result.reason, /authority/i);
+});
+
+test('executeRoutedTask cannot invoke an executor without authority evidence', async () => {
+  let invoked = false;
+  await assert.rejects(
+    BRIDGE.executeRoutedTask(
+      { category: 'coding', requiresTools: true },
+      async () => { invoked = true; },
+    ),
+    /authority/i,
+  );
+  assert.strictEqual(invoked, false, 'blocked executor must never run');
+});
+
+test('executeRoutedTask authorizes immediately before invoking the executor', async () => {
+  let invoked = 0;
+  const result = await BRIDGE.executeRoutedTask(
+    {
+      category: 'coding',
+      requiresTools: true,
+      authorityRequest: authorityRequest(),
+    },
+    async ({ modelId, authority }) => {
+      invoked += 1;
+      assert.ok(modelId);
+      assert.strictEqual(authority.status, 'AUTHORIZED');
+      return { ok: true };
+    },
+    { storageDir: testDir },
+  );
+  assert.strictEqual(invoked, 1);
+  assert.strictEqual(result.execution.ok, true);
+  assert.strictEqual(result.routing.authority.status, 'AUTHORIZED');
 });
 
 test('routeForTask enforces latency, cost, and quality budgets before selection', () => {
@@ -350,6 +384,7 @@ test('bridge exports gateway and router for introspection', () => {
   assert.ok(BRIDGE.ROUTER, 'Bridge should export ROUTER');
   assert.ok(BRIDGE.bridgeRecord, 'Bridge should export bridgeRecord');
   assert.ok(BRIDGE.routeForTask, 'Bridge should export routeForTask');
+  assert.ok(BRIDGE.executeRoutedTask, 'Bridge should export executeRoutedTask');
   assert.ok(BRIDGE.bridgeSummary, 'Bridge should export bridgeSummary');
   assert.ok(BRIDGE.main, 'Bridge should export main');
 });

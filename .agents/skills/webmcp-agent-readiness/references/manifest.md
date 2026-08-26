@@ -122,7 +122,8 @@ Do not hand-edit old evidence to match a new manifest or capture.
         { "need": "consultation" },
         { "slot": "tomorrow" }
       ],
-      "confirmationObserved": true,
+      "confirmationRequired": true,
+      "confirmationObserved": false,
       "sideEffect": "not_executed",
       "durationMs": 1200,
       "estimatedCostUsd": 0.01,
@@ -135,3 +136,9 @@ Do not hand-edit old evidence to match a new manifest or capture.
 The default freshness window is 24 hours. A runtime tool list must match the
 manifest's evaluated page state exactly; evaluate different dynamic states with
 separate manifests or captures.
+
+For a `preview` journey, `confirmationRequired=true` proves the action would be
+gated, while `confirmationObserved=false` and `sideEffect=not_executed` prove no
+confirmation or consequential action was fabricated. A `sandbox` journey must
+instead record `confirmationObserved=true`, `environment=sandbox`, and
+`sideEffect=verified`.
