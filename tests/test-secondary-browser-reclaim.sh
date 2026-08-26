@@ -112,6 +112,31 @@ echo "=== sim-runaway-guard: secondary-browser reclaim E2E ==="
 # T6 (cheap, first): script is syntactically valid.
 if /bin/sh -n "$GUARD"; then ok "guard passes 'sh -n' syntax check"; else bad "guard FAILS syntax check"; fi
 
+# T0a: an active E2E lease must preserve the test process, but it must not
+# disable the non-destructive scheduler governor. Under extreme host load the
+# guard lowers the priority of allowlisted build/index workers and then exits;
+# it never kills or pauses the leased E2E.
+PRIORITY_WORKER="$TMP/gradle-wrapper-fixture"
+PRIORITY_PID=$(mkbusyfake "$PRIORITY_WORKER")
+sleep 1
+YOLO_LOG="$TMP/lease-priority.log" \
+  YOLO_E2E_LEASE_FILE="$E2E_LEASE_FILE" \
+  YOLO_E2E_LEASE_DIR="$TMP/no-extra-leases" \
+  YOLO_EXTREME_LOAD_OVERRIDE="999" \
+  YOLO_BACKGROUND_PRIORITY_CMD_PATTERN="$PRIORITY_WORKER" \
+  YOLO_BACKGROUND_PRIORITY_NICE="15" \
+  /bin/sh "$GUARD" >/dev/null 2>&1
+PRIORITY_NICE=$(ps -o ni= -p "$PRIORITY_PID" 2>/dev/null | tr -d ' ')
+if alive "$PRIORITY_PID" && [ "${PRIORITY_NICE:-0}" -ge 15 ]; then
+  ok "T0a: active E2E lease preserves worker while lowering background priority"
+else
+  bad "T0a: E2E lease disabled the non-destructive scheduler governor"
+fi
+grep -q "BACKGROUND_PRIORITY: pid=$PRIORITY_PID" "$TMP/lease-priority.log" \
+  && ok "T0a: scheduler protection receipt logged" \
+  || bad "T0a: missing scheduler protection receipt"
+kill -9 "$PRIORITY_PID" 2>/dev/null
+
 # T0: the installed guard honors an active test lease, but a stale PID cannot
 # leave protection disabled after a crashed test.
 YOLO_LOG="$TMP/lease.log" YOLO_E2E_LEASE_FILE="$E2E_LEASE_FILE" /bin/sh "$GUARD" >/dev/null 2>&1

@@ -47,6 +47,37 @@ SUSPECT_APPS=${YOLO_SUSPECT_APPS:-""}
 FIRES_LOG=${YOLO_FIRES_LOG:-/tmp/yolo-fires.log}
 LOG=${YOLO_LOG:-/tmp/shutdown-simulators.log}
 
+# Keep the desktop schedulable during overlapping release/E2E work without
+# destroying any build, editor, browser, or simulator. This must run before the
+# E2E lease check below: the lease protects test processes from reclamation,
+# but it must not disable reversible scheduler protection for unrelated workers.
+EXTREME_LOAD_THRESHOLD=${YOLO_EXTREME_LOAD_THRESHOLD:-150}
+EXTREME_LOAD=${YOLO_EXTREME_LOAD_OVERRIDE:-$(/usr/bin/uptime | /usr/bin/awk -F'load averages?:' '{print $2}' | /usr/bin/awk '{print $1}' | /usr/bin/tr -d ',')}
+EXTREME_LOAD_INT=${EXTREME_LOAD%.*}
+BACKGROUND_PRIORITY_NICE=${YOLO_BACKGROUND_PRIORITY_NICE:-15}
+BACKGROUND_PRIORITY_CMD_PATTERN=${YOLO_BACKGROUND_PRIORITY_CMD_PATTERN:-'(^|/)(xcodebuild|SWBBuildService|swift-frontend|clang)( |$)|GradleDaemon|gradle-wrapper\.jar.*assemble|tsserver.*semantic'}
+case "$EXTREME_LOAD_INT" in (*[!0-9]*|'') EXTREME_LOAD_INT=0 ;; esac
+case "$EXTREME_LOAD_THRESHOLD" in (*[!0-9]*|'') EXTREME_LOAD_THRESHOLD=150 ;; esac
+case "$BACKGROUND_PRIORITY_NICE" in
+  ''|*[!0-9]*) BACKGROUND_PRIORITY_NICE=15 ;;
+  *) [ "$BACKGROUND_PRIORITY_NICE" -le 20 ] || BACKGROUND_PRIORITY_NICE=20 ;;
+esac
+if [ "$EXTREME_LOAD_INT" -ge "$EXTREME_LOAD_THRESHOLD" ]; then
+  CURRENT_UID=$(/usr/bin/id -u)
+  /bin/ps -axo uid=,pid=,ni=,command= | /usr/bin/awk \
+    -v uid="$CURRENT_UID" \
+    -v pattern="$BACKGROUND_PRIORITY_CMD_PATTERN" \
+    '$1 == uid && $0 ~ pattern { print $2, $3 }' | while read -r BACKGROUND_PID BACKGROUND_OLD_NICE; do
+      case "$BACKGROUND_PID:$BACKGROUND_OLD_NICE" in
+        *[!0-9:-]*|:*) continue ;;
+      esac
+      if [ "$BACKGROUND_OLD_NICE" -lt "$BACKGROUND_PRIORITY_NICE" ] \
+        && /usr/bin/renice "$BACKGROUND_PRIORITY_NICE" -p "$BACKGROUND_PID" >/dev/null 2>&1; then
+        echo "$(date) BACKGROUND_PRIORITY: pid=$BACKGROUND_PID nice=$BACKGROUND_OLD_NICE->$BACKGROUND_PRIORITY_NICE load=$EXTREME_LOAD" >> "$LOG"
+      fi
+    done
+fi
+
 # Compatibility capability marker consumed by yolo-health. The old
 # YOLO_RECLAIM_OLLAMA hard-kill branch is intentionally retired; graceful
 # Ollama reclaim now belongs to memory-pressure-guardian.sh.
