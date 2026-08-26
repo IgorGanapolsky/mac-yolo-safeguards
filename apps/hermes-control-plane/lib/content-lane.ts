@@ -57,6 +57,16 @@ const EXTRA_BANS = [
   "team $49",
 ];
 
+/** Word-boundary for single tokens so "not affiliated" does not trip "affiliate". */
+export function hayHasBan(hay, ban) {
+  const h = String(hay || "").toLowerCase();
+  const b = String(ban || "").toLowerCase();
+  if (!b) return false;
+  if (b.startsWith("$") || b.includes(" ")) return h.includes(b);
+  const escaped = b.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`\\b${escaped}\\b`).test(h);
+}
+
 export function validateBrief(brief) {
   const failed = [];
   if (!brief || typeof brief !== "object") {
@@ -71,7 +81,7 @@ export function validateBrief(brief) {
   if (brief.lane && brief.lane !== LANE) failed.push("brief:lane");
   const intent = [brief.offer, brief.objective, brief.coreIdea].join(" ").toLowerCase();
   for (const ban of SECOND_PRODUCT) {
-    if (intent.includes(ban)) failed.push(`brief:secondProduct:${ban}`);
+    if (hayHasBan(intent, ban)) failed.push(`brief:secondProduct:${ban}`);
   }
   return { ok: failed.length === 0, failedCriteria: failed };
 }
@@ -157,7 +167,7 @@ export function aiTellsEditor(text) {
  * Adversarial fact-check (SEL): assume numeric/dollar/count claims are false
  * unless they are the locked $10 offer or appear in brief.proof.
  */
-const LOCKED_DOLLARS = new Set(["$10"]);
+const LOCKED_DOLLARS = new Set(["$10", "$0", "$0.00"]);
 
 export function factChecker(text, proof = "") {
   const failed = [];
@@ -190,6 +200,105 @@ export function factChecker(text, proof = "") {
   };
 }
 
+export const OUTLINE_SECTIONS = ["answerForward", "problem", "offer", "notThis", "cta"];
+
+export function outliner(brief) {
+  const problem = String(brief?.coreIdea || "").trim();
+  const sections = {
+    answerForward: `Hosted Hermes on a fenced VPS. Flat $10/mo.`,
+    problem,
+    offer: `${LOCKED_OFFER.product} on a ${LOCKED_OFFER.host}. ${LOCKED_OFFER.price}. ${LOCKED_OFFER.trial}. ${LOCKED_OFFER.approvals}.`,
+    notThis: "Not a second product. Not invented traction.",
+    cta: LOCKED_OFFER.cta,
+  };
+  const failed = [];
+  for (const key of OUTLINE_SECTIONS) {
+    if (!String(sections[key] || "").trim()) failed.push(`outline:missing:${key}`);
+  }
+  return {
+    role: "outliner",
+    sections,
+    ok: failed.length === 0,
+    failedCriteria: failed,
+    needsHumanApproval: true,
+  };
+}
+
+const CITATION_NEEDS = ["hosted hermes", "$10", "fenced vps"];
+
+/** SEL: citable claims at the start or end (grounding window), not buried mid-piece. */
+export function answerForward(text) {
+  const raw = String(text || "");
+  const failed = [];
+  if (!raw.trim()) {
+    return { role: "answerForward", ok: false, failedCriteria: ["answerForward:empty"] };
+  }
+  const window = `${raw.slice(0, 400)}\n${raw.slice(-200)}`.toLowerCase();
+  for (const need of CITATION_NEEDS) {
+    if (!window.includes(need)) failed.push(`answerForward:${need}`);
+  }
+  return { role: "answerForward", ok: failed.length === 0, failedCriteria: failed };
+}
+
+export function uniqueness(draft, liveItems = [], extraIdea = "") {
+  const hay = `${extraIdea} ${draft}`.toLowerCase();
+  const failed = [];
+  for (const item of liveItems) {
+    const slug = String(item?.slug || "").trim().toLowerCase();
+    if (slug && hay.includes(slug)) failed.push(`uniqueness:slug:${slug}`);
+    const title = String(item?.title || "").trim().toLowerCase();
+    if (title.length >= 12 && hay.includes(title)) failed.push(`uniqueness:title:${slug || title}`);
+  }
+  return {
+    role: "uniqueness",
+    ok: failed.length === 0,
+    failedCriteria: [...new Set(failed)],
+  };
+}
+
+export function repairUnprovenFacts(text, proof = "") {
+  const original = String(text || "");
+  const first = factChecker(original, proof);
+  if (first.ok) {
+    return { ok: true, artifact: original, attempts: 0, failedCriteria: [] };
+  }
+  const tokens = first.failedCriteria
+    .map((c) => c.replace(/^fact:unproven:/, ""))
+    .filter(Boolean);
+  const sentences = original.split(/(?<=[.!?])\s+/);
+  const kept = sentences.filter((s) => !tokens.some((t) => s.includes(t)));
+  const artifact = kept.join(" ").trim();
+  const second = factChecker(artifact, proof);
+  return {
+    ok: second.ok,
+    artifact,
+    attempts: 1,
+    failedCriteria: second.failedCriteria,
+  };
+}
+
+export const FIRST_PARTY_LIVE_PROOF =
+  "none — 0 stranger charges; hosted Hermes $10 fenced VPS thumbgate.app";
+
+export function refreshGate(text, proof = FIRST_PARTY_LIVE_PROOF) {
+  const tells = aiTellsEditor(text);
+  const facts = factChecker(text, proof);
+  const proofResult = proofGate(text);
+  const forward = answerForward(text);
+  const failedCriteria = [
+    ...tells.failedCriteria,
+    ...facts.failedCriteria,
+    ...proofResult.failedCriteria,
+    ...forward.failedCriteria,
+  ];
+  return {
+    role: "refresh",
+    ok: failedCriteria.length === 0,
+    failedCriteria: [...new Set(failedCriteria)],
+    artifacts: { aiEditor: tells, factChecker: facts, proof: proofResult, answerForward: forward },
+  };
+}
+
 export function proofGate(text) {
   const failed = [];
   const hay = String(text || "").toLowerCase();
@@ -198,17 +307,17 @@ export function proofGate(text) {
     if (hay.includes(lie)) failed.push(`proof:traction:${lie}`);
   }
   for (const ban of EXTRA_BANS) {
-    if (hay.includes(ban)) failed.push(`proof:ban:${ban}`);
+    if (hayHasBan(hay, ban)) failed.push(`proof:ban:${ban}`);
   }
   for (const ban of SECOND_PRODUCT) {
-    if (hay.includes(ban)) failed.push(`proof:secondProduct:${ban}`);
+    if (hayHasBan(hay, ban)) failed.push(`proof:secondProduct:${ban}`);
   }
   const quality = validateArtifact(THUMBGATE_PUBLIC_COPY_CONTRACT, text);
   if (!quality.ok) failed.push(...quality.failedCriteria);
   return { ok: failed.length === 0, failedCriteria: [...new Set(failed)] };
 }
 
-export function runLane(brief, draftOverride) {
+export function runLane(brief, draftOverride, opts = {}) {
   const briefResult = validateBrief(brief);
   if (!briefResult.ok) {
     return {
@@ -227,17 +336,43 @@ export function runLane(brief, draftOverride) {
       artifacts: { brief, researcher: research },
     };
   }
+  const outline = outliner(brief);
+  if (!outline.ok) {
+    return {
+      ok: false,
+      failedCriteria: outline.failedCriteria,
+      needsHumanApproval: true,
+      artifacts: { brief, researcher: research, outliner: outline },
+    };
+  }
+  if (opts.outlineOnly) {
+    return {
+      ok: true,
+      failedCriteria: [],
+      needsHumanApproval: true,
+      artifacts: { brief, researcher: research, outliner: outline },
+      draft: null,
+    };
+  }
   const angle = strategist(brief);
   const written = writer(brief, angle);
-  const draft = draftOverride != null ? String(draftOverride) : written.draft;
+  let draft = draftOverride != null ? String(draftOverride) : written.draft;
+  if (opts.repairFacts) {
+    const repaired = repairUnprovenFacts(draft, brief.proof);
+    draft = repaired.artifact;
+  }
   const edited = editor(draft);
   const tells = aiTellsEditor(edited.draft);
   const facts = factChecker(edited.draft, brief.proof);
   const proof = proofGate(edited.draft);
+  const forward = answerForward(edited.draft);
+  const distinct = uniqueness(edited.draft, opts.liveCatalog || [], brief.coreIdea);
   const failedCriteria = [
     ...tells.failedCriteria,
     ...facts.failedCriteria,
     ...proof.failedCriteria,
+    ...forward.failedCriteria,
+    ...distinct.failedCriteria,
   ];
   return {
     ok: failedCriteria.length === 0,
@@ -246,11 +381,14 @@ export function runLane(brief, draftOverride) {
     artifacts: {
       brief,
       researcher: research,
+      outliner: outline,
       strategist: angle,
       writer: written,
       editor: edited,
       aiEditor: tells,
       factChecker: facts,
+      answerForward: forward,
+      uniqueness: distinct,
       proof,
     },
     draft: edited.draft,
