@@ -1,3 +1,5 @@
+import { attachLastMileToReceipt, type LastMileAttach } from "./hosted-last-mile.ts";
+
 /**
  * Hosted Hermes source of truth is the fenced VPS.
  * A laptop is a cache. Never toast leftover Mac-pair as "machine found".
@@ -110,14 +112,25 @@ export function publicRunReceipt(input: {
   route: string;
   status: string;
   sourceOfTruth: "hosted-vps";
+  lastMile: LastMileAttach;
 } | { ok: false; reason: "not_persisted" } {
   const taskId = String(input.taskId ?? "").trim();
   if (!taskId) return { ok: false, reason: "not_persisted" };
+  const route = String(input.route ?? "cloud").trim() || "cloud";
+  const cloud = route === "cloud";
   return {
     ok: true,
     taskId,
-    route: String(input.route ?? "cloud").trim() || "cloud",
+    route,
     status: String(input.status ?? "pending").trim() || "pending",
     sourceOfTruth: HOSTED_SOURCE_OF_TRUTH,
+    lastMile: attachLastMileToReceipt({
+      runtime: cloud ? "vps" : "mac",
+      sandbox: cloud,
+      schedule: cloud ? "once" : "none",
+      credentialsBound: cloud,
+      generatedByAgent: true,
+      taskId,
+    }),
   };
 }

@@ -3940,3 +3940,14 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - Production still shows `origin/main` Leash: `<summary>Optional: send the next task to a paired computer</summary>` plus “wrong workspace / Switch account” plus “Bounded Hermes … isolated serverless leases.” That is a sign-out control + operator dump sitting under Mac pairing — not a second Google workspace. Header already has Sign out (`dashboard-sign-out`).
 - Drop the Leash `account-recovery` card. Keep one-line `leash-signed-in` email. Sign-out stays in header/sidebar.
 - Codex P2 on #2095: `pendingWaitCopy(task.status)` — `running` → “Hermes is working on this.”; pending → “hasn't started.” Do not dual-edit #2041 result-replace or AGENT-476 TurnStatusline.
+
+## File claim (append 2026-08-26T16:40:00Z) — `grok-tower-last-mile-20260826`
+
+| T-HOSTED-TOWER-LAST-MILE-20260826 | MotherDuck/Tower process steal: cannot rent a foundation; last mile is sandbox+schedule+credentials; stable job URL on hosted receipts | in_progress | grok-tower-last-mile-20260826 | `tools/hosted-tower-last-mile.js` (new), `tests/test-hosted-tower-last-mile.js` (new), `bin/hosted-tower-last-mile` (new), `apps/hermes-control-plane/lib/hosted-last-mile.ts` (new), `apps/hermes-control-plane/lib/hosted-last-mile.test.ts` (new), `apps/hermes-control-plane/lib/hosted-source-of-truth.ts` (lastMile attach only), `apps/hermes-control-plane/tests/hosted-source-of-truth.test.mjs` (lastMile asserts), `.agents/skills/hosted-tower-last-mile/**`, `SKILLS.md` (one row), `plan.md` | Not Tower.dev / MotherDuck / DuckDB / Flights. Do not dual-edit ona-last-mile or execution-receipt.ts. ECI pauses Python-pipeline SKU. |
+
+## Discovered / Decisions (append) — 2026-08-26T16:40Z — grok-tower-last-mile-20260826
+
+- Source: https://thenewstack.io/motherduck-tower-acquisition-python/ (Paul Sawers, 2026-08-25). MotherDuck bought Tower because agents wrote connectors but could not sandbox/schedule; customers hold the product accountable for the executor.
+- Transferable: own the fenced-VPS last mile; do not treat generated chat as a pipeline; put `dashboard?task=` on the public receipt.
+- Backlog: Tower Control UI, Python packaging runtime, cron scheduler product, merging Ducklings-style instant start with Tower jobs, acquiring a vendor.
+- Did not edit `tools/ona-last-mile-placement.js` or `execution-receipt.ts`.

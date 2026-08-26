@@ -75,6 +75,10 @@ test("public receipt never includes the prompt or env secrets", () => {
   assert.equal(receipt.ok, true);
   assert.equal("prompt" in receipt, false);
   assert.equal(JSON.stringify(receipt).includes("SECRET PROMPT TEXT"), false);
+  assert.equal(receipt.lastMile.clonedTower, false);
+  assert.equal(receipt.lastMile.liveClaim, false);
+  assert.equal(receipt.lastMile.foundation, "owned");
+  assert.equal(receipt.lastMile.stableUrl, "https://thumbgate.app/dashboard?task=task-1");
   assert.equal(publicRunReceipt({}).reason, "not_persisted");
   process.env.OPENAI_API_KEY = "sk-test-should-never-leak";
   const leaked = JSON.stringify(receipt);
