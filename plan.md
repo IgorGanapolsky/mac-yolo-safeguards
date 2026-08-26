@@ -3944,3 +3944,10 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 ## File claim (append 2026-08-26T16:48:00Z) — `codex-uplink-bufferbloat`
 
 | T-UPLINK-BUFFERBLOAT-20260826 | Preserve local browsing under constrained T-Mobile uplink by restoring bounded chronic mitigation, fixing pause identity/resume, and lowering the impossible-above-capacity trigger | in_progress | codex-uplink-bufferbloat | `scripts/uplink-flood-guard.sh`, `scripts/install-uplink-guards.sh`, `tests/test-uplink-flood-guard.sh`, `plan.md` (append only) | GH #2128 / Linear AGENT-547; deterministic fake-nettop/ping/process tests, exact install digest, loaded LaunchAgent readback, live no-stranded-process proof; open a PR, do NOT merge until strict required checks and review threads are green |
+
+## Discovered / Decisions (append) — 2026-08-26T16:51Z — codex-uplink-bufferbloat
+
+- Local gateway stayed 8–14 ms while repeated public probes were 680–810 ms with agent uploads around 0.75–1.54 MiB/s on a measured 10.9 Mbps uplink. Download bandwidth was not the binding resource; the uplink queue was.
+- Tracked `scripts/uplink-flood-guard.sh` was still screen-share-only at a 1.5 MiB/s threshold (about 12 Mbps, above the measured uplink). The live Mac had an unmerged chronic-mode build from closed PR #1626, so a clean install would regress.
+- The live chronic log proved a resume-identity bug: `nettop` stored `grok-1.0.6`, `ps` later returned `grok`, and the guard removed state without sending `CONT`. New state keys resume on PID plus immutable `lstart,comm` checksum; display names are evidence only.
+- New default mitigation requires the same allowlisted agent above 700 KiB/s with retransmits in two intervals plus public RTT at least 300 ms. It records state atomically before a bounded 90-second `STOP`, never kills, and resumes only the exact process identity. Non-agent/system traffic remains notification-only.
