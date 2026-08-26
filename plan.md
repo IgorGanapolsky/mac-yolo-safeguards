@@ -3940,3 +3940,24 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - Production still shows `origin/main` Leash: `<summary>Optional: send the next task to a paired computer</summary>` plus “wrong workspace / Switch account” plus “Bounded Hermes … isolated serverless leases.” That is a sign-out control + operator dump sitting under Mac pairing — not a second Google workspace. Header already has Sign out (`dashboard-sign-out`).
 - Drop the Leash `account-recovery` card. Keep one-line `leash-signed-in` email. Sign-out stays in header/sidebar.
 - Codex P2 on #2095: `pendingWaitCopy(task.status)` — `running` → “Hermes is working on this.”; pending → “hasn't started.” Do not dual-edit #2041 result-replace or AGENT-476 TurnStatusline.
+
+## Linear Basic inventory and safe hygiene claim (append 2026-08-26T16:00:10Z) — `codex-linear-basic-2111`
+
+| Task | Goal | Status | Owner | Files | AcceptanceCheck |
+|---|---|---|---|---|---|
+| T-LINEAR-BASIC-HYGIENE-20260826 | Replace fictional Linear automation guidance with authenticated workspace inventory and deterministic dry-run hygiene planning; exploit Basic-plan projects, cycles, statuses, labels, links, and agent attribution without deleting or archiving live objects | in_progress | codex-linear-basic-2111 | `tools/linear-workspace-hygiene.js` (new), `tests/test-linear-workspace-hygiene.js` (new), `.agents/skills/linear-agent-skills/SKILL.md`, `docs/agents/linear-obsidian-coordination.md`, `.agents/skills/sources.yml` (append only), `SKILLS.md` (append/update only), `plan.md` (append only) | GH #2111 / Linear AGENT-535; provider inventory fails closed; pagination and duplicate nodes normalize deterministically; active GitHub, issue, cycle, project, and agent-lock references block stale recommendations; repeated dry-runs are byte-identical; no mutation is available; behavior tests and skill validation pass |
+
+### File claims
+
+- `tools/linear-workspace-hygiene.js` (new)
+- `tests/test-linear-workspace-hygiene.js` (new)
+- `.agents/skills/linear-agent-skills/SKILL.md`
+- `docs/agents/linear-obsidian-coordination.md`
+- `.agents/skills/sources.yml` (append only)
+- `SKILLS.md` (append/update only)
+- `plan.md` (this append only)
+
+### Boundaries
+
+- Inventory and candidate planning are read-only. This lane will not delete or archive Linear projects, labels, issues, cycles, agents, or locks.
+- GitHub #2111 and Linear AGENT-535 are the task/ownership proof; the canonical vault claim is `Handoffs/linear-claims/2026-08-26_AGENT-535_codex-linear-basic-2111.md`.
