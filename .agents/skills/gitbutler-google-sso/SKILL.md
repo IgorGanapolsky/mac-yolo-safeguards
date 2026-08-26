@@ -48,6 +48,20 @@ print("verified" if b.get("email_verified") else "unverified", "id", b.get("id")
 
 Forge (separate from Cloud SSO): `but config forge` → GitHub OAuth **IgorGanapolsky**.
 
+## Examples (show, don't tell)
+
+Weak: Log into GitButler with GitHub.
+
+Gold:
+
+```bash
+$ security find-generic-password -s gitbutler_access_token -w \
+  | python3 -c 'import sys,json,urllib.request; t=sys.stdin.read().strip();
+req=urllib.request.Request("https://app.gitbutler.com/api/login/whoami", headers={"X-Auth-Token": t});
+b=json.load(urllib.request.urlopen(req, timeout=20));
+print("verified" if b.get("email_verified") else "unverified")'
+```
+
 ## Login procedure
 
 1. BrowserOS neo own tab: `https://app.gitbutler.com/`
@@ -62,6 +76,13 @@ Token helper (local, not in this public repo): `~/.grok/skills/gitbutler-google-
 ## Fleet wall
 
 Still never `but setup` on mac-yolo-safeguards / ThumbGate / RealEstate shared trees. Overlay: [[gitbutler-fleet-safe]] / Codex #2119 `gitbutler-route`.
+
+## Rubric
+
+- whoami prints verified/id only — never the token
+- Cloud identity is Google SSO (`/igor-login-accounts`), forge is GitHub IgorGanapolsky
+- doctor_exit=0 (Keychain token present, not printed)
+- NEVER click Refresh token
 
 ## Related
 

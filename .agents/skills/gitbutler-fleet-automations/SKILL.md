@@ -26,6 +26,19 @@ bash ~/.grok/skills/gitbutler-fleet-automations/scripts/doctor.sh
 
 Do **not** edit `tools/gitbutler-route.js` (Codex PR #2119). This skill is the doing layer.
 
+## Examples (show, don't tell)
+
+Weak: Use but for all git writes.
+
+Gold:
+
+```bash
+$ bash ~/.grok/skills/gitbutler-fleet-safe/scripts/assert_but_setup_safe.sh
+REFUSE: 84 worktrees on .git. Never but setup on a multi-worktree repo.
+$ node tests/test-gitbutler-fleet-automations.js
+test-gitbutler-fleet-automations: PASS
+```
+
 ## Layer order
 
 1. `gitbutler-fleet-safe` / `gitbutler-route` — MAY I use `but` here? Exit 1 = `git` + isolated worktree.

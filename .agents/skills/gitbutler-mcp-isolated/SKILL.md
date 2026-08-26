@@ -19,6 +19,17 @@ bash ~/.grok/skills/gitbutler-fleet-safe/scripts/assert_but_setup_safe.sh "$PWD"
 .agents/skills/gitbutler-fleet-automations/scripts/mcp_isolated.sh
 ```
 
+## Examples (show, don't tell)
+
+Weak: Add GitButler MCP globally so every agent can use it.
+
+Gold:
+
+```bash
+$ bash .agents/skills/gitbutler-fleet-automations/scripts/mcp_isolated.sh
+gitbutler-mcp-isolated: setup guard refused — use gh/GitHub MCP
+```
+
 ## MUST
 
 - Enable MCP in **that clone's** `.grok/config.toml` / `.cursor/mcp.json`:
@@ -31,6 +42,14 @@ bash ~/.grok/skills/gitbutler-fleet-safe/scripts/assert_but_setup_safe.sh "$PWD"
 - `claude mcp add gitbutler but mcp` against ThumbGate / mac-yolo / RealEstate primary
 - Treat MCP as a substitute for `npm run pr:manage` / Trunk
 - Dual-edit Codex `tools/gitbutler-route.js`
+
+## Rubric
+
+- mcp_isolated.sh on this linked worktree → non-zero, message contains refused/REFUSE
+- no `[mcp_servers.gitbutler]` in `~/.grok/config.toml`
+- doctor_exit=0 on fleet automations doctor
+- evidence: test-gitbutler-fleet-automations PASS
+- NEVER dual-edit Codex `tools/gitbutler-route.js`
 
 ## Related
 
