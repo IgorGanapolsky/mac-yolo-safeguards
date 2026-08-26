@@ -3955,3 +3955,11 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - `plan.md` (this append only)
 
 Decision: `SKILLS.md` is intentionally not claimed because multiple live agents own append slices. Project-local discovery uses `.agents/skills/gitbutler-fleet-safe/SKILL.md`; the generated registry can reconcile after its current owners release it.
+
+### Review handoff (append 2026-08-26T16:10:00Z)
+
+- PR #2119 is open at head `87b9b9c214b29294f514d2410749c23d63d4224a`; stop condition honored: no merge and no auto-merge request.
+- Fail-first: the focused test exited 1 while `tools/gitbutler-route.js` was absent. Fixed proof: 10/10 route tests, 67/67 skill cards, 19/19 session-context checks, and 4/4 agent-loop health gates.
+- Baseline before this lane was 69 worktrees; the deterministic test reproduces that refusal. The live owned lane later observed 74 concurrent worktrees and still selected `git-linked-worktree` with `butSetupAllowed=false`.
+- Live read-only ThumbGate probe selected `git-isolated-worktree-required` for 21 worktrees and `npm-pr-manage-trunk` for merge submission. No setup, teardown, land, merge, deploy, or revenue action occurred.
+- Copilot CLI review was attempted; provider blocked it because the monthly quota is exhausted. CI was pending at handoff and must not be reported green until the exact head check rollup completes.
