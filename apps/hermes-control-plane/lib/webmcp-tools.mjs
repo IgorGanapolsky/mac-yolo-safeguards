@@ -16,7 +16,7 @@ export function buildWebMcpTools({ fetchImpl } = {}) {
         [
           "Hosted Hermes: an always-on AI agent on a fenced VPS.",
           "You own the work. We own the machine.",
-          "The $10 offer is hosted Hermes on a fenced VPS.",
+          "The $10/month offer is hosted Hermes on a fenced VPS.",
           "Site: https://thumbgate.app — live status at /api/health.",
         ].join(" "),
     },
