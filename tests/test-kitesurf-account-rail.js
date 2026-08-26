@@ -48,6 +48,14 @@ const missing = doctor({ env: {}, wranglerConfigPath: '/tmp/no-such-wrangler.tom
 assert.strictEqual(missing.liveClaim, false);
 assert.strictEqual(missing.kitesurfEngine, 'UNAVAILABLE');
 
+const configuredOnly = doctor({
+  env: { CLOUDFLARE_ACCOUNT_ID: 'acct', CLOUDFLARE_API_TOKEN: 'test-token-not-secret' },
+  wranglerConfigPath: '/tmp/no-such-wrangler.toml',
+});
+assert.strictEqual(configuredOnly.liveClaim, false);
+assert.strictEqual(configuredOnly.kitesurfEngine, 'CONFIGURED');
+assert.match(configuredOnly.reason, /CONFIGURED not READY/);
+
 const pngBody = Buffer.concat([PNG_MAGIC, Buffer.alloc(64, 7)]);
 const fakeFetchOk = async () => ({
   ok: true,
@@ -96,6 +104,17 @@ const fakeFetchOk = async () => ({
   assert.strictEqual(lying200.status, 'ERROR');
   assert.strictEqual(lying200.liveClaim, false);
   assert.match(lying200.error, /not a PNG/);
+
+  const transport = await capture({
+    url: 'https://thumbgate.app',
+    env: { CLOUDFLARE_ACCOUNT_ID: 'acct', CLOUDFLARE_API_TOKEN: 'test-token-not-secret' },
+    fetchImpl: async () => {
+      throw new Error('getaddrinfo ENOTFOUND api.cloudflare.com');
+    },
+  });
+  assert.strictEqual(transport.status, 'ERROR');
+  assert.strictEqual(transport.liveClaim, false);
+  assert.match(transport.error, /transport:.*ENOTFOUND/);
 
   console.log('ok tests/test-kitesurf-account-rail.js');
 })().catch((err) => {

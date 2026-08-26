@@ -137,16 +137,17 @@ function isPng(buf) {
 function doctor(opts = {}) {
   const account = resolveAccountId(opts);
   const bearer = resolveBearer(opts);
-  const liveClaim = Boolean(account.accountId && bearer.token);
+  const configured = Boolean(account.accountId && bearer.token);
   return Object.assign(honesty(), {
-    kitesurfEngine: liveClaim ? 'READY' : 'UNAVAILABLE',
-    liveClaim,
+    // Credentials alone are CONFIGURED, never READY / liveClaim.
+    kitesurfEngine: configured ? 'CONFIGURED' : 'UNAVAILABLE',
+    liveClaim: false,
     accountSource: account.source,
     hasAccountId: Boolean(account.accountId),
     credentialSource: bearer.source,
     hasBearer: Boolean(bearer.token),
-    reason: liveClaim
-      ? `Browser Run credentials present (${bearer.source}, account via ${account.source})`
+    reason: configured
+      ? `credentials present (${bearer.source}, account via ${account.source}) — CONFIGURED not READY until a Browser Run PNG validates`
       : 'Need Cloudflare account id (env or wrangler whoami) plus bearer (wrangler OAuth or API token)',
   });
 }
@@ -180,48 +181,69 @@ async function capture(opts) {
   const kind = action === 'pdf' ? 'pdf' : action === 'html' || action === 'content' ? 'content' : 'screenshot';
   const endpoint = `${BROWSER_RUN_BASE}/${account.accountId}/browser-run/${kind}?browser=kitesurf`;
   const fetchImpl = opts.fetchImpl || globalThis.fetch.bind(globalThis);
-  const res = await fetchImpl(endpoint, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${bearer.token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ url }),
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
+  let res;
+  try {
+    res = await fetchImpl(endpoint, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${bearer.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ url }),
+    });
+  } catch (err) {
     return {
       status: 'ERROR',
       engine: 'browser_run_kitesurf',
       liveClaim: false,
-      error: `Browser Run ${kind} HTTP ${res.status}: ${String(text).slice(0, 180)}`,
+      error: `transport: ${err && err.message ? err.message : String(err)}`,
       timingMs: Date.now() - start,
     };
   }
-  const buf = Buffer.from(await res.arrayBuffer());
-  if (kind === 'screenshot' && !isPng(buf)) {
+  try {
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      return {
+        status: 'ERROR',
+        engine: 'browser_run_kitesurf',
+        liveClaim: false,
+        error: `Browser Run ${kind} HTTP ${res.status}: ${String(text).slice(0, 180)}`,
+        timingMs: Date.now() - start,
+      };
+    }
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (kind === 'screenshot' && !isPng(buf)) {
+      return {
+        status: 'ERROR',
+        engine: 'browser_run_kitesurf',
+        liveClaim: false,
+        error: 'screenshot body is not a PNG (HTTP 200 is not proof)',
+        timingMs: Date.now() - start,
+        bytes: buf.length,
+      };
+    }
+    if (opts.output) fs.writeFileSync(opts.output, buf);
     return {
-      status: 'ERROR',
+      status: 'SUCCESS',
       engine: 'browser_run_kitesurf',
-      liveClaim: false,
-      error: 'screenshot body is not a PNG (HTTP 200 is not proof)',
-      timingMs: Date.now() - start,
+      liveClaim: true,
+      accountSource: account.source,
+      credentialSource: bearer.source,
+      action: kind,
       bytes: buf.length,
+      png: kind === 'screenshot' ? true : undefined,
+      output: opts.output || null,
+      timingMs: Date.now() - start,
+    };
+  } catch (err) {
+    return {
+      status: 'ERROR',
+      engine: 'browser_run_kitesurf',
+      liveClaim: false,
+      error: `transport: ${err && err.message ? err.message : String(err)}`,
+      timingMs: Date.now() - start,
     };
   }
-  if (opts.output) fs.writeFileSync(opts.output, buf);
-  return {
-    status: 'SUCCESS',
-    engine: 'browser_run_kitesurf',
-    liveClaim: true,
-    accountSource: account.source,
-    credentialSource: bearer.source,
-    action: kind,
-    bytes: buf.length,
-    png: kind === 'screenshot' ? true : undefined,
-    output: opts.output || null,
-    timingMs: Date.now() - start,
-  };
 }
 
 function parseArgs(argv) {
