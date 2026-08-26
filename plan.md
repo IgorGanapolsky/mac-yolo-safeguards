@@ -3940,3 +3940,18 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - Production still shows `origin/main` Leash: `<summary>Optional: send the next task to a paired computer</summary>` plus “wrong workspace / Switch account” plus “Bounded Hermes … isolated serverless leases.” That is a sign-out control + operator dump sitting under Mac pairing — not a second Google workspace. Header already has Sign out (`dashboard-sign-out`).
 - Drop the Leash `account-recovery` card. Keep one-line `leash-signed-in` email. Sign-out stays in header/sidebar.
 - Codex P2 on #2095: `pendingWaitCopy(task.status)` — `running` → “Hermes is working on this.”; pending → “hasn't started.” Do not dual-edit #2041 result-replace or AGENT-476 TurnStatusline.
+
+## GitButler fleet-safe route claim (append 2026-08-26T16:03:00Z) — `codex-gitbutler-route-2112`
+
+| T-GITBUTLER-FLEET-ROUTE-20260826 | Route GitButler 0.22.1 safely: GitButler only in a single-owner isolated clone, normal Git in linked worktrees, and repo-native PR management for protected merges | in_progress | codex-gitbutler-route-2112 | `.agents/skills/gitbutler-fleet-safe/SKILL.md`, `.agents/skills/gitbutler-fleet-safe/skill-card.md`, `tools/gitbutler-route.js`, `tests/test-gitbutler-route.js`, `bin/gitbutler-route`, `plan.md` (append only) | GH #2112 / Linear AGENT-538; reproduce the 69-worktree setup refusal; emit version, official-skill health, auth, ownership, dry-run, and merge-rail evidence; never run `but setup`, `but teardown`, or `but land` here; open a PR and do not merge |
+
+### File claims (§2 append)
+
+- `.agents/skills/gitbutler-fleet-safe/SKILL.md`
+- `.agents/skills/gitbutler-fleet-safe/skill-card.md`
+- `tools/gitbutler-route.js`
+- `tests/test-gitbutler-route.js`
+- `bin/gitbutler-route`
+- `plan.md` (this append only)
+
+Decision: `SKILLS.md` is intentionally not claimed because multiple live agents own append slices. Project-local discovery uses `.agents/skills/gitbutler-fleet-safe/SKILL.md`; the generated registry can reconcile after its current owners release it.
