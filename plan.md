@@ -3983,3 +3983,16 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - Complementary to `tools/context-vault.js` (Allie 8 prompts) and `tools/coding-context-pack.js` (issue-first).
 - 2026-08-26T17:10Z CodeQL `js/incomplete-sanitization` on `tests/test-context-six-block.js:70` `.includes('chatgpt.com')` is REAL (1 high, PR annotation). Replaced with `tools/lib/safe-url-host.js` hostname parse + token equality. Expo Doctor 18/19 on this PR is the SDK pin wall (`expo 55.0.29` vs `~55.0.30`) owned by #2103 — do not pile pins onto this PR. CodeQL is not a required context; Hermes Mobile typecheck is.
 - 2026-08-26T17:40Z Required job "Hermes Mobile typecheck and tests" first failing STEP is Expo Doctor (run 32991643615 job 98250332767). Skip Expo Doctor when `git diff base...HEAD` has no `hermes-mobile/` paths. Do not skip the job (required name must report). Do not steal #2103 pins. `.github/workflows/ci.yml` Expo Doctor step + detect step only.
+
+## File claim (append 2026-08-26T18:15:00Z) — `grok/gitbutler-fleet-automations-20260826`
+
+| T-GITBUTLER-FLEET-AUTOMATIONS-20260826 | GitButler automations doing-layer: classifier + skills (automations, isolated MCP, session absorb, Google SSO). Complementary to Codex #2119 gitbutler-route. | in_progress | grok/gitbutler-fleet-automations-20260826 | `tools/gitbutler-fleet-automations.js`, `tests/test-gitbutler-fleet-automations.js`, `bin/gitbutler-fleet-automations`, `.agents/skills/gitbutler-fleet-automations/**`, `.agents/skills/gitbutler-mcp-isolated/**`, `.agents/skills/gitbutler-session-absorb/**`, `.agents/skills/gitbutler-google-sso/**`, `SKILLS.md`, `plan.md` | Doctor + classifier refuse setup/land/MCP on shared primaries; no global Grok GitButler MCP; no Cursor hooks.json for missing `but cursor`. Do **not** edit `tools/gitbutler-route.js` or `.agents/skills/gitbutler-fleet-safe/**` (Codex PR #2119 / AGENT-538). |
+
+## Discovered / Decisions (append) — 2026-08-26T18:15Z — grok/gitbutler-fleet-automations-20260826
+
+- Official `but` skill is overwritten by `but skill check --update`. Fleet rules live in overlay skills, never in `~/.grok/skills/gitbutler/SKILL.md`.
+- `but cursor` is unrecognized on CLI 0.22.1. Do not write `~/.cursor/hooks.json` for it.
+- `but mcp serve` is workspace-mode. Wrapper `mcp_isolated.sh` requires `assert_but_setup_safe.sh` exit 0. Never `[mcp_servers.gitbutler]` in global `~/.grok/config.toml`.
+- `but land` on ThumbGate / mac-yolo `main` is REFUSE — `npm run pr:manage` / `gh pr merge --auto`.
+- Linked worktrees (this repo, 80+ trees) use git. Official GitButler exception: never `but setup` from a linked worktree.
+- Complementary to OPEN Codex PR #2119 (`tools/gitbutler-route.js`). This PR does not steal AGENT-538.
