@@ -7,6 +7,8 @@ const fs = require('fs');
 const SCHEMA = 'agentic-pattern-task/v1';
 const RECEIPT_SCHEMA = 'agentic-pattern-receipt/v1';
 const MAX_MANIFEST_BYTES = 256 * 1024;
+const MAX_CANONICAL_DEPTH = 64;
+const MAX_STRUCTURE_NODES = 100_000;
 
 const PATTERNS = Object.freeze([
   { id: 'prompt_chaining', label: 'Prompt Chaining' },
@@ -61,14 +63,29 @@ function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function stableValue(value) {
-  if (Array.isArray(value)) return value.map(stableValue);
+function stableValue(value, depth = 0, ancestors = new WeakSet()) {
+  if (depth > MAX_CANONICAL_DEPTH) throw new Error('value nesting exceeds supported depth');
+  if (Array.isArray(value)) {
+    if (ancestors.has(value)) throw new Error('cyclic values are not supported');
+    ancestors.add(value);
+    try {
+      return value.map((entry) => stableValue(entry, depth + 1, ancestors));
+    } finally {
+      ancestors.delete(value);
+    }
+  }
   if (!isPlainObject(value)) return value;
-  return Object.fromEntries(
-    Object.keys(value)
-      .sort()
-      .map((key) => [key, stableValue(value[key])]),
-  );
+  if (ancestors.has(value)) throw new Error('cyclic values are not supported');
+  ancestors.add(value);
+  try {
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, stableValue(value[key], depth + 1, ancestors)]),
+    );
+  } finally {
+    ancestors.delete(value);
+  }
 }
 
 function stableStringify(value) {
@@ -84,9 +101,30 @@ function normalizeRole(role) {
     .toLowerCase();
 }
 
+function inspectStructure(input) {
+  const stack = [{ value: input, depth: 0 }];
+  const seen = new WeakSet();
+  let nodes = 0;
+  while (stack.length) {
+    const { value, depth } = stack.pop();
+    if (value === null || typeof value !== 'object') continue;
+    nodes += 1;
+    if (nodes > MAX_STRUCTURE_NODES) return 'manifest structure exceeds supported size';
+    if (depth > MAX_CANONICAL_DEPTH) return 'manifest nesting exceeds supported depth';
+    if (seen.has(value)) return 'manifest contains repeated or cyclic object references';
+    seen.add(value);
+    const children = Array.isArray(value) ? value : Object.values(value);
+    for (const child of children) stack.push({ value: child, depth: depth + 1 });
+  }
+  return null;
+}
+
 function validateManifest(input) {
   const errors = [];
   if (!isPlainObject(input)) return ['manifest must be an object'];
+
+  const structureError = inspectStructure(input);
+  if (structureError) errors.push(structureError);
 
   for (const key of Object.keys(input)) {
     if (SECRET_FIELD.test(key)) errors.push('secret-shaped fields are forbidden');
@@ -336,6 +374,14 @@ function complexityLevel(selectedCount) {
   return 'complex';
 }
 
+function canonicalInputHash(input) {
+  try {
+    return crypto.createHash('sha256').update(stableStringify(input ?? null)).digest('hex');
+  } catch (_error) {
+    return crypto.createHash('sha256').update('uncanonicalizable-input').digest('hex');
+  }
+}
+
 function blockedReceipt(input, errors, inputHashOverride = null) {
   const base = {
     schema: RECEIPT_SCHEMA,
@@ -346,9 +392,7 @@ function blockedReceipt(input, errors, inputHashOverride = null) {
     rejected: [],
     gates: [],
     complexity: { selectedCount: 0, level: 'invalid' },
-    inputHash:
-      inputHashOverride ||
-      crypto.createHash('sha256').update(stableStringify(input ?? null)).digest('hex'),
+    inputHash: inputHashOverride || canonicalInputHash(input),
   };
   return { ...base, receiptHash: crypto.createHash('sha256').update(stableStringify(base)).digest('hex') };
 }
@@ -358,9 +402,9 @@ function blockedReceiptFromRaw(raw, errors) {
   return blockedReceipt(null, errors, inputHash);
 }
 
-function selectPatterns(input) {
+function selectPatterns(input, inputHashOverride = null) {
   const errors = validateManifest(input);
-  if (errors.length) return blockedReceipt(input, errors);
+  if (errors.length) return blockedReceipt(input, errors, inputHashOverride);
 
   const conditions = conditionsFor(input);
   const selected = [];
@@ -389,9 +433,21 @@ function selectPatterns(input) {
       level: complexityLevel(selected.length),
     },
     successMetrics: [...input.successMetrics],
-    inputHash: crypto.createHash('sha256').update(stableStringify(input)).digest('hex'),
+    inputHash: inputHashOverride || canonicalInputHash(input),
   };
   return { ...base, receiptHash: crypto.createHash('sha256').update(stableStringify(base)).digest('hex') };
+}
+
+function selectPatternsFromRaw(raw) {
+  const bytes = Buffer.isBuffer(raw) ? raw : Buffer.from(raw);
+  let input;
+  try {
+    input = JSON.parse(bytes.toString('utf8'));
+  } catch (_error) {
+    return blockedReceiptFromRaw(bytes, ['manifest JSON is invalid']);
+  }
+  const inputHash = crypto.createHash('sha256').update(bytes).digest('hex');
+  return selectPatterns(input, inputHash);
 }
 
 function parseCli(argv) {
@@ -400,7 +456,7 @@ function parseCli(argv) {
     const arg = argv[index];
     if (arg === '--manifest') manifestPath = argv[++index] || '';
     else if (arg === '--help' || arg === '-h') return { help: true, manifestPath: '' };
-    else throw new Error(`Unknown argument: ${arg}`);
+    else throw new Error('unknown argument');
   }
   if (!manifestPath) throw new Error('--manifest <path|-> is required');
   return { help: false, manifestPath };
@@ -411,7 +467,7 @@ function readBoundedManifest(manifestPath) {
     const stat = fs.statSync(manifestPath);
     if (!stat.isFile()) throw new Error('manifest must be a regular file');
     if (stat.size > MAX_MANIFEST_BYTES) throw new Error('manifest exceeds 256 KiB');
-    return fs.readFileSync(manifestPath, 'utf8');
+    return fs.readFileSync(manifestPath);
   }
 
   const chunks = [];
@@ -424,7 +480,7 @@ function readBoundedManifest(manifestPath) {
     if (total > MAX_MANIFEST_BYTES) throw new Error('manifest exceeds 256 KiB');
     chunks.push(buffer.subarray(0, bytesRead));
   }
-  return Buffer.concat(chunks).toString('utf8');
+  return Buffer.concat(chunks);
 }
 
 function cli(argv = process.argv.slice(2)) {
@@ -452,16 +508,7 @@ function cli(argv = process.argv.slice(2)) {
     return 2;
   }
 
-  let input;
-  try {
-    input = JSON.parse(raw);
-  } catch (_error) {
-    const receipt = blockedReceiptFromRaw(raw, ['manifest JSON is invalid']);
-    process.stdout.write(`${JSON.stringify(receipt, null, 2)}\n`);
-    return 2;
-  }
-
-  const receipt = selectPatterns(input);
+  const receipt = selectPatternsFromRaw(raw);
   process.stdout.write(`${JSON.stringify(receipt, null, 2)}\n`);
   return receipt.status === 'pass' ? 0 : 2;
 }
@@ -476,6 +523,7 @@ module.exports = {
   normalizeRole,
   readBoundedManifest,
   selectPatterns,
+  selectPatternsFromRaw,
   stableStringify,
   validateManifest,
 };

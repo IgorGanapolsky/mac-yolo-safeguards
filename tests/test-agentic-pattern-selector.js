@@ -199,6 +199,12 @@ test('unknown fields and secret-shaped fields are rejected', () => {
   assert.strictEqual(invalidWithTaskId.status, 'block');
   assert.strictEqual(invalidWithTaskId.taskId, null);
   assert(!JSON.stringify(invalidWithTaskId).includes(sentinel));
+
+  let deeplyNested = 0;
+  for (let index = 0; index < 10_000; index += 1) deeplyNested = { nested: deeplyNested };
+  const deepBlocked = selectPatterns(deeplyNested);
+  assert.strictEqual(deepBlocked.status, 'block');
+  assert.match(deepBlocked.receiptHash, /^[a-f0-9]{64}$/);
 });
 
 test('validation rejects duplicate roles and invalid metric values', () => {
@@ -288,9 +294,13 @@ test('CLI help, argument errors, and malformed files are bounded', () => {
   assert.strictEqual(help.status, 0);
   assert.match(help.stdout, /Usage:/);
 
-  const unknown = spawnSync(process.execPath, [cli, '--unknown'], { encoding: 'utf8' });
+  const argumentSentinel = ['ARGUMENT', 'SENTINEL', '927461'].join('_');
+  const unknown = spawnSync(process.execPath, [cli, `--unknown-${argumentSentinel}`], {
+    encoding: 'utf8',
+  });
   assert.strictEqual(unknown.status, 2);
-  assert.match(unknown.stderr, /Unknown argument/);
+  assert.strictEqual(unknown.stderr, 'unknown argument\n');
+  assert(!unknown.stderr.includes(argumentSentinel));
 
   const missing = spawnSync(process.execPath, [cli, '--manifest', path.join(__dirname, 'does-not-exist.json')], {
     encoding: 'utf8',
@@ -326,6 +336,31 @@ test('CLI help, argument errors, and malformed files are bounded', () => {
   assert.deepStrictEqual(malformedReceiptA.errors, ['manifest JSON is invalid']);
   assert(!malformedA.stdout.includes(malformedSecret));
   assert.notStrictEqual(malformedReceiptA.inputHash, malformedReceiptB.inputHash);
+
+  const invalidByteA = spawnSync(process.execPath, [cli, '--manifest', '-'], {
+    encoding: 'utf8',
+    input: Buffer.from([0x80]),
+  });
+  const invalidByteB = spawnSync(process.execPath, [cli, '--manifest', '-'], {
+    encoding: 'utf8',
+    input: Buffer.from([0x81]),
+  });
+  const invalidByteReceiptA = JSON.parse(invalidByteA.stdout);
+  const invalidByteReceiptB = JSON.parse(invalidByteB.stdout);
+  assert.deepStrictEqual(invalidByteReceiptA.errors, ['manifest JSON is invalid']);
+  assert.notStrictEqual(invalidByteReceiptA.inputHash, invalidByteReceiptB.inputHash);
+
+  const deepJson = `${'{"nested":'.repeat(10_000)}0${'}'.repeat(10_000)}`;
+  assert(Buffer.byteLength(deepJson) < 256 * 1024);
+  const deepJsonBlocked = spawnSync(process.execPath, [cli, '--manifest', '-'], {
+    encoding: 'utf8',
+    input: deepJson,
+  });
+  assert.strictEqual(deepJsonBlocked.status, 2);
+  const deepJsonReceipt = JSON.parse(deepJsonBlocked.stdout);
+  assert.strictEqual(deepJsonReceipt.status, 'block');
+  assert.match(deepJsonReceipt.receiptHash, /^[a-f0-9]{64}$/);
+  assert(!deepJsonBlocked.stderr.includes('RangeError'));
 
   const validJsonSentinel = ['CLI', 'SECRET', 'SENTINEL', '7462'].join('_');
   const validJsonBlocked = spawnSync(process.execPath, [cli, '--manifest', '-'], {

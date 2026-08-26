@@ -14,8 +14,7 @@ const fs = require('fs');
 const path = require('path');
 const {
   blockedReceipt,
-  blockedReceiptFromRaw,
-  selectPatterns,
+  selectPatternsFromRaw,
 } = require('./agentic-pattern-selector');
 
 const REPO = path.resolve(__dirname, '..');
@@ -561,18 +560,14 @@ function loadPatternReceipt(manifestPath) {
     const stat = fs.statSync(resolved);
     if (!stat.isFile()) throw new Error('pattern manifest must be a regular file');
     if (stat.size > 256 * 1024) throw new Error('pattern manifest exceeds 256 KiB');
-    raw = fs.readFileSync(resolved, 'utf8');
+    raw = fs.readFileSync(resolved);
   } catch (error) {
     const message = /exceeds 256 KiB|regular file/.test(error.message)
       ? error.message
       : 'pattern manifest could not be read';
     return blockedReceipt(null, [message]);
   }
-  try {
-    return selectPatterns(JSON.parse(raw));
-  } catch (_error) {
-    return blockedReceiptFromRaw(raw, ['pattern manifest JSON is invalid']);
-  }
+  return selectPatternsFromRaw(raw);
 }
 
 function recommendNextAction(brief) {

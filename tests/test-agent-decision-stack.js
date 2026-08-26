@@ -81,7 +81,7 @@ fs.writeFileSync(malformedPatternPathA, `{"password":${malformedSecret}}`);
 fs.writeFileSync(malformedPatternPathB, `{"password":${malformedSecret}_DIFFERENT}`);
 const malformedPatternA = loadPatternReceipt(malformedPatternPathA);
 const malformedPatternB = loadPatternReceipt(malformedPatternPathB);
-assert.deepStrictEqual(malformedPatternA.errors, ['pattern manifest JSON is invalid']);
+assert.deepStrictEqual(malformedPatternA.errors, ['manifest JSON is invalid']);
 assert(!JSON.stringify(malformedPatternA).includes(malformedSecret));
 assert.notStrictEqual(malformedPatternA.inputHash, malformedPatternB.inputHash);
 
@@ -94,6 +94,13 @@ fs.writeFileSync(secretFieldPatternPath, JSON.stringify({
 const secretFieldPattern = loadPatternReceipt(secretFieldPatternPath);
 assert.strictEqual(secretFieldPattern.status, 'block');
 assert(!JSON.stringify(secretFieldPattern).includes(validJsonSentinel));
+
+const deepPatternPath = path.join(patternDir, 'deep.json');
+const deepPatternJson = `${'{"nested":'.repeat(10_000)}0${'}'.repeat(10_000)}`;
+fs.writeFileSync(deepPatternPath, deepPatternJson);
+const deepPattern = loadPatternReceipt(deepPatternPath);
+assert.strictEqual(deepPattern.status, 'block');
+assert.match(deepPattern.receiptHash, /^[a-f0-9]{64}$/);
 
 const blockedBrief = buildBrief({
   task: 'Do not execute work after an invalid pattern manifest',
