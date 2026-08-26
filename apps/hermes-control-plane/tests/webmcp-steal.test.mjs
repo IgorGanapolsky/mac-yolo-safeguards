@@ -29,7 +29,7 @@ test("get_hermes_offer answers with the hosted Hermes offer", async () => {
   const [offer] = buildWebMcpTools({});
   const result = await offer.execute();
   assert.match(result, /hosted Hermes/);
-  assert.match(result, /\$10/);
+  assert.match(result, /\$10\/month/);
   assert.match(result, /thumbgate\.app/);
   assert.match(result, /You own the work\. We own the machine\./);
 });
