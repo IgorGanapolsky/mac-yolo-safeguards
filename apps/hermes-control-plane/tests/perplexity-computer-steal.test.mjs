@@ -11,9 +11,10 @@ const analytics = readFileSync(
 );
 const llms = readFileSync(new URL("../app/llms.txt/route.ts", import.meta.url), "utf8");
 
-test("moves the Give/Works/Approve loop to the linked product tour", () => {
-  assert.match(page, /href="\/how-it-works"/);
-  assert.doesNotMatch(page, /id="example-tasks"/);
+test("keeps one concise Give-work CTA and moves the full loop to the product tour", () => {
+  assert.match(page, /href="\/how-it-works#example-tasks"/);
+  assert.match(page, /id="example-tasks"/);
+  assert.match(page, /data-cta-id="watch-ci"/);
   assert.match(detailPage, /id="example-tasks"/);
   assert.match(detailPage, /Give hosted Hermes a job/);
   assert.match(detailPage, /Hosted Hermes works/);

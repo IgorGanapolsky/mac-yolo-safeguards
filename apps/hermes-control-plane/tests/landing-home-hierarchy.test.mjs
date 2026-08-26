@@ -24,7 +24,9 @@ test("homepage is a concise decision page and links to the full product tour", (
   assert.ok(sectionCount(detail) > sectionCount(home), "long-form detail belongs off the homepage");
 
   assert.match(home, /<LandingAuthHero \/>/);
-  assert.match(home, /href="\/how-it-works" className="button button-secondary"/);
+  assert.match(home, /href="\/how-it-works#example-tasks"/);
+  assert.match(home, /Give hosted Hermes a job/);
+  assert.match(home, /data-cta-id="watch-ci"/);
   assert.match(home, /id="pricing"/);
   assert.match(home, /id="expertise"/);
   assert.doesNotMatch(home, /<FailoverPathDemo \/>/);

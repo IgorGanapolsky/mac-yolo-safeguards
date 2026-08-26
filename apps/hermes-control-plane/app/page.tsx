@@ -89,9 +89,16 @@ export default function Home() {
             One agent keeps working on a fenced VPS after your laptop sleeps. Money, customer, and production actions pause for your approval in this browser. $10/month after a 14-day trial.
           </p>
           <LandingAuthHero />
-          <p className="signin-note">Sign in with email, Google, or Apple. No laptop required. Approvals stay in this browser.</p>
-          <div className="hero-actions">
-            <Link href="/how-it-works" className="button button-secondary">See how it works →</Link>
+          <p className="signin-note">Sign in with email, Google, or Apple. No laptop required. Approvals happen in thumbgate.app.</p>
+          <div id="example-tasks" className="hero-actions">
+            <Link
+              href="/how-it-works#example-tasks"
+              className="button button-secondary"
+              data-funnel-event="example_task_click"
+              data-cta-id="watch-ci"
+            >
+              Give hosted Hermes a job →
+            </Link>
           </div>
           <div className="trust-row" aria-label="Offer facts">
             <span>Always-on fenced VPS</span>

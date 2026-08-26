@@ -38,7 +38,7 @@ test("builds the public hosted Hermes landing page", async () => {
   assert.doesNotMatch(publicContent, /Do I need to pair a Mac\?/);
   assert.match(publicContent, /No laptop required/i);
   assert.match(publicContent, /Hosted Hermes/);
-  assert.match(publicContent, /Sign in with email, Google, or Apple\.[\s\S]{0,60}Approvals stay in this browser/);
+  assert.match(publicContent, /Sign in with email, Google, or Apple\.[\s\S]{0,60}Approvals happen in thumbgate\.app/);
   assert.doesNotMatch(publicContent, /Continue with Google today/);
   assert.doesNotMatch(publicContent, /more providers activate once configured/);
   assert.match(publicContent, /LLM-as-a-Judge/);
