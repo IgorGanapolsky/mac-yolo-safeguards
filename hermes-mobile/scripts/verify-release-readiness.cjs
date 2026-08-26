@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { findR8DisableDirectives } = require('./android-play-quality-audit.cjs');
 
 const repoRoot = path.resolve(__dirname, '..');
 const jsonMode = process.argv.includes('--json');
@@ -69,6 +70,11 @@ check(
 check(
   androidBuildProps.enableShrinkResourcesInReleaseBuilds === true,
   'app.json expo-build-properties must enable resource shrinking in release builds',
+);
+const r8DisableDirectives = findR8DisableDirectives(androidBuildProps.extraProguardRules);
+check(
+  r8DisableDirectives.length === 0,
+  `app.json extraProguardRules must not disable R8: ${r8DisableDirectives.join(', ')}`,
 );
 
 const appJsonText = fs.readFileSync(path.join(repoRoot, 'app.json'), 'utf8');
