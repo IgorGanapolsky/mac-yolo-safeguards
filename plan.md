@@ -19,6 +19,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 ## 1. Task Board
 
+| T-HERMES-PHONE-MIDCYCLE-HUMAN-GUARD-20260825 | P0: prevent scheduled continuous E2E from taking over, aborting, or uninstalling Hermes Mobile when Igor begins using the physical phone after the cycle-start check | in_progress | codex-hermes-phone-midcycle-guard | `hermes-mobile/scripts/run-continuous-e2e.sh`, `tests/test-hermes-phone-user-activity-guard.js`, `plan.md` (append only) | Reproduce the 2026-08-25 12:31 overlap; re-check foreground human activity immediately before the physical-device E2E boundary even while the process tree owns the lease; prove focused contracts + shell syntax; open a PR, do not merge until required checks and review threads are green |
 | T-THUMBGATE-LANDING-INTEGRITY-20260825 | P0: repair the production StartSurfaces spacing collapse and prevent active Pro subscribers from seeing another checkout CTA | in_progress | codex-thumbgate-landing-integrity | `apps/hermes-control-plane/app/start-surfaces.module.css`, `apps/hermes-control-plane/app/HostedCheckoutCta.tsx`, `apps/hermes-control-plane/app/LandingAuthChrome.tsx`, `apps/hermes-control-plane/app/useLandingAuth.ts`, `apps/hermes-control-plane/app/useLandingAuth.test.ts`, `apps/hermes-control-plane/tests/start-surfaces.test.mjs`, `apps/hermes-control-plane/tests/hosted-hermes-checkout-cta.test.mjs`, `plan.md` (append only) | GH #2071; Linear AGENT-406 regression follow-up; prove resolved spacing tokens plus 1536x768 and 390x844 geometry, and anonymous/free/paid CTA states; do not touch dashboard chronology files |
 | T-LANDING-SIGNED-IN-NO-REPAY-20260825 | Signed-in trial/paid users must not see another Start hosted Hermes $10/mo checkout wall on the public landing | in_progress | grok-landing-signed-in-cta | `apps/hermes-control-plane/app/LandingAuthChrome.tsx`, `apps/hermes-control-plane/tests/landing-signed-in-cta.test.mjs`, `plan.md` | Session with cloudAccess → Open dashboard / Continue; anon keeps $10 CTA; prove with focused tests |
 | T-INFOQ-DEVICE-SUBMIT-SCHEMA-20260825 | Apply the newsletter's deterministic-schema pattern at ThumbGate's signed-device task boundary | in_progress | codex-infoq-device-schema | `apps/hermes-control-plane/app/api/device/tasks/submit/route.ts`, `apps/hermes-control-plane/lib/hermes-schema-validator.js`, `apps/hermes-control-plane/lib/schema-validator.ts`, `apps/hermes-control-plane/lib/schema-validator.test.ts`, `apps/hermes-control-plane/tests/device-cloud-task-routes.test.mjs`, `plan.md` (append only) | GH #2077; accept current connector/mobile payloads; reject malformed, oversized, invalid-role, and unknown-field bodies before task admission/D1; preserve downstream 48k aggregate context budget |
@@ -3857,3 +3858,103 @@ GH #2034 / Linear AGENT-505. Remove fabricated fallback preference data and fixe
 - `bin/kitesurf-account-rail` (new)
 - `SKILLS.md` (append row)
 - `plan.md` (this append)
+## Claude Academy 4D steal (append 2026-08-25T16:40Z) — agent `grok-hosted-academy-4d-20260825`
+
+Source: https://academy.claude.com/ — AI Fluency 4D (Delegation, Description, Discernment, Diligence) + Cowork whole-task handoff. Not a course clone. Not Claude Cowork/Code/Tag. Complementary to fleet `/ai-fluency-4d-builder` (checklist) and PR #2052 completed≠quality. Do **not** dual-edit `tools/ai-native-sdlc.js`, InfoQ #2081 admission routes, or prompt-distill #2052.
+
+| T-HOSTED-ACADEMY-4D-20260825 | Steal Academy Description-before-execute, five-lens discernment, Cowork workspace+context+deliverable onto hosted VPS gates | in_progress | grok-hosted-academy-4d-20260825 | `tools/hosted-academy-4d.js`, `tests/test-hosted-academy-4d.js`, `bin/hosted-academy-4d`, `apps/hermes-control-plane/lib/hosted-academy-4d.ts`, `apps/hermes-control-plane/lib/hosted-academy-4d.test.ts`, `apps/hermes-control-plane/lib/execution-receipt.ts` (academy4d attach only), `apps/hermes-control-plane/lib/execution-receipt.test.ts` (academy4d only), `apps/hermes-control-plane/lib/hosted-session-handoff.ts` (whole-task cowork gate), `apps/hermes-control-plane/tests/hosted-session-handoff.test.mjs` (cowork cases), `.agents/skills/hosted-academy-4d/**`, `SKILLS.md` (append row), `plan.md` | Chat still skips ACs; execute/handoff fail closed without Description/Cowork fields; receipt.outcome `done` is not academy ship; workerLive=false until merge |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/hosted-academy-4d.js | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| tests/test-hosted-academy-4d.js | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| bin/hosted-academy-4d | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| apps/hermes-control-plane/lib/hosted-academy-4d.ts | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| apps/hermes-control-plane/lib/hosted-academy-4d.test.ts | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| apps/hermes-control-plane/lib/execution-receipt.ts (academy4d field only) | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| apps/hermes-control-plane/lib/execution-receipt.test.ts (academy4d cases) | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| apps/hermes-control-plane/lib/hosted-session-handoff.ts (wholeTask cowork) | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| apps/hermes-control-plane/tests/hosted-session-handoff.test.mjs (cowork cases) | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| .agents/skills/hosted-academy-4d/** | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| SKILLS.md (append row) | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+| plan.md (this append) | grok-hosted-academy-4d-20260825 | 2026-08-25T16:40:00Z |
+
+Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` / `nostr/events` / `device-cloud-task.ts` (InfoQ #2081), `hosted-prompt-distill*` (#2052), or `tools/ai-native-sdlc.js`.
+
+## File claim (append 2026-08-25T16:30:00Z) — `grok-hosted-alert-correlate`
+
+| T-HOSTED-ALERT-CORRELATE-20260825 | Digitate/ignio process steal: suppress duplicate hosted signatures, correlate related Worker routes, precursor vs user-facing, validated-fix only | in_progress | grok-hosted-alert-correlate | `tools/hosted-alert-correlate.js`, `tests/test-hosted-alert-correlate.js`, `apps/hermes-control-plane/lib/hosted-alert-correlate.ts`, `apps/hermes-control-plane/lib/hosted-alert-correlate.test.ts`, `apps/hermes-control-plane/app/ClientErrorBeacon.tsx`, `apps/hermes-control-plane/lib/client-error-beacon.test.ts`, `.agents/skills/hosted-alert-correlate/**`, `bin/hosted-alert-correlate`, `SKILLS.md`, `plan.md` | Not ignio/CloudWatch; do not dual-edit rule-sprawl.js or analytics/event/route.ts |
+
+- `tools/hosted-alert-correlate.js` (new)
+- `tests/test-hosted-alert-correlate.js` (new)
+- `apps/hermes-control-plane/lib/hosted-alert-correlate.ts` (new)
+- `apps/hermes-control-plane/lib/hosted-alert-correlate.test.ts` (new)
+- `apps/hermes-control-plane/app/ClientErrorBeacon.tsx` (duplicate-signature suppress)
+- `apps/hermes-control-plane/lib/client-error-beacon.test.ts`
+- `.agents/skills/hosted-alert-correlate/` (new)
+- `bin/hosted-alert-correlate` (new)
+## File claim (append 2026-08-25T16:00:00Z) — `grok-kitesurf-account-rail`
+
+| T-KITESURF-ACCOUNT-RAIL-20260825 | Auto-fill Cloudflare account id so Browser Run `?browser=kitesurf` is actually used for public one-shot captures; fail-closed PNG magic; do not dual-edit #2010/#2079 | in_progress | grok-kitesurf-account-rail | `tools/kitesurf-account-rail.js`, `tests/test-kitesurf-account-rail.js`, `.agents/skills/kitesurf-account-rail/**`, `bin/kitesurf-account-rail`, `SKILLS.md`, `plan.md` | Complementary to OPEN #2079/#2010; hosted Worker still does not call Kitesurf |
+
+- `tools/kitesurf-account-rail.js` (new)
+- `tests/test-kitesurf-account-rail.js` (new)
+- `.agents/skills/kitesurf-account-rail/` (new)
+- `bin/kitesurf-account-rail` (new)
+- `SKILLS.md` (append row)
+- `plan.md` (this append)
+- `hermes-mobile/scripts/run-continuous-e2e.sh`, `tests/test-hermes-phone-user-activity-guard.js`, `plan.md` (append only) → **codex-hermes-phone-midcycle-guard** (T-HERMES-PHONE-MIDCYCLE-HUMAN-GUARD-20260825: close the cycle-start TOCTOU window that allowed the 12:23 scheduled runner to seize and later uninstall Igor's paid app after he began using the phone at 12:31) (2026-08-25T16:39:00Z)
+
+## File claim (append 2026-08-25T17:55:00Z) — `grok-hosted-together-native-20260825`
+
+| T-HOSTED-TOGETHER-NATIVE-20260825 | Together AI Native Conf process steal: capacity ≠ frontier, serverless/batch/provisioned/dedicated honesty, research-to-production receipts | in_progress | grok-hosted-together-native-20260825 | `tools/hosted-together-native.js`, `tests/test-hosted-together-native.js`, `apps/hermes-control-plane/lib/hosted-together-native.ts`, `apps/hermes-control-plane/lib/hosted-together-native.test.ts`, `bin/hosted-together-native`, `.agents/skills/hosted-together-native/**`, `SKILLS.md` (one row), `plan.md` | Not Together Cloud / FA4 / ThunderAgent / Instant Clusters; do not dual-edit ai-native-sdlc, #2088 academy-4d/execution-receipt, or RESEARCH-together-cursor-decagon-hedra |
+
+- `tools/hosted-together-native.js` (new)
+- `tests/test-hosted-together-native.js` (new)
+- `apps/hermes-control-plane/lib/hosted-together-native.ts` (new)
+- `apps/hermes-control-plane/lib/hosted-together-native.test.ts` (new)
+- `bin/hosted-together-native` (new)
+- `.agents/skills/hosted-together-native/` (new)
+- `SKILLS.md` (one row append)
+- `plan.md` (this append)
+
+## Discovered / Decisions (append) — 2026-08-25T17:55Z — grok-hosted-together-native-20260825
+
+- Source: `~/Downloads/together.pdf` (Together Team → igor@ 2026-08-25, AI Native Conf promo) + https://www.together.ai/ainativeconf + https://www.together.ai/blog/ai-native-conf-research-and-product-announcements.
+- Transferable: leftover quota/VPS-up is capacity not frontier; batch complete ≠ LIVE; dedicated GPU claims are NOT_OFFERED; conference talks/vendor blogs are not production receipts.
+- Backlog: Instant Clusters, FlashAttention-4, ThunderAgent, RL API, together.compile, ATLAS-2, dedicated container inference (GPU cloud, not a $10 Worker).
+- Complementary to `/ai-native-sdlc` and OPEN #2088 academy-4d (completed ≠ quality). Did not edit those files.
+
+## Discovered / Decisions (append) — 2026-08-25T17:32Z — grok-hosted-together-native-20260825
+
+- PR **#2092** Codex P1/P2 on tip `d1ced6147`: (1) placeholder SHA / missing eval file must not grade LIVE; (2) `Boolean("false")` must not coerce proof flags; (3) `claimedClass=chat` must not hide overnight/batch prompts; (4) wire `attachTogetherNativeToReceipt` into `execution-receipt.ts` now that #2088 is on main.
+- SonarQube Cloud GitHub check-suite `89062269595` still **queued** with 0 check-runs / 0 public issues (mac-yolo is not a SonarCloud project). Fixes below are the live review findings on this PR.
+
+## File claim (append 2026-08-25T17:48:00Z) — `grok-dashboard-chat-status-copy-20260825`
+
+| T-DASHBOARD-CHAT-STATUS-COPY-20260825 | Humanize chat SENT/waiting chips; stop dumping cloud_pending + fenced-lease jargon; compact Leash account/run-target panel | in_progress | grok-dashboard-chat-status-copy-20260825 | `apps/hermes-control-plane/lib/conversation-message-meta.ts`, `apps/hermes-control-plane/lib/conversation-message-meta.test.ts`, `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx` (conversation pending/user chips + leash-control panel only), `apps/hermes-control-plane/app/globals.css` (leash-device-picker, account-recovery, status-waiting), `apps/hermes-control-plane/tests/dashboard-chat-status-copy.test.mjs`, `plan.md` | CEO screenshots: CLOUD PENDING+SENT on one send; Leash tab legal dump. Do not dual-edit #2041 result-replace hunks or AGENT-476 TurnStatusline. |
+
+## Discovered / Decisions (append) — 2026-08-25T17:48Z — grok-dashboard-chat-status-copy-20260825
+
+- User bubble had a raw `task.status` chip (CLOUD PENDING) plus ConversationMeta SENT — same send, two statuses. Remove the raw chip; keep SENT.
+- Pending copy "Waiting for the fenced VPS runner…" and receipt "fenced · 90s lease" are operator jargon in chat. Use waiting/Hermes/hasn't started.
+- Leash panel stacked run-target, account switch, and HOSTED_NOT_COMPUTER_HISTORY. Keep picker + signed-in strip; move legal line into existing safety panel.
+- Complementary to OPEN #2041 (replace pending when result arrives). This PR does not steal that result-merge logic.
+
+## File claim (append 2026-08-25T18:20:00Z) — `grok-dashboard-chat-status-copy-20260825`
+
+- `apps/hermes-control-plane/tests/not-computer-history.test.mjs` (dashboard uses HOSTED_NOT_COMPUTER_HISTORY constant; literals stay in hosted-apphost.ts)
+- `apps/hermes-control-plane/lib/hosted-apphost.ts` (hostedConnectionCopy body only — drop Computer History essay from Leash summary)
+- `apps/hermes-control-plane/lib/hosted-apphost.test.ts` (same body copy)
+
+## Discovered / Decisions (append) — 2026-08-25T18:20Z — grok-dashboard-chat-status-copy-20260825
+
+- Leash still dumped HOSTED_NOT_COMPUTER_HISTORY via `hostedCopy.body` at 9px even after privacy-boundary removal. Summary stays $10/fenced/no-inbox; denial stays in execution-safety accordion.
+- Hidden task-list chips now use chatOutputStatus so CLOUD PENDING cannot reappear if the duplicate list is shown.
+
+## Discovered / Decisions (append) — 2026-08-25T18:45Z — grok-dashboard-chat-status-copy-20260825
+
+- Production still shows `origin/main` Leash: `<summary>Optional: send the next task to a paired computer</summary>` plus “wrong workspace / Switch account” plus “Bounded Hermes … isolated serverless leases.” That is a sign-out control + operator dump sitting under Mac pairing — not a second Google workspace. Header already has Sign out (`dashboard-sign-out`).
+- Drop the Leash `account-recovery` card. Keep one-line `leash-signed-in` email. Sign-out stays in header/sidebar.
+- Codex P2 on #2095: `pendingWaitCopy(task.status)` — `running` → “Hermes is working on this.”; pending → “hasn't started.” Do not dual-edit #2041 result-replace or AGENT-476 TurnStatusline.
