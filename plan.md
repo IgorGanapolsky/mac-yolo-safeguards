@@ -4001,3 +4001,7 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - Existing R8 minification and resource shrinking already cover the configuration change; this task adds disable-directive regression protection and device evidence, not a duplicate optimizer.
 - Hermes Mobile has no app account or login, so Zero-Tap Sign-In is currently out of scope. Do not add Credential Manager or enable Android backup speculatively.
 - Device samples are point-in-time diagnostics. Only Play Console or the Developer Reporting API can prove the 28-day P90 requirement.
+
+## File lock (append 2026-08-26T21:46:00Z) - `codex/google-play-quality-20260826`
+
+- `hermes-mobile/scripts/android-play-quality-audit.cjs`, `tests/test-android-play-quality-audit.js`, `hermes-mobile/scripts/verify-release-readiness.cjs`, `plan.md` → **codex/google-play-quality-20260826** (T-GOOGLE-PLAY-QUALITY-20260826 / GH #2138 / AGENT-559: Google Play February 2027 memory and DEX evidence gates) (2026-08-26T21:46:00Z)
