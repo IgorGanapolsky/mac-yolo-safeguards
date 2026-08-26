@@ -3985,3 +3985,19 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - `but land` on ThumbGate / mac-yolo `main` is REFUSE — `npm run pr:manage` / `gh pr merge --auto`.
 - Linked worktrees (this repo, 80+ trees) use git. Official GitButler exception: never `but setup` from a linked worktree.
 - Complementary to OPEN Codex PR #2119 (`tools/gitbutler-route.js`). This PR does not steal AGENT-538.
+
+## File claim (append 2026-08-26T21:40:30Z) - `codex/google-play-quality-20260826`
+
+| T-GOOGLE-PLAY-QUALITY-20260826 | Google Play Feb 2027 memory and DEX evidence: reject R8-disabling rules and emit honest Android device memory receipts without presenting a point-in-time sample as Play P90 compliance | in_progress | codex/google-play-quality-20260826 (AGENT-559, GH-2138) | `hermes-mobile/scripts/android-play-quality-audit.cjs` (new), `tests/test-android-play-quality-audit.js` (new), `hermes-mobile/scripts/verify-release-readiness.cjs` (R8 disable-directive check only), `plan.md` (append only) | `node tests/test-android-play-quality-audit.js`; `cd hermes-mobile && npm run release:check`; no-device audit fails with explicit blocker; real device receipt remains separate from Play Console 28-day P90 |
+
+- `hermes-mobile/scripts/android-play-quality-audit.cjs` (new)
+- `tests/test-android-play-quality-audit.js` (new)
+- `hermes-mobile/scripts/verify-release-readiness.cjs` (R8 disable-directive check only)
+- `plan.md` (this append)
+
+## Discovered / Decisions (append) - 2026-08-26T21:40:30Z - `codex/google-play-quality-20260826`
+
+- Source: `~/Downloads/play.pdf`, SHA-256 `297417ebcfcab2a223700a89c7fe6c15d0a09c6108c16aeba0f126dbfa064bd0`, plus Google Play technical requirement page published 2026-08-26.
+- Existing R8 minification and resource shrinking already cover the configuration change; this task adds disable-directive regression protection and device evidence, not a duplicate optimizer.
+- Hermes Mobile has no app account or login, so Zero-Tap Sign-In is currently out of scope. Do not add Credential Manager or enable Android backup speculatively.
+- Device samples are point-in-time diagnostics. Only Play Console or the Developer Reporting API can prove the 28-day P90 requirement.
