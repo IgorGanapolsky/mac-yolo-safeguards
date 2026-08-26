@@ -65,7 +65,45 @@ const headingOnly = GOLD.replace(
 assert.strictEqual(examplesConcrete(headingOnly), false);
 assert.ok(auditText(headingOnly).missing.includes('examples'));
 
-const abstract = 'Do a good job writing well.\n## Rubric\ngrade PASS evidence';
+const emptyGold = GOLD.replace(
+  /## Examples[\s\S]*?## Procedures/,
+  '## Examples (show, don\'t tell)\nWeak:\nGold:\n\n## Procedures',
+);
+assert.strictEqual(examplesConcrete(emptyGold), false);
+assert.ok(auditText(emptyGold).missing.includes('examples'));
+
+const noGoalHeading = GOLD.replace(/^# Goal\n[^\n]*\n/m, '# Demo\n');
+assert.ok(auditText(noGoalHeading).missing.includes('section.goal'));
+
+const scatter = [
+  'NEVER ALWAYS HARD fail closed REFUSE',
+  'https://example.com `~/x.md` [[linear-no-steal-locks]] tools/x.js SKILL.md',
+  'Weak: Clean up labels.',
+  'Gold:',
+  '```bash',
+  '$ python3 prune_unused.py --apply',
+  '```',
+  'ok=true doctor_exit=0 evidence PASS',
+].join('\n');
+assert.ok(auditText(scatter).missing.includes('section.goal'));
+assert.ok(auditText(scatter).missing.includes('section.examples'));
+
+const abstract = [
+  '## Goal',
+  'Produce fluff for whom: nobody.',
+  '## Constraints',
+  'NEVER invent. ALWAYS evidence. HARD fail closed.',
+  '## Reference',
+  'https://example.com tools/x.js SKILL.md',
+  '## Examples (show, don\'t tell)',
+  'Do a good job writing well.',
+  '## Procedures',
+  '```bash',
+  'true',
+  '```',
+  '## Rubric',
+  'grade PASS evidence',
+].join('\n');
 assert.ok(auditText(abstract).missing.includes('examples.gold_concrete'));
 
 const cloned = `${GOLD}\nclonedEverydayAi: true\n`;

@@ -11,16 +11,10 @@ description: >
 Use before drafting agent/public copy when the user cites Everyday AI, six key blocks,
 show don't tell, rubric-first, or reusable context vaults.
 
-## Steal (FORMAT only)
+## Goal
 
-| Block | Meaning here |
-|-------|----------------|
-| Goal | What to produce and for whom |
-| Constraints | Chief lock, no Continuity hero, no invented traction |
-| Reference | AGENTS.md, CHIEF.md, SKILLS.md |
-| Examples | Concrete gold + bad (not "write well") |
-| Procedures | Load pack → example → rubric → capped repair |
-| Rubric | mustInclude / mustNot, graded before ship |
+Produce a reusable six-block context pack for whom: Grok/Claude/Codex agents drafting
+skills, briefs, or hosted copy — not a one-off prompt paste.
 
 Layers: personal (this agent/worktree), team (AGENTS.md), company (Chief), market ($10 fenced VPS).
 
@@ -29,6 +23,14 @@ Layers: personal (this agent/worktree), team (AGENTS.md), company (Chief), marke
 NEVER clone Everyday AI / Prime Prompt Polish. NEVER add ChatGPT/Claude/Gemini connector SKUs.
 ALWAYS steal FORMAT only (six named blocks + gold + rubric-first). HARD fail closed on heading-only
 "show, don't tell". REFUSE to dual-edit `tools/context-six-block.js` or Codex #2126 `tools/context-vault.js`.
+
+## Reference
+
+- Episode FORMAT source: https://www.youreverydayai.com/ep-710-context-engineering-how-to-get-expert-level-outputs-from-ai-chatbots/
+- Assembler: `tools/context-six-block.js` (PR #2114)
+- Auditor: `tools/audit-six-block.js` (this PR)
+- Fleet audit rail: `~/.grok/skills/context-vault-six-blocks/SKILL.md`
+- [[coding-context-pack]] · AGENTS.md · CHIEF.md · SKILLS.md
 
 ## Examples (show, don't tell)
 

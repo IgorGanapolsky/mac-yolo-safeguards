@@ -1,6 +1,10 @@
----
-name: context-six-block
-description: Six-block context pack (goal/constraints/reference/examples/procedures/rubric) plus four layers. Everyday AI Ep 710 FORMAT steal. Not affiliated.
-owner: grok
-license: MIT
----
+# Skill Card: context-six-block
+
+## Description
+Assemble and fail-closed-audit six-block context packs (goal, constraints, reference, examples, procedures, rubric) with show-don't-tell gold and rubric-first grading.
+
+## Owner
+IgorGanapolsky
+
+## License
+MIT
