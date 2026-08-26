@@ -26,6 +26,7 @@ const empty = analyze('');
 assert.strictEqual(empty.status, 'UNAVAILABLE');
 assert.strictEqual(empty.liveClaim, false);
 assert.strictEqual(empty.itemsAnalyzed, 0);
+assert.strictEqual(empty.legacyEngineIsTheater, null);
 
 const items = parseTrendingHtml(fixture);
 assert.ok(items.length >= 6, `expected >=6 items, got ${items.length}`);
@@ -53,6 +54,12 @@ const ox = report.mapped.find((x) => /Ox Alpha/i.test(x.name));
 assert.ok(ox);
 assert.strictEqual(ox.verdict, 'cost_signal');
 assert.ok(ox.action.includes('$10/mo'));
+
+const cursorCost = report.mapped.find((x) => /cursor auto|5-hour limit|codex plus|per-model/i.test(`${x.name} ${x.description}`));
+if (cursorCost) {
+  assert.notStrictEqual(cursorCost.existingSkill, 'hermes-yolo-cost-autonomy');
+  assert.ok(!String(cursorCost.action).includes('/hermes-yolo-cost-autonomy'));
+}
 
 const eli5 = report.mapped.find((x) => /eli5/i.test(x.name));
 assert.ok(eli5);

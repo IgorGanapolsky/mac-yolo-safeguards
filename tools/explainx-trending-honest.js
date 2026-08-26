@@ -105,15 +105,45 @@ function theaterOverlap(items) {
   return THEATER_TITLES.filter((t) => names.has(t));
 }
 
-function mapItem(item) {
+function loadRegisteredSkills() {
+  const names = new Set();
+  const skillsMd = path.join(__dirname, '..', 'SKILLS.md');
+  if (fs.existsSync(skillsMd)) {
+    const md = fs.readFileSync(skillsMd, 'utf8');
+    for (const m of md.matchAll(/^\| `([^`]+)` \|/gm)) names.add(m[1]);
+  }
+  const agentsDir = path.join(__dirname, '..', '.agents', 'skills');
+  if (fs.existsSync(agentsDir)) {
+    for (const ent of fs.readdirSync(agentsDir, { withFileTypes: true })) {
+      if (
+        ent.isDirectory() &&
+        fs.existsSync(path.join(agentsDir, ent.name, 'SKILL.md'))
+      ) {
+        names.add(ent.name);
+      }
+    }
+  }
+  return names;
+}
+
+function mapItem(item, registered) {
   const hay = `${item.name} ${item.description} ${item.href}`;
   for (const rule of MAP_RULES) {
     if (rule.re.test(hay)) {
+      let skill = rule.skill;
+      let verdict = rule.verdict;
+      if (skill && registered && !registered.has(skill)) {
+        if (verdict === 'cost_signal') skill = null;
+        else {
+          verdict = 'unmapped';
+          skill = null;
+        }
+      }
       return {
         ...item,
-        verdict: rule.verdict,
-        existingSkill: rule.skill,
-        action: actionFor(rule.verdict, rule.skill),
+        verdict,
+        existingSkill: skill,
+        action: actionFor(verdict, skill),
       };
     }
   }
@@ -136,9 +166,12 @@ function mapItem(item) {
 function actionFor(verdict, skill) {
   if (verdict === 'already_have') return `Use existing /${skill} — do not clone the trending listing.`;
   if (verdict === 'cost_signal') {
-    return `Cost signal only: keep the $10/mo fail-closed cap; optional via /${skill}, never a new default paid route.`;
+    return skill
+      ? `Cost signal only: keep the $10/mo fail-closed cap; optional via /${skill}, never a new default paid route.`
+      : 'Cost signal only: keep the $10/mo fail-closed cap; no registered skill slash — do not invent one.';
   }
   if (verdict === 'related') return `Related to /${skill}; do not add an unpaid public MCP default.`;
+  if (verdict === 'unmapped') return 'No registered SKILLS.md / .agents/skills entry — do not emit an unusable slash.';
   if (verdict === 'skip_clone') return 'Skip clone (visual explainer skill is not ThumbGate).';
   if (verdict === 'skip_not_ours') return 'Not our product.';
   return 'Backlog one-liner only.';
@@ -147,6 +180,7 @@ function actionFor(verdict, skill) {
 function analyze(html, opts = {}) {
   const h = honesty();
   const items = parseTrendingHtml(html || '');
+  const registered = opts.registeredSkills || loadRegisteredSkills();
   if (!items.length) {
     return {
       ...h,
@@ -156,10 +190,11 @@ function analyze(html, opts = {}) {
       itemsAnalyzed: 0,
       mapped: [],
       theaterTitlesOnPage: [],
-      legacyEngineIsTheater: true,
+      // Parsing failed: do not assert theater. Unknown until titles are observed.
+      legacyEngineIsTheater: null,
     };
   }
-  const mapped = items.map(mapItem);
+  const mapped = items.map((item) => mapItem(item, registered));
   const overlap = theaterOverlap(items);
   return {
     ...h,
@@ -250,6 +285,7 @@ module.exports = {
   honesty,
   parseTrendingHtml,
   mapItem,
+  loadRegisteredSkills,
   analyze,
   fetchTrending,
   main,
