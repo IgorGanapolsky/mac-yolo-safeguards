@@ -1,8 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   requireSession: vi.fn(),
   first: vi.fn(),
+  staleUnclaimedTaskIds: vi.fn(),
+  expireUnclaimedTasks: vi.fn(),
   queries: [] as Array<{ sql: string; values: unknown[] }>,
 }));
 
@@ -21,6 +23,12 @@ vi.mock("@/lib/runtime", () => ({
       };
     },
   }),
+}));
+
+vi.mock("@/lib/task-leases", () => ({
+  staleUnclaimedTaskIds: mocks.staleUnclaimedTaskIds,
+  expireUnclaimedTasks: mocks.expireUnclaimedTasks,
+  TASK_PICKUP_TIMEOUT_ERROR: "Hermes did not start this task within 15 minutes.",
 }));
 
 const { GET } = await import("./route");
@@ -62,7 +70,13 @@ describe("GET /api/tasks/{taskId}", () => {
   beforeEach(() => {
     mocks.requireSession.mockReset().mockResolvedValue(session);
     mocks.first.mockReset().mockResolvedValue(task);
+    mocks.staleUnclaimedTaskIds.mockReset().mockReturnValue([]);
+    mocks.expireUnclaimedTasks.mockReset().mockResolvedValue([]);
     mocks.queries.length = 0;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("requires the existing ThumbGate session without querying tasks", async () => {
@@ -115,5 +129,35 @@ describe("GET /api/tasks/{taskId}", () => {
     expect(body.receipt).not.toHaveProperty("result");
     expect(JSON.stringify(body.receipt)).not.toContain("private customer prompt");
     expect(JSON.stringify(body.receipt)).not.toContain("private task result");
+  });
+
+  it("applies the established pickup timeout before serializing a pending receipt", async () => {
+    const now = 900_000;
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    mocks.first.mockResolvedValue({
+      ...task,
+      status: "cloud_pending",
+      result: null,
+      updatedAt: 0,
+      completedAt: null,
+    });
+    mocks.staleUnclaimedTaskIds.mockReturnValue(["task-1"]);
+    mocks.expireUnclaimedTasks.mockResolvedValue(["task-1"]);
+
+    const response = await get();
+    const body = await response.json() as { task: typeof task; receipt: Record<string, unknown> };
+
+    expect(mocks.staleUnclaimedTaskIds).toHaveBeenCalledWith(
+      [expect.objectContaining({ id: "task-1" })],
+      now,
+    );
+    expect(mocks.expireUnclaimedTasks).toHaveBeenCalledWith(["task-1"], now);
+    expect(body.task).toMatchObject({
+      status: "failed",
+      error: "Hermes did not start this task within 15 minutes.",
+      updatedAt: now,
+      completedAt: now,
+    });
+    expect(body.receipt).toMatchObject({ status: "failed" });
   });
 });

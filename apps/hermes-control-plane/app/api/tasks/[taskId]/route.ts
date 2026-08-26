@@ -1,6 +1,11 @@
 import { requireSession } from "@/lib/auth";
 import { publicRunReceipt } from "@/lib/hosted-source-of-truth";
 import { db } from "@/lib/runtime";
+import {
+  expireUnclaimedTasks,
+  staleUnclaimedTaskIds,
+  TASK_PICKUP_TIMEOUT_ERROR,
+} from "@/lib/task-leases";
 
 const PRIVATE_NO_STORE = { "Cache-Control": "private, no-store" };
 
@@ -48,6 +53,17 @@ export async function GET(
   ).bind(taskId, session.organizationId).first<TaskRow>();
 
   if (!task) return errorResponse("task not found", 404);
+
+  const now = Date.now();
+  if (staleUnclaimedTaskIds([task], now).includes(task.id)) {
+    const expiredIds = await expireUnclaimedTasks([task.id], now);
+    if (expiredIds.includes(task.id)) {
+      task.status = "failed";
+      task.error = TASK_PICKUP_TIMEOUT_ERROR;
+      task.completedAt = now;
+      task.updatedAt = now;
+    }
+  }
 
   return Response.json({
     task,
