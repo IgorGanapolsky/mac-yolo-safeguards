@@ -182,6 +182,23 @@ test('unknown fields and secret-shaped fields are rejected', () => {
 
   const secret = validateManifest(manifest({ apiKey: 'x' }));
   assert(secret.some((error) => error.includes('secret-shaped field')));
+
+  const sentinel = ['ZXCV', 'SECRET', 'SENTINEL', '918273'].join('_');
+  const blocked = selectPatterns(manifest({
+    [`token_${sentinel}`]: 'x',
+    [`unknown_${sentinel}`]: true,
+  }));
+  assert.strictEqual(blocked.status, 'block');
+  assert(!JSON.stringify(blocked).includes(sentinel));
+
+  const invalidWithTaskId = selectPatterns({
+    ...manifest(),
+    schema: 'invalid-schema',
+    taskId: `task-${sentinel}`,
+  });
+  assert.strictEqual(invalidWithTaskId.status, 'block');
+  assert.strictEqual(invalidWithTaskId.taskId, null);
+  assert(!JSON.stringify(invalidWithTaskId).includes(sentinel));
 });
 
 test('validation rejects duplicate roles and invalid metric values', () => {
@@ -309,4 +326,12 @@ test('CLI help, argument errors, and malformed files are bounded', () => {
   assert.deepStrictEqual(malformedReceiptA.errors, ['manifest JSON is invalid']);
   assert(!malformedA.stdout.includes(malformedSecret));
   assert.notStrictEqual(malformedReceiptA.inputHash, malformedReceiptB.inputHash);
+
+  const validJsonSentinel = ['CLI', 'SECRET', 'SENTINEL', '7462'].join('_');
+  const validJsonBlocked = spawnSync(process.execPath, [cli, '--manifest', '-'], {
+    encoding: 'utf8',
+    input: JSON.stringify({ ...manifest(), [`token_${validJsonSentinel}`]: 'x' }),
+  });
+  assert.strictEqual(validJsonBlocked.status, 2);
+  assert(!validJsonBlocked.stdout.includes(validJsonSentinel));
 });

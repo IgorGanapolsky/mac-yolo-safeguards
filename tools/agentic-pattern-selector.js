@@ -89,8 +89,8 @@ function validateManifest(input) {
   if (!isPlainObject(input)) return ['manifest must be an object'];
 
   for (const key of Object.keys(input)) {
-    if (SECRET_FIELD.test(key)) errors.push(`secret-shaped field is forbidden: ${key}`);
-    if (!ALLOWED_FIELDS.has(key)) errors.push(`unknown field: ${key}`);
+    if (SECRET_FIELD.test(key)) errors.push('secret-shaped fields are forbidden');
+    if (!ALLOWED_FIELDS.has(key)) errors.push('unknown fields are forbidden');
   }
 
   if (input.schema !== SCHEMA) errors.push(`schema must be ${SCHEMA}`);
@@ -339,7 +339,7 @@ function complexityLevel(selectedCount) {
 function blockedReceipt(input, errors, inputHashOverride = null) {
   const base = {
     schema: RECEIPT_SCHEMA,
-    taskId: isPlainObject(input) && typeof input.taskId === 'string' ? input.taskId : null,
+    taskId: null,
     status: 'block',
     errors: [...new Set(errors)].sort(),
     selected: [],

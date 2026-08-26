@@ -85,6 +85,16 @@ assert.deepStrictEqual(malformedPatternA.errors, ['pattern manifest JSON is inva
 assert(!JSON.stringify(malformedPatternA).includes(malformedSecret));
 assert.notStrictEqual(malformedPatternA.inputHash, malformedPatternB.inputHash);
 
+const validJsonSentinel = ['STACK', 'SECRET', 'SENTINEL', '7462'].join('_');
+const secretFieldPatternPath = path.join(patternDir, 'secret-field.json');
+fs.writeFileSync(secretFieldPatternPath, JSON.stringify({
+  schema: 'agentic-pattern-task/v1',
+  [`token_${validJsonSentinel}`]: 'x',
+}));
+const secretFieldPattern = loadPatternReceipt(secretFieldPatternPath);
+assert.strictEqual(secretFieldPattern.status, 'block');
+assert(!JSON.stringify(secretFieldPattern).includes(validJsonSentinel));
+
 const blockedBrief = buildBrief({
   task: 'Do not execute work after an invalid pattern manifest',
   patternManifest: badPatternPath,
