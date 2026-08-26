@@ -74,6 +74,17 @@ const missingPatternReceipt = loadPatternReceipt(path.join(patternDir, 'missing.
 assert.strictEqual(missingPatternReceipt.status, 'block');
 assert.match(missingPatternReceipt.receiptHash, /^[a-f0-9]{64}$/);
 
+const malformedSecret = ['TOP', 'SECRET', '123'].join('_');
+const malformedPatternPathA = path.join(patternDir, 'malformed-a.json');
+const malformedPatternPathB = path.join(patternDir, 'malformed-b.json');
+fs.writeFileSync(malformedPatternPathA, `{"password":${malformedSecret}}`);
+fs.writeFileSync(malformedPatternPathB, `{"password":${malformedSecret}_DIFFERENT}`);
+const malformedPatternA = loadPatternReceipt(malformedPatternPathA);
+const malformedPatternB = loadPatternReceipt(malformedPatternPathB);
+assert.deepStrictEqual(malformedPatternA.errors, ['pattern manifest JSON is invalid']);
+assert(!JSON.stringify(malformedPatternA).includes(malformedSecret));
+assert.notStrictEqual(malformedPatternA.inputHash, malformedPatternB.inputHash);
+
 const blockedBrief = buildBrief({
   task: 'Do not execute work after an invalid pattern manifest',
   patternManifest: badPatternPath,

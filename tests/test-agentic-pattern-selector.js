@@ -293,4 +293,20 @@ test('CLI help, argument errors, and malformed files are bounded', () => {
   });
   assert.strictEqual(oversizedStdin.status, 2);
   assert.match(JSON.parse(oversizedStdin.stdout).errors[0], /256 KiB/);
+
+  const malformedSecret = ['TOP', 'SECRET', '123'].join('_');
+  const malformedA = spawnSync(process.execPath, [cli, '--manifest', '-'], {
+    encoding: 'utf8',
+    input: `{"password":${malformedSecret}}`,
+  });
+  const malformedB = spawnSync(process.execPath, [cli, '--manifest', '-'], {
+    encoding: 'utf8',
+    input: `{"password":${malformedSecret}_DIFFERENT}`,
+  });
+  const malformedReceiptA = JSON.parse(malformedA.stdout);
+  const malformedReceiptB = JSON.parse(malformedB.stdout);
+  assert.strictEqual(malformedA.status, 2);
+  assert.deepStrictEqual(malformedReceiptA.errors, ['manifest JSON is invalid']);
+  assert(!malformedA.stdout.includes(malformedSecret));
+  assert.notStrictEqual(malformedReceiptA.inputHash, malformedReceiptB.inputHash);
 });

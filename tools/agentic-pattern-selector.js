@@ -336,7 +336,7 @@ function complexityLevel(selectedCount) {
   return 'complex';
 }
 
-function blockedReceipt(input, errors) {
+function blockedReceipt(input, errors, inputHashOverride = null) {
   const base = {
     schema: RECEIPT_SCHEMA,
     taskId: isPlainObject(input) && typeof input.taskId === 'string' ? input.taskId : null,
@@ -346,9 +346,16 @@ function blockedReceipt(input, errors) {
     rejected: [],
     gates: [],
     complexity: { selectedCount: 0, level: 'invalid' },
-    inputHash: crypto.createHash('sha256').update(stableStringify(input ?? null)).digest('hex'),
+    inputHash:
+      inputHashOverride ||
+      crypto.createHash('sha256').update(stableStringify(input ?? null)).digest('hex'),
   };
   return { ...base, receiptHash: crypto.createHash('sha256').update(stableStringify(base)).digest('hex') };
+}
+
+function blockedReceiptFromRaw(raw, errors) {
+  const inputHash = crypto.createHash('sha256').update(raw).digest('hex');
+  return blockedReceipt(null, errors, inputHash);
 }
 
 function selectPatterns(input) {
@@ -433,12 +440,23 @@ function cli(argv = process.argv.slice(2)) {
     return 0;
   }
 
+  let raw;
+  try {
+    raw = readBoundedManifest(parsed.manifestPath);
+  } catch (error) {
+    const message = /exceeds 256 KiB|regular file/.test(error.message)
+      ? error.message
+      : 'manifest could not be read';
+    const receipt = blockedReceipt(null, [message]);
+    process.stdout.write(`${JSON.stringify(receipt, null, 2)}\n`);
+    return 2;
+  }
+
   let input;
   try {
-    const raw = readBoundedManifest(parsed.manifestPath);
     input = JSON.parse(raw);
-  } catch (error) {
-    const receipt = blockedReceipt(null, [`manifest load failed: ${error.message}`]);
+  } catch (_error) {
+    const receipt = blockedReceiptFromRaw(raw, ['manifest JSON is invalid']);
     process.stdout.write(`${JSON.stringify(receipt, null, 2)}\n`);
     return 2;
   }
@@ -454,6 +472,7 @@ module.exports = {
   RECEIPT_SCHEMA,
   MAX_MANIFEST_BYTES,
   blockedReceipt,
+  blockedReceiptFromRaw,
   normalizeRole,
   readBoundedManifest,
   selectPatterns,
