@@ -3947,9 +3947,14 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 
 ## 2. File Ownership Map (append) — grok-ibm-granite-yolo-20260826
 
-- `tools/ibm-granite-yolo-router.js`, `tests/test-ibm-granite-yolo-router.js`, `bin/ibm-granite-yolo`, `.agents/skills/ibm-granite-yolo/**`, `SKILLS.md` (append row only), `plan.md` (append only) → **grok-ibm-granite-yolo-20260826** (T-IBM-GRANITE-YOLO-20260826: granite catalog + thinking dial; does not edit Codex AGENT-542 files or PR #2035 route-policy) (2026-08-26T16:40:00Z)
+- `tools/ibm-granite-yolo-router.js`, `tests/test-ibm-granite-yolo-router.js`, `bin/ibm-granite-yolo`, `.agents/skills/ibm-granite-yolo/**`, `tools/bytedance-seed-yolo-router.js`, `tests/test-bytedance-seed-yolo-router.js`, `tools/hermes-yolo-cheap-router.js`, `tests/test-hermes-yolo-cheap-router.js`, `bin/bytedance-seed-yolo`, `bin/hermes-yolo-cheap`, `.agents/skills/bytedance-seed-yolo/**`, `SKILLS.md` (append row only), `plan.md` (append only) → **grok-ibm-granite-yolo-20260826** (T-IBM-GRANITE-YOLO-20260826: granite+seed catalog + cheap combiner; does not edit Codex AGENT-542 files or PR #2035 route-policy) (2026-08-26T16:50:00Z)
 
 ## Discovered / Decisions (append) — 2026-08-26T16:40Z — grok-ibm-granite-yolo-20260826
 
 - TNS Granite 4.2 (3B/8B/30B dense reasoning, thinking/low-effort/none). OpenRouter public catalog 2026-08-26 has `ibm-granite/granite-4.1-8b` ($0.05/$0.10 per M) and `ibm-granite/granite-4.0-h-micro` only — no 4.2, no :free granite.
 - Codex AGENT-542 claimed `hermes-yolo-wrapper.js` + `tools/hermes-yolo-smart-router.js` for GH #2117 but the worktree only has a plan.md claim commit. Grok ships the granite catalog leaf on new files so Codex can import it. Coding stays glm-coding (TNS: Granite coding is average).
+
+## Discovered / Decisions (append) — 2026-08-26T16:50Z — grok-ibm-granite-yolo-20260826
+
+- Seed LLM page: Seed2.1 (Pro/Turbo agent+code+multimodal) + Seed2.0. OpenRouter live: 1.6-flash $0.075/$0.30, 2.0-mini $0.10/$0.40, 2.1-turbo $0.50/$2.50. Turbo is **not** very-low-pay.
+- Added `tools/bytedance-seed-yolo-router.js` + `tools/hermes-yolo-cheap-router.js` (dynamic granite vs seed vs glm vs local). Do not steal AGENT-542 uncommitted smart-router WIP. Do not auto-turbo.

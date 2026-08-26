@@ -1,0 +1,11 @@
+#!/usr/bin/env node
+'use strict';
+
+const { main } = require('../tools/hermes-yolo-cheap-router');
+
+main(process.argv.slice(2)).then((code) => {
+  process.exitCode = code;
+}).catch((err) => {
+  process.stderr.write(`${err.message}\n`);
+  process.exitCode = 1;
+});
