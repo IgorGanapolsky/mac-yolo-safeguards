@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { SentryInit } from "./SentryInit";
+import { WebMcpTools } from "./WebMcpTools";
 
 /**
  * Phone notch / home-indicator safe areas.
@@ -94,6 +95,7 @@ export default function RootLayout({
       </head>
       <body>
         <SentryInit />
+        <WebMcpTools />
         {children}
         <script
           // A deploy purges the previous build's hashed /assets/* chunks; a page
