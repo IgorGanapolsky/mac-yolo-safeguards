@@ -363,6 +363,7 @@ async function testProviderCreditStopsPaidEvaluation() {
     BASE_ROUTE,
     {
       module: require('../tools/hermes-yolo-smart-router.js'),
+      now: NOW,
       catalog: catalog(),
       evaluations: evaluations({
         openrouter_free: { status: 'fail', failureRate: 1 },

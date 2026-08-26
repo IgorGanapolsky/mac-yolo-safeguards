@@ -784,6 +784,7 @@ function resolveSmartRoute(rawArgs, env, baseRoute, dependencies = {}) {
     task,
     env,
     baseRoute,
+    now: dependencies.now,
     catalog: dependencies.catalog === undefined ? smart.readJson(catalogPath) : dependencies.catalog,
     evaluations: dependencies.evaluations === undefined ? smart.readJson(evaluationsPath) : dependencies.evaluations,
     budget: dependencies.budget === undefined ? smart.readJson(budgetPath) : dependencies.budget,
