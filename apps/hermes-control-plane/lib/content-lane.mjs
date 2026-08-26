@@ -103,6 +103,93 @@ export function editor(draft) {
   };
 }
 
+/**
+ * SEL 2026-08-24 steal: research dossier is first-party observation, not SERP
+ * commodity. No network. Fail closed if proof is generic "experts/studies".
+ */
+const COMMODITY_PROOF = [
+  "according to experts",
+  "studies show",
+  "best practices",
+  "in today's landscape",
+  "industry leaders",
+];
+
+const FIRST_PARTY_PROOF = /0 stranger|stripe|thumbgate\.app|fenced vps|\$10|14-day|hosted hermes|live health|observed/i;
+
+export function researcher(brief) {
+  const failed = [];
+  const proof = String(brief?.proof || "").trim();
+  const low = proof.toLowerCase();
+  if (!proof) failed.push("research:proof:missing");
+  else if (!FIRST_PARTY_PROOF.test(proof)) failed.push("research:proof:notFirstParty");
+  for (const phrase of COMMODITY_PROOF) {
+    if (low.includes(phrase)) failed.push(`research:commodity:${phrase}`);
+  }
+  return {
+    role: "researcher",
+    dossier: { firstPartyProof: proof, sourcesToAvoid: COMMODITY_PROOF },
+    ok: failed.length === 0,
+    failedCriteria: failed,
+  };
+}
+
+const AI_TELLS = [
+  "delve",
+  "tapestry",
+  "in today's landscape",
+  "it's not just",
+  "unlock the power",
+  "game-changer",
+  "ever-evolving",
+];
+
+export function aiTellsEditor(text) {
+  const failed = [];
+  const hay = String(text || "").toLowerCase();
+  for (const tell of AI_TELLS) {
+    if (hay.includes(tell)) failed.push(`aiTell:${tell}`);
+  }
+  return { role: "aiEditor", ok: failed.length === 0, failedCriteria: failed };
+}
+
+/**
+ * Adversarial fact-check (SEL): assume numeric/dollar/count claims are false
+ * unless they are the locked $10 offer or appear in brief.proof.
+ */
+const LOCKED_DOLLARS = new Set(["$10"]);
+
+export function factChecker(text, proof = "") {
+  const failed = [];
+  const hay = String(text || "");
+  const proofHay = String(proof || "").toLowerCase();
+
+  const dollars = hay.match(/\$\s?\d[\d,]*(?:\.\d+)?(?:\/mo)?/g) || [];
+  for (const raw of dollars) {
+    const norm = raw.replace(/\s/g, "").toLowerCase();
+    if (LOCKED_DOLLARS.has(norm) || norm === "$10/mo") continue;
+    if (proofHay.includes(norm)) continue;
+    failed.push(`fact:unproven:${raw.trim()}`);
+  }
+
+  const pcts = hay.match(/\d+(?:\.\d+)?%/g) || [];
+  for (const p of pcts) {
+    if (proofHay.includes(p.toLowerCase())) continue;
+    failed.push(`fact:unproven:${p}`);
+  }
+
+  const counts = hay.match(/\b\d[\d,]*\s+(?:customers|users|teams|companies|clients)\b/gi) || [];
+  for (const c of counts) {
+    failed.push(`fact:unproven:${c}`);
+  }
+
+  return {
+    role: "factChecker",
+    ok: failed.length === 0,
+    failedCriteria: [...new Set(failed)],
+  };
+}
+
 export function proofGate(text) {
   const failed = [];
   const hay = String(text || "").toLowerCase();
@@ -131,16 +218,41 @@ export function runLane(brief, draftOverride) {
       artifacts: {},
     };
   }
+  const research = researcher(brief);
+  if (!research.ok) {
+    return {
+      ok: false,
+      failedCriteria: research.failedCriteria,
+      needsHumanApproval: true,
+      artifacts: { brief, researcher: research },
+    };
+  }
   const angle = strategist(brief);
   const written = writer(brief, angle);
   const draft = draftOverride != null ? String(draftOverride) : written.draft;
   const edited = editor(draft);
+  const tells = aiTellsEditor(edited.draft);
+  const facts = factChecker(edited.draft, brief.proof);
   const proof = proofGate(edited.draft);
+  const failedCriteria = [
+    ...tells.failedCriteria,
+    ...facts.failedCriteria,
+    ...proof.failedCriteria,
+  ];
   return {
-    ok: proof.ok,
-    failedCriteria: proof.failedCriteria,
+    ok: failedCriteria.length === 0,
+    failedCriteria: [...new Set(failedCriteria)],
     needsHumanApproval: true,
-    artifacts: { brief, strategist: angle, writer: written, editor: edited, proof },
+    artifacts: {
+      brief,
+      researcher: research,
+      strategist: angle,
+      writer: written,
+      editor: edited,
+      aiEditor: tells,
+      factChecker: facts,
+      proof,
+    },
     draft: edited.draft,
   };
 }

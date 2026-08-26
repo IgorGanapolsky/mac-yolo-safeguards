@@ -4,7 +4,10 @@ import {
   BRIEF_FIELDS,
   LANE,
   LOCKED_OFFER,
+  aiTellsEditor,
+  factChecker,
   proofGate,
+  researcher,
   runLane,
   validateBrief,
 } from "../lib/content-lane.mjs";
@@ -45,6 +48,8 @@ test("gold brief + gold draft passes and still needs human approval", () => {
   assert.deepEqual(result.failedCriteria, []);
   assert.equal(result.needsHumanApproval, true);
   assert.equal(result.artifacts.strategist.cta, "https://thumbgate.app");
+  assert.equal(result.artifacts.researcher.ok, true);
+  assert.equal(result.artifacts.factChecker.ok, true);
 });
 
 test("missing brief fields fail", () => {
@@ -85,4 +90,43 @@ test("HVAC Leak Score draft fails", () => {
   );
   assert.equal(result.ok, false);
   assert.ok(result.failedCriteria.some((c) => /hvac|leak score|\$149/.test(c)));
+});
+
+test("researcher requires first-party proof, not SERP commodity", () => {
+  const ok = researcher(goldBrief);
+  assert.equal(ok.ok, true);
+  const commodity = researcher({
+    ...goldBrief,
+    proof: "studies show best practices according to experts",
+  });
+  assert.equal(commodity.ok, false);
+  assert.ok(commodity.failedCriteria.some((c) => c.includes("notFirstParty") || c.includes("commodity")));
+});
+
+test("factChecker assumes unproven percents and extra dollars are false", () => {
+  const locked = factChecker(goldDraft, goldBrief.proof);
+  assert.equal(locked.ok, true);
+  const invented = factChecker(
+    "Hosted Hermes on a fenced VPS. $10. 95% of agents fail overnight. Diagnostic $499.",
+    goldBrief.proof,
+  );
+  assert.equal(invented.ok, false);
+  assert.ok(invented.failedCriteria.some((c) => c.includes("95%")));
+  assert.ok(invented.failedCriteria.some((c) => c.includes("$499")));
+});
+
+test("runLane fails invented stats even when proofGate traction list is clean", () => {
+  const result = runLane(
+    goldBrief,
+    "The laptop sleeps and the run is gone. Hosted Hermes on a fenced VPS. Flat $10/mo. 14-day trial. 95% success. Approvals in thumbgate.app. https://thumbgate.app",
+  );
+  assert.equal(result.ok, false);
+  assert.ok(result.failedCriteria.some((c) => c.includes("fact:unproven:95%")));
+  assert.equal(result.artifacts.factChecker.role, "factChecker");
+});
+
+test("ai tells fail closed", () => {
+  const result = aiTellsEditor("Unlock the power of hosted Hermes. Delve into a fenced VPS. $10.");
+  assert.equal(result.ok, false);
+  assert.ok(result.failedCriteria.some((c) => c.includes("delve")));
 });
