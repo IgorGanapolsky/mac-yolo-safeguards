@@ -30,6 +30,7 @@ const HERMES_CONFIG_PATH = process.env.HERMES_CONFIG_PATH || path.join(HOME, '.h
 const HERMES_YOLO_RECEIPT_DIR = process.env.HERMES_YOLO_RECEIPT_DIR || path.join(HOME, '.hermes', 'receipts', 'hermes-yolo');
 const HERMES_YOLO_LATEST_RECEIPT_PATH = process.env.HERMES_YOLO_LATEST_RECEIPT_PATH || path.join(HERMES_YOLO_RECEIPT_DIR, 'latest.json');
 const HERMES_YOLO_HISTORY_RECEIPT_PATH = process.env.HERMES_YOLO_HISTORY_RECEIPT_PATH || path.join(HERMES_YOLO_RECEIPT_DIR, 'history.jsonl');
+let ACTIVE_SMART_ROUTE_RECEIPT = null;
 // All thresholds overridable via env vars.
 const HERMES_BIN = process.env.HERMES_BIN || path.join(HOME, '.local/bin/hermes');
 const REQUIRED_TOOLSETS = Object.freeze(['skills', 'context7']);
@@ -354,7 +355,11 @@ const MODEL_CAPABILITY_REGISTRY = Object.freeze({
   'opencode-free': { agentCapable: true, class: 'coding', qualityPrimary: false },
   'bytedance-seed/seed-2-1-turbo': { agentCapable: true, class: 'coding' },
   'bytedance-seed/seed-2-1': { agentCapable: true, class: 'coding' },
+  'bytedance-seed/seed-2.0-mini': { agentCapable: true, class: 'coding' },
   'doubao-seed-2.1-pro': { agentCapable: true, class: 'coding' },
+  'ibm-granite/granite-4.1-8b': { agentCapable: true, class: 'coding' },
+  'hf.co/ibm-granite/granite-4.2-8b-GGUF:Q4_K_M': { agentCapable: true, class: 'coding' },
+  'openrouter/free': { agentCapable: true, class: 'coding' },
   'hermes-local': { agentCapable: true, class: 'coding' },
   // Alias removed from LiteLLM 2026-08-05 (0-byte hang). Kept as non-agent so historical
   // traffic never re-selects it as a YOLO primary.
@@ -691,15 +696,6 @@ function defaultModelRoute(env = process.env, options = {}) {
   return upgradeLowQualityRoute(route, env);
 }
 
-const ROUTE_ENV = mergedHermesEnv();
-const DEFAULT_ROUTE = defaultModelRoute(ROUTE_ENV);
-const DEFAULT_PROVIDER = DEFAULT_ROUTE.provider;
-const DEFAULT_MODEL = DEFAULT_ROUTE.model;
-
-const EXTRA_ARGS = process.env.HERMES_YOLO_NO_DEFAULT_ARGS
-  ? []
-  : ['--provider', DEFAULT_PROVIDER, '--model', DEFAULT_MODEL, '--yolo', '--accept-hooks', '--toolsets', DEFAULT_TOOLSETS];
-
 const TIMEOUT_MS = resolveTimeoutMs(process.env);
 const CPU_SAMPLE_INTERVAL_MS = parseInt(process.env.HERMES_YOLO_CPU_SAMPLE_MS || 30000, 10);
 const CPU_THRESHOLD = parseFloat(process.env.HERMES_YOLO_CPU_THRESHOLD || 90);
@@ -719,6 +715,102 @@ const HERMES_COMMANDS = new Set([
   'version', 'update', 'uninstall', 'acp', 'profile', 'completion', 'dashboard',
   'desktop', 'gui', 'logs', 'prompt-size'
 ]);
+
+function loadSmartRouterModule() {
+  const candidates = [
+    path.join(__dirname, 'tools', 'hermes-yolo-smart-router.js'),
+    path.join(__dirname, 'hermes-yolo-smart-router.js'),
+    path.join(HOME, '.hermes', 'hermes-yolo-smart-router.js'),
+  ];
+  for (const candidate of candidates) {
+    if (!fs.existsSync(candidate)) continue;
+    try {
+      return require(candidate);
+    } catch (error) {
+      if (process.env.HERMES_YOLO_DYNAMIC_ROUTING === '1') throw error;
+    }
+  }
+  return null;
+}
+
+function isPromptRoute(rawArgs) {
+  if (!Array.isArray(rawArgs) || rawArgs.length === 0) return true;
+  if (rawArgs[0] === '-z' || rawArgs[0] === '--single') return true;
+  if (rawArgs[0].startsWith('-') || HERMES_COMMANDS.has(rawArgs[0])) return false;
+  return true;
+}
+
+function smartRouteTask(rawArgs) {
+  if (!Array.isArray(rawArgs) || rawArgs.length === 0) return DEFAULT_READY_PROMPT;
+  if (rawArgs[0] === '-z' || rawArgs[0] === '--single') {
+    return rawArgs.slice(1).join(' ').trim() || DEFAULT_READY_PROMPT;
+  }
+  return rawArgs.join(' ').trim() || DEFAULT_READY_PROMPT;
+}
+
+function resolveSmartRoute(rawArgs, env, baseRoute, dependencies = {}) {
+  const disabled = (reason) => ({
+    schema: 'hermes-yolo/smart-route-result-v1',
+    enabled: false,
+    selected: baseRoute,
+    considered: [],
+    requirements: null,
+    reason,
+    fallback: false,
+    blocked: false,
+  });
+  if (env.HERMES_YOLO_DYNAMIC_ROUTING !== '1') return disabled('dynamic-routing-disabled');
+  if (!isPromptRoute(rawArgs)) return disabled('admin-or-flag-command-bypass');
+  if (String(env.HERMES_YOLO_BACKEND || 'auto').toLowerCase() === 'grok') {
+    return disabled('explicit-grok-backend-bypass');
+  }
+  const smart = dependencies.module || loadSmartRouterModule();
+  if (!smart) {
+    return {
+      ...disabled('smart-router-module-missing'),
+      enabled: true,
+      selected: null,
+      blocked: true,
+    };
+  }
+  const task = smartRouteTask(rawArgs);
+  const catalogPath = env.HERMES_YOLO_OPENROUTER_CATALOG
+    || path.join(HERMES_YOLO_RECEIPT_DIR, 'openrouter-catalog.json');
+  const evaluationsPath = env.HERMES_YOLO_MODEL_EVALS
+    || path.join(HERMES_YOLO_RECEIPT_DIR, 'model-evals.json');
+  const budgetPath = env.HERMES_YOLO_OPENROUTER_BUDGET
+    || path.join(HOME, '.hermes', 'openrouter-monthly-spend.json');
+  return smart.selectSmartRoute({
+    task,
+    env,
+    baseRoute,
+    catalog: dependencies.catalog === undefined ? smart.readJson(catalogPath) : dependencies.catalog,
+    evaluations: dependencies.evaluations === undefined ? smart.readJson(evaluationsPath) : dependencies.evaluations,
+    budget: dependencies.budget === undefined ? smart.readJson(budgetPath) : dependencies.budget,
+    localModels: dependencies.localModels || listOllamaModels(),
+    expectedContextTokens: Number(env.HERMES_YOLO_EXPECTED_CONTEXT_TOKENS || 4096),
+    expectedInputTokens: Number(env.HERMES_YOLO_EXPECTED_INPUT_TOKENS || 4000),
+    expectedOutputTokens: Number(env.HERMES_YOLO_EXPECTED_OUTPUT_TOKENS || 1500),
+    maxCallUsd: Number(env.HERMES_YOLO_DYNAMIC_MAX_CALL_USD || 0.01),
+  });
+}
+
+const ROUTE_ENV = mergedHermesEnv();
+const BASE_ROUTE = defaultModelRoute(ROUTE_ENV);
+const SMART_ROUTE_DECISION = resolveSmartRoute(args, ROUTE_ENV, BASE_ROUTE);
+const DEFAULT_ROUTE = SMART_ROUTE_DECISION.selected || BASE_ROUTE;
+const DEFAULT_PROVIDER = DEFAULT_ROUTE.provider;
+const DEFAULT_MODEL = DEFAULT_ROUTE.model;
+const smartRouterModule = SMART_ROUTE_DECISION.enabled ? loadSmartRouterModule() : null;
+ACTIVE_SMART_ROUTE_RECEIPT = smartRouterModule
+  ? smartRouterModule.buildContentFreeDecisionReceipt(SMART_ROUTE_DECISION, {
+    task: smartRouteTask(args),
+  })
+  : null;
+
+const EXTRA_ARGS = process.env.HERMES_YOLO_NO_DEFAULT_ARGS
+  ? []
+  : ['--provider', DEFAULT_PROVIDER, '--model', DEFAULT_MODEL, '--yolo', '--accept-hooks', '--toolsets', DEFAULT_TOOLSETS];
 
 function buildChildPromptArgs(rawArgs, prompt = rawArgs.join(' ') || DEFAULT_READY_PROMPT, options = {}) {
   if (options.forceOneshot) return ['-z', prompt || DEFAULT_READY_PROMPT];
@@ -839,6 +931,9 @@ function buildRouteReceipt(options = {}) {
       sprawl: options.sprawl || null,
       decisionTrace: options.decisionTrace || null,
       leanContext: options.leanContext || null,
+      smartRouting: options.smartRouting === undefined
+        ? ACTIVE_SMART_ROUTE_RECEIPT
+        : options.smartRouting,
     },
     route: {
       requestedBackend: options.requestedBackend || 'grok',
@@ -1235,6 +1330,7 @@ function runGrokBackend(rawArgs, env = process.env, dependencies = {}) {
 
 function updateStatus(updater) {
   try {
+    if (process.env.HERMES_YOLO_PROGRESS === '0') return;
     if (!fs.existsSync(STATUS_PATH)) return;
     const data = JSON.parse(fs.readFileSync(STATUS_PATH, 'utf8'));
     updater(data);
@@ -1532,6 +1628,11 @@ log(`START pid=${process.pid} bin=${HERMES_BIN} extraArgs=${JSON.stringify(herme
 const runId = digest(`run-${process.pid}-${Date.now()}`, 16);
 const toolBudget = createToolBudget();
 try {
+  if (SMART_ROUTE_DECISION.blocked) {
+    const smartRouteError = new Error(`HERMES_YOLO_SMART_ROUTE_BLOCKED: ${SMART_ROUTE_DECISION.reason}`);
+    smartRouteError.code = 'HERMES_YOLO_SMART_ROUTE_BLOCKED';
+    throw smartRouteError;
+  }
   if (process.env.HERMES_YOLO_FAIL_CLOSED !== '0') {
     assertAgentCapableModel(DEFAULT_MODEL, ROUTE_ENV);
     assertQualityPrimaryRoute(
@@ -1871,6 +1972,9 @@ process.on('exit', releaseLock);
 module.exports = {
   buildChildPromptArgs,
   defaultModelRoute,
+  resolveSmartRoute,
+  isPromptRoute,
+  smartRouteTask,
   chooseLocalModel,
   chooseZaiProvider,
   configuredProviderIds,

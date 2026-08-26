@@ -3942,3 +3942,11 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - Production still shows `origin/main` Leash: `<summary>Optional: send the next task to a paired computer</summary>` plus “wrong workspace / Switch account” plus “Bounded Hermes … isolated serverless leases.” That is a sign-out control + operator dump sitting under Mac pairing — not a second Google workspace. Header already has Sign out (`dashboard-sign-out`).
 - Drop the Leash `account-recovery` card. Keep one-line `leash-signed-in` email. Sign-out stays in header/sidebar.
 - Codex P2 on #2095: `pendingWaitCopy(task.status)` — `running` → “Hermes is working on this.”; pending → “hasn't started.” Do not dual-edit #2041 result-replace or AGENT-476 TurnStatusline.
+
+## Discovered / Decisions (append) — 2026-08-26T16:41Z — codex-granite-seed-router
+
+- Live OpenRouter catalog exposed four configured routes: `openrouter/free`, Granite 4.1 8B, Seed 2.0 Mini, and Seed 2.1 Turbo. Granite 4.2 8B was absent and remains local-only.
+- Three content-free private probes per external candidate rejected the free route (1/3), Seed 2.0 Mini (1/3), and Seed 2.1 Turbo (0/3); Granite 4.1 passed 3/3 for a measured `$0.000015`. Vendor benchmarks never substitute for these receipts.
+- OpenRouter provider credit was insufficient despite `$3.2111` remaining in the separate `$10` local monthly ledger. Paid routing now requires both fresh provider-credit and local-budget receipts; the failed evaluation spend delta (`$0.000169`) was reconciled by the canonical budget sync.
+- Local Granite 4.2 Q4_K_M resource sizing passed (48 GiB RAM, about 5.35 GiB artifact), but the pull was stopped after a measured ETA above 50 minutes on the degraded WAN. No installed-model claim is made; sensitive tasks fail closed until an exact local model passes private eval.
+- A legacy wrapper test exposed an unrelated startup-I/O hotspot: progress-disabled runs still rewrote a 2.7 MiB Antigravity status JSON. `HERMES_YOLO_PROGRESS=0` now skips that dashboard write; five direct progress-disabled wrapper launches measured 0.07–0.08 seconds. The older aggregate test retains an intermittent 2-second synthetic-chat timeout and remains a ship-check/CI observation, not a fabricated green result.
