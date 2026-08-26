@@ -123,6 +123,19 @@ UPLINK_GUARD_NOW_EPOCH=1060 "$GUARD" --dry-run
 grep -q 'DRY-RUN: would chronic-SIGSTOP' "$UPLINK_GUARD_LOG" || fail 'dry-run did not prove chronic decision'
 pass 'dry-run records the action without signaling'
 
+reset_case
+unset UPLINK_GUARD_SIGNAL_CMD
+"$GUARD"
+UPLINK_GUARD_NOW_EPOCH=1060 "$GUARD"
+sleep_state=$(ps -p "$TALKER_PID" -o state= | tr -d ' ')
+[[ "$sleep_state" == *T* ]] || fail "real kernel STOP missing (state=$sleep_state)"
+UPLINK_GUARD_NOW_EPOCH=1160 "$GUARD"
+sleep_state=$(ps -p "$TALKER_PID" -o state= | tr -d ' ')
+[[ "$sleep_state" != *T* ]] || fail 'real kernel CONT left disposable process stopped'
+[[ ! -e "$UPLINK_GUARD_STATE" ]] || fail 'real kernel resume left pause state behind'
+export UPLINK_GUARD_SIGNAL_CMD="$FAKE_BIN/signal-recorder"
+pass 'real kernel STOP and identity-safe CONT leave no stranded process'
+
 INSTALL_HOME="$TMP/install-home"
 UPLINK_GUARD_INSTALL_HOME="$INSTALL_HOME" UPLINK_GUARD_SKIP_LAUNCHCTL=1 "$INSTALLER" > "$TMP/install.out"
 cmp -s "$GUARD" "$INSTALL_HOME/.local/bin/uplink-flood-guard.sh" || fail 'installer changed guard bytes'
