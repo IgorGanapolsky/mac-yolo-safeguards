@@ -57,3 +57,10 @@ After changing this skill, mirror the tested copy across agent homes:
 bash ~/.agents/skills/chrome-webmcp/test.sh
 bash ~/.agents/skills/chrome-webmcp/scripts/sync_agent_homes.sh
 ```
+
+## Relationship to sibling capabilities
+
+- This skill is the fleet-wide readiness gate and runtime proof source.
+- `webmcp-instrument-site` is a Claude-side authoring reference; route its readiness claims through this skill's linter and probe.
+- `agent-mystery-shopper` audits a customer journey and stops before unauthorized external submission. It does not prove WebMCP support.
+- The daily funnel-truth LaunchAgent proves URL/status/body availability only, not tool discovery, execution, or journey completion.
