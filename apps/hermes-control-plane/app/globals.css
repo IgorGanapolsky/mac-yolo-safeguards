@@ -154,8 +154,17 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   color:#E2E8F0;
   font:450 12px/1.45 Inter,ui-sans-serif,system-ui,sans-serif;
 }
-.composer-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:8px}
+.composer-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px;flex-wrap:wrap}
 .composer-run{flex:0 0 auto}
+.composer-attach{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0;flex:1}
+.composer-attach-chips{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:0;padding:0}
+.composer-attach-chip{display:inline-flex;align-items:center;gap:6px;max-width:220px;padding:4px 8px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.04);font:600 12px/1.2 Inter,ui-sans-serif,system-ui,sans-serif;color:#E2E8F0}
+.composer-attach-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.composer-attach-thumb{width:20px;height:20px;border-radius:4px;object-fit:cover}
+.composer-attach-remove{border:0;background:transparent;color:#94A3B8;cursor:pointer;font-size:16px;line-height:1;padding:0 2px;min-height:28px}
+.composer-attach-error{margin:0;color:#FCA5A5;font:600 12px/1.3 Inter,ui-sans-serif,system-ui,sans-serif;width:100%}
+.composer-attach-button{position:relative;display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 14px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.04);color:#F8FAFC;font:700 13px/1 Inter,ui-sans-serif,system-ui,sans-serif;cursor:pointer}
+.composer-attach-button input{position:absolute;opacity:0;width:1px;height:1px;overflow:hidden}
 .conversation-history{background:rgba(7,10,18,.55);overflow-x:hidden;max-width:100%}
 .dashboard-shell,.dashboard-main,.dashboard-grid,.task-panel,.hermes-scroll-pane{min-width:0;max-width:100%}.dashboard-shell{overflow-x:clip}.conversation-message{border-radius:18px;background:rgba(255,255,255,.045);font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:92%;overflow-wrap:anywhere;word-break:break-word}
 .conversation-message.role-user{background:var(--user-bubble);border-color:rgba(255,255,255,.1);color:var(--user-bubble-text)}
@@ -635,14 +644,17 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
   .composer-device-picker{flex-direction:column;align-items:stretch;gap:6px}
   .composer-device-picker select{min-height:44px;width:100%}
   .composer-actions{
-    display:grid;
-    grid-template-columns:1fr;
-    gap:6px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
     margin-top:6px;
     padding-bottom:0;
   }
+  .composer-attach{flex:1 1 auto}
   .composer-run{
-    width:100%;
+    flex:1 1 auto;
+    width:auto;
     min-height:44px;
     max-height:none;
     border-radius:12px;

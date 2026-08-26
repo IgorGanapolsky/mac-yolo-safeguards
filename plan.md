@@ -3940,3 +3940,13 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - Production still shows `origin/main` Leash: `<summary>Optional: send the next task to a paired computer</summary>` plus “wrong workspace / Switch account” plus “Bounded Hermes … isolated serverless leases.” That is a sign-out control + operator dump sitting under Mac pairing — not a second Google workspace. Header already has Sign out (`dashboard-sign-out`).
 - Drop the Leash `account-recovery` card. Keep one-line `leash-signed-in` email. Sign-out stays in header/sidebar.
 - Codex P2 on #2095: `pendingWaitCopy(task.status)` — `running` → “Hermes is working on this.”; pending → “hasn't started.” Do not dual-edit #2041 result-replace or AGENT-476 TurnStatusline.
+
+## File claim (append 2026-08-26T16:20:00Z) — `grok-composer-attach-20260826`
+
+| T-COMPOSER-ATTACH-20260826 | Hosted Hermes composer must attach images and text files end-to-end (picker/paste/drop → task_files → multimodal VPS run) | in_progress | grok-composer-attach-20260826 | `apps/hermes-control-plane/lib/composer-attachments.ts` (new), `apps/hermes-control-plane/lib/composer-attachments.test.ts` (new), `apps/hermes-control-plane/lib/task-files.ts` (new), `apps/hermes-control-plane/lib/task-files.test.ts` (new), `apps/hermes-control-plane/app/dashboard/ComposerAttach.tsx` (new), `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx` (composer attach slice only), `apps/hermes-control-plane/app/api/tasks/route.ts` (attachment persist slice only), `apps/hermes-control-plane/app/api/runner/tasks/claim/route.ts` (attachments field only), `apps/hermes-control-plane/app/globals.css` (composer-attach rules only), `apps/hermes-control-plane/tests/dashboard-composer-attach.test.mjs` (new), `services/hermes-cloud-runner/server.js` (userContent multimodal), `services/hermes-cloud-runner/test/server.test.js` (image case), `plan.md` | Defect: no paperclip/file input on thumbgate.app. Did not edit `hermes-schema-validator.js` (Codex InfoQ #2077). Prompt stays required; files-only send uses a name bubble. No R2; D1 chunked task_files. No SVG/executables. |
+
+## Discovered / Decisions (append) — 2026-08-26T16:20Z — grok-composer-attach-20260826
+
+- Live dashboard composer is textarea-only. Hermes Mobile already has attach; hosted web did not.
+- D1 24k prompt budget cannot hold image bytes. Text files merge into prompt; images live in `task_files` and go to the cloud runner as `image_url` data URLs.
+- `hosting.json` r2 is null; IMAGES binding is the vinext optimizer, not user uploads.

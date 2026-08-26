@@ -58,13 +58,29 @@ async function callControl(config, pathname, body = {}) {
   return payload;
 }
 
+function userContent(task) {
+  const prompt = String(task?.prompt || '');
+  const attachments = Array.isArray(task?.attachments) ? task.attachments : [];
+  const images = attachments.filter((file) => file?.kind === 'image' && file?.data);
+  if (!images.length) return prompt;
+  const parts = [];
+  if (prompt.trim()) parts.push({ type: 'text', text: prompt });
+  for (const file of images) {
+    parts.push({
+      type: 'image_url',
+      image_url: { url: `data:${file.mime || 'image/png'};base64,${file.data}` },
+    });
+  }
+  return parts;
+}
+
 async function execute(config, task) {
   const context = Array.isArray(task.contextMessages)
     ? task.contextMessages.filter((message) => ['user', 'assistant', 'system'].includes(message?.role) && typeof message?.content === 'string')
     : [];
   const response = await fetch(`${config.openaiBaseUrl}/chat/completions`, {
     method: 'POST', headers: { authorization: `Bearer ${config.openaiKey}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ model: config.model, messages: [...context, { role: 'user', content: task.prompt }], max_tokens: MODEL_MAX_TOKENS, stream: false }),
+    body: JSON.stringify({ model: config.model, messages: [...context, { role: 'user', content: userContent(task) }], max_tokens: MODEL_MAX_TOKENS, stream: false }),
     signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
   });
   const payload = await response.json();
@@ -128,5 +144,5 @@ async function main() {
   }
 }
 
-module.exports = { callControl, configFromEnv, execute, nextPollDelay, pollingSchedule, runOnce, withLeaseRenewal };
+module.exports = { callControl, configFromEnv, execute, nextPollDelay, pollingSchedule, runOnce, userContent, withLeaseRenewal };
 if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });

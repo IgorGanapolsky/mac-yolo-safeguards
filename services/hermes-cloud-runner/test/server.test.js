@@ -52,6 +52,36 @@ test('cloud execution preserves the synced thread context', async () => {
   }
 });
 
+test('cloud execution sends image attachments as multimodal content', async () => {
+  let received;
+  const server = http.createServer((request, response) => {
+    let body = '';
+    request.on('data', (chunk) => { body += chunk; });
+    request.on('end', () => {
+      received = JSON.parse(body);
+      response.setHeader('content-type', 'application/json');
+      response.end(JSON.stringify({ choices: [{ message: { content: 'a screenshot of a button' } }] }));
+    });
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  try {
+    const img = Buffer.from('img').toString('base64');
+    const result = await execute({ openaiBaseUrl: `http://127.0.0.1:${address.port}`, openaiKey: 'test-key', model: 'test-model' }, {
+      prompt: 'what is this',
+      attachments: [{ kind: 'image', mime: 'image/png', data: img, name: 'shot.png' }],
+    });
+    assert.equal(result, 'a screenshot of a button');
+    const content = received.messages.at(-1).content;
+    assert.ok(Array.isArray(content));
+    assert.deepEqual(content[0], { type: 'text', text: 'what is this' });
+    assert.equal(content[1].type, 'image_url');
+    assert.equal(content[1].image_url.url, `data:image/png;base64,${img}`);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test('renews a cloud lease throughout long-running model work', async () => {
   let renewals = 0;
   const result = await withLeaseRenewal(

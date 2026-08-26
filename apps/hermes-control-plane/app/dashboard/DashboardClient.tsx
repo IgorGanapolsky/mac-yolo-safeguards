@@ -17,6 +17,15 @@ import {
   writeJsonSessionStorage,
 } from "@/lib/dashboard-nav-cache";
 import { resolveComposerRunCta } from "@/lib/composer-run-cta";
+import {
+  composerHasSendableContent,
+  formatAttachmentBubbleText,
+} from "@/lib/composer-attachments";
+import {
+  ComposerAttach,
+  filesToComposerAttachments,
+  type ComposerFile,
+} from "./ComposerAttach";
 import { scheduleOneShotErrorRetry, startActiveTaskRefresh, startDashboardRefresh } from "@/lib/dashboard-refresh";
 import {
   hideDuplicateTaskList,
@@ -303,6 +312,8 @@ export default function DashboardClient() {
     }
     return "";
   });
+  const [attachFiles, setAttachFiles] = useState<ComposerFile[]>([]);
+  const [attachError, setAttachError] = useState<string | null>(null);
   /**
    * Explicit user override for which hosted runner runs the next task.
    * Resolved selection is derived (useMemo) so we never setState inside an effect (eslint react-hooks/set-state-in-effect).
@@ -1036,6 +1047,16 @@ export default function DashboardClient() {
     setBusy(false);
   }
 
+  async function addComposerFiles(list: File[]) {
+    const result = await filesToComposerAttachments(list, attachFiles.length);
+    if (result.error) {
+      setAttachError(result.error);
+      return;
+    }
+    setAttachError(null);
+    setAttachFiles((prev) => [...prev, ...result.attachments]);
+  }
+
   async function createTask(event: FormEvent) {
     event.preventDefault();
     const form = event.currentTarget instanceof HTMLFormElement
@@ -1045,10 +1066,11 @@ export default function DashboardClient() {
       ? form.querySelector("textarea")!.value
       : prompt;
     const text = liveValue.trim();
-    if (!text) {
-      setNotice("Type a message first, then tap Run.");
+    if (!composerHasSendableContent(text, attachFiles)) {
+      setNotice("Type a message first, or attach a file, then tap Run.");
       return;
     }
+    const bubble = formatAttachmentBubbleText(text, attachFiles);
     const hasCloud = Boolean(organization?.cloudAccess);
     if (!hasCloud) {
       setNotice("A trial or Pro plan is required to run on the hosted VPS. Open Manage plan.");
@@ -1068,7 +1090,7 @@ export default function DashboardClient() {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          prompt: text,
+          prompt: text || bubble,
           threadId: selectedThread,
           ...(deviceOverrideId && devices.some((device) => device.id === deviceOverrideId)
             ? { deviceId: deviceOverrideId }
@@ -1076,6 +1098,15 @@ export default function DashboardClient() {
           idempotencyKey: crypto.randomUUID(),
           traceId: crypto.randomUUID(),
           routePreference: "cloud",
+          ...(attachFiles.length
+            ? {
+                attachments: attachFiles.map((file) => ({
+                  name: file.name,
+                  mime: file.mime,
+                  data: file.data,
+                })),
+              }
+            : {}),
         }),
       });
       let body: {
@@ -1099,8 +1130,8 @@ export default function DashboardClient() {
         const optimistic: Task = {
           id: created.id ?? `pending-${now}`,
           threadId: created.threadId,
-          threadTitle: text.replace(/\s+/g, " ").slice(0, 72),
-          prompt: created.prompt ?? text,
+          threadTitle: bubble.replace(/\s+/g, " ").slice(0, 72),
+          prompt: created.prompt ?? bubble,
           status: created.status ?? "pending",
           route: created.route ?? "cloud",
           result: null,
@@ -1138,6 +1169,8 @@ export default function DashboardClient() {
             : `Sent — running on ${macName}.`,
         );
         setPrompt("");
+        setAttachFiles([]);
+        setAttachError(null);
         setSelectedThread(created.threadId);
         // Persist-before-live already wrote the row. Do not block the card on /api/me.
         void loadWorkspace();
@@ -1887,7 +1920,7 @@ export default function DashboardClient() {
                       void subscribe();
                       return;
                     }
-                    if (live && !busy) {
+                    if ((live || attachFiles.length > 0) && !busy) {
                       if (live !== prompt) setPrompt(live);
                       const form = event.currentTarget.form;
                       if (form) {
@@ -1901,16 +1934,20 @@ export default function DashboardClient() {
                           form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
                         }
                       }
-                    } else if (!live) {
-                      setNotice("Type a message first, then tap Run.");
+                    } else if (!live && attachFiles.length === 0) {
+                      setNotice("Type a message first, or attach a file, then tap Run.");
                     }
                   }
                 }}
-                placeholder="Tell Hermes what to do next…"
+                placeholder="Tell Hermes what to do next… Attach a screenshot or file if it helps."
                 rows={isNarrowViewport ? 2 : 3}
                 enterKeyHint="send"
                 aria-label="Message for Hermes"
                 disabled={busy}
+                onPaste={(event) => {
+                  const files = Array.from(event.clipboardData?.files || []);
+                  if (files.length) void addComposerFiles(files);
+                }}
               />
               <div className="run-output" id="run-output" data-testid="run-output" role="status" aria-live="polite">
                 <p className="eyebrow">Output</p>
@@ -1920,6 +1957,16 @@ export default function DashboardClient() {
               <div className="composer-actions">
                 {/* Fallback hidden submit button so form.requestSubmit() and soft keyboard Enter always find a submitter */}
                 <button type="submit" className="sr-only" aria-hidden="true" tabIndex={-1}>Submit</button>
+                <ComposerAttach
+                  files={attachFiles}
+                  disabled={busy}
+                  error={attachError}
+                  onAdd={(files) => void addComposerFiles(files)}
+                  onRemove={(index) => {
+                    setAttachFiles((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
+                    setAttachError(null);
+                  }}
+                />
                 {(() => {
                   const cta = resolveComposerRunCta({
                     hasCloudAccess,

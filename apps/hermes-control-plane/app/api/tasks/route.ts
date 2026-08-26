@@ -16,6 +16,12 @@ import { expireUnclaimedTasks, staleUnclaimedTaskIds, TASK_PICKUP_TIMEOUT_ERROR,
 // A+ imports: runtime schema validation + rate limiting
 import { validateRoute, RouteSchemas } from "@/lib/schema-validator";
 import { checkRateLimit } from "@/lib/rate-limit";
+import {
+  attachmentsFromPayload,
+  composerHasSendableContent,
+  mergeAttachmentsIntoPrompt,
+} from "@/lib/composer-attachments";
+import { insertTaskFiles } from "@/lib/task-files";
 
 interface DeviceRoute {
   id: string;
@@ -115,13 +121,18 @@ export async function POST(request: Request) {
       },
     );
   }
-  const promptRaw = payload.prompt.trim();
-  if (!promptRaw) return jsonError("prompt is required");
+  const attached = attachmentsFromPayload(rawPayload);
+  if (!attached.ok) return jsonError(attached.error);
+  const promptRaw = String(payload.prompt || "").trim();
+  if (!composerHasSendableContent(promptRaw, attached.attachments)) {
+    return jsonError("prompt is required");
+  }
+  const mergedPrompt = mergeAttachmentsIntoPrompt(promptRaw, attached.attachments);
   const contextAdmit = admitHostedContext({
-    bytes: new TextEncoder().encode(promptRaw).length,
+    bytes: new TextEncoder().encode(mergedPrompt).length,
   });
   if (!contextAdmit.ok) return jsonError(contextAdmit.message, 409);
-  const prompt = promptRaw.slice(0, 24_000);
+  const prompt = mergedPrompt.slice(0, 24_000);
   const preference = parseRoutePreference(payload.routePreference);
 
   const device = payload.deviceId
@@ -247,6 +258,13 @@ export async function POST(request: Request) {
       }, { status: 200 });
     }
     throw error;
+  }
+  if (attached.attachments.length) {
+    await insertTaskFiles(db(), {
+      organizationId: session.organizationId,
+      taskId,
+      attachments: attached.attachments,
+    });
   }
   await audit({
     organizationId: session.organizationId,
