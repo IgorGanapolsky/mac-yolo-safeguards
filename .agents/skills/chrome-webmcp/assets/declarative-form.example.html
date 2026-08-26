@@ -1,0 +1,15 @@
+<form
+  toolname="start_support_request"
+  tooldescription="Prefills a support request for the user to review before submission."
+  action="/support/request"
+  method="post"
+>
+  <label for="support-summary">Problem summary</label>
+  <textarea
+    id="support-summary"
+    name="summary"
+    required
+    toolparamdescription="The user's concise description of the problem."
+  ></textarea>
+  <button type="submit">Review and submit</button>
+</form>
