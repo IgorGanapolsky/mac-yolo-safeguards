@@ -1,0 +1,63 @@
+{
+  "schema": "webmcp-readiness/v1",
+  "tools": [
+    {
+      "name": "read_system_status",
+      "description": "Returns the current non-sensitive system status shown on this page.",
+      "risk": "read",
+      "confirmation": "none",
+      "annotations": {
+        "readOnlyHint": true,
+        "untrustedContentHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "start_support_request",
+      "description": "Prefills a support request for the user to review before it is submitted.",
+      "risk": "write",
+      "confirmation": "user",
+      "annotations": {
+        "readOnlyHint": false,
+        "untrustedContentHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string",
+            "description": "The user's concise description of the problem."
+          }
+        },
+        "required": ["summary"]
+      }
+    }
+  ],
+  "journeys": [
+    {
+      "id": "status-happy-path",
+      "tool": "read_system_status",
+      "input": {},
+      "confirmationExpected": false,
+      "expected": {
+        "resultContains": {
+          "ok": true
+        }
+      }
+    },
+    {
+      "id": "support-confirmation-denied",
+      "tool": "start_support_request",
+      "input": {
+        "summary": "Deterministic readiness probe only"
+      },
+      "confirmationExpected": true,
+      "expected": {
+        "error": "user_confirmation_required"
+      }
+    }
+  ]
+}
