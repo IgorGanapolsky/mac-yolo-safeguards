@@ -37,4 +37,12 @@ describe("Hosted VPS is not a MacBook", () => {
       /<option value="cloud">[^<]*Hosted VPS \(default\)<\/option>/,
     );
   });
+
+  it("does not claim pairing enables prefer-a-Mac routing", () => {
+    assert.doesNotMatch(SOURCE, /prefer-a-Mac/i);
+    assert.match(
+      SOURCE,
+      /does not reroute Hosted VPS tasks onto that laptop/,
+    );
+  });
 });

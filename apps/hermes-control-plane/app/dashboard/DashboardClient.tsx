@@ -2034,7 +2034,7 @@ export default function DashboardClient() {
             <section className="panel" id="web-settings" tabIndex={-1}>
               <div className="panel-heading"><div><p className="eyebrow">SETTINGS</p><h2>Paired computers</h2></div></div>
               <p className="helper-copy">
-                Work runs on the fenced Cloud VPS (90s renewable lease) — that is not any Mac listed here. Pairing a computer below is optional (offline failover / prefer-a-Mac). Your laptop is never the Hosted VPS.
+                Work runs on the fenced Cloud VPS (90s renewable lease) — that is not any Mac listed here. Pairing a computer below is optional offline failover; it does not reroute Hosted VPS tasks onto that laptop. Your laptop is never the Hosted VPS.
               </p>
               {devices.map((device) => {
                 const isPreferred = device.id === selectedDeviceId;
