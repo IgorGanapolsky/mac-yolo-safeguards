@@ -88,9 +88,16 @@ function testDoctor() {
   assert.strictEqual(d.honesty.liveClaim, false);
 }
 
+function testOfficeCheap() {
+  const r = route('generate lesson-plan slides from this spreadsheet');
+  assert.ok(r.model.startsWith('bytedance-seed/'), r.reason);
+  assert.ok(!EXPENSIVE.has(r.model), `office must not auto-turbo: ${r.model}`);
+}
+
 function testSignals() {
   assert.ok(taskSignals('seed 2.1 turbo agent').asksTurbo);
   assert.ok(taskSignals('screenshot of the UI').multimodal);
+  assert.ok(taskSignals('generate lesson-plan slides from this spreadsheet').office);
 }
 
 async function mainTests() {
@@ -103,6 +110,7 @@ async function mainTests() {
   testBudgetMissing();
   testParseIgnoresNonSeed();
   testDoctor();
+  testOfficeCheap();
   testSignals();
   assert.strictEqual(await main(['--help']), 0);
   process.stdout.write('ok tests/test-bytedance-seed-yolo-router.js\n');

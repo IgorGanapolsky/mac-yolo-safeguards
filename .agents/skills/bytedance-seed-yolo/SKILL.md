@@ -30,4 +30,4 @@ node tests/test-hermes-yolo-cheap-router.js
 | Edit `hermes-yolo-wrapper.js` / `hermes-yolo-smart-router.js` | Leave AGENT-542 files alone |
 | Spend without budget file | Fail closed to glm-coding |
 
-Dynamic combiner `tools/hermes-yolo-cheap-router.js`: sensitive→local; coding→glm; multimodal/seed→cheap Seed; granite/reason→Granite 4.1-8b.
+Dynamic combiner `tools/hermes-yolo-cheap-router.js`: sensitive→local; coding→glm; office/spreadsheet/slides + multimodal/seed→cheap Seed; granite/reason→Granite 4.1-8b. Seed2.1 Pro is not on OpenRouter.

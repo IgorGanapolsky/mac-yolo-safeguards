@@ -60,6 +60,7 @@ function taskSignals(task) {
     asksTurbo: /\b(turbo|seed2\.1|seed 2\.1|seed-2-1)\b/.test(text),
     asksLocal: /\blocal\b|ollama|offline|no.?spend|zero.?cost/.test(text),
     multimodal: /\b(image|screenshot|photo|video|audio|diagram|visual|vision|multimodal)\b/.test(text),
+    office: /\b(spreadsheet|slides|lesson[- ]plan|office agent|white-?collar|mockup|floor plan|industry report|workspace bench)\b/.test(text),
     agentic: /\b(tool call|agentic|terminal|web search|multi-step|office agent|productivity agent)\b/.test(text),
     easy: /\b(classify|label|extract|summarize|tl;dr|short answer|yes or no)\b/.test(text),
   };
@@ -125,6 +126,7 @@ function pickSeed(models, signals, opts) {
       let score = 0;
       if (m.isFree) score += 40;
       if (signals.multimodal && (m.size === 'mini' || m.family === '2.1')) score += 15;
+      if (signals.office && (m.size === 'mini' || m.size === 'flash')) score += 18;
       if (signals.easy && (m.size === 'flash' || m.size === 'mini')) score += 20;
       if (wantExpensive && m.size === 'turbo') score += 30;
       score -= Math.min(25, est * 8000);
@@ -171,7 +173,7 @@ function selectRoute(opts = {}) {
     return { ...base, ...GLM_CODING, reason: 'coding quality lock → glm-coding (seed-2.0-code is metered $0.50/$3.00)', considered, commandEnv: granite.commandEnv(GLM_CODING) };
   }
 
-  const wantsSeed = signals.asksSeed || signals.multimodal || Boolean(opts.preferSeed);
+  const wantsSeed = signals.asksSeed || signals.multimodal || signals.office || Boolean(opts.preferSeed);
   if (!wantsSeed) {
     return { ...base, ...GLM_CODING, reason: 'no seed/multimodal signal → glm-coding', considered, commandEnv: granite.commandEnv(GLM_CODING) };
   }
@@ -230,7 +232,8 @@ function doctor(opts = {}) {
     spend,
     notes: [
       'Seed 2.1 Turbo is $0.50/$2.50 per M — not the cheap rail. Default is 1.6-flash or 2.0-mini.',
-      'No :free Seed on OpenRouter as of 2026-08-26.',
+      'Seed2.1 Pro is not listed on OpenRouter as of 2026-08-26 (live: flash/mini/1.6/lite/turbo/2.0-code). No :free Seed.',
+      'Office/spreadsheet/slides steal from seed.bytedance.com Seed2.1 — cheap Seed, not Turbo.',
       'Coding stays glm-coding. Do not edit Codex AGENT-542 files or seed-yolo-wrapper.js.',
     ],
   };

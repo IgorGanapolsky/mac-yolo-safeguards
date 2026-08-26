@@ -23,6 +23,7 @@ function classify(task) {
     asksTurbo: s.asksTurbo,
     asksLocal: g.asksLocal || s.asksLocal,
     multimodal: s.multimodal,
+    office: s.office,
     agentic: g.agentic || s.agentic,
     easy: g.easy || s.easy,
     math: g.math,
@@ -50,7 +51,7 @@ function selectRoute(opts = {}) {
     return wrap('glm-coding', granite.selectRoute({ ...opts, task, spend }));
   }
 
-  if (signals.multimodal || (signals.asksSeed && !signals.asksGranite)) {
+  if (signals.multimodal || signals.office || (signals.asksSeed && !signals.asksGranite)) {
     return wrap('seed', seed.selectRoute({ ...opts, task, spend, preferSeed: true }));
   }
 
@@ -73,7 +74,7 @@ function doctor(opts = {}) {
       clonedOpenRouter: false,
       liveClaim: false,
     },
-    rule: 'sensitive→local; implement→glm-coding; multimodal/seed→cheapest Seed; granite/reason→Granite 4.1-8b; Seed 2.1 Turbo only --paid-ok',
+    rule: 'sensitive→local; implement→glm-coding; office/multimodal/seed→cheapest Seed; granite/reason→Granite 4.1-8b; Seed 2.1 Turbo only --paid-ok',
   };
 }
 

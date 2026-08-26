@@ -31,6 +31,13 @@ function testScreenshotSeed() {
   assert.notStrictEqual(r.model, 'bytedance-seed/seed-2-1-turbo');
 }
 
+function testOfficeSeed() {
+  const r = route('generate lesson-plan slides from this spreadsheet');
+  assert.strictEqual(r.lane, 'seed', r.reason);
+  assert.ok(r.model.startsWith('bytedance-seed/'), r.model);
+  assert.notStrictEqual(r.model, 'bytedance-seed/seed-2-1-turbo');
+}
+
 function testGraniteReason() {
   const r = route('use granite for this agentic multi-step tool call');
   assert.strictEqual(r.lane, 'granite');
@@ -53,6 +60,7 @@ async function mainTests() {
   testClassify();
   testImplementGlm();
   testScreenshotSeed();
+  testOfficeSeed();
   testGraniteReason();
   testPiiLocal();
   testDoctor();

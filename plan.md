@@ -3958,3 +3958,8 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 
 - Seed LLM page: Seed2.1 (Pro/Turbo agent+code+multimodal) + Seed2.0. OpenRouter live: 1.6-flash $0.075/$0.30, 2.0-mini $0.10/$0.40, 2.1-turbo $0.50/$2.50. Turbo is **not** very-low-pay.
 - Added `tools/bytedance-seed-yolo-router.js` + `tools/hermes-yolo-cheap-router.js` (dynamic granite vs seed vs glm vs local). Do not steal AGENT-542 uncommitted smart-router WIP. Do not auto-turbo.
+
+## Discovered / Decisions (append) — 2026-08-26T17:05Z — grok-ibm-granite-yolo-20260826
+
+- Re-fetched seed.bytedance.com/en/direction/llm + Seed2.1 page: Pro/Turbo agent+code+multimodal; office/spreadsheet/slides is the unique steal vs Granite. Live OpenRouter still 6 Seed ids, **no Pro**, **no :free**. Office tasks now cheap-Seed (flash/mini), not glm-coding and not Turbo.
+- GH #2117 is a GitHub **Issue** (Codex AGENT-542 still owns wrapper + uncommitted smart-router). Grok complement stays catalog leaves on PR #2120.
