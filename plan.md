@@ -3848,6 +3848,17 @@ GH #2034 / Linear AGENT-505. Remove fabricated fallback preference data and fixe
 
 - `apps/hermes-control-plane/app/api/device/tasks/submit/route.test.ts` (new) → **codex-infoq-device-schema** (T-INFOQ-DEVICE-SUBMIT-SCHEMA-20260825 / GH #2077: prove malformed signed-device bodies return HTTP 400 before `submitDeviceCloudTask`) (2026-08-25T15:42:00Z)
 
+## File claim (append 2026-08-25T16:20:00Z) — `grok-explainx-trending-honest`
+
+| T-EXPLAINX-TRENDING-HONEST-20260825 | Honest ingest of explainx.ai/trending page-view rankings; map onto existing skills; fail-closed empty parse; do not dual-edit rag-engine | in_progress | grok-explainx-trending-honest | `tools/explainx-trending-honest.js`, `tests/test-explainx-trending-honest.js`, `tests/fixtures/explainx-trending-rsc-snippet.html`, `.agents/skills/explainx-trending-honest/**`, `bin/explainx-trending-honest`, `SKILLS.md`, `plan.md` | Complementary to done T-EXPLAINX-TRENDING-RAG-20260821 (theater catalog); not an ExplainX clone |
+
+- `tools/explainx-trending-honest.js` (new)
+- `tests/test-explainx-trending-honest.js` (new)
+- `tests/fixtures/explainx-trending-rsc-snippet.html` (new)
+- `.agents/skills/explainx-trending-honest/` (new)
+- `bin/explainx-trending-honest` (new)
+- `SKILLS.md` (append row)
+- `plan.md` (this append)
 ## Claude Academy 4D steal (append 2026-08-25T16:40Z) — agent `grok-hosted-academy-4d-20260825`
 
 Source: https://academy.claude.com/ — AI Fluency 4D (Delegation, Description, Discernment, Diligence) + Cowork whole-task handoff. Not a course clone. Not Claude Cowork/Code/Tag. Complementary to fleet `/ai-fluency-4d-builder` (checklist) and PR #2052 completed≠quality. Do **not** dual-edit `tools/ai-native-sdlc.js`, InfoQ #2081 admission routes, or prompt-distill #2052.
@@ -3884,6 +3895,15 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - `apps/hermes-control-plane/lib/client-error-beacon.test.ts`
 - `.agents/skills/hosted-alert-correlate/` (new)
 - `bin/hosted-alert-correlate` (new)
+## File claim (append 2026-08-25T16:20:00Z) — `grok-explainx-trending-honest`
+
+| T-EXPLAINX-TRENDING-HONEST-20260825 | Honest ingest of explainx.ai/trending page-view rankings; map onto existing skills; fail-closed empty parse; do not dual-edit rag-engine | in_progress | grok-explainx-trending-honest | `tools/explainx-trending-honest.js`, `tests/test-explainx-trending-honest.js`, `tests/fixtures/explainx-trending-rsc-snippet.html`, `.agents/skills/explainx-trending-honest/**`, `bin/explainx-trending-honest`, `SKILLS.md`, `plan.md` | Complementary to done T-EXPLAINX-TRENDING-RAG-20260821 (theater catalog); not an ExplainX clone |
+
+- `tools/explainx-trending-honest.js` (new)
+- `tests/test-explainx-trending-honest.js` (new)
+- `tests/fixtures/explainx-trending-rsc-snippet.html` (new)
+- `.agents/skills/explainx-trending-honest/` (new)
+- `bin/explainx-trending-honest` (new)
 - `SKILLS.md` (append row)
 - `plan.md` (this append)
 - `hermes-mobile/scripts/run-continuous-e2e.sh`, `tests/test-hermes-phone-user-activity-guard.js`, `plan.md` (append only) → **codex-hermes-phone-midcycle-guard** (T-HERMES-PHONE-MIDCYCLE-HUMAN-GUARD-20260825: close the cycle-start TOCTOU window that allowed the 12:23 scheduled runner to seize and later uninstall Igor's paid app after he began using the phone at 12:31) (2026-08-25T16:39:00Z)
