@@ -28,6 +28,41 @@ let pass = 0;
 let fail = 0;
 const results = [];
 
+function authorityRequest() {
+  return {
+    proposal: {
+      actionId: 'bridge-tool-1',
+      kind: 'tool_call',
+      tool: 'repo_read',
+      effect: 'read',
+      process: 'git',
+      filePaths: ['/workspace/repo'],
+      networkOrigins: [],
+    },
+    policy: {
+      allowedTools: ['repo_read'],
+      allowedProcesses: ['git'],
+      allowedFileRoots: ['/workspace'],
+      allowedNetworkOrigins: [],
+      allowedCloudModels: ['openai/gpt-5.6-sol'],
+      maxCoreTools: 1,
+      maxCloudContextItems: 2,
+      skillLoading: 'on_demand',
+    },
+    runtime: {
+      sandbox: {
+        available: true,
+        enforced: true,
+        processRestricted: true,
+        filesystemRestricted: true,
+        networkRestricted: true,
+      },
+      coreTools: ['repo_read'],
+      registeredTools: ['repo_read'],
+    },
+  };
+}
+
 function test(name, fn) {
   results.push({ name, fn });
 }
@@ -63,9 +98,37 @@ test('routeForTask with sensitive=true excludes restricted operators', () => {
 });
 
 test('routeForTask with requiresTools=true selects models with tool support', () => {
-  const result = BRIDGE.routeForTask({ category: 'coding', requiresTools: true, preference: 'quality' });
+  const result = BRIDGE.routeForTask({
+    category: 'coding',
+    requiresTools: true,
+    preference: 'quality',
+    authorityRequest: authorityRequest(),
+  });
   const model = ROUTER.MODEL_REGISTRY[result.modelId];
   assert.ok(model.supportsTools, `Model ${result.modelId} should support tools for this task`);
+  assert.strictEqual(result.authority.status, 'AUTHORIZED');
+});
+
+test('routeForTask blocks tool-capable routing without deterministic authority evidence', () => {
+  const result = BRIDGE.routeForTask({ category: 'coding', requiresTools: true });
+  assert.strictEqual(result.blocked, true);
+  assert.strictEqual(result.modelId, null);
+  assert.match(result.reason, /authority/i);
+});
+
+test('routeForTask enforces latency, cost, and quality budgets before selection', () => {
+  const latencyBlocked = BRIDGE.routeForTask({
+    category: 'coding',
+    privacyRequired: 'local',
+    maxLatencyMs: 200,
+  });
+  assert.strictEqual(latencyBlocked.blocked, true);
+
+  const freeOnly = BRIDGE.routeForTask({ category: 'coding', maxCostPer1kUsd: 0 });
+  assert.strictEqual(freeOnly.modelId, 'zai-org/glm-5.3');
+
+  const qualityBlocked = BRIDGE.routeForTask({ category: 'coding', minQuality: 1 });
+  assert.strictEqual(qualityBlocked.blocked, true);
 });
 
 test('routeForTask with balance preference returns scored model', () => {
@@ -255,6 +318,7 @@ test('routeForTask + bridgeRecord work as a unit (simulate agent call)', async (
     category: 'coding',
     preference: 'quality',
     requiresTools: true,
+    authorityRequest: authorityRequest(),
   }, { storageDir: testDir });
   assert.ok(routing.modelId, 'Should select a model');
   const modelInfo = ROUTER.MODEL_REGISTRY[routing.modelId];
@@ -295,6 +359,7 @@ test('routeForTask respects maxLatencyMs constraint', () => {
     category: 'coding',
     requiresTools: true,
     maxLatencyMs: 300,
+    authorityRequest: authorityRequest(),
   });
   const model = ROUTER.MODEL_REGISTRY[result.modelId];
   assert.ok(model.latency_ms <= 300,
@@ -306,6 +371,7 @@ test('routeForTask respects minQuality constraint', () => {
     category: 'coding',
     requiresTools: true,
     minQuality: 0.9,
+    authorityRequest: authorityRequest(),
   });
   const model = ROUTER.MODEL_REGISTRY[result.modelId];
   assert.ok(model.quality_score >= 0.9,

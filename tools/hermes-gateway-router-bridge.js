@@ -143,13 +143,43 @@ async function bridgeRecord(recordInput, opts = {}) {
  * @returns {Object} — route model result with modelId, score, reason, metadata
  */
 function routeForTask(taskSpec = {}, opts = {}) {
+  let authority = null;
+  if (taskSpec.requiresTools === true) {
+    if (!taskSpec.authorityRequest) {
+      return {
+        modelId: null,
+        metadata: null,
+        blocked: true,
+        reason: 'Tool-capable routing requires a deterministic authority request',
+      };
+    }
+    authority = ROUTER.authorizeAction(taskSpec.authorityRequest);
+    if (!authority.allowed) {
+      return {
+        modelId: null,
+        metadata: null,
+        blocked: true,
+        reason: `Action authority blocked: ${authority.reasons.join('; ')}`,
+        authority,
+      };
+    }
+  }
+
   const task = {
     category: taskSpec.category || 'coding',
-    requiresTools: taskSpec.requiresTools || false,
+    requiresTools: taskSpec.requiresTools === true,
     preference: taskSpec.preference || 'balance',
-    sensitive: taskSpec.sensitive || false,
-    maxLatencyMs: taskSpec.maxLatencyMs || 5000,
-    minQuality: taskSpec.minQuality || 0.7,
+    privacyRequired: taskSpec.sensitive === true
+      ? 'local'
+      : taskSpec.privacyRequired,
+    maxTokens: taskSpec.maxTokens,
+    performanceBudget: {
+      maxLatencyMs: taskSpec.maxLatencyMs ?? 5000,
+      minQuality: taskSpec.minQuality ?? 0.7,
+      ...(taskSpec.maxCostPer1kUsd === undefined
+        ? {}
+        : { maxCostPer1kUsd: taskSpec.maxCostPer1kUsd }),
+    },
   };
 
   // budgetGuard is passed as an option for cost-based filtering
@@ -159,34 +189,7 @@ function routeForTask(taskSpec = {}, opts = {}) {
 
   const result = ROUTER.routeModel(task, { budgetGuard: budget, preference: task.preference });
 
-  // Enforce minQuality and maxLatencyMs constraints in the bridge
-  // (filterModels in harness-router doesn't check these)
-  const selected = ROUTER.MODEL_REGISTRY[result.modelId];
-  if (selected) {
-    if (selected.quality_score < task.minQuality) {
-      // Search for a model that meets the quality threshold
-      const candidates = ROUTER.filterModels(task).filter(m =>
-        m.quality_score >= task.minQuality &&
-        (!task.maxLatencyMs || m.latency_ms <= task.maxLatencyMs)
-      );
-      if (candidates.length > 0) {
-        // Pick the highest quality candidate
-        candidates.sort((a, b) => b.quality_score - a.quality_score);
-        const best = candidates[0];
-        return { modelId: best.modelId, score: best.quality_score, reason: `minQuality=${task.minQuality} enforced by bridge`, metadata: best };
-      }
-    }
-    if (task.maxLatencyMs && selected.latency_ms > task.maxLatencyMs) {
-      const candidates = ROUTER.filterModels(task).filter(m => m.latency_ms <= task.maxLatencyMs);
-      if (candidates.length > 0) {
-        candidates.sort((a, b) => a.latency_ms - b.latency_ms);
-        const best = candidates[0];
-        return { modelId: best.modelId, score: best.quality_score, reason: `maxLatencyMs=${task.maxLatencyMs} enforced by bridge`, metadata: best };
-      }
-    }
-  }
-
-  return result;
+  return authority ? { ...result, authority } : result;
 }
 
 // ─── Bridge: enriched summary ─────────────────────────────────────

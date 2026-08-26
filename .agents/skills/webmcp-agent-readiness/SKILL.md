@@ -19,11 +19,16 @@ browser support, journey execution, and real conversion outcomes separate.
 2. Expose the smallest tool set needed for that journey. Prefer declarative
    form annotations for ordinary forms and the imperative API only when state
    or custom JavaScript behavior requires it.
+   Use the current `document.modelContext` API; `navigator.modelContext` is
+   deprecated. Register with an `AbortSignal` and abort it on unmount.
 3. Keep the readiness manifest separate from the browser API. Standard tool
    fields live under `tools`; ThumbGate safety policy lives under `policies`.
 4. Mark reads with `readOnlyHint=true`. Mark untrusted returned content with
    `untrustedContentHint=true`. Require confirmation for bookings, purchases,
    form submissions, and other consequential actions.
+   Reject undeclared inputs in the handler as well as the schema, propagate the
+   invocation `AbortSignal` to network work, return structured `content`, omit
+   PII, and do not add cross-origin `exposedTo` entries without a specific need.
 5. Run the static gate before browser work:
 
 ```bash
@@ -37,8 +42,9 @@ node tools/webmcp-agent-readiness.js \
    automation to Igor's daily Chrome profile. If no runtime path is available,
    report `STATIC_READY`; do not promote it to `READY`.
 7. Bind evidence to the manifest SHA and evaluate the complete tool order. For
-   a production preview, stop before the side effect. Execute consequential
-   actions only in an authorized sandbox.
+   each call, also match arguments and enforce duration, tool-call, cost, and
+   unnecessary-step budgets. For a production preview, stop before the side
+   effect. Execute consequential actions only in an authorized sandbox.
 
 ```bash
 node tools/webmcp-agent-readiness.js \
@@ -50,6 +56,9 @@ node tools/webmcp-agent-readiness.js \
 
 Read [references/manifest.md](references/manifest.md) when authoring the
 manifest or runtime-evidence shape.
+
+ThumbGate's checked-in contract is `config/thumbgate-webmcp-readiness.json`;
+its mounted runtime tools live in `apps/hermes-control-plane/lib/webmcp-tools.ts`.
 
 ## Interpret the result
 
@@ -66,4 +75,5 @@ their own provider-visible receipts.
 - https://developer.chrome.com/docs/ai/webmcp
 - https://developer.chrome.com/docs/ai/webmcp/evals
 - https://developer.chrome.com/docs/ai/webmcp/secure-tools
+- https://github.com/webmachinelearning/webmcp
 - https://webmachinelearning.github.io/webmcp/

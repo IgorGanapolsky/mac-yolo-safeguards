@@ -34,9 +34,10 @@
  *   - PrivateBenchmark: validate models on real tasks, not vendor benchmarks
  *   - PortabilityScore: track which models work best on which task types
  *
- * Constraint: Node.js built-ins only (fs, os, path, https, url). No npm deps.
+ * Constraint: Node.js built-ins only (crypto, fs, os, path, https, url). No npm deps.
  */
 
+const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -197,6 +198,9 @@ const DISCOVERY_SCHEMA_VERSION = 'discovery/v1';
 // ─── PRIVATE BENCHMARK ─────────────────────────────────────────────
 // Per GLM-5.3: don't trust vendor benchmarks; measure your own.
 const BENCHMARK_SCHEMA_VERSION = 'benchmark/v1';
+const AUTHORITY_SCHEMA_VERSION = 'harness-authority/v1';
+const ACTION_EFFECTS = new Set(['read', 'write', 'consequential']);
+const CONTEXT_CLASSIFICATIONS = new Set(['public', 'internal', 'sensitive']);
 
 // ─── FUNCTIONS ────────────────────────────────────────────────────
 
@@ -212,9 +216,46 @@ function filterModels(task) {
     if (task.maxTokens && task.maxTokens > meta.maxContext) continue;
     if (task.privacyRequired === 'local' && meta.privacy !== 'local') continue;
     if (task.privacyRequired === 'fenced' && meta.privacy === 'third_party') continue;
+    const performanceBudget = task.performanceBudget || {};
+    if (
+      Number.isFinite(performanceBudget.maxLatencyMs) &&
+      meta.latency_ms > performanceBudget.maxLatencyMs
+    ) continue;
+    if (
+      Number.isFinite(performanceBudget.maxCostPer1kUsd) &&
+      effectiveCost(modelId, null) > performanceBudget.maxCostPer1kUsd
+    ) continue;
+    if (
+      Number.isFinite(performanceBudget.minQuality) &&
+      meta.quality_score < performanceBudget.minQuality
+    ) continue;
     results.push({ modelId, ...meta });
   }
   return results;
+}
+
+function validatePerformanceBudget(performanceBudget) {
+  if (performanceBudget === undefined) return [];
+  if (!performanceBudget || typeof performanceBudget !== 'object' || Array.isArray(performanceBudget)) {
+    return ['performanceBudget must be an object'];
+  }
+  const errors = [];
+  for (const field of ['maxLatencyMs', 'maxCostPer1kUsd']) {
+    if (performanceBudget[field] !== undefined) {
+      if (!Number.isFinite(performanceBudget[field]) || performanceBudget[field] < 0) {
+        errors.push(`performanceBudget.${field} must be a non-negative number`);
+      }
+    }
+  }
+  if (
+    performanceBudget.minQuality !== undefined &&
+    (!Number.isFinite(performanceBudget.minQuality) ||
+      performanceBudget.minQuality < 0 ||
+      performanceBudget.minQuality > 1)
+  ) {
+    errors.push('performanceBudget.minQuality must be a number from 0 to 1');
+  }
+  return errors;
 }
 
 /**
@@ -246,16 +287,24 @@ function effectiveCost(modelId, budgetGuard) {
 function routeModel(task, options = {}) {
   const { preference = 'balance', budgetGuard, portabilityScores = {} } = options;
 
+  const performanceErrors = validatePerformanceBudget(task.performanceBudget);
+  if (performanceErrors.length > 0) {
+    return {
+      modelId: null,
+      metadata: null,
+      blocked: true,
+      reason: performanceErrors.join('; '),
+    };
+  }
+
   const candidates = filterModels(task);
 
   if (candidates.length === 0) {
-    // Fallback: any model, even if privacy is violated
-    const fallback = Object.keys(MODEL_REGISTRY)[0];
     return {
-      modelId: fallback,
-      reason: 'No model satisfies all constraints; routing to first available',
-      metadata: MODEL_REGISTRY[fallback],
-      fallback: true,
+      modelId: null,
+      reason: 'No model satisfies all privacy, context, tool, and performance constraints',
+      metadata: null,
+      blocked: true,
     };
   }
 
@@ -311,7 +360,15 @@ function routeModel(task, options = {}) {
   });
 
   scored.sort((a, b) => b.score - a.score);
-  const best = scored[0];
+  const best = scored.find((candidate) => candidate.cost !== Infinity);
+  if (!best) {
+    return {
+      modelId: null,
+      reason: 'No model satisfies the remaining budget',
+      metadata: null,
+      blocked: true,
+    };
+  }
 
   return {
     modelId: best.modelId,
@@ -792,12 +849,209 @@ class ModelRegistry {
   }
 }
 
+// ─── DETERMINISTIC ACTION AUTHORITY ──────────────────────────────
+
+function isObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (!isObject(value)) return value;
+  const result = {};
+  for (const key of Object.keys(value).sort()) result[key] = canonicalize(value[key]);
+  return result;
+}
+
+function sha256Canonical(value) {
+  return crypto.createHash('sha256').update(JSON.stringify(canonicalize(value))).digest('hex');
+}
+
+function stringArray(value) {
+  return Array.isArray(value) && value.length > 0 &&
+    value.every((item) => typeof item === 'string' && item.length > 0);
+}
+
+function normalizedOrigin(value) {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+
+function pathWithinRoots(filePath, roots) {
+  if (typeof filePath !== 'string' || !path.isAbsolute(filePath)) return false;
+  const target = path.resolve(filePath);
+  return roots.some((root) => {
+    if (typeof root !== 'string' || !path.isAbsolute(root)) return false;
+    const resolvedRoot = path.resolve(root);
+    return target === resolvedRoot || target.startsWith(`${resolvedRoot}${path.sep}`);
+  });
+}
+
+/**
+ * Deterministically decide whether a model-proposed action may execute.
+ * The model never grants itself authority: policy, sandbox state, scoped
+ * approval, and disclosure evidence are ordinary inspectable data.
+ */
+function authorizeAction(request) {
+  const input = isObject(request) ? request : {};
+  const proposal = isObject(input.proposal) ? input.proposal : {};
+  const policy = isObject(input.policy) ? input.policy : {};
+  const runtime = isObject(input.runtime) ? input.runtime : {};
+  const approval = isObject(input.approval) ? input.approval : {};
+  const disclosure = isObject(input.disclosure) ? input.disclosure : {};
+  const reasons = [];
+
+  if (typeof proposal.actionId !== 'string' || proposal.actionId.length === 0) {
+    reasons.push('proposal.actionId is required');
+  }
+  if (!['tool_call', 'cloud_advice'].includes(proposal.kind)) {
+    reasons.push('proposal.kind must be tool_call or cloud_advice');
+  }
+  if (typeof proposal.tool !== 'string' || proposal.tool.length === 0) {
+    reasons.push('proposal.tool is required');
+  }
+  if (!ACTION_EFFECTS.has(proposal.effect)) {
+    reasons.push('proposal.effect must be read, write, or consequential');
+  }
+
+  const sandbox = isObject(runtime.sandbox) ? runtime.sandbox : {};
+  for (const field of ['available', 'enforced', 'processRestricted', 'filesystemRestricted', 'networkRestricted']) {
+    if (sandbox[field] !== true) reasons.push(`runtime.sandbox.${field} must be true`);
+  }
+
+  if (!stringArray(policy.allowedTools)) reasons.push('policy.allowedTools must be a non-empty string array');
+  if (!stringArray(runtime.registeredTools)) reasons.push('runtime.registeredTools must be a non-empty string array');
+  if (stringArray(policy.allowedTools) && !policy.allowedTools.includes(proposal.tool)) {
+    reasons.push(`tool ${proposal.tool || '<missing>'} is outside policy.allowedTools`);
+  }
+  if (stringArray(runtime.registeredTools) && !runtime.registeredTools.includes(proposal.tool)) {
+    reasons.push(`tool ${proposal.tool || '<missing>'} is not active in runtime.registeredTools`);
+  }
+  if (stringArray(runtime.registeredTools) && stringArray(policy.allowedTools)) {
+    for (const tool of runtime.registeredTools) {
+      if (!policy.allowedTools.includes(tool)) reasons.push(`registered tool ${tool} is outside policy.allowedTools`);
+    }
+  }
+
+  if (policy.skillLoading !== 'on_demand') {
+    reasons.push('policy.skillLoading must be on_demand');
+  }
+  if (!Number.isInteger(policy.maxCoreTools) || policy.maxCoreTools <= 0) {
+    reasons.push('policy.maxCoreTools must be a positive integer');
+  }
+  if (!stringArray(runtime.coreTools)) {
+    reasons.push('runtime.coreTools must be a non-empty string array');
+  } else {
+    if (Number.isInteger(policy.maxCoreTools) && runtime.coreTools.length > policy.maxCoreTools) {
+      reasons.push(`runtime.coreTools exceeds policy.maxCoreTools=${policy.maxCoreTools}`);
+    }
+    if (stringArray(runtime.registeredTools)) {
+      for (const tool of runtime.coreTools) {
+        if (!runtime.registeredTools.includes(tool)) reasons.push(`core tool ${tool} is not registered`);
+      }
+    }
+  }
+
+  if (proposal.process !== null && proposal.process !== undefined) {
+    if (!stringArray(policy.allowedProcesses) || !policy.allowedProcesses.includes(proposal.process)) {
+      reasons.push(`process ${proposal.process} is outside policy.allowedProcesses`);
+    }
+  }
+
+  const filePaths = Array.isArray(proposal.filePaths) ? proposal.filePaths : [];
+  const roots = Array.isArray(policy.allowedFileRoots) ? policy.allowedFileRoots : [];
+  for (const filePath of filePaths) {
+    if (!pathWithinRoots(filePath, roots)) reasons.push(`file path ${filePath} is outside policy.allowedFileRoots`);
+  }
+
+  const networkOrigins = Array.isArray(proposal.networkOrigins) ? proposal.networkOrigins : [];
+  const allowedOrigins = Array.isArray(policy.allowedNetworkOrigins)
+    ? policy.allowedNetworkOrigins.map(normalizedOrigin).filter(Boolean)
+    : [];
+  for (const origin of networkOrigins) {
+    const normalized = normalizedOrigin(origin);
+    if (!normalized || !allowedOrigins.includes(normalized)) {
+      reasons.push(`network origin ${origin} is outside policy.allowedNetworkOrigins`);
+    }
+  }
+
+  if (['write', 'consequential'].includes(proposal.effect)) {
+    if (approval.granted !== true || approval.actionId !== proposal.actionId) {
+      reasons.push('write and consequential actions require action-bound approval');
+    }
+  }
+
+  if (proposal.kind === 'cloud_advice') {
+    if (!stringArray(policy.allowedCloudModels) || !policy.allowedCloudModels.includes(proposal.modelId)) {
+      reasons.push(`cloud model ${proposal.modelId || '<missing>'} is outside policy.allowedCloudModels`);
+    }
+    if (!Number.isInteger(policy.maxCloudContextItems) || policy.maxCloudContextItems <= 0) {
+      reasons.push('policy.maxCloudContextItems must be a positive integer');
+    }
+    const context = Array.isArray(proposal.context) ? proposal.context : [];
+    if (context.length === 0) reasons.push('cloud advice requires an explicit selected context');
+    if (
+      Number.isInteger(policy.maxCloudContextItems) &&
+      context.length > policy.maxCloudContextItems
+    ) {
+      reasons.push(`cloud context exceeds policy.maxCloudContextItems=${policy.maxCloudContextItems}`);
+    }
+    const sensitiveItemIds = [];
+    for (const item of context) {
+      if (!isObject(item) || typeof item.id !== 'string' || !CONTEXT_CLASSIFICATIONS.has(item.classification)) {
+        reasons.push('every cloud context item needs an id and public, internal, or sensitive classification');
+      } else if (item.classification === 'sensitive') {
+        sensitiveItemIds.push(item.id);
+      }
+    }
+    if (disclosure.previewShown !== true) reasons.push('cloud disclosure preview must be shown');
+    if (disclosure.approvedActionId !== proposal.actionId) {
+      reasons.push('cloud disclosure must be bound to proposal.actionId');
+    }
+    if (disclosure.contextSha256 !== sha256Canonical(context)) {
+      reasons.push('cloud disclosure contextSha256 must match the selected context');
+    }
+    const disclosedSensitive = Array.isArray(disclosure.sensitiveItemIds)
+      ? [...disclosure.sensitiveItemIds].sort()
+      : [];
+    if (JSON.stringify(disclosedSensitive) !== JSON.stringify(sensitiveItemIds.sort())) {
+      reasons.push('cloud disclosure must identify every sensitive context item');
+    }
+    if (approval.granted !== true || approval.actionId !== proposal.actionId) {
+      reasons.push('cloud approval must be explicit and action-bound');
+    }
+  }
+
+  const proposalSha256 = sha256Canonical(proposal);
+  const policySha256 = sha256Canonical(policy);
+  const runtimeSha256 = sha256Canonical(runtime);
+  const approvalSha256 = sha256Canonical(approval);
+  const disclosureSha256 = sha256Canonical(disclosure);
+  const status = reasons.length === 0 ? 'AUTHORIZED' : 'BLOCKED';
+  const receipt = {
+    schemaVersion: AUTHORITY_SCHEMA_VERSION,
+    status,
+    allowed: status === 'AUTHORIZED',
+    reasons,
+    proposalSha256,
+    policySha256,
+    runtimeSha256,
+    approvalSha256,
+    disclosureSha256,
+  };
+  return { ...receipt, decisionSha256: sha256Canonical(receipt) };
+}
+
 // ─── CLI ──────────────────────────────────────────────────────────
 
 /**
  * Format a routing decision as human-readable text.
  */
 function formatRouteResult(result) {
+  if (result.blocked) return `BLOCKED: ${result.reason}`;
   const lines = [
     `Selected: ${result.modelId}`,
     `  reason: ${result.reason}`,
@@ -840,7 +1094,17 @@ function main(argv = process.argv.slice(2)) {
     } else {
       console.log(formatRouteResult(routes));
     }
+    if (routes.blocked) process.exitCode = 2;
     return routes;
+  }
+
+  if (cmd === 'authorize') {
+    const request = JSON.parse(rest.find((a) => a.startsWith('{')) || '{}');
+    const result = authorizeAction(request);
+    if (json) console.log(JSON.stringify(result, null, 2));
+    else console.log(`${result.status}: ${result.reasons.join('; ') || 'policy and runtime evidence satisfied'}`);
+    if (!result.allowed) process.exitCode = 2;
+    return result;
   }
 
   if (cmd === 'check') {
@@ -930,7 +1194,8 @@ Consolidates high-ROI ideas from:
   - Futurism: ChatGPT Computer History — fail-closed alternative (never captures keystrokes)
 
 Usage:
-  agent-harness-router route '{"requiresTools":true,"category":"coding"}' [--preference cost|latency|quality|privacy|balance]
+  agent-harness-router route '{"category":"coding","performanceBudget":{"maxLatencyMs":500}}' [--preference cost|latency|quality|privacy|balance]
+  agent-harness-router authorize '{"proposal":{...},"policy":{...},"runtime":{...}}' [--json]
   agent-harness-router check [--json]
   agent-harness-router discover <prompt> --model <modelId> --task <taskType> --tags <t1,t2>
   agent-harness-router benchmark add --name <name> --category <cat> --prompt <p> --expected <e>
@@ -963,15 +1228,19 @@ module.exports = {
   ROUTING_PREFERENCES,
   DISCOVERY_SCHEMA_VERSION,
   BENCHMARK_SCHEMA_VERSION,
+  AUTHORITY_SCHEMA_VERSION,
   DEFAULT_MONTHLY_CAP_USD,
   DEFAULT_STORAGE_DIR,
   filterModels,
+  validatePerformanceBudget,
   effectiveCost,
   routeModel,
   BudgetGuard,
   DiscoveryCapture,
   PrivateBenchmark,
   ModelRegistry,
+  authorizeAction,
+  sha256Canonical,
   formatRouteResult,
   main,
 };

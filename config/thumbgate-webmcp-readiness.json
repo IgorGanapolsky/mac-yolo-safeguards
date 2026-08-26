@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "site": "https://thumbgate.app",
+  "tools": [
+    {
+      "name": "get_hosted_hermes_plan",
+      "title": "Get hosted Hermes plan",
+      "description": "Read the active hosted Hermes subscription price and billing interval from ThumbGate.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "annotations": { "readOnlyHint": true, "untrustedContentHint": true }
+    },
+    {
+      "name": "get_workspace_status",
+      "title": "Get workspace status",
+      "description": "Read whether this browser is signed in and whether its ThumbGate workspace can use hosted Hermes.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "annotations": { "readOnlyHint": true, "untrustedContentHint": true }
+    },
+    {
+      "name": "start_hosted_hermes_checkout",
+      "title": "Start hosted Hermes checkout",
+      "description": "Preview or open Stripe Checkout for hosted Hermes. Execute mode always asks the user in browser first.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": ["preview", "execute"],
+            "description": "Use preview to inspect the action or execute to request user confirmation.",
+            "maxLength": 7
+          }
+        },
+        "required": ["mode"],
+        "additionalProperties": false
+      },
+      "annotations": { "readOnlyHint": false }
+    }
+  ],
+  "policies": {
+    "get_hosted_hermes_plan": {
+      "effect": "read",
+      "confirmation": "not_applicable"
+    },
+    "get_workspace_status": {
+      "effect": "read",
+      "confirmation": "not_applicable"
+    },
+    "start_hosted_hermes_checkout": {
+      "effect": "consequential",
+      "confirmation": "required"
+    }
+  },
+  "journeys": [
+    {
+      "id": "read-live-plan",
+      "prompt": "What does hosted Hermes cost right now?",
+      "expectedCalls": ["get_hosted_hermes_plan"],
+      "expectedArguments": [{}],
+      "mode": "read_only",
+      "performanceBudget": {
+        "maxDurationMs": 2000,
+        "maxToolCalls": 1,
+        "maxEstimatedCostUsd": 0.02
+      }
+    },
+    {
+      "id": "prepare-checkout",
+      "prompt": "Check whether I already have access and prepare hosted Hermes checkout without purchasing.",
+      "expectedCalls": [
+        "get_hosted_hermes_plan",
+        "get_workspace_status",
+        "start_hosted_hermes_checkout"
+      ],
+      "expectedArguments": [{}, {}, { "mode": "preview" }],
+      "mode": "preview",
+      "performanceBudget": {
+        "maxDurationMs": 5000,
+        "maxToolCalls": 3,
+        "maxEstimatedCostUsd": 0.05
+      }
+    }
+  ]
+}

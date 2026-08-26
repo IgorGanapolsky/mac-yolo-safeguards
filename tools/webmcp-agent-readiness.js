@@ -77,6 +77,9 @@ function validateInputSchema(tool, errors, warnings) {
     errors.push(`${prefix} inputSchema must be an object schema with properties`);
     return;
   }
+  if (schema.additionalProperties !== false) {
+    errors.push(`${prefix} inputSchema.additionalProperties must be false`);
+  }
 
   const propertyNames = Object.keys(schema.properties);
   for (const propertyName of propertyNames) {
@@ -223,9 +226,17 @@ function validateManifest(manifest) {
     if (!JOURNEY_MODES.has(journey.mode)) {
       errors.push(`journey ${journey.id} mode must be read_only, preview, or sandbox`);
     }
+    validateJourneyPerformanceBudget(journey, errors);
     if (!Array.isArray(journey.expectedCalls) || journey.expectedCalls.length === 0) {
       errors.push(`journey ${journey.id} expectedCalls must contain at least one tool`);
       continue;
+    }
+    if (
+      !Array.isArray(journey.expectedArguments) ||
+      journey.expectedArguments.length !== journey.expectedCalls.length ||
+      journey.expectedArguments.some((input) => !isObject(input))
+    ) {
+      errors.push(`journey ${journey.id} expectedArguments must contain one object per expectedCalls entry`);
     }
 
     let hasMutation = false;
@@ -253,6 +264,32 @@ function validateManifest(manifest) {
 function arraysEqual(left, right) {
   return Array.isArray(left) && Array.isArray(right) &&
     left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function validateJourneyPerformanceBudget(journey, errors) {
+  const budget = journey.performanceBudget;
+  if (!isObject(budget)) {
+    errors.push(`journey ${journey.id} performanceBudget is required`);
+    return;
+  }
+  for (const field of ['maxDurationMs', 'maxToolCalls']) {
+    if (!Number.isInteger(budget[field]) || budget[field] <= 0) {
+      errors.push(`journey ${journey.id} performanceBudget.${field} must be a positive integer`);
+    }
+  }
+  if (
+    Number.isInteger(budget.maxToolCalls) &&
+    Array.isArray(journey.expectedCalls) &&
+    budget.maxToolCalls < journey.expectedCalls.length
+  ) {
+    errors.push(`journey ${journey.id} performanceBudget.maxToolCalls is below expectedCalls length`);
+  }
+  if (
+    budget.maxEstimatedCostUsd !== undefined &&
+    (!Number.isFinite(budget.maxEstimatedCostUsd) || budget.maxEstimatedCostUsd < 0)
+  ) {
+    errors.push(`journey ${journey.id} performanceBudget.maxEstimatedCostUsd must be non-negative`);
+  }
 }
 
 function validateRuntime(manifest, runtime, options = {}) {
@@ -326,6 +363,40 @@ function validateRuntime(manifest, runtime, options = {}) {
     if (evidence.status !== 'pass') errors.push(`journey ${journey.id} status is not pass`);
     if (!arraysEqual(evidence.calls, journey.expectedCalls)) {
       errors.push(`journey ${journey.id} calls do not match expectedCalls in order`);
+    }
+    if (
+      JSON.stringify(canonicalize(evidence.arguments)) !==
+      JSON.stringify(canonicalize(journey.expectedArguments))
+    ) {
+      errors.push(`journey ${journey.id} arguments do not match expectedArguments in order`);
+    }
+
+    const performanceBudget = journey.performanceBudget;
+    if (!Number.isFinite(evidence.durationMs) || evidence.durationMs < 0) {
+      errors.push(`journey ${journey.id} durationMs must be a non-negative number`);
+    } else if (evidence.durationMs > performanceBudget.maxDurationMs) {
+      errors.push(
+        `journey ${journey.id} durationMs ${evidence.durationMs} exceeds ${performanceBudget.maxDurationMs}`,
+      );
+    }
+    if (Array.isArray(evidence.calls) && evidence.calls.length > performanceBudget.maxToolCalls) {
+      errors.push(
+        `journey ${journey.id} tool calls ${evidence.calls.length} exceed ${performanceBudget.maxToolCalls}`,
+      );
+    }
+    if (!Number.isInteger(evidence.unnecessarySteps) || evidence.unnecessarySteps < 0) {
+      errors.push(`journey ${journey.id} unnecessarySteps must be a non-negative integer`);
+    } else if (evidence.unnecessarySteps !== 0) {
+      errors.push(`journey ${journey.id} unnecessarySteps must be zero`);
+    }
+    if (performanceBudget.maxEstimatedCostUsd !== undefined) {
+      if (!Number.isFinite(evidence.estimatedCostUsd) || evidence.estimatedCostUsd < 0) {
+        errors.push(`journey ${journey.id} estimatedCostUsd must be a non-negative number`);
+      } else if (evidence.estimatedCostUsd > performanceBudget.maxEstimatedCostUsd) {
+        errors.push(
+          `journey ${journey.id} estimatedCostUsd ${evidence.estimatedCostUsd} exceeds ${performanceBudget.maxEstimatedCostUsd}`,
+        );
+      }
     }
 
     const effects = journey.expectedCalls.map((name) => manifest.policies[name].effect);

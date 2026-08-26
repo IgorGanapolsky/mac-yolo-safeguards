@@ -24,7 +24,8 @@ into `document.modelContext.registerTool()` as if it were standard WebMCP.
             "maxLength": 500
           }
         },
-        "required": ["need"]
+        "required": ["need"],
+        "additionalProperties": false
       },
       "annotations": { "readOnlyHint": true }
     },
@@ -41,7 +42,8 @@ into `document.modelContext.registerTool()` as if it were standard WebMCP.
             "maxLength": 100
           }
         },
-        "required": ["slot"]
+        "required": ["slot"],
+        "additionalProperties": false
       },
       "annotations": { "readOnlyHint": false }
     }
@@ -61,7 +63,16 @@ into `document.modelContext.registerTool()` as if it were standard WebMCP.
       "id": "book-consult-preview",
       "prompt": "Find the right service and prepare a consultation for tomorrow.",
       "expectedCalls": ["get_service_options", "book_consult"],
-      "mode": "preview"
+      "expectedArguments": [
+        { "need": "consultation" },
+        { "slot": "tomorrow" }
+      ],
+      "mode": "preview",
+      "performanceBudget": {
+        "maxDurationMs": 5000,
+        "maxToolCalls": 2,
+        "maxEstimatedCostUsd": 0.05
+      }
     }
   ]
 }
@@ -107,8 +118,15 @@ Do not hand-edit old evidence to match a new manifest or capture.
     "book-consult-preview": {
       "status": "pass",
       "calls": ["get_service_options", "book_consult"],
+      "arguments": [
+        { "need": "consultation" },
+        { "slot": "tomorrow" }
+      ],
       "confirmationObserved": true,
-      "sideEffect": "not_executed"
+      "sideEffect": "not_executed",
+      "durationMs": 1200,
+      "estimatedCostUsd": 0.01,
+      "unnecessarySteps": 0
     }
   }
 }

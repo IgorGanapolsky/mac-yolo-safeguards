@@ -7,15 +7,7 @@ description: >
   History fail-closed alternative). Routes model calls by cost/latency/quality/privacy,
   tracks spend against hard cap, captures reusable prompt patterns, validates models
   on private benchmarks. Never captures keystrokes, clicks, or local Mac activity.
-tags:
-  - model-routing
-  - budget-enforcement
-  - discovery-capture
-  - benchmark
-  - privacy
 license: MIT
-owner: claude-code
-version: 1.0.0
 ---
 
 ## Trigger
@@ -25,8 +17,12 @@ discovery capture of AI patterns, or private benchmark validation.
 ## Usage
 
 ```bash
-# Route a task to the best model (cost/latency/quality/privacy/balance)
-node tools/agent-harness-router.js route '{"requiresTools":true,"category":"coding","preference":"quality"}'
+# Route a non-tool task inside latency, quality, and unit-cost budgets
+node tools/agent-harness-router.js route '{"category":"coding","performanceBudget":{"maxLatencyMs":500,"minQuality":0.8,"maxCostPer1kUsd":1}}'
+
+# Authorize a proposed tool action. Tool-capable gateway routing must carry the
+# resulting action request and fails closed when authority or sandbox proof is absent.
+node tools/agent-harness-router.js authorize "$(jq -c . authority-request.json)" --json
 
 # Check current budget + discovery/benchmark stats
 node tools/agent-harness-router.js check --json
@@ -52,6 +48,8 @@ node tools/agent-harness-router.js check --json
 ## Architecture
 - **MODEL_REGISTRY**: 9 models with cost/latency/quality/privacy metadata
 - **routeModel()**: Optimal model for a task based on 5 routing preferences
+- **authorizeAction()**: Deterministic tool authority with capability, process,
+  filesystem, network, sandbox, scoped-approval, and cloud-disclosure checks
 - **BudgetGuard**: Fail-closed $10/mo spending cap (per Anti-Babysitting + GLM-5.3)
 - **DiscoveryCapture**: Captures useful prompt/task patterns with secret rejection + input-capture refusal
 - **PrivateBenchmark**: Validates models on real tasks, computes portability scores
@@ -63,3 +61,8 @@ node tools/agent-harness-router.js check --json
 - Secret detection rejects AWS keys, GitHub PATs, JWTs, Bearer tokens in captured discoveries
 - Input-capture detection refuses Computer History / event_tap / keystroke data
 - Third-party models blocked when budget exhausted or sensitive data required
+- No privacy-violating fallback when no model meets the route contract
+- Tool-capable gateway routes require a hash-bound deterministic authority receipt
+- Cloud advice requires bounded classified context, a matching disclosure digest,
+  sensitive-item labels, and explicit action-bound approval
+- Latency, minimum-quality, context, and cost-per-1k budgets filter models before scoring

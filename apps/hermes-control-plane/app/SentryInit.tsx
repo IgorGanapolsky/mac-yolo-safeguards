@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { captureFirstError, sentryDsnFromEnv } from "@/lib/sentry";
+import { WebMcpInit } from "./WebMcpInit";
 
 /**
  * First-error-only client hook. Mounted from the root layout.
@@ -23,5 +24,5 @@ export function SentryInit() {
       window.removeEventListener("unhandledrejection", onRejection);
     };
   }, []);
-  return null;
+  return <WebMcpInit />;
 }

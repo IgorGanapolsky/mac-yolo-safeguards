@@ -209,8 +209,9 @@ test('routeModel returns fallback when no model satisfies constraints', () => {
     { privacyRequired: 'local', maxTokens: 2000000 },
     { preference: 'cost' }
   );
-  assertTrue(result.fallback, 'should be a fallback');
-  assertTrue(result.modelId in MOD.MODEL_REGISTRY, 'should select a known model');
+  assertTrue(result.blocked, 'should fail closed');
+  assertEqual(result.modelId, null, 'must not select a privacy-violating fallback');
+  assertEqual(result.metadata, null, 'blocked routes have no executable model metadata');
 });
 
 test('routeModel applies portability score boost', () => {
@@ -232,6 +233,55 @@ test('routeModel with budgetGuard routes to local when exhausted', () => {
     { preference: 'balance', budgetGuard: guard }
   );
   assertEqual(result.metadata.privacy, 'local');
+});
+
+test('routeModel blocks when an exhausted budget leaves only paid models', () => {
+  const tmpDir = path.join(os.tmpdir(), `harness-exhausted-paid-only-${Date.now()}`);
+  const guard = new MOD.BudgetGuard(tmpDir);
+  guard.recordSpend({ modelId: 'test', tokenCount: 100, costUsd: 10.0 });
+  const result = MOD.routeModel(
+    { category: 'coding', maxTokens: 500000 },
+    { preference: 'quality', budgetGuard: guard }
+  );
+  assertTrue(result.blocked);
+  assertEqual(result.modelId, null);
+  assertTrue(result.reason.includes('budget'));
+});
+
+test('routeModel enforces an explicit latency budget before scoring candidates', () => {
+  const result = MOD.routeModel(
+    {
+      requiresTools: true,
+      privacyRequired: 'local',
+      category: 'coding',
+      performanceBudget: { maxLatencyMs: 200 },
+    },
+    { preference: 'quality' }
+  );
+  assertTrue(result.blocked, 'no local model fits the latency budget');
+  assertEqual(result.modelId, null);
+});
+
+test('routeModel enforces a cost-per-1k budget before scoring candidates', () => {
+  const result = MOD.routeModel(
+    {
+      requiresTools: true,
+      category: 'coding',
+      performanceBudget: { maxCostPer1kUsd: 0 },
+    },
+    { preference: 'quality' }
+  );
+  assertEqual(result.modelId, 'zai-org/glm-5.3');
+  assertEqual(result.metadata.privacy, 'local');
+});
+
+test('routeModel rejects invalid performance budgets instead of ignoring them', () => {
+  const result = MOD.routeModel(
+    { category: 'coding', performanceBudget: { maxLatencyMs: -1 } },
+    { preference: 'balance' }
+  );
+  assertTrue(result.blocked);
+  assertTrue(result.reason.includes('maxLatencyMs'));
 });
 
 // ─── 5. BudgetGuard ─────────────────────────────────────────────────
@@ -622,6 +672,176 @@ test('formatRouteResult returns human-readable output', () => {
   assertTrue(text.includes(result.modelId), 'should include model id');
   assertTrue(text.includes('privacy:'), 'should include privacy');
   assertTrue(text.includes('cost'), 'should include cost');
+});
+
+// ─── 12. Deterministic action authority ───────────────────────────
+
+function validAuthorityRequest(overrides = {}) {
+  const proposal = {
+    actionId: 'action-read-status-1',
+    kind: 'tool_call',
+    tool: 'git_status',
+    effect: 'read',
+    process: 'git',
+    filePaths: ['/workspace/project'],
+    networkOrigins: [],
+    ...overrides.proposal,
+  };
+  const policy = {
+    allowedTools: ['git_status', 'write_patch', 'cloud_advice'],
+    allowedProcesses: ['git'],
+    allowedFileRoots: ['/workspace'],
+    allowedNetworkOrigins: ['https://api.openai.com'],
+    allowedCloudModels: ['openai/gpt-5.6-sol'],
+    maxCoreTools: 2,
+    maxCloudContextItems: 3,
+    skillLoading: 'on_demand',
+    ...overrides.policy,
+  };
+  const runtime = {
+    sandbox: {
+      available: true,
+      enforced: true,
+      processRestricted: true,
+      filesystemRestricted: true,
+      networkRestricted: true,
+    },
+    coreTools: ['git_status'],
+    registeredTools: ['git_status', 'write_patch', 'cloud_advice'],
+    ...overrides.runtime,
+  };
+  return {
+    proposal,
+    policy,
+    runtime,
+    approval: overrides.approval || null,
+    disclosure: overrides.disclosure || null,
+  };
+}
+
+test('HarnessAuthorityGuard authorizes an in-scope read tool in an enforced sandbox', () => {
+  const result = MOD.authorizeAction(validAuthorityRequest());
+  assertEqual(result.status, 'AUTHORIZED');
+  assertTrue(result.allowed);
+  assertTrue(/^[a-f0-9]{64}$/.test(result.proposalSha256), 'proposal hash required');
+  assertTrue(/^[a-f0-9]{64}$/.test(result.policySha256), 'policy hash required');
+  assertTrue(/^[a-f0-9]{64}$/.test(result.runtimeSha256), 'runtime hash required');
+  assertTrue(/^[a-f0-9]{64}$/.test(result.approvalSha256), 'approval hash required');
+  assertTrue(/^[a-f0-9]{64}$/.test(result.disclosureSha256), 'disclosure hash required');
+  assertTrue(/^[a-f0-9]{64}$/.test(result.decisionSha256), 'decision hash required');
+});
+
+test('HarnessAuthorityGuard disables tool execution when sandbox guarantees are absent', () => {
+  const request = validAuthorityRequest();
+  request.runtime.sandbox.available = false;
+  const result = MOD.authorizeAction(request);
+  assertEqual(result.status, 'BLOCKED');
+  assertFalse(result.allowed);
+  assertTrue(result.reasons.some((reason) => reason.includes('sandbox.available')));
+});
+
+test('HarnessAuthorityGuard blocks tools outside the active capability set', () => {
+  const request = validAuthorityRequest({ proposal: { tool: 'shell_exec' } });
+  const result = MOD.authorizeAction(request);
+  assertEqual(result.status, 'BLOCKED');
+  assertTrue(result.reasons.some((reason) => reason.includes('allowedTools')));
+  assertTrue(result.reasons.some((reason) => reason.includes('registeredTools')));
+});
+
+test('HarnessAuthorityGuard blocks process, filesystem, and network scope escapes', () => {
+  const request = validAuthorityRequest({
+    proposal: {
+      process: 'bash',
+      filePaths: ['/private/secret'],
+      networkOrigins: ['https://attacker.example'],
+    },
+  });
+  const result = MOD.authorizeAction(request);
+  assertEqual(result.status, 'BLOCKED');
+  assertTrue(result.reasons.some((reason) => reason.includes('process')));
+  assertTrue(result.reasons.some((reason) => reason.includes('file path')));
+  assertTrue(result.reasons.some((reason) => reason.includes('network origin')));
+});
+
+test('HarnessAuthorityGuard requires action-bound approval for writes', () => {
+  const write = validAuthorityRequest({
+    proposal: {
+      actionId: 'action-write-1',
+      tool: 'write_patch',
+      effect: 'write',
+      process: null,
+    },
+  });
+  const blocked = MOD.authorizeAction(write);
+  assertEqual(blocked.status, 'BLOCKED');
+  assertTrue(blocked.reasons.some((reason) => reason.includes('action-bound approval')));
+
+  write.approval = { granted: true, actionId: 'action-write-1' };
+  const authorized = MOD.authorizeAction(write);
+  assertEqual(authorized.status, 'AUTHORIZED');
+});
+
+test('HarnessAuthorityGuard requires disclosed, bounded context before cloud advice', () => {
+  const cloud = validAuthorityRequest({
+    proposal: {
+      actionId: 'cloud-advice-1',
+      kind: 'cloud_advice',
+      tool: 'cloud_advice',
+      effect: 'read',
+      process: null,
+      filePaths: [],
+      networkOrigins: ['https://api.openai.com'],
+      modelId: 'openai/gpt-5.6-sol',
+      context: [
+        { id: 'error-summary', classification: 'internal' },
+        { id: 'customer-token', classification: 'sensitive' },
+      ],
+    },
+  });
+  const blocked = MOD.authorizeAction(cloud);
+  assertEqual(blocked.status, 'BLOCKED');
+  assertTrue(blocked.reasons.some((reason) => reason.includes('disclosure preview')));
+  assertTrue(blocked.reasons.some((reason) => reason.includes('cloud approval')));
+
+  cloud.disclosure = {
+    previewShown: true,
+    approvedActionId: 'cloud-advice-1',
+    contextSha256: MOD.sha256Canonical(cloud.proposal.context),
+    sensitiveItemIds: ['customer-token'],
+  };
+  cloud.approval = { granted: true, actionId: 'cloud-advice-1' };
+  const authorized = MOD.authorizeAction(cloud);
+  assertEqual(authorized.status, 'AUTHORIZED');
+});
+
+test('HarnessAuthorityGuard keeps the core toolset small and skills on demand', () => {
+  const request = validAuthorityRequest({
+    policy: { maxCoreTools: 1, skillLoading: 'eager' },
+    runtime: { coreTools: ['git_status', 'write_patch'] },
+  });
+  const result = MOD.authorizeAction(request);
+  assertEqual(result.status, 'BLOCKED');
+  assertTrue(result.reasons.some((reason) => reason.includes('maxCoreTools')));
+  assertTrue(result.reasons.some((reason) => reason.includes('on_demand')));
+});
+
+test('HarnessAuthorityGuard emits a deterministic decision receipt', () => {
+  const request = validAuthorityRequest();
+  const first = MOD.authorizeAction(request);
+  const second = MOD.authorizeAction(JSON.parse(JSON.stringify(request)));
+  assertEqual(first.decisionSha256, second.decisionSha256);
+  assertEqual(first.proposalSha256, second.proposalSha256);
+  assertEqual(first.policySha256, second.policySha256);
+});
+
+test('HarnessAuthorityGuard decision receipt changes when runtime evidence changes', () => {
+  const firstRequest = validAuthorityRequest();
+  const secondRequest = validAuthorityRequest();
+  secondRequest.runtime.sandbox.available = false;
+  const first = MOD.authorizeAction(firstRequest);
+  const second = MOD.authorizeAction(secondRequest);
+  assert.notStrictEqual(first.runtimeSha256, second.runtimeSha256);
+  assert.notStrictEqual(first.decisionSha256, second.decisionSha256);
 });
 
 // ─── SUMMARY ────────────────────────────────────────────────────────

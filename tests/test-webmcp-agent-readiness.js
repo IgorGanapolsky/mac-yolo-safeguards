@@ -43,6 +43,7 @@ function validManifest() {
             },
           },
           required: ['need'],
+          additionalProperties: false,
         },
         annotations: { readOnlyHint: true },
       },
@@ -60,6 +61,7 @@ function validManifest() {
             },
           },
           required: ['slot'],
+          additionalProperties: false,
         },
         annotations: { readOnlyHint: false },
       },
@@ -79,7 +81,16 @@ function validManifest() {
         id: 'book-consult-preview',
         prompt: 'Find the right service and prepare a consultation for tomorrow.',
         expectedCalls: ['get_service_options', 'book_consult'],
+        expectedArguments: [
+          { need: 'consultation' },
+          { slot: 'tomorrow' },
+        ],
         mode: 'preview',
+        performanceBudget: {
+          maxDurationMs: 5000,
+          maxToolCalls: 2,
+          maxEstimatedCostUsd: 0.05,
+        },
       },
     ],
   };
@@ -105,8 +116,15 @@ function validRuntime(manifest) {
       'book-consult-preview': {
         status: 'pass',
         calls: ['get_service_options', 'book_consult'],
+        arguments: [
+          { need: 'consultation' },
+          { slot: 'tomorrow' },
+        ],
         confirmationObserved: true,
         sideEffect: 'not_executed',
+        durationMs: 1200,
+        estimatedCostUsd: 0.01,
+        unnecessarySteps: 0,
       },
     },
   };
@@ -170,11 +188,47 @@ function validRuntime(manifest) {
 
 {
   const manifest = validManifest();
+  delete manifest.tools[0].inputSchema.additionalProperties;
+  const result = auditReadiness(manifest, null, { staticOnly: true, now });
+  assert.strictEqual(result.status, 'BLOCKED');
+  assert.match(result.staticErrors.join('\n'), /additionalProperties must be false/i);
+  ok('schemas reject undeclared agent input fields');
+}
+
+{
+  const manifest = validManifest();
   manifest.journeys[0].expectedCalls.push('missing_tool');
   const result = auditReadiness(manifest, null, { staticOnly: true, now });
   assert.strictEqual(result.status, 'BLOCKED');
   assert.match(result.staticErrors.join('\n'), /unknown tool.*missing_tool/i);
   ok('journeys cannot reference unregistered tools');
+}
+
+{
+  const manifest = validManifest();
+  manifest.journeys[0].expectedArguments = [{ need: 'consultation' }];
+  const result = auditReadiness(manifest, null, { staticOnly: true, now });
+  assert.strictEqual(result.status, 'BLOCKED');
+  assert.match(result.staticErrors.join('\n'), /expectedArguments.*expectedCalls/i);
+  ok('journey argument expectations must align with the tool sequence');
+}
+
+{
+  const manifest = validManifest();
+  delete manifest.journeys[0].performanceBudget;
+  const result = auditReadiness(manifest, null, { staticOnly: true, now });
+  assert.strictEqual(result.status, 'BLOCKED');
+  assert.match(result.staticErrors.join('\n'), /performanceBudget/i);
+  ok('every revenue-critical journey requires an explicit performance budget');
+}
+
+{
+  const manifest = validManifest();
+  manifest.journeys[0].performanceBudget.maxToolCalls = 1;
+  const result = auditReadiness(manifest, null, { staticOnly: true, now });
+  assert.strictEqual(result.status, 'BLOCKED');
+  assert.match(result.staticErrors.join('\n'), /maxToolCalls.*expectedCalls/i);
+  ok('journey design cannot exceed its own tool-call budget');
 }
 
 {
@@ -212,6 +266,16 @@ function validRuntime(manifest) {
 {
   const manifest = validManifest();
   const runtime = validRuntime(manifest);
+  runtime.journeys['book-consult-preview'].arguments[1] = { slot: 'next-week' };
+  const result = auditReadiness(manifest, runtime, { now, artifactSha256: captureDigest });
+  assert.strictEqual(result.status, 'UNVERIFIED');
+  assert.match(result.runtimeErrors.join('\n'), /arguments do not match/i);
+  ok('runtime tool arguments must match the expected journey arguments');
+}
+
+{
+  const manifest = validManifest();
+  const runtime = validRuntime(manifest);
   runtime.journeys['book-consult-preview'].confirmationObserved = false;
   runtime.journeys['book-consult-preview'].sideEffect = 'verified';
   const result = auditReadiness(manifest, runtime, { now, artifactSha256: captureDigest });
@@ -219,6 +283,20 @@ function validRuntime(manifest) {
   assert.match(result.runtimeErrors.join('\n'), /confirmationObserved/);
   assert.match(result.runtimeErrors.join('\n'), /not_executed/);
   ok('production preview cannot finalize a consequential action');
+}
+
+{
+  const manifest = validManifest();
+  const runtime = validRuntime(manifest);
+  runtime.journeys['book-consult-preview'].durationMs = 5001;
+  runtime.journeys['book-consult-preview'].estimatedCostUsd = 0.051;
+  runtime.journeys['book-consult-preview'].unnecessarySteps = 1;
+  const result = auditReadiness(manifest, runtime, { now, artifactSha256: captureDigest });
+  assert.strictEqual(result.status, 'UNVERIFIED');
+  assert.match(result.runtimeErrors.join('\n'), /durationMs.*5000/i);
+  assert.match(result.runtimeErrors.join('\n'), /estimatedCostUsd.*0\.05/i);
+  assert.match(result.runtimeErrors.join('\n'), /unnecessarySteps.*zero/i);
+  ok('runtime journey evidence must satisfy latency, cost, and unnecessary-step budgets');
 }
 
 {
