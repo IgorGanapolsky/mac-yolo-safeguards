@@ -3940,3 +3940,13 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - Production still shows `origin/main` Leash: `<summary>Optional: send the next task to a paired computer</summary>` plus “wrong workspace / Switch account” plus “Bounded Hermes … isolated serverless leases.” That is a sign-out control + operator dump sitting under Mac pairing — not a second Google workspace. Header already has Sign out (`dashboard-sign-out`).
 - Drop the Leash `account-recovery` card. Keep one-line `leash-signed-in` email. Sign-out stays in header/sidebar.
 - Codex P2 on #2095: `pendingWaitCopy(task.status)` — `running` → “Hermes is working on this.”; pending → “hasn't started.” Do not dual-edit #2041 result-replace or AGENT-476 TurnStatusline.
+
+## File claim (append 2026-08-26T16:00:00Z) — `grok/context-six-block-20260826`
+
+| T-CONTEXT-SIX-BLOCK-20260826 | Operationalize Everyday AI Ep 710 six-block + four-layer FORMAT onto existing rails | in_progress | grok/context-six-block-20260826 | `tools/context-six-block.js`, `tests/test-context-six-block.js`, `bin/context-six-block`, `.agents/skills/context-six-block/**`, `SKILLS.md`, `plan.md` | Pack validates 6 blocks + gold example + rubric; Continuity-hero copy fails grade; no ChatGPT connector SKU; do not dual-edit context-vault.js |
+
+## Discovered / Decisions (append) — 2026-08-26T16:00Z — grok/context-six-block-20260826
+
+- Episode six blocks: Goal, Constraints, Reference, Examples, Procedures, Rubric. Four layers: Personal, Team, Company, Market.
+- Cheap steal: local assembler + deterministic rubric. Skip Everyday AI course, Prime Prompt Polish, ChatGPT Apps connectors.
+- Complementary to `tools/context-vault.js` (Allie 8 prompts) and `tools/coding-context-pack.js` (issue-first).
