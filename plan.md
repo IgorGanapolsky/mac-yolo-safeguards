@@ -3983,3 +3983,13 @@ Provider evidence: AGENT currently has 59 issue labels; `team.labels { nodes }` 
 ### Stale closeout-doc claim append (2026-08-26T16:32:00Z)
 
 - `docs/agents/linear-closeout-telemetry.md` — mark the historical contract unavailable on current `main` because `tools/linear-closeout-telemetry.js` is absent; point agents to the implemented evidence-backed bridge closeout without invented cycle metrics.
+
+### In-review evidence append (2026-08-26T16:45:00Z)
+
+- Status transition: `in_progress` -> `in_review`; keep the file claim until PR #2121 is merged or explicitly handed off.
+- GitHub issue: #2111; Linear issue: AGENT-535; PR: https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/2121.
+- Implementation commit: `6ef57bc5f0a7f0a21b27a82fac58ca7884a554ce` on `codex/linear-basic-hygiene-2111`.
+- Provider readback: `basic_monthly_12`, one seat; AGENT-535 is In Progress with human assignee, `agent-lock`, `agent-codex-linear-basic-2111`, and the canonical Obsidian receipt.
+- Live dry-run inventory: 2 teams, 14 projects, 2 cycles, 597 issues, 55 labels, 4 users, 3 provider agents, 15 workflow states; conservative 90-day candidates are zero for projects, labels, cycles, and locks; no live object was deleted or archived.
+- Verification: bridge tests PASS; exporter tests PASS; hygiene behavior tests 7/7 PASS; skill validator 66/66 with zero blocking deviations; session-context suite 19 PASS / 0 FAIL; staged CodeQL pattern gate 0 findings; changed Linear tests have zero test-quality findings; `git diff --check` PASS.
+- GitHub Copilot CLI review was attempted but unavailable because the account monthly quota was exhausted (request `899B:A9AF1:19E2B41:1E0178C:6A8F11D6`); this is recorded as an external review blocker, not a test pass.
