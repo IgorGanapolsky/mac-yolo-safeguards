@@ -30,6 +30,8 @@ node tools/coding-context-pack.js --write
 node tools/coding-context-pack.js --sync
 # Before "done/shipped":
 node tools/coding-context-pack.js --ship-check --pr <N> --agent AGENT-XXX
+# The same deterministic receipt gate is used by CLI and IDE agents:
+node tools/coding-context-pack.js --verify-receipt <receipt.json> --json
 ```
 
 `node tools/agent-session-start.js` already prints `--minimal` every session.
@@ -45,6 +47,13 @@ node tools/coding-context-pack.js --ship-check --pr <N> --agent AGENT-XXX
 | **skills** | On-demand routes (connect, verify-ship, three-bus, multi-agent-coord) |
 | **ship_claim_gate** | Blocks "device fixed" when e2e≠pass |
 | **e2e_proof** | `hermes-mobile/docs/proofs/continuous/latest.json` |
+| **context_contract** | Six grounded blocks: objective, evidence, examples, procedure, constraints, rubric |
+| **context_contract.budget** | Stable estimated-token ceiling so issue context cannot grow without bound |
+| **verification_contract** | One local → repository/PR → CI → runtime/provider proof ladder for CLI and IDE agents |
+
+The pack is rubric-first. Treat agent output as a proposal until the receipt
+validates the layer needed by the claim. Green local tests do not prove CI;
+green CI does not prove deployment, device behavior, provider action, or revenue.
 
 ## Coding loop (smart default)
 
@@ -76,6 +85,7 @@ For multi-issue board + adversarial verify:
 | Load revenue/social skills for UI fix | On-demand skills from pack only |
 | Treat e2e=skipped as pass | Honest UNVERIFIED or run E2E |
 | Skip three buses on ship | `/three-bus-ship-cycle` |
+| Accept stale or different-head CI | Validate the exact receipt with `--verify-receipt` |
 
 ## Related
 

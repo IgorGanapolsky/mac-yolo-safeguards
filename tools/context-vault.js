@@ -22,6 +22,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { spawnSync } = require('child_process');
 
 const DEFAULT_REPO = path.resolve(__dirname, '..');
 const DEFAULT_OUT = path.join(DEFAULT_REPO, 'artifacts', 'context-vault.md');
@@ -113,7 +114,7 @@ Never claim "done" without empirical receipts in the same turn.
 - \`bin/agent-loop\` — agent loop validator (health, context, E2E)
 - \`tools/skill-card-validate.js\` — skill catalog enforcement (MUST/SHOULD)
 - \`tools/codeql-pattern-gate.js\` — CodeQL pattern gate
-- \`tools/ground-truth-receipt-auditor.js\` — PR merge audit
+- \`tools/ship-claim-gate.js\` — evidence gate for fixed, merged, deployed, and revenue claims
 - \`tools/hermes-economic-router.js\` — economic model routing
 - \`tools/rag-retrieval-eval.js\` — retrieval quality eval
 
@@ -386,17 +387,20 @@ function readRepoMetadata(repoPath) {
     metadata.CURRENT_WORK = 'See plan.md §2 (File Ownership Map) for active claims';
   } catch (e) { /* optional */ }
 
-  // Get current branch / main SHA via git (safe: no template interpolation)
+  // Get current branch / main SHA via argument-safe git calls.
   try {
-    const { execSync } = require('child_process');
-    metadata.CURRENT_BRANCH = execSync('git rev-parse --abbrev-ref HEAD', {
+    const branch = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
       cwd: repoPath,
       encoding: 'utf8',
-    }).trim();
-    metadata.MAIN_SHA = execSync('git rev-parse origin/main', {
+      timeout: 5000,
+    });
+    const main = spawnSync('git', ['rev-parse', 'origin/main'], {
       cwd: repoPath,
       encoding: 'utf8',
-    }).substring(0, 7);
+      timeout: 5000,
+    });
+    if (branch.status === 0) metadata.CURRENT_BRANCH = branch.stdout.trim();
+    if (main.status === 0) metadata.MAIN_SHA = main.stdout.trim().substring(0, 7);
   } catch (e) { /* git not available */ }
 
   // Docs TOC
@@ -438,6 +442,42 @@ function fillTemplate(template, metadata) {
     }
   }
   return result;
+}
+
+const REPO_PATH_PREFIXES = Object.freeze([
+  'tools/',
+  'tests/',
+  'bin/',
+  'docs/',
+  'scripts/',
+  '.agents/',
+  '.github/',
+  'hermes-mobile/',
+]);
+const REPO_ROOT_FILES = new Set(['AGENTS.md', 'README.md', 'SKILLS.md', 'plan.md']);
+
+function extractRepoLocalPaths(content) {
+  const paths = new Set();
+  const codeSpans = String(content || '').matchAll(/`([^`\n]+)`/g);
+  for (const match of codeSpans) {
+    for (const rawToken of match[1].split(/\s+/)) {
+      const token = rawToken
+        .replace(/^["'([{]+/, '')
+        .replace(/["')\]},;:]+$/, '')
+        .replace(/^\.\//, '');
+      if (!token || /[<>{}*]/.test(token)) continue;
+      if (REPO_ROOT_FILES.has(token) || REPO_PATH_PREFIXES.some((prefix) => token.startsWith(prefix))) {
+        paths.add(token);
+      }
+    }
+  }
+  return [...paths].sort();
+}
+
+function findUngroundedRepoPaths(content, repoPath = DEFAULT_REPO) {
+  return extractRepoLocalPaths(content).filter((candidate) =>
+    !fs.existsSync(path.resolve(repoPath, candidate)),
+  );
 }
 
 /**
@@ -484,7 +524,7 @@ function generateVault(repoPath, outPath) {
 /**
  * Validate a generated vault's content (shared by validateVault and --json).
  */
-function validateContent(content) {
+function validateContent(content, options = {}) {
   const errors = [];
 
   for (const prompt of CONTEXT_PROMPTS) {
@@ -518,19 +558,29 @@ function validateContent(content) {
     });
   }
 
+  if (options.repoPath) {
+    const missingPaths = findUngroundedRepoPaths(content, options.repoPath);
+    for (const missingPath of missingPaths) {
+      errors.push({
+        error: `Ungrounded repo-local path: ${missingPath}`,
+        path: missingPath,
+      });
+    }
+  }
+
   return { ok: errors.length === 0, errors, promptCount };
 }
 
 /**
  * Validate that a generated vault file contains all 8 prompts.
  */
-function validateVault(vaultPath) {
+function validateVault(vaultPath, repoPath = DEFAULT_REPO) {
   if (!fs.existsSync(vaultPath)) {
     return { ok: false, errors: [`Vault file not found: ${vaultPath}`], promptCount: 0 };
   }
 
   const content = fs.readFileSync(vaultPath, 'utf8');
-  return validateContent(content);
+  return validateContent(content, { repoPath });
 }
 
 /**
@@ -566,7 +616,7 @@ function main() {
   if (cmd === 'validate') {
     const vaultPath = args.includes('--vault') ?
       args[args.indexOf('--vault') + 1] : DEFAULT_OUT;
-    const result = validateVault(vaultPath);
+    const result = validateVault(vaultPath, repoPath);
     if (result.ok) {
       console.log(`✅ Context vault valid: ${result.promptCount}/${PROMPT_COUNT} prompts present`);
       process.exit(0);
@@ -595,7 +645,7 @@ function main() {
   if (cmd === '--json') {
     // Machine-readable mode for CI integration
     const result = generateVault(repoPath);
-    const validation = validateContent(result.content);
+    const validation = validateContent(result.content, { repoPath });
     process.stdout.write(JSON.stringify({
       ok: validation.ok,
       promptCount: validation.promptCount,
@@ -619,6 +669,8 @@ module.exports = {
   generateVault,
   validateVault,
   validateContent,
+  extractRepoLocalPaths,
+  findUngroundedRepoPaths,
   listPrompts,
   DEFAULT_REPO,
   DEFAULT_OUT,
