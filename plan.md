@@ -3940,3 +3940,56 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - Production still shows `origin/main` Leash: `<summary>Optional: send the next task to a paired computer</summary>` plus “wrong workspace / Switch account” plus “Bounded Hermes … isolated serverless leases.” That is a sign-out control + operator dump sitting under Mac pairing — not a second Google workspace. Header already has Sign out (`dashboard-sign-out`).
 - Drop the Leash `account-recovery` card. Keep one-line `leash-signed-in` email. Sign-out stays in header/sidebar.
 - Codex P2 on #2095: `pendingWaitCopy(task.status)` — `running` → “Hermes is working on this.”; pending → “hasn't started.” Do not dual-edit #2041 result-replace or AGENT-476 TurnStatusline.
+
+## Linear Basic inventory and safe hygiene claim (append 2026-08-26T16:00:10Z) — `codex-linear-basic-2111`
+
+| Task | Goal | Status | Owner | Files | AcceptanceCheck |
+|---|---|---|---|---|---|
+| T-LINEAR-BASIC-HYGIENE-20260826 | Replace fictional Linear automation guidance with authenticated workspace inventory and deterministic dry-run hygiene planning; exploit Basic-plan projects, cycles, statuses, labels, links, and agent attribution without deleting or archiving live objects | in_progress | codex-linear-basic-2111 | `tools/linear-workspace-hygiene.js` (new), `tests/test-linear-workspace-hygiene.js` (new), `.agents/skills/linear-agent-skills/SKILL.md`, `docs/agents/linear-obsidian-coordination.md`, `.agents/skills/sources.yml` (append only), `SKILLS.md` (append/update only), `plan.md` (append only) | GH #2111 / Linear AGENT-535; provider inventory fails closed; pagination and duplicate nodes normalize deterministically; active GitHub, issue, cycle, project, and agent-lock references block stale recommendations; repeated dry-runs are byte-identical; no mutation is available; behavior tests and skill validation pass |
+
+### File claims
+
+- `tools/linear-workspace-hygiene.js` (new)
+- `tests/test-linear-workspace-hygiene.js` (new)
+- `.agents/skills/linear-agent-skills/SKILL.md`
+- `docs/agents/linear-obsidian-coordination.md`
+- `.agents/skills/sources.yml` (append only)
+- `SKILLS.md` (append/update only)
+- `plan.md` (this append only)
+
+### Boundaries
+
+- Inventory and candidate planning are read-only. This lane will not delete or archive Linear projects, labels, issues, cycles, agents, or locks.
+- GitHub #2111 and Linear AGENT-535 are the task/ownership proof; the canonical vault claim is `Handoffs/linear-claims/2026-08-26_AGENT-535_codex-linear-basic-2111.md`.
+
+### Claim expansion (append 2026-08-26T16:08:00Z)
+
+- `tools/linear-agent-skill-exporter.js`
+- `tests/test-linear-agent-skill-exporter.js`
+
+Audit evidence: the exporter advertises missing `tools/linear-agent-telemetry-engine.js` commands and an unsafe green-PR auto-merger. Replace those recipes with implemented Basic-plan workflows; do not preserve fictional CLI or merge authority.
+
+### Skill-card claim append (2026-08-26T16:18:00Z)
+
+- `.agents/skills/linear-agent-skills/skill-card.md` — align discoverability metadata with the corrected skill behavior and provider-readback boundary.
+
+### Bridge lock regression claim append (2026-08-26T16:22:00Z)
+
+- `tools/linear-agent-bridge.js` — resolve required claim labels across the full team label collection and fail closed when a required label cannot be resolved.
+- `tests/test-linear-agent-bridge.js` — behavioral regression for paginated label resolution; a successful claim must contain both `agent-lock` and the agent attribution label.
+
+Provider evidence: AGENT currently has 59 issue labels; `team.labels { nodes }` omitted `agent-lock`, so duplicate creation failed silently and AGENT-535 received only `agent-codex-linear-basic-2111`.
+
+### Stale closeout-doc claim append (2026-08-26T16:32:00Z)
+
+- `docs/agents/linear-closeout-telemetry.md` — mark the historical contract unavailable on current `main` because `tools/linear-closeout-telemetry.js` is absent; point agents to the implemented evidence-backed bridge closeout without invented cycle metrics.
+
+### In-review evidence append (2026-08-26T16:45:00Z)
+
+- Status transition: `in_progress` -> `in_review`; keep the file claim until PR #2121 is merged or explicitly handed off.
+- GitHub issue: #2111; Linear issue: AGENT-535; PR: https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/2121.
+- Implementation commit: `6ef57bc5f0a7f0a21b27a82fac58ca7884a554ce` on `codex/linear-basic-hygiene-2111`.
+- Provider readback: `basic_monthly_12`, one seat; AGENT-535 is In Progress with human assignee, `agent-lock`, `agent-codex-linear-basic-2111`, and the canonical Obsidian receipt.
+- Live dry-run inventory: 2 teams, 14 projects, 2 cycles, 597 issues, 55 labels, 4 users, 3 provider agents, 15 workflow states; conservative 90-day candidates are zero for projects, labels, cycles, and locks; no live object was deleted or archived.
+- Verification: bridge tests PASS; exporter tests PASS; hygiene behavior tests 7/7 PASS; skill validator 66/66 with zero blocking deviations; session-context suite 19 PASS / 0 FAIL; staged CodeQL pattern gate 0 findings; changed Linear tests have zero test-quality findings; `git diff --check` PASS.
+- GitHub Copilot CLI review was attempted but unavailable because the account monthly quota was exhausted (request `899B:A9AF1:19E2B41:1E0178C:6A8F11D6`); this is recorded as an external review blocker, not a test pass.

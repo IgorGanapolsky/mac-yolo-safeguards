@@ -631,21 +631,62 @@ async function getViewer() {
 /**
  * Ensure team has agent-lock + agent-<name> labels. Returns label IDs to attach.
  */
-async function ensureAgentLabels(teamId, agent) {
+async function listTeamLabels(teamId, queryClient = queryLinear, options = {}) {
+  const first = options.first || 100;
+  const labels = new Map();
+  let after = null;
+  let pages = 0;
+  while (true) {
+    pages += 1;
+    if (pages > 100) {
+      return { error: true, code: 'LABEL_PAGINATION_BOUND', message: 'Team label pagination exceeded safety bound' };
+    }
+    const res = await queryClient(
+      `
+      query($teamId: ID!, $first: Int!, $after: String) {
+        issueLabels(
+          first: $first
+          after: $after
+          includeArchived: false
+          orderBy: updatedAt
+          filter: { team: { id: { eq: $teamId } } }
+        ) {
+          nodes { id name }
+          pageInfo { hasNextPage endCursor }
+        }
+      }
+    `,
+      { teamId: String(teamId), first, after },
+    );
+    if (res.error) return res;
+    const connection = res.data?.issueLabels;
+    if (!connection || !Array.isArray(connection.nodes) || !connection.pageInfo) {
+      return { error: true, code: 'LABEL_READBACK_INVALID', message: 'Linear returned an invalid issueLabels connection' };
+    }
+    for (const label of connection.nodes) {
+      if (!label?.id || !label?.name) continue;
+      const key = label.name.toLowerCase();
+      const previous = labels.get(key);
+      if (previous && previous.id !== label.id) {
+        return { error: true, code: 'DUPLICATE_LABEL_NAME', message: `Duplicate team label name: ${label.name}` };
+      }
+      labels.set(key, label);
+    }
+    if (!connection.pageInfo.hasNextPage) break;
+    if (!connection.pageInfo.endCursor || connection.pageInfo.endCursor === after) {
+      return { error: true, code: 'LABEL_PAGINATION_STALLED', message: 'Team label pagination did not advance' };
+    }
+    after = connection.pageInfo.endCursor;
+  }
+  return { labels: [...labels.values()], pages };
+}
+
+async function ensureAgentLabels(teamId, agent, queryClient = queryLinear) {
   const agentName = normalizeAgent(agent);
   const needed = ['agent-lock', `agent-${agentName}`];
-  const res = await queryLinear(
-    `
-    query($teamId: String!) {
-      team(id: $teamId) {
-        labels { nodes { id name } }
-      }
-    }
-  `,
-    { teamId: String(teamId) },
-  );
-  if (res.error) return res;
-  const existing = res.data?.team?.labels?.nodes || [];
+  const listed = await listTeamLabels(teamId, queryClient);
+  if (listed.error) return listed;
+  const existing = listed.labels;
   const byName = Object.fromEntries(existing.map((l) => [l.name.toLowerCase(), l]));
   const ids = [];
   for (const name of needed) {
@@ -654,7 +695,7 @@ async function ensureAgentLabels(teamId, agent) {
       ids.push(hit.id);
       continue;
     }
-    const created = await queryLinear(
+    const created = await queryClient(
       `
       mutation($input: IssueLabelCreateInput!) {
         issueLabelCreate(input: $input) {
@@ -672,13 +713,32 @@ async function ensureAgentLabels(teamId, agent) {
       },
     );
     if (created.error) {
-      // non-fatal: continue without this label
-      continue;
+      // Another actor may have created the label between list and create.
+      const refreshed = await listTeamLabels(teamId, queryClient);
+      const raced = refreshed.labels?.find((label) => label.name.toLowerCase() === name.toLowerCase());
+      if (raced?.id) {
+        ids.push(raced.id);
+        byName[name.toLowerCase()] = raced;
+        continue;
+      }
+      return {
+        error: true,
+        code: 'REQUIRED_AGENT_LABEL_UNAVAILABLE',
+        message: `Required Linear label ${name} could not be resolved: ${created.message || created.code || 'create failed'}`,
+      };
     }
     const lab = created.data?.issueLabelCreate?.issueLabel;
-    if (lab?.id) ids.push(lab.id);
+    if (!lab?.id) {
+      return {
+        error: true,
+        code: 'REQUIRED_AGENT_LABEL_UNAVAILABLE',
+        message: `Required Linear label ${name} was not returned after create`,
+      };
+    }
+    ids.push(lab.id);
+    byName[name.toLowerCase()] = lab;
   }
-  return { labelIds: ids };
+  return { labelIds: ids, labels: needed };
 }
 
 async function updateIssueFields(issueId, input) {
@@ -806,6 +866,7 @@ async function claimIssue({ identifier, agent, comment, files }) {
   const viewerRes = await getViewer();
   const assigneeId = viewerRes.viewer?.id || null;
   const labelsRes = await ensureAgentLabels(teamId, agent);
+  if (labelsRes.error) return labelsRes;
   const labelIds = labelsRes.labelIds || [];
 
   const input = { stateId: String(started.id) };
@@ -815,6 +876,17 @@ async function claimIssue({ identifier, agent, comment, files }) {
   const upd = await updateIssueFields(issue.id, input);
   if (upd.error) return upd;
   issue = upd.data?.issueUpdate?.issue || issue;
+
+  const appliedLabels = new Set((issue.labels?.nodes || []).map((label) => label.name.toLowerCase()));
+  const missingLabels = (labelsRes.labels || []).filter((name) => !appliedLabels.has(name.toLowerCase()));
+  if (missingLabels.length) {
+    return {
+      error: true,
+      code: 'CLAIM_LABEL_READBACK_FAILED',
+      message: `Linear claim missing required labels after update: ${missingLabels.join(', ')}`,
+      issue,
+    };
+  }
 
   const claimBody = [
     `🔒 Claimed by agent \`${normalizeAgent(agent)}\``,
@@ -1310,6 +1382,8 @@ module.exports = {
   collectLinearApiKeyCandidates,
   scoreTeamsProbe,
   queryLinear,
+  listTeamLabels,
+  ensureAgentLabels,
   listIssues,
   listTeams,
   claimIssue,

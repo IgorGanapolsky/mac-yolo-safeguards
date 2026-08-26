@@ -18,6 +18,8 @@ const {
   resetLinearApiKeyCache,
   LINEAR_HTTP_TIMEOUT_MS,
   coordStatus,
+  ensureAgentLabels,
+  listTeamLabels,
 } = require('../tools/linear-agent-bridge');
 
 function test(name, fn) {
@@ -107,6 +109,114 @@ test('coordStatus is exported', () => {
   assert.strictEqual(typeof coordStatus, 'function');
 });
 
-if (!process.exitCode) {
-  console.log('test-linear-agent-bridge: all assertions ran');
+async function asyncTest(name, fn) {
+  try {
+    await fn();
+    console.log(`PASS ${name}`);
+  } catch (e) {
+    console.error(`FAIL ${name}`);
+    console.error(e.stack || e.message);
+    process.exitCode = 1;
+  }
 }
+
+async function runAsyncTests() {
+  await asyncTest('listTeamLabels reads every page and deduplicates by name', async () => {
+    const calls = [];
+    const queryClient = async (query, variables) => {
+      calls.push({ query, variables });
+      assert.doesNotMatch(query, /\bmutation\b/i);
+      if (!variables.after) {
+        return {
+          data: {
+            issueLabels: {
+              nodes: [{ id: 'label-agent', name: 'agent-codex' }],
+              pageInfo: { hasNextPage: true, endCursor: 'page-2' },
+            },
+          },
+        };
+      }
+      return {
+        data: {
+          issueLabels: {
+            nodes: [
+              { id: 'label-agent', name: 'agent-codex' },
+              { id: 'label-lock', name: 'agent-lock' },
+            ],
+            pageInfo: { hasNextPage: false, endCursor: 'page-2' },
+          },
+        },
+      };
+    };
+    const result = await listTeamLabels('team-1', queryClient);
+    assert.strictEqual(result.pages, 2);
+    assert.deepStrictEqual(result.labels.map((label) => label.name).sort(), ['agent-codex', 'agent-lock']);
+    assert.strictEqual(calls.length, 2);
+  });
+
+  await asyncTest('ensureAgentLabels finds a lock beyond page one instead of duplicating it', async () => {
+    const calls = [];
+    const createdNames = [];
+    const queryClient = async (query, variables) => {
+      calls.push({ query, variables });
+      if (/\bmutation\b/i.test(query)) {
+        createdNames.push(variables.input.name);
+        return {
+          data: {
+            issueLabelCreate: {
+              success: true,
+              issueLabel: { id: 'label-new-agent', name: 'agent-codex-new' },
+            },
+          },
+        };
+      }
+      if (!variables.after) {
+        return {
+          data: {
+            issueLabels: {
+              nodes: [{ id: 'label-old-agent', name: 'agent-old' }],
+              pageInfo: { hasNextPage: true, endCursor: 'page-2' },
+            },
+          },
+        };
+      }
+      return {
+        data: {
+          issueLabels: {
+            nodes: [{ id: 'label-lock', name: 'agent-lock' }],
+            pageInfo: { hasNextPage: false, endCursor: 'page-2' },
+          },
+        },
+      };
+    };
+    const result = await ensureAgentLabels('team-1', 'codex-new', queryClient);
+    assert.deepStrictEqual(result.labelIds, ['label-lock', 'label-new-agent']);
+    assert.deepStrictEqual(result.labels, ['agent-lock', 'agent-codex-new']);
+    assert.strictEqual(calls.filter((call) => /\bmutation\b/i.test(call.query)).length, 1);
+    assert.deepStrictEqual(createdNames, ['agent-codex-new']);
+  });
+
+  await asyncTest('ensureAgentLabels fails closed when a required label cannot be resolved', async () => {
+    const queryClient = async (query) => {
+      if (/\bmutation\b/i.test(query)) {
+        return { error: true, code: 'GRAPHQL', message: 'label limit' };
+      }
+      return {
+        data: {
+          issueLabels: {
+            nodes: [],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      };
+    };
+    const result = await ensureAgentLabels('team-1', 'codex-new', queryClient);
+    assert.strictEqual(result.error, true);
+    assert.strictEqual(result.code, 'REQUIRED_AGENT_LABEL_UNAVAILABLE');
+    assert.match(result.message, /agent-lock/);
+  });
+
+  if (!process.exitCode) console.log('test-linear-agent-bridge: all assertions ran');
+}
+
+runAsyncTests();
