@@ -88,6 +88,13 @@ function hostedRubric() {
   };
 }
 
+function guardFixRubric() {
+  return {
+    mustInclude: ['browseros-claw-server', '90%', '60s', 'notify-only'],
+    mustNot: ['kill Chrome', 'autokill GUI', '100% CPU'],
+  };
+}
+
 function assemble(opts = {}) {
   const task = opts.task || 'hosted_copy';
   const h = honesty();
@@ -145,6 +152,7 @@ function assemble(opts = {}) {
         why: 'names helper, threshold, cadence, GUI exception',
       },
     ];
+    blocks.rubric = guardFixRubric();
   }
   return {
     ...h,
@@ -211,7 +219,15 @@ function grade(text, rubric = hostedRubric()) {
 }
 
 function parseArgs(argv) {
-  const out = { json: false, validate: false, pack: true, task: 'hosted_copy', gradeText: '', gradeFile: '' };
+  const out = {
+    json: false,
+    validate: false,
+    pack: true,
+    task: 'hosted_copy',
+    gradeText: '',
+    gradeFile: '',
+    gradeRequested: false,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     const next = argv[i + 1];
@@ -220,11 +236,13 @@ function parseArgs(argv) {
     else if (a === '--task' && next) {
       out.task = next;
       i += 1;
-    } else if (a === '--grade' && next) {
+    } else if (a === '--grade' && next !== undefined) {
       out.gradeText = next;
+      out.gradeRequested = true;
       i += 1;
     } else if (a === '--grade-file' && next) {
       out.gradeFile = next;
+      out.gradeRequested = true;
       i += 1;
     }
   }
@@ -240,7 +258,9 @@ function main(argv = process.argv.slice(2)) {
   if (args.gradeFile) {
     text = fs.readFileSync(path.resolve(args.gradeFile), 'utf8');
   }
-  if (text) gradeResult = grade(text, pack.blocks.rubric);
+  if (args.gradeRequested) {
+    gradeResult = grade(text, pack.blocks.rubric);
+  }
   const result = { ...pack, validation: check, grade: gradeResult };
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   if (!check.ok) return 1;
@@ -258,6 +278,7 @@ module.exports = {
   honesty,
   connectors,
   hostedRubric,
+  guardFixRubric,
   assemble,
   validatePack,
   grade,

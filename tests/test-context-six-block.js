@@ -2,6 +2,9 @@
 'use strict';
 
 const assert = require('assert');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const {
   hostnameOf,
   hostIsOrSubdomain,
@@ -13,9 +16,11 @@ const {
   HOSTED_BAD,
   honesty,
   connectors,
+  hostedRubric,
   assemble,
   validatePack,
   grade,
+  main,
 } = require('../tools/context-six-block');
 
 function mentionsHost(value, host) {
@@ -88,5 +93,22 @@ assert.ok(!mentionsHost(cons, 'chatgpt.com'));
 const cloned = assemble();
 cloned.clonedEverydayAi = true;
 assert.strictEqual(validatePack(cloned).ok, false);
+
+const guard = assemble({ task: 'guard_fix' });
+assert.strictEqual(validatePack(guard).ok, true);
+const guardGold = guard.blocks.examples.gold[0].text;
+assert.strictEqual(grade(guardGold, guard.blocks.rubric).pass, true);
+assert.strictEqual(grade(guardGold, hostedRubric()).pass, false);
+
+const emptyFile = path.join(os.tmpdir(), `six-block-empty-${process.pid}.txt`);
+fs.writeFileSync(emptyFile, '');
+const origWrite = process.stdout.write;
+process.stdout.write = () => true;
+try {
+  assert.strictEqual(main(['--grade-file', emptyFile, '--json']), 2);
+} finally {
+  process.stdout.write = origWrite;
+  fs.unlinkSync(emptyFile);
+}
 
 process.stdout.write('ok tests/test-context-six-block.js\n');
