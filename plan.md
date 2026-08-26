@@ -3968,3 +3968,7 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - `tests/test-linear-agent-skill-exporter.js`
 
 Audit evidence: the exporter advertises missing `tools/linear-agent-telemetry-engine.js` commands and an unsafe green-PR auto-merger. Replace those recipes with implemented Basic-plan workflows; do not preserve fictional CLI or merge authority.
+
+### Skill-card claim append (2026-08-26T16:18:00Z)
+
+- `.agents/skills/linear-agent-skills/skill-card.md` — align discoverability metadata with the corrected skill behavior and provider-readback boundary.
