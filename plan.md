@@ -3940,3 +3940,7 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - Production still shows `origin/main` Leash: `<summary>Optional: send the next task to a paired computer</summary>` plus “wrong workspace / Switch account” plus “Bounded Hermes … isolated serverless leases.” That is a sign-out control + operator dump sitting under Mac pairing — not a second Google workspace. Header already has Sign out (`dashboard-sign-out`).
 - Drop the Leash `account-recovery` card. Keep one-line `leash-signed-in` email. Sign-out stays in header/sidebar.
 - Codex P2 on #2095: `pendingWaitCopy(task.status)` — `running` → “Hermes is working on this.”; pending → “hasn't started.” Do not dual-edit #2041 result-replace or AGENT-476 TurnStatusline.
+
+## File claim (append 2026-08-26T16:48:00Z) — `codex-uplink-bufferbloat`
+
+| T-UPLINK-BUFFERBLOAT-20260826 | Preserve local browsing under constrained T-Mobile uplink by restoring bounded chronic mitigation, fixing pause identity/resume, and lowering the impossible-above-capacity trigger | in_progress | codex-uplink-bufferbloat | `scripts/uplink-flood-guard.sh`, `scripts/install-uplink-guards.sh`, `tests/test-uplink-flood-guard.sh`, `plan.md` (append only) | GH #2128 / Linear AGENT-547; deterministic fake-nettop/ping/process tests, exact install digest, loaded LaunchAgent readback, live no-stranded-process proof; open a PR, do NOT merge until strict required checks and review threads are green |
