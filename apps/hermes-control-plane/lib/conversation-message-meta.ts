@@ -51,13 +51,28 @@ export function taskPromptMeta(task: ConversationTask): ConversationMessageMeta 
   };
 }
 
+/** Chat-facing status. Never dump operator enums like cloud_pending. */
+export function chatOutputStatus(status: string): string {
+  if (status === "cloud_pending" || status === "local_pending" || status === "pending") {
+    return "waiting";
+  }
+  if (status === "running") return "working";
+  return status;
+}
+
+export function pendingWaitCopy(status?: string): string {
+  if (status === "running") return "Hermes is working on this.";
+  return "Hermes hasn't started this yet.";
+}
+
 export function taskOutputMeta(task: ConversationTask): ConversationMessageMeta {
   const createdAt = validTimestamp(task.createdAt);
   const completedAt = validTimestamp(task.completedAt);
   const terminal = Boolean(task.result || task.error || ["completed", "failed"].includes(task.status));
   const incompleteToolRun = hasLeakedToolProtocol(task.result);
+  const raw = task.error ? "failed" : incompleteToolRun ? "incomplete" : task.result ? "completed" : task.status;
   return {
-    status: task.error ? "failed" : incompleteToolRun ? "incomplete" : task.result ? "completed" : task.status,
+    status: chatOutputStatus(raw),
     timestamp: terminal ? completedAt ?? createdAt : createdAt,
     timestampSource: completedAt || createdAt ? "task" : null,
   };

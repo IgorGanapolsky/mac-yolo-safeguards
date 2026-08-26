@@ -161,6 +161,7 @@ enable_emulator_fallback() {
 }
 
 guard_active_physical_phone() {
+  local proof_unit_status="${1:-skipped}"
   if [[ "${HERMES_E2E_FORCE:-}" == "1" || "${HERMES_E2E_ALLOW_ACTIVE_PHONE:-}" == "1" ]]; then
     return 0
   fi
@@ -178,8 +179,9 @@ guard_active_physical_phone() {
       return 0
     fi
     detail="skipped continuous E2E: physical phone is awake and actively in use"
+    E2E_SKIP_DETAIL="$detail"
     echo "$detail"
-    write_status "skipped" "skipped" "$detail"
+    write_status "$proof_unit_status" "skipped" "$detail"
     return 1
   fi
   if [[ $rc -ne 0 ]]; then
@@ -187,8 +189,9 @@ guard_active_physical_phone() {
       return 0
     fi
     detail="skipped continuous E2E: could not verify exclusive physical-phone access"
+    E2E_SKIP_DETAIL="$detail"
     echo "$detail"
-    write_status "skipped" "skipped" "$detail"
+    write_status "$proof_unit_status" "skipped" "$detail"
     return 1
   fi
   return 0
@@ -251,7 +254,7 @@ guard_system_pressure() {
   # phone_lease_busy_reason (agent-phone-lease.js) ignores its own ancestor's mkdir lock
   # when HERMES_PHONE_PIPELINE_LEASE_HELD=1 (run_once_with_global_phone_lease already
   # holds it for this whole process tree) while still honoring a human hold mid-cycle.
-  lease_reason="$(phone_lease_busy_reason)"
+  lease_reason="$(phone_lease_busy_reason)" || true
   if [[ -n "$lease_reason" ]]; then
     detail="skipped continuous E2E: phone lease busy (${lease_reason})"
     echo "$detail"
@@ -388,8 +391,15 @@ run_unit_suite() {
     echo "Fix: run from hermes-mobile with node_modules, or npm ci in this worktree." >&2
     return 3
   fi
-  npm test -- --no-coverage --watchman=false
-  npm run test:release-safety
+  local unit_test_rc=0
+  local release_safety_rc=0
+  npm test -- --no-coverage --watchman=false || unit_test_rc=$?
+  npm run test:release-safety || release_safety_rc=$?
+  if [[ $unit_test_rc -ne 0 || $release_safety_rc -ne 0 ]]; then
+    echo "Unit verification failed (jest=${unit_test_rc}, release-safety=${release_safety_rc})" >&2
+    return 1
+  fi
+  return 0
 }
 
 run_e2e_flow() {
@@ -418,6 +428,8 @@ run_e2e_flow() {
 }
 
 run_e2e_suite() {
+  local proof_unit_status="${1:-skipped}"
+  E2E_SKIP_DETAIL=""
   if ! command -v maestro >/dev/null 2>&1; then
     echo "Maestro not installed — skipping E2E"
     return 2
@@ -449,6 +461,20 @@ run_e2e_suite() {
 
   wait_for_adb 2 >/dev/null || true
   ensure_metro || true
+
+  # Metro startup can take long enough for Igor to begin using the physical
+  # phone after run_cycle's post-unit probe. Re-check at the actual device
+  # boundary before run-e2e.sh can stop, clear, relaunch, or replace the app.
+  local device_boundary_lease_reason=""
+  device_boundary_lease_reason="$(phone_lease_busy_reason)" || true
+  if [[ -n "$device_boundary_lease_reason" ]]; then
+    E2E_SKIP_DETAIL="skipped continuous E2E at device boundary: phone lease busy (${device_boundary_lease_reason})"
+    return 4
+  fi
+  if ! guard_active_physical_phone "$proof_unit_status"; then
+    E2E_SKIP_DETAIL="${E2E_SKIP_DETAIL:-skipped continuous E2E at device boundary: physical phone became active while preparing Metro}"
+    return 4
+  fi
 
   if has_usb_adb_device; then
     export HERMES_E2E_ANDROID_ONLY=1
@@ -537,6 +563,27 @@ run_cycle() {
       return 1
     fi
 
+    # The cycle-start phone probe can be many minutes old after the unit suite.
+    # Re-check both an explicit human hold and live foreground use immediately
+    # before Maestro can stop, relaunch, clear, or replace the paid app.
+    local pre_e2e_lease_reason
+    pre_e2e_lease_reason="$(phone_lease_busy_reason)" || true
+    if [[ -n "$pre_e2e_lease_reason" ]]; then
+      e2e_status="skipped"
+      detail="skipped continuous E2E before device stage: phone lease busy (${pre_e2e_lease_reason})"
+      write_status "$unit_status" "$e2e_status" "$detail"
+      echo "E2E: SKIPPED (${detail})"
+      echo "Status written to ${LATEST_JSON}"
+      return 0
+    fi
+    if ! guard_active_physical_phone "$unit_status"; then
+      e2e_status="skipped"
+      detail="skipped continuous E2E before device stage: physical phone became active during unit tests"
+      echo "E2E: SKIPPED (${detail})"
+      echo "Status written to ${LATEST_JSON}"
+      return 0
+    fi
+
     if maestro_cli_busy && [[ "${HERMES_E2E_FORCE:-}" != "1" ]]; then
       e2e_status="skipped"
       detail="skipped: another maestro.cli.AppKt process holds the device"
@@ -547,7 +594,7 @@ run_cycle() {
     fi
 
     set +e
-    run_e2e_suite
+    run_e2e_suite "$unit_status"
     local e2e_rc=$?
     set -e
     case $e2e_rc in
@@ -560,6 +607,11 @@ run_cycle() {
           e2e_status="skipped"
           detail="maestro or java unavailable"
         fi
+        ;;
+      4)
+        e2e_status="skipped"
+        detail="${E2E_SKIP_DETAIL:-skipped continuous E2E at device boundary}"
+        echo "E2E: SKIPPED (${detail})"
         ;;
       *) e2e_status="fail"; detail="one or more Maestro flows failed" ;;
     esac
