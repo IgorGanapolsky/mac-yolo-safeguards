@@ -3952,3 +3952,15 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - Complementary to `tools/context-vault.js` (Allie 8 prompts) and `tools/coding-context-pack.js` (issue-first).
 - 2026-08-26T17:10Z CodeQL `js/incomplete-sanitization` on `tests/test-context-six-block.js:70` `.includes('chatgpt.com')` is REAL (1 high, PR annotation). Replaced with `tools/lib/safe-url-host.js` hostname parse + token equality. Expo Doctor 18/19 on this PR is the SDK pin wall (`expo 55.0.29` vs `~55.0.30`) owned by #2103 — do not pile pins onto this PR. CodeQL is not a required context; Hermes Mobile typecheck is.
 - 2026-08-26T17:40Z Required job "Hermes Mobile typecheck and tests" first failing STEP is Expo Doctor (run 32991643615 job 98250332767). Skip Expo Doctor when `git diff base...HEAD` has no `hermes-mobile/` paths. Do not skip the job (required name must report). Do not steal #2103 pins. `.github/workflows/ci.yml` Expo Doctor step + detect step only.
+## 2. File Ownership Map (append-only) — grok-linear-basic-full-use-20260826
+
+- `tools/linear-basic-full-use.js` (new), `tests/test-linear-basic-full-use.js` (new), `bin/linear-basic-full-use` (new), `.agents/skills/linear-basic-full-use/**`, `.agents/skills/linear-basic-cycles-triage/**`, `.agents/skills/linear-basic-agent-mcp/**`, `.agents/skills/linear-basic-customers-evidence/**`, `SKILLS.md` (append), `plan.md` (append) → **grok-linear-basic-full-use-20260826** (T-LINEAR-BASIC-FULL-USE-20260826: use every Linear Basic capability; classifier+skills; prune unused labels/projects without stealing Codex #2121 or live agent-codex session-suffix locks) (2026-08-26T17:20:00Z)
+
+## Discovered / Decisions (append) — 2026-08-26T17:20Z — grok-linear-basic-full-use-20260826
+
+- Live `organization.subscription.type=basic_monthly_12` seats=1 issues=600. AGENT cycles+triage cooldown=0; Cycle 1 starts 2026-08-31 (do not start early). customers/pulse/linearAgent/codingAgent true. codeIntel/releases false. gitBranchFormat `{issueIdentifier}`; public linkbacks off.
+- Labels 53 empty=0. Session-suffix labels all sit on **started** Codex issues (AGENT-535/547/541/…) — KEEP. Canonical lock family KEEP.
+- `projectDelete` already applied to empty trash Cortiqa duplicate `a608dbed-…` and Interview Agentic Personas `67f4fbcb-…` (recoverable trash still listed). KEEP trash-with-issues: Storefront Debugging, Agentic Personas Storefront Debugging, MoodTracker Launch (IGO backlog). All live product projects KEEP.
+- App users: Linear Agent KEEP; Cursor OAuth KEEP even if inactive; Devin inactive created=0 — API cannot revoke (PLAN_WALL settings-UI only).
+- Complementary to Codex PR #2121. Do not edit `tools/linear-workspace-hygiene.js` or `tools/linear-agent-skill-exporter.js`.
+- Coding sessions exist on Basic but draw AI credits — fail closed at $0 remaining; never auto-buy. Loops stay Business.
