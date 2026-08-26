@@ -4013,3 +4013,9 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - Repository policy: `node tools/codeql-pattern-gate.js` -> 0 findings; plan ownership gate -> pass.
 - Device boundary: `android-play-quality-audit.cjs --device --json` -> exit 2, `no authorized Android device is attached`; continuous E2E launch agent is loaded but `deviceVerified=false`. No phone or Google Play 28-day P90 compliance claim is authorized by this result.
 - Decision stack governance -> pass. RAG returned no task-specific prior lesson; graph data was unavailable; ML system remained fail-closed with insufficient labels. RAG helped preserve proof boundaries, while the ML score did not influence this implementation.
+
+## Verification correction (append 2026-08-26T21:53:00Z) - `codex/google-play-quality-20260826`
+
+- The earlier focused-audit line was a false green: 11 assertions printed PASS, but the test process exited 1 because its final guard still expected 10. Automated review comment `discussion_r3867001337` caught the mismatch.
+- Removed the duplicate hard-coded total; thrown assertions now determine failure. Exact rerun printed 11 passed and `FOCUSED_TEST_EXIT=0`; release readiness also remained green.
+- Captured the mistake in ThumbGate RAG as `fb_1787781166442_2mkoab` with the prevention rule to assert exit codes independently of success-looking stdout.
