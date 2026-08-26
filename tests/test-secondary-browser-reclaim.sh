@@ -187,7 +187,7 @@ printf '%s' "$CANARY" | grep -qF "$CANARY_SIG" \
 CPU_K="$TMP/semgrep-core"
 CPU_PID=$(mkfake "$CPU_K")
 sleep 1
-run_guard YOLO_CPU_PCT_THRESHOLD="0" YOLO_CPU_SUSTAINED_FIRES="1" YOLO_CPU_AUTOKILL_CMD_PATTERNS="semgrep-core"
+run_guard YOLO_CPU_PCT_THRESHOLD="0" YOLO_CPU_HELPER_PCT_THRESHOLD="0" YOLO_CPU_SUSTAINED_FIRES="1" YOLO_CPU_AUTOKILL_CMD_PATTERNS="semgrep-core"
 sleep 1
 alive "$CPU_PID" && bad "T7: CPU runaway process was NOT killed" \
                  || ok  "T7: CPU runaway process autokilled on sustained CPU check"
@@ -304,6 +304,54 @@ if [ -n "$CDP_ACTIVE_PID" ]; then
     && ok "T12: active-client skip logged" || bad "T12: missing active-client skip log"
   kill -9 "$CDP_ACTIVE_PID" 2>/dev/null
 fi
+
+# --- T13: browseros-claw-server at 90% is autokilled (2026-08-26: 98% for
+#         2 days never hit the old 150% single-process bar). ---
+CLAW_PID=$(mkbusyfake "browseros-claw-server --config=$TMP/claw.json")
+sleep 2
+run_guard \
+  YOLO_CPU_PCT_THRESHOLD="150" \
+  YOLO_CPU_HELPER_PCT_THRESHOLD="1" \
+  YOLO_CPU_SUSTAINED_FIRES="1" \
+  YOLO_CPU_AUTOKILL_PATTERNS="browseros-claw-server" \
+  YOLO_CPU_AUTOKILL_CMD_PATTERNS="browseros-claw-server" \
+  YOLO_MEM_FREE_PCT_THRESHOLD="0" \
+  YOLO_SWAP_PCT_THRESHOLD="999"
+sleep 1
+if alive "$CLAW_PID"; then
+  bad "T13: browseros-claw-server helper was NOT autokilled"
+else
+  ok "T13: browseros-claw-server helper autokilled at helper CPU bar"
+fi
+grep -q "CPU_KILL:" "$TMP/guard.log" \
+  && ok "T13: CPU_KILL logged" || bad "T13: no CPU_KILL log line"
+kill -9 "$CLAW_PID" 2>/dev/null
+
+# --- T14: a non-allowlisted hog below 150% is NOT killed (editors/unknowns). ---
+UNK_PID=$(mkbusyfake "user-compile-worker --run=$TMP")
+sleep 2
+run_guard \
+  YOLO_CPU_PCT_THRESHOLD="150" \
+  YOLO_CPU_HELPER_PCT_THRESHOLD="1" \
+  YOLO_CPU_SUSTAINED_FIRES="1" \
+  YOLO_CPU_AUTOKILL_PATTERNS="browseros-claw-server" \
+  YOLO_CPU_AUTOKILL_CMD_PATTERNS="browseros-claw-server" \
+  YOLO_MEM_FREE_PCT_THRESHOLD="0" \
+  YOLO_SWAP_PCT_THRESHOLD="999"
+sleep 1
+alive "$UNK_PID" && ok "T14: unknown process below 150% was not autokilled" \
+                 || bad "T14: unknown process was wrongly autokilled"
+kill -9 "$UNK_PID" 2>/dev/null
+
+# --- T15: aggregate memory reporting includes BrowserOS neo ---
+BOS="$TMP/BrowserOS neo.app/Contents/MacOS/BrowserOS neo"
+BOS_PID=$(mkfake "$BOS")
+sleep 1
+run_guard YOLO_MEM_APP_AGG_MB_THRESHOLD="0" YOLO_MEM_APP_LAST_FILE="$TMP/mem-app-last-bos"
+grep -q "App:   BrowserOS neo" "$TMP/mem-app-status.txt" \
+  && ok "T15: aggregate memory report includes BrowserOS neo" \
+  || bad "T15: BrowserOS neo missing from aggregate memory report"
+kill -9 "$BOS_PID" 2>/dev/null
 
 echo ""
 echo "=== $pass passed, $fail failed ==="

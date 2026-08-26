@@ -209,6 +209,10 @@ The LaunchAgent reads these from the environment when `sim-runaway-guard.sh` run
 | `YOLO_ESCALATE_WINDOW_SEC` | `600` (10 min) | Window for counting recent fires. |
 | `YOLO_SUSPECT_APPS` | empty | Opt-in only. If set to a pipe-separated app list, escalation will quit those apps. **Default empty** — no GUI app gets auto-killed. |
 | `YOLO_SIM_PROC_HARD_LIMIT` | `50` | Shut down all simulators whenever simruntime process count exceeds this ceiling, independent of load average. |
+| `YOLO_CPU_PCT_THRESHOLD` | `150` | Unknown/editor processes at or above this % generate a notify (never auto-killed). |
+| `YOLO_CPU_HELPER_PCT_THRESHOLD` | `90` | Allowlisted background helpers (semgrep, crash_handler, `browseros-claw-server`) at or above this % are autokilled after `YOLO_CPU_SUSTAINED_FIRES` consecutive 60s checks. A 98% single-core loop never hits 150% — that miss let claw-server burn 2 days (2026-08-26). |
+| `YOLO_CPU_SUSTAINED_FIRES` | `2` | Consecutive guard ticks a helper must stay hot before autokill. |
+| `YOLO_CPU_AUTOKILL_PATTERNS` | `semgrep-core-proprietary\|semgrep-core\|crashpad_handler\|crash_handler\|browseros-claw-server` | Basename allowlist for helper autokill. Never includes GUI apps. |
 | `YOLO_MEM_FREE_PCT_THRESHOLD` | `15` | Free-memory % below which the memory-pressure check is armed. |
 | `YOLO_MEM_PROC_RSS_MB_THRESHOLD` | `1500` | Single-process RSS (MB) that counts as "memory hog" for notify. |
 | `YOLO_MEM_NOTIFY_DEBOUNCE_SEC` | `1800` (30 min) | How long to wait between memory-pressure notifications. |

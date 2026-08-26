@@ -3940,3 +3940,13 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - Production still shows `origin/main` Leash: `<summary>Optional: send the next task to a paired computer</summary>` plus “wrong workspace / Switch account” plus “Bounded Hermes … isolated serverless leases.” That is a sign-out control + operator dump sitting under Mac pairing — not a second Google workspace. Header already has Sign out (`dashboard-sign-out`).
 - Drop the Leash `account-recovery` card. Keep one-line `leash-signed-in` email. Sign-out stays in header/sidebar.
 - Codex P2 on #2095: `pendingWaitCopy(task.status)` — `running` → “Hermes is working on this.”; pending → “hasn't started.” Do not dual-edit #2041 result-replace or AGENT-476 TurnStatusline.
+
+## File claim (append 2026-08-26T15:45:00Z) — `grok-claw-cpu-guard-20260826`
+
+| T-CLAW-CPU-GUARD-20260826 | Autokill `browseros-claw-server` at 90% CPU after two 60s ticks; 150% bar missed a 98% 2-day loop | in_progress | grok-claw-cpu-guard-20260826 | `sim-runaway-guard.sh`, `tests/test-secondary-browser-reclaim.sh`, `README.md`, `plan.md` | Focused guard tests: claw-server helper killed, unknown process spared, BrowserOS neo in aggregate RSS; install live LaunchAgent; WAN/Deco ping is out of scope |
+
+## Discovered / Decisions (append) — 2026-08-26T15:45Z — grok-claw-cpu-guard-20260826
+
+- CEO: Deco phone test 359 Mbps vs Mac 10s page loads. Surfaces: phone Deco (192.168.68) ≠ Mac Wi-Fi (192.168.12.229, 802.11be −43 dBm). Simulator guard was healthy (0 simruntime).
+- Miss: `YOLO_CPU_PCT_THRESHOLD=150` never listed a 98% `browseros-claw-server` (PID 84596, 626 CPU-min). Helpers now scan at 90% and autokill; GUI apps stay notify-only.
+- Not preventable by this kit: WAN RTT 377–854 ms / 20% loss to 8.8.8.8, 17 GB swap from agent/browser pile. Linear create usage-capped; vault + GitHub.

@@ -287,15 +287,21 @@ if [ -z "$REASON" ]; then
   # auto-kill GUI apps" hard rule. Root/system processes are ignored (their CPU
   # isn't user-actionable).
   CPU_PCT_THRESHOLD=${YOLO_CPU_PCT_THRESHOLD:-150}
+  # Known-safe helpers are scanned at a LOWER bar. A single-core hot loop at
+  # 98% never reaches the 150% notify threshold (2026-08-26: browseros-claw-server
+  # burned 626 CPU-min over 2 days while the Mac swapped 17GB). Editors/unknowns
+  # still require 150% to notify and are never auto-killed.
+  CPU_HELPER_PCT_THRESHOLD=${YOLO_CPU_HELPER_PCT_THRESHOLD:-90}
   CPU_SUSTAINED_FIRES=${YOLO_CPU_SUSTAINED_FIRES:-2}
   CPU_NOTIFY_DEBOUNCE_SEC=${YOLO_CPU_NOTIFY_DEBOUNCE_SEC:-1800}
-  CPU_AUTOKILL_PATTERNS=${YOLO_CPU_AUTOKILL_PATTERNS:-semgrep-core-proprietary|semgrep-core|crashpad_handler|crash_handler}
+  CPU_AUTOKILL_PATTERNS=${YOLO_CPU_AUTOKILL_PATTERNS:-semgrep-core-proprietary|semgrep-core|crashpad_handler|crash_handler|browseros-claw-server}
   # Command-signature allowlist: for runaways that execute under a generic
   # interpreter whose basename is too broad to allowlist (e.g. Antigravity's
   # CodeQL scanner is a plain `java` process — the 2026-06-02 freeze). Matched
   # (ERE) against the FULL command line. Keep each signature specific enough
   # that it can only be the background tool, never the user's own work.
-  CPU_AUTOKILL_CMD_PATTERNS=${YOLO_CPU_AUTOKILL_CMD_PATTERNS:-com\.semmle\.cli2\.CodeQL}
+  # browseros-claw-server is also listed here so a truncated `comm` still matches.
+  CPU_AUTOKILL_CMD_PATTERNS=${YOLO_CPU_AUTOKILL_CMD_PATTERNS:-com\.semmle\.cli2\.CodeQL|browseros-claw-server}
   # Notify-ignore list: macOS maintenance daemons (Spotlight, photo/media
   # analysis) routinely burn CPU and finish on their own — the runbook says
   # never to kill them, and notifying about them is pure alert fatigue (the
@@ -354,10 +360,17 @@ if [ -z "$REASON" ]; then
     echo 0 > "$CODEQL_STATE_FILE"
   fi
 
-  # All user-owned procs at/above threshold, as "pid pcpu" lines (desc by CPU).
+  # Scan at the helper bar so a 90–149% allowlisted hog is visible. Unknowns
+  # still need CPU_PCT_THRESHOLD (150%) before they generate a notify.
+  CPU_SCAN_THRESHOLD="$CPU_HELPER_PCT_THRESHOLD"
+  case "$CPU_SCAN_THRESHOLD" in (*[!0-9]*|'') CPU_SCAN_THRESHOLD=90 ;; esac
+  if [ "$CPU_PCT_THRESHOLD" -lt "$CPU_SCAN_THRESHOLD" ]; then
+    CPU_SCAN_THRESHOLD="$CPU_PCT_THRESHOLD"
+  fi
+  # All user-owned procs at/above the scan bar, as "pid pcpu" lines (desc by CPU).
   # Detection uses only user/pid/pcpu so executable paths with spaces can't
   # break field-splitting; names are resolved per-PID via `ps -o comm=` below.
-  CPU_HOT_LIST=$(/bin/ps -axo user,pid,pcpu -r | /usr/bin/awk -v u="$USER" -v t="$CPU_PCT_THRESHOLD" '
+  CPU_HOT_LIST=$(/bin/ps -axo user,pid,pcpu -r | /usr/bin/awk -v u="$USER" -v t="$CPU_SCAN_THRESHOLD" '
     NR>1 && $1==u { pcpu=$3+0; if (pcpu>=t) printf "%s %d\n", $2, pcpu }')
 
   CPU_NEW_STATE=""          # carried-forward streaks for allowlisted-not-yet-killed pids
@@ -383,6 +396,10 @@ if [ -z "$REASON" ]; then
     fi
 
     if [ -n "$kill_name" ]; then
+      # Known-safe background helper — only act at the helper bar (default 90%).
+      if [ "$pcpu" -lt "$CPU_HELPER_PCT_THRESHOLD" ]; then
+        continue
+      fi
       # Known-safe background helper — gate on a per-PID consecutive-hit streak.
       prev=$(/usr/bin/awk -v p="$pid" '$1==p {print $2; exit}' "$CPU_STATE_FILE" 2>/dev/null)
       [ -z "$prev" ] && prev=0
@@ -398,6 +415,10 @@ if [ -z "$REASON" ]; then
     else
       # Benign macOS maintenance daemon — neither killable nor worth a notify.
       if echo "$base" | /usr/bin/grep -qiE "^($CPU_NOTIFY_IGNORE_PATTERNS)$"; then
+        continue
+      fi
+      # Unknowns/editors: ignore the helper bar; only notify at 150%+.
+      if [ "$pcpu" -lt "$CPU_PCT_THRESHOLD" ]; then
         continue
       fi
       # Not auto-killable — remember the single worst one for a notify.
@@ -714,6 +735,7 @@ CPU_HOT_EOF
         else if ($0 ~ /Google Chrome\.app/) app="Chrome"
         else if ($0 ~ /Cursor\.app/) app="Cursor"
         else if ($0 ~ /Comet\.app/) app="Comet"
+        else if ($0 ~ /BrowserOS neo\.app/) app="BrowserOS neo"
         else if ($0 ~ /Antigravity/) app="Antigravity"
         else if ($0 ~ /Visual Studio Code|[Cc]ode Helper/) app="VSCode"
         else next
@@ -728,6 +750,7 @@ CPU_HOT_EOF
         else if ($0 ~ /Google Chrome\.app/) app="Chrome"
         else if ($0 ~ /Cursor\.app/) app="Cursor"
         else if ($0 ~ /Comet\.app/) app="Comet"
+        else if ($0 ~ /BrowserOS neo\.app/) app="BrowserOS neo"
         else if ($0 ~ /Antigravity/) app="Antigravity"
         else if ($0 ~ /Visual Studio Code|[Cc]ode Helper/) app="VSCode"
         else next
