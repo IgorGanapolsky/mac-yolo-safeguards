@@ -3961,3 +3961,10 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 
 - Inventory and candidate planning are read-only. This lane will not delete or archive Linear projects, labels, issues, cycles, agents, or locks.
 - GitHub #2111 and Linear AGENT-535 are the task/ownership proof; the canonical vault claim is `Handoffs/linear-claims/2026-08-26_AGENT-535_codex-linear-basic-2111.md`.
+
+### Claim expansion (append 2026-08-26T16:08:00Z)
+
+- `tools/linear-agent-skill-exporter.js`
+- `tests/test-linear-agent-skill-exporter.js`
+
+Audit evidence: the exporter advertises missing `tools/linear-agent-telemetry-engine.js` commands and an unsafe green-PR auto-merger. Replace those recipes with implemented Basic-plan workflows; do not preserve fictional CLI or merge authority.
