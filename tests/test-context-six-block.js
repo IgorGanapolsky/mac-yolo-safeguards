@@ -3,6 +3,10 @@
 
 const assert = require('assert');
 const {
+  hostnameOf,
+  hostIsOrSubdomain,
+} = require('../tools/lib/safe-url-host');
+const {
   BLOCK_IDS,
   LAYER_IDS,
   HOSTED_GOLD,
@@ -13,6 +17,18 @@ const {
   validatePack,
   grade,
 } = require('../tools/context-six-block');
+
+function mentionsHost(value, host) {
+  const blob = JSON.stringify(value);
+  const urls = blob.match(/https?:\/\/[^\s"'\\]+/gi) || [];
+  for (const raw of urls) {
+    if (hostIsOrSubdomain(hostnameOf(raw), host)) {
+      return true;
+    }
+  }
+  const tokens = blob.toLowerCase().split(/[^a-z0-9.-]+/);
+  return tokens.some((t) => t === host || t.endsWith('.' + host));
+}
 
 const h = honesty();
 assert.strictEqual(h.clonedEverydayAi, false);
@@ -67,7 +83,7 @@ assert.strictEqual(abstractOnly.ok, false);
 const cons = connectors();
 assert.ok(cons.every((c) => c.use && c.not));
 assert.ok(cons.some((c) => /coding-context-pack/.test(c.use)));
-assert.ok(!JSON.stringify(cons).toLowerCase().includes('chatgpt.com'));
+assert.ok(!mentionsHost(cons, 'chatgpt.com'));
 
 const cloned = assemble();
 cloned.clonedEverydayAi = true;

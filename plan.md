@@ -3950,3 +3950,4 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - Episode six blocks: Goal, Constraints, Reference, Examples, Procedures, Rubric. Four layers: Personal, Team, Company, Market.
 - Cheap steal: local assembler + deterministic rubric. Skip Everyday AI course, Prime Prompt Polish, ChatGPT Apps connectors.
 - Complementary to `tools/context-vault.js` (Allie 8 prompts) and `tools/coding-context-pack.js` (issue-first).
+- 2026-08-26T17:10Z CodeQL `js/incomplete-sanitization` on `tests/test-context-six-block.js:70` `.includes('chatgpt.com')` is REAL (1 high, PR annotation). Replaced with `tools/lib/safe-url-host.js` hostname parse + token equality. Expo Doctor 18/19 on this PR is the SDK pin wall (`expo 55.0.29` vs `~55.0.30`) owned by #2103 — do not pile pins onto this PR. CodeQL is not a required context; Hermes Mobile typecheck is.
