@@ -1,0 +1,22 @@
+{
+  "schema": "agentic-pattern-task/v1",
+  "taskId": "production-write-001",
+  "goal": "Publish a verified production configuration change with exact readback",
+  "risk": "high",
+  "effect": "external_write",
+  "uncertainty": "medium",
+  "independentWorkstreams": 1,
+  "disjointResources": false,
+  "specializedRoles": [],
+  "crossSession": false,
+  "recurringFeedback": false,
+  "retrievalNeeded": false,
+  "dynamicRouting": true,
+  "resourceConstrained": true,
+  "humanConfirmation": "required",
+  "successMetrics": [
+    "pre-action policy passes",
+    "post-action readback exactly matches intent",
+    "rollback evidence is available"
+  ]
+}
