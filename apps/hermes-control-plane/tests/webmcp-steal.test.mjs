@@ -10,6 +10,10 @@ const component = fs.readFileSync(
   "utf8",
 );
 const layout = fs.readFileSync(path.join(import.meta.dirname, "../app/layout.tsx"), "utf8");
+const spec = fs.readFileSync(
+  path.join(import.meta.dirname, "../specs/webmcp-landing-tools.md"),
+  "utf8",
+);
 
 test("exposes exactly two read-only WebMCP tools", () => {
   const tools = buildWebMcpTools({});
@@ -65,6 +69,14 @@ test("component feature-detects and never auto-acts", () => {
   assert.match(component, /AbortController/);
   assert.doesNotMatch(component, /toolautosubmit/i);
   assert.doesNotMatch(component, /executeTool/);
+});
+
+test("spec pins the tool surface and price form", () => {
+  assert.match(spec, /get_hermes_offer/);
+  assert.match(spec, /get_service_status/);
+  assert.match(spec, /\$10\/month/);
+  assert.match(spec, /read-only/i);
+  assert.match(spec, /\/api\/health/);
 });
 
 test("layout mounts the WebMCP hook", () => {
