@@ -1,11 +1,14 @@
 'use strict';
 
 const assert = require('assert');
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
 const {
   buildBrief,
+  loadPatternReceipt,
   localRetrieval,
   parseArgs,
   readContinuousDeviceVerified,
@@ -25,6 +28,132 @@ const parsed = parseArgs([
 assert.strictEqual(parsed.skipLocalRetrieval, true);
 assert.strictEqual(parsed.json, true);
 assert.strictEqual(parsed.skipGovernance, true);
+
+const patternDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agentic-pattern-receipt-'));
+const patternManifestPath = path.join(patternDir, 'task.json');
+fs.writeFileSync(patternManifestPath, JSON.stringify({
+  schema: 'agentic-pattern-task/v1',
+  taskId: 'decision-stack-integration',
+  goal: 'Research current evidence and produce a verified decision brief',
+  risk: 'low',
+  effect: 'read',
+  uncertainty: 'high',
+  independentWorkstreams: 1,
+  disjointResources: false,
+  specializedRoles: [],
+  crossSession: false,
+  recurringFeedback: false,
+  retrievalNeeded: true,
+  dynamicRouting: false,
+  resourceConstrained: false,
+  humanConfirmation: 'not_required',
+  successMetrics: ['receipt status is pass'],
+}));
+
+const parsedPatternArgs = parseArgs([
+  '--task', 'Research current evidence to a verified decision',
+  '--pattern-manifest', patternManifestPath,
+]);
+assert.strictEqual(parsedPatternArgs.patternManifest, patternManifestPath);
+assert.throws(
+  () => parseArgs(['--task', 'Research current evidence', '--pattern-manifest']),
+  /requires a path/,
+);
+
+const patternReceipt = loadPatternReceipt(patternManifestPath);
+assert.strictEqual(patternReceipt.status, 'pass');
+assert(patternReceipt.selected.some((entry) => entry.id === 'knowledge_retrieval'));
+
+const badPatternPath = path.join(patternDir, 'bad.json');
+fs.writeFileSync(badPatternPath, JSON.stringify({ schema: 'agentic-pattern-task/v1' }));
+const badPatternReceipt = loadPatternReceipt(badPatternPath);
+assert.strictEqual(badPatternReceipt.status, 'block');
+assert.match(badPatternReceipt.receiptHash, /^[a-f0-9]{64}$/);
+
+const missingPatternReceipt = loadPatternReceipt(path.join(patternDir, 'missing.json'));
+assert.strictEqual(missingPatternReceipt.status, 'block');
+assert.match(missingPatternReceipt.receiptHash, /^[a-f0-9]{64}$/);
+
+const malformedSecret = ['TOP', 'SECRET', '123'].join('_');
+const malformedPatternPathA = path.join(patternDir, 'malformed-a.json');
+const malformedPatternPathB = path.join(patternDir, 'malformed-b.json');
+fs.writeFileSync(malformedPatternPathA, `{"password":${malformedSecret}}`);
+fs.writeFileSync(malformedPatternPathB, `{"password":${malformedSecret}_DIFFERENT}`);
+const malformedPatternA = loadPatternReceipt(malformedPatternPathA);
+const malformedPatternB = loadPatternReceipt(malformedPatternPathB);
+assert.deepStrictEqual(malformedPatternA.errors, ['manifest JSON is invalid']);
+assert(!JSON.stringify(malformedPatternA).includes(malformedSecret));
+assert.notStrictEqual(malformedPatternA.inputHash, malformedPatternB.inputHash);
+
+const validJsonSentinel = ['STACK', 'SECRET', 'SENTINEL', '7462'].join('_');
+const secretFieldPatternPath = path.join(patternDir, 'secret-field.json');
+fs.writeFileSync(secretFieldPatternPath, JSON.stringify({
+  schema: 'agentic-pattern-task/v1',
+  [`token_${validJsonSentinel}`]: 'x',
+}));
+const secretFieldPattern = loadPatternReceipt(secretFieldPatternPath);
+assert.strictEqual(secretFieldPattern.status, 'block');
+assert(!JSON.stringify(secretFieldPattern).includes(validJsonSentinel));
+
+const deepPatternPath = path.join(patternDir, 'deep.json');
+const deepPatternJson = `${'{"nested":'.repeat(10_000)}0${'}'.repeat(10_000)}`;
+fs.writeFileSync(deepPatternPath, deepPatternJson);
+const deepPattern = loadPatternReceipt(deepPatternPath);
+assert.strictEqual(deepPattern.status, 'block');
+assert.match(deepPattern.receiptHash, /^[a-f0-9]{64}$/);
+
+const canonicalManifest = {
+  schema: 'agentic-pattern-task/v1',
+  taskId: 'canonical-stack-proof',
+  goal: 'Verify semantic manifest hashing through decision stack loading',
+  risk: 'low',
+  effect: 'read',
+  uncertainty: 'low',
+  independentWorkstreams: 1,
+  disjointResources: false,
+  specializedRoles: [],
+  crossSession: false,
+  recurringFeedback: false,
+  retrievalNeeded: false,
+  dynamicRouting: false,
+  resourceConstrained: false,
+  humanConfirmation: 'not_required',
+  successMetrics: ['semantic hashes match'],
+};
+const canonicalPathA = path.join(patternDir, 'canonical-a.json');
+const canonicalPathB = path.join(patternDir, 'canonical-b.json');
+fs.writeFileSync(canonicalPathA, JSON.stringify(canonicalManifest));
+fs.writeFileSync(
+  canonicalPathB,
+  JSON.stringify(Object.fromEntries(Object.entries(canonicalManifest).reverse()), null, 2),
+);
+const canonicalPatternA = loadPatternReceipt(canonicalPathA);
+const canonicalPatternB = loadPatternReceipt(canonicalPathB);
+assert.strictEqual(canonicalPatternA.inputHash, canonicalPatternB.inputHash);
+assert.strictEqual(canonicalPatternA.receiptHash, canonicalPatternB.receiptHash);
+
+const invalidUtf8Path = path.join(patternDir, 'invalid-utf8.json');
+const invalidUtf8Manifest = Buffer.from(JSON.stringify(canonicalManifest));
+const utf8GoalIndex = invalidUtf8Manifest.indexOf('Verify semantic');
+assert(utf8GoalIndex > 0);
+invalidUtf8Manifest[utf8GoalIndex] = 0x80;
+fs.writeFileSync(invalidUtf8Path, invalidUtf8Manifest);
+const invalidUtf8Pattern = loadPatternReceipt(invalidUtf8Path);
+assert.strictEqual(invalidUtf8Pattern.status, 'block');
+assert.deepStrictEqual(invalidUtf8Pattern.errors, ['manifest encoding is invalid']);
+
+const blockedBrief = buildBrief({
+  task: 'Do not execute work after an invalid pattern manifest',
+  patternManifest: badPatternPath,
+  skipThumbgate: false,
+  skipGraphify: false,
+  skipLocalRetrieval: false,
+  skipGovernance: false,
+});
+assert.strictEqual(blockedBrief.patterns.status, 'block');
+assert.deepStrictEqual(blockedBrief.rag, {});
+assert.deepStrictEqual(blockedBrief.telemetry, {});
+assert(blockedBrief.recommendation.includes('BLOCKED by agentic pattern contract'));
 
 const retrieval = localRetrieval('Hermes retrieval harness Specification-Driven Design');
 assert(!retrieval.error, retrieval.error);
@@ -48,6 +177,26 @@ const brief = buildBrief({
 assert(brief.rag.localRetrieval.citations.length > 0);
 assert(brief.rag.localRetrieval.production, 'brief.rag.localRetrieval must carry production meta');
 assert.strictEqual(brief.telemetry.githubRun.skipped, true);
+
+const briefWithPatterns = buildBrief({
+  task: 'Research current evidence to a verified decision',
+  patternManifest: patternManifestPath,
+  skipThumbgate: true,
+  skipGraphify: true,
+  skipLocalRetrieval: true,
+  skipGovernance: true,
+  skipArc: true,
+});
+assert.strictEqual(briefWithPatterns.patterns.status, 'pass');
+assert.match(briefWithPatterns.patterns.receiptHash, /^[a-f0-9]{64}$/);
+
+const patternBlockedRecommendation = recommendNextAction({
+  patterns: badPatternReceipt,
+  governance: { skipped: true },
+  telemetry: {},
+  rag: {},
+});
+assert(patternBlockedRecommendation.includes('BLOCKED by agentic pattern contract'));
 
 const action = recommendNextAction({
   telemetry: { githubRun: { conclusion: 'failure' } },
