@@ -1,0 +1,21 @@
+{
+  "schema": "agentic-pattern-task/v1",
+  "taskId": "market-evidence-001",
+  "goal": "Research current market claims and produce cited findings",
+  "risk": "low",
+  "effect": "read",
+  "uncertainty": "high",
+  "independentWorkstreams": 1,
+  "disjointResources": false,
+  "specializedRoles": [],
+  "crossSession": false,
+  "recurringFeedback": false,
+  "retrievalNeeded": true,
+  "dynamicRouting": false,
+  "resourceConstrained": false,
+  "humanConfirmation": "not_required",
+  "successMetrics": [
+    "all load-bearing claims have source provenance",
+    "unsupported-claim check passes"
+  ]
+}
