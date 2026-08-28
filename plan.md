@@ -4002,3 +4002,43 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - `but land` on ThumbGate / mac-yolo `main` is REFUSE — `npm run pr:manage` / `gh pr merge --auto`.
 - Linked worktrees (this repo, 80+ trees) use git. Official GitButler exception: never `but setup` from a linked worktree.
 - Complementary to OPEN Codex PR #2119 (`tools/gitbutler-route.js`). This PR does not steal AGENT-538.
+
+## File claim (append 2026-08-26T21:40:30Z) - `codex/google-play-quality-20260826`
+
+| T-GOOGLE-PLAY-QUALITY-20260826 | Google Play Feb 2027 memory and DEX evidence: reject R8-disabling rules and emit honest Android device memory receipts without presenting a point-in-time sample as Play P90 compliance | in_progress | codex/google-play-quality-20260826 (AGENT-559, GH-2138) | `hermes-mobile/scripts/android-play-quality-audit.cjs` (new), `tests/test-android-play-quality-audit.js` (new), `hermes-mobile/scripts/verify-release-readiness.cjs` (R8 disable-directive check only), `plan.md` (append only) | `node tests/test-android-play-quality-audit.js`; `cd hermes-mobile && npm run release:check`; no-device audit fails with explicit blocker; real device receipt remains separate from Play Console 28-day P90 |
+
+- `hermes-mobile/scripts/android-play-quality-audit.cjs` (new)
+- `tests/test-android-play-quality-audit.js` (new)
+- `hermes-mobile/scripts/verify-release-readiness.cjs` (R8 disable-directive check only)
+- `plan.md` (this append)
+
+## Discovered / Decisions (append) - 2026-08-26T21:40:30Z - `codex/google-play-quality-20260826`
+
+- Source: `~/Downloads/play.pdf`, SHA-256 `297417ebcfcab2a223700a89c7fe6c15d0a09c6108c16aeba0f126dbfa064bd0`, plus Google Play technical requirement page published 2026-08-26.
+- Existing R8 minification and resource shrinking already cover the configuration change; this task adds disable-directive regression protection and device evidence, not a duplicate optimizer.
+- Hermes Mobile has no app account or login, so Zero-Tap Sign-In is currently out of scope. Do not add Credential Manager or enable Android backup speculatively.
+- Device samples are point-in-time diagnostics. Only Play Console or the Developer Reporting API can prove the 28-day P90 requirement.
+
+## File lock (append 2026-08-26T21:46:00Z) - `codex/google-play-quality-20260826`
+
+- `hermes-mobile/scripts/android-play-quality-audit.cjs`, `tests/test-android-play-quality-audit.js`, `hermes-mobile/scripts/verify-release-readiness.cjs`, `plan.md` → **codex/google-play-quality-20260826** (T-GOOGLE-PLAY-QUALITY-20260826 / GH #2138 / AGENT-559: Google Play February 2027 memory and DEX evidence gates) (2026-08-26T21:46:00Z)
+
+## Verification (append 2026-08-26T21:48:00Z) - `codex/google-play-quality-20260826`
+
+- Focused audit: `node tests/test-android-play-quality-audit.js` -> 11/11 passed. The over-limit-by-1-KiB negative control caught a premature-rounding defect; comparisons now use raw KiB and round reporting only.
+- Existing mobile proof: `npm test -- --no-coverage --runInBand` -> 267 suites passed, 2,400 tests passed, 1 skipped; `npm run typecheck` -> pass; `npm run release:check` -> pass.
+- Repository policy: `node tools/codeql-pattern-gate.js` -> 0 findings; plan ownership gate -> pass.
+- Device boundary: `android-play-quality-audit.cjs --device --json` -> exit 2, `no authorized Android device is attached`; continuous E2E launch agent is loaded but `deviceVerified=false`. No phone or Google Play 28-day P90 compliance claim is authorized by this result.
+- Decision stack governance -> pass. RAG returned no task-specific prior lesson; graph data was unavailable; ML system remained fail-closed with insufficient labels. RAG helped preserve proof boundaries, while the ML score did not influence this implementation.
+
+## Verification correction (append 2026-08-26T21:53:00Z) - `codex/google-play-quality-20260826`
+
+- The earlier focused-audit line was a false green: 11 assertions printed PASS, but the test process exited 1 because its final guard still expected 10. Automated review comment `discussion_r3867001337` caught the mismatch.
+- Removed the duplicate hard-coded total; thrown assertions now determine failure. Exact rerun printed 11 passed and `FOCUSED_TEST_EXIT=0`; release readiness also remained green.
+- Captured the mistake in ThumbGate RAG as `fb_1787781166442_2mkoab` with the prevention rule to assert exit codes independently of success-looking stdout.
+
+## Strict-main refresh receipt (append 2026-08-26T22:01:00Z) - `codex/google-play-quality-20260826`
+
+- `main` advanced to `78dd6ff11` while required checks ran. The repository automation merged it into this branch as `ebceaa6be`; `git diff origin/main...HEAD` still contains only this task's four claimed paths.
+- The bot-created refresh head received only a dynamic CodeQL run while all nine strict required contexts were absent. This append-only receipt is pushed by the authenticated owner to trigger required checks on the exact refreshed head.
+- After fast-forwarding locally, the focused audit again printed 11 passed with exit 0 and release readiness remained green.
