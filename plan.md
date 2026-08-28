@@ -4002,3 +4002,11 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - `but land` on ThumbGate / mac-yolo `main` is REFUSE — `npm run pr:manage` / `gh pr merge --auto`.
 - Linked worktrees (this repo, 80+ trees) use git. Official GitButler exception: never `but setup` from a linked worktree.
 - Complementary to OPEN Codex PR #2119 (`tools/gitbutler-route.js`). This PR does not steal AGENT-538.
+
+## File claim (append 2026-08-28T17:05:00Z) — `ali/dashboard-clickable-onboarding`
+
+| T-THUMBGATE-DASHBOARD-CLICKABLE-20260828 | CEO screenshot fixes: make metric cards + capacity strip clickable-with-info, OUTPUT notice dismissable, paired computers collapsed/optional, LM Studio-style welcome panel | in_progress | ali/dashboard-clickable-onboarding | `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx`, `apps/hermes-control-plane/app/globals.css`, `apps/hermes-control-plane/tests/dashboard-clickable-cards.test.mjs`, `plan.md` (append only) | Metric-card/capacity/run-output/settings regions only; no TurnStatusline, no LandingAuthChrome, no conversation-chronology edits. Complementary to closed AGENT-476 and open landing-integrity claims (different files). |
+
+## File Ownership Map entry (append) — `ali/dashboard-clickable-onboarding`
+
+- `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx` (metric cards, capacity strip toggle, composer run-output dismiss, welcome panel, paired-machines disclosure only), `apps/hermes-control-plane/app/globals.css` (continuity-toggle/capacity-details/run-output-dismiss/welcome-panel/paired-machines rules only), `apps/hermes-control-plane/tests/dashboard-clickable-cards.test.mjs` (new), `plan.md` (append only) → **ali/dashboard-clickable-onboarding** (T-THUMBGATE-DASHBOARD-CLICKABLE-20260828: CEO screenshots 2026-08-28 12:51–12:57) (2026-08-28T17:05:00Z)

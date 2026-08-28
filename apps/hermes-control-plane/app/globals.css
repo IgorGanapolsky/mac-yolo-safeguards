@@ -1027,6 +1027,27 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .continuity-usage-bar{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
 .continuity-usage-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--secondary));border-radius:inherit;min-width:0;transition:width .2s ease}
 .continuity-usage-meter.is-exhausted .continuity-usage-bar i{background:linear-gradient(90deg,var(--orange),var(--danger))}
+/* Clickable capacity strip (CEO 2026-08-28: "these need to be clickable with information") */
+.continuity-usage-meter-toggle{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;cursor:pointer;border-radius:10px}
+.continuity-usage-meter-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.capacity-toggle-hint{color:var(--accent);font:600 10px/1.4 ui-monospace,monospace;letter-spacing:.02em;white-space:nowrap;margin-top:2px}
+.capacity-details{margin:0;padding:10px 14px;display:grid;gap:6px;list-style:none;border:1px solid rgba(34,211,238,.18);border-radius:10px;background:rgba(34,211,238,.04);font-size:11px;line-height:1.5;color:var(--muted)}
+.capacity-details li strong{color:var(--ink);font-weight:600}
+/* Dismissable OUTPUT notice in the composer strip (CEO 2026-08-28: "this section should be dismissable") */
+.run-output p{position:relative;padding-right:22px}
+.run-output-dismiss{position:absolute;top:0;right:0;border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:14px;line-height:1.3;padding:0 2px}
+.run-output-dismiss:hover{color:var(--danger)}
+/* LM Studio-style welcome onboarding (CEO 2026-08-28: steal their dashboard format) */
+.welcome-panel{position:relative;margin:18px 0 0;padding:26px 24px;text-align:left;border:1px solid rgba(34,211,238,.25);background:rgba(34,211,238,.05);border-radius:14px}
+.welcome-panel h2{margin:6px 0 6px;font-size:20px;letter-spacing:-.02em}
+.welcome-panel .helper-copy{padding:0;font-size:12px}
+.welcome-dismiss{position:absolute;top:10px;right:12px;border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:18px;line-height:1;padding:4px}
+.welcome-dismiss:hover{color:var(--danger)}
+.welcome-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+/* Collapsed paired-machines list — optional surface, not front-and-center (CEO 2026-08-28) */
+.paired-machines-details{border-top:1px solid var(--line);margin-top:4px}
+.paired-machines-details summary{cursor:pointer;padding:10px 14px;color:var(--muted);font-size:11px;font-family:ui-monospace,monospace;letter-spacing:.02em}
+.paired-machines-details summary:hover{color:var(--ink)}
 @media(max-width:980px){.price-grid{grid-template-columns:1fr}.execution-mode-grid{grid-template-columns:1fr}}
 @media(max-width:700px){
   .capacity-matrix,.execution-modes{padding:16px 12px}
