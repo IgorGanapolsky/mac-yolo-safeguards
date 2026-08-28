@@ -7,10 +7,15 @@ const page = fs.readFileSync(
   path.join(import.meta.dirname, "../app/page.tsx"),
   "utf8",
 );
+const detail = fs.readFileSync(
+  path.join(import.meta.dirname, "../app/how-it-works/page.tsx"),
+  "utf8",
+);
+const publicCopy = `${page}\n${detail}`;
 
 test("steals Vellum always-on copy, not a Cloud vs Local picker", () => {
-  assert.match(page, /Always on, even when your computer is off/);
-  assert.doesNotMatch(page, /<HostingSelector/);
-  assert.doesNotMatch(page, /Vellum Cloud/);
-  assert.doesNotMatch(page, /RUN ON/);
+  assert.match(publicCopy, /Always on, even when your computer is off/);
+  assert.doesNotMatch(publicCopy, /<HostingSelector/);
+  assert.doesNotMatch(publicCopy, /Vellum Cloud/);
+  assert.doesNotMatch(publicCopy, /RUN ON/);
 });

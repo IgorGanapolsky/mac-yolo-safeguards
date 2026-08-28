@@ -3,6 +3,9 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const page = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
+const detail = readFileSync(new URL("../app/how-it-works/page.tsx", import.meta.url), "utf8");
+const faq = readFileSync(new URL("../app/landing-content.ts", import.meta.url), "utf8");
+const publicCopy = `${page}\n${detail}\n${faq}`;
 const dashboard = readFileSync(new URL("../app/dashboard/DashboardClient.tsx", import.meta.url), "utf8");
 const apphost = readFileSync(new URL("../lib/hosted-apphost.ts", import.meta.url), "utf8");
 const llms = readFileSync(new URL("../app/llms.txt/route.ts", import.meta.url), "utf8");
@@ -18,14 +21,14 @@ function advertisesCapture(text) {
 }
 
 test("landing does not advertise Computer History or keystroke capture", () => {
-  assert.match(page, /not ChatGPT Computer History/i);
-  assert.match(page, /not Windows Recall/i);
-  assert.match(page, /not a Mac keylogger/i);
-  assert.match(page, /does not grab the cursor/i);
-  assert.match(page, /Does hosted Hermes record Computer History or capture keystrokes\?/);
-  assert.match(page, /Private\/incognito analogue/);
-  assert.equal(advertisesCapture(page), false);
-  assert.doesNotMatch(page, /we (record|capture|log) (your )?(clicks|keystrokes)/i);
+  assert.match(publicCopy, /not ChatGPT Computer History/i);
+  assert.match(publicCopy, /not Windows Recall/i);
+  assert.match(publicCopy, /not a Mac keylogger/i);
+  assert.match(publicCopy, /does not grab the cursor/i);
+  assert.match(publicCopy, /Does hosted Hermes record Computer History or capture keystrokes\?/);
+  assert.match(publicCopy, /Private\/incognito analogue/);
+  assert.equal(advertisesCapture(publicCopy), false);
+  assert.doesNotMatch(publicCopy, /we (record|capture|log) (your )?(clicks|keystrokes)/i);
 });
 
 test("dashboard does not advertise Computer History or keystroke capture", () => {

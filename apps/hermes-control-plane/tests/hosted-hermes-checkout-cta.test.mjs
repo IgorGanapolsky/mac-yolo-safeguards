@@ -31,7 +31,7 @@ test("primary $10 hosted Hermes CTAs POST Stripe Checkout, not WorkOS login", ()
     0,
   );
   // Page/StartSurfaces go through session-aware LandingPricingCtaPaid (anon → HostedCheckoutCta).
-  assert.equal((page.match(/<LandingPricingCtaPaid/g) ?? []).length >= 3, true);
+  assert.equal((page.match(/<LandingPricingCtaPaid/g) ?? []).length >= 2, true);
   assert.match(chrome, /<HostedCheckoutCta>/);
   assert.doesNotMatch(
     chrome,
