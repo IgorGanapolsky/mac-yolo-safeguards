@@ -52,6 +52,16 @@ const SCAN_EXT = new Set([
 ]);
 
 /**
+ * Files that OWN safe HTML handling (or describe the banned forms on purpose),
+ * so `no-naive-script-strip` must never fire on them.
+ */
+const HTML_HELPER_OWNERS =
+  /(?:safe-html-strip|html-to-markdown|codeql-pattern-gate|test-codeql-pattern-gate)\.js$/;
+
+const HTML_HELPER_HINT =
+  'Do not hand-roll HTML filtering: use tools/lib/html-to-markdown.js (tokenizer, for HTML to text/Markdown) or tools/lib/safe-html-strip.js (plain strip).';
+
+/**
  * Each rule maps to a CodeQL class we burned down.
  * Keep patterns specific enough to avoid noise in tests/docs.
  */
@@ -120,35 +130,72 @@ const RULES = [
     },
   },
   {
+    // Hand-rolled HTML / script filtering over untrusted markup.
+    //
+    // PR #2010 shipped exactly this and CodeQL raised 5 alerts on one file:
+    // js/bad-tag-filter, 3x js/incomplete-multi-character-sanitization and
+    // js/double-escaping. The rule that was meant to stop it knew a single
+    // spelling, /<script[\s\S]*?<\/script>/, and did not even catch that one:
+    // its patterns looked for an unescaped `</script>`, but a regex literal in
+    // real source always carries the escaped `<\/script>`, so it never fired.
+    //
+    // Scope is deliberate: flag the SHAPES CodeQL actually alerts on. A lossy
+    // `.replace(/<[^>]+>/g, ' ')` text extraction, an attribute-tolerant end
+    // tag (`<\/script\b[^>]*>`), and an entity chain that unescapes `&amp;`
+    // LAST are all correct-enough and are NOT flagged — main carries several of
+    // each and CodeQL reports none of them. A gate that cries wolf gets
+    // switched off, which is worse than the gap it closes.
     id: 'no-naive-script-strip',
-    codeql: 'js/bad-tag-filter',
+    codeql: 'js/bad-tag-filter, js/incomplete-multi-character-sanitization, js/double-escaping',
     severity: 'high',
     test: (text, file) => {
-      if (file.includes('safe-html-strip.js') || file.includes('codeql-pattern-gate.js')) return [];
-      // classic incomplete pair
-      if (/<script\[\\s\\S\]\*\?<\/script>/.test(text) || /<script\[\s\S\]\*\?<\/script>/.test(text)) {
-        // match source form /<script[\s\S]*?<\/script>/gi without \s* before >
-        if (/\/<script\[\\s\\S\]\*\?<\/script>\//.test(text) && !/<\/script\\s\*>/.test(text) && !/stripHtmlSafe|safe-html-strip/.test(text)) {
-          return [
-            {
-              line: lineOf(text, /script\[\\s\\S\]/),
-              message:
-                'Naive <script>...</script> strip misses whitespace before >. Use tools/lib/safe-html-strip.js.',
-            },
-          ];
-        }
+      if (HTML_HELPER_OWNERS.test(file)) return [];
+      const hits = [];
+      const add = (re, message) => {
+        if (re.test(text)) hits.push({ line: lineOf(text, re), message });
+      };
+
+      // 1. End tag matched as a literal `</script>` or `</script\s*>`.
+      //    `</script >`, `</script\t>` and `</script bar>` all close the
+      //    element, so the filter leaks the body it was supposed to remove.
+      add(
+        /<\\\/(?:script|style|noscript|iframe)(?:\\s\*)?>/i,
+        `Tag filter anchored on a literal end tag leaks "</script >" and "</script bar>" (js/bad-tag-filter). ${HTML_HELPER_HINT}`
+      );
+
+      // 2. The negative-lookahead / nested-quantifier tag filter
+      //    /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi — the exact
+      //    spelling that walked past this gate in PR #2010.
+      add(
+        /\(\?:\(\?!<\\\/[A-Za-z][A-Za-z0-9]*\s*>\)/,
+        `Nested-quantifier tag filter is a single incomplete removal pass (js/incomplete-multi-character-sanitization). ${HTML_HELPER_HINT}`
+      );
+
+      // 3. Scanning for the end tag as a plain string has the same blind spot.
+      add(
+        /\.(?:indexOf|lastIndexOf|split|includes|startsWith|endsWith)\s*\(\s*(['"`])<\/(?:script|style|noscript|iframe)\s*>\1/i,
+        `Searching for the literal string "</script>" misses "</script >" and "</script bar>" (js/bad-tag-filter). ${HTML_HELPER_HINT}`
+      );
+
+      // 4. Entity unescaping that decodes `&amp;` BEFORE another entity:
+      //    `&amp;lt;` -> `&lt;` -> `<` (js/double-escaping). Decoding `&amp;`
+      //    last is the safe order and is not flagged.
+      add(
+        /\.replace\(\s*\/&amp;\/[gimsuy]*\s*,[\s\S]{0,80}?\)\s*\.replace\(\s*\/&(?:lt|gt|quot|apos|nbsp|#x?[0-9a-fA-F]+)/,
+        `Unescaping &amp; before other entities turns "&amp;lt;" into "<" (js/double-escaping). Decode in one pass — decodeBasicEntities() in tools/lib/safe-html-strip.js.`
+      );
+
+      // 5. Single-pass comment removal, reported only as part of a filter chain
+      //    already flagged above: on its own it is not what CodeQL reports and
+      //    main carries it in reviewed code.
+      if (hits.length) {
+        add(
+          /\/<!--\[\\s\\S\]\*\?-->\//,
+          `Single-pass comment removal is part of the same hand-rolled filter — "<!-->" and "--!>" also end a comment. ${HTML_HELPER_HINT}`
+        );
       }
-      // simpler: /<\/script>/ without \s*
-      const naive = /replace\(\s*\/<script\[\\s\\S\]\*\?<\/script>\//;
-      if (naive.test(text) && !file.includes('safe-html-strip')) {
-        return [
-          {
-            line: lineOf(text, naive),
-            message: 'Use tools/lib/safe-html-strip.js for HTML stripping (CodeQL bad-tag-filter).',
-          },
-        ];
-      }
-      return [];
+
+      return hits;
     },
   },
   {

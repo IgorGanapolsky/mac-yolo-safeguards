@@ -1,0 +1,38 @@
+// FIXTURE — DO NOT COPY. Verbatim excerpt of tools/cloudflare-kitesurf-browser.js
+// at commit 2394afa11 (PR #2010, before 937f6d24e). CodeQL raised 5 alerts on this
+// code: js/bad-tag-filter, 3x js/incomplete-multi-character-sanitization,
+// js/double-escaping. tools/codeql-pattern-gate.js passed it clean, which is the
+// detection gap this fixture exists to keep closed. Stored as .txt so the gate's
+// own repo scan and CodeQL never treat it as live source.
+
+function distillDomToMarkdown(htmlString, title = 'Page Content') {
+  if (!htmlString || typeof htmlString !== 'string') {
+    return `# ${title}\n\n*No content extracted.*`;
+  }
+  let cleaned = htmlString
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+    .replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '')
+    .replace(/<!--[\s\S]*?-->/g, '');
+  cleaned = cleaned
+    .replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, '\n# $1\n')
+    .replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, '\n## $1\n')
+    .replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, '\n### $1\n')
+    .replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, '\n$1\n')
+    .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '\n- $1')
+    .replace(/<a\s+[^>]*href=["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi, '[$2]($1)')
+    .replace(/<(strong|b)[^>]*>([\s\S]*?)<\/\1>/gi, '**$2**')
+    .replace(/<(em|i)[^>]*>([\s\S]*?)<\/\1>/gi, '*$2*')
+    .replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, '`$1`')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return cleaned;
+}
