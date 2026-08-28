@@ -3773,6 +3773,17 @@ Does **not** clone Claude Code evals YAML, MDM managed settings, Western Electri
 - `.agents/skills/sources.yml` (append in_repo name)
 - `plan.md` (this append)
 
+## T-MOBILE-PROMPT-REACHABLE-20260824 (append 2026-08-24T21:50:00Z) — agent `grok-mobile-prompt-reachable`
+
+CEO phone: Real Estate chat shows synced prose + “No web tasks / Write a task” and **no textarea**. 100dvh Hermes shell + 42dvh conversation min-height + empty CTA clipped the composer. CSS-only. Supersedes DIRTY #2005.
+
+Linear **AGENT-515**. Do not steal AGENT-476 DashboardClient/statusline. No Continuity.
+
+### File claims
+- `apps/hermes-control-plane/app/globals.css` (Hermes mobile shell + empty-state CTA hide + composer grid)
+- `apps/hermes-control-plane/tests/dashboard-mobile-composer-reachable.test.mjs` (new)
+- `plan.md` (this append)
+
 ## Ownership audit and file claim (append 2026-08-24T21:27:00Z) — `codex-eslint10-hotfix`
 
 The July postcss task shipped in PR #930 at `41207d159`; its package manifest and lockfile claim is released. The July dependency-policy task has no live worktree or branch and its files are committed on `main`; that stale claim is released without deleting history.
