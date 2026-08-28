@@ -1,0 +1,117 @@
+{
+  "schema": "webmcp-readiness/v1",
+  "tools": [
+    {
+      "name": "get_inference_cost_today",
+      "description": "Returns today's inference cost summary from the ThumbGate dashboard.",
+      "risk": "read",
+      "confirmation": "none",
+      "annotations": {
+        "readOnlyHint": true,
+        "untrustedContentHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "serviceFilter": {
+            "type": "string",
+            "description": "Optional service name to filter (hermes, grok, claude, etc.)"
+          }
+        }
+      }
+    },
+    {
+      "name": "audit_mcp_connection",
+      "description": "Verifies the ThumbGate MCP connection status for a given service.",
+      "risk": "read",
+      "confirmation": "none",
+      "annotations": {
+        "readOnlyHint": true,
+        "untrustedContentHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "service": {
+            "type": "string",
+            "description": "Service name: hermes, grok, claude, etc."
+          }
+        },
+        "required": ["service"]
+      }
+    },
+    {
+      "name": "register_dashboard_tool",
+      "description": "Registers a new browser tool in the ThumbGate dashboard. Requires user confirmation.",
+      "risk": "write",
+      "confirmation": "user",
+      "annotations": {
+        "readOnlyHint": false,
+        "untrustedContentHint": true
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "toolName": {
+            "type": "string",
+            "description": "Name of the tool to register"
+          },
+          "description": {
+            "type": "string",
+            "description": "Tool description for agents"
+          },
+          "endpoint": {
+            "type": "string",
+            "description": "API endpoint for the tool"
+          }
+        },
+        "required": ["toolName", "description", "endpoint"]
+      }
+    },
+    {
+      "name": "list_registered_tools",
+      "description": "Lists all tools currently registered in the ThumbGate dashboard.",
+      "risk": "read",
+      "confirmation": "none",
+      "annotations": {
+        "readOnlyHint": true,
+        "untrustedContentHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "Optional category to filter (billing, management, diagnostics)"
+          }
+        }
+      }
+    }
+  ],
+  "journeys": [
+    {
+      "id": "check-cost-health",
+      "tool": "get_inference_cost_today",
+      "input": {},
+      "confirmationExpected": false,
+      "expected": {
+        "resultContains": {
+          "ok": true
+        }
+      }
+    },
+    {
+      "id": "audit-hermes-connection",
+      "tool": "audit_mcp_connection",
+      "input": {
+        "service": "hermes"
+      },
+      "confirmationExpected": false,
+      "expected": {
+        "resultContains": {
+          "ok": true
+        }
+      }
+    }
+  ]
+}
