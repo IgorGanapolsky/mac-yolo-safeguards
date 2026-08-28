@@ -4000,5 +4000,15 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - `but cursor` is unrecognized on CLI 0.22.1. Do not write `~/.cursor/hooks.json` for it.
 - `but mcp serve` is workspace-mode. Wrapper `mcp_isolated.sh` requires `assert_but_setup_safe.sh` exit 0. Never `[mcp_servers.gitbutler]` in global `~/.grok/config.toml`.
 - `but land` on ThumbGate / mac-yolo `main` is REFUSE — `npm run pr:manage` / `gh pr merge --auto`.
+
+## File claim (append 2026-08-26T18:25:00Z) — `grok/cli-ide-verify-20260826`
+
+| T-CLI-IDE-VERIFY-20260826 | TNS CLI/IDE verification residual: local pre-SHA four-question proposal grade. Codex #2126 owns post-commit receipts in coding-context-pack. | in_progress | grok/cli-ide-verify-20260826 | `tools/cli-ide-verify.js`, `tests/test-cli-ide-verify.js`, `bin/cli-ide-verify`, `.agents/skills/cli-ide-verify/**`, `SKILLS.md`, `plan.md` | Polished-diff-without-tests fails; CI-as-first-line fails; curl-LIVE fails. Do **not** edit `tools/coding-context-pack.js` or `tools/context-vault.js` (Codex PR #2126 / AGENT-544). Not SonarQube. |
+
+## Discovered / Decisions (append) — 2026-08-26T18:25Z — grok/cli-ide-verify-20260826
+
+- Article: verification must travel with CLI *and* IDE; agent output is a proposal; local checks first; CI is backstop.
+- Codex #2126 already implements `agent-verification-receipt/v1` (Linear + 40-char SHA). Residual is pre-commit `local_proposal` with no SHA.
+- Do not clone SonarQube CLI/MCP/plugins.
 - Linked worktrees (this repo, 80+ trees) use git. Official GitButler exception: never `but setup` from a linked worktree.
 - Complementary to OPEN Codex PR #2119 (`tools/gitbutler-route.js`). This PR does not steal AGENT-538.
