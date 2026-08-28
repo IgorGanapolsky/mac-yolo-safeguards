@@ -23,6 +23,16 @@ const PLAY_PAID_URL =
   'https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile.paid&hl=en&gl=US';
 const ITUNES_LOOKUP_URL =
   'https://itunes.apple.com/lookup?bundleId=com.iganapolsky.hermesmobile&country=us';
+// Same app by its stable App Store id (docs/social/hermes-mobile-content-engine.md).
+// The iTunes lookup endpoint intermittently returns resultCount 0 for LIVE apps
+// (observed fleet-wide 2026-08-28: bundleId=0 while byId flipped 0/1 per request,
+// store page rate-limited 429). A hard fail on a single zero makes every unrelated
+// PR flaky, which this check's own contract forbids. Retry both endpoints; only a
+// persistent zero across all attempts means "not public".
+const ITUNES_LOOKUP_BY_ID_URL =
+  'https://itunes.apple.com/lookup?id=6786778037&country=us';
+const ITUNES_LOOKUP_ATTEMPTS = 3;
+const ITUNES_LOOKUP_BACKOFF_MS = 10_000;
 
 // Docs/logs that may contain promotional store links and should never point
 // at the retired free Android package without an explicit "unpublished" flag
@@ -108,11 +118,44 @@ async function checkLiveStores() {
       warnings.push(`iTunes lookup returned non-JSON body: ${error.message}`);
     }
     if (resultCount !== null && resultCount < 1) {
-      failures.push(
-        'iOS iTunes lookup returned resultCount 0 — app would be promoted ' +
-          'as live when it is not public. Never link the App Store unless ' +
-          'this lookup is non-zero.'
-      );
+      // Apple's lookup intermittently reports resultCount 0 for live apps.
+      // Retry both the bundleId and the stable-id endpoints before declaring
+      // the app unpublished; only a persistent zero across every attempt is a
+      // hard failure.
+      let confirmedZero = true;
+      let confirmedNonZero = resultCount;
+      for (let attempt = 1; attempt <= ITUNES_LOOKUP_ATTEMPTS && confirmedZero; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, ITUNES_LOOKUP_BACKOFF_MS));
+        for (const url of [ITUNES_LOOKUP_URL, ITUNES_LOOKUP_BY_ID_URL]) {
+          const retry = await fetchStatus(url);
+          if (!retry.ok || retry.status !== 200) continue;
+          let retryCount = null;
+          try {
+            retryCount = JSON.parse(retry.body).resultCount;
+          } catch {
+            continue;
+          }
+          if (typeof retryCount === 'number' && retryCount >= 1) {
+            confirmedZero = false;
+            confirmedNonZero = retryCount;
+            warnings.push(
+              `iTunes lookup flapped (first attempt 0, retry ${attempt} ` +
+                `${url === ITUNES_LOOKUP_BY_ID_URL ? 'byId ' : ''}resultCount ${retryCount}) — ` +
+                'app is live; Apple endpoint was inconsistent.',
+            );
+            break;
+          }
+        }
+      }
+      if (confirmedZero) {
+        failures.push(
+          'iOS iTunes lookup returned resultCount 0 — app would be promoted ' +
+            'as live when it is not public. Never link the App Store unless ' +
+            'this lookup is non-zero.',
+        );
+      } else {
+        resultCount = confirmedNonZero;
+      }
     }
   } else {
     warnings.push(`iTunes lookup returned HTTP ${itunes.status}`);
