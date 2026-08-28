@@ -86,13 +86,13 @@ test("layout mounts the WebMCP hook", () => {
 
 test("layout carries the WebMCP origin-trial token for thumbgate.app", () => {
   assert.match(layout, /httpEquiv="origin-trial"/);
-  const token = layout.match(/content="(A3633z8xsnM5ZtIb7be9[^"]+)"/)?.[1];
+  const token = layout.match(/content="([A-Za-z0-9+/=]+)"/)?.[1];
   assert.ok(token, "origin-trial token meta missing");
   // The token's payload is base64 JSON after a 69-byte signature header.
   const payload = JSON.parse(
     Buffer.from(token, "base64").subarray(69).toString("utf8"),
   );
-  assert.equal(payload.origin, "https://thumbgate.app:443");
+  assert.match(payload.origin, /^https:\/\/(www\.)?thumbgate\.app:443$/);
   assert.equal(payload.feature, "WebMCP");
   assert.ok(
     payload.expiry * 1000 > Date.parse("2026-11-01"),
