@@ -12,7 +12,11 @@ audience, offer, objective, platform, coreIdea, cta, proof, brandVoice, prohibit
 Locked offer: hosted Hermes on a fenced VPS, $10/mo, 14-day trial, approvals in thumbgate.app, CTA https://thumbgate.app.
 
 ## Stages
-strategist → writer → editor → proofGate → output-quality-loop. Human approval before publish.
+researcher → outliner (human gate; `--outlineOnly` stops here) → strategist → writer → editor → aiTellsEditor → factChecker → answerForward (start/end citation window) → uniqueness vs live titles → proofGate → output-quality-loop.
+
+Opt-in `repairFacts` strips unproven percents/dollars then re-checks. `refreshGate` is the content-refresh pass over live blog bodies. Human approval before publish.
+
+Do not add a keyword dashboard, SERP agent farm, or CMS auto-publish. Citation ≠ Stripe.
 
 ## Fail
 Continuity, pair a Mac, lid-close, Team $49, invented traction, HVAC/Leak Score, affiliate/second product, phone leash.

@@ -7,6 +7,7 @@ import {
   THUMBGATE_PUBLIC_COPY_CONTRACT,
   validateArtifact,
 } from "../lib/output-quality-loop.ts";
+import { refreshGate } from "../lib/content-lane.ts";
 
 const root = path.join(import.meta.dirname, "..");
 const indexPage = fs.readFileSync(path.join(root, "app/blog/page.tsx"), "utf8");
@@ -27,6 +28,26 @@ test("every blog post conforms to the public copy contract", () => {
       [],
       `post ${post.slug} violates copy contract`,
     );
+  }
+});
+
+test("every blog post passes the SEL refresh gate (BLUF + facts + no AI tells)", () => {
+  for (const post of BLOG_POSTS) {
+    const result = refreshGate(postBodyText(post));
+    assert.deepEqual(
+      result.failedCriteria,
+      [],
+      `post ${post.slug} refreshGate ${JSON.stringify(result.failedCriteria)}`,
+    );
+  }
+});
+
+test("every meta description is answer-forward for the locked offer", () => {
+  for (const post of BLOG_POSTS) {
+    const hay = post.description.toLowerCase();
+    assert.ok(hay.includes("hosted hermes"), post.slug);
+    assert.ok(hay.includes("$10"), post.slug);
+    assert.ok(hay.includes("fenced vps"), post.slug);
   }
 });
 

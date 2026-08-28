@@ -43,8 +43,8 @@ export const BLOG_POSTS: BlogPost[] = [
     sections: [
       {
         paragraphs: [
-          "Cursor publishes engineering notes on cursor.com/blog with a date, a topic, a named author, and a read time. We are not affiliated with Cursor. This is that format on thumbgate.app, for the product that actually lives here.",
           "ThumbGate.app is hosted Hermes on a fenced VPS. Sign in, start a 14-day trial or Pro at $10/month, give it a job, and approve money, customer, or production actions in this browser. Mac pairing is not the marketed path.",
+          "Cursor publishes engineering notes on cursor.com/blog with a date, a topic, a named author, and a read time. We are not affiliated with Cursor. This is that format on thumbgate.app, for the product that actually lives here.",
         ],
       },
       {
@@ -67,7 +67,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: "chatbots-answer-agents-sleep-hosted-hermes-works",
     title: "Chatbots answer. Laptop agents sleep. Hosted Hermes keeps working.",
     description:
-      "Why every laptop agent pilot dies the same death, and what an always-on fenced VPS with human approval gates changes about the work you can hand off.",
+      "Hosted Hermes on a fenced VPS. $10/mo. Laptop agents sleep; this one keeps working.",
     category: "ideas",
     publishedAt: "2026-08-19",
     author: "ThumbGate",
@@ -75,6 +75,7 @@ export const BLOG_POSTS: BlogPost[] = [
     sections: [
       {
         paragraphs: [
+          "Hosted Hermes on a fenced VPS is $10/mo. Chatbots answer. Laptop agents sleep. This one keeps working when you leave the room.",
           "There is a ladder of usefulness in AI tools. Chatbots answer questions. Agents do tasks. But almost every agent you can run today shares one embarrassing dependency: your laptop lid.",
           "The pilot always starts well. You give a coding agent a long task, it works, you watch it. Then the machine sleeps, or the terminal session dies — and the process is gone. Nothing reports it. The scheduled check you set up never fires. Work stops until you sit down again. The agent did not fail at reasoning; it failed at existing.",
         ],
@@ -99,7 +100,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: "leases-receipts-judge-unattended-agents",
     title: "Leases, receipts, and a judge: running unattended agents safely",
     description:
-      "The three mechanisms hosted Hermes uses to let an agent run for hours or months without a human babysitter: renewable leases, receipt audit trails, and LLM-as-a-Judge pre-action gates.",
+      "Hosted Hermes on a fenced VPS. $10/mo. Leases, receipts, and a judge so the agent can run unattended.",
     category: "engineering",
     publishedAt: "2026-08-19",
     author: "ThumbGate",
@@ -107,7 +108,7 @@ export const BLOG_POSTS: BlogPost[] = [
     sections: [
       {
         paragraphs: [
-          "An agent that runs while nobody watches needs different machinery than an agent you supervise. Hosted Hermes runs tasks in isolated fenced VPS sandboxes, and three mechanisms carry the safety load: leases, receipts, and a judge.",
+          "Hosted Hermes on a fenced VPS is $10/mo. An agent that runs while nobody watches needs different machinery than an agent you supervise. Hosted Hermes runs tasks in isolated fenced VPS sandboxes, and three mechanisms carry the safety load: leases, receipts, and a judge.",
         ],
       },
       {
@@ -135,7 +136,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: "agent-telemetry-should-be-content-free",
     title: "Your agent's telemetry should be content-free",
     description:
-      "This week's backlash over an AI assistant logging users' keystrokes is a preview of the agent era's trust problem. What an always-on agent's control plane should record — and what it must never see.",
+      "Hosted Hermes on a fenced VPS. $10/mo. The control plane records counts, not contents.",
     category: "ideas",
     publishedAt: "2026-08-19",
     author: "ThumbGate",
@@ -143,6 +144,7 @@ export const BLOG_POSTS: BlogPost[] = [
     sections: [
       {
         paragraphs: [
+          "Hosted Hermes on a fenced VPS is $10/mo. thumbgate.app records counts, not contents — no prompts, no keystrokes.",
           "This week a major AI assistant made headlines for a feature that, as reported, captures what users type as they type it. Whatever the implementation details turn out to be, the reaction is the story: people assumed the worst instantly, because nothing in how most AI products are built earns the benefit of the doubt.",
           "For agents the stakes are higher than for chatbots. An always-on agent touches your repositories, your inboxes, your infrastructure. Its control plane sits in the most privileged observation seat imaginable. If that seat records content, you have built a surveillance product with an agent attached.",
         ],
