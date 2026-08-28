@@ -4002,3 +4002,10 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - `but land` on ThumbGate / mac-yolo `main` is REFUSE — `npm run pr:manage` / `gh pr merge --auto`.
 - Linked worktrees (this repo, 80+ trees) use git. Official GitButler exception: never `but setup` from a linked worktree.
 - Complementary to OPEN Codex PR #2119 (`tools/gitbutler-route.js`). This PR does not steal AGENT-538.
+
+## Discovered / Decisions (append) — 2026-08-26T22:20Z grok TNS Perplexity authority split
+
+| T-HOSTED-AUTHORITY-SPLIT-20260826 | Steal TNS Perplexity harness FORMAT onto hosted Hermes: reasoning proposes, code grants authority; disable tools when sandbox is unavailable. Not a Computer clone. Do not dual-edit #2142. | in_progress | grok | `tools/hosted-authority-split.js`, `tests/test-hosted-authority-split.js`, `bin/hosted-authority`, `services/hermes-cloud-runner/server.js` (AUTHORITY_DISABLED only), `services/hermes-cloud-runner/test/server.test.js`, `.agents/skills/hosted-authority-split/**`, `SKILLS.md`, `plan.md` | AGENT-562 |
+
+- `tools/hosted-authority-split.js` (new), `tests/test-hosted-authority-split.js` (new), `bin/hosted-authority` (new), `.agents/skills/hosted-authority-split/**` (new), `services/hermes-cloud-runner/server.js` (refuse tools only), `services/hermes-cloud-runner/test/server.test.js` (new cases only), `SKILLS.md` (append), `plan.md` (append only) → **grok-hosted-authority-split-20260826** (2026-08-26T22:20:00Z)
+

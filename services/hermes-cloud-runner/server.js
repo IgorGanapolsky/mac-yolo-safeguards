@@ -58,7 +58,20 @@ async function callControl(config, pathname, body = {}) {
   return payload;
 }
 
+function authorityDisabled(detail) {
+  const error = new Error(`AUTHORITY_DISABLED: ${detail}`);
+  error.code = 'AUTHORITY_DISABLED';
+  return error;
+}
+
+function assertNoToolAuthority(task = {}) {
+  if (task.tools || task.functions || task.tool_choice || task.toolChoice) {
+    throw authorityDisabled('hosted sandbox unavailable; tools are not executed');
+  }
+}
+
 async function execute(config, task) {
+  assertNoToolAuthority(task);
   const context = Array.isArray(task.contextMessages)
     ? task.contextMessages.filter((message) => ['user', 'assistant', 'system'].includes(message?.role) && typeof message?.content === 'string')
     : [];
@@ -69,7 +82,11 @@ async function execute(config, task) {
   });
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.error?.message || payload.error || `Model provider HTTP ${response.status}`);
-  return payload.choices?.[0]?.message?.content ?? JSON.stringify(payload);
+  const message = payload.choices?.[0]?.message || {};
+  if (Array.isArray(message.tool_calls) && message.tool_calls.length) {
+    throw authorityDisabled('model proposed tools; hosted harness does not execute them');
+  }
+  return message.content ?? JSON.stringify(payload);
 }
 
 async function withLeaseRenewal(work, renew, intervalMs = LEASE_RENEW_MS) {
@@ -128,5 +145,5 @@ async function main() {
   }
 }
 
-module.exports = { callControl, configFromEnv, execute, nextPollDelay, pollingSchedule, runOnce, withLeaseRenewal };
+module.exports = { assertNoToolAuthority, callControl, configFromEnv, execute, nextPollDelay, pollingSchedule, runOnce, withLeaseRenewal };
 if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });

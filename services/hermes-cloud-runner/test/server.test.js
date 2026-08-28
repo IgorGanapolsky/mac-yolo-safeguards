@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const http = require('http');
 const test = require('node:test');
-const { configFromEnv, execute, nextPollDelay, pollingSchedule, withLeaseRenewal } = require('../server');
+const { assertNoToolAuthority, configFromEnv, execute, nextPollDelay, pollingSchedule, withLeaseRenewal } = require('../server');
 
 test('requires control plane, runner, and model provider credentials', () => {
   assert.throws(() => configFromEnv({}), /HERMES_CONTROL_PLANE_URL/);
@@ -47,6 +47,39 @@ test('cloud execution preserves the synced thread context', async () => {
     assert.equal(result, 'cloud continued');
     assert.deepEqual(received.messages.map((message) => message.content), ['original request', 'original answer', 'next step']);
     assert.equal(received.max_tokens, 2048);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('refuses tool proposals before any model call (sandbox unavailable)', () => {
+  assert.throws(() => assertNoToolAuthority({ tools: [{ type: 'function', function: { name: 'bash' } }] }), /AUTHORITY_DISABLED/);
+  assert.throws(() => assertNoToolAuthority({ tool_choice: 'auto' }), /AUTHORITY_DISABLED/);
+  assert.doesNotThrow(() => assertNoToolAuthority({ prompt: 'hello' }));
+});
+
+test('does not send a tools array and does not execute model tool_calls', async () => {
+  let received;
+  const server = http.createServer((request, response) => {
+    let body = '';
+    request.on('data', (chunk) => { body += chunk; });
+    request.on('end', () => {
+      received = JSON.parse(body);
+      response.setHeader('content-type', 'application/json');
+      response.end(JSON.stringify({
+        choices: [{ message: { tool_calls: [{ id: 'call_1', type: 'function', function: { name: 'bash', arguments: '{}' } }] } }],
+      }));
+    });
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  try {
+    await assert.rejects(
+      () => execute({ openaiBaseUrl: `http://127.0.0.1:${address.port}`, openaiKey: 'test-key', model: 'test-model' }, { prompt: 'run bash' }),
+      /AUTHORITY_DISABLED/,
+    );
+    assert.equal(received.tools, undefined);
+    assert.equal(received.tool_choice, undefined);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
