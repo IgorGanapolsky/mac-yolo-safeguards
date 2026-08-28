@@ -11,6 +11,7 @@ notes: >
   tools/skill-card-validate.js. External pins below are optional installs.
 
 in_repo:
+  - knowledge-graph-fuse
   - anti-babysitting
   - browseros-agent-harness
   - ci-pr-monitor
