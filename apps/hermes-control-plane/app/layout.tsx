@@ -79,6 +79,14 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
+        {/* Chrome WebMCP origin trial (registered 2026-08-28, expires 2026-11-16,
+            origin https://www.thumbgate.app:443, third-party + subdomains).
+            Activates document.modelContext for the landing WebMCP tools
+            (app/WebMcpTools.tsx) on Chrome without command-line flags. */}
+        <meta
+          httpEquiv="origin-trial"
+          content="A8bP4dX73rtHHvjx5rmoKUE7geKzbc/ssHJNYbqDCgXDngxc/0zEZysIJGKh4f5Gx9H3Y1uF93TgR2ahxuFY6wkAAAB4eyJvcmlnaW4iOiJodHRwczovL3d3dy50aHVtYmdhdGUuYXBwOjQ0MyIsImZlYXR1cmUiOiJXZWJNQ1AiLCJleHBpcnkiOjE3OTQ4NzM2MDAsImlzU3ViZG9tYWluIjp0cnVlLCJpc1RoaXJkUGFydHkiOnRydWV9"
+        />
         {/* Warm WorkOS + AuthKit before Sign in (July 2026 speed research). */}
         <link rel="preconnect" href="https://api.workos.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://api.workos.com" />
