@@ -94,6 +94,7 @@ const chatRailPreferenceKey = "thumbgate.chatRailExpanded";
 const sidebarWidthPreferenceKey = "thumbgate.sidebarWidth";
 const threadSortPreferenceKey = "thumbgate.threadSortOrder";
 const preferredDevicePreferenceKey = "thumbgate.preferredDeviceId";
+const welcomeDismissedPreferenceKey = "thumbgate.welcomeDismissed";
 const DEFAULT_SIDEBAR_WIDTH = 240;
 const MIN_SIDEBAR_WIDTH = 200;
 const MAX_SIDEBAR_WIDTH = 480;
@@ -352,6 +353,10 @@ export default function DashboardClient() {
   }, []);
   const [chatOperationBusy, setChatOperationBusy] = useState(false);
   const [safetyExpanded, setSafetyExpanded] = useState(false);
+  /** LM Studio-style welcome: show the onboarding CTAs until the workspace has real content or the user dismisses it. */
+  const [welcomeDismissed, setWelcomeDismissed] = useState(false);
+  /** Capacity strip click target: expand what the hosted numbers mean. */
+  const [capacityDetailsOpen, setCapacityDetailsOpen] = useState(false);
   const [feedback, setFeedback] = useState<Record<string, Feedback>>({});
   const [feedbackDialog, setFeedbackDialog] = useState<{ taskId: string; note: string } | null>(null);
   const [feedbackBusyTask, setFeedbackBusyTask] = useState<string | null>(null);
@@ -383,6 +388,17 @@ export default function DashboardClient() {
     });
     return () => window.cancelAnimationFrame(raf);
   }, [mobileTab]);
+
+  // Hydration-safe restore (AGENT-476 lesson: never read localStorage in state
+  // initializers — server and first client render must match). Timer matches the
+  // existing preference-restore pattern (no synchronous setState in effect).
+  useEffect(() => {
+    const stored = window.localStorage.getItem(welcomeDismissedPreferenceKey);
+    const timer = window.setTimeout(() => {
+      if (stored === "true") setWelcomeDismissed(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
 
   // Keep the ••• actions menu glued to its trigger; close on outside / Escape / scroll.
@@ -460,17 +476,32 @@ export default function DashboardClient() {
     selectedThreadRef.current = selectedThread;
   }, [selectedThread]);
 
-  /** Switch to Settings (mobile tab + hash) and focus the panel. Hash-only links do nothing in this shell. */
-  function openSettingsPanel() {
-    setMobileTab("settings");
-    window.history.replaceState(null, "", "#web-settings");
+  /** Scroll a dashboard section into view and move focus there (used by the metric-card shortcuts). */
+  function openSectionPanel(elementId: string, hash: string, tab: "hermes" | "leash" | "settings" = "settings") {
+    setMobileTab(tab);
+    window.history.replaceState(null, "", hash);
     window.setTimeout(() => {
-      const el = document.getElementById("web-settings");
+      const el = document.getElementById(elementId);
       el?.scrollIntoView({ behavior: "smooth", block: "start" });
       if (el instanceof HTMLElement) {
         el.focus({ preventScroll: true });
       }
     }, 50);
+  }
+
+  /** Switch to Settings (mobile tab + hash) and focus the panel. Hash-only links do nothing in this shell. */
+  function openSettingsPanel() {
+    openSectionPanel("web-settings", "#web-settings");
+  }
+
+  /** LM Studio-style onboarding: dismiss the welcome block for good. */
+  function dismissWelcome() {
+    setWelcomeDismissed(true);
+    try {
+      window.localStorage.setItem(welcomeDismissedPreferenceKey, "true");
+    } catch {
+      /* private mode */
+    }
   }
 
   function chooseDevice(deviceId: string) {
@@ -1601,6 +1632,26 @@ export default function DashboardClient() {
           </div>
         )}
 
+        {!welcomeDismissed && loadState === "loaded" && visibleTasks.length === 0 && threads.length === 0 && (
+          <section className="panel welcome-panel" data-testid="welcome-panel" aria-label="Welcome to ThumbGate">
+            <button type="button" className="welcome-dismiss" onClick={dismissWelcome} aria-label="Dismiss welcome panel">×</button>
+            <p className="eyebrow">THUMBGATE · HOSTED HERMES</p>
+            <h2>Welcome to your workspace</h2>
+            <p className="helper-copy">Your account is ready. Tasks run on a fenced cloud VPS — nothing to install.</p>
+            <div className="welcome-actions">
+              <button type="button" className="button button-primary" data-testid="welcome-start-task" onClick={focusComposer}>
+                Start a task
+              </button>
+              <button type="button" className="button button-secondary" data-testid="welcome-capacity" onClick={() => setCapacityDetailsOpen(true)}>
+                See included capacity
+              </button>
+              <a className="button button-secondary" href="/expertise" data-testid="welcome-docs">
+                Documentation
+              </a>
+            </div>
+          </section>
+        )}
+
         {continuityUsage && (
           <section
             className={`continuity-usage-meter${continuityUsage.exhausted ? " is-exhausted" : ""}`}
@@ -1608,6 +1659,21 @@ export default function DashboardClient() {
             data-exhausted={continuityUsage.exhausted ? "true" : "false"}
             aria-label="Hosted VPS capacity remaining"
           >
+            <div
+              className="continuity-usage-meter-toggle"
+              data-testid="capacity-toggle"
+              role="button"
+              tabIndex={0}
+              aria-expanded={capacityDetailsOpen}
+              aria-label="Show what the hosted capacity numbers mean"
+              onClick={() => setCapacityDetailsOpen((open) => !open)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  setCapacityDetailsOpen((open) => !open);
+                }
+              }}
+            >
             <div className="continuity-usage-meter-copy">
               <p className="eyebrow">Hosted VPS capacity · {continuityUsage.purchaseMode ?? continuityUsage.plan}</p>
               <strong>
@@ -1620,6 +1686,9 @@ export default function DashboardClient() {
                 {continuityUsage.maxActiveTasks} active
                 {typeof continuityUsage.percentUsed === "number" ? ` · ${continuityUsage.percentUsed}%` : ""}
               </small>
+            </div>
+            <b className="capacity-toggle-hint" aria-hidden="true">{capacityDetailsOpen ? "Hide details ⌃" : "What does this mean? ⌄"}</b>
+            </div>
               {continuityUsage.upgradeHint ? (
                 <p className="continuity-usage-hint" data-testid="continuity-upgrade-hint">
                   {continuityUsage.upgradeHint}{" "}
@@ -1633,7 +1702,14 @@ export default function DashboardClient() {
                   </button>
                 </p>
               ) : null}
-            </div>
+            {capacityDetailsOpen && (
+              <ul className="capacity-details" data-testid="capacity-details">
+                <li><strong>VPS runs used</strong> — hosted tasks started inside the rolling {continuityUsage.windowDays}-day window.</li>
+                <li><strong>Remaining</strong> — how many hosted runs are left before the plan refills.</li>
+                <li><strong>Active</strong> — runs executing right now (max {continuityUsage.maxActiveTasks} concurrent).</li>
+                <li>Everything runs on ThumbGate&apos;s fenced cloud sandbox; your paired Mac is never required.</li>
+              </ul>
+            )}
             <div
               className="continuity-usage-bar"
               role="progressbar"
@@ -1656,10 +1732,10 @@ export default function DashboardClient() {
         )}
 
         <nav className="metric-grid metric-grid-four" aria-label="Workspace status shortcuts">
-          <a className="metric-card" href="#web-settings" onClick={(event) => { event.preventDefault(); openSettingsPanel(); }} aria-label={`View ${devices.length} hosted runners in settings`}><span>Hosted VPS</span><strong>{devices.length}</strong><small>{onlineDevices.length} online now</small><b>View runner →</b></a>
-          <a className="metric-card" href="#task-activity" aria-label={`View ${activeTasks.length} active tasks`}><span>Active tasks</span><strong>{activeTasks.length}</strong><small>{tasks.filter((task) => task.route === "cloud" && !terminal.has(task.status)).length} routed to cloud</small><b>View activity →</b></a>
-          <a className="metric-card" href="#task-activity" aria-label={`View task receipts; P95 completion is ${latency(p95CompletionLatency)}`}><span>P95 completion</span><strong>{latency(p95CompletionLatency)}</strong><small>{p95CompletionLatency === null ? "Waiting for completed runs" : "Measured from real task receipts"}</small><b>View receipts →</b></a>
-          <a className="metric-card" href="#execution-safety" aria-label="Explain fenced execution safety" onClick={() => setSafetyExpanded(true)}><span>Execution safety</span><strong className="safe-copy">Fenced</strong><small>One signed runner; 90-second lease</small><b>Explain safety →</b></a>
+          <a className="metric-card" href="#web-settings" data-testid="metric-card-runner" onClick={(event) => { event.preventDefault(); openSettingsPanel(); }} aria-label={`View ${devices.length} hosted runners in settings`}><span>Hosted VPS</span><strong>{devices.length}</strong><small>{onlineDevices.length} online now</small><b>View runner →</b></a>
+          <a className="metric-card" href="#task-activity" data-testid="metric-card-activity" onClick={(event) => { event.preventDefault(); openSectionPanel("task-activity", "#task-activity", "hermes"); }} aria-label={`View ${activeTasks.length} active tasks`}><span>Active tasks</span><strong>{activeTasks.length}</strong><small>{tasks.filter((task) => task.route === "cloud" && !terminal.has(task.status)).length} routed to cloud</small><b>View activity →</b></a>
+          <a className="metric-card" href="#task-activity" data-testid="metric-card-receipts" onClick={(event) => { event.preventDefault(); openSectionPanel("task-activity", "#task-activity", "hermes"); }} aria-label={`View task receipts; P95 completion is ${latency(p95CompletionLatency)}`}><span>P95 completion</span><strong>{latency(p95CompletionLatency)}</strong><small>{p95CompletionLatency === null ? "Waiting for completed runs" : "Measured from real task receipts"}</small><b>View receipts →</b></a>
+          <a className="metric-card" href="#execution-safety" data-testid="metric-card-safety" aria-label="Explain fenced execution safety" onClick={() => setSafetyExpanded(true)}><span>Execution safety</span><strong className="safe-copy">Fenced</strong><small>One signed runner; 90-second lease</small><b>Explain safety →</b></a>
         </nav>
 
         <div className="dashboard-grid">
@@ -1915,7 +1991,7 @@ export default function DashboardClient() {
               <div className="run-output" id="run-output" data-testid="run-output" role="status" aria-live="polite">
                 <p className="eyebrow">Output</p>
                 {/* Notices + in-flight status only — completed results live in the task rows; echoing them here left stale agent output pinned under the composer. */}
-                {notice ? <p>{notice}</p> : latestVisibleTask && !latestVisibleTask.result && !latestVisibleTask.error ? <p>Running on the hosted VPS…</p> : <p>Results show here after you send.</p>}
+                {notice ? <p>{notice}<button type="button" className="run-output-dismiss" data-testid="run-output-dismiss" onClick={() => setNotice(null)} aria-label="Dismiss notice">×</button></p> : latestVisibleTask && !latestVisibleTask.result && !latestVisibleTask.error ? <p>Running on the hosted VPS…</p> : <p>Results show here after you send.</p>}
               </div>
               <div className="composer-actions">
                 {/* Fallback hidden submit button so form.requestSubmit() and soft keyboard Enter always find a submitter */}
@@ -2036,6 +2112,9 @@ export default function DashboardClient() {
               <p className="helper-copy">
                 ThumbGate executes tasks on the fenced Cloud VPS runner (90s renewable lease). No local Mac software is required. Pairing a computer stays optional below.
               </p>
+              {devices.length > 0 && (
+                <details className="paired-machines-details" data-testid="paired-machines">
+                  <summary>Paired computers (optional · {devices.length})</summary>
               {devices.map((device) => {
                 const isPreferred = device.id === selectedDeviceId;
                 return (
@@ -2085,6 +2164,8 @@ export default function DashboardClient() {
                 </article>
                 );
               })}
+                </details>
+              )}
               <details className="add-mac-details" style={{ marginTop: "1rem" }}>
                 <summary>Add another computer (optional)</summary>
                 <p className="helper-copy">
