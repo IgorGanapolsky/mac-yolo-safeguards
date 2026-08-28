@@ -17,6 +17,7 @@ in_repo:
   - garryslist-opportunity-tracker
   - gurobi-optimizer-integrator
   - hybrid-route-policy
+  - hermes-yolo-cost-autonomy
   - linear-agent-skills
   - local-media-lane
   - live-dashboard-verify

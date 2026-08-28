@@ -128,6 +128,49 @@ function testCommandEnv() {
   assert.ok(taskSignals('smoke').smoke);
 }
 
+function testRoutineUsesLocalLeaf() {
+  const r = selectRoute({
+    task: 'fix typo in README then format the file',
+    env: { ...CLEAN },
+  });
+  assert.strictEqual(r.id, 'local_leaf', r.reason);
+  assert.strictEqual(r.model, 'qwen3-hermes-tinker:q4', r.reason);
+  assert.strictEqual(r.provider, 'custom:ollama-local-64k');
+  assert.strictEqual(r.backend, 'tinker-yolo');
+  assert.ok(r.signals.routine);
+}
+
+function testAsksLocalUsesLocalLeaf() {
+  const r = selectRoute({
+    task: 'run this offline with ollama zero-cost',
+    env: { ...CLEAN },
+  });
+  assert.strictEqual(r.id, 'local_leaf', r.reason);
+  assert.strictEqual(r.model, 'qwen3-hermes-tinker:q4');
+  assert.ok(r.signals.asksLocal);
+}
+
+function testHardLocalStaysCodingDefault() {
+  const r = selectRoute({
+    task: 'debug this architecture locally with ollama',
+    env: { ...CLEAN },
+  });
+  assert.strictEqual(r.model, 'glm-coding', r.reason);
+  assert.notStrictEqual(r.id, 'local_leaf');
+  assert.ok(r.signals.hard);
+  assert.ok(r.signals.asksLocal);
+}
+
+function testLocalLeafDoesNotStealImplementLogin() {
+  assert.strictEqual(ROUTES.coding.model, 'glm-coding');
+  const r = selectRoute({
+    task: 'implement the login form validation',
+    env: { ...CLEAN },
+  });
+  assert.strictEqual(r.model, 'glm-coding', r.reason);
+  assert.notStrictEqual(r.model, 'qwen3-hermes-tinker:q4');
+}
+
 function testPolicyVersionConsistent() {
   const tasks = [
     'implement login',
@@ -153,6 +196,10 @@ function main() {
   testCyberUsesGlmWhenPreferred();
   testCyberDoesNotStealDefaultCoding();
   testCommandEnv();
+  testRoutineUsesLocalLeaf();
+  testAsksLocalUsesLocalLeaf();
+  testHardLocalStaysCodingDefault();
+  testLocalLeafDoesNotStealImplementLogin();
   testPolicyVersionConsistent();
   console.log('test-hermes-yolo-route-policy: ok');
 }
