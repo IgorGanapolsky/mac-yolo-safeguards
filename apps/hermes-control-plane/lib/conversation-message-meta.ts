@@ -62,7 +62,7 @@ export function chatOutputStatus(status: string): string {
 
 export function pendingWaitCopy(status?: string): string {
   if (status === "running") return "Hermes is working on this.";
-  return "Hermes hasn't started this yet.";
+  return "Queued — the runner picks this up within a few seconds. If it stays here, tap Run again.";
 }
 
 export function taskOutputMeta(task: ConversationTask): ConversationMessageMeta {
