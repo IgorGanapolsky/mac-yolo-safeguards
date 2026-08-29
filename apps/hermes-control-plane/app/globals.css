@@ -250,6 +250,11 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .response-feedback button:hover{border-color:rgba(34,211,238,.42);background:rgba(34,211,238,.07)}
 .response-feedback button.is-selected{border-color:rgba(34,211,238,.65);background:rgba(34,211,238,.14);box-shadow:0 0 0 2px rgba(34,211,238,.08)}
 .response-feedback a{margin-left:auto;color:var(--accent);font-weight:700}
+.message-actions{margin-top:8px;display:flex;align-items:center;gap:7px;font:10px/1 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.message-actions button{appearance:none;min-height:32px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.04);color:var(--text-secondary);cursor:pointer;font:11px/1 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.message-actions button:hover{border-color:rgba(34,211,238,.42);background:rgba(34,211,238,.07);color:var(--text)}
+.role-error .message-actions button{border-color:rgba(248,113,113,.35)}
+.role-error .message-actions button:hover{border-color:rgba(248,113,113,.65);background:rgba(239,68,68,.12)}
 .feedback-dialog textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--composer);color:var(--text);font:14px/1.5 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;resize:vertical}
 .feedback-dialog textarea:focus{outline:0;border-color:rgba(34,211,238,.55);box-shadow:0 0 0 3px rgba(34,211,238,.08)}
 .account-recovery{margin:0 14px 14px;padding:12px 14px;border:1px solid rgba(34,211,238,.2);border-radius:14px;background:rgba(34,211,238,.055);display:grid;gap:10px}

@@ -4,6 +4,7 @@ import { CSSProperties, FormEvent, MouseEvent as ReactMouseEvent, PointerEvent a
 import { createPortal } from "react-dom";
 import { BrandMark } from "../BrandMark";
 import { FormattedMessage } from "../FormattedMessage";
+import { MessageActions } from "./MessageActions";
 import { SignOutForm } from "../SignOutForm";
 import {
   DASHBOARD_CACHE_KEYS,
@@ -32,6 +33,10 @@ import {
   taskPromptMeta,
   type ConversationMessageMeta,
 } from "@/lib/conversation-message-meta";
+import {
+  humanizeTaskError,
+  isRetryableTaskError,
+} from "@/lib/message-actions";
 import {
   hasPendingConversationTasks,
   mergeConversationTasks,
@@ -1237,6 +1242,33 @@ export default function DashboardClient() {
     }
   }
 
+  /** One-tap resend for a failed exchange: refill the composer and submit. */
+  function retryTask(failedPrompt: string) {
+    setPrompt(failedPrompt);
+    focusComposer();
+    // Controlled textarea gets the new value after the next render; submit then
+    // so createTask's live read sees the retried prompt instead of stale text.
+    window.requestAnimationFrame(() => {
+      const form = composerFormRef.current;
+      if (!form) return;
+      if (typeof form.requestSubmit === "function") {
+        try { form.requestSubmit(); } catch { form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true })); }
+      } else {
+        form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+      }
+    });
+  }
+
+  /** Raw error text for a bug report — the bubble itself shows the plain-English version. */
+  async function copyErrorDetails(rawError: string) {
+    try {
+      await navigator.clipboard.writeText(rawError || "Unknown Hermes task error");
+      setNotice("Technical error details copied.");
+    } catch {
+      setNotice("Clipboard access is unavailable in this browser.");
+    }
+  }
+
   async function saveFeedback(taskId: string, signal: Feedback["signal"], note: string | null = null) {
     const current = feedback[taskId];
     setFeedbackBusyTask(taskId);
@@ -1709,7 +1741,7 @@ export default function DashboardClient() {
                 if (item.kind === "snapshot") {
                   const message = item.message;
                   return [
-                    <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`} data-timeline-index={index}><span>{message.role}</span><ConversationMeta meta={snapshotMessageMeta(message, threadDetails.syncedAt)} /><FormattedMessage text={message.content} hideToolProtocol={message.role === "assistant"} />{message.role === "assistant" && <TurnStatusline engine="Ollama (http://localhost:11434/v1/models)" ttft="<10ms" cost="$0.00" />}</article>,
+                    <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`} data-timeline-index={index}><span>{message.role}</span><ConversationMeta meta={snapshotMessageMeta(message, threadDetails.syncedAt)} /><FormattedMessage text={message.content} hideToolProtocol={message.role === "assistant"} />{message.role === "assistant" && <TurnStatusline engine="Ollama (http://localhost:11434/v1/models)" ttft="<10ms" cost="$0.00" />}{message.role === "assistant" && <MessageActions text={message.content} hideToolProtocol />}</article>,
                   ];
                 }
                 const task = item.task;
@@ -1730,8 +1762,8 @@ export default function DashboardClient() {
                     <ConversationMeta meta={taskPromptMeta(task)} />
                     <p>{task.prompt}</p>
                   </article>,
-                  task.result ? <article key={`task-result-${task.id || index}`} className="dashboard-task conversation-message role-assistant" data-testid="conversation-assistant-result"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.result} hideToolProtocol /><TurnStatusline engine={task.deviceName || (task.route === "cloud" ? "Fenced VPS · Ollama (localhost:11434)" : "Ollama (http://localhost:11434/v1/models)")} ttft={task.completedAt && task.createdAt ? latency(task.completedAt - task.createdAt) : "<10ms"} cost="$0.00" />{feedbackControls(task.id)}</article>
-                    : task.error ? <article key={`task-error-${task.id || index}`} className="conversation-message role-error"><span>Hermes error</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.error} /></article>
+                  task.result ? <article key={`task-result-${task.id || index}`} className="dashboard-task conversation-message role-assistant" data-testid="conversation-assistant-result"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.result} hideToolProtocol /><TurnStatusline engine={task.deviceName || (task.route === "cloud" ? "Fenced VPS · Ollama (localhost:11434)" : "Ollama (http://localhost:11434/v1/models)")} ttft={task.completedAt && task.createdAt ? latency(task.completedAt - task.createdAt) : "<10ms"} cost="$0.00" /><MessageActions text={task.result} hideToolProtocol />{feedbackControls(task.id)}</article>
+                    : task.error ? <article key={`task-error-${task.id || index}`} className="conversation-message role-error" data-testid="conversation-error"><span>Hermes error</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={humanizeTaskError(task.error)} /><div className="message-actions" data-testid="error-actions">{isRetryableTaskError(task.error) && <button type="button" onClick={() => retryTask(task.prompt)} aria-label="Retry this prompt">Retry</button>}<button type="button" onClick={() => void copyErrorDetails(task.error ?? "")} aria-label="Copy the technical error details">Copy details</button></div></article>
                     : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${task.id || index}`} className="conversation-message role-pending" data-testid="conversation-pending"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><p>{pendingWaitCopy(task.status)}</p></article>
                     : null,
                 ];

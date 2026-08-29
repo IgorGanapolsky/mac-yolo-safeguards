@@ -70,9 +70,9 @@ describe("task message metadata", () => {
     expect(chatOutputStatus("local_pending")).toBe("waiting");
     expect(chatOutputStatus("pending")).toBe("waiting");
     expect(chatOutputStatus("running")).toBe("working");
-    expect(pendingWaitCopy("cloud_pending")).toBe("Hermes hasn't started this yet.");
+    expect(pendingWaitCopy("cloud_pending")).toBe("Queued — the runner picks this up within a few seconds. If it stays here, tap Run again.");
     expect(pendingWaitCopy("running")).toBe("Hermes is working on this.");
-    expect(pendingWaitCopy()).toBe("Hermes hasn't started this yet.");
+    expect(pendingWaitCopy()).toBe("Queued — the runner picks this up within a few seconds. If it stays here, tap Run again.");
     expect(taskOutputMeta({ ...base, status: "cloud_pending" })).toEqual({
       status: "waiting",
       timestamp: 100,
