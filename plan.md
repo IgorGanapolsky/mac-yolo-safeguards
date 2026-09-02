@@ -3734,6 +3734,23 @@ Does not add a Continuity/RUN ON picker. Hosted VPS is default; pairing is optio
 - `apps/hermes-control-plane/tests/hosted-vps-default.test.mjs` (new)
 - `apps/hermes-control-plane/tests/frictionless-onboarding.test.mjs` (hosted-default assertions only)
 - `plan.md` (this append)
+
+## T-D1-HEALTH-LIVENESS-CACHE-20260824 (append 2026-08-24T21:20:00Z) — agent `grok-d1-health-liveness-cache`
+
+Cloudflare email 2026-08-24: D1 free-tier 5M rows read / 100k rows written per day enforced **2026-09-01**. Account `0cae7e525b9750f258704159b9bba785` regularly exceeds. 7d insights: one nested COUNT `/api/health` query ran 1754 times and read **865,801,023** rows (avg 493,615). Live 24h at implement time: 807,610 reads / 12,051 writes (under caps today). `audit_events` is 74,066 rows.
+
+**Complement AGENT-494 / Codex `codex-d1-enforcement-2018`.** Do **not** edit `db/schema.ts`, `drizzle/0007_health_query_indexes.sql`, or `tests/d1-health-query-indexes.test.mjs`. Indexes remain Codex.
+
+This slice: public GET `/api/health` is liveness-only (zero D1). Admin schema + telemetry use a 15-minute isolate TTL cache. `advertisePaid` / `turningOn` stay fail-closed via `publicHealthFromCache`. Workers Paid is **not** the fix. Linear **AGENT-497**.
+
+### File claims (§2 append)
+- `apps/hermes-control-plane/lib/d1-read-cache.ts` (new)
+- `apps/hermes-control-plane/tests/d1-read-cache.test.mjs` (new)
+- `apps/hermes-control-plane/app/api/health/route.ts` (public skip D1 + admin TTL cache only)
+- `apps/hermes-control-plane/tests/d1-health-liveness-contract.test.mjs` (new)
+- `tools/d1-free-tier-budget.js` (new)
+- `tests/test-d1-free-tier-budget.js` (new)
+- `plan.md` (this append)
 ## T-AI-NATIVE-SDLC-20260824 (append 2026-08-24T17:10:00Z) — agent `grok-ai-native-sdlc`
 
 Anthropic AI-native SDLC playbook steal (https://claude.com/blog/the-ai-native-sdlc-playbook). **Mechanics not Claude Code.** Committed artifact chain `intent.md` → `spec.md` → `plan.md` → tests/diff → `REVIEW.md` → incident draft. `AGENTS.md` is the CLAUDE.md analog. Production deploys humans-only (`productionGateWired: false`). Linear **AGENT-492**.
