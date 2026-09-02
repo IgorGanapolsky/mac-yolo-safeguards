@@ -19,6 +19,10 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 ## 1. Task Board
 
+| T-AGENTIC-PATTERN-RECEIPTS-20260826 | Add deterministic minimum-pattern selection receipts for agent tasks | released | codex-agentic-pattern-receipts | `tools/agentic-pattern-selector.js`, `tests/test-agentic-pattern-selector.js`, `tools/agent-decision-stack.js` (pattern receipt integration only), `tests/test-agent-decision-stack.js` (pattern receipt cases only), `.agents/skills/agentic-pattern-selector/**`, `docs/AGENTIC-PATTERN-RECEIPTS.md`, `plan.md` (append only) | GitHub #2143 / merged PR #2147 / Linear AGENT-561; merge `99c680017`; all GitHub checks green and three review threads resolved; root CI-parity 319 pass / 0 fail / 2 documented exclusions; independent review APPROVE; credential-shaped values rejected, valid hashes canonicalized, malformed bytes raw-hashed, invalid UTF-8 rejected, bounded depth/content-free errors/side-effect early stop verified |
+
+| T-AGENT-558-WEBMCP-READINESS-20260826 | Add a fail-closed Chrome WebMCP capability with deterministic manifest linting, isolated runtime probes, confirmation-gated consequential tools, and fleet installation | in_progress | codex-agent-558-webmcp | `.agents/skills/chrome-webmcp/**`, `plan.md` (append only) | GitHub #2137 / Linear AGENT-558; valid read and confirmation-gated write tools pass; unsafe writes and invalid schemas fail; Chrome Stable and Canary runtime probes are machine-readable; unsupported BrowserOS stays on DOM/CDP fallback; strict skill validation and focused tests pass |
+
 | T-HERMES-PHONE-MIDCYCLE-HUMAN-GUARD-20260825 | P0: prevent scheduled continuous E2E from taking over, aborting, or uninstalling Hermes Mobile when Igor begins using the physical phone after the cycle-start check | in_progress | codex-hermes-phone-midcycle-guard | `hermes-mobile/scripts/run-continuous-e2e.sh`, `tests/test-hermes-phone-user-activity-guard.js`, `plan.md` (append only) | Reproduce the 2026-08-25 12:31 overlap; re-check foreground human activity immediately before the physical-device E2E boundary even while the process tree owns the lease; prove focused contracts + shell syntax; open a PR, do not merge until required checks and review threads are green |
 | T-THUMBGATE-LANDING-INTEGRITY-20260825 | P0: repair the production StartSurfaces spacing collapse and prevent active Pro subscribers from seeing another checkout CTA | in_progress | codex-thumbgate-landing-integrity | `apps/hermes-control-plane/app/start-surfaces.module.css`, `apps/hermes-control-plane/app/HostedCheckoutCta.tsx`, `apps/hermes-control-plane/app/LandingAuthChrome.tsx`, `apps/hermes-control-plane/app/useLandingAuth.ts`, `apps/hermes-control-plane/app/useLandingAuth.test.ts`, `apps/hermes-control-plane/tests/start-surfaces.test.mjs`, `apps/hermes-control-plane/tests/hosted-hermes-checkout-cta.test.mjs`, `plan.md` (append only) | GH #2071; Linear AGENT-406 regression follow-up; prove resolved spacing tokens plus 1536x768 and 390x844 geometry, and anonymous/free/paid CTA states; do not touch dashboard chronology files |
 | T-LANDING-SIGNED-IN-NO-REPAY-20260825 | Signed-in trial/paid users must not see another Start hosted Hermes $10/mo checkout wall on the public landing | in_progress | grok-landing-signed-in-cta | `apps/hermes-control-plane/app/LandingAuthChrome.tsx`, `apps/hermes-control-plane/tests/landing-signed-in-cta.test.mjs`, `plan.md` | Session with cloudAccess → Open dashboard / Continue; anon keeps $10 CTA; prove with focused tests |
@@ -861,6 +865,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 | T-LOCAL-DOCUMENT-INDEX-20260819 | pdf-brain pattern: extend local-coding-model-selector with embedding model detection (mxbai-embed-large/nomic-embed-text) + create local-document-index.js (PDF/MD text extraction, Ollama /api/embeddings, JSONL vector store, cosine similarity search) | done | claude-code | `tools/local-coding-model-selector.js` (extended), `tools/local-document-index.js` (new), `tests/test-local-coding-model-selector.js` (extended), `tests/test-local-document-index.js` (new), `plan.md` | 61/61 tests pass (29 + 32); CodeQL pattern gate 0 findings; CI all green; PR #1879 merged at 2026-08-19T17:56:10Z (commit b5f9e6c); strict:true merge squash onto origin/main
 | T-MCP-CONNECTOR-GOVERNANCE-20260819 | NewStack Mistral MCP connector migration article: build MCP connector governance checker with server risk assessment + prompt injection scanner (no auto-migration, operator trust, caching/perms unclear) | in_progress | claude-code | `tools/mcp-connector-gate.js` (new), `tests/test-mcp-connector-gate.js` (new), `plan.md` | Implementing from origin/main at 548e33710 |
 ## 2. File Ownership Map (append-only lock table — claim before touching)
+
+| `.agents/skills/chrome-webmcp/**` | codex-agent-558-webmcp | 2026-08-26T21:39:01Z |
 
 - `apps/hermes-control-plane/app/start-surfaces.module.css`, `apps/hermes-control-plane/app/HostedCheckoutCta.tsx`, `apps/hermes-control-plane/app/LandingAuthChrome.tsx`, `apps/hermes-control-plane/app/useLandingAuth.ts`, `apps/hermes-control-plane/app/useLandingAuth.test.ts`, `apps/hermes-control-plane/tests/start-surfaces.test.mjs`, `apps/hermes-control-plane/tests/hosted-hermes-checkout-cta.test.mjs`, `plan.md` (append only) → **codex-thumbgate-landing-integrity** (T-THUMBGATE-LANDING-INTEGRITY-20260825 / GH #2071 / Linear AGENT-406: restore production landing spacing and make checkout surfaces paid-plan aware through one shared auth-state decision without touching dashboard chronology files) (2026-08-25T14:47:00Z)
 - `tests/test-social-campaign-ds.js`, `plan.md` (append only) → **codex-agent-467-pr-hygiene** (T-AGENT-467-SOCIAL-CAMPAIGN-DATE-FIXTURE: fix the 2026-08-24 calendar rollover in test fixtures only; production scoreboard remains untouched) (2026-08-24T15:30:00Z)
@@ -3760,6 +3766,17 @@ Does **not** clone Claude Code evals YAML, MDM managed settings, Western Electri
 - `REVIEW.md` (new)
 - `SKILLS.md` (append row)
 - `.agents/skills/sources.yml` (append in_repo name)
+- `plan.md` (this append)
+
+## T-MOBILE-PROMPT-REACHABLE-20260824 (append 2026-08-24T21:50:00Z) — agent `grok-mobile-prompt-reachable`
+
+CEO phone: Real Estate chat shows synced prose + “No web tasks / Write a task” and **no textarea**. 100dvh Hermes shell + 42dvh conversation min-height + empty CTA clipped the composer. CSS-only. Supersedes DIRTY #2005.
+
+Linear **AGENT-515**. Do not steal AGENT-476 DashboardClient/statusline. No Continuity.
+
+### File claims
+- `apps/hermes-control-plane/app/globals.css` (Hermes mobile shell + empty-state CTA hide + composer grid)
+- `apps/hermes-control-plane/tests/dashboard-mobile-composer-reachable.test.mjs` (new)
 - `plan.md` (this append)
 
 ## Ownership audit and file claim (append 2026-08-24T21:27:00Z) — `codex-eslint10-hotfix`
