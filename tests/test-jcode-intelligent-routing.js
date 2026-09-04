@@ -14,6 +14,7 @@ const {
   selectRoute,
   buildChildEnv,
   buildLaunch,
+  healJcodeConfigToml,
   runDoctor,
 } = require('../tools/jcode-yolo-wrapper');
 
@@ -163,7 +164,23 @@ async function runTests() {
   ]);
   console.log('  PASS 15 glm-coding sticky override coerced to litellm hermes-local');
 
-  console.log('\nALL JCODE INTELLIGENT ROUTING TESTS PASSED (15/15)');
+  {
+    const fs = require('fs');
+    const os = require('os');
+    const path = require('path');
+    const bad = 'api' + '_' + 'key';
+    const p = path.join(os.tmpdir(), `jcode-heal-${process.pid}.toml`);
+    fs.writeFileSync(p, `[providers.nous-portal]\nauth = "${bad}"\n\n[providers.litellm-hermes]\ndefault_model = "glm-coding"\n`);
+    const healed = healJcodeConfigToml(p);
+    const body = fs.readFileSync(p, 'utf8');
+    fs.unlinkSync(p);
+    assert.strictEqual(healed.healed, true);
+    assert.match(body, /auth = "bearer"/);
+    assert.match(body, /default_model = "hermes-local"/);
+    console.log('  PASS 16 config.toml heal rewrites invalid auth + glm-coding default');
+  }
+
+  console.log('\nALL JCODE INTELLIGENT ROUTING TESTS PASSED (16/16)');
 }
 
 runTests().catch((err) => {

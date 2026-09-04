@@ -23,10 +23,37 @@ const { spawn, spawnSync } = require('child_process');
 
 const HOME = os.homedir();
 const JCODE_BIN = process.env.JCODE_BIN || path.join(HOME, '.local', 'bin', 'jcode');
+const JCODE_CONFIG_PATH = process.env.JCODE_CONFIG || path.join(HOME, '.jcode', 'config.toml');
 const HERMES_ENV_PATH = process.env.HERMES_ENV_PATH || path.join(HOME, '.hermes', '.env');
 const RECEIPT_DIR = process.env.JCODE_RECEIPT_DIR || path.join(HOME, '.jcode', 'receipts', 'jcode-yolo');
 const LATEST_RECEIPT_PATH = path.join(RECEIPT_DIR, 'latest.json');
 
+/**
+ * JCode v0.81+ rejects auth="api_key" (only bearer|header|none).
+ * Heal before spawn so a stale config.toml cannot hard-crash every launch.
+ */
+function healJcodeConfigToml(configPath = JCODE_CONFIG_PATH) {
+  try {
+    if (!fs.existsSync(configPath)) return { healed: false, reason: 'missing' };
+    const before = fs.readFileSync(configPath, 'utf8');
+    let after = before.replace(
+      /^(\s*auth\s*=\s*)(["']?)api_key\2/gim,
+      '$1"bearer"',
+    );
+    // Keep litellm default on hermes-local while Z.ai latch is exhausted (Novita glm-coding = empty content).
+    if (/\[providers\.litellm-hermes\]/.test(after) && /default_model\s*=\s*["']glm-coding["']/.test(after)) {
+      after = after.replace(
+        /(\[providers\.litellm-hermes\][\s\S]*?default_model\s*=\s*)(["'])glm-coding\2/m,
+        '$1$2hermes-local$2',
+      );
+    }
+    if (after === before) return { healed: false, reason: 'clean' };
+    fs.writeFileSync(configPath, after, 'utf8');
+    return { healed: true, reason: 'rewrote-invalid-auth-or-glm-coding-default' };
+  } catch (error) {
+    return { healed: false, reason: `heal-failed:${error.code || error.message}` };
+  }
+}
 const MONTHLY_BUDGET_USD = 10.00;
 const CLOSED_INHERITED_PROVIDERS = new Set([
   'openai', 'openai-api', 'claude', 'anthropic', 'anthropic-api',
@@ -551,6 +578,10 @@ function runDoctor(json = false, env = process.env, options = {}) {
 
 function main() {
   const args = process.argv.slice(2);
+  const heal = healJcodeConfigToml();
+  if (heal.healed) {
+    console.error(`[jcode-yolo] Healed ${JCODE_CONFIG_PATH}: ${heal.reason}`);
+  }
   if (args[0] === 'doctor' || args[0] === '--doctor') {
     const result = runDoctor(args.includes('--json'));
     process.exit(result.exitCode);
@@ -631,6 +662,7 @@ module.exports = {
   buildChildEnv,
   buildLaunch,
   classifyPrompt,
+  healJcodeConfigToml,
   makeReceipt,
   resolveJcodeConfig,
   resolveJcodeRouting: resolveJcodeConfig,
