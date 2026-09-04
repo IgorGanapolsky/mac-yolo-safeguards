@@ -40,3 +40,27 @@ Never print the key. Never paste it into chat.
 - `tools.approvalMode` in `~/.qwen/settings.json` is forced to `yolo` on launch.
 - Zero-spend marker `~/.hermes/NO_PAID_SPEND` → exit 73 (use `--infer --local`).
 - Alias: `qy` → `qwen-yolo` (zshrc).
+
+## Failure: "no skills / can't view screenshots"
+
+Symptom: stderr shows `token-plan/… quota exhausted` → `openrouter/… credits exhausted` → `[mlx/…]`, then the model claims it cannot read files/images.
+
+Cause: a **stale Python completion REPL** (old `qwen-yolo` / current `qwen-yolo-infer`). That path has **no tools**. Ghostty tabs keep the old process after the binary is replaced (inode stays mapped).
+
+Heal (agent does this — do not ask the user):
+
+```bash
+pkill -f 'Python.*qwen-yolo' || true
+pkill -f qwen-yolo-infer || true
+qwen-yolo --doctor   # expect READY (full YOLO)
+# new Ghostty: open -na Ghostty --args -e "$HOME/.local/bin/qwen-yolo"
+```
+
+Proof of tools/vision (same turn):
+
+```bash
+qwen-yolo -z 'Use shell to run: pwd. Reply with only the path.'
+# expect absolute cwd
+qwen-yolo -z "Read image …/Screenshot….png and extract the token-plan model name"
+# expect qwen3.8-max (or whatever is in the image)
+```

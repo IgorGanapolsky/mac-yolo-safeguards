@@ -244,7 +244,8 @@ main() {
   fi
   child+=("${passthrough[@]}")
 
-  echo "qwen-yolo: launching ${bin##*/} model=$model mode=$([ "$safe" -eq 1 ] && echo safe || echo yolo)" >&2
+  echo "qwen-yolo: AGENT YOLO (tools+skills+vision) launching ${bin##*/} model=$model mode=$([ "$safe" -eq 1 ] && echo safe || echo yolo)" >&2
+  echo "qwen-yolo: if you see token-plan/OpenRouter→MLX lines, you are on --infer (no tools) — Ctrl-C and rerun plain qwen-yolo" >&2
   exec "${child[@]}"
 }
 
