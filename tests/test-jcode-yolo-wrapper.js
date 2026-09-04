@@ -14,6 +14,7 @@ const keys = {
   disableKeychain: true,
   budgetAllowsPaid: true,
   jcodeBin: process.execPath,
+  zaiQuotaExhausted: false,
 };
 
 {

@@ -23,10 +23,37 @@ const { spawn, spawnSync } = require('child_process');
 
 const HOME = os.homedir();
 const JCODE_BIN = process.env.JCODE_BIN || path.join(HOME, '.local', 'bin', 'jcode');
+const JCODE_CONFIG_PATH = process.env.JCODE_CONFIG || path.join(HOME, '.jcode', 'config.toml');
 const HERMES_ENV_PATH = process.env.HERMES_ENV_PATH || path.join(HOME, '.hermes', '.env');
 const RECEIPT_DIR = process.env.JCODE_RECEIPT_DIR || path.join(HOME, '.jcode', 'receipts', 'jcode-yolo');
 const LATEST_RECEIPT_PATH = path.join(RECEIPT_DIR, 'latest.json');
 
+/**
+ * JCode v0.81+ rejects auth="api_key" (only bearer|header|none).
+ * Heal before spawn so a stale config.toml cannot hard-crash every launch.
+ */
+function healJcodeConfigToml(configPath = JCODE_CONFIG_PATH) {
+  try {
+    if (!fs.existsSync(configPath)) return { healed: false, reason: 'missing' };
+    const before = fs.readFileSync(configPath, 'utf8');
+    let after = before.replace(
+      /^(\s*auth\s*=\s*)(["']?)api_key\2/gim,
+      '$1"bearer"',
+    );
+    // Keep litellm default on hermes-local while Z.ai latch is exhausted (Novita glm-coding = empty content).
+    if (/\[providers\.litellm-hermes\]/.test(after) && /default_model\s*=\s*["']glm-coding["']/.test(after)) {
+      after = after.replace(
+        /(\[providers\.litellm-hermes\][\s\S]*?default_model\s*=\s*)(["'])glm-coding\2/m,
+        '$1$2hermes-local$2',
+      );
+    }
+    if (after === before) return { healed: false, reason: 'clean' };
+    fs.writeFileSync(configPath, after, 'utf8');
+    return { healed: true, reason: 'rewrote-invalid-auth-or-glm-coding-default' };
+  } catch (error) {
+    return { healed: false, reason: `heal-failed:${error.code || error.message}` };
+  }
+}
 const MONTHLY_BUDGET_USD = 10.00;
 const CLOSED_INHERITED_PROVIDERS = new Set([
   'openai', 'openai-api', 'claude', 'anthropic', 'anthropic-api',
@@ -41,6 +68,32 @@ const ROUTES = Object.freeze({
     costClass: 'subscription',
     estimatedCostUsd: 0.00,
     description: 'Zhipu GLM-5.3 Coding Plan ($0 marginal, CyberGym 84.5%)',
+  }),
+  glm53_openrouter: Object.freeze({
+    id: 'glm53_openrouter',
+    provider: 'openrouter',
+    model: 'z-ai/glm-5.3',
+    costClass: 'metered',
+    estimatedCostUsd: 0.02,
+    description: 'GLM-5.3 via OpenRouter when Z.AI Coding Plan quota exhausted',
+  }),
+  glm_litellm: Object.freeze({
+    id: 'glm_litellm',
+    provider: 'litellm-hermes',
+    providerProfile: 'litellm-hermes',
+    model: 'glm-coding',
+    costClass: 'subscription',
+    estimatedCostUsd: 0.00,
+    description: 'Fleet LiteLLM glm-coding (localhost proxy — often Novita thinking-only / empty content)',
+  }),
+  hermes_local_litellm: Object.freeze({
+    id: 'hermes_local_litellm',
+    provider: 'litellm-hermes',
+    providerProfile: 'litellm-hermes',
+    model: 'hermes-local',
+    costClass: 'local',
+    estimatedCostUsd: 0.00,
+    description: 'Fleet LiteLLM hermes-local (Ollama; reliable tool-calling)',
   }),
   mimo_pro: Object.freeze({
     id: 'mimo_pro',
@@ -74,6 +127,14 @@ const ROUTES = Object.freeze({
     estimatedCostUsd: 0.001,
     description: 'ByteDance Seed 2.1 Turbo fast edits',
   }),
+  gemini37_flash: Object.freeze({
+    id: 'gemini37_flash',
+    provider: 'openrouter',
+    model: 'google/gemini-3.7-flash',
+    costClass: 'metered_cheap',
+    estimatedCostUsd: 0.001,
+    description: 'Google Gemini 3.7 Flash hybrid reasoning & 1M context ($0.375/M)',
+  }),
   gpt_sol: Object.freeze({
     id: 'gpt_sol',
     provider: 'openai',
@@ -85,7 +146,7 @@ const ROUTES = Object.freeze({
   local: Object.freeze({
     id: 'local',
     provider: 'ollama',
-    model: 'qwen3.5:9b-hermes-64k',
+    model: 'qwen2.5:3b-hermes-64k',
     costClass: 'local',
     estimatedCostUsd: 0.00,
     description: 'Local Ollama zero-cost fallback',
@@ -107,6 +168,7 @@ const AGENTIC_HORIZON_RE = /\b(long[- ]horizon|multi[- ]step agent|deep refactor
 const MULTIMODAL_RE = /\b(multimodal|video|image|photo|audio|vision|render|media extract|asset)\b/i;
 const FAST_ROUTINE_RE = /\b(quick|small|simple|boilerplate|format|rename|typo|summari[sz]e|regex|unit[- ]test|helper|one[- ]line|fast fix)\b/i;
 const EXPLICIT_GPT_RE = /\b(gpt[- ]?5|gpt[- ]?sol|openai|chatgpt)\b/i;
+const GEMINI_RE = /\b(gemini|gemini[- ]?3\.7|gemini[- ]?flash|hybrid reasoning|thinking level)\b/i;
 const BALANCED_CODING_RE = /\b(implement|code|build|feature|function|class|handler|route|api|endpoint|typescript|javascript|python|rust|swift|sql)\b/i;
 
 let openrouterGuard;
@@ -162,6 +224,7 @@ function classifyPrompt(prompt = '') {
   const text = String(prompt).trim();
   if (SENSITIVE_RE.test(text)) return { routeId: 'local', reason: 'sensitive-local' };
   if (CYBER_SECURITY_RE.test(text)) return { routeId: 'glm53', reason: 'cyber-security-audit-84.5%' };
+  if (GEMINI_RE.test(text)) return { routeId: 'gemini37_flash', reason: 'gemini-3.7-flash-hybrid-reasoning' };
   if (MULTIMODAL_RE.test(text)) return { routeId: 'minimax_m3', reason: 'multimodal-vision-media' };
   if (AGENTIC_HORIZON_RE.test(text)) return { routeId: 'mimo_pro', reason: 'agentic-long-horizon-1m' };
   if (FAST_ROUTINE_RE.test(text)) return { routeId: 'seed_turbo', reason: 'fast-autonomous-boilerplate' };
@@ -170,11 +233,19 @@ function classifyPrompt(prompt = '') {
   return { routeId: 'glm53', reason: text ? 'default-flagship-coding-plan' : 'interactive-glm53-not-sol' };
 }
 
+function resolveLitellmRoute(model) {
+  const id = String(model || '').trim().toLowerCase();
+  if (id === 'hermes-local' || id === 'vision-local') return ROUTES.hermes_local_litellm;
+  if (id === 'glm-coding' || id === 'nous-deepseek') return ROUTES.glm_litellm;
+  return null;
+}
+
 function inferProvider(model) {
   if (!model) return null;
+  if (resolveLitellmRoute(model)) return 'litellm-hermes';
   if (/^glm-5\.3$/i.test(model)) return 'zai';
   if (/^gpt-/i.test(model)) return 'openai';
-  if (/^(mimo|qwen3\.7|minimax|seed|claude|deepseek)/i.test(model) || model.includes('/')) return 'openrouter';
+  if (/^(mimo|qwen3\.7|minimax|seed|claude|deepseek|google\/gemini|gemini)/i.test(model) || model.includes('/')) return 'openrouter';
   if (/^(qwen|glm4|gemma|phi|ornith)[^/]*:/i.test(model)) return 'ollama';
   return null;
 }
@@ -200,6 +271,41 @@ function readBudgetPacing(options = {}) {
   }
 }
 
+const ZAI_QUOTA_FILE = process.env.ZAI_QUOTA_FILE || path.join(HOME, '.jcode', 'zai_quota_status.json');
+const TMP_ZAI_QUOTA_FILE = '/tmp/zai_quota_status.json';
+
+function checkZaiQuotaStatus(options = {}) {
+  if (options.zaiQuotaExhausted === true) return { available: false, reason: 'options-quota-exhausted' };
+  if (options.zaiQuotaExhausted === false) return { available: true };
+  if (process.env.ZAI_QUOTA_EXHAUSTED === '1' || process.env.ZAI_DISABLED === '1') {
+    return { available: false, reason: 'env-disabled' };
+  }
+  const candidateFiles = [
+    options.zaiQuotaFile,
+    ZAI_QUOTA_FILE,
+    TMP_ZAI_QUOTA_FILE,
+  ].filter(Boolean);
+
+  for (const filePath of candidateFiles) {
+    try {
+      if (fs.existsSync(filePath)) {
+        const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        if (data && data.quotaExhausted) {
+          if (data.resetAt) {
+            const resetTime = new Date(data.resetAt).getTime();
+            if (!Number.isNaN(resetTime) && resetTime > Date.now()) {
+              return { available: false, reason: `quota-exhausted-until-${data.resetAt}` };
+            }
+          } else {
+            return { available: false, reason: 'quota-exhausted' };
+          }
+        }
+      }
+    } catch { /* ignore */ }
+  }
+  return { available: true };
+}
+
 function selectRoute(prompt = '', env = process.env, options = {}) {
   const zaiKey = options.zaiKey !== undefined
     ? options.zaiKey
@@ -209,6 +315,8 @@ function selectRoute(prompt = '', env = process.env, options = {}) {
     : loadKey(['OPENROUTER_API_KEY'], 'hermes-agent-secrets', env, options);
   const pacing = readBudgetPacing(options);
   const allowPaid = budgetAllowsPaid({ ...options, budgetPacing: pacing });
+  const zaiStatus = checkZaiQuotaStatus(options);
+  const zaiAvailable = Boolean(zaiKey && zaiStatus.available);
 
   const requestedProvider = env.JCODE_ROUTE_PROVIDER && env.JCODE_ROUTE_PROVIDER !== 'auto'
     ? env.JCODE_ROUTE_PROVIDER.toLowerCase()
@@ -219,7 +327,29 @@ function selectRoute(prompt = '', env = process.env, options = {}) {
 
   // Inherited JCODE_DEFAULT_PROVIDER=openai is NOT an explicit request.
   if (requestedProvider || requestedModel) {
-    const provider = requestedProvider || inferProvider(requestedModel) || 'zai';
+    const litellmRoute = resolveLitellmRoute(requestedModel);
+    const wantsLitellm = !requestedProvider
+      || requestedProvider === 'litellm-hermes'
+      || requestedProvider === 'litellm'
+      || requestedProvider === 'hermes';
+    // glm-coding via Novita returns empty content; coerce sticky/explicit glm-coding → hermes-local.
+    if (litellmRoute && wantsLitellm) {
+      const coerced = requestedModel && /^glm-coding$/i.test(requestedModel)
+        ? ROUTES.hermes_local_litellm
+        : litellmRoute;
+      return {
+        ...coerced,
+        reason: coerced.id === 'hermes_local_litellm' && /^glm-coding$/i.test(String(requestedModel || ''))
+          ? 'explicit-user-override-coerced-glm-coding-to-hermes-local'
+          : 'explicit-user-override',
+        zaiKey,
+        zaiAvailable,
+        openrouterKey,
+        budgetPacing: pacing,
+        inheritedDefaultQuarantined: CLOSED_INHERITED_PROVIDERS.has(String(env.JCODE_DEFAULT_PROVIDER || '').toLowerCase()),
+      };
+    }
+    const provider = requestedProvider || inferProvider(requestedModel) || 'ollama';
     const model = requestedModel || (provider === 'zai' ? 'glm-5.3' : provider === 'ollama' ? ROUTES.local.model : 'glm-5.3');
     return {
       id: 'explicit',
@@ -229,6 +359,7 @@ function selectRoute(prompt = '', env = process.env, options = {}) {
       estimatedCostUsd: provider === 'ollama' || provider === 'zai' || provider === 'openai' ? 0.00 : 0.01,
       reason: 'explicit-user-override',
       zaiKey,
+      zaiAvailable,
       openrouterKey,
       budgetPacing: pacing,
       inheritedDefaultQuarantined: CLOSED_INHERITED_PROVIDERS.has(String(env.JCODE_DEFAULT_PROVIDER || '').toLowerCase()),
@@ -236,28 +367,36 @@ function selectRoute(prompt = '', env = process.env, options = {}) {
   }
 
   const classification = classifyPrompt(prompt);
-  let route = ROUTES[classification.routeId] || ROUTES.glm53;
+  let route = ROUTES[classification.routeId] || (zaiAvailable ? ROUTES.glm53 : ROUTES.local);
   let reason = classification.reason;
 
   if (route.provider === 'openrouter') {
     if (!openrouterKey || !allowPaid) {
-      if (zaiKey) {
+      if (zaiAvailable) {
         route = ROUTES.glm53;
         reason = `${classification.reason}-openrouter-budget-fallback-to-glm53`;
       } else {
-        route = ROUTES.local;
-        reason = `${classification.reason}-openrouter-budget-fallback-to-local`;
+        // OpenRouter credits at $0 (402) + Z.ai exhausted → hermes-local, not raw Ollama mistarget.
+        route = ROUTES.hermes_local_litellm;
+        reason = `${classification.reason}-openrouter-budget-fallback-to-hermes-local`;
       }
     }
-  } else if (route.provider === 'zai' && !zaiKey) {
-    route = ROUTES.local;
-    reason = `${classification.reason}-zai-missing-key-fallback-to-local`;
+  } else if (route.provider === 'zai' && !zaiAvailable) {
+    // 2026-09-04: Z.AI coding-plan latched exhausted; OpenRouter balance hit 402
+    // ("can only afford 0"); glm-coding via Novita returns content:null → empty
+    // guardrail turns. Always fall through to hermes-local (proven HTTP 200).
+    route = ROUTES.hermes_local_litellm;
+    reason = `${classification.reason}-zai-${!zaiKey ? 'missing-key' : 'quota-exhausted'}-fallback-to-hermes-local`;
+  } else if (route.provider === 'openrouter' && !openrouterKey) {
+    route = ROUTES.hermes_local_litellm;
+    reason = `${classification.reason}-openrouter-missing-key-fallback-to-hermes-local`;
   }
 
   return {
     ...route,
     reason,
     zaiKey,
+    zaiAvailable,
     openrouterKey,
     budgetPacing: pacing,
     inheritedDefaultQuarantined: CLOSED_INHERITED_PROVIDERS.has(String(env.JCODE_DEFAULT_PROVIDER || '').toLowerCase()),
@@ -270,6 +409,7 @@ function resolveJcodeConfig(env = process.env, prompt = '', options = {}) {
     ...route,
     hasJcodeBin: fs.existsSync(options.jcodeBin || JCODE_BIN),
     jcodeBin: options.jcodeBin || JCODE_BIN,
+    monthlyBudgetUsd: MONTHLY_BUDGET_USD,
     monthlyMeteredBudgetUsd: MONTHLY_BUDGET_USD,
   };
 }
@@ -283,7 +423,15 @@ function isAdminArgv(args = []) {
 }
 
 function buildLaunch(route, args = []) {
-  const selection = ['--provider', route.provider, '--model', route.model, '--no-update'];
+  const selection = [];
+  // Named [providers.<name>] profiles must use --provider-profile (implies openai-compatible).
+  // Passing --provider litellm-hermes is rejected by the CLI enum.
+  if (route.providerProfile || route.provider === 'litellm-hermes' || route.id === 'glm_litellm') {
+    const profile = route.providerProfile || 'litellm-hermes';
+    selection.push('--provider-profile', profile, '--model', route.model, '--no-update');
+  } else {
+    selection.push('--provider', route.provider, '--model', route.model, '--no-update');
+  }
   if (!args.length) {
     return { mode: 'interactive', prompt: '', childArgs: selection };
   }
@@ -430,6 +578,10 @@ function runDoctor(json = false, env = process.env, options = {}) {
 
 function main() {
   const args = process.argv.slice(2);
+  const heal = healJcodeConfigToml();
+  if (heal.healed) {
+    console.error(`[jcode-yolo] Healed ${JCODE_CONFIG_PATH}: ${heal.reason}`);
+  }
   if (args[0] === 'doctor' || args[0] === '--doctor') {
     const result = runDoctor(args.includes('--json'));
     process.exit(result.exitCode);
@@ -459,7 +611,7 @@ function main() {
   if (userModel) process.env.JCODE_ROUTE_MODEL = userModel;
   if (userProvider) process.env.JCODE_ROUTE_PROVIDER = userProvider;
 
-  const preview = buildLaunch({ provider: 'zai', model: 'glm-5.3' }, filteredArgs);
+  const preview = buildLaunch({ provider: 'ollama', model: 'qwen3.5:9b-hermes-32k' }, filteredArgs);
   const prompt = preview.prompt;
   let config;
   try {
@@ -510,8 +662,10 @@ module.exports = {
   buildChildEnv,
   buildLaunch,
   classifyPrompt,
+  healJcodeConfigToml,
   makeReceipt,
   resolveJcodeConfig,
+  resolveJcodeRouting: resolveJcodeConfig,
   runDoctor,
   selectRoute,
   writeReceipt,
