@@ -22,6 +22,7 @@ const keys = {
   openrouterKey: 'test-openrouter-key',
   disableKeychain: true,
   budgetAllowsPaid: true,
+  zaiQuotaExhausted: false,
 };
 
 const inheritedOpenai = {
@@ -71,7 +72,7 @@ async function runTests() {
   assert.strictEqual(localClass.routeId, 'local');
   const localRoute = selectRoute('Audit customer pii and private key', inheritedOpenai, keys);
   assert.strictEqual(localRoute.provider, 'ollama');
-  assert.strictEqual(localRoute.model, 'qwen3.5:9b-hermes-64k');
+  assert.strictEqual(localRoute.model, ROUTES.local.model);
   console.log('  PASS 6 sensitive -> local');
 
   const gptClass = classifyPrompt('Use gpt sol for this formal proof');
@@ -101,6 +102,7 @@ async function runTests() {
     openrouterKey: null,
     disableKeychain: true,
     budgetAllowsPaid: false,
+    zaiQuotaExhausted: false,
   });
   assert.strictEqual(fallback.provider, 'zai');
   assert.strictEqual(fallback.model, 'glm-5.3');
@@ -133,7 +135,35 @@ async function runTests() {
   assert.ok(ROUTES.gpt_sol);
   console.log('  PASS 13 doctor: Sol not pinned, child env zai/glm-5.3');
 
-  console.log('\nALL JCODE INTELLIGENT ROUTING TESTS PASSED (13/13)');
+  const exhausted = selectRoute('', inheritedOpenai, {
+    zaiKey: 'test-zai-key',
+    openrouterKey: 'test-or-key',
+    disableKeychain: true,
+    budgetAllowsPaid: true,
+    zaiQuotaExhausted: true,
+  });
+  assert.strictEqual(exhausted.provider, 'litellm-hermes');
+  assert.strictEqual(exhausted.model, 'hermes-local');
+  assert.strictEqual(exhausted.providerProfile, 'litellm-hermes');
+  assert.match(exhausted.reason, /fallback-to-hermes-local/);
+  console.log('  PASS 14 zai exhausted -> hermes-local (not Novita glm-coding / OpenRouter)');
+
+  const coerced = selectRoute('ping', { JCODE_ROUTE_MODEL: 'glm-coding' }, {
+    zaiKey: 'test-zai-key',
+    openrouterKey: 'test-or-key',
+    disableKeychain: true,
+    budgetAllowsPaid: true,
+    zaiQuotaExhausted: true,
+  });
+  assert.strictEqual(coerced.model, 'hermes-local');
+  assert.match(coerced.reason, /coerced-glm-coding-to-hermes-local/);
+  const coercedLaunch = buildLaunch(coerced, []);
+  assert.deepStrictEqual(coercedLaunch.childArgs.slice(0, 5), [
+    '--provider-profile', 'litellm-hermes', '--model', 'hermes-local', '--no-update',
+  ]);
+  console.log('  PASS 15 glm-coding sticky override coerced to litellm hermes-local');
+
+  console.log('\nALL JCODE INTELLIGENT ROUTING TESTS PASSED (15/15)');
 }
 
 runTests().catch((err) => {
