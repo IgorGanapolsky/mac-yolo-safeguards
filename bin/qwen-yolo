@@ -1,0 +1,251 @@
+#!/usr/bin/env bash
+# qwen-yolo — official Qwen Code CLI in FULL YOLO mode.
+#
+# Wraps `@qwen-code/qwen-code` (same stack as Qwen Coder Mac app / Desktop),
+# not a bare chat-completions re-router. Mirrors kimi-yolo:
+#   qwen-yolo                 interactive TUI, auto-approves all tools
+#   qwen-yolo -p / -z "…"     headless one-shot, YOLO
+#   qwen-yolo --infer …       legacy cloud→local inference CLI (qwen-yolo-infer)
+#   qwen-yolo --doctor        binary + auth + YOLO settings health
+#   qwen-yolo --safe …        least-privilege for this run only
+#
+# Auth: DASHSCOPE_API_KEY from ~/.qwen/.env (Mac app), Keychain, or ~/.hermes/.env.
+# Never prints secrets.
+set -euo pipefail
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.npm-global/bin:$HOME/.local/bin:/usr/bin:/bin:$PATH"
+
+QWEN_HOME="${QWEN_CODE_HOME:-$HOME/.qwen}"
+SETTINGS="$QWEN_HOME/settings.json"
+QWEN_ENV_FILE="$QWEN_HOME/.env"
+HERMES_ENV_FILE="${HERMES_ENV_PATH:-$HOME/.hermes/.env}"
+INFER_BIN="${QWEN_YOLO_INFER_BIN:-$HOME/.local/bin/qwen-yolo-infer}"
+MODEL="${QWEN_YOLO_MODEL:-qwen3-coder-plus}"
+DASHSCOPE_BASE="${QWEN_YOLO_BASE_URL:-https://dashscope-intl.aliyuncs.com/compatible-mode/v1}"
+MARKER="${HERMES_ZERO_SPEND_MARKER:-$HOME/.hermes/NO_PAID_SPEND}"
+
+die() { echo "qwen-yolo: $*" >&2; exit 2; }
+
+resolve_qwen() {
+  local c
+  for c in "${QWEN_BIN:-}" \
+    "$HOME/.npm-global/bin/qwen" \
+    "$(command -v qwen 2>/dev/null || true)"; do
+    [ -n "$c" ] && [ -x "$c" ] && { printf '%s\n' "$c"; return 0; }
+  done
+  return 1
+}
+
+load_key_from_file() {
+  local file="$1" name="$2" line val
+  [ -f "$file" ] || return 1
+  line="$(grep -E "^${name}=" "$file" 2>/dev/null | tail -1 || true)"
+  [ -n "$line" ] || return 1
+  val="${line#*=}"
+  val="${val%\"}"
+  val="${val#\"}"
+  val="${val%\'}"
+  val="${val#\'}"
+  printf '%s' "$val"
+  return 0
+}
+
+load_dashscope_key() {
+  local k=""
+  if [ -n "${DASHSCOPE_API_KEY:-}" ]; then
+    printf '%s' "$DASHSCOPE_API_KEY"
+    return 0
+  fi
+  k="$(load_key_from_file "$QWEN_ENV_FILE" DASHSCOPE_API_KEY || true)"
+  if [ -n "$k" ]; then printf '%s' "$k"; return 0; fi
+  k="$(/usr/bin/security find-generic-password -s DASHSCOPE_API_KEY -w 2>/dev/null || true)"
+  if [ -n "$k" ]; then printf '%s' "$k"; return 0; fi
+  k="$(load_key_from_file "$HERMES_ENV_FILE" DASHSCOPE_API_KEY || true)"
+  if [ -n "$k" ]; then printf '%s' "$k"; return 0; fi
+  return 1
+}
+
+ensure_yolo_settings() {
+  mkdir -p "$QWEN_HOME"
+  if [ ! -f "$SETTINGS" ]; then
+    cat >"$SETTINGS" <<EOF
+{
+  "\$version": 4,
+  "model": { "name": "$MODEL" },
+  "tools": { "approvalMode": "yolo" },
+  "security": { "auth": { "selectedType": "openai" } },
+  "modelProviders": {
+    "openai": [
+      {
+        "id": "qwen3-coder-plus",
+        "name": "qwen3-coder-plus (Alibaba DashScope Singapore)",
+        "baseUrl": "$DASHSCOPE_BASE",
+        "description": "Qwen3 Coder Plus Flagship Coding",
+        "envKey": "DASHSCOPE_API_KEY"
+      }
+    ]
+  }
+}
+EOF
+    return 0
+  fi
+  # Pin tools.approvalMode=yolo without clobbering the rest of settings.json.
+  python3 - "$SETTINGS" <<'PY'
+import json, sys
+path = sys.argv[1]
+with open(path, "r", encoding="utf-8") as f:
+    data = json.load(f)
+tools = data.setdefault("tools", {})
+if tools.get("approvalMode") != "yolo":
+    tools["approvalMode"] = "yolo"
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+    print("qwen-yolo: set tools.approvalMode=yolo in settings.json", file=sys.stderr)
+PY
+}
+
+export_auth_env() {
+  local key
+  key="$(load_dashscope_key)" || die "no DASHSCOPE_API_KEY (Qwen Mac app ~/.qwen/.env, Keychain, or ~/.hermes/.env)"
+  export DASHSCOPE_API_KEY="$key"
+  # Qwen Code openai-compatible path also honors OPENAI_* when selectedType=openai.
+  export OPENAI_API_KEY="${OPENAI_API_KEY:-$key}"
+  export OPENAI_BASE_URL="${OPENAI_BASE_URL:-$DASHSCOPE_BASE}"
+  export OPENAI_MODEL="${OPENAI_MODEL:-$MODEL}"
+}
+
+doctor() {
+  local bin key mode ver ok=1
+  echo "qwen-yolo — official Qwen Code YOLO health"
+  echo "============================================================"
+  if bin="$(resolve_qwen)"; then
+    ver="$("$bin" -v 2>/dev/null || echo unknown)"
+    echo "1. Qwen Code CLI:  OK ($bin) v$ver"
+  else
+    echo "1. Qwen Code CLI:  MISSING (npm i -g @qwen-code/qwen-code)"
+    ok=0
+  fi
+
+  if [ -f "$SETTINGS" ]; then
+    mode="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("tools",{}).get("approvalMode","?"))' "$SETTINGS" 2>/dev/null || echo '?')"
+    echo "2. approvalMode:   $mode  ($SETTINGS)"
+    [ "$mode" = "yolo" ] || ok=0
+  else
+    echo "2. approvalMode:   MISSING settings.json"
+    ok=0
+  fi
+
+  if key="$(load_dashscope_key 2>/dev/null)"; then
+    echo "3. DASHSCOPE key:  ${key:0:4}...${key: -4} (never printed full)"
+  else
+    echo "3. DASHSCOPE key:  MISSING"
+    ok=0
+  fi
+
+  if [ -x "$INFER_BIN" ]; then
+    echo "4. infer fallback: OK ($INFER_BIN)"
+  else
+    echo "4. infer fallback: absent (optional)"
+  fi
+
+  if [ -f "$MARKER" ]; then
+    echo "5. zero-spend:     ACTIVE ($MARKER) — cloud YOLO will exit 73"
+  else
+    echo "5. zero-spend:     off"
+  fi
+  echo "============================================================"
+  if [ "$ok" -eq 1 ]; then
+    echo "status: READY (full YOLO)"
+    return 0
+  fi
+  echo "status: NOT READY"
+  return 1
+}
+
+usage() {
+  cat <<'EOF'
+qwen-yolo — Qwen Code (Mac app stack) in FULL YOLO mode
+
+  qwen-yolo                     interactive agent, --yolo
+  qwen-yolo -p|-z|--prompt …    headless one-shot, --yolo
+  qwen-yolo --model NAME …      override model (default qwen3-coder-plus)
+  qwen-yolo --infer …           legacy cloud→local completion CLI
+  qwen-yolo --doctor            health check
+  qwen-yolo --safe …            run without YOLO (approval prompts)
+  qwen-yolo --help
+
+Auth uses the same DASHSCOPE_API_KEY as Qwen Coder Desktop (~/.qwen/.env).
+EOF
+}
+
+main() {
+  local bin safe=0 infer=0 prompt="" model="$MODEL"
+  local -a passthrough=() child=()
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -h|--help) usage; exit 0 ;;
+      --doctor|doctor) doctor; exit $? ;;
+      --version|-V) echo "qwen-yolo agent-wrapper 1.0.0"; exit 0 ;;
+      --infer)
+        infer=1
+        shift
+        exec "$INFER_BIN" "$@"
+        ;;
+      --safe) safe=1; shift ;;
+      -m|--model)
+        [ $# -ge 2 ] || die "--model needs a value"
+        model="$2"
+        shift 2
+        ;;
+      -p|--prompt|-z|--oneshot)
+        [ $# -ge 2 ] || die "$1 needs a prompt"
+        prompt="$2"
+        shift 2
+        ;;
+      --)
+        shift
+        passthrough+=("$@")
+        break
+        ;;
+      *)
+        passthrough+=("$1")
+        shift
+        ;;
+    esac
+  done
+
+  if [ "$infer" -eq 1 ]; then
+    die "unreachable"
+  fi
+
+  if [ -f "$MARKER" ] && [ "$safe" -eq 0 ]; then
+    echo "qwen-yolo: zero-spend marker present ($MARKER) — refusing paid DashScope YOLO (exit 73)" >&2
+    echo "           Use --infer --local for MLX/Ollama, or remove the marker." >&2
+    exit 73
+  fi
+
+  bin="$(resolve_qwen)" || die "qwen CLI not found — install: npm i -g @qwen-code/qwen-code"
+  ensure_yolo_settings
+  export_auth_env
+  export QWEN_YOLO=1
+  export QWEN_CODE_SUPPRESS_YOLO_WARNING="${QWEN_CODE_SUPPRESS_YOLO_WARNING:-1}"
+
+  child=("$bin" --model "$model")
+  if [ "$safe" -eq 1 ]; then
+    child+=(--approval-mode default)
+  else
+    child+=(--yolo)
+  fi
+
+  if [ -n "$prompt" ]; then
+    child+=(-p "$prompt")
+  fi
+  child+=("${passthrough[@]}")
+
+  echo "qwen-yolo: launching ${bin##*/} model=$model mode=$([ "$safe" -eq 1 ] && echo safe || echo yolo)" >&2
+  exec "${child[@]}"
+}
+
+main "$@"
