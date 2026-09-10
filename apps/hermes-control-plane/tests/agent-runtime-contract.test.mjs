@@ -52,6 +52,7 @@ test("keeps the public landing static (no server session/D1) and defers auth chr
   assert.match(worker, /s-maxage=60/);
   assert.match(worker, /hermes_session/);
   assert.match(worker, /isPublicMarketing/);
+  assert.match(worker, /dest.search = url.search/);
 });
 
 test("terminates the local and WorkOS sessions instead of silently signing back in", () => {

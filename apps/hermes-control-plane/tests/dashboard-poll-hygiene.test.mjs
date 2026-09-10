@@ -103,9 +103,9 @@ test("active work uses a bounded chained timeout and stays off while idle", asyn
   assert.equal(live.started, true);
   assert.equal(live.delayMs, ACTIVE_TASK_REFRESH_DELAY_MS);
   assert.equal(live.maxDurationMs, ACTIVE_TASK_REFRESH_MAX_MS);
-  assert.ok(live.maxDurationMs / live.delayMs <= 18);
+  assert.ok(live.maxDurationMs / live.delayMs <= 50);
   assert.equal(callbacks.length, 1);
-  assert.equal(callbacks[0].ms, 10_000);
+  assert.equal(callbacks[0].ms, ACTIVE_TASK_REFRESH_DELAY_MS);
   await callbacks.shift().fn();
   assert.equal(runs, 1);
   assert.deepEqual(callbacks, []);

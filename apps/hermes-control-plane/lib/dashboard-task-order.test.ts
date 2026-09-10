@@ -2,10 +2,22 @@ import { describe, expect, it } from "vitest";
 import {
   hideDuplicateTaskList,
   latestChronologicalTask,
+  mergeFresherTasks,
   mergeThreadTimeline,
   orderSnapshotChronologically,
   orderTasksChronologically,
 } from "./dashboard-task-order";
+
+describe("mergeFresherTasks", () => {
+  it("replaces a stale cloud_pending thread row with a completed workspace row", () => {
+    const merged = mergeFresherTasks(
+      [{ id: "t1", createdAt: 1, status: "cloud_pending", updatedAt: 1 }],
+      [{ id: "t1", createdAt: 1, status: "completed", updatedAt: 20, prompt: "hi" }],
+    );
+    expect(merged).toHaveLength(1);
+    expect(merged[0].status).toBe("completed");
+  });
+});
 
 describe("orderTasksChronologically", () => {
   it("puts the newest task at the bottom even when the API returns newest first", () => {

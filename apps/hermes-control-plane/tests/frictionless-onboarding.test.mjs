@@ -139,11 +139,11 @@ test("keeps the deployed web host DOM-native instead of adding a React Native We
   assert.equal(webPackage.dependencies["react-native"], undefined);
   assert.match(dashboard, /<nav className="mobile-web-tabs" aria-label="Hermes workspace">/);
   assert.match(dashboard, /href="#hermes-console"/);
-  assert.match(dashboard, /href="#leash-control"/);
+  assert.doesNotMatch(dashboard, /href="#leash-control"/);
   assert.match(dashboard, /href="#web-settings"/);
   assert.match(dashboard, /mobileTab === "hermes"/);
   assert.match(dashboard, /data-mobile-tab=\{mobileTab\}/);
-  assert.match(dashboard, /className=\{mobileTab === "settings" \? "is-active"/);
+  assert.match(dashboard, /settingsOpen/);
   assert.match(dashboard, /hermes-scroll-pane/);
   assert.match(globals, /@media\(max-width:700px\)[\s\S]*\.mobile-web-tabs/);
   assert.match(globals, /100dvh/);
@@ -168,15 +168,13 @@ test("keeps the deployed web host DOM-native instead of adding a React Native We
   assert.match(globals, /data-mobile-tab="hermes"\] \.hermes-scroll-pane\{[\s\S]*flex:1 1 0 !important[\s\S]*overflow-y:auto !important/);
   assert.match(globals, /task-panel \.composer[\s\S]*position:relative !important/);
   assert.match(globals, /composer textarea\{[\s\S]*min-height:40px/);
-  assert.match(globals, /\.agent-activity/);
+  assert.doesNotMatch(dashboard, /data-testid="agent-activity"/);
   assert.match(dashboard, /hermes-scroll-pane/);
   assert.match(dashboard, /className="composer"/);
   assert.match(dashboard, /data-testid="empty-start-work"/);
-  assert.match(dashboard, /data-testid="start-work-heading"/);
-  assert.match(dashboard, /data-testid="agent-activity"/);
+  assert.doesNotMatch(dashboard, /data-testid="start-work-heading"/);
   assert.match(dashboard, /data-testid="mobile-clear-all"/);
   assert.match(dashboard, /focusComposer/);
-  assert.match(dashboard, /Start the work/);
 });
 
 test("renders the configured Stripe price instead of duplicating marketing price copy", () => {
@@ -211,31 +209,20 @@ test("preserves web accessibility contracts while adopting the mobile feel", () 
   assert.match(dashboard, /aria-label="Hermes workspace"/);
 });
 
-test("mobile Settings/Leash use document scroll on .right-rail and machine pick from both tabs", () => {
-  // Scrollport must be the real DOM node — never a missing wrapper class.
-  assert.equal(/\.dashboard-sub-panels\s*\{/.test(globals), false);
-  assert.match(globals, /data-mobile-tab="settings"\] \.right-rail/);
-  // Same document-scroll model as Hermes tab (2026-08-17) — no nested frozen pane.
-  // Shared rule: [leash] .right-rail, [settings] .right-rail { overflow:visible }
-  assert.match(
-    globals,
-    /data-mobile-tab="leash"\] \.right-rail,[\s\S]*data-mobile-tab="settings"\] \.right-rail\{[\s\S]*overflow:visible !important/,
-  );
-  // Hosted VPS is default; machine pick is optional behind details.
+test("Settings is a dialog; Hosted VPS stays default; machine pick is optional", () => {
+  assert.doesNotMatch(dashboard, /className="right-rail"/);
+  assert.match(dashboard, /settingsOpen/);
+  assert.match(dashboard, /id="web-settings"/);
   assert.match(dashboard, /data-testid="hosted-run-default"/);
   assert.match(dashboard, /data-testid="leash-device-select"/);
   assert.match(dashboard, /<details className="leash-device-picker"/);
   assert.match(dashboard, /device-use-for-tasks/);
-  assert.match(dashboard, /className="right-rail"/);
 });
 
-test("makes every dashboard metric a labeled shortcut instead of an inert card", () => {
-  assert.match(dashboard, /<nav className="metric-grid metric-grid-four" aria-label="Workspace status shortcuts">/);
-  assert.match(dashboard, /className="metric-card" href="#web-settings"/);
-  assert.match(dashboard, /className="metric-card" href="#task-activity"/);
-  assert.match(dashboard, /className="metric-card" href="#execution-safety"/);
+test("dashboard drops metric-grid theater and keeps the task list", () => {
+  assert.doesNotMatch(dashboard, /metric-grid metric-grid-four/);
+  assert.doesNotMatch(dashboard, /className="metric-card"/);
   assert.match(dashboard, /className="task-list" id="task-activity"/);
-  assert.match(globals, /\.metric-grid \.metric-card:hover/);
   assert.doesNotMatch(dashboard, /<article><span>Paired machines/);
 });
 
@@ -271,7 +258,7 @@ test("lessons workspace activity stats and lesson cards deep-link into Hermes", 
   assert.doesNotMatch(dashboard, /pairComputerLabel/);
   assert.doesNotMatch(dashboard, /⚙ Manage machines/);
   assert.doesNotMatch(dashboard, /Open Continuity settings/);
-  assert.match(dashboard, /<button[\s\S]*data-testid="open-settings"[\s\S]*>\s*Open settings/);
+  assert.match(dashboard, /data-testid="open-settings"/);
   assert.match(globals, /\.lesson-activity li a\{/);
   assert.match(globals, /\.lesson-card-actions\{/);
   assert.match(globals, /\.task-filter-banner\{/);
@@ -332,14 +319,11 @@ test("hosted VPS is the only composer target — no RUN ON selector", () => {
 
 test("Open settings is a real control, not a dead Continuity hash link", () => {
   assert.doesNotMatch(dashboard, /Open Continuity settings/);
-  assert.match(dashboard, /<button[\s\S]*data-testid="open-settings"[\s\S]*>\s*Open settings/);
   assert.match(dashboard, /data-testid="open-settings"/);
   assert.match(dashboard, /openSettingsPanel/);
-  assert.match(dashboard, /setMobileTab\("settings"\)/);
-  assert.match(dashboard, /el\.focus/);
-  assert.match(dashboard, /scrollIntoView/);
+  assert.match(dashboard, /settingsDialogRef/);
+  assert.match(dashboard, /settingsDialogRef.current\?\.focus/);
   assert.doesNotMatch(dashboard, /href="#web-settings">Open settings</);
-  assert.match(dashboard, /<button[\s\S]*data-testid="open-settings"[\s\S]*>\s*Open settings/);
 });
 
 test("composer send always uses hosted VPS and never a RUN ON picker", () => {
@@ -355,13 +339,11 @@ test("composer send always uses hosted VPS and never a RUN ON picker", () => {
   assert.match(tasksRoute, /payload(?:\?)?\.deviceId/);
 });
 
-test("explains fenced execution through a visible interactive safety panel", () => {
-  assert.match(dashboard, /href="#execution-safety"/);
-  assert.match(dashboard, /onClick=\{\(\) => setSafetyExpanded\(true\)\}/);
-  assert.match(dashboard, /id="execution-safety"/);
-  assert.match(dashboard, /What “Fenced” means/);
-  assert.match(dashboard, /one signed runner at a time/);
-  assert.match(globals, /\.safety-panel:target/);
+test("fenced-execution essay is not dashboard chrome", () => {
+  assert.doesNotMatch(dashboard, /href="#execution-safety"/);
+  assert.doesNotMatch(dashboard, /id="execution-safety"/);
+  assert.doesNotMatch(dashboard, /What “Fenced” means/);
+  assert.doesNotMatch(dashboard, /metric-grid metric-grid-four/);
 });
 
 test("makes ThumbGate real with private thumbs feedback and a lessons dashboard", () => {
