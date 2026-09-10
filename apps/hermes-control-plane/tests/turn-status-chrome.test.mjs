@@ -35,8 +35,9 @@ test("dashboard chrome mounts hosted Turn Statusline, not localhost Ollama", () 
   assert.match(chrome, /formatTurnStatusline/);
   assert.match(chrome, /\/api\/turn-status/);
   assert.match(chrome, /setInterval/);
-  assert.match(api, /hosted-fallback/);
+  assert.match(api, /hosted-runner-health/);
   assert.doesNotMatch(api, /FROM llm_calls/);
+  assert.doesNotMatch(api, /SuperGrok/);
   assert.match(lib, /Hosted Hermes/);
   assert.match(lib, /<\$0\.01/);
   assert.match(lib, /unmeasured/);
@@ -48,16 +49,20 @@ test("dashboard chrome mounts hosted Turn Statusline, not localhost Ollama", () 
 });
 
 test("formatter defaults to hosted Hermes and keeps TTFT unmeasured", () => {
-  assert.equal(formatEngine(), "Hosted Hermes · SuperGrok (grok-4.5)");
+  assert.equal(formatEngine(), "Hosted Hermes · Fenced VPS (fly)");
   assert.equal(formatTtft(null), "unmeasured");
   assert.equal(formatTurnCost(null), "$0.00 · included in $10/mo");
   assert.equal(formatTurnCost(0.004), "<$0.01");
   assert.equal(
     formatTurnStatusline().line,
-    "Turn Statusline | Engine: Hosted Hermes · SuperGrok (grok-4.5) | TTFT: unmeasured | Cost: $0.00 · included in $10/mo",
+    "Turn Statusline | Engine: Hosted Hermes · Fenced VPS (fly) | TTFT: unmeasured | Cost: $0.00 · included in $10/mo",
   );
   assert.equal(
     formatEngine({ providerLabel: "Ollama (http://localhost:11434/v1/models)" }),
-    "Hosted Hermes · SuperGrok (grok-4.5)",
+    "Hosted Hermes · Fenced VPS (fly)",
+  );
+  assert.equal(
+    formatEngine({ model: "gemini-2.5-flash", modelHost: "generativelanguage.googleapis.com" }),
+    "Hosted Hermes · Gemini (gemini-2.5-flash)",
   );
 });

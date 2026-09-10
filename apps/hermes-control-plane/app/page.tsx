@@ -340,7 +340,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="one-offer" className="section-block" data-testid="one-offer">
+      <section id="pricing" className="section-block" data-testid="one-offer">
         <div className="section-heading">
           <p className="eyebrow">One offer · one clock · one number</p>
           <h2>$10/mo. 14 days to keep one agent alive.</h2>
@@ -465,7 +465,7 @@ await tg.protect(agentStep);`}
         </div>
       </section>
 
-      <section id="pricing" className="pricing-section">
+      <section id="capacity" className="pricing-section">
         <div className="pricing-copy">
           <p className="eyebrow">Hosted Hermes · $10/mo · 14 days free · cancel anytime</p>
           <h2>Transparent hosted capacity.</h2>

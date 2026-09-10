@@ -17,7 +17,7 @@
 export const MIN_DASHBOARD_POLL_INTERVAL_MS = 15 * 60 * 1000;
 export const SUB_MINUTE_POLL_MS = 60_000;
 export const ERROR_RETRY_DELAY_MS = 30_000;
-export const ACTIVE_TASK_REFRESH_DELAY_MS = 10_000;
+export const ACTIVE_TASK_REFRESH_DELAY_MS = 4_000;
 export const ACTIVE_TASK_REFRESH_MAX_MS = 3 * 60 * 1000;
 
 export type DashboardRefreshInput = {

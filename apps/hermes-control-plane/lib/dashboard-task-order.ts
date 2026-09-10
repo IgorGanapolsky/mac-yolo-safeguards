@@ -3,7 +3,41 @@ export type TimestampedTask = {
   createdAt: number;
   prompt?: string;
   status?: string;
+  updatedAt?: number;
+  threadId?: string;
 };
+
+const TASK_STATUS_RANK: Record<string, number> = {
+  pending: 0,
+  cloud_pending: 0,
+  local_pending: 0,
+  running: 1,
+  completed: 2,
+  failed: 2,
+};
+
+/** Prefer /api/tasks rows that have moved past a stale thread-detail pending copy. */
+export function mergeFresherTasks<T extends TimestampedTask>(
+  threadTasks: readonly T[],
+  workspaceTasks: readonly T[],
+): T[] {
+  const map = new Map<string, T>();
+  for (const row of [...threadTasks, ...workspaceTasks]) {
+    if (!row?.id) continue;
+    const prev = map.get(row.id);
+    if (!prev) {
+      map.set(row.id, row);
+      continue;
+    }
+    const prevRank = TASK_STATUS_RANK[prev.status ?? ""] ?? 0;
+    const nextRank = TASK_STATUS_RANK[row.status ?? ""] ?? 0;
+    if (nextRank > prevRank) map.set(row.id, row);
+    else if (nextRank === prevRank && (row.updatedAt ?? row.createdAt) >= (prev.updatedAt ?? prev.createdAt)) {
+      map.set(row.id, row);
+    }
+  }
+  return [...map.values()];
+}
 
 export type SnapshotMessage = {
   role?: string;
