@@ -29,9 +29,12 @@ test("TurnStatusline: DashboardClient.tsx mounts Turn Statusline across assistan
 
   // 3. Wired to live task results
   assert.ok(
-    source.includes("<TurnStatusline engine={task.deviceName"),
+    source.includes("<TurnStatusline engine={engineLabelForTask(task)}"),
     "Wired to task result messages"
   );
+  assert.ok(source.includes("engineLabelForTask"), "cloud turns use hosted engine labels");
+  assert.match(source, /<>[\s\S]*Minimize[\s\S]*Delete[\s\S]*<\/>/);
+  assert.doesNotMatch(source, /task\.deviceName \|\|/, "cloud turns do not inherit paired Mac names");
 });
 
 test("TurnStatusline: globals.css contains styling for .turn-statusline", () => {

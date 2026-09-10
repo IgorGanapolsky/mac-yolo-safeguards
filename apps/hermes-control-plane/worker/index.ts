@@ -58,6 +58,12 @@ const worker = {
     if (url.pathname === "/pricing" || url.pathname === "/pricing/") {
       return Response.redirect(new URL("/#pricing", url.origin), 308);
     }
+    if (url.pathname === "/d" || url.pathname === "/d/") {
+      const dest = new URL("/dashboard", url.origin);
+      dest.search = url.search;
+      dest.hash = url.hash;
+      return Response.redirect(dest, 307);
+    }
 
     if (url.pathname === "/_vinext/image") {
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];

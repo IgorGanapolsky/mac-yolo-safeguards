@@ -19,22 +19,16 @@ test("user bubble does not dump cloud_pending next to SENT", () => {
   assert.match(dashboard, /data-testid="conversation-pending"/);
 });
 
-test("leash panel is a compact run-target, not an account-switcher or legal dump", () => {
-  const leash = dashboard.match(/id="leash-control"[\s\S]*?<\/section>/);
-  assert.ok(leash, "expected #leash-control section");
-  assert.match(leash[0], /Sends go to Hosted VPS/);
-  assert.match(leash[0], /Send to a paired Mac instead/);
-  assert.match(leash[0], /leash-signed-in/);
-  assert.doesNotMatch(leash[0], /wrong workspace/);
-  assert.doesNotMatch(leash[0], /Switch account/);
-  assert.doesNotMatch(leash[0], /Optional: send the next task/);
-  assert.doesNotMatch(leash[0], /Bounded Hermes thread context/);
-  assert.doesNotMatch(leash[0], /isolated serverless leases/);
-  assert.doesNotMatch(leash[0], /HOSTED_NOT_COMPUTER_HISTORY/);
-  assert.doesNotMatch(leash[0], /privacy-boundary/);
-  assert.doesNotMatch(leash[0], /account-recovery/);
-  assert.doesNotMatch(leash[0], /style=\{\{/);
-  assert.match(dashboard, /hosted-not-computer-history/);
-  assert.match(dashboard, /id="execution-safety"/);
+test("pairing and account live in Settings, not an always-on Leash essay", () => {
+  assert.doesNotMatch(dashboard, /id="leash-control"/);
+  assert.doesNotMatch(dashboard, /id="execution-safety"/);
+  assert.doesNotMatch(dashboard, /HOSTED HERMES/);
+  assert.doesNotMatch(dashboard, /What “Fenced” means/);
+  assert.match(dashboard, /Sends go to Hosted VPS/);
+  assert.match(dashboard, /Send to a paired Mac instead/);
+  assert.match(dashboard, /leash-signed-in/);
+  assert.match(dashboard, /id="web-settings"/);
   assert.match(dashboard, /dashboard-sign-out/);
+  assert.doesNotMatch(dashboard, /wrong workspace/);
+  assert.doesNotMatch(dashboard, /Switch account/);
 });
