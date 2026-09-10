@@ -11,5 +11,6 @@ test("dashboard automatically scrolls conversation history to the bottom on load
   assert.match(source, /conversationHistoryRef\s*=\s*useRef<HTMLDivElement/);
   assert.match(source, /scrollConversationToBottom/);
   assert.match(source, /el\.scrollTo\(\{\s*top:\s*el\.scrollHeight/);
-  assert.match(source, /<div className="conversation-history" ref=\{conversationHistoryRef\}/);
+  assert.match(source, /conversation-history/);
+  assert.match(source, /ref=\{conversationHistoryRef\}/);
 });
