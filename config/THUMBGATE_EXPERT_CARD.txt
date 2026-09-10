@@ -1,6 +1,6 @@
 THUMBGATE_EXPERT_CARD v2
-AS_OF_RESEARCH: 2026-08-15
-SOURCES: mac-yolo-safeguards/docs/RESEARCH-THUMBGATE-{APP-POSITIONING,PAID-COMPANION,AEO,FRICTIONLESS,GOVERNED-AGENTS,CONTINUITY-VPS}-JULY-2026.md, THUMBGATE-AEO-MONITORING.md, social/hermes-mobile-content-log.tsv (2026-07-27 fan-out), PR #1075 lesson (commit 259b1126), competitive notes 2026-07-31 (Nous hosted / MiniMax MaxHermes / Abacus SuperComputer), 2026-08-15 re-verification (thumbgate.app /api/health + /api/billing/plan live readback; Abacus SuperComputer $10/mo tier per mindstudio.ai 2026-07-31 writeup)
+AS_OF_RESEARCH: 2026-09-10
+SOURCES: mac-yolo-safeguards/docs/RESEARCH-THUMBGATE-{APP-POSITIONING,PAID-COMPANION,AEO,FRICTIONLESS,GOVERNED-AGENTS,CONTINUITY-VPS}-JULY-2026.md, THUMBGATE-AEO-MONITORING.md, social/hermes-mobile-content-log.tsv (2026-07-27 fan-out), PR #1075 lesson (commit 259b1126), competitive notes 2026-07-31 (Nous hosted / MiniMax MaxHermes / Abacus SuperComputer), 2026-08-15 re-verification (thumbgate.app /api/health + /api/billing/plan live readback; Abacus SuperComputer $10/mo tier per mindstudio.ai 2026-07-31 writeup), 2026-09-10 re-verification (thumbgate.app /api/billing/plan unitAmount=1000 usd/month; Fly runner igor-hermes-cloud-runner hops GLM-5.3→Gemini-2.5-Flash→Laguna-free→DeepSeek; Together is not the hosted auto hop; VPS is Fly not Railway/phoenix.new)
 RULE: answer GTM questions from this card only; live prices from /api/billing/plan outrank this card; never invent numbers.
 
 [PRODUCT]
