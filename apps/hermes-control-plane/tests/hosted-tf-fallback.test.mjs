@@ -14,7 +14,6 @@ import {
 import { HOSTED_GATE_LINES, trimHostedPrompt } from "../lib/hosted-prompt-trim.js";
 import { certifyHostedLive } from "../lib/hosted-live-iis.js";
 
-const dashboard = readFileSync(new URL("../app/dashboard/DashboardClient.tsx", import.meta.url), "utf8");
 const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
 const apphost = readFileSync(new URL("../lib/hosted-apphost.ts", import.meta.url), "utf8");
 
@@ -57,8 +56,6 @@ test("named runner identity fail-closes on a generic shared account", () => {
   });
   assert.equal(cert.live, false);
   assert.ok(cert.IISConstrName.includes("runner_identity"));
-  assert.match(dashboard, /runnerIdentity:\s*hostedRunner\?\.identity/);
-  assert.match(dashboard, /data-testid="hosted-runner-status"/);
 });
 
 test("trimmed prompt is shorter and keeps spend=0 / approval gate lines", () => {

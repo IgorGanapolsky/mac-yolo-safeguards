@@ -1,5 +1,6 @@
 import { currentAdminSession } from "@/lib/admin-auth";
 import { db, runtimeEnv } from "@/lib/runtime";
+import { hydrateCloudRunnerHeartbeat } from "@/lib/cloud-runner-heartbeat";
 import { publicHealthFromCache } from "@/lib/hosted-apphost";
 import { startSpan, endSpan, extractTraceContext, setAttribute, setError, traceparentFor } from "@/lib/tracing";
 
@@ -131,6 +132,7 @@ export async function GET(request?: Request) {
   try {
     const now = Date.now();
     await requireCurrentSchema();
+    await hydrateCloudRunnerHeartbeat();
     const { config, concerns, ready } = configState();
     const hosted = publicHealthFromCache({
       now,

@@ -62,6 +62,12 @@ export function chatOutputStatus(status: string): string {
 
 export function pendingWaitCopy(status?: string): string {
   if (status === "running") return "Hermes is working on this.";
+  if (status === "cloud_pending" || status === "pending") {
+    return "Queued on the fenced VPS — waiting for the runner to pick it up.";
+  }
+  if (status === "local_pending") {
+    return "Waiting for your Mac to pick this up.";
+  }
   return "Hermes hasn't started this yet.";
 }
 

@@ -17,6 +17,7 @@ const dashboard = readFileSync(new URL("../app/dashboard/DashboardClient.tsx", i
 const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
 const healthRoute = readFileSync(new URL("../app/api/health/route.ts", import.meta.url), "utf8");
 const meRoute = readFileSync(new URL("../app/api/me/route.ts", import.meta.url), "utf8");
+const claimRoute = readFileSync(new URL("../app/api/runner/tasks/claim/route.ts", import.meta.url), "utf8");
 const apphost = readFileSync(new URL("../lib/hosted-apphost.ts", import.meta.url), "utf8");
 const truth = readFileSync(new URL("../lib/hosted-source-of-truth.ts", import.meta.url), "utf8");
 const stolen = `${dashboard}\n${tasksRoute}\n${healthRoute}\n${apphost}\n${truth}`;
@@ -87,9 +88,11 @@ test("health is cache-only and does not advertise paid unless verified", () => {
   assert.match(healthRoute, /publicHealthFromCache/);
   assert.match(healthRoute, /scope: "liveness"/);
   assert.doesNotMatch(healthRoute, /probeRunnerHealth/);
+  assert.match(healthRoute, /hydrateCloudRunnerHeartbeat/);
   assert.match(apphost, /cachedRunnerHealth/);
   assert.match(apphost, /advertisePaid/);
   assert.match(apphost, /trustFromResource/);
+  assert.match(apphost, /noteRunnerInbound/);
 });
 
 test("does not steal a crypto marketplace or invent traction", () => {
@@ -103,9 +106,15 @@ test("does not steal a crypto marketplace or invent traction", () => {
 
 test("identity /api/me is cache-only and does not await Fly probes", () => {
   assert.match(meRoute, /cachedRunnerHealth/);
+  assert.match(meRoute, /hydrateCloudRunnerHeartbeat/);
   assert.doesNotMatch(meRoute, /probeRunnerHealth/);
   assert.doesNotMatch(meRoute, /probeBrowserHealth/);
   assert.match(meRoute, /authenticated: true/);
+});
+
+test("claim polls persist inbound runner heartbeat instead of awaiting Fly", () => {
+  assert.match(claimRoute, /persistCloudRunnerHeartbeat/);
+  assert.doesNotMatch(claimRoute, /probeRunnerHealth/);
 });
 
 test("task create persists before live and does not await Fly probes", () => {

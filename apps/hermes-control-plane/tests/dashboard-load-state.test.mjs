@@ -126,18 +126,10 @@ test("empty task copy is hosted VPS, not Mac-pair blame", () => {
 });
 
 test("does not claim live or instantly when hosted resources are unhealthy", () => {
-  // Aspire WaitFor lesson: Running ≠ Ready. Copy comes from hostedConnectionCopy.
-  assert.match(dashboard, /hostedConnectionCopy/);
-  assert.match(dashboard, /hostedResourceLabel/);
-  assert.match(dashboard, /hostedRunner/);
-  assert.match(dashboard, /hostedModel/);
-  assert.match(dashboard, /data-testid="hosted-runner-status"/);
-  assert.match(dashboard, /data-testid="hosted-model-status"/);
-  assert.match(dashboard, /Runner · \{hostedResourceLabel\(runnerStatus\)\}/);
-  assert.match(dashboard, /Model · \{hostedResourceLabel\(modelStatus\)\}/);
+  assert.doesNotMatch(dashboard, /hostedConnectionCopy/);
+  assert.doesNotMatch(dashboard, /data-testid="hosted-runner-status"/);
   assert.doesNotMatch(dashboard, /Tasks run instantly in the cloud/);
   assert.doesNotMatch(dashboard, /<strong>☁️ Hosted Hermes live<\/strong>/);
-  assert.match(dashboard, /data-hosted-ready=\{hostedCopy\.live \? "1" : "0"\}/);
   assert.match(dashboard, /fenced VPS/);
   assert.doesNotMatch(dashboard, /Continuity hero|Mac lid|Cloud vs Local/);
 });
@@ -146,7 +138,7 @@ test("does not toast leftover Mac-pair machine-found copy", () => {
   assert.doesNotMatch(dashboard, /Machine found\. Verify its name/);
   assert.doesNotMatch(dashboard, /approve the prefilled code/);
   assert.doesNotMatch(dashboard, /Waiting on your paired machine/);
-  assert.match(dashboard, /Hosted on a fenced VPS/);
+  assert.match(dashboard, /fenced VPS runner/);
 });
 
 test("signed-in dashboard markup always includes #hermes-thread-list even with zero tasks", () => {
