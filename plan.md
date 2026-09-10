@@ -4002,3 +4002,5 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - `but land` on ThumbGate / mac-yolo `main` is REFUSE — `npm run pr:manage` / `gh pr merge --auto`.
 - Linked worktrees (this repo, 80+ trees) use git. Official GitButler exception: never `but setup` from a linked worktree.
 - Complementary to OPEN Codex PR #2119 (`tools/gitbutler-route.js`). This PR does not steal AGENT-538.
+
+- 2026-09-10T21:00Z grok: Fly.io newsletter Sprites/SBD FORMAT steal (not SKU). `tools/hosted-sprites-format.js` maps reach/receipt/checkpoint onto `igor-hermes-cloud-runner`. Never buy sprites.dev/mcp, sprites-py, SBD, phoenix.new. Receipts gain `resourceRef` (task pointer, no prompt). Complementary `/fly-waste-guard` NEVER_BUY += sbd/sprites.dev.

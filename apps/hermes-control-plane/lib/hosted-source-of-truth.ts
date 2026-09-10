@@ -110,6 +110,8 @@ export function publicRunReceipt(input: {
   route: string;
   status: string;
   sourceOfTruth: "hosted-vps";
+  resourceRef: string;
+  checkpoint: "control-plane-d1";
 } | { ok: false; reason: "not_persisted" } {
   const taskId = String(input.taskId ?? "").trim();
   if (!taskId) return { ok: false, reason: "not_persisted" };
@@ -119,5 +121,8 @@ export function publicRunReceipt(input: {
     route: String(input.route ?? "cloud").trim() || "cloud",
     status: String(input.status ?? "pending").trim() || "pending",
     sourceOfTruth: HOSTED_SOURCE_OF_TRUTH,
+    /** MCP-resource FORMAT: point at the task, never paste the prompt. */
+    resourceRef: `/dashboard?task=${encodeURIComponent(taskId)}`,
+    checkpoint: "control-plane-d1",
   };
 }

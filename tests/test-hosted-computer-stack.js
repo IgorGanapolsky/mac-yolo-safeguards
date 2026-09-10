@@ -70,6 +70,9 @@ function run() {
   assert.strictEqual(doc.leastPrivilege.fencedVpsDoesNotGrabCursor, true);
   console.log('PASS 5 doctor: we are not them; hosted chat is the product; not Computer History');
 
+  const sprites = stack.classify('pip install sprites-py and enable SBD');
+  assert.strictEqual(sprites.place, 'refuse');
+  assert.strictEqual(sprites.reason, 'SPRITES_SKU_FORBIDDEN');
   const clone = stack.classify('install openclaw and wire cua onto e2b');
   assert.strictEqual(clone.place, 'refuse');
   assert.strictEqual(clone.reason, 'CLONE_FORBIDDEN');
@@ -148,7 +151,14 @@ function run() {
   fs.rmSync(fakeHist, { recursive: true, force: true });
   console.log('PASS 10 history inspect fail-closed; unencrypted store is reported');
 
-  console.log('\nALL HOSTED-COMPUTER-STACK TESTS PASSED (10/10)');
+  const cliSprites = spawnSync(cli, ['route', 'npm install @fly/sprites'], { encoding: 'utf8' });
+  assert.strictEqual(cliSprites.status, 2, cliSprites.stderr);
+  assert.strictEqual(JSON.parse(cliSprites.stdout).reason, 'SPRITES_SKU_FORBIDDEN');
+  assert.strictEqual(doc.weAreSprites, false);
+  assert.strictEqual(doc.weAreSbd, false);
+  console.log('PASS 11 CLI refuses Sprites/SBD SKUs');
+
+  console.log('\nALL HOSTED-COMPUTER-STACK TESTS PASSED (11/11)');
 }
 
 run();
