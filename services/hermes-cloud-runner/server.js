@@ -96,13 +96,32 @@ async function callControl(config, pathname, body = {}) {
   return payload;
 }
 
-const RETRYABLE_PROVIDER_RE = /credit limit exceeded|weekly\/monthly limit exhausted|quota is exhausted|code["']?\s*[:\s]*1310|no deployments available|temporarily overloaded|429|402|insufficient.?quota/i;
 const hopCooldowns = new Map();
 let lastHop = null;
 
 function isRetryableProviderError(status, text) {
   if (status === 402 || status === 429) return true;
-  return RETRYABLE_PROVIDER_RE.test(String(text || ''));
+  const raw = String(text || '').toLowerCase();
+  return raw.includes('credit limit exceeded')
+    || raw.includes('weekly/monthly limit exhausted')
+    || raw.includes('quota is exhausted')
+    || raw.includes('no deployments available')
+    || raw.includes('temporarily overloaded')
+    || raw.includes('insufficient quota')
+    || raw.includes('code 1310')
+    || raw.includes('code:1310')
+    || raw.includes('code: 1310');
+}
+
+function publicRunnerError(error) {
+  const msg = error instanceof Error ? String(error.message || '') : 'runner_error';
+  const raw = msg.toLowerCase();
+  if (raw.includes('timeout') || raw.includes('abort')) return 'timeout';
+  if (raw.includes('401') || raw.includes('auth')) return 'auth';
+  if (raw.includes('429') || raw.includes('402') || raw.includes('quota') || raw.includes('credit') || raw.includes('exhausted') || raw.includes('overloaded')) {
+    return 'provider_quota';
+  }
+  return 'runner_error';
 }
 
 function hopPublic(hop) {
@@ -269,7 +288,7 @@ async function main() {
   while (true) {
     let didWork = false;
     try { didWork = await runOnce(config); lastError = null; }
-    catch (error) { lastError = error instanceof Error ? error.message : String(error); console.error(`[hermes-cloud-runner] ${lastError}`); }
+    catch (error) { lastError = publicRunnerError(error); console.error(`[hermes-cloud-runner] ${lastError}`); }
     await new Promise((resolve) => setTimeout(resolve, nextPollDelay(didWork, schedule)));
   }
 }
