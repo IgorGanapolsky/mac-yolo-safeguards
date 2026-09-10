@@ -14,6 +14,8 @@ import {
   probeRunnerHealth,
   publicHealthFromCache,
   cachedRunnerHealth,
+  noteRunnerInbound,
+  RUNNER_STALE_MS,
   rememberProviderError,
   runnerHealthy,
   waitForHostedReady,
@@ -414,5 +416,21 @@ describe("cachedRunnerHealth", () => {
     expect(known.trust.runner).toBe("verified");
     expect(known.advertisePaid).toBe(true);
     expect(known.turningOn).toBe(false);
+  });
+
+  it("treats a fresh inbound claim poll as verified without an outbound Fly probe", () => {
+    noteRunnerInbound(RESET_EPOCH);
+    const known = publicHealthFromCache({ now: RESET_EPOCH, stripeConfigured: true });
+    expect(known.trust.runner).toBe("verified");
+    expect(known.turningOn).toBe(false);
+    expect(known.advertisePaid).toBe(true);
+  });
+
+  it("does not treat a stale inbound poll as verified", () => {
+    noteRunnerInbound(RESET_EPOCH - RUNNER_STALE_MS - 1);
+    const stale = publicHealthFromCache({ now: RESET_EPOCH, stripeConfigured: true });
+    expect(stale.trust.runner).toBe("failed");
+    expect(stale.turningOn).toBe(true);
+    expect(stale.advertisePaid).toBe(false);
   });
 });

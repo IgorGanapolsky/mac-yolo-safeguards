@@ -71,6 +71,16 @@ type RunnerProbeCache = {
 let modelErrorCache: ModelErrorCache | null = null;
 let runnerProbeCache: RunnerProbeCache | null = null;
 let browserProbeCache: RunnerProbeCache | null = null;
+/** Inbound /api/runner/tasks/claim polls. Source of truth across Worker isolates via D1 hydrate. */
+let inboundRunnerSeenAt: number | null = null;
+
+export function noteRunnerInbound(now = Date.now()): void {
+  inboundRunnerSeenAt = now;
+}
+
+export function inboundRunnerSeen(): number | null {
+  return inboundRunnerSeenAt;
+}
 
 export function runnerHealthUrl(): string {
   const fromEnv = typeof process !== "undefined"
@@ -253,15 +263,34 @@ export function lastCachedModelError(): string | null {
   return modelErrorCache?.errorText ?? null;
 }
 
+function mergeRunnerHealth(now: number): {
+  known: boolean;
+  health: RunnerHealthInput | null;
+  at: number | null;
+} {
+  const inbound = inboundRunnerSeenAt;
+  const inboundHealth: RunnerHealthInput | null = inbound != null
+    ? { ok: true, lastPollAt: inbound, error: null }
+    : null;
+  const probe = runnerProbeCache?.health ?? null;
+  const candidates = [probe, inboundHealth].filter(Boolean) as RunnerHealthInput[];
+  if (!candidates.length) {
+    return { known: false, health: null, at: null };
+  }
+  const healthy = candidates.filter((item) => runnerHealthy(item, now));
+  const health = (healthy[0] ?? probe ?? inboundHealth) as RunnerHealthInput;
+  const at = inbound != null && runnerProbeCache
+    ? Math.max(inbound, runnerProbeCache.at)
+    : inbound ?? runnerProbeCache?.at ?? null;
+  return { known: true, health, at };
+}
+
 export function cachedRunnerHealth(): {
   known: boolean;
   health: RunnerHealthInput | null;
   at: number | null;
 } {
-  if (!runnerProbeCache) {
-    return { known: false, health: null, at: null };
-  }
-  return { known: true, health: runnerProbeCache.health, at: runnerProbeCache.at };
+  return mergeRunnerHealth(Date.now());
 }
 
 export function publicHealthFromCache(input: {
@@ -274,7 +303,7 @@ export function publicHealthFromCache(input: {
   trust: { runner: "verified" | "reachable" | "failed"; model: "verified" | "reachable" | "failed" };
 } {
   const now = input.now ?? Date.now();
-  const cached = cachedRunnerHealth();
+  const cached = mergeRunnerHealth(now);
   if (!cached.known || !cached.health) {
     return {
       known: false,
@@ -310,6 +339,7 @@ export function clearHostedAppHostCaches(): void {
   modelErrorCache = null;
   runnerProbeCache = null;
   browserProbeCache = null;
+  inboundRunnerSeenAt = null;
 }
 
 export function hostedResourceLabel(status: HostedResourceState): string {
