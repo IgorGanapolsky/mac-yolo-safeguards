@@ -112,5 +112,9 @@ export function scrollConversationHistoryToLatest(
   if (latest instanceof HTMLElement) {
     latest.scrollIntoView({ behavior, block: "end" });
   }
+  const composer = root.querySelector?.("textarea[aria-label='Message for Hermes']");
+  if (composer instanceof HTMLElement) {
+    composer.scrollIntoView({ behavior, block: "end" });
+  }
   return true;
 }

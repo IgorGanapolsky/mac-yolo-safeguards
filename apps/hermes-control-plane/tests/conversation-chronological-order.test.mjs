@@ -18,8 +18,8 @@ test("conversation timeline sorts tasks oldest-to-newest before rendering", () =
   );
   assert.match(
     source,
-    /mergeThreadTimeline\(\{[\s\S]*snapshot: threadDetails\?\.snapshot \?\? \[\][\s\S]*tasks: threadDetails\?\.tasks \?\? \[\]/,
-    "conversation must derive an ascending-by-createdAt timeline",
+    /mergeThreadTimeline\(\{[\s\S]*snapshot: threadDetails\?\.snapshot \?\? \[\][\s\S]*mergeFresherTasks/,
+    "conversation must merge workspace task status into the thread timeline",
   );
   assert.match(
     helper,

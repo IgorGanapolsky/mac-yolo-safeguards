@@ -272,7 +272,7 @@ try {
   assert.doesNotMatch(clientJs, /Auto — Continuity \(no Mac required\)/);
   assert.doesNotMatch(clientJs, /Open Continuity settings/);
   assert.doesNotMatch(clientJs, /Continuity Cloud VPS/);
-  assert.match(clientJs, /Open settings/);
+  assert.match(clientJs, /open-settings/);
   assert.match(clientJs, /thumbgate\.preferredDeviceId/);
   assert.doesNotMatch(clientJs, /Which Mac\?/);
   assert.doesNotMatch(clientJs, /My Mac only/);
@@ -343,19 +343,16 @@ try {
         const chips = document.querySelector(".quick-continuation-chips");
         const label = document.querySelector('[data-testid="run-output"] .eyebrow');
         const body = document.querySelector('[data-testid="run-output"] p:not(.eyebrow)');
-        const chipsStyle = chips ? getComputedStyle(chips) : null;
         const labelRect = label?.getBoundingClientRect();
         const bodyRect = body?.getBoundingClientRect();
         return {
           pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-          chipsDisplay: chipsStyle?.display,
-          chipsGap: Number.parseFloat(chipsStyle?.gap || "0"),
+          chipsPresent: Boolean(chips),
           outputSeparated: Boolean(labelRect && bodyRect && bodyRect.top >= labelRect.bottom),
         };
       });
       assert.ok(desktopGeometry.pageOverflow <= 1, `desktop page overflowed by ${desktopGeometry.pageOverflow}px`);
-      assert.equal(desktopGeometry.chipsDisplay, "flex");
-      assert.ok(desktopGeometry.chipsGap > 0, "desktop continuation prompts must have visible gaps");
+      assert.equal(desktopGeometry.chipsPresent, false, "2-word chips must not occupy the composer");
       assert.equal(desktopGeometry.outputSeparated, true, "Output label and body must not overlap");
       // Submit through Continuity-only composer (no machine picker).
       await page.fill('textarea[aria-label="Message for Hermes"]', "browser e2e on Continuity");
@@ -373,11 +370,11 @@ try {
       await page.locator('[data-testid="run-output"]').waitFor({ state: "visible" });
       const mobileGeometry = await page.evaluate(() => ({
         pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-        chipsDisplay: getComputedStyle(document.querySelector(".quick-continuation-chips")).display,
+        chipsPresent: Boolean(document.querySelector(".quick-continuation-chips")),
         outputWidth: document.querySelector('[data-testid="run-output"]')?.getBoundingClientRect().width ?? 0,
       }));
       assert.ok(mobileGeometry.pageOverflow <= 1, `mobile page overflowed by ${mobileGeometry.pageOverflow}px`);
-      assert.equal(mobileGeometry.chipsDisplay, "flex");
+      assert.equal(mobileGeometry.chipsPresent, false, "2-word chips must not occupy the phone composer");
       assert.ok(mobileGeometry.outputWidth > 0 && mobileGeometry.outputWidth <= 390, "mobile Output pane must stay visible and bounded");
       return true;
     } finally {

@@ -7,6 +7,7 @@ import { TurnStatusline } from "./TurnStatusline";
 type Payload = {
   providerLabel?: string | null;
   model?: string | null;
+  modelHost?: string | null;
   ttftMs?: number | null;
   costUsd?: number | null;
 };

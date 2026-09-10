@@ -40,6 +40,7 @@ describe("hosted provider fallback lock", () => {
     expect(route.selected?.id).toBe("deepseek-free");
     expect(inferFailedProvider(FAILED_ROW)).toBe("supergrok");
     expect(inferFailedProvider(QUOTA)).toBe("supergrok");
+    expect(inferFailedProvider("Credit limit exceeded, please add credits https://api.together.ai/settings/billing")).toBe("deepseek-free");
   });
 
   it("does not treat a first-hop quota miss as a dead model", () => {

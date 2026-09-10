@@ -21,6 +21,7 @@ import { scheduleOneShotErrorRetry, startActiveTaskRefresh, startDashboardRefres
 import {
   hideDuplicateTaskList,
   latestChronologicalTask,
+  mergeFresherTasks,
   mergeThreadTimeline,
   orderTasksChronologically,
 } from "@/lib/dashboard-task-order";
@@ -41,18 +42,12 @@ import {
   type ConversationTask,
   type TaskLike,
 } from "@/lib/conversation-send-visibility";
-import {
-  HOSTED_NOT_COMPUTER_HISTORY,
-  hostedConnectionCopy,
-  hostedResourceLabel,
-  type HostedResourceState,
-  type HostedResourceStatus,
-} from "@/lib/hosted-apphost";
+import { engineLabelForTask } from "@/lib/dashboard-engine-label";
+import { formatEngine } from "@/lib/turn-statusline";
+import { loadCardPrefs, saveCardPrefs, toggleId, type DashboardCardPrefs } from "@/lib/dashboard-card-prefs";
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
-/** CoreWeave-style capacity snapshot from /api/me (enforced governance caps). */
-type HostedResourceView = HostedResourceStatus;
 type ContinuityUsage = {
   cloudTasks30d: number;
   cloudTaskLimit: number;
@@ -224,8 +219,8 @@ function ConversationMeta({ meta }: { meta: ConversationMessageMeta }) {
 }
 
 function TurnStatusline({
-  engine = "Ollama (http://localhost:11434/v1/models)",
-  ttft = "<10ms",
+  engine = formatEngine(),
+  ttft = "unmeasured",
   cost = "$0.00",
 }: {
   engine?: string;
@@ -280,8 +275,7 @@ export default function DashboardClient() {
   const [organization, setOrganization] = useState<Organization | null>(null);
   /** CoreWeave-style remaining capacity from /api/me (governance-enforced caps). */
   const [continuityUsage, setContinuityUsage] = useState<ContinuityUsage | null>(null);
-  const [hostedRunner, setHostedRunner] = useState<HostedResourceView | null>(null);
-  const [hostedModel, setHostedModel] = useState<HostedResourceView | null>(null);
+
   const [devices, setDevices] = useState<Device[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -343,6 +337,14 @@ export default function DashboardClient() {
   const threadMenuRef = useRef<HTMLDivElement | null>(null);
   const [chatDialog, setChatDialog] = useState<ChatDialog | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [cardPrefs, setCardPrefs] = useState<DashboardCardPrefs>(() => loadCardPrefs());
+  function updateCardPrefs(patch: (current: DashboardCardPrefs) => DashboardCardPrefs) {
+    setCardPrefs((current) => {
+      const next = patch(current);
+      saveCardPrefs(next);
+      return next;
+    });
+  }
   const conversationHistoryRef = useRef<HTMLDivElement | null>(null);
   const scrollConversationToBottom = useCallback(() => {
     const el = conversationHistoryRef.current;
@@ -351,38 +353,15 @@ export default function DashboardClient() {
     }
   }, []);
   const [chatOperationBusy, setChatOperationBusy] = useState(false);
-  const [safetyExpanded, setSafetyExpanded] = useState(false);
   const [feedback, setFeedback] = useState<Record<string, Feedback>>({});
   const [feedbackDialog, setFeedbackDialog] = useState<{ taskId: string; note: string } | null>(null);
   const [feedbackBusyTask, setFeedbackBusyTask] = useState<string | null>(null);
   /** Bottom-tab highlight on phone: path + hash, not always-Hermes. */
-  const [mobileTab, setMobileTab] = useState<"hermes" | "leash" | "lessons" | "settings">("hermes");
-  /**
-   * Leash and Settings are two panes rendered inside ONE scrolling element
-   * (.right-rail). Switching tabs only swaps which children are visible, so the
-   * scroll offset carried over: scroll down in Settings, tap Leash, and Leash
-   * opened partway down with its heading — and the machine picker — above the
-   * fold, which reads as "there is no machine picker".
-   */
-  const rightRailRef = useRef<HTMLElement | null>(null);
+  const [mobileTab, setMobileTab] = useState<"hermes" | "lessons">("hermes");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsDialogRef = useRef<HTMLElement | null>(null);
   /** Phone shell: hide route-explain blurb so it cannot cover the textarea (Genspark-style compact chrome). */
   const [isNarrowViewport, setIsNarrowViewport] = useState(false);
-
-  // Send the shared scrollport back to the top whenever the pane inside it
-  // changes, so a tab always opens at its own heading rather than wherever the
-  // previous tab happened to be scrolled to. Only Leash and Settings share this
-  // element; the other tabs render elsewhere and must not be disturbed.
-  useEffect(() => {
-    if (mobileTab !== "leash" && mobileTab !== "settings") return;
-    const rail = rightRailRef.current;
-    if (!rail) return;
-    // The pane swap is a CSS/display change; wait a frame so the new content is
-    // laid out before resetting, otherwise the browser can restore the offset.
-    const raf = window.requestAnimationFrame(() => {
-      rail.scrollTop = 0;
-    });
-    return () => window.cancelAnimationFrame(raf);
-  }, [mobileTab]);
 
 
   // Keep the ••• actions menu glued to its trigger; close on outside / Escape / scroll.
@@ -460,18 +439,27 @@ export default function DashboardClient() {
     selectedThreadRef.current = selectedThread;
   }, [selectedThread]);
 
-  /** Switch to Settings (mobile tab + hash) and focus the panel. Hash-only links do nothing in this shell. */
+  /** Account + optional Mac pairing — never a always-on right-rail essay. */
   function openSettingsPanel() {
-    setMobileTab("settings");
+    setSettingsOpen(true);
     window.history.replaceState(null, "", "#web-settings");
-    window.setTimeout(() => {
-      const el = document.getElementById("web-settings");
-      el?.scrollIntoView({ behavior: "smooth", block: "start" });
-      if (el instanceof HTMLElement) {
-        el.focus({ preventScroll: true });
-      }
-    }, 50);
   }
+  function closeSettingsPanel() {
+    setSettingsOpen(false);
+    if (window.location.hash === "#web-settings" || window.location.hash === "#leash-control") {
+      window.history.replaceState(null, "", "#hermes-console");
+    }
+  }
+
+  useEffect(() => {
+    if (!settingsOpen) return;
+    settingsDialogRef.current?.focus({ preventScroll: true });
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeSettingsPanel();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [settingsOpen]);
 
   function chooseDevice(deviceId: string) {
     if (deviceId === "pair" || deviceId === "manage") {
@@ -624,12 +612,9 @@ export default function DashboardClient() {
         setMobileTab("lessons");
         return;
       }
-      if (hash === "#leash-control" || hash === "#execution-safety") {
-        setMobileTab("leash");
-        return;
-      }
-      if (hash === "#web-settings") {
-        setMobileTab("settings");
+      if (hash === "#leash-control" || hash === "#web-settings") {
+        setSettingsOpen(true);
+        setMobileTab("hermes");
         return;
       }
       if (hash === "#chats") {
@@ -733,8 +718,6 @@ export default function DashboardClient() {
       user?: User;
       organization?: Organization;
       continuityUsage?: ContinuityUsage;
-      hostedRunner?: HostedResourceView;
-      hostedModel?: HostedResourceView;
     };
     // /api/me is 200 + authenticated:false (not 401) when the cookie is missing.
     // Do not stay on "Opening the control plane…" forever.
@@ -750,8 +733,6 @@ export default function DashboardClient() {
     setUser(identity.user);
     setOrganization(identity.organization);
     if (identity.continuityUsage) setContinuityUsage(identity.continuityUsage);
-    if (identity.hostedRunner) setHostedRunner(identity.hostedRunner);
-    if (identity.hostedModel) setHostedModel(identity.hostedModel);
     writeJsonSessionStorage(DASHBOARD_CACHE_KEYS.me, {
       user: identity.user,
       organization: identity.organization,
@@ -954,19 +935,10 @@ export default function DashboardClient() {
     // Hosted Hermes does not pair a laptop. Strip leftover ?pair= with no toast.
     return;
   }, [pairCode, user]);
-  const visibleThreads = useMemo(() => orderThreadsForDisplay(threads, threadSortOrder), [threads, threadSortOrder]);
-  const runnerStatus: HostedResourceState = hostedRunner?.status ?? "waiting";
-  const modelStatus: HostedResourceState = hostedModel?.status ?? "waiting";
-  const hostedCopy = hostedConnectionCopy({
-    runnerStatus,
-    modelStatus,
-    runnerIdentity: hostedRunner?.identity,
-    message: hostedModel?.status === "unhealthy"
-      ? hostedModel.message
-      : hostedRunner?.status === "unhealthy"
-        ? hostedRunner.message
-        : null,
-  });
+  const visibleThreads = useMemo(
+    () => orderThreadsForDisplay(threads, threadSortOrder).filter((thread) => !cardPrefs.archivedThreadIds.includes(thread.id)),
+    [threads, threadSortOrder, cardPrefs.archivedThreadIds],
+  );
   const activeTasks = useMemo(() => tasks.filter((task) => !terminal.has(task.status)), [tasks]);
   const hasProgressingTasks = tasks.some((task) => autonomouslyProgressing.has(task.status));
   const hasProgressingTasksRef = useRef(hasProgressingTasks);
@@ -1002,9 +974,12 @@ export default function DashboardClient() {
     () =>
       mergeThreadTimeline({
         snapshot: threadDetails?.snapshot ?? [],
-        tasks: threadDetails?.tasks ?? [],
+        tasks: mergeFresherTasks(
+          threadDetails?.tasks ?? [],
+          selectedThread ? tasks.filter((task) => task.threadId === selectedThread) : tasks,
+        ),
       }),
-    [threadDetails?.snapshot, threadDetails?.tasks],
+    [threadDetails?.snapshot, threadDetails?.tasks, tasks, selectedThread],
   );
   const [urlFocusedTaskId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
@@ -1016,15 +991,6 @@ export default function DashboardClient() {
     focusedTaskId: urlFocusedTaskId,
   });
   const latestVisibleTask = latestChronologicalTask(visibleTasks);
-  const onlineDevices = devices.filter((device) => device.online);
-  const p95CompletionLatency = useMemo(() => {
-    const durations = tasks
-      .filter((task) => task.status === "completed" && task.completedAt)
-      .map((task) => (task.completedAt as number) - task.createdAt)
-      .sort((left, right) => left - right);
-    if (!durations.length) return null;
-    return durations[Math.max(0, Math.ceil(durations.length * 0.95) - 1)];
-  }, [tasks]);
   const accountPlan = organization?.cloudAccess ? organization.plan : "free";
 
   async function pair(event: FormEvent) {
@@ -1282,6 +1248,29 @@ export default function DashboardClient() {
     void saveFeedback(taskId, signal);
   }
 
+  function promptCardToolbar(taskId: string) {
+    const collapsed = cardPrefs.collapsedTaskIds.includes(taskId);
+    return (
+      <div className="conversation-card-toolbar" role="group" aria-label="Prompt card actions">
+        <button
+          type="button"
+          className="conversation-card-action"
+          aria-pressed={collapsed}
+          onClick={() => updateCardPrefs((prefs) => ({ ...prefs, collapsedTaskIds: toggleId(prefs.collapsedTaskIds, taskId) }))}
+        >
+          {collapsed ? "Expand" : "Minimize"}
+        </button>
+        <button
+          type="button"
+          className="conversation-card-action"
+          onClick={() => updateCardPrefs((prefs) => ({ ...prefs, dismissedTaskIds: toggleId(prefs.dismissedTaskIds, taskId) }))}
+        >
+          Dismiss
+        </button>
+      </div>
+    );
+  }
+
   function feedbackControls(taskId: string) {
     const current = feedback[taskId]?.signal;
     return <div className="response-feedback" aria-label="Rate this Hermes response">
@@ -1303,7 +1292,7 @@ export default function DashboardClient() {
   function placeThreadMenu(threadId: string, trigger: HTMLElement) {
     const rect = trigger.getBoundingClientRect();
     const menuWidth = 168;
-    const menuHeight = 112;
+    const menuHeight = 156;
     const gutter = 8;
     let left = Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - gutter);
     left = Math.max(gutter, left);
@@ -1495,6 +1484,7 @@ export default function DashboardClient() {
               <button type="button" className="thread-menu-trigger" aria-label={`Actions for ${thread.title}`} aria-haspopup="menu" aria-expanded={threadMenu?.id === thread.id} onClick={(event) => toggleThreadMenu(thread.id, event)}>•••</button>
               {threadMenu?.id === thread.id && typeof document !== "undefined" && createPortal(
                 <div ref={threadMenuRef} className="thread-actions" role="menu" data-testid="thread-actions-menu" aria-label={`Actions for ${thread.title}`} style={{ top: threadMenu.top, left: threadMenu.left }}>
+                  <button type="button" className="thread-action" role="menuitem" onClick={() => { setThreadMenu(null); updateCardPrefs((prefs) => ({ ...prefs, archivedThreadIds: toggleId(prefs.archivedThreadIds, thread.id) })); }}><span aria-hidden="true">–</span> Dismiss</button>
                   <button type="button" className="thread-action" role="menuitem" onClick={() => openRenameDialog(thread)}><span aria-hidden="true">✎</span> Rename</button>
                   <button type="button" className="thread-action thread-action-danger" role="menuitem" onClick={() => openDeleteDialog(thread)}><span aria-hidden="true">⌫</span> Delete</button>
                 </div>,
@@ -1551,6 +1541,7 @@ export default function DashboardClient() {
               {selectedThread && (() => {
                 const activeThread = threads.find((t) => t.id === selectedThread);
                 return activeThread ? (
+                  <>
                   <button
                     type="button"
                     className="button button-small button-secondary thread-rename-trigger"
@@ -1561,11 +1552,41 @@ export default function DashboardClient() {
                   >
                     ✎ Rename
                   </button>
+                  <button
+                    type="button"
+                    className="button button-small button-secondary thread-rename-trigger"
+                    title="Minimize conversation cards"
+                    aria-label="Minimize conversation cards"
+                    aria-pressed={cardPrefs.conversationMinimized}
+                    style={{ padding: "2px 7px", fontSize: "11px", borderRadius: "5px" }}
+                    onClick={() => updateCardPrefs((prefs) => ({ ...prefs, conversationMinimized: !prefs.conversationMinimized }))}
+                  >
+                    {cardPrefs.conversationMinimized ? "Show cards" : "Minimize"}
+                  </button>
+                  <button
+                    type="button"
+                    className="button button-small button-secondary thread-rename-trigger"
+                    title="Delete this chat"
+                    aria-label={`Delete chat thread ${activeThread.title}`}
+                    style={{ padding: "2px 7px", fontSize: "11px", borderRadius: "5px" }}
+                    onClick={() => openDeleteDialog(activeThread)}
+                  >
+                    ⌫ Delete
+                  </button>
+                  </>
                 ) : null;
               })()}
             </div>
           </div>
           <div className="header-actions">
+            <button
+              type="button"
+              className="button button-small button-secondary"
+              data-testid="open-settings"
+              onClick={openSettingsPanel}
+            >
+              Settings
+            </button>
             <button
               type="button"
               className="button button-small button-secondary"
@@ -1601,11 +1622,11 @@ export default function DashboardClient() {
           </div>
         )}
 
-        {continuityUsage && (
+        {continuityUsage?.exhausted && (
           <section
-            className={`continuity-usage-meter${continuityUsage.exhausted ? " is-exhausted" : ""}`}
+            className={`continuity-usage-meter is-exhausted`}
             data-testid="continuity-usage-meter"
-            data-exhausted={continuityUsage.exhausted ? "true" : "false"}
+            data-exhausted="true"
             aria-label="Hosted VPS capacity remaining"
           >
             <div className="continuity-usage-meter-copy">
@@ -1655,61 +1676,15 @@ export default function DashboardClient() {
           </section>
         )}
 
-        <nav className="metric-grid metric-grid-four" aria-label="Workspace status shortcuts">
-          <a className="metric-card" href="#web-settings" onClick={(event) => { event.preventDefault(); openSettingsPanel(); }} aria-label={`View ${devices.length} hosted runners in settings`}><span>Hosted VPS</span><strong>{devices.length}</strong><small>{onlineDevices.length} online now</small><b>View runner →</b></a>
-          <a className="metric-card" href="#task-activity" aria-label={`View ${activeTasks.length} active tasks`}><span>Active tasks</span><strong>{activeTasks.length}</strong><small>{tasks.filter((task) => task.route === "cloud" && !terminal.has(task.status)).length} routed to cloud</small><b>View activity →</b></a>
-          <a className="metric-card" href="#task-activity" aria-label={`View task receipts; P95 completion is ${latency(p95CompletionLatency)}`}><span>P95 completion</span><strong>{latency(p95CompletionLatency)}</strong><small>{p95CompletionLatency === null ? "Waiting for completed runs" : "Measured from real task receipts"}</small><b>View receipts →</b></a>
-          <a className="metric-card" href="#execution-safety" aria-label="Explain fenced execution safety" onClick={() => setSafetyExpanded(true)}><span>Execution safety</span><strong className="safe-copy">Fenced</strong><small>One signed runner; 90-second lease</small><b>Explain safety →</b></a>
-        </nav>
-
-        <div className="dashboard-grid">
+        <div className="dashboard-grid dashboard-grid-chat">
           <section className="panel task-panel" id="hermes-console">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">THREAD CONSOLE</p>
-                {visibleTasks.length === 0 && !selectedThread ? (
-                  <button
-                    type="button"
-                    className="panel-heading-action"
-                    data-testid="start-work-heading"
-                    onClick={focusComposer}
-                    aria-label="Start work — focus the task composer"
-                  >
-                    <h2>Start the work</h2>
-                  </button>
-                ) : (
-                  <h2>Continue the work</h2>
-                )}
-              </div>
-              <span>{selectedThread ? `${threadDetails?.snapshot.length ?? 0} synced messages` : `${visibleTasks.length} tasks`}</span>
-            </div>
-            {/* DimAgent-style observability: always know what the agent is doing */}
-            <div
-              className="agent-activity"
-              data-testid="agent-activity"
-              data-state={activeTasks.length > 0 ? "running" : "idle"}
-              role="status"
-              aria-live="polite"
-            >
-              <i className="agent-activity-dot" aria-hidden="true" />
-              <strong>
-                {activeTasks.length === 1
-                  ? "1 hosted run active"
-                  : `${activeTasks.length} hosted runs active`}
-              </strong>
-              <span>
-                {activeTasks.some((task) => task.route === "cloud")
-                  ? "Fenced VPS · no babysitting required"
-                  : "Hosted on a fenced VPS"}
-              </span>
-            </div>
             <div className="hermes-scroll-pane">
-            {selectedThread && <div className="conversation-history" ref={conversationHistoryRef} data-testid="conversation-history">
+            {selectedThread && <div className={`conversation-history${cardPrefs.conversationMinimized ? " is-minimized" : ""}`} ref={conversationHistoryRef} data-testid="conversation-history">
               {threadDetails && threadTimeline.length ? threadTimeline.flatMap((item, index) => {
                 if (item.kind === "snapshot") {
                   const message = item.message;
                   return [
-                    <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`} data-timeline-index={index}><span>{message.role}</span><ConversationMeta meta={snapshotMessageMeta(message, threadDetails.syncedAt)} /><FormattedMessage text={message.content} hideToolProtocol={message.role === "assistant"} />{message.role === "assistant" && <TurnStatusline engine="Ollama (http://localhost:11434/v1/models)" ttft="<10ms" cost="$0.00" />}</article>,
+                    <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`} data-timeline-index={index}><span>{message.role}</span><ConversationMeta meta={snapshotMessageMeta(message, threadDetails.syncedAt)} /><FormattedMessage text={message.content} hideToolProtocol={message.role === "assistant"} />{message.role === "assistant" && <TurnStatusline engine={formatEngine()} ttft="unmeasured" cost="$0.00" />}</article>,
                   ];
                 }
                 const task = item.task;
@@ -1718,21 +1693,25 @@ export default function DashboardClient() {
                 // output is not at the bottom"). Non-mutating sort; the tasks API is
                 // newest-first, so this reverses it for the conversation timeline.
                 if (!task.prompt.trim()) return [];
+                if (cardPrefs.dismissedTaskIds.includes(task.id)) return [];
+                const collapsed = cardPrefs.collapsedTaskIds.includes(task.id);
+                const cardClass = collapsed ? " is-collapsed" : "";
                 return [
                   <article
                     key={`task-user-${task.id || index}`}
                     id={duplicateTaskListHidden ? `task-${task.id}` : undefined}
-                    className="dashboard-task conversation-message role-user"
+                    className={`dashboard-task conversation-message role-user${cardClass}`}
                     data-testid="conversation-user-prompt"
                     data-timeline-index={index}
                   >
                     <span>You</span>
+                    {promptCardToolbar(task.id)}
                     <ConversationMeta meta={taskPromptMeta(task)} />
                     <p>{task.prompt}</p>
                   </article>,
-                  task.result ? <article key={`task-result-${task.id || index}`} className="dashboard-task conversation-message role-assistant" data-testid="conversation-assistant-result"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.result} hideToolProtocol /><TurnStatusline engine={task.deviceName || (task.route === "cloud" ? "Fenced VPS · Ollama (localhost:11434)" : "Ollama (http://localhost:11434/v1/models)")} ttft={task.completedAt && task.createdAt ? latency(task.completedAt - task.createdAt) : "<10ms"} cost="$0.00" />{feedbackControls(task.id)}</article>
-                    : task.error ? <article key={`task-error-${task.id || index}`} className="conversation-message role-error"><span>Hermes error</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.error} /></article>
-                    : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${task.id || index}`} className="conversation-message role-pending" data-testid="conversation-pending"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><p>{pendingWaitCopy(task.status)}</p></article>
+                  task.result ? <article key={`task-result-${task.id || index}`} className={`dashboard-task conversation-message role-assistant${cardClass}`} data-testid="conversation-assistant-result"><span>{taskReceiptLabel(task)}</span>{promptCardToolbar(task.id)}<ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.result} hideToolProtocol /><TurnStatusline engine={engineLabelForTask(task)} ttft={task.completedAt && task.createdAt ? latency(task.completedAt - task.createdAt) : "unmeasured"} cost="$0.00" />{feedbackControls(task.id)}</article>
+                    : task.error ? <article key={`task-error-${task.id || index}`} className={`conversation-message role-error${cardClass}`}><span>Hermes error</span>{promptCardToolbar(task.id)}<ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.error} /></article>
+                    : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${task.id || index}`} className={`conversation-message role-pending${cardClass}`} data-testid="conversation-pending"><span>{taskReceiptLabel(task)}</span>{promptCardToolbar(task.id)}<ConversationMeta meta={taskOutputMeta(task)} /><p>{pendingWaitCopy(task.status)}</p></article>
                     : null,
                 ];
               }) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. <button type="button" className="task-filter-clear" data-testid="dashboard-retry" onClick={() => requestWorkspaceRefresh()}>Retry</button></div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}
@@ -1827,7 +1806,7 @@ export default function DashboardClient() {
                       <>
                         <pre>{task.result}</pre>
                         <TurnStatusline
-                          engine={task.deviceName || (task.route === "cloud" ? "Fenced VPS · Ollama (localhost:11434)" : "Ollama (http://localhost:11434/v1/models)")}
+                          engine={engineLabelForTask(task)}
                           ttft={task.completedAt && task.createdAt ? latency(task.completedAt - task.createdAt) : "<10ms"}
                           cost="$0.00"
                         />
@@ -1841,36 +1820,6 @@ export default function DashboardClient() {
             </div>
             </div>
             <form className="composer" ref={setComposerNode} onSubmit={(event) => void createTask(event)}>
-              <div className="quick-continuation-chips" role="toolbar" aria-label="Continuation prompts">
-                <span className="chips-label">⚡ 2-word prompts:</span>
-                <div className="chips-scroll">
-                  {[
-                    { label: "now what", desc: "Suggest 3-5 concrete next steps" },
-                    { label: "plz fix", desc: "Diagnose and fix error" },
-                    { label: "interview me", desc: "Ask targeted questions" },
-                    { label: "show receipts", desc: "Verifiable empirical receipts" },
-                    { label: "keep going!", desc: "Continue execution" },
-                    { label: "challenge me", desc: "Adversarial review for flaws" },
-                    { label: "simulate it", desc: "Edge case simulation" },
-                    { label: "elii elie", desc: "Executive vs intern breakdown" },
-                    { label: "audit it", desc: "Security & invariant audit" },
-                    { label: "do this", desc: "Replicate exact pattern" },
-                  ].map((item) => (
-                    <button
-                      key={item.label}
-                      type="button"
-                      className="chip-button"
-                      title={item.desc}
-                      onClick={() => {
-                        setPrompt(item.label);
-                        focusComposer();
-                      }}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
               <textarea
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
@@ -1962,154 +1911,107 @@ export default function DashboardClient() {
               </div>
             </form>
           </section>
-
-          <aside className="right-rail" ref={rightRailRef}>
-            <section className="panel connection-panel" id="leash-control">
-              <div className="panel-heading"><div><p className="eyebrow">HOSTED HERMES</p><h2>Fenced VPS</h2></div><span>{hostedCopy.badge}</span></div>
-              <div className="connection-summary" data-testid="hosted-connection-summary" data-hosted-ready={hostedCopy.live ? "1" : "0"}>
-                <span className={`device-light ${hostedCopy.live ? "is-online" : runnerStatus === "unhealthy" || modelStatus === "unhealthy" ? "is-stale" : ""}`} />
-                <div>
-                  <strong>{hostedCopy.headline}</strong>
-                  <p>{hostedCopy.body}</p>
-                </div>
-              </div>
-              <ul className="hosted-resource-status" data-testid="hosted-resource-status">
-                <li data-testid="hosted-runner-status" data-status={runnerStatus}>
-                  Runner · {hostedResourceLabel(runnerStatus)}
-                </li>
-                <li data-testid="hosted-model-status" data-status={modelStatus}>
-                  Model · {hostedResourceLabel(modelStatus)}
-                </li>
-              </ul>
-              <ol className="dashboard-setup-steps">
-                <li className={runnerStatus === "healthy" ? "is-done" : ""}><span>1</span>Cloud VPS runner {hostedResourceLabel(runnerStatus).toLowerCase()}</li>
-                <li className="is-done"><span>2</span>LLM-as-a-Judge guardrails enabled</li>
-                <li className={hostedCopy.live ? "is-done" : ""}><span>3</span>{hostedCopy.live ? "Online & autonomous" : "Waiting until runner and model are healthy"}</li>
-              </ol>
-              <p className="helper-copy" data-testid="hosted-run-default">
-                Sends go to Hosted VPS. Pairing a Mac is optional.
-              </p>
-              {devices.length > 0 ? (
-                <details className="leash-device-picker" data-testid="leash-device-picker">
-                  <summary>Send to a paired Mac instead</summary>
-                  <label htmlFor="leash-device-select" className="leash-device-label">
-                    Run next task on
-                  </label>
-                  <select
-                    id="leash-device-select"
-                    data-testid="leash-device-select"
-                    value={selectedDeviceId || "cloud"}
-                    onChange={(event) => chooseDevice(event.target.value)}
-                    disabled={busy}
-                    aria-label="Hosted VPS is the default run target"
-                  >
-                    <option value="cloud">Hosted VPS (default)</option>
-                    {devices.map((device) => (
-                      <option key={device.id} value={device.id}>
-                        {machineDisplayName(device)} · {deviceStatusLabel(device)}
-                      </option>
-                    ))}
-                  </select>
-                </details>
-              ) : null}
-              <p className="helper-copy" data-testid="leash-signed-in">
-                Signed in as <strong>{user.email}</strong>
-              </p>
-            </section>
-            <details className="panel safety-panel" id="execution-safety" open={safetyExpanded} onToggle={(event) => setSafetyExpanded(event.currentTarget.open)}>
-              <summary><span><span className="eyebrow">EXECUTION SAFETY</span><strong>What “Fenced” means</strong></span><span aria-hidden="true">⌄</span></summary>
-              <div className="safety-explanation">
-                <p>ThumbGate gives each task to one signed runner at a time. Its 90-second lease must keep renewing; if that runner disappears, the lease expires before another runner can take over.</p>
-                <ul><li>Prevents duplicate or stale runners from continuing work.</li><li>Rejects completion receipts from an expired lease.</li><li>All tasks run in isolated serverless cloud sandboxes.</li><li data-testid="hosted-not-computer-history">{HOSTED_NOT_COMPUTER_HISTORY} Least privilege: cannot read secrets. We do not ingest other people&apos;s Slack or DMs.</li></ul>
-                <button
-                  type="button"
-                  className="button button-secondary button-small"
-                  data-testid="open-settings"
-                  onClick={openSettingsPanel}
-                >
-                  Open settings
-                </button>
-              </div>
-            </details>
-            <section className="panel" id="web-settings" tabIndex={-1}>
-              <div className="panel-heading"><div><p className="eyebrow">SETTINGS</p><h2>Hosted VPS runner</h2></div></div>
-              <p className="helper-copy">
-                ThumbGate executes tasks on the fenced Cloud VPS runner (90s renewable lease). No local Mac software is required. Pairing a computer stays optional below.
-              </p>
-              {devices.map((device) => {
-                const isPreferred = device.id === selectedDeviceId;
-                return (
-                <article
-                  key={device.id}
-                  className={`device-card${device.stale || device.presence === "stale" ? " is-stale" : ""}${isPreferred ? " is-preferred" : ""}`}
-                  data-testid={`device-card-${device.id.slice(0, 8)}`}
-                  data-preferred={isPreferred ? "1" : "0"}
-                >
-                  <div>
-                    <span className={`device-light ${device.online ? "is-online" : device.stale || device.presence === "stale" ? "is-stale" : ""}`} />
-                    <div>
-                      <strong>{device.name}</strong>
-                      <small>
-                        {deviceStatusLabel(device)} · id {device.id.slice(0, 8)}
-                        {isPreferred ? " · preferred for tasks" : ""}
-                      </small>
-                    </div>
-                  </div>
-                  <code>{device.fingerprint}</code>
-                  <label>If {machineDisplayName(device)} goes offline
-                    <select value={device.failoverMode} onChange={(event) => void updateFailover(device.id, event.target.value as Device["failoverMode"])}>
-                      <option value="manual">Ask me first before switching to the cloud</option>
-                      <option value="auto">Switch to the cloud automatically</option>
-                      <option value="disabled">Pause and wait for {machineDisplayName(device)}</option>
-                    </select>
-                  </label>
-                  <div className="device-card-actions">
-                    <button
-                      type="button"
-                      className="button button-primary button-small device-use-for-tasks"
-                      data-testid={`device-use-for-tasks-${device.id.slice(0, 8)}`}
-                      disabled={busy || isPreferred}
-                      onClick={() => chooseDevice(device.id)}
-                    >
-                      {isPreferred ? "Preferred for tasks" : "Use for tasks"}
-                    </button>
-                    <button
-                      type="button"
-                      className="button button-secondary button-small device-remove"
-                      disabled={busy}
-                      onClick={() => void revokeDevice(device)}
-                    >
-                      {(device.stale || device.presence === "stale") ? "Remove stale machine" : "Remove machine"}
-                    </button>
-                  </div>
-                </article>
-                );
-              })}
-              <details className="add-mac-details" style={{ marginTop: "1rem" }}>
-                <summary>Add another computer (optional)</summary>
-                <p className="helper-copy">
-                  These machines run the ThumbGate connector as an always-on service. After the one-time install they reconnect on their own — you do <strong>not</strong> copy an installer every time. A browser cannot install a background service on the host OS due to Apple security.
-                </p>
-                <div className="installer-command">
-                  <code>{connectorInstallCommand}</code>
-                  <button className="button button-secondary button-small" type="button" onClick={() => void copyInstaller()}>{installCopied ? "Copied" : "Copy one-line installer"}</button>
-                  <button className="button button-secondary button-small" type="button" onClick={() => void copyInstaller()}>{installCopied ? "Copied" : "Copy installer for another computer"}</button>
-                </div>
-                <form className="pair-form" onSubmit={pair}>
-                  <label>Pairing code<input value={pairCode} onChange={(event) => setPairCode(event.target.value.toUpperCase())} placeholder="ABCD-EFGH" maxLength={9} /></label>
-                  <button className="button button-secondary button-small" disabled={busy || !pairingCodePattern.test(pairCode)}>Approve machine</button>
-                </form>
-              </details>
-            </section>
-          </aside>
         </div>
       </section>
       <nav className="mobile-web-tabs" aria-label="Hermes workspace">
-        <a href="#hermes-console" className={mobileTab === "hermes" ? "is-active" : undefined} aria-current={mobileTab === "hermes" ? "page" : undefined} onClick={(event) => { event.preventDefault(); setMobileTab("hermes"); window.history.replaceState(null, "", "#hermes-console"); }}><b aria-hidden="true">H</b><span>Hermes</span></a>
-        <a href="#leash-control" className={mobileTab === "leash" ? "is-active" : undefined} aria-current={mobileTab === "leash" ? "page" : undefined} onClick={(event) => { event.preventDefault(); setMobileTab("leash"); window.history.replaceState(null, "", "#leash-control"); }}><b aria-hidden="true">✓</b><span>Leash</span></a>
+        <a href="#hermes-console" className={!settingsOpen && mobileTab === "hermes" ? "is-active" : undefined} aria-current={!settingsOpen && mobileTab === "hermes" ? "page" : undefined} onClick={(event) => { event.preventDefault(); closeSettingsPanel(); setMobileTab("hermes"); window.history.replaceState(null, "", "#hermes-console"); }}><b aria-hidden="true">H</b><span>Hermes</span></a>
         <a href="/dashboard/lessons" className={mobileTab === "lessons" ? "is-active" : undefined} aria-current={mobileTab === "lessons" ? "page" : undefined} onClick={() => setMobileTab("lessons")}><b aria-hidden="true">👍</b><span>Lessons</span></a>
-        <a href="#web-settings" className={mobileTab === "settings" ? "is-active" : undefined} aria-current={mobileTab === "settings" ? "page" : undefined} onClick={(event) => { event.preventDefault(); setMobileTab("settings"); window.history.replaceState(null, "", "#web-settings"); }}><b aria-hidden="true">≡</b><span>Settings</span></a>
+        <a href="#web-settings" className={settingsOpen ? "is-active" : undefined} aria-current={settingsOpen ? "page" : undefined} onClick={(event) => { event.preventDefault(); openSettingsPanel(); }}><b aria-hidden="true">≡</b><span>Settings</span></a>
       </nav>
+      {settingsOpen && <div className="chat-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) closeSettingsPanel(); }}>
+        <section className="chat-dialog settings-dialog" id="web-settings" role="dialog" aria-modal="true" aria-labelledby="settings-dialog-title" tabIndex={-1} ref={settingsDialogRef}>
+          <p className="eyebrow">ACCOUNT</p>
+          <h2 id="settings-dialog-title">Hosted VPS runner</h2>
+          <p className="helper-copy" data-testid="leash-signed-in">Signed in as <strong>{user.email}</strong></p>
+          <p className="helper-copy" data-testid="hosted-run-default">Sends go to Hosted VPS. Pairing a Mac is optional.</p>
+          {devices.length > 0 ? (
+            <details className="leash-device-picker" data-testid="leash-device-picker">
+              <summary>Send to a paired Mac instead</summary>
+              <label htmlFor="leash-device-select" className="leash-device-label">
+                Run next task on
+              </label>
+              <select
+                id="leash-device-select"
+                data-testid="leash-device-select"
+                value={selectedDeviceId || "cloud"}
+                onChange={(event) => chooseDevice(event.target.value)}
+                disabled={busy}
+                aria-label="Hosted VPS is the default run target"
+              >
+                <option value="cloud">Hosted VPS (default)</option>
+                {devices.map((device) => (
+                  <option key={device.id} value={device.id}>
+                    {machineDisplayName(device)} · {deviceStatusLabel(device)}
+                  </option>
+                ))}
+              </select>
+            </details>
+          ) : null}
+          {devices.map((device) => {
+            const isPreferred = device.id === selectedDeviceId;
+            return (
+            <article
+              key={device.id}
+              className={`device-card${device.stale || device.presence === "stale" ? " is-stale" : ""}${isPreferred ? " is-preferred" : ""}`}
+              data-testid={`device-card-${device.id.slice(0, 8)}`}
+              data-preferred={isPreferred ? "1" : "0"}
+            >
+              <div>
+                <span className={`device-light ${device.online ? "is-online" : device.stale || device.presence === "stale" ? "is-stale" : ""}`} />
+                <div>
+                  <strong>{device.name}</strong>
+                  <small>
+                    {deviceStatusLabel(device)} · id {device.id.slice(0, 8)}
+                    {isPreferred ? " · preferred for tasks" : ""}
+                  </small>
+                </div>
+              </div>
+              <div className="device-card-actions">
+                <button
+                  type="button"
+                  className="button button-primary button-small device-use-for-tasks"
+                  data-testid={`device-use-for-tasks-${device.id.slice(0, 8)}`}
+                  disabled={busy || isPreferred}
+                  onClick={() => chooseDevice(device.id)}
+                >
+                  {isPreferred ? "Preferred for tasks" : "Use for tasks"}
+                </button>
+                <button
+                  type="button"
+                  className="button button-secondary button-small device-remove"
+                  disabled={busy}
+                  onClick={() => void revokeDevice(device)}
+                >
+                  {(device.stale || device.presence === "stale") ? "Remove stale machine" : "Remove machine"}
+                </button>
+              </div>
+            </article>
+            );
+          })}
+          <details className="add-mac-details">
+            <summary>Add another computer (optional)</summary>
+            <p className="helper-copy">
+              These machines run the ThumbGate connector as an always-on service. After the one-time install they reconnect on their own — you do <strong>not</strong> copy an installer every time. A browser cannot install a background service on the host OS due to Apple security.
+            </p>
+            <div className="installer-command">
+              <code>{connectorInstallCommand}</code>
+              <button className="button button-secondary button-small" type="button" onClick={() => void copyInstaller()}>{installCopied ? "Copied" : "Copy one-line installer"}</button>
+              <button className="button button-secondary button-small" type="button" onClick={() => void copyInstaller()}>{installCopied ? "Copied" : "Copy installer for another computer"}</button>
+            </div>
+            <form className="pair-form" onSubmit={pair}>
+              <label>Pairing code<input value={pairCode} onChange={(event) => setPairCode(event.target.value.toUpperCase())} placeholder="ABCD-EFGH" maxLength={9} /></label>
+              <button className="button button-secondary button-small" disabled={busy || !pairingCodePattern.test(pairCode)}>Approve machine</button>
+            </form>
+          </details>
+          <div className="chat-dialog-actions">
+            <button className="button button-small button-secondary" type="button" onClick={() => void (["pro", "team"].includes(organization.plan) ? manageBilling() : subscribe())} disabled={busy}>
+              {["pro", "team"].includes(organization.plan) ? "Manage plan" : organization.cloudAccess ? "Keep cloud after trial" : "Add cloud failover"}
+            </button>
+            <SignOutForm buttonClassName="button button-small button-secondary sign-out-button" />
+            <button type="button" className="button button-primary button-small" onClick={closeSettingsPanel}>Done</button>
+          </div>
+        </section>
+      </div>}
       {feedbackDialog && <div className="chat-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target && !feedbackBusyTask) setFeedbackDialog(null); }}>
         <form className="chat-dialog feedback-dialog" role="dialog" aria-modal="true" aria-labelledby="feedback-dialog-title" onSubmit={(event) => { event.preventDefault(); void saveFeedback(feedbackDialog.taskId, "down", feedbackDialog.note); }}>
           <p className="eyebrow">THUMBGATE FEEDBACK</p>
