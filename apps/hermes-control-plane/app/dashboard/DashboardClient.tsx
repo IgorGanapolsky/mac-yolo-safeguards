@@ -1589,6 +1589,7 @@ export default function DashboardClient() {
               {selectedThread && (() => {
                 const activeThread = threads.find((t) => t.id === selectedThread);
                 return activeThread ? (
+                  <>
                   <button
                     type="button"
                     className="button button-small button-secondary thread-rename-trigger"
@@ -1620,6 +1621,7 @@ export default function DashboardClient() {
                   >
                     ⌫ Delete
                   </button>
+                  </>
                 ) : null;
               })()}
             </div>
