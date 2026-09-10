@@ -26,14 +26,11 @@ test("hosted-resource-status list is styled, not a bare default ul", () => {
   assert.match(globals, /\.hosted-resource-status li\[data-status="unhealthy"\]/);
 });
 
-test("agent-activity strip has TOP-LEVEL styles, not only phone-scoped ones", () => {
-  // Production showed "0 hosted runs activeHosted on a fenced VPS" because the
-  // strip's only styles were authored inside the phone media block — desktop
-  // got an unstyled, always-visible div. The cure must live at top level:
-  // require the rules AFTER the UI-audit marker appended at end of file.
-  const marker = globals.lastIndexOf("2026-08-20 UI audit fixes");
-  assert.ok(marker > -1, "UI-audit block missing");
-  const tail = globals.slice(marker);
-  assert.match(tail, /\.agent-activity\{[^}]*display:flex[^}]*gap:8px/);
-  assert.match(tail, /\.agent-activity\[data-state="idle"\]\{display:none\}/);
+test("agent-activity theater is gone from the dashboard client", () => {
+  const dashboard = fs.readFileSync(
+    path.join(import.meta.dirname, "../app/dashboard/DashboardClient.tsx"),
+    "utf8",
+  );
+  assert.doesNotMatch(dashboard, /data-testid="agent-activity"/);
+  assert.doesNotMatch(dashboard, /hosted runs active/);
 });

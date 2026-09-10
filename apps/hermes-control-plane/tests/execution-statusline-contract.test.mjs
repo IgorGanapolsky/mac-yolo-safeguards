@@ -11,9 +11,9 @@ test("dashboard does not make a generic whole-product health promise", () => {
   assert.doesNotMatch(dashboard, /ThumbGate online/i);
 });
 
-test("continuation prompts and output stay readable without horizontal page scrolling", () => {
-  assert.match(globals, /\.quick-continuation-chips\s*\{[^}]*gap:/s);
-  assert.match(globals, /\.quick-continuation-chips \.chips-scroll\s*\{[^}]*gap:/s);
+test("composer output stays readable without horizontal page scrolling", () => {
+  assert.doesNotMatch(dashboard, /quick-continuation-chips/);
+  assert.match(globals, /\.dashboard-grid-chat\{/);
   assert.match(globals, /\.composer\s*>\s*\.run-output\s*\{[^}]*display:\s*block/s);
 });
 

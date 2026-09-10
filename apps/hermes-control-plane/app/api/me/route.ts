@@ -1,6 +1,7 @@
 import { currentSession, workosConfigured } from "@/lib/auth";
 import { hasCloudContinuationAccess } from "@/lib/entitlements";
 import { buildContinuityUsageSnapshot } from "@/lib/continuity-pricing";
+import { hydrateCloudRunnerHeartbeat } from "@/lib/cloud-runner-heartbeat";
 import {
   cachedRunnerHealth,
   describeHostedResources,
@@ -71,6 +72,7 @@ export async function GET() {
       cloudTasks30d: usageRow?.cloudTasks30d,
       activeTasks: usageRow?.activeTasks,
     });
+    await hydrateCloudRunnerHeartbeat();
     const cachedRunner = cachedRunnerHealth();
     const hosted = describeHostedResources({
       runner: cachedRunner.health ?? { ok: false, lastPollAt: null },

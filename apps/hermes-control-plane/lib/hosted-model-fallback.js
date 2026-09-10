@@ -88,7 +88,7 @@ const GENERIC_IDENTITIES = new Set([
 ]);
 
 const FAILED_ROW_RE = /\bFAILED\b|status["']?\s*[:=]\s*["']?failed\b/i;
-const QUOTA_RE = /Weekly\/Monthly Limit Exhausted|quota is exhausted|code 1310|temporarily overloaded|Hosted model quota/i;
+const QUOTA_RE = /Weekly\/Monthly Limit Exhausted|quota is exhausted|code 1310|temporarily overloaded|Hosted model quota|Credit limit exceeded/i;
 
 export function isQuotaOrFailedRow(text) {
   const value = String(text ?? "");
@@ -97,6 +97,7 @@ export function isQuotaOrFailedRow(text) {
 
 export function inferFailedProvider(text) {
   const raw = String(text ?? "").toLowerCase();
+  if (/together\.ai|together\.xyz|credit limit exceeded/.test(raw)) return "deepseek-free";
   if (/deepseek/.test(raw)) return "deepseek-free";
   if (/poolside|laguna/.test(raw)) return "poolside";
   if (/supergrok|grok-4|grok\.com|grok-yolo|\bgrok\b/.test(raw)) return "supergrok";

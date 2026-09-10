@@ -104,7 +104,6 @@ html,body{height:100%;margin:0}
               </div>
             </div>
             <form class="composer">
-              <div class="quick-continuation-chips"><span class="chips-label">2-word prompts</span><div class="chips-scroll"><button type="button" class="chip-button">keep going</button></div></div>
               <textarea aria-label="Message for Hermes" placeholder="Tell Hermes what to do next…"></textarea>
               <div class="run-output" data-testid="run-output"><p class="eyebrow">Output</p><p>Results show here after you send.</p></div>
               <div class="composer-actions"><button type="submit" class="button button-primary composer-run">Run</button></div>
@@ -114,7 +113,6 @@ html,body{height:100%;margin:0}
       </section>
       <nav class="mobile-web-tabs" aria-label="Hermes workspace">
         <a class="is-active" href="#hermes-console"><b>H</b><span>Hermes</span></a>
-        <a href="#leash-control"><b>✓</b><span>Leash</span></a>
         <a href="/dashboard/lessons"><b>👍</b><span>Lessons</span></a>
         <a href="#web-settings"><b>≡</b><span>Settings</span></a>
       </nav>
@@ -181,7 +179,7 @@ html,body{height:100%;margin:0}
       `Run button bottom ${geometry.runBottom} exceeds viewport`,
     );
     assert.equal(geometry.hitIsTextarea, true, "textarea center is covered by another layer");
-    assert.equal(geometry.chipsDisplay, "flex");
+    assert.equal(geometry.chipsDisplay, "none");
     assert.equal(geometry.ctaDisplay, "none", "Write a task CTA must not replace the prompt box");
     assert.ok(geometry.outputWidth > 0 && geometry.outputWidth <= 390);
   } finally {

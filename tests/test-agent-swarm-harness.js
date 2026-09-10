@@ -73,19 +73,19 @@ const SAMPLE_PLAN = `# plan.md
 
 | ID  | Task | Status | Owner | Files (claim) | AcceptanceCheck |
 |-----|------|--------|-------|---------------|-----------------|
-| T-LIVE-A-20260818 | Numeric active | in_progress | worker-b | \`hermes-mobile/src/screens/ChatScreen.tsx\` | jest |
+| T-LIVE-A-20260910 | Numeric active | in_progress | worker-b | \`hermes-mobile/src/screens/ChatScreen.tsx\` | jest |
 | T-LEASH-LAZY-SPINNER | Named active | in_progress | planner-a | \`hermes-mobile/src/components/ConnectMacGate.tsx\`, \`plan.md\` | OTA |
 | T-TINKER-FULL-TOOLS-20260721 | Named done | done | codex | \`tinker-yolo\` | done |
-| T-LIVE-B-20260818 | Contends ChatScreen | in_progress | other-agent | \`hermes-mobile/src/screens/ChatScreen.tsx\` | conflict |
+| T-LIVE-B-20260910 | Contends ChatScreen | in_progress | other-agent | \`hermes-mobile/src/screens/ChatScreen.tsx\` | conflict |
 
 ## 2. File Ownership Map
-- \`hermes-mobile/src/screens/ChatScreen.tsx\` → **worker-b** (T-LIVE-A-20260818)
+- \`hermes-mobile/src/screens/ChatScreen.tsx\` → **worker-b** (T-LIVE-A-20260910)
 `;
 
 test('parseActiveTasks includes named task ids and claimedFiles', () => {
   const tasks = parseActiveTasks(SAMPLE_PLAN);
   const ids = tasks.map((t) => t.id).sort();
-  assert.deepStrictEqual(ids, ['T-LEASH-LAZY-SPINNER', 'T-LIVE-A-20260818', 'T-LIVE-B-20260818']);
+  assert.deepStrictEqual(ids, ['T-LEASH-LAZY-SPINNER', 'T-LIVE-A-20260910', 'T-LIVE-B-20260910']);
   const leash = tasks.find((t) => t.id === 'T-LEASH-LAZY-SPINNER');
   assert.ok(leash.claimedFiles.includes('hermes-mobile/src/components/ConnectMacGate.tsx'));
 });
