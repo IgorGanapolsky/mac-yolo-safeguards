@@ -359,6 +359,7 @@ export default function DashboardClient() {
   /** Bottom-tab highlight on phone: path + hash, not always-Hermes. */
   const [mobileTab, setMobileTab] = useState<"hermes" | "lessons">("hermes");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsDialogRef = useRef<HTMLElement | null>(null);
   /** Phone shell: hide route-explain blurb so it cannot cover the textarea (Genspark-style compact chrome). */
   const [isNarrowViewport, setIsNarrowViewport] = useState(false);
 
@@ -449,6 +450,16 @@ export default function DashboardClient() {
       window.history.replaceState(null, "", "#hermes-console");
     }
   }
+
+  useEffect(() => {
+    if (!settingsOpen) return;
+    settingsDialogRef.current?.focus({ preventScroll: true });
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeSettingsPanel();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [settingsOpen]);
 
   function chooseDevice(deviceId: string) {
     if (deviceId === "pair" || deviceId === "manage") {
@@ -1908,7 +1919,7 @@ export default function DashboardClient() {
         <a href="#web-settings" className={settingsOpen ? "is-active" : undefined} aria-current={settingsOpen ? "page" : undefined} onClick={(event) => { event.preventDefault(); openSettingsPanel(); }}><b aria-hidden="true">≡</b><span>Settings</span></a>
       </nav>
       {settingsOpen && <div className="chat-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) closeSettingsPanel(); }}>
-        <section className="chat-dialog settings-dialog" id="web-settings" role="dialog" aria-modal="true" aria-labelledby="settings-dialog-title" tabIndex={-1}>
+        <section className="chat-dialog settings-dialog" id="web-settings" role="dialog" aria-modal="true" aria-labelledby="settings-dialog-title" tabIndex={-1} ref={settingsDialogRef}>
           <p className="eyebrow">ACCOUNT</p>
           <h2 id="settings-dialog-title">Hosted VPS runner</h2>
           <p className="helper-copy" data-testid="leash-signed-in">Signed in as <strong>{user.email}</strong></p>

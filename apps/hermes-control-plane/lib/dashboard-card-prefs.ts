@@ -49,5 +49,10 @@ export function saveCardPrefs(
   prefs: DashboardCardPrefs,
   storage: Pick<Storage, "setItem"> | null = globalThis.localStorage,
 ): void {
-  storage?.setItem(CARD_PREFS_KEY, JSON.stringify(prefs));
+  if (!storage) return;
+  try {
+    storage.setItem(CARD_PREFS_KEY, JSON.stringify(prefs));
+  } catch {
+    // Quota / private-mode storage must not crash the dashboard.
+  }
 }

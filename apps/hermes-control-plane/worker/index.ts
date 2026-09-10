@@ -59,7 +59,10 @@ const worker = {
       return Response.redirect(new URL("/#pricing", url.origin), 308);
     }
     if (url.pathname === "/d" || url.pathname === "/d/") {
-      return Response.redirect(new URL("/dashboard", url.origin), 307);
+      const dest = new URL("/dashboard", url.origin);
+      dest.search = url.search;
+      dest.hash = url.hash;
+      return Response.redirect(dest, 307);
     }
 
     if (url.pathname === "/_vinext/image") {

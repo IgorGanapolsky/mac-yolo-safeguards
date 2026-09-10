@@ -196,11 +196,7 @@ async function execute(config, task) {
     } catch (error) {
       const text = error instanceof Error ? error.message : String(error);
       errors.push(`${hop.id}: ${text}`);
-      if (error?.retryable) {
-        rememberCooldown(hop, text);
-        continue;
-      }
-      if (hops.length === 1) throw error;
+      if (!error?.retryable) throw error;
       rememberCooldown(hop, text);
     }
   }

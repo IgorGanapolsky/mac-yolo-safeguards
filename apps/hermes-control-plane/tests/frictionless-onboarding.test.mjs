@@ -321,6 +321,8 @@ test("Open settings is a real control, not a dead Continuity hash link", () => {
   assert.doesNotMatch(dashboard, /Open Continuity settings/);
   assert.match(dashboard, /data-testid="open-settings"/);
   assert.match(dashboard, /openSettingsPanel/);
+  assert.match(dashboard, /settingsDialogRef/);
+  assert.match(dashboard, /settingsDialogRef.current\?\.focus/);
   assert.doesNotMatch(dashboard, /href="#web-settings">Open settings</);
 });
 

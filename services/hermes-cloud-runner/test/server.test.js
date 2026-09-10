@@ -37,6 +37,7 @@ test('quota and credit-limit errors are retryable; 500 is not the only hop kille
   assert.equal(isRetryableProviderError(429, 'Weekly/Monthly Limit Exhausted'), true);
   assert.equal(isRetryableProviderError(200, 'Credit limit exceeded, please add credits'), true);
   assert.equal(isRetryableProviderError(500, 'disk full'), false);
+  assert.equal(isRetryableProviderError(401, 'invalid api key'), false);
 });
 
 test('execute fails over to the next hop after a 429', async () => {
@@ -67,6 +68,41 @@ test('execute fails over to the next hop after a 429', async () => {
     }, { prompt: 'ping', contextMessages: [] });
     assert.equal(result, 'HOP_OK');
     assert.deepEqual(hits, ['/smart/chat/completions', '/cheap/chat/completions']);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('execute does not hop after a non-retryable 401', async () => {
+  const hits = [];
+  const server = http.createServer((request, response) => {
+    const url = new URL(request.url, 'http://127.0.0.1');
+    hits.push(url.pathname);
+    let body = '';
+    request.on('data', (chunk) => { body += chunk; });
+    request.on('end', () => {
+      response.setHeader('content-type', 'application/json');
+      if (url.pathname === '/smart/chat/completions') {
+        response.statusCode = 401;
+        response.end(JSON.stringify({ error: { message: 'invalid api key' } }));
+        return;
+      }
+      response.end(JSON.stringify({ choices: [{ message: { content: 'SHOULD_NOT_HOP' } }] }));
+    });
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const port = server.address().port;
+  try {
+    await assert.rejects(
+      () => execute({
+        hops: [
+          { id: 'zai-401', baseUrl: `http://127.0.0.1:${port}/smart`, key: 'k1', model: 'glm-5.3' },
+          { id: 'gemini-401', baseUrl: `http://127.0.0.1:${port}/cheap`, key: 'k2', model: 'gemini-2.5-flash' },
+        ],
+      }, { prompt: 'ping', contextMessages: [] }),
+      /invalid api key/,
+    );
+    assert.deepEqual(hits, ['/smart/chat/completions']);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
