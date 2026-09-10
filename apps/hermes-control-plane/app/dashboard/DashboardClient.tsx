@@ -21,6 +21,7 @@ import { scheduleOneShotErrorRetry, startActiveTaskRefresh, startDashboardRefres
 import {
   hideDuplicateTaskList,
   latestChronologicalTask,
+  mergeFresherTasks,
   mergeThreadTimeline,
   orderTasksChronologically,
 } from "@/lib/dashboard-task-order";
@@ -1016,9 +1017,12 @@ export default function DashboardClient() {
     () =>
       mergeThreadTimeline({
         snapshot: threadDetails?.snapshot ?? [],
-        tasks: threadDetails?.tasks ?? [],
+        tasks: mergeFresherTasks(
+          threadDetails?.tasks ?? [],
+          selectedThread ? tasks.filter((task) => task.threadId === selectedThread) : tasks,
+        ),
       }),
-    [threadDetails?.snapshot, threadDetails?.tasks],
+    [threadDetails?.snapshot, threadDetails?.tasks, tasks, selectedThread],
   );
   const [urlFocusedTaskId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
