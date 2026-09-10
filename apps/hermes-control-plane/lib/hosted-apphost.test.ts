@@ -53,6 +53,7 @@ describe("isQuotaOrOverloadError", () => {
     expect(isQuotaOrOverloadError(OVERLOAD)).toBe(true);
     expect(isQuotaOrOverloadError("Hosted model quota is exhausted until 2026-08-22 21:07:02 UTC.")).toBe(true);
     expect(isQuotaOrOverloadError("Hosted model is temporarily overloaded. The runner is up; the model is not ready.")).toBe(true);
+    expect(isQuotaOrOverloadError("Hosted model is not ready. Credit limit exceeded, please add credits")).toBe(true);
     expect(isQuotaOrOverloadError("disk full")).toBe(false);
   });
 });

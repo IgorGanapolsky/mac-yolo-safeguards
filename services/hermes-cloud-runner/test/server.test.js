@@ -3,10 +3,23 @@
 const assert = require('node:assert/strict');
 const http = require('http');
 const test = require('node:test');
-const { configFromEnv, execute, nextPollDelay, pollingSchedule, withLeaseRenewal } = require('../server');
+const { configFromEnv, execute, nextPollDelay, pollingSchedule, publicModelInfo, withLeaseRenewal } = require('../server');
 
 test('requires control plane, runner, and model provider credentials', () => {
   assert.throws(() => configFromEnv({}), /HERMES_CONTROL_PLANE_URL/);
+});
+
+test('health model info names the host without the key', () => {
+  const info = publicModelInfo({
+    OPENAI_BASE_URL: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    OPENAI_MODEL: 'gemini-2.5-flash',
+    OPENAI_API_KEY: 'secret-must-not-leak',
+  });
+  assert.deepEqual(info, {
+    model: 'gemini-2.5-flash',
+    modelHost: 'generativelanguage.googleapis.com',
+  });
+  assert.equal(JSON.stringify(info).includes('secret'), false);
 });
 
 test('normalizes runner configuration without exposing tokens', () => {

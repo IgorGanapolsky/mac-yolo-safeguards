@@ -11,8 +11,15 @@ const MAC_OLLAMA = /Ollama \(http:\/\/localhost|127\.0\.0\.1:11434/i;
 describe("turn statusline", () => {
   it("defaults engine to hosted Hermes, not Mac localhost Ollama", () => {
     const engine = formatEngine();
-    expect(engine).toBe("Hosted Hermes · SuperGrok (grok-4.5)");
+    expect(engine).toBe("Hosted Hermes · Fenced VPS (fly)");
     expect(MAC_OLLAMA.test(engine)).toBe(false);
+  });
+
+  it("names the live Gemini model instead of SuperGrok", () => {
+    expect(formatEngine({
+      model: "gemini-2.5-flash",
+      modelHost: "generativelanguage.googleapis.com",
+    })).toBe("Hosted Hermes · Gemini (gemini-2.5-flash)");
   });
 
   it("maps provider ids and rejects a Mac Ollama engine string", () => {
@@ -24,7 +31,7 @@ describe("turn statusline", () => {
         providerLabel: "Ollama (http://localhost:11434/v1/models)",
         model: "llama",
       }),
-    ).toBe("Hosted Hermes · SuperGrok (grok-4.5)");
+    ).toBe("Hosted Hermes · Fenced VPS (fly)");
   });
 
   it("keeps TTFT unmeasured until a real first-token sample exists", () => {
@@ -56,7 +63,7 @@ describe("turn statusline", () => {
     expect(MAC_OLLAMA.test(line)).toBe(false);
     const defaults = formatTurnStatusline();
     expect(defaults.line).toBe(
-      "Turn Statusline | Engine: Hosted Hermes · SuperGrok (grok-4.5) | TTFT: unmeasured | Cost: $0.00 · included in $10/mo",
+      "Turn Statusline | Engine: Hosted Hermes · Fenced VPS (fly) | TTFT: unmeasured | Cost: $0.00 · included in $10/mo",
     );
   });
 });

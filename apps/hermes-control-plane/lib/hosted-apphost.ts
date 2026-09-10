@@ -29,6 +29,8 @@ export type RunnerHealthInput = {
   lastTaskAt?: number | null;
   degraded?: boolean;
   error?: string | null;
+  model?: string | null;
+  modelHost?: string | null;
 };
 
 export type HostedReadyResult = {
@@ -48,7 +50,7 @@ export type HostedResourceStatus = {
   identity?: string | null;
 };
 
-const QUOTA_EXHAUSTED_RE = /Weekly\/Monthly Limit Exhausted/i;
+const QUOTA_EXHAUSTED_RE = /Weekly\/Monthly Limit Exhausted|Credit limit exceeded/i;
 const CODE_1310_RE = /code 1310/i;
 const OVERLOAD_RE = /temporarily overloaded/i;
 const MAPPED_QUOTA_RE = /Hosted model quota is exhausted/i;
@@ -477,6 +479,8 @@ export async function probeRunnerHealth(input?: {
         lastTaskAt: body?.lastTaskAt ?? null,
         degraded: body?.degraded,
         error: null,
+        model: body?.model ?? null,
+        modelHost: body?.modelHost ?? null,
       };
     }
   } catch (error) {

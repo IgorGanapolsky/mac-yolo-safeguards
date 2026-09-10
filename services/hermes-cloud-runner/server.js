@@ -108,11 +108,31 @@ async function runOnce(config) {
   return true;
 }
 
+function publicModelInfo(env = process.env) {
+  const model = env.OPENAI_MODEL || null;
+  let modelHost = null;
+  try { modelHost = new URL(env.OPENAI_BASE_URL).host; } catch { modelHost = null; }
+  return { model, modelHost };
+}
+
+function healthPayload(env = process.env) {
+  const model = publicModelInfo(env);
+  return {
+    ok: !lastError,
+    lastPollAt,
+    lastTaskAt,
+    degraded: Boolean(lastError),
+    lastError,
+    model: model.model,
+    modelHost: model.modelHost,
+  };
+}
+
 function healthServer(port = Number(process.env.PORT || 8080)) {
   return http.createServer((request, response) => {
     if (request.url !== '/health') { response.writeHead(404).end(); return; }
     response.writeHead(lastError ? 503 : 200, { 'content-type': 'application/json' });
-    response.end(JSON.stringify({ ok: !lastError, lastPollAt, lastTaskAt, degraded: Boolean(lastError) }));
+    response.end(JSON.stringify(healthPayload()));
   }).listen(port, '0.0.0.0');
 }
 
@@ -128,5 +148,5 @@ async function main() {
   }
 }
 
-module.exports = { callControl, configFromEnv, execute, nextPollDelay, pollingSchedule, runOnce, withLeaseRenewal };
+module.exports = { callControl, configFromEnv, execute, healthPayload, nextPollDelay, pollingSchedule, publicModelInfo, runOnce, withLeaseRenewal };
 if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });

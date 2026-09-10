@@ -41,6 +41,8 @@ import {
   type ConversationTask,
   type TaskLike,
 } from "@/lib/conversation-send-visibility";
+import { engineLabelForTask } from "@/lib/dashboard-engine-label";
+import { formatEngine } from "@/lib/turn-statusline";
 import {
   HOSTED_NOT_COMPUTER_HISTORY,
   hostedConnectionCopy,
@@ -224,8 +226,8 @@ function ConversationMeta({ meta }: { meta: ConversationMessageMeta }) {
 }
 
 function TurnStatusline({
-  engine = "Ollama (http://localhost:11434/v1/models)",
-  ttft = "<10ms",
+  engine = formatEngine(),
+  ttft = "unmeasured",
   cost = "$0.00",
 }: {
   engine?: string;
@@ -1709,7 +1711,7 @@ export default function DashboardClient() {
                 if (item.kind === "snapshot") {
                   const message = item.message;
                   return [
-                    <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`} data-timeline-index={index}><span>{message.role}</span><ConversationMeta meta={snapshotMessageMeta(message, threadDetails.syncedAt)} /><FormattedMessage text={message.content} hideToolProtocol={message.role === "assistant"} />{message.role === "assistant" && <TurnStatusline engine="Ollama (http://localhost:11434/v1/models)" ttft="<10ms" cost="$0.00" />}</article>,
+                    <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`} data-timeline-index={index}><span>{message.role}</span><ConversationMeta meta={snapshotMessageMeta(message, threadDetails.syncedAt)} /><FormattedMessage text={message.content} hideToolProtocol={message.role === "assistant"} />{message.role === "assistant" && <TurnStatusline engine={formatEngine()} ttft="unmeasured" cost="$0.00" />}</article>,
                   ];
                 }
                 const task = item.task;
@@ -1730,7 +1732,7 @@ export default function DashboardClient() {
                     <ConversationMeta meta={taskPromptMeta(task)} />
                     <p>{task.prompt}</p>
                   </article>,
-                  task.result ? <article key={`task-result-${task.id || index}`} className="dashboard-task conversation-message role-assistant" data-testid="conversation-assistant-result"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.result} hideToolProtocol /><TurnStatusline engine={task.deviceName || (task.route === "cloud" ? "Fenced VPS · Ollama (localhost:11434)" : "Ollama (http://localhost:11434/v1/models)")} ttft={task.completedAt && task.createdAt ? latency(task.completedAt - task.createdAt) : "<10ms"} cost="$0.00" />{feedbackControls(task.id)}</article>
+                  task.result ? <article key={`task-result-${task.id || index}`} className="dashboard-task conversation-message role-assistant" data-testid="conversation-assistant-result"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.result} hideToolProtocol /><TurnStatusline engine={engineLabelForTask(task)} ttft={task.completedAt && task.createdAt ? latency(task.completedAt - task.createdAt) : "unmeasured"} cost="$0.00" />{feedbackControls(task.id)}</article>
                     : task.error ? <article key={`task-error-${task.id || index}`} className="conversation-message role-error"><span>Hermes error</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.error} /></article>
                     : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${task.id || index}`} className="conversation-message role-pending" data-testid="conversation-pending"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><p>{pendingWaitCopy(task.status)}</p></article>
                     : null,
@@ -1827,7 +1829,7 @@ export default function DashboardClient() {
                       <>
                         <pre>{task.result}</pre>
                         <TurnStatusline
-                          engine={task.deviceName || (task.route === "cloud" ? "Fenced VPS · Ollama (localhost:11434)" : "Ollama (http://localhost:11434/v1/models)")}
+                          engine={engineLabelForTask(task)}
                           ttft={task.completedAt && task.createdAt ? latency(task.completedAt - task.createdAt) : "<10ms"}
                           cost="$0.00"
                         />
