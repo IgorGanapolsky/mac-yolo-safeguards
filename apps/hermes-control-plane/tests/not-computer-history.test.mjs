@@ -29,10 +29,8 @@ test("landing does not advertise Computer History or keystroke capture", () => {
 });
 
 test("dashboard does not advertise Computer History or keystroke capture", () => {
-  assert.match(dashboard, /HOSTED_NOT_COMPUTER_HISTORY/);
-  assert.match(dashboard, /hosted-not-computer-history/);
-  assert.match(dashboard, /cannot read secrets/);
-  assert.match(dashboard, /Slack or DMs/);
+  assert.doesNotMatch(dashboard, /HOSTED_NOT_COMPUTER_HISTORY/);
+  assert.doesNotMatch(dashboard, /hosted-not-computer-history/);
   assert.equal(advertisesCapture(dashboard), false);
   assert.equal(advertisesCapture(apphost), false);
   assert.match(apphost, /HOSTED_NOT_COMPUTER_HISTORY/);
