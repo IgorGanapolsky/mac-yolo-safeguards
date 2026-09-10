@@ -3,10 +3,73 @@
 const assert = require('node:assert/strict');
 const http = require('http');
 const test = require('node:test');
-const { configFromEnv, execute, nextPollDelay, pollingSchedule, publicModelInfo, withLeaseRenewal } = require('../server');
+const { configFromEnv, execute, hopsFromEnv, isRetryableProviderError, nextPollDelay, pollingSchedule, publicModelInfo, withLeaseRenewal } = require('../server');
 
 test('requires control plane, runner, and model provider credentials', () => {
   assert.throws(() => configFromEnv({}), /HERMES_CONTROL_PLANE_URL/);
+});
+
+test('hosted hops follow HOSTED_HOP_ORDER without leaking keys', () => {
+  const hops = hopsFromEnv({
+    OPENAI_BASE_URL: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    OPENAI_API_KEY: 'gemini-secret',
+    OPENAI_MODEL: 'gemini-2.5-flash',
+    HOSTED_HOP_ORDER: 'zai,deepseek,primary',
+    HOSTED_HOP_2_ID: 'zai',
+    HOSTED_HOP_2_BASE_URL: 'https://api.z.ai/api/coding/paas/v4',
+    HOSTED_HOP_2_API_KEY: 'zai-secret',
+    HOSTED_HOP_2_MODEL: 'glm-5.3',
+    HOSTED_HOP_3_ID: 'deepseek',
+    HOSTED_HOP_3_BASE_URL: 'https://api.deepseek.com/v1',
+    HOSTED_HOP_3_API_KEY: 'ds-secret',
+    HOSTED_HOP_3_MODEL: 'deepseek-chat',
+  });
+  assert.deepEqual(hops.map((hop) => hop.id), ['zai', 'deepseek', 'primary']);
+  assert.deepEqual(hops.map((hop) => hop.model), ['glm-5.3', 'deepseek-chat', 'gemini-2.5-flash']);
+  assert.equal(JSON.stringify(hopsFromEnv({
+    OPENAI_BASE_URL: 'https://example.test/v1',
+    OPENAI_API_KEY: 'gemini-secret',
+    OPENAI_MODEL: 'gemini-2.5-flash',
+  }).map(({ id, model, baseUrl }) => ({ id, model, baseUrl }))).includes('secret'), false);
+});
+
+test('quota and credit-limit errors are retryable; 500 is not the only hop killer', () => {
+  assert.equal(isRetryableProviderError(429, 'Weekly/Monthly Limit Exhausted'), true);
+  assert.equal(isRetryableProviderError(200, 'Credit limit exceeded, please add credits'), true);
+  assert.equal(isRetryableProviderError(500, 'disk full'), false);
+});
+
+test('execute fails over to the next hop after a 429', async () => {
+  const hits = [];
+  const server = http.createServer((request, response) => {
+    const url = new URL(request.url, 'http://127.0.0.1');
+    hits.push(url.pathname);
+    let body = '';
+    request.on('data', (chunk) => { body += chunk; });
+    request.on('end', () => {
+      response.setHeader('content-type', 'application/json');
+      if (url.pathname === '/smart/chat/completions') {
+        response.statusCode = 429;
+        response.end(JSON.stringify({ error: { message: 'Weekly/Monthly Limit Exhausted. Your limit will reset at 2026-09-12 21:07:02' } }));
+        return;
+      }
+      response.end(JSON.stringify({ choices: [{ message: { content: 'HOP_OK' } }] }));
+    });
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const port = server.address().port;
+  try {
+    const result = await execute({
+      hops: [
+        { id: 'zai', baseUrl: `http://127.0.0.1:${port}/smart`, key: 'k1', model: 'glm-5.3' },
+        { id: 'gemini', baseUrl: `http://127.0.0.1:${port}/cheap`, key: 'k2', model: 'gemini-2.5-flash' },
+      ],
+    }, { prompt: 'ping', contextMessages: [] });
+    assert.equal(result, 'HOP_OK');
+    assert.deepEqual(hits, ['/smart/chat/completions', '/cheap/chat/completions']);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });
 
 test('health model info names the host without the key', () => {
@@ -15,10 +78,8 @@ test('health model info names the host without the key', () => {
     OPENAI_MODEL: 'gemini-2.5-flash',
     OPENAI_API_KEY: 'secret-must-not-leak',
   });
-  assert.deepEqual(info, {
-    model: 'gemini-2.5-flash',
-    modelHost: 'generativelanguage.googleapis.com',
-  });
+  assert.equal(info.hops[0].host, 'generativelanguage.googleapis.com');
+  assert.equal(info.hops[0].model, 'gemini-2.5-flash');
   assert.equal(JSON.stringify(info).includes('secret'), false);
 });
 

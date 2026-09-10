@@ -37,13 +37,51 @@ function stripTrailingSlashes(value) {
   return normalized;
 }
 
+function hopsFromEnv(env = process.env) {
+  const collected = new Map();
+  const push = (id, baseUrl, key, model) => {
+    if (!id || !baseUrl || !key || !model) return;
+    collected.set(id, {
+      id: String(id),
+      baseUrl: stripTrailingSlashes(baseUrl),
+      key,
+      model: String(model),
+    });
+  };
+  push('primary', env.OPENAI_BASE_URL, env.OPENAI_API_KEY, env.OPENAI_MODEL);
+  for (let i = 2; i <= 8; i += 1) {
+    push(
+      env[`HOSTED_HOP_${i}_ID`] || `hop${i}`,
+      env[`HOSTED_HOP_${i}_BASE_URL`],
+      env[`HOSTED_HOP_${i}_API_KEY`],
+      env[`HOSTED_HOP_${i}_MODEL`],
+    );
+  }
+  const order = String(env.HOSTED_HOP_ORDER || 'primary')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
+  const hops = [];
+  for (const id of order) {
+    if (collected.has(id)) hops.push(collected.get(id));
+  }
+  for (const hop of collected.values()) {
+    if (!hops.some((item) => item.id === hop.id)) hops.push(hop);
+  }
+  return hops;
+}
+
 function configFromEnv(env = process.env) {
   const missing = required.filter((name) => !env[name]);
   if (missing.length) throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+  const hops = hopsFromEnv(env);
+  const primary = hops[0];
   return {
     controlPlaneUrl: stripTrailingSlashes(env.HERMES_CONTROL_PLANE_URL), token: env.HERMES_CLOUD_RUNNER_TOKEN,
     openaiBaseUrl: stripTrailingSlashes(env.OPENAI_BASE_URL), openaiKey: env.OPENAI_API_KEY,
     model: env.OPENAI_MODEL, runnerId: env.HERMES_CLOUD_RUNNER_ID || os.hostname(),
+    hops,
+    primaryId: primary?.id || 'primary',
   };
 }
 
@@ -58,18 +96,96 @@ async function callControl(config, pathname, body = {}) {
   return payload;
 }
 
+const RETRYABLE_PROVIDER_RE = /credit limit exceeded|weekly\/monthly limit exhausted|quota is exhausted|code["']?\s*[:\s]*1310|no deployments available|temporarily overloaded|429|402|insufficient.?quota/i;
+const hopCooldowns = new Map();
+let lastHop = null;
+
+function isRetryableProviderError(status, text) {
+  if (status === 402 || status === 429) return true;
+  return RETRYABLE_PROVIDER_RE.test(String(text || ''));
+}
+
+function hopPublic(hop) {
+  let host = null;
+  try { host = new URL(hop.baseUrl).host; } catch { host = null; }
+  const until = hopCooldowns.get(hop.id) || 0;
+  return {
+    id: hop.id,
+    model: hop.model,
+    host,
+    coolingDown: until > Date.now(),
+    cooldownUntil: until > Date.now() ? until : null,
+  };
+}
+
+function rememberCooldown(hop, text) {
+  const match = /reset at (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/i.exec(String(text || ''));
+  let until = Date.now() + 45_000;
+  if (match) {
+    const parsed = Date.parse(`${match[1].replace(' ', 'T')}Z`);
+    if (Number.isFinite(parsed) && parsed > Date.now()) until = parsed;
+  }
+  hopCooldowns.set(hop.id, until);
+}
+
+function hopsFor(config) {
+  if (Array.isArray(config.hops) && config.hops.length) return config.hops;
+  return [{
+    id: 'primary',
+    baseUrl: config.openaiBaseUrl,
+    key: config.openaiKey,
+    model: config.model,
+  }];
+}
+
+async function completeOnHop(hop, messages) {
+  const response = await fetch(`${hop.baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${hop.key}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ model: hop.model, messages, max_tokens: MODEL_MAX_TOKENS, stream: false }),
+    signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
+  });
+  const payload = await response.json().catch(() => ({}));
+  const errText = payload.error?.message || payload.error || payload.detail || `Model provider HTTP ${response.status}`;
+  if (!response.ok) {
+    const error = new Error(typeof errText === 'string' ? errText : `Model provider HTTP ${response.status}`);
+    error.status = response.status;
+    error.retryable = isRetryableProviderError(response.status, errText);
+    throw error;
+  }
+  return payload.choices?.[0]?.message?.content ?? JSON.stringify(payload);
+}
+
 async function execute(config, task) {
   const context = Array.isArray(task.contextMessages)
     ? task.contextMessages.filter((message) => ['user', 'assistant', 'system'].includes(message?.role) && typeof message?.content === 'string')
     : [];
-  const response = await fetch(`${config.openaiBaseUrl}/chat/completions`, {
-    method: 'POST', headers: { authorization: `Bearer ${config.openaiKey}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ model: config.model, messages: [...context, { role: 'user', content: task.prompt }], max_tokens: MODEL_MAX_TOKENS, stream: false }),
-    signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
-  });
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload.error?.message || payload.error || `Model provider HTTP ${response.status}`);
-  return payload.choices?.[0]?.message?.content ?? JSON.stringify(payload);
+  const messages = [...context, { role: 'user', content: task.prompt }];
+  const hops = hopsFor(config);
+  const errors = [];
+  for (const hop of hops) {
+    const cooling = hopCooldowns.get(hop.id) || 0;
+    if (cooling > Date.now()) {
+      errors.push(`${hop.id}: cooling down`);
+      continue;
+    }
+    try {
+      const content = await completeOnHop(hop, messages);
+      lastHop = hopPublic(hop);
+      hopCooldowns.delete(hop.id);
+      return content;
+    } catch (error) {
+      const text = error instanceof Error ? error.message : String(error);
+      errors.push(`${hop.id}: ${text}`);
+      if (error?.retryable) {
+        rememberCooldown(hop, text);
+        continue;
+      }
+      if (hops.length === 1) throw error;
+      rememberCooldown(hop, text);
+    }
+  }
+  throw new Error(`All hosted model hops failed: ${errors.join(' | ')}`);
 }
 
 async function withLeaseRenewal(work, renew, intervalMs = LEASE_RENEW_MS) {
@@ -109,10 +225,18 @@ async function runOnce(config) {
 }
 
 function publicModelInfo(env = process.env) {
-  const model = env.OPENAI_MODEL || null;
-  let modelHost = null;
-  try { modelHost = new URL(env.OPENAI_BASE_URL).host; } catch { modelHost = null; }
-  return { model, modelHost };
+  const hops = hopsFromEnv(env).map((hop) => hopPublic(hop));
+  const active = lastHop || hops[0] || { model: env.OPENAI_MODEL || null, host: null };
+  let modelHost = active.host || null;
+  if (!modelHost) {
+    try { modelHost = new URL(env.OPENAI_BASE_URL).host; } catch { modelHost = null; }
+  }
+  return {
+    model: active.model || env.OPENAI_MODEL || null,
+    modelHost,
+    hops: hops.map(({ id, model, host, coolingDown }) => ({ id, model, host, coolingDown })),
+    lastHop: lastHop ? { id: lastHop.id, model: lastHop.model, host: lastHop.host } : null,
+  };
 }
 
 function healthPayload(env = process.env) {
@@ -125,6 +249,8 @@ function healthPayload(env = process.env) {
     lastError,
     model: model.model,
     modelHost: model.modelHost,
+    hops: model.hops,
+    lastHop: model.lastHop,
   };
 }
 
@@ -148,5 +274,8 @@ async function main() {
   }
 }
 
-module.exports = { callControl, configFromEnv, execute, healthPayload, nextPollDelay, pollingSchedule, publicModelInfo, runOnce, withLeaseRenewal };
+module.exports = {
+  callControl, configFromEnv, execute, healthPayload, hopsFromEnv, isRetryableProviderError,
+  nextPollDelay, pollingSchedule, publicModelInfo, runOnce, withLeaseRenewal,
+};
 if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });
