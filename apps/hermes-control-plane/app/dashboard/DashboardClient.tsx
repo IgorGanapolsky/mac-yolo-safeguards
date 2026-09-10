@@ -43,6 +43,7 @@ import {
 } from "@/lib/conversation-send-visibility";
 import { engineLabelForTask } from "@/lib/dashboard-engine-label";
 import { formatEngine } from "@/lib/turn-statusline";
+import { loadCardPrefs, saveCardPrefs, toggleId, type DashboardCardPrefs } from "@/lib/dashboard-card-prefs";
 import {
   HOSTED_NOT_COMPUTER_HISTORY,
   hostedConnectionCopy,
@@ -345,6 +346,14 @@ export default function DashboardClient() {
   const threadMenuRef = useRef<HTMLDivElement | null>(null);
   const [chatDialog, setChatDialog] = useState<ChatDialog | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [cardPrefs, setCardPrefs] = useState<DashboardCardPrefs>(() => loadCardPrefs());
+  function updateCardPrefs(patch: (current: DashboardCardPrefs) => DashboardCardPrefs) {
+    setCardPrefs((current) => {
+      const next = patch(current);
+      saveCardPrefs(next);
+      return next;
+    });
+  }
   const conversationHistoryRef = useRef<HTMLDivElement | null>(null);
   const scrollConversationToBottom = useCallback(() => {
     const el = conversationHistoryRef.current;
@@ -956,7 +965,10 @@ export default function DashboardClient() {
     // Hosted Hermes does not pair a laptop. Strip leftover ?pair= with no toast.
     return;
   }, [pairCode, user]);
-  const visibleThreads = useMemo(() => orderThreadsForDisplay(threads, threadSortOrder), [threads, threadSortOrder]);
+  const visibleThreads = useMemo(
+    () => orderThreadsForDisplay(threads, threadSortOrder).filter((thread) => !cardPrefs.archivedThreadIds.includes(thread.id)),
+    [threads, threadSortOrder, cardPrefs.archivedThreadIds],
+  );
   const runnerStatus: HostedResourceState = hostedRunner?.status ?? "waiting";
   const modelStatus: HostedResourceState = hostedModel?.status ?? "waiting";
   const hostedCopy = hostedConnectionCopy({
@@ -1284,6 +1296,29 @@ export default function DashboardClient() {
     void saveFeedback(taskId, signal);
   }
 
+  function promptCardToolbar(taskId: string) {
+    const collapsed = cardPrefs.collapsedTaskIds.includes(taskId);
+    return (
+      <div className="conversation-card-toolbar" role="group" aria-label="Prompt card actions">
+        <button
+          type="button"
+          className="conversation-card-action"
+          aria-pressed={collapsed}
+          onClick={() => updateCardPrefs((prefs) => ({ ...prefs, collapsedTaskIds: toggleId(prefs.collapsedTaskIds, taskId) }))}
+        >
+          {collapsed ? "Expand" : "Minimize"}
+        </button>
+        <button
+          type="button"
+          className="conversation-card-action"
+          onClick={() => updateCardPrefs((prefs) => ({ ...prefs, dismissedTaskIds: toggleId(prefs.dismissedTaskIds, taskId) }))}
+        >
+          Dismiss
+        </button>
+      </div>
+    );
+  }
+
   function feedbackControls(taskId: string) {
     const current = feedback[taskId]?.signal;
     return <div className="response-feedback" aria-label="Rate this Hermes response">
@@ -1305,7 +1340,7 @@ export default function DashboardClient() {
   function placeThreadMenu(threadId: string, trigger: HTMLElement) {
     const rect = trigger.getBoundingClientRect();
     const menuWidth = 168;
-    const menuHeight = 112;
+    const menuHeight = 156;
     const gutter = 8;
     let left = Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - gutter);
     left = Math.max(gutter, left);
@@ -1497,6 +1532,7 @@ export default function DashboardClient() {
               <button type="button" className="thread-menu-trigger" aria-label={`Actions for ${thread.title}`} aria-haspopup="menu" aria-expanded={threadMenu?.id === thread.id} onClick={(event) => toggleThreadMenu(thread.id, event)}>•••</button>
               {threadMenu?.id === thread.id && typeof document !== "undefined" && createPortal(
                 <div ref={threadMenuRef} className="thread-actions" role="menu" data-testid="thread-actions-menu" aria-label={`Actions for ${thread.title}`} style={{ top: threadMenu.top, left: threadMenu.left }}>
+                  <button type="button" className="thread-action" role="menuitem" onClick={() => { setThreadMenu(null); updateCardPrefs((prefs) => ({ ...prefs, archivedThreadIds: toggleId(prefs.archivedThreadIds, thread.id) })); }}><span aria-hidden="true">–</span> Dismiss</button>
                   <button type="button" className="thread-action" role="menuitem" onClick={() => openRenameDialog(thread)}><span aria-hidden="true">✎</span> Rename</button>
                   <button type="button" className="thread-action thread-action-danger" role="menuitem" onClick={() => openDeleteDialog(thread)}><span aria-hidden="true">⌫</span> Delete</button>
                 </div>,
@@ -1562,6 +1598,27 @@ export default function DashboardClient() {
                     onClick={() => openRenameDialog(activeThread)}
                   >
                     ✎ Rename
+                  </button>
+                  <button
+                    type="button"
+                    className="button button-small button-secondary thread-rename-trigger"
+                    title="Minimize conversation cards"
+                    aria-label="Minimize conversation cards"
+                    aria-pressed={cardPrefs.conversationMinimized}
+                    style={{ padding: "2px 7px", fontSize: "11px", borderRadius: "5px" }}
+                    onClick={() => updateCardPrefs((prefs) => ({ ...prefs, conversationMinimized: !prefs.conversationMinimized }))}
+                  >
+                    {cardPrefs.conversationMinimized ? "Show cards" : "Minimize"}
+                  </button>
+                  <button
+                    type="button"
+                    className="button button-small button-secondary thread-rename-trigger"
+                    title="Delete this chat"
+                    aria-label={`Delete chat thread ${activeThread.title}`}
+                    style={{ padding: "2px 7px", fontSize: "11px", borderRadius: "5px" }}
+                    onClick={() => openDeleteDialog(activeThread)}
+                  >
+                    ⌫ Delete
                   </button>
                 ) : null;
               })()}
@@ -1706,7 +1763,7 @@ export default function DashboardClient() {
               </span>
             </div>
             <div className="hermes-scroll-pane">
-            {selectedThread && <div className="conversation-history" ref={conversationHistoryRef} data-testid="conversation-history">
+            {selectedThread && <div className={`conversation-history${cardPrefs.conversationMinimized ? " is-minimized" : ""}`} ref={conversationHistoryRef} data-testid="conversation-history">
               {threadDetails && threadTimeline.length ? threadTimeline.flatMap((item, index) => {
                 if (item.kind === "snapshot") {
                   const message = item.message;
@@ -1720,21 +1777,25 @@ export default function DashboardClient() {
                 // output is not at the bottom"). Non-mutating sort; the tasks API is
                 // newest-first, so this reverses it for the conversation timeline.
                 if (!task.prompt.trim()) return [];
+                if (cardPrefs.dismissedTaskIds.includes(task.id)) return [];
+                const collapsed = cardPrefs.collapsedTaskIds.includes(task.id);
+                const cardClass = collapsed ? " is-collapsed" : "";
                 return [
                   <article
                     key={`task-user-${task.id || index}`}
                     id={duplicateTaskListHidden ? `task-${task.id}` : undefined}
-                    className="dashboard-task conversation-message role-user"
+                    className={`dashboard-task conversation-message role-user${cardClass}`}
                     data-testid="conversation-user-prompt"
                     data-timeline-index={index}
                   >
                     <span>You</span>
+                    {promptCardToolbar(task.id)}
                     <ConversationMeta meta={taskPromptMeta(task)} />
                     <p>{task.prompt}</p>
                   </article>,
-                  task.result ? <article key={`task-result-${task.id || index}`} className="dashboard-task conversation-message role-assistant" data-testid="conversation-assistant-result"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.result} hideToolProtocol /><TurnStatusline engine={engineLabelForTask(task)} ttft={task.completedAt && task.createdAt ? latency(task.completedAt - task.createdAt) : "unmeasured"} cost="$0.00" />{feedbackControls(task.id)}</article>
-                    : task.error ? <article key={`task-error-${task.id || index}`} className="conversation-message role-error"><span>Hermes error</span><ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.error} /></article>
-                    : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${task.id || index}`} className="conversation-message role-pending" data-testid="conversation-pending"><span>{taskReceiptLabel(task)}</span><ConversationMeta meta={taskOutputMeta(task)} /><p>{pendingWaitCopy(task.status)}</p></article>
+                  task.result ? <article key={`task-result-${task.id || index}`} className={`dashboard-task conversation-message role-assistant${cardClass}`} data-testid="conversation-assistant-result"><span>{taskReceiptLabel(task)}</span>{promptCardToolbar(task.id)}<ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.result} hideToolProtocol /><TurnStatusline engine={engineLabelForTask(task)} ttft={task.completedAt && task.createdAt ? latency(task.completedAt - task.createdAt) : "unmeasured"} cost="$0.00" />{feedbackControls(task.id)}</article>
+                    : task.error ? <article key={`task-error-${task.id || index}`} className={`conversation-message role-error${cardClass}`}><span>Hermes error</span>{promptCardToolbar(task.id)}<ConversationMeta meta={taskOutputMeta(task)} /><FormattedMessage text={task.error} /></article>
+                    : task.status !== "completed" && task.status !== "failed" ? <article key={`task-pending-${task.id || index}`} className={`conversation-message role-pending${cardClass}`} data-testid="conversation-pending"><span>{taskReceiptLabel(task)}</span>{promptCardToolbar(task.id)}<ConversationMeta meta={taskOutputMeta(task)} /><p>{pendingWaitCopy(task.status)}</p></article>
                     : null,
                 ];
               }) : loadState === "loading" && !threadDetails ? <div className="conversation-empty" data-state="loading">Loading this conversation…</div> : loadState === "error" && !threadDetails ? <div className="conversation-empty" data-state="error">Could not load workspace data. <button type="button" className="task-filter-clear" data-testid="dashboard-retry" onClick={() => requestWorkspaceRefresh()}>Retry</button></div> : <div className="conversation-empty">No messages in this thread yet. Send a task below to start the conversation on the fenced VPS runner.</div>}

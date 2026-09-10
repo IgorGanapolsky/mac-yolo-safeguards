@@ -228,7 +228,12 @@ body{min-height:100vh;background:radial-gradient(circle at -8% 5%,rgba(79,70,229
 .chats-label-actions{display:flex;align-items:center;gap:6px}
 .clear-all-chats{min-height:44px;padding:0 10px;border-color:rgba(248,113,113,.28);color:#fca5a5}
 .thread-row{gap:2px;overflow:visible}
-.thread-menu-trigger{appearance:none;flex:0 0 44px;min-width:44px;min-height:44px;align-self:center;border:0;border-radius:10px;background:transparent;color:#8b949e;font:700 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:1px;cursor:pointer}
+.thread-menu-trigger{appearance:none;flex:0 0 44px;min-width:44px;min-height:44px;align-self:center;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.04);color:#d1d5db;font:700 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:1px;cursor:pointer}
+.conversation-card-toolbar{display:flex;justify-content:flex-end;gap:6px;margin:0 0 8px}
+.conversation-card-action{appearance:none;min-height:28px;padding:0 8px;border:1px solid var(--line);border-radius:8px;background:rgba(255,255,255,.04);color:var(--muted);font:600 10px/1 Inter,ui-sans-serif,system-ui,sans-serif;cursor:pointer}
+.conversation-card-action:hover{color:var(--ink);border-color:rgba(34,211,238,.4)}
+.conversation-message.is-collapsed p,.conversation-message.is-collapsed .formatted-message{max-height:1.5em;overflow:hidden}
+.conversation-history.is-minimized{max-height:88px;overflow:hidden}
 .thread-menu-trigger:hover,.thread-menu-trigger[aria-expanded="true"]{background:rgba(34,211,238,.09);color:var(--accent)}
 .thread-actions{min-width:168px;gap:4px;padding:6px;border:1px solid var(--line);border-radius:12px;background:#111827;box-shadow:0 18px 46px rgba(0,0,0,.45)}
 .thread-actions .thread-action{width:100%;height:auto;min-height:44px;padding:0 12px;display:flex;align-items:center;justify-content:flex-start;gap:9px;border-radius:8px;color:var(--text-secondary);font:600 12px/1 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
