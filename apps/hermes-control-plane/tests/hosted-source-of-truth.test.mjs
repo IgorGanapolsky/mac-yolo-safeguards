@@ -75,6 +75,8 @@ test("public receipt never includes the prompt or env secrets", () => {
   });
   assert.equal(receipt.ok, true);
   assert.equal("prompt" in receipt, false);
+  assert.equal(receipt.resourceRef, "/dashboard?task=task-1");
+  assert.equal(receipt.checkpoint, "control-plane-d1");
   assert.equal(JSON.stringify(receipt).includes("SECRET PROMPT TEXT"), false);
   assert.equal(publicRunReceipt({}).reason, "not_persisted");
   process.env.OPENAI_API_KEY = "sk-test-should-never-leak";
