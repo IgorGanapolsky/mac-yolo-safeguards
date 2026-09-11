@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const http = require('http');
 const test = require('node:test');
-const { configFromEnv, execute, hopsFromEnv, isRetryableProviderError, nextPollDelay, pollingSchedule, publicModelInfo, withLeaseRenewal } = require('../server');
+const { configFromEnv, execute, executeContinuitySmoke, hopsFromEnv, isRetryableProviderError, nextPollDelay, parseContinuitySmoke, pollingSchedule, publicModelInfo, withLeaseRenewal, HOSTED_SYSTEM_PROMPT } = require('../server');
 
 test('requires control plane, runner, and model provider credentials', () => {
   assert.throws(() => configFromEnv({}), /HERMES_CONTROL_PLANE_URL/);
@@ -155,7 +155,9 @@ test('cloud execution preserves the synced thread context', async () => {
       prompt: 'next step', contextMessages: [{ role: 'user', content: 'original request' }, { role: 'assistant', content: 'original answer' }],
     });
     assert.equal(result, 'cloud continued');
-    assert.deepEqual(received.messages.map((message) => message.content), ['original request', 'original answer', 'next step']);
+    assert.equal(received.messages[0].role, 'system');
+    assert.equal(received.messages[0].content, HOSTED_SYSTEM_PROMPT);
+    assert.deepEqual(received.messages.slice(1).map((message) => message.content), ['original request', 'original answer', 'next step']);
     assert.equal(received.max_tokens, 2048);
   } finally {
     await new Promise((resolve) => server.close(resolve));
@@ -171,4 +173,46 @@ test('renews a cloud lease throughout long-running model work', async () => {
   );
   assert.equal(result, 'complete');
   assert.ok(renewals >= 3, `expected at least 3 renewals, received ${renewals}`);
+});
+
+test('parses Continuity smoke prompts into tick specs', () => {
+  const spec = parseContinuitySmoke('Keep a 3-minute Continuity smoke alive on the fenced VPS. Every 30 seconds append one line saying Continuity smoke still alive.');
+  assert.deepEqual(spec, { durationMinutes: 3, intervalSeconds: 30, ticks: 6 });
+  assert.equal(parseContinuitySmoke('just answer this question'), null);
+});
+
+test('executes Continuity smoke ticks on the runner without a model hop', async () => {
+  let sleeps = 0;
+  const result = await executeContinuitySmoke(
+    { durationMinutes: 1, intervalSeconds: 30, ticks: 3 },
+    {
+      sleep: async () => { sleeps += 1; },
+      now: () => new Date('2026-09-11T14:00:00.000Z'),
+    },
+  );
+  assert.equal(sleeps, 2);
+  assert.match(result, /ticks: 3/);
+  assert.match(result, /tick 3\/3/);
+  assert.match(result, /fenced VPS runner/);
+});
+
+test('execute routes Continuity smoke away from the model provider', async () => {
+  let modelHits = 0;
+  const server = http.createServer((_request, response) => {
+    modelHits += 1;
+    response.writeHead(500);
+    response.end('should not hit model');
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  try {
+    const result = await execute(
+      { openaiBaseUrl: `http://127.0.0.1:${address.port}`, openaiKey: 'test-key', model: 'test-model' },
+      { prompt: 'Keep a 1-minute Continuity smoke alive on the fenced VPS. Every 60 seconds say still alive.' },
+    );
+    assert.equal(modelHits, 0);
+    assert.match(result, /ticks: 1/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });

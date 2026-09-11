@@ -175,11 +175,53 @@ async function completeOnHop(hop, messages) {
   return payload.choices?.[0]?.message?.content ?? JSON.stringify(payload);
 }
 
+const HOSTED_SYSTEM_PROMPT = [
+  'You are Hosted Hermes on ThumbGate\'s fenced cloud VPS runner.',
+  'This process keeps running after the user\'s laptop sleeps. Approvals for money, customer, and production actions stay in thumbgate.app.',
+  'You are not a local Mac process. Do not claim you lack a VPS or can only answer chat turns when the runner is executing this task.',
+  'You have no RealEstate / Python pipeline tools on this runner — coding and research replies only unless the runner itself executes a Continuity smoke.',
+].join(' ');
+
+function parseContinuitySmoke(prompt) {
+  const text = String(prompt || '');
+  const durationMatch = text.match(/(\d+)\s*-?\s*minute/i);
+  const intervalMatch = text.match(/every\s+(\d+)\s*seconds?/i);
+  const continuityShaped = /continuity smoke|still alive|fenced vps/i.test(text)
+    && /every\s+\d+\s*seconds?/i.test(text);
+  if (!continuityShaped) return null;
+  const durationMinutes = durationMatch ? Number(durationMatch[1]) : 3;
+  const intervalSeconds = intervalMatch ? Number(intervalMatch[1]) : 30;
+  if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) return null;
+  if (!Number.isFinite(intervalSeconds) || intervalSeconds <= 0) return null;
+  const ticks = Math.max(1, Math.floor((durationMinutes * 60) / intervalSeconds));
+  return { durationMinutes, intervalSeconds, ticks };
+}
+
+async function executeContinuitySmoke(spec, { sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), now = () => new Date() } = {}) {
+  const lines = [];
+  for (let i = 1; i <= spec.ticks; i += 1) {
+    lines.push(`${now().toISOString()} Continuity smoke still alive (tick ${i}/${spec.ticks})`);
+    if (i < spec.ticks) await sleep(spec.intervalSeconds * 1000);
+  }
+  return [
+    'Continuity smoke completed on the fenced VPS runner.',
+    `Duration target: ${spec.durationMinutes} minute(s); interval: ${spec.intervalSeconds}s; ticks: ${spec.ticks}.`,
+    ...lines,
+  ].join('\n');
+}
+
 async function execute(config, task) {
+  const smoke = parseContinuitySmoke(task.prompt);
+  if (smoke) return executeContinuitySmoke(smoke);
+
   const context = Array.isArray(task.contextMessages)
     ? task.contextMessages.filter((message) => ['user', 'assistant', 'system'].includes(message?.role) && typeof message?.content === 'string')
     : [];
-  const messages = [...context, { role: 'user', content: task.prompt }];
+  const messages = [
+    { role: 'system', content: HOSTED_SYSTEM_PROMPT },
+    ...context,
+    { role: 'user', content: task.prompt },
+  ];
   const hops = hopsFor(config);
   const errors = [];
   for (const hop of hops) {
@@ -290,7 +332,7 @@ async function main() {
 }
 
 module.exports = {
-  callControl, configFromEnv, execute, healthPayload, hopsFromEnv, isRetryableProviderError,
-  nextPollDelay, pollingSchedule, publicModelInfo, runOnce, withLeaseRenewal,
+  callControl, configFromEnv, execute, executeContinuitySmoke, healthPayload, hopsFromEnv, isRetryableProviderError,
+  nextPollDelay, parseContinuitySmoke, pollingSchedule, publicModelInfo, runOnce, withLeaseRenewal, HOSTED_SYSTEM_PROMPT,
 };
 if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });
