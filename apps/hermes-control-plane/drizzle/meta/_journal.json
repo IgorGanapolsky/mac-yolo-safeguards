@@ -47,7 +47,21 @@
     {
       "idx": 6,
       "version": "6",
-      "when": 1789137000000,
+      "when": 1789137000006,
+      "tag": "0006_ab_testing_framework",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1789137000007,
+      "tag": "0007_health_query_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1789137000008,
       "tag": "0008_cloud_rejoined_at",
       "breakpoints": true
     }

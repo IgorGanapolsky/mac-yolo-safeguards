@@ -636,12 +636,8 @@ async function claimAndExecuteThreadOperation(config) {
 
 async function cycle(config, options = {}) {
   if (options.heartbeat !== false) await signedPost(config, '/api/device/heartbeat');
-  // Cloud→Mac rejoin on heartbeat/sync BEFORE Mac→cloud session sync.
-  // Rejoin watermark is cloud_rejoined_at (independent of synced_at).
-  if (options.heartbeat !== false || options.syncSessions || options.syncRejoin) {
-    try { await syncRejoinPacks(config); }
-    catch (error) { console.error(`[hermes-cloud-connector] rejoin unavailable: ${error instanceof Error ? error.message : error}`); }
-  }
+  // Claim-first on --once (E2E + lid-open pickup). Passive→Mac rejoin runs on
+  // session-sync ticks / explicit syncRejoin — never ahead of a one-shot claim.
   if (options.syncSessions) {
     try { await syncGatewaySessions(config, { configPath: options.configPath }); }
     catch (error) { console.error(`[hermes-cloud-connector] session sync unavailable: ${error instanceof Error ? error.message : error}`); }
@@ -652,22 +648,29 @@ async function cycle(config, options = {}) {
     method: 'POST', headers: signedHeaders(config, 'POST', '/api/device/tasks/claim', bodyText), body: bodyText,
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
-  if (response.status === 204) return false;
-  const claimText = await response.text();
-  let claim = null;
-  try { claim = claimText ? JSON.parse(claimText) : null; } catch { claim = null; }
-  if (!response.ok) throw new Error(claim?.error || `Claim failed (${response.status})`);
-  if (!claim) throw new Error(`Task claim: non-JSON response (HTTP ${response.status})`);
-  try {
-    const result = await withLeaseRenewal(
-      () => executeLocal(config, claim.task),
-      () => signedPost(config, '/api/device/tasks/renew', { taskId: claim.task.id, leaseToken: claim.task.leaseToken }),
-    );
-    await signedPost(config, '/api/device/tasks/complete', { taskId: claim.task.id, leaseToken: claim.task.leaseToken, result });
-  } catch (error) {
-    await signedPost(config, '/api/device/tasks/complete', { taskId: claim.task.id, leaseToken: claim.task.leaseToken, error: error instanceof Error ? error.message : String(error) });
+  if (response.status !== 204) {
+    const claimText = await response.text();
+    let claim = null;
+    try { claim = claimText ? JSON.parse(claimText) : null; } catch { claim = null; }
+    if (!response.ok) throw new Error(claim?.error || `Claim failed (${response.status})`);
+    if (!claim) throw new Error(`Task claim: non-JSON response (HTTP ${response.status})`);
+    try {
+      const result = await withLeaseRenewal(
+        () => executeLocal(config, claim.task),
+        () => signedPost(config, '/api/device/tasks/renew', { taskId: claim.task.id, leaseToken: claim.task.leaseToken }),
+      );
+      await signedPost(config, '/api/device/tasks/complete', { taskId: claim.task.id, leaseToken: claim.task.leaseToken, result });
+    } catch (error) {
+      await signedPost(config, '/api/device/tasks/complete', { taskId: claim.task.id, leaseToken: claim.task.leaseToken, error: error instanceof Error ? error.message : String(error) });
+    }
+    return true;
   }
-  return true;
+  // Empty claim → passive cloud→Mac rejoin on session-sync ticks (not on --once).
+  if (options.syncSessions || options.syncRejoin) {
+    try { await syncRejoinPacks(config); }
+    catch (error) { console.error(`[hermes-cloud-connector] rejoin unavailable: ${error instanceof Error ? error.message : error}`); }
+  }
+  return false;
 }
 
 async function retryWithBackoff(fn, { initialMs = 30_000, maxMs = 600_000, label = 'pairing' } = {}) {
@@ -705,8 +708,14 @@ async function main() {
   saveConfig(configPath, config);
   if (!config.deviceId || process.argv.includes('--pair')) await retryWithBackoff(() => startPairing(config, configPath));
   if (process.argv.includes('--pair-only')) return;
-  if (process.argv.includes('--sync-only')) { await syncGatewaySessions(config, { configPath }); return; }
-  if (process.argv.includes('--once')) { await cycle(config, { heartbeat: true, syncSessions: true, configPath }); return; }
+  if (process.argv.includes('--sync-only')) {
+    await syncGatewaySessions(config, { configPath });
+    try { await syncRejoinPacks(config); }
+    catch (error) { console.error(`[hermes-cloud-connector] rejoin unavailable: ${error instanceof Error ? error.message : error}`); }
+    return;
+  }
+  // --once is claim-first (no rejoin ahead of claim) for E2E + lid-open pickup.
+  if (process.argv.includes('--once')) { await cycle(config, { heartbeat: true, syncSessions: false, configPath }); return; }
   const schedule = connectorPollingSchedule();
   let lastHeartbeat = 0;
   let lastSessionSync = 0;
