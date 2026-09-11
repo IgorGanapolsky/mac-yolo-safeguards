@@ -31,7 +31,9 @@ const {
   saveConfig,
   selectContextSessionIds,
   signedHeaders,
+  injectRejoinPack,
   syncGatewaySessions,
+  syncRejoinPacks,
   timestampMillis,
   withLeaseRenewal,
 } = require('../tools/hermes-cloud-connector');
@@ -539,4 +541,103 @@ test('clear all uses the gateway bulk delete and falls back without deleting Tel
     'DELETE /api/sessions/keep-me',
     'DELETE /api/sessions/delete-me',
   ]);
+});
+
+test('passive rejoin injects cloud handoff into Hermes without a local claim', async () => {
+  let chatBody;
+  await withServer((request, response) => {
+    let body = '';
+    request.on('data', (chunk) => { body += chunk; });
+    request.on('end', () => {
+      response.setHeader('content-type', 'application/json');
+      if (request.method === 'GET' && request.url === '/api/sessions/thumbgate_thread-rejoin') {
+        response.end(JSON.stringify({ session: { id: 'thumbgate_thread-rejoin' } }));
+        return;
+      }
+      if (request.method === 'POST' && request.url === '/api/sessions/thumbgate_thread-rejoin/chat') {
+        chatBody = body ? JSON.parse(body) : null;
+        response.end(JSON.stringify({ message: { role: 'assistant', content: 'synced' } }));
+        return;
+      }
+      response.statusCode = 404;
+      response.end(JSON.stringify({ error: 'unexpected' }));
+    });
+  }, async (sessionGatewayUrl) => {
+    const ok = await injectRejoinPack(
+      { sessionGatewayUrl },
+      {
+        threadId: 'thread-1',
+        threadTitle: 'Web chat',
+        sourceSessionId: 'thumbgate_thread-rejoin',
+        watermark: 999,
+        handoffMessages: [
+          { role: 'user', content: 'keep going while Mac is closed' },
+          { role: 'assistant', content: 'done on Hosted VPS' },
+        ],
+      },
+    );
+    assert.equal(ok, true);
+  });
+  assert.match(chatBody.message, /ThumbGate sync/);
+  assert.match(chatBody.system_message, /Cloud\/web continuation since this Mac last synced/);
+  assert.match(chatBody.system_message, /done on Hosted VPS/);
+});
+
+test('syncRejoinPacks lists packs, injects, then acks watermarks', async () => {
+  const controlCalls = [];
+  let chatPosted = false;
+  await withServer((request, response) => {
+    let body = '';
+    request.on('data', (chunk) => { body += chunk; });
+    request.on('end', () => {
+      response.setHeader('content-type', 'application/json');
+      const parsed = body ? JSON.parse(body) : {};
+      if (request.url === '/api/device/sessions/rejoin') {
+        controlCalls.push(parsed);
+        if (Array.isArray(parsed.acks)) {
+          response.end(JSON.stringify({ ok: true, accepted: parsed.acks.length }));
+          return;
+        }
+        response.end(JSON.stringify({
+          ok: true,
+          packs: [{
+            threadId: 'thread-9',
+            threadTitle: 'Offline work',
+            sourceSessionId: 'thumbgate_thread-9',
+            watermark: 4242,
+            handoffMessages: [
+              { role: 'user', content: 'from web' },
+              { role: 'assistant', content: 'vps reply' },
+            ],
+          }],
+        }));
+        return;
+      }
+      if (request.method === 'GET' && request.url === '/api/sessions/thumbgate_thread-9') {
+        response.end(JSON.stringify({ session: { id: 'thumbgate_thread-9' } }));
+        return;
+      }
+      if (request.method === 'POST' && request.url === '/api/sessions/thumbgate_thread-9/chat') {
+        chatPosted = true;
+        response.end(JSON.stringify({ message: { role: 'assistant', content: 'ok' } }));
+        return;
+      }
+      response.statusCode = 404;
+      response.end(JSON.stringify({ error: 'unexpected', url: request.url }));
+    });
+  }, async (url) => {
+    const identity = createIdentity('rejoin-mac');
+    const config = {
+      ...identity,
+      deviceId: 'device-rejoin',
+      controlPlaneUrl: url,
+      sessionGatewayUrl: url,
+    };
+    const result = await syncRejoinPacks(config);
+    assert.equal(result.injected, 1);
+    assert.equal(result.acked, 1);
+  });
+  assert.equal(chatPosted, true);
+  assert.equal(controlCalls.length, 2);
+  assert.deepEqual(controlCalls[1].acks, [{ threadId: 'thread-9', watermark: 4242 }]);
 });

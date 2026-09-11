@@ -1923,12 +1923,12 @@ export default function DashboardClient() {
           <p className="eyebrow">ACCOUNT</p>
           <h2 id="settings-dialog-title">Hosted VPS runner</h2>
           <p className="helper-copy" data-testid="leash-signed-in">Signed in as <strong>{user.email}</strong></p>
-          <p className="helper-copy" data-testid="hosted-run-default">Sends go to Hosted VPS. Pairing a Mac is optional.</p>
+          <p className="helper-copy" data-testid="hosted-run-default">Sends always run on Hosted VPS. Pair a Mac to sync Hermes chats; when the Mac returns, cloud work syncs back.</p>
           {devices.length > 0 ? (
             <details className="leash-device-picker" data-testid="leash-device-picker">
-              <summary>Send to a paired Mac instead</summary>
+              <summary>Prefer a Mac for session sync</summary>
               <label htmlFor="leash-device-select" className="leash-device-label">
-                Run next task on
+                Bind next thread sync to
               </label>
               <select
                 id="leash-device-select"
@@ -1936,7 +1936,7 @@ export default function DashboardClient() {
                 value={selectedDeviceId || "cloud"}
                 onChange={(event) => chooseDevice(event.target.value)}
                 disabled={busy}
-                aria-label="Hosted VPS is the default run target"
+                aria-label="Hosted VPS always runs sends; Mac is for session sync"
               >
                 <option value="cloud">Hosted VPS (default)</option>
                 {devices.map((device) => (
@@ -1962,7 +1962,7 @@ export default function DashboardClient() {
                   <strong>{device.name}</strong>
                   <small>
                     {deviceStatusLabel(device)} · id {device.id.slice(0, 8)}
-                    {isPreferred ? " · preferred for tasks" : ""}
+                    {isPreferred ? " · preferred for session sync" : ""}
                   </small>
                 </div>
               </div>
@@ -1974,7 +1974,7 @@ export default function DashboardClient() {
                   disabled={busy || isPreferred}
                   onClick={() => chooseDevice(device.id)}
                 >
-                  {isPreferred ? "Preferred for tasks" : "Use for tasks"}
+                  {isPreferred ? "Preferred for sync" : "Prefer for sync"}
                 </button>
                 <button
                   type="button"

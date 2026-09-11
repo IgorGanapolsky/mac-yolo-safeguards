@@ -78,3 +78,20 @@ The Stripe webhook endpoint is `/api/billing/webhook`; it promotes a workspace t
 - Fly health: `GET /health` reports the latest poll and task timestamps without secrets
 - Anonymous security boundary: `/dashboard` redirects to hosted sign-in before its private client shell renders; workspace APIs return `401`
 - ARD capability catalog: `GET /.well-known/ai-catalog.json` validates as ARD 1.0 and contains only public documentation/discovery URLs
+
+## Acceptance: Mac sync / offline continue / online rejoin
+
+Product posture: **dashboard sends always run on Hosted VPS**. The Mac connector is a **sync/cache**, not the execution source of truth. Continuity is `queued_prompt_handoff`, not live process migration.
+
+| Scenario | What must be true | How to prove |
+| --- | --- | --- |
+| **Online sync (Mac → dashboard)** | Paired connector heartbeats &lt;60s; Hermes gateway sessions upsert via `POST /api/device/sessions/sync`; dashboard threads show `syncedAt` + snapshot | `node --test tests/test-hermes-cloud-connector.js` (session sync); control-plane `app/api/device/sessions/sync/route.test.ts` |
+| **Offline continue (Mac down → VPS)** | With connector stopped, dashboard `POST /api/tasks` (`routePreference: cloud`) completes on the Fly runner; receipt `sourceOfTruth: hosted-vps` | `lib/task-routing` + `hosted-source-of-truth` + `hosted-vps-default` tests; live Continuity status `productReady` |
+| **Online rejoin (Mac back → absorb cloud)** | On wake, connector calls `POST /api/device/sessions/rejoin`, injects cloud turns into the Hermes session **without** requiring a local Run, then acks `cloud_rejoined_at` | `lib/session-rejoin.test.ts`; connector `injectRejoinPack` / `syncRejoinPacks` tests; migration `0008_cloud_rejoined_at.sql` |
+
+Watermarks (do not conflate):
+
+- `threads.synced_at` — last **Mac → cloud** session push
+- `threads.cloud_rejoined_at` — last **cloud → Mac** absorb (passive rejoin + local claim handoff)
+
+Claim-time handoff still injects `Cloud/web continuation since this Mac last synced` when the Mac later claims a local task; passive rejoin covers the case where the user only opens Hermes after lid-open.
