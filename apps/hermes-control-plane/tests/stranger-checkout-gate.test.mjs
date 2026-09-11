@@ -42,6 +42,12 @@ test("webhook binds guest checkout to payer email; login claims pending:email", 
   assert.match(callback, /pendingPaid/);
 });
 
+test("webhook does not suspend a claimed workspace while pending:email sibling stays paid", () => {
+  assert.match(webhook, /INHERIT_OR_SUSPEND_SQL/);
+  assert.match(webhook, /CASCADE_PENDING_SHELL_SQL/);
+  assert.doesNotMatch(webhook, /grantsAccess \? "pro" : "suspended"/);
+});
+
 test("health stays fail-closed: do not advertise paid while turningOn", () => {
   assert.match(health, /advertisePaid: hosted\.advertisePaid/);
   assert.match(health, /turningOn: hosted\.turningOn/);
