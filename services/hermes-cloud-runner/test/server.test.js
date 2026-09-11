@@ -177,7 +177,8 @@ test('renews a cloud lease throughout long-running model work', async () => {
 
 test('parses Continuity smoke prompts into tick specs', () => {
   const spec = parseContinuitySmoke('Keep a 3-minute Continuity smoke alive on the fenced VPS. Every 30 seconds append one line saying Continuity smoke still alive.');
-  assert.deepEqual(spec, { durationMinutes: 3, intervalSeconds: 30, ticks: 6 });
+  assert.deepEqual(spec, { durationMinutes: 3, intervalSeconds: 30, ticks: 7 });
+  assert.equal(parseContinuitySmoke('Every 30 seconds still alive on fenced VPS without the marker'), null);
   assert.equal(parseContinuitySmoke('just answer this question'), null);
 });
 
@@ -208,7 +209,7 @@ test('execute routes Continuity smoke away from the model provider', async () =>
   try {
     const result = await execute(
       { openaiBaseUrl: `http://127.0.0.1:${address.port}`, openaiKey: 'test-key', model: 'test-model' },
-      { prompt: 'Keep a 1-minute Continuity smoke alive on the fenced VPS. Every 60 seconds say still alive.' },
+      { prompt: 'Keep a 1-minute Continuity smoke alive on the fenced VPS. Every 120 seconds say still alive.' },
     );
     assert.equal(modelHits, 0);
     assert.match(result, /ticks: 1/);

@@ -184,16 +184,17 @@ const HOSTED_SYSTEM_PROMPT = [
 
 function parseContinuitySmoke(prompt) {
   const text = String(prompt || '');
-  const durationMatch = text.match(/(\d+)\s*-?\s*minute/i);
-  const intervalMatch = text.match(/every\s+(\d+)\s*seconds?/i);
-  const continuityShaped = /continuity smoke|still alive|fenced vps/i.test(text)
-    && /every\s+\d+\s*seconds?/i.test(text);
-  if (!continuityShaped) return null;
-  const durationMinutes = durationMatch ? Number(durationMatch[1]) : 3;
-  const intervalSeconds = intervalMatch ? Number(intervalMatch[1]) : 30;
+  // Require the explicit Continuity smoke marker so ordinary chat never matches.
+  if (!/\bcontinuity smoke\b/i.test(text)) return null;
+  const durationMatch = /(\d+)\s*-?\s*minutes?\b/i.exec(text);
+  const intervalMatch = /every\s+(\d+)\s*seconds?\b/i.exec(text);
+  if (!durationMatch || !intervalMatch) return null;
+  const durationMinutes = Number(durationMatch[1]);
+  const intervalSeconds = Number(intervalMatch[1]);
   if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) return null;
   if (!Number.isFinite(intervalSeconds) || intervalSeconds <= 0) return null;
-  const ticks = Math.max(1, Math.floor((durationMinutes * 60) / intervalSeconds));
+  // Inclusive ticks across the wall-clock window (0s, interval, ... <= duration).
+  const ticks = Math.max(1, Math.floor((durationMinutes * 60) / intervalSeconds) + 1);
   return { durationMinutes, intervalSeconds, ticks };
 }
 
