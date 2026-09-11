@@ -43,6 +43,13 @@
       "when": 1784997000000,
       "tag": "0005_funnel_attribution",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1789137000000,
+      "tag": "0008_cloud_rejoined_at",
+      "breakpoints": true
     }
   ]
 }

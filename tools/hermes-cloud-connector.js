@@ -435,6 +435,56 @@ async function syncGatewaySessions(config, options = {}) {
 }
 
 /**
+ * Passive cloud→Mac rejoin: after lid-open, inject cloud/web turns into Hermes
+ * without requiring a local dashboard Run. Uses cloud_rejoined_at watermark on
+ * the control plane (independent of Mac→cloud synced_at).
+ */
+async function injectRejoinPack(config, pack) {
+  if (!pack?.sourceSessionId || !Array.isArray(pack.handoffMessages) || !pack.handoffMessages.length) {
+    return false;
+  }
+  const systemMessage = formatHandoffBlock({ handoffMessages: pack.handoffMessages });
+  if (!systemMessage) return false;
+  const recoverable = isRecoverableSessionId(pack.sourceSessionId);
+  if (recoverable) {
+    await ensureWebHermesSession(config, {
+      sourceSessionId: pack.sourceSessionId,
+      threadTitle: pack.threadTitle || 'ThumbGate sync',
+      prompt: pack.threadTitle || 'ThumbGate sync',
+    });
+  }
+  const turnCount = Math.ceil(pack.handoffMessages.length / 2);
+  const message = `[ThumbGate sync] ${turnCount} cloud turn(s) while this Mac was offline are in context. No action needed.`;
+  await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodeURIComponent(pack.sourceSessionId)}/chat`, {
+    method: 'POST',
+    gatewayEnvPath: config.gatewayEnvPath,
+    body: JSON.stringify({ message, system_message: systemMessage }),
+  });
+  return true;
+}
+
+async function syncRejoinPacks(config) {
+  const listed = await signedPost(config, '/api/device/sessions/rejoin', {});
+  const packs = Array.isArray(listed?.body?.packs) ? listed.body.packs : [];
+  if (!packs.length) return { injected: 0, acked: 0 };
+  const acks = [];
+  let injected = 0;
+  for (const pack of packs) {
+    try {
+      const ok = await injectRejoinPack(config, pack);
+      if (!ok) continue;
+      injected += 1;
+      acks.push({ threadId: pack.threadId, watermark: pack.watermark });
+    } catch (error) {
+      console.error(`[hermes-cloud-connector] rejoin inject failed for ${pack?.threadId || '?'}: ${error instanceof Error ? error.message : error}`);
+    }
+  }
+  if (!acks.length) return { injected, acked: 0 };
+  const ackResult = await signedPost(config, '/api/device/sessions/rejoin', { acks });
+  return { injected, acked: Number(ackResult?.body?.accepted || 0) };
+}
+
+/**
  * Sessions ThumbGate is allowed to silently recreate if the gateway reports them missing:
  * - web-created sessions (`thumbgate_*`) — no prior Hermes session existed
  * - cron-sourced sessions — ephemeral by design; missing is expected steady state
@@ -586,6 +636,12 @@ async function claimAndExecuteThreadOperation(config) {
 
 async function cycle(config, options = {}) {
   if (options.heartbeat !== false) await signedPost(config, '/api/device/heartbeat');
+  // Cloud→Mac rejoin on heartbeat/sync BEFORE Mac→cloud session sync.
+  // Rejoin watermark is cloud_rejoined_at (independent of synced_at).
+  if (options.heartbeat !== false || options.syncSessions || options.syncRejoin) {
+    try { await syncRejoinPacks(config); }
+    catch (error) { console.error(`[hermes-cloud-connector] rejoin unavailable: ${error instanceof Error ? error.message : error}`); }
+  }
   if (options.syncSessions) {
     try { await syncGatewaySessions(config, { configPath: options.configPath }); }
     catch (error) { console.error(`[hermes-cloud-connector] session sync unavailable: ${error instanceof Error ? error.message : error}`); }
@@ -683,5 +739,5 @@ async function main() {
   }
 }
 
-module.exports = { connectorPollingSchedule, adoptDiskPairing, retryWithBackoff, boundContextMessages, buildWebSessionSystemPrompt, canonicalRequest, claimAndExecuteThreadOperation, collectGatewaySessions, connectorPollingSchedule, contentText, createIdentity, executeLocal, executeThreadOperation, forgetDeadPairing, gatewayHeaders, isDeadDeviceAuthError, loadConfig, nextConnectorPollDelay, pairingDashboardUrl, pairingMatchesControlPlane, parseDotEnvValue, parseTerminalCwd, recoverDeadPairing, resolveGatewayApiKey, resolveWorkspacePath, saveConfig, selectContextSessionIds, signedHeaders, sha256, syncGatewaySessions, timestampMillis, withLeaseRenewal };
+module.exports = { connectorPollingSchedule, adoptDiskPairing, retryWithBackoff, boundContextMessages, buildWebSessionSystemPrompt, canonicalRequest, claimAndExecuteThreadOperation, collectGatewaySessions, connectorPollingSchedule, contentText, createIdentity, executeLocal, executeThreadOperation, forgetDeadPairing, formatHandoffBlock, gatewayHeaders, injectRejoinPack, isDeadDeviceAuthError, loadConfig, nextConnectorPollDelay, pairingDashboardUrl, pairingMatchesControlPlane, parseDotEnvValue, parseTerminalCwd, recoverDeadPairing, resolveGatewayApiKey, resolveWorkspacePath, saveConfig, selectContextSessionIds, signedHeaders, sha256, syncGatewaySessions, syncRejoinPacks, timestampMillis, withLeaseRenewal };
 if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });

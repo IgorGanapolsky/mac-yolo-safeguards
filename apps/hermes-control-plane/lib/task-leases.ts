@@ -29,6 +29,7 @@ interface TaskCandidate {
   sourceSessionId: string | null;
   contextSnapshot: string | null;
   syncedAt: number | null;
+  cloudRejoinedAt: number | null;
   createdAt: number;
   plan: string;
   trialEndsAt: number | null;
@@ -122,6 +123,7 @@ export async function claimTask(input: {
     `SELECT k.id, k.organization_id AS organizationId, k.thread_id AS threadId, t.title AS threadTitle, k.prompt,
             k.route AS currentRoute, k.lease_generation AS leaseGeneration, k.created_at AS createdAt,
             t.source_session_id AS sourceSessionId, t.context_snapshot AS contextSnapshot, t.synced_at AS syncedAt,
+            t.cloud_rejoined_at AS cloudRejoinedAt,
             o.plan, o.trial_ends_at AS trialEndsAt,
             (SELECT COUNT(*) FROM tasks AS cloud_usage
               WHERE cloud_usage.organization_id = k.organization_id AND cloud_usage.route = 'cloud'
@@ -148,7 +150,9 @@ export async function claimTask(input: {
       ORDER BY created_at DESC LIMIT 1`
   ).bind(candidate.threadId, candidate.id, candidate.createdAt).all<{ id: string; prompt: string; result: string; createdAt: number }>();
   const latestCompaction = compactionCandidates.results.find((task) => isSameThreadCompactionCommand(task.prompt)) ?? null;
-  const unsynced = prior.results.filter((task) => task.createdAt > (candidate.syncedAt ?? 0));
+  // cloud_rejoined_at = cloud→Mac absorb watermark (not Mac→cloud synced_at).
+  const rejoinFloor = candidate.cloudRejoinedAt ?? 0;
+  const unsynced = prior.results.filter((task) => task.createdAt > rejoinFloor);
   const postCompaction = latestCompaction
     ? prior.results.filter((task) => task.createdAt > latestCompaction.createdAt)
     : unsynced;
@@ -371,6 +375,27 @@ export async function completeTask(input: {
   ).bind(status, input.result ?? null, storedError, now, now,
     input.taskId, input.owner, tokenHash, now).run();
   if (update.meta.changes !== 1) return false;
+  // Local Mac claim absorbed any prior cloud handoff into Hermes — advance
+  // cloud→Mac watermark so passive rejoin does not re-inject the same turns.
+  if (!storedError && input.actorType === "device" && existing.route === "local") {
+    const priorCloud = await db().prepare(
+      `SELECT MAX(created_at) AS watermark FROM tasks
+        WHERE thread_id = ? AND organization_id = ? AND status = 'completed'
+          AND route = 'cloud' AND result IS NOT NULL AND created_at < ?`,
+    ).bind(existing.threadId, existing.organizationId, existing.createdAt).first<{ watermark: number | null }>();
+    const watermark = priorCloud?.watermark;
+    if (typeof watermark === "number" && Number.isFinite(watermark) && watermark > 0) {
+      await db().prepare(
+        `UPDATE threads
+            SET cloud_rejoined_at = CASE
+                  WHEN cloud_rejoined_at IS NULL OR ? > cloud_rejoined_at THEN ?
+                  ELSE cloud_rejoined_at
+                END,
+                updated_at = ?
+          WHERE id = ? AND organization_id = ?`,
+      ).bind(watermark, watermark, now, existing.threadId, existing.organizationId).run();
+    }
+  }
   const compactedResult = input.result?.trim();
   if (!storedError && compactedResult && isSameThreadCompactionCommand(existing.prompt)) {
     await audit({
