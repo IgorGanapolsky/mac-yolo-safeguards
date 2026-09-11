@@ -24,8 +24,8 @@ test("pairing and account live in Settings, not an always-on Leash essay", () =>
   assert.doesNotMatch(dashboard, /id="execution-safety"/);
   assert.doesNotMatch(dashboard, /HOSTED HERMES/);
   assert.doesNotMatch(dashboard, /What “Fenced” means/);
-  assert.match(dashboard, /Sends go to Hosted VPS/);
-  assert.match(dashboard, /Send to a paired Mac instead/);
+  assert.match(dashboard, /Sends always run on Hosted VPS/);
+  assert.match(dashboard, /Prefer a Mac for session sync/);
   assert.match(dashboard, /leash-signed-in/);
   assert.match(dashboard, /id="web-settings"/);
   assert.match(dashboard, /dashboard-sign-out/);

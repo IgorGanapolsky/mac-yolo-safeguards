@@ -87,7 +87,14 @@ export const threads = sqliteTable("threads", {
   messageCount: integer("message_count").notNull().default(0),
   contextSnapshot: text("context_snapshot"),
   sourceUpdatedAt: integer("source_updated_at"),
+  /** Mac → cloud last push watermark (session sync). */
   syncedAt: integer("synced_at"),
+  /**
+   * Cloud → Mac last absorbed watermark (passive rejoin / claim handoff).
+   * Must stay independent of synced_at so a Mac session push cannot erase
+   * unfinished cloud catch-up.
+   */
+  cloudRejoinedAt: integer("cloud_rejoined_at"),
   deletedAt: integer("deleted_at"),
   createdByUserId: text("created_by_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   createdAt: integer("created_at").notNull(),
