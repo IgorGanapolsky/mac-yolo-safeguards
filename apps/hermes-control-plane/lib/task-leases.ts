@@ -33,6 +33,7 @@ interface TaskCandidate {
   createdAt: number;
   plan: string;
   trialEndsAt: number | null;
+  storeEntitlementExpiresAt: number | null;
   cloudTasks: number;
 }
 
@@ -125,6 +126,7 @@ export async function claimTask(input: {
             t.source_session_id AS sourceSessionId, t.context_snapshot AS contextSnapshot, t.synced_at AS syncedAt,
             t.cloud_rejoined_at AS cloudRejoinedAt,
             o.plan, o.trial_ends_at AS trialEndsAt,
+            o.store_entitlement_expires_at AS storeEntitlementExpiresAt,
             (SELECT COUNT(*) FROM tasks AS cloud_usage
               WHERE cloud_usage.organization_id = k.organization_id AND cloud_usage.route = 'cloud'
                 AND cloud_usage.created_at >= ?) AS cloudTasks
@@ -207,7 +209,11 @@ export async function claimTask(input: {
       return null;
     }
     cloudDecision = evaluateCloudContinuation({
-      organization: { plan: candidate.plan, trialEndsAt: candidate.trialEndsAt },
+      organization: {
+        plan: candidate.plan,
+        trialEndsAt: candidate.trialEndsAt,
+        storeEntitlementExpiresAt: candidate.storeEntitlementExpiresAt,
+      },
       cloudTasks: candidate.cloudTasks,
       cloudTaskDelta: candidate.currentRoute === "cloud" ? 0 : 1,
       now,

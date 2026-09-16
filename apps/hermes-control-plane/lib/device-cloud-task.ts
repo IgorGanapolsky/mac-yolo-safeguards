@@ -66,11 +66,17 @@ export type DeviceCloudTaskRow = {
 export async function submitDeviceCloudTask(
   input: SubmitDeviceCloudTaskInput,
 ): Promise<Response | { task: DeviceCloudTaskRow; traceId: string; receipt: ReturnType<typeof publicRunReceipt> }> {
-  const org = await db().prepare("SELECT plan, trial_ends_at AS trialEndsAt FROM organizations WHERE id = ?")
-    .bind(input.identity.organizationId).first<{ plan: string; trialEndsAt: number | null }>();
+  const org = await db().prepare(
+    "SELECT plan, trial_ends_at AS trialEndsAt, store_entitlement_expires_at AS storeEntitlementExpiresAt FROM organizations WHERE id = ?",
+  )
+    .bind(input.identity.organizationId).first<{
+      plan: string;
+      trialEndsAt: number | null;
+      storeEntitlementExpiresAt: number | null;
+    }>();
   if (!org || org.plan === "suspended") {
     const decision = evaluateTaskAdmission({
-      organization: org ?? { plan: "suspended", trialEndsAt: null },
+      organization: org ?? { plan: "suspended", trialEndsAt: null, storeEntitlementExpiresAt: null },
       route: "blocked",
       usage: {},
     });
