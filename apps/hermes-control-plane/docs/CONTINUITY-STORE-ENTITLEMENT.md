@@ -9,23 +9,33 @@ Requires signed device headers (`x-hermes-device`, `x-hermes-timestamp`,
 
 Body (same shape as hermes-relay):
 
+Android example:
+
 ```json
 {
-  "platform": "android" | "ios",
+  "platform": "android",
   "product_id": "thumbgate_leash_monthly",
-  "purchase_token": "...",
-  "transaction_id": "...",
-  "signed_transaction": "..."
+  "purchase_token": "..."
+}
+```
+
+iOS example (use `transaction_id` and/or `signed_transaction`):
+
+```json
+{
+  "platform": "ios",
+  "product_id": "thumbgate_leash_monthly",
+  "transaction_id": "..."
 }
 ```
 
 ## Behavior
 
-- Active verified store entitlement -> `organizations.plan = pro`, HTTP 200
+- Active verified store entitlement -> `organizations.plan = pro` (preserves `team`), persists `store_entitlement_expires_at`, HTTP 200
 - Inactive / expired -> HTTP 402 (`subscription_not_active`) — plan not upgraded
 - Invalid product / platform / token shape -> HTTP 400
 - Suspended org -> HTTP 403
-- Verifier not configured -> HTTP 503 fail-closed
+- Verifier bindings missing for that platform -> HTTP 503 fail-closed
 
 Hosted submit (`POST /api/device/tasks/submit`) already gates cloud route via
 `evaluateTaskAdmission` -> `hasCloudContinuationAccess` (trial/pro/team).
@@ -45,7 +55,7 @@ Set these on the production Worker (values never in git):
 | `APPLE_APP_STORE_PRIVATE_KEY` | App Store Connect API PKCS8 PEM |
 | `APPLE_APP_STORE_ENVIRONMENT` | optional `Sandbox` |
 
-Until those bindings are present and a live adapter is wired into
-`createStoreReceiptVerifier`, production returns 503
+`createStoreReceiptVerifier` selects Google/Apple live adapters when the matching
+bindings are present; otherwise that platform returns 503
 `store_verifier_not_configured` (fail closed). Unit tests inject a verifier
 double via `setStoreReceiptVerifierForTest`.

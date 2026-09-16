@@ -11,8 +11,14 @@ import {
 } from "./store-receipt-verifier";
 
 export type GrantStoreEntitlementResult =
-  | { ok: true; plan: "pro"; entitlement: StoreVerifySuccess }
+  | { ok: true; plan: "pro" | "team"; entitlement: StoreVerifySuccess }
   | Response;
+
+function nextPlanForStoreGrant(currentPlan: string): "pro" | "team" {
+  // Never downgrade team → pro; store unlock is additive.
+  if (currentPlan === "team") return "team";
+  return "pro";
+}
 
 export async function verifyAndGrantThumbgateLeashEntitlement(input: {
   identity: DeviceIdentity;
@@ -25,9 +31,11 @@ export async function verifyAndGrantThumbgateLeashEntitlement(input: {
   }
 
   const org = await db()
-    .prepare("SELECT plan FROM organizations WHERE id = ?")
+    .prepare(
+      "SELECT plan, store_entitlement_expires_at AS storeEntitlementExpiresAt FROM organizations WHERE id = ?",
+    )
     .bind(input.identity.organizationId)
-    .first<{ plan: string }>();
+    .first<{ plan: string; storeEntitlementExpiresAt: number | null }>();
   if (!org) {
     return jsonError("organization not found", 404);
   }
@@ -58,9 +66,13 @@ export async function verifyAndGrantThumbgateLeashEntitlement(input: {
   }
 
   const now = Date.now();
+  const plan = nextPlanForStoreGrant(org.plan);
+  const expiresAt = verified.expires_at;
   await db()
-    .prepare("UPDATE organizations SET plan = ?, updated_at = ? WHERE id = ?")
-    .bind("pro", now, input.identity.organizationId)
+    .prepare(
+      "UPDATE organizations SET plan = ?, store_entitlement_expires_at = ?, updated_at = ? WHERE id = ?",
+    )
+    .bind(plan, expiresAt, now, input.identity.organizationId)
     .run();
 
   await audit({
@@ -76,9 +88,10 @@ export async function verifyAndGrantThumbgateLeashEntitlement(input: {
       source: verified.source,
       expiresAt: verified.expires_at,
       storeTransactionId: verified.store_transaction_id,
-      plan: "pro",
+      plan,
+      previousPlan: org.plan,
     },
   });
 
-  return { ok: true, plan: "pro", entitlement: verified };
+  return { ok: true, plan, entitlement: verified };
 }

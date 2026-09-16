@@ -1,8 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const orgState: { plan: string | null; updatedPlan: string | null } = {
+const orgState: {
+  plan: string | null;
+  updatedPlan: string | null;
+  storeExpiresAt: number | null;
+} = {
   plan: "trial",
   updatedPlan: null,
+  storeExpiresAt: null,
 };
 
 vi.mock("./runtime", () => ({
@@ -14,7 +19,12 @@ vi.mock("./runtime", () => ({
           return {
             async first() {
               if (sql.includes("FROM organizations")) {
-                return orgState.plan == null ? null : { plan: orgState.plan };
+                return orgState.plan == null
+                  ? null
+                  : {
+                    plan: orgState.plan,
+                    storeEntitlementExpiresAt: orgState.storeExpiresAt,
+                  };
               }
               return null;
             },
@@ -22,6 +32,7 @@ vi.mock("./runtime", () => ({
               if (sql.includes("UPDATE organizations SET plan")) {
                 orgState.updatedPlan = String(args[0]);
                 orgState.plan = String(args[0]);
+                orgState.storeExpiresAt = args[1] == null ? null : Number(args[1]);
               }
               return { success: true };
             },
@@ -44,6 +55,7 @@ import {
   createStoreReceiptVerifier,
   setStoreReceiptVerifierForTest,
   defaultStoreReceiptVerifier,
+  storeVerifierConfigured,
 } from "./store-receipt-verifier";
 import { verifyAndGrantThumbgateLeashEntitlement } from "./store-entitlement-grant";
 import { evaluateCloudContinuation } from "./agent-governance";
@@ -92,6 +104,7 @@ describe("verifyAndGrantThumbgateLeashEntitlement", () => {
   beforeEach(() => {
     orgState.plan = "trial";
     orgState.updatedPlan = null;
+    orgState.storeExpiresAt = null;
     setStoreReceiptVerifierForTest(null);
   });
 
@@ -144,12 +157,66 @@ describe("verifyAndGrantThumbgateLeashEntitlement", () => {
     expect(result).toMatchObject({ ok: true, plan: "pro" });
     expect(orgState.updatedPlan).toBe("pro");
     expect(orgState.plan).toBe("pro");
+    expect(orgState.storeExpiresAt).toBeGreaterThan(Date.now());
     expect(
       evaluateCloudContinuation({
-        organization: { plan: "pro", trialEndsAt: null },
+        organization: {
+          plan: "pro",
+          trialEndsAt: null,
+          storeEntitlementExpiresAt: orgState.storeExpiresAt,
+        },
         cloudTasks: 0,
         cloudTaskDelta: 1,
       }).allowed,
+    ).toBe(true);
+  });
+
+  it("preserves team plan and still records store expiry", async () => {
+    orgState.plan = "team";
+    const expires = Date.now() + 86_400_000;
+    const result = await verifyAndGrantThumbgateLeashEntitlement({
+      identity,
+      body: {
+        platform: "android",
+        product_id: THUMBGATE_LEASH_PRODUCT_ID,
+        purchase_token: "tok-team",
+      },
+      verifier: async () => ({
+        ok: true,
+        active: true,
+        platform: "android",
+        product_id: THUMBGATE_LEASH_PRODUCT_ID,
+        expires_at: expires,
+        store_transaction_id: "ord-1",
+        source: "test_double",
+      }),
+    });
+    expect(result).toMatchObject({ ok: true, plan: "team" });
+    expect(orgState.updatedPlan).toBe("team");
+    expect(orgState.storeExpiresAt).toBe(expires);
+  });
+
+  it("denies cloud when pro store entitlement is expired", () => {
+    expect(
+      evaluateCloudContinuation({
+        organization: {
+          plan: "pro",
+          trialEndsAt: null,
+          storeEntitlementExpiresAt: Date.now() - 1_000,
+        },
+        cloudTasks: 0,
+        cloudTaskDelta: 1,
+      }).code,
+    ).toBe("cloud_entitlement_required");
+  });
+
+  it("selects live factory when env bindings exist (configured=true)", () => {
+    expect(storeVerifierConfigured({})).toBe(false);
+    expect(
+      storeVerifierConfigured({
+        GOOGLE_PLAY_PACKAGE_NAME: "com.iganapolsky.hermesmobile.paid",
+        GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: "{}",
+      }, "android"),
     ).toBe(true);
   });
 
@@ -160,7 +227,7 @@ describe("verifyAndGrantThumbgateLeashEntitlement", () => {
       body: {
         platform: "android",
         product_id: THUMBGATE_LEASH_PRODUCT_ID,
-        purchase_token: "tok",
+        purchase_token: "tok-no-adapter",
       },
       verifier,
     });

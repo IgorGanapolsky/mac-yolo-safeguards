@@ -11,6 +11,7 @@ export const AGENT_GOVERNANCE_LIMITS = Object.freeze({
 export interface GovernanceOrganization {
   plan: string;
   trialEndsAt: number | null;
+  storeEntitlementExpiresAt?: number | null;
 }
 
 export interface TaskUsage {
