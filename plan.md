@@ -4014,3 +4014,7 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - macOS redacts SSID from `networksetup -getairportnetwork` / `ipconfig getsummary` / CoreWLAN from unsigned CLI — fingerprint LAN, do not require SSID string.
 - Existing `wifi-pmtu-guard` only clamps T-Mobile `192.168.12.0/24`; leaves office alone. Complementary, not a replacement.
 - Sudoers NOPASSWD must be helper-script-only — never blanket `/bin/rm` or raw `ifconfig`.
+
+## Release (append 2026-09-16T14:10:00Z) — `grok/office-wifi-captive-heal-20260916`
+
+| T-OFFICE-WIFI-CAPTIVE-HEAL-20260916 | Autonomous Office Evolution captive-portal heal after laptop return | released | grok/office-wifi-captive-heal-20260916 | PR #2175 / commit `03c80cffc` | Live install: LaunchAgent 60s + sudoers helper; `--check` office=1 healthy=1; tests 14/14 |
