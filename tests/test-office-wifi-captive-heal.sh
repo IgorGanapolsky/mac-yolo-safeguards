@@ -98,6 +98,35 @@ else
   bad "healthy office fixture check failed rc=$RC out=$OUT"
 fi
 
+# Fixture: captive Success + HTTPS flake must NOT need heal (live false-positive class)
+cat > "$TMP/https_flake.env" <<'EOF'
+IP=172.29.14.84
+ROUTER=172.29.0.1
+SUMMARY='domain_name (string): medusa.local'
+POWER=On
+PREFERRED_OFFICE=1
+OFFICE=1
+CAPTIVE_BODY='<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>'
+CAPTIVE_OK=1
+HTTPS_CODE=000
+HTTPS_OK=0
+HEALTHY=1
+NEEDS_HEAL=0
+EOF
+
+set +e
+OUT="$(OFFICE_WIFI_FIXTURE="$TMP/https_flake.env" OFFICE_WIFI_LOG="$TMP/heal.log" \
+  OFFICE_WIFI_STATE_DIR="$TMP/state2" OFFICE_WIFI_COOLDOWN_SEC=0 \
+  bash "$HEAL" --heal 2>&1)"
+RC=$?
+set -e
+if [[ "$RC" -eq 0 ]] && printf '%s' "$OUT" | grep -q 'no office captive failure' \
+  && ! printf '%s' "$OUT" | grep -q 'heal: bounce'; then
+  ok "HTTPS flake with captive Success does not bounce Wi-Fi"
+else
+  bad "HTTPS flake guard failed rc=$RC out=$OUT"
+fi
+
 # Dry-run heal on broken fixture must not claim reboot / preferences.plist wipe
 set +e
 OUT="$(OFFICE_WIFI_FIXTURE="$TMP/broken.env" OFFICE_WIFI_LOG="$TMP/heal.log" \

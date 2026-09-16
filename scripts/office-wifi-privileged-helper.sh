@@ -40,8 +40,22 @@ case "$VERB" in
       fi
     done
     ;;
+  restore-airport-prefs)
+    backup_root="${2:-}"
+    if [[ -z "$backup_root" || "$backup_root" != /Users/* ]]; then
+      echo "backup_root under /Users required" >&2
+      exit 2
+    fi
+    for f in com.apple.airport.preferences.plist com.apple.airport.preferences.plist.backup; do
+      if [[ -f "$backup_root/$f" ]]; then
+        /bin/cp -p "$backup_root/$f" "$SC/$f"
+        /bin/chmod 644 "$SC/$f"
+        /usr/sbin/chown root:wheel "$SC/$f"
+      fi
+    done
+    ;;
   *)
-    echo "usage: $0 flush-dns|bounce-iface|renew-dhcp|reset-airport-prefs <backup_dir>" >&2
+    echo "usage: $0 flush-dns|bounce-iface|renew-dhcp|reset-airport-prefs|restore-airport-prefs <backup_dir>" >&2
     exit 2
     ;;
 esac

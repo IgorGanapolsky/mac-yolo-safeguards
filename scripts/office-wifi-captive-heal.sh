@@ -34,9 +34,11 @@ COOLDOWN_SEC="${OFFICE_WIFI_COOLDOWN_SEC:-180}"
 CAPTIVE_URL="${OFFICE_WIFI_CAPTIVE_URL:-http://captive.apple.com/hotspot-detect.html}"
 HTTPS_PROBE_URL="${OFFICE_WIFI_HTTPS_PROBE_URL:-https://www.apple.com/library/test/success.html}"
 CURL_MAX="${OFFICE_WIFI_CURL_MAX:-4}"
-# Default on: airport-prefs-only reset is part of the proven office ritual, but
-# preferences.plist / NetworkInterfaces.plist remain hard-refused forever.
-ALLOW_AIRPORT_RESET="${OFFICE_WIFI_ALLOW_AIRPORT_RESET:-1}"
+# Default OFF: airport prefs reset is destructive and was not E2E-proven as safe
+# under LaunchAgent. Opt in with OFFICE_WIFI_ALLOW_AIRPORT_RESET=1.
+ALLOW_AIRPORT_RESET="${OFFICE_WIFI_ALLOW_AIRPORT_RESET:-0}"
+# Require N consecutive unhealthy ticks before mutating Wi-Fi (avoids HTTPS flakes).
+FAIL_STREAK_NEED="${OFFICE_WIFI_FAIL_STREAK_NEED:-2}"
 DRY_RUN=0
 FORCE=0
 MODE="auto"
@@ -145,10 +147,16 @@ read_live_snapshot() {
   elif [[ "$OFFICE" -eq 0 && "$CAPTIVE_OK" -eq 1 && "$HTTPS_OK" -eq 1 ]]; then
     # Not on office LAN and internet works — nothing for this guard to do.
     HEALTHY=1
+  elif [[ "$OFFICE" -eq 1 && "$CAPTIVE_OK" -eq 1 ]]; then
+    # Captive Success with a flaky HTTPS probe is NOT a captive-portal outage.
+    HEALTHY=1
   fi
 
+  # Heal only when office fingerprint is present AND captive portal is failing.
+  # Do not bounce Wi-Fi on a lone HTTPS flake while captive.apple.com says Success
+  # (that false-positive bounced a live office session at 2026-09-16T14:15:58Z).
   NEEDS_HEAL=0
-  if [[ "$OFFICE" -eq 1 && ( "$CAPTIVE_OK" -eq 0 || "$HTTPS_OK" -eq 0 ) ]]; then
+  if [[ "$OFFICE" -eq 1 && "$CAPTIVE_OK" -eq 0 ]]; then
     NEEDS_HEAL=1
   fi
 }
@@ -167,24 +175,46 @@ emit_status() {
     "$VERSION" "${OFFICE:-0}" "${IP:-}" "${ROUTER:-}" "${POWER:-}" "${CAPTIVE_OK:-0}" "${HTTPS_OK:-0}" "${HTTPS_CODE:-}" "${PREFERRED_OFFICE:-0}" "${HEALTHY:-0}" "${NEEDS_HEAL:-0}" "$DRY_RUN"
 }
 
-in_cooldown() {
-  [[ -f "$STATE_FILE" ]] || return 1
-  # shellcheck disable=SC1090
-  source "$STATE_FILE"
-  local last="${LAST_HEAL_EPOCH:-0}"
-  local now
-  now="$(date +%s)"
-  [[ $((now - last)) -lt "$COOLDOWN_SEC" ]]
+read_state() {
+  FAIL_STREAK=0
+  LAST_HEAL_EPOCH=0
+  if [[ -f "$STATE_FILE" ]]; then
+    # shellcheck disable=SC1090
+    source "$STATE_FILE"
+  fi
 }
 
-mark_healed() {
+in_cooldown() {
+  read_state
+  local now
+  now="$(date +%s)"
+  [[ $((now - LAST_HEAL_EPOCH)) -lt "$COOLDOWN_SEC" ]]
+}
+
+write_state() {
   local now
   now="$(date +%s)"
   cat > "$STATE_FILE" <<EOF
-LAST_HEAL_EPOCH=$now
-LAST_HEAL_RESULT=${1:-unknown}
+LAST_HEAL_EPOCH=${1:-$LAST_HEAL_EPOCH}
+LAST_HEAL_RESULT=${2:-unknown}
 LAST_HEAL_ISO=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+FAIL_STREAK=${3:-0}
 EOF
+}
+
+mark_healed() {
+  write_state "$(date +%s)" "$1" 0
+}
+
+bump_fail_streak() {
+  read_state
+  FAIL_STREAK=$((FAIL_STREAK + 1))
+  write_state "${LAST_HEAL_EPOCH:-0}" "${LAST_HEAL_RESULT:-none}" "$FAIL_STREAK"
+}
+
+clear_fail_streak() {
+  read_state
+  write_state "${LAST_HEAL_EPOCH:-0}" "${LAST_HEAL_RESULT:-none}" 0
 }
 
 # --- heal steps ----------------------------------------------------------------
@@ -310,8 +340,17 @@ case "$MODE" in
   heal|auto)
     emit_status
     if [[ "$FORCE" -ne 1 && "$NEEDS_HEAL" -ne 1 ]]; then
+      clear_fail_streak
       log "idle: no office captive failure (office=$OFFICE healthy=$HEALTHY)"
       exit 0
+    fi
+    if [[ "$FORCE" -ne 1 ]]; then
+      bump_fail_streak
+      read_state
+      if [[ "$FAIL_STREAK" -lt "$FAIL_STREAK_NEED" ]]; then
+        log "idle: captive fail streak $FAIL_STREAK/$FAIL_STREAK_NEED (waiting for consecutive ticks)"
+        exit 0
+      fi
     fi
     if [[ "$FORCE" -ne 1 ]] && in_cooldown; then
       log "idle: cooldown ${COOLDOWN_SEC}s since last heal"
