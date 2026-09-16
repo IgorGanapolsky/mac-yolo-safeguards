@@ -22,7 +22,7 @@
         <key>OFFICE_WIFI_SSID</key>
         <string>Office Evolution</string>
         <key>OFFICE_WIFI_ALLOW_AIRPORT_RESET</key>
-        <string>0</string>
+        <string>1</string>
         <key>OFFICE_WIFI_COOLDOWN_SEC</key>
         <string>180</string>
     </dict>

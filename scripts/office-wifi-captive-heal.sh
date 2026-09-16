@@ -34,7 +34,9 @@ COOLDOWN_SEC="${OFFICE_WIFI_COOLDOWN_SEC:-180}"
 CAPTIVE_URL="${OFFICE_WIFI_CAPTIVE_URL:-http://captive.apple.com/hotspot-detect.html}"
 HTTPS_PROBE_URL="${OFFICE_WIFI_HTTPS_PROBE_URL:-https://www.apple.com/library/test/success.html}"
 CURL_MAX="${OFFICE_WIFI_CURL_MAX:-4}"
-ALLOW_AIRPORT_RESET="${OFFICE_WIFI_ALLOW_AIRPORT_RESET:-0}"
+# Default on: airport-prefs-only reset is part of the proven office ritual, but
+# preferences.plist / NetworkInterfaces.plist remain hard-refused forever.
+ALLOW_AIRPORT_RESET="${OFFICE_WIFI_ALLOW_AIRPORT_RESET:-1}"
 DRY_RUN=0
 FORCE=0
 MODE="auto"
