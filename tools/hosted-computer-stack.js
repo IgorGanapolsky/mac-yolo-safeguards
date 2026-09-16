@@ -32,6 +32,10 @@ const HISTORY_REL = 'tools/mac-computer-history.js';
 
 const GUI_OR_SANDBOX_RE = /\b(playwright|puppeteer|selenium|trycua|\bcua\b|\be2b\b|openclaw|eigent|agent[\s-]?s)\b/i;
 
+const SPRITES_SKU_RE =
+  /\b(sprites\.dev\/mcp|@fly\/sprites|sprites-py|sprites-adk|\bsbd\b|phoenix\.new)\b/i;
+const SPRITES_NAME_RE = /\bsprites?\b/i;
+const SPRITES_BUY_RE = /\b(install|subscribe|buy|enable|pip install|npm install)\b/i;
 const CLONE_NAME_RE = /\b(openclaw|eigent|\be2b\b|trycua|\bcua\b|agent[\s-]?s)\b/i;
 const CLONE_VERB_RE = /\b(install|deploy|clone|vendor|assemble|self-host|wire onto)\b/i;
 const HANDS_ASK_RE = /\b(playwright|puppeteer|selenium|computer[ -]use|screenshot[ -]and[ -]click|click gmail|drive the desktop|mousemove)\b/i;
@@ -165,6 +169,8 @@ function runDoctor(options = {}) {
     weAreChatGPTComputerHistory: false,
     weAreWindowsRecall: false,
     weAreMacKeylogger: false,
+    weAreSprites: false,
+    weAreSbd: false,
     product: 'hosted-hermes-chat-on-fenced-vps',
     monthlyCapUsd: MONTHLY_CAP_USD,
     manager,
@@ -192,6 +198,15 @@ function runDoctor(options = {}) {
 
 function classify(prompt = '') {
   const text = String(prompt);
+  if (SPRITES_SKU_RE.test(text) || (SPRITES_NAME_RE.test(text) && SPRITES_BUY_RE.test(text))) {
+    return {
+      place: 'refuse',
+      reason: 'SPRITES_SKU_FORBIDDEN',
+      product: 'hosted-hermes-chat-on-fenced-vps',
+      weAreSprites: false,
+      weAreSbd: false,
+    };
+  }
   if (CLONE_NAME_RE.test(text) && CLONE_VERB_RE.test(text)) {
     return {
       place: 'refuse',
