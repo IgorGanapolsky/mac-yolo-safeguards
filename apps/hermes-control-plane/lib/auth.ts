@@ -15,6 +15,7 @@ export interface AppSession {
   avatarUrl: string | null;
   plan: string;
   trialEndsAt: number | null;
+  storeEntitlementExpiresAt: number | null;
 }
 
 export function workosConfigured(): boolean {
@@ -31,7 +32,8 @@ export async function currentSession(): Promise<AppSession | null> {
     `SELECT s.id_hash AS sessionHash, s.user_id AS userId, s.organization_id AS organizationId,
             s.workos_session_id AS workosSessionId,
             u.email, u.name, u.avatar_url AS avatarUrl, o.plan,
-            o.trial_ends_at AS trialEndsAt
+            o.trial_ends_at AS trialEndsAt,
+            o.store_entitlement_expires_at AS storeEntitlementExpiresAt
        FROM sessions s
        JOIN users u ON u.id = s.user_id
        JOIN organizations o ON o.id = s.organization_id
