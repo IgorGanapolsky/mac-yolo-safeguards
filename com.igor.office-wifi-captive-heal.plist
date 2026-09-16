@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.igor.office-wifi-captive-heal</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{HOME}}/.local/bin/office-wifi-captive-heal.sh</string>
+        <string>--heal</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StartInterval</key>
+    <integer>60</integer>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>{{HOME}}</string>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>OFFICE_WIFI_SSID</key>
+        <string>Office Evolution</string>
+        <key>OFFICE_WIFI_ALLOW_AIRPORT_RESET</key>
+        <string>0</string>
+        <key>OFFICE_WIFI_COOLDOWN_SEC</key>
+        <string>180</string>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>{{HOME}}/Library/Logs/office-wifi-captive-heal.launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{HOME}}/Library/Logs/office-wifi-captive-heal.launchd.log</string>
+</dict>
+</plist>
