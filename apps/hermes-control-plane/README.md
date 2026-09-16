@@ -74,3 +74,8 @@ npm run rollback:cloudflare        # ⬅ THE command if something just broke pro
   A bad **migration** (D1 schema/data) → restore from the
   `.wrangler/backups/` export taken by `predeploy:cloudflare`; `wrangler
   rollback` alone will not undo it.
+
+## Continuity store entitlement
+
+See [docs/CONTINUITY-STORE-ENTITLEMENT.md](./docs/CONTINUITY-STORE-ENTITLEMENT.md)
+for the device-authenticated verify endpoint and required Worker bindings.
