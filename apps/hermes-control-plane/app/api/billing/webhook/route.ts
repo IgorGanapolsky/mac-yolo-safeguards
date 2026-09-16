@@ -1,3 +1,4 @@
+import { CASCADE_PENDING_SHELL_SQL, INHERIT_OR_SUSPEND_SQL } from "@/lib/billing-webhook-plan";
 import { db, runtimeEnv } from "@/lib/runtime";
 import { verifyWebhookSignature } from "@/lib/webhook-signature";
 
@@ -53,16 +54,18 @@ export async function POST(request: Request) {
       "UPDATE organizations SET name = ?, updated_at = ? WHERE id = ? AND name = 'hosted-pending'",
     ).bind(`pending:${payerEmail}`, now, organizationId));
   }
-  if (organizationId && (grantsAccess || revokesAccess)) {
+  if (organizationId && grantsAccess) {
     statements.push(db().prepare("UPDATE organizations SET plan = ?, updated_at = ? WHERE id = ?")
-      .bind(grantsAccess ? "pro" : "suspended", now, organizationId));
+      .bind("pro", now, organizationId));
     // Paid Continuity: turn on automatic VPS failover for paired machines (user can still change in Settings).
-    if (grantsAccess) {
-      statements.push(db().prepare(
-        `UPDATE devices SET failover_mode = 'auto', updated_at = ?
+    statements.push(db().prepare(
+      `UPDATE devices SET failover_mode = 'auto', updated_at = ?
           WHERE organization_id = ? AND revoked_at IS NULL AND failover_mode = 'manual'`,
-      ).bind(now, organizationId));
-    }
+    ).bind(now, organizationId));
+  }
+  if (organizationId && revokesAccess) {
+    statements.push(db().prepare(INHERIT_OR_SUSPEND_SQL).bind(now, organizationId));
+    statements.push(db().prepare(CASCADE_PENDING_SHELL_SQL).bind(now, organizationId, organizationId));
   }
   const results = await db().batch(statements);
   return Response.json({ received: true, duplicate: results[0]?.meta.changes === 0 });
