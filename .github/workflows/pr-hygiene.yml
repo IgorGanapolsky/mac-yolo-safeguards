@@ -6,8 +6,10 @@ name: PR hygiene
 #      Dependabot is excluded here; dependabot-automerge.yml separately admits only
 #      semver-minor/patch updates, while major upgrades require compatibility review.
 #   2. stale: a PR or issue with no activity gets a warning, then closes.
-#      A push, comment, or review resets the clock. Drafts are included: a draft
-#      with no update is not live work.
+#      The close clock is the newest of creation, a non-bot comment or review,
+#      both dates on every commit, a non-bot reopen, a convert-to-draft, and a
+#      head force-push. The janitor's own comments do not reset it. Drafts are
+#      included: a draft with no human activity is not live work.
 #   3. drain (schedule and manual run only): close drafts idle for 14 days and
 #      issues idle for 30 days in one pass, so a multi-week freeze does not wait
 #      out the stale label window. Dependency PRs stay open so a red security
@@ -144,28 +146,74 @@ jobs:
                       return items
                   cursor = data["pageInfo"]["endCursor"]
 
+          BOTS = {"github-actions[bot]", "github-actions"}
+          DEPENDABOT = {"app/dependabot", "dependabot[bot]"}
+
           def names(row):
               labels = row.get("labels") or []
               if isinstance(labels, dict):
                   labels = labels.get("nodes") or []
               return {label.get("name") for label in labels}
 
-          def age_days(row):
-              updated = datetime.fromisoformat(row["updatedAt"].replace("Z", "+00:00"))
-              return (now - updated).total_seconds() / 86400
+          def parse_time(value):
+              return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
-          def still_idle(kind, number, min_days):
-              fields = "updatedAt,labels,title" if kind == "issue" else "updatedAt,labels,isDraft"
+          def page_subject(root, number, field, selection, extra=""):
+              # gh pr view --json commits stops at 100 (cli/cli#13338). The same
+              # cap applies to comments and reviews, so page every clock source.
+              items = []
+              cursor = None
+              while True:
+                  after = "" if cursor is None else ', after: "%s"' % cursor
+                  query = (
+                      'query { repository(owner: "%s", name: "%s") { %s(number: %d) { '
+                      "%s(first: 100%s%s) { pageInfo { hasNextPage endCursor } nodes { %s } } } } }"
+                      % (owner, name, root, number, field, extra, after, selection)
+                  )
+                  connection = graphql(query)["data"]["repository"][root][field]
+                  items.extend(connection["nodes"] or [])
+                  if not connection["pageInfo"]["hasNextPage"]:
+                      return items
+                  cursor = connection["pageInfo"]["endCursor"]
+
+          def consider(times, login, value):
+              if login not in BOTS and value:
+                  times.append(parse_time(value))
+
+          def human_idle(kind, number):
+              # updatedAt includes the janitor's own stale comment, which reset
+              # every August draft and issue to "today" on 2026-10-28.
+              root = "issue" if kind == "issue" else "pullRequest"
+              fields = "createdAt,labels,title" if kind == "issue" else "createdAt,labels,isDraft,author"
               fresh = json.loads(subprocess.check_output([
                   "gh", kind, "view", str(number), "--repo", repo, "--json", fields,
               ], text=True))
-              if names(fresh) & exempt:
-                  return False
-              if kind == "issue" and (fresh.get("title") or "").lower().startswith("security"):
-                  return False
-              if kind == "pr" and not fresh.get("isDraft"):
-                  return False
-              return age_days(fresh) >= min_days
+              times = [parse_time(fresh["createdAt"])]
+              for comment in page_subject(root, number, "comments", "createdAt author { login }"):
+                  login = ((comment.get("author") or {}).get("login")) or ""
+                  consider(times, login, comment.get("createdAt"))
+              if kind == "pr":
+                  for review in page_subject(root, number, "reviews", "submittedAt author { login }"):
+                      login = ((review.get("author") or {}).get("login")) or ""
+                      consider(times, login, review.get("submittedAt"))
+                  for node in page_subject(root, number, "commits", "commit { authoredDate committedDate }"):
+                      commit = node.get("commit") or {}
+                      for key in ("authoredDate", "committedDate"):
+                          if commit.get(key):
+                              times.append(parse_time(commit[key]))
+                  selection = (
+                      "... on ReopenedEvent { createdAt actor { login } } "
+                      "... on ConvertToDraftEvent { createdAt actor { login } } "
+                      "... on HeadRefForcePushedEvent { createdAt actor { login } }"
+                  )
+                  extra = ", itemTypes: [REOPENED_EVENT, CONVERT_TO_DRAFT_EVENT, HEAD_REF_FORCE_PUSHED_EVENT]"
+              else:
+                  selection = "... on ReopenedEvent { createdAt actor { login } }"
+                  extra = ", itemTypes: [REOPENED_EVENT]"
+              for event in page_subject(root, number, "timelineItems", selection, extra):
+                  login = ((event.get("actor") or {}).get("login")) or ""
+                  consider(times, login, event.get("createdAt"))
+              return (now - max(times)).total_seconds() / 86400, fresh
 
           prs = page_nodes(
               "pullRequests",
@@ -181,15 +229,22 @@ jobs:
                   continue
               if labels & exempt:
                   continue
-              if row.get("isDraft") and age_days(row) >= 14 and still_idle("pr", row["number"], 14):
-                  gh(
-                      "pr", "close", str(row["number"]), "--repo", repo, "--delete-branch",
-                      "--comment",
-                      "Closed by the repo janitor. This draft had no update for 14 days, "
-                      "so it was not in the merge queue. Reopen and push to revive it. "
-                      "Add the `keep` label to hold a draft open.",
-                  )
-                  print(f"closed draft #{row['number']}")
+              if not row.get("isDraft"):
+                  continue
+              age, fresh = human_idle("pr", row["number"])
+              fresh_author = ((fresh.get("author") or {}).get("login")) or ""
+              if fresh_author in DEPENDABOT or "dependencies" in names(fresh):
+                  continue
+              if names(fresh) & exempt or not fresh.get("isDraft") or age < 14:
+                  continue
+              gh(
+                  "pr", "close", str(row["number"]), "--repo", repo, "--delete-branch",
+                  "--comment",
+                  "Closed by the repo janitor. This draft had no update for 14 days, "
+                  "so it was not in the merge queue. Reopen and push to revive it. "
+                  "Add the `keep` label to hold a draft open.",
+              )
+              print(f"closed draft #{row['number']}")
 
           issues = page_nodes(
               "issues",
@@ -209,13 +264,17 @@ jobs:
                   continue
               if labels & exempt:
                   continue
-              if age_days(row) >= 30 and still_idle("issue", row["number"], 30):
-                  gh(
-                      "issue", "close", str(row["number"]), "--repo", repo,
-                      "--reason", "not planned",
-                      "--comment",
-                      "Closed by the repo janitor after 30 days with no update. "
-                      "Reopen if this is still true, or add the `keep` label to hold it.",
-                  )
-                  print(f"closed issue #{row['number']}")
+              age, fresh = human_idle("issue", row["number"])
+              if names(fresh) & exempt:
+                  continue
+              if (fresh.get("title") or "").lower().startswith("security") or age < 30:
+                  continue
+              gh(
+                  "issue", "close", str(row["number"]), "--repo", repo,
+                  "--reason", "not planned",
+                  "--comment",
+                  "Closed by the repo janitor after 30 days with no update. "
+                  "Reopen if this is still true, or add the `keep` label to hold it.",
+              )
+              print(f"closed issue #{row['number']}")
           PY
