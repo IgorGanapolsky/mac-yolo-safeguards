@@ -4050,3 +4050,16 @@ The first drain on `ba28321c` (run 40770703441) labeled #1889 `security` and lef
 - `.github/workflows/pr-hygiene.yml`
 - `tests/test-dependency-automation-policy.js`
 - `plan.md` (this append)
+
+## Repo janitor (append 2026-10-28T22:10:32Z) — `grok-repo-janitor`
+
+Review on #2203: preferring authoredDate hid a newer committedDate. An August authorship with a 2026-10-27 commit date was 87 idle days on 2026-10-28, and 0.50 once both dates count. `gh pr view --json commits` stops at 100. A human reopen and a convert-to-draft create no comment and do not change createdAt. The fresh recheck compared labels only with the exempt set, so a dependencies label added after the list pass could close that draft and delete its branch.
+
+The clock now pages comments, reviews, commits, and timeline events. Each commit contributes authoredDate and committedDate. Non-bot REOPENED_EVENT, CONVERT_TO_DRAFT_EVENT, and HEAD_REF_FORCE_PUSHED_EVENT count. The fresh pull-request object skips Dependabot authors and the dependencies label. Title edits do not reset the clock. GitHub's Commit type has no push timestamp. A plain push of commits that already carry old dates is visible only through those dates. A head force-push is the push event that has its own time.
+
+Extracted functions, no closes: #2203 idle 0.01 days, #1889 idle 70.04 days and still held because the title starts with Security, draft #2130 idle 63.18 days. `node tests/test-dependency-automation-policy.js` passed 22 assertions. The embedded Python parses.
+
+### File claims
+- `.github/workflows/pr-hygiene.yml`
+- `tests/test-dependency-automation-policy.js`
+- `plan.md` (this append)

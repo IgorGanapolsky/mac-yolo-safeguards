@@ -62,6 +62,16 @@ check(
   'drain pages every open item, ignores its own stale comments, and finishes before stale runs',
 );
 check(
+  prHygiene.includes('for key in ("authoredDate", "committedDate")')
+    && prHygiene.includes('REOPENED_EVENT')
+    && prHygiene.includes('CONVERT_TO_DRAFT_EVENT')
+    && prHygiene.includes('HEAD_REF_FORCE_PUSHED_EVENT')
+    && prHygiene.includes('"dependencies" in names(fresh)')
+    && prHygiene.includes('fresh_author in DEPENDABOT')
+    && !prHygiene.includes('or commit.get("committedDate")'),
+  'idle clock reads both commit dates, reopen, convert-to-draft, force-push, and rechecks dependency drafts',
+);
+check(
   prHygiene.includes('exempt-pr-labels: keep,pinned,security,blocked,dependencies'),
   'dependency PRs stay open so a red security bump is not discarded',
 );
