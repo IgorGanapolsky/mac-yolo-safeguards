@@ -4041,3 +4041,12 @@ Bluesky post https://bsky.app/profile/iganapolsky.bsky.social/post/3myxno5vxz22s
 - `tests/test-check-store-links.js`
 - `docs/social/hermes-mobile-content-log.tsv`
 - `plan.md` (this append)
+
+## Repo janitor (append 2026-10-28T21:25:00Z) — `grok-repo-janitor`
+
+The first drain on `ba28321c` (run 40770703441) labeled #1889 `security` and left Dependabot #2195–#2198 open. It closed nothing else. The pull-request stale jobs at 20:08Z and 20:53Z had commented on every open draft and issue, so `updatedAt` was today. Last human activity is still 2026-08-20 through 2026-08-26 (11 drafts, 37 non-security issues, youngest 62 days). The close decision now uses created time, human comments, reviews, and commits, and ignores `github-actions` comments.
+
+### File claims
+- `.github/workflows/pr-hygiene.yml`
+- `tests/test-dependency-automation-policy.js`
+- `plan.md` (this append)

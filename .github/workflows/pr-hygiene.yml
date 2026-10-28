@@ -144,28 +144,42 @@ jobs:
                       return items
                   cursor = data["pageInfo"]["endCursor"]
 
+          BOTS = {"github-actions[bot]", "github-actions"}
+
           def names(row):
               labels = row.get("labels") or []
               if isinstance(labels, dict):
                   labels = labels.get("nodes") or []
               return {label.get("name") for label in labels}
 
-          def age_days(row):
-              updated = datetime.fromisoformat(row["updatedAt"].replace("Z", "+00:00"))
-              return (now - updated).total_seconds() / 86400
+          def parse_time(value):
+              return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
-          def still_idle(kind, number, min_days):
-              fields = "updatedAt,labels,title" if kind == "issue" else "updatedAt,labels,isDraft"
+          def human_idle(kind, number):
+              # updatedAt includes the janitor's own stale comment, which reset
+              # every August draft and issue to "today" on 2026-10-28.
+              fields = (
+                  "createdAt,comments,labels,title"
+                  if kind == "issue"
+                  else "createdAt,comments,reviews,commits,labels,isDraft"
+              )
               fresh = json.loads(subprocess.check_output([
                   "gh", kind, "view", str(number), "--repo", repo, "--json", fields,
               ], text=True))
-              if names(fresh) & exempt:
-                  return False
-              if kind == "issue" and (fresh.get("title") or "").lower().startswith("security"):
-                  return False
-              if kind == "pr" and not fresh.get("isDraft"):
-                  return False
-              return age_days(fresh) >= min_days
+              times = [parse_time(fresh["createdAt"])]
+              for comment in fresh.get("comments") or []:
+                  login = ((comment.get("author") or {}).get("login")) or ""
+                  if login not in BOTS and comment.get("createdAt"):
+                      times.append(parse_time(comment["createdAt"]))
+              for review in fresh.get("reviews") or []:
+                  login = ((review.get("author") or {}).get("login")) or ""
+                  if login not in BOTS and review.get("submittedAt"):
+                      times.append(parse_time(review["submittedAt"]))
+              for commit in fresh.get("commits") or []:
+                  authored = commit.get("authoredDate") or commit.get("committedDate")
+                  if authored:
+                      times.append(parse_time(authored))
+              return (now - max(times)).total_seconds() / 86400, fresh
 
           prs = page_nodes(
               "pullRequests",
@@ -181,15 +195,19 @@ jobs:
                   continue
               if labels & exempt:
                   continue
-              if row.get("isDraft") and age_days(row) >= 14 and still_idle("pr", row["number"], 14):
-                  gh(
-                      "pr", "close", str(row["number"]), "--repo", repo, "--delete-branch",
-                      "--comment",
-                      "Closed by the repo janitor. This draft had no update for 14 days, "
-                      "so it was not in the merge queue. Reopen and push to revive it. "
-                      "Add the `keep` label to hold a draft open.",
-                  )
-                  print(f"closed draft #{row['number']}")
+              if not row.get("isDraft"):
+                  continue
+              age, fresh = human_idle("pr", row["number"])
+              if names(fresh) & exempt or not fresh.get("isDraft") or age < 14:
+                  continue
+              gh(
+                  "pr", "close", str(row["number"]), "--repo", repo, "--delete-branch",
+                  "--comment",
+                  "Closed by the repo janitor. This draft had no update for 14 days, "
+                  "so it was not in the merge queue. Reopen and push to revive it. "
+                  "Add the `keep` label to hold a draft open.",
+              )
+              print(f"closed draft #{row['number']}")
 
           issues = page_nodes(
               "issues",
@@ -209,13 +227,17 @@ jobs:
                   continue
               if labels & exempt:
                   continue
-              if age_days(row) >= 30 and still_idle("issue", row["number"], 30):
-                  gh(
-                      "issue", "close", str(row["number"]), "--repo", repo,
-                      "--reason", "not planned",
-                      "--comment",
-                      "Closed by the repo janitor after 30 days with no update. "
-                      "Reopen if this is still true, or add the `keep` label to hold it.",
-                  )
-                  print(f"closed issue #{row['number']}")
+              age, fresh = human_idle("issue", row["number"])
+              if names(fresh) & exempt:
+                  continue
+              if (fresh.get("title") or "").lower().startswith("security") or age < 30:
+                  continue
+              gh(
+                  "issue", "close", str(row["number"]), "--repo", repo,
+                  "--reason", "not planned",
+                  "--comment",
+                  "Closed by the repo janitor after 30 days with no update. "
+                  "Reopen if this is still true, or add the `keep` label to hold it.",
+              )
+              print(f"closed issue #{row['number']}")
           PY

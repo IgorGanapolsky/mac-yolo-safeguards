@@ -57,8 +57,9 @@ check(
 check(
   prHygiene.includes('needs: drain')
     && prHygiene.includes('hasNextPage')
-    && prHygiene.includes('still_idle'),
-  'drain pages every open item and finishes before stale comments reset the clock',
+    && prHygiene.includes('github-actions[bot]')
+    && prHygiene.includes('human_idle'),
+  'drain pages every open item, ignores its own stale comments, and finishes before stale runs',
 );
 check(
   prHygiene.includes('exempt-pr-labels: keep,pinned,security,blocked,dependencies'),
