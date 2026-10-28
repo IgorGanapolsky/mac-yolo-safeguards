@@ -54,12 +54,16 @@ jobs:
 
   stale:
     name: Mark and close stale PRs
+    # Drain first. actions/stale comments when it marks an item, and that
+    # comment refreshes updatedAt, so a parallel drain would skip the item.
+    needs: drain
+    if: always() && (needs.drain.result == 'success' || needs.drain.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
         with:
           repo-token: ${{ github.token }}
-          days-before-issue-stale: 21
+          days-before-issue-stale: 23
           days-before-issue-close: 7
           days-before-pr-stale: 4
           days-before-pr-close: 3
@@ -79,10 +83,10 @@ jobs:
             The branch is deleted but the commits are preserved on the pull request —
             reopen or re-push to revive. Add the `keep` label next time to exempt.
           stale-issue-message: >
-            No update for 21 days. This issue closes in 7 days unless someone
+            No update for 23 days. This issue closes in 7 days unless someone
             comments or adds the `keep` label.
           close-issue-message: >
-            Closed after 28 days without an update. Reopen if it is still true.
+            Closed after 30 days without an update. Reopen if it is still true.
 
   drain:
     name: Close abandoned drafts and silent issues
@@ -115,21 +119,58 @@ jobs:
                   "--color", color, "--description", desc, "--force",
               ], check=False)
 
-          def load(kind, fields):
-              out = subprocess.check_output([
-                  "gh", kind, "list", "--repo", repo, "--state", "open",
-                  "--limit", "100", "--json", fields,
-              ], text=True)
+          owner, name = repo.split("/", 1)
+
+          def graphql(query):
+              out = subprocess.check_output(
+                  ["gh", "api", "graphql", "-f", f"query={query}"],
+                  text=True,
+              )
               return json.loads(out)
 
+          def page_nodes(connection, selection):
+              items = []
+              cursor = None
+              while True:
+                  after = "" if cursor is None else f', after: "{cursor}"'
+                  query = (
+                      'query { repository(owner: "%s", name: "%s") { %s(states: [OPEN], first: 100%s) '
+                      "{ pageInfo { hasNextPage endCursor } nodes { %s } } } }"
+                      % (owner, name, connection, after, selection)
+                  )
+                  data = graphql(query)["data"]["repository"][connection]
+                  items.extend(data["nodes"])
+                  if not data["pageInfo"]["hasNextPage"]:
+                      return items
+                  cursor = data["pageInfo"]["endCursor"]
+
           def names(row):
-              return {label.get("name") for label in row.get("labels") or []}
+              labels = row.get("labels") or []
+              if isinstance(labels, dict):
+                  labels = labels.get("nodes") or []
+              return {label.get("name") for label in labels}
 
           def age_days(row):
               updated = datetime.fromisoformat(row["updatedAt"].replace("Z", "+00:00"))
               return (now - updated).total_seconds() / 86400
 
-          prs = load("pr", "number,updatedAt,labels,author,isDraft")
+          def still_idle(kind, number, min_days):
+              fields = "updatedAt,labels,title" if kind == "issue" else "updatedAt,labels,isDraft"
+              fresh = json.loads(subprocess.check_output([
+                  "gh", kind, "view", str(number), "--repo", repo, "--json", fields,
+              ], text=True))
+              if names(fresh) & exempt:
+                  return False
+              if kind == "issue" and (fresh.get("title") or "").lower().startswith("security"):
+                  return False
+              if kind == "pr" and not fresh.get("isDraft"):
+                  return False
+              return age_days(fresh) >= min_days
+
+          prs = page_nodes(
+              "pullRequests",
+              "number updatedAt isDraft author { login } labels(first: 20) { nodes { name } }",
+          )
           for row in prs:
               labels = names(row)
               author = (row.get("author") or {}).get("login") or ""
@@ -140,7 +181,7 @@ jobs:
                   continue
               if labels & exempt:
                   continue
-              if row.get("isDraft") and age_days(row) >= 14:
+              if row.get("isDraft") and age_days(row) >= 14 and still_idle("pr", row["number"], 14):
                   gh(
                       "pr", "close", str(row["number"]), "--repo", repo, "--delete-branch",
                       "--comment",
@@ -150,17 +191,25 @@ jobs:
                   )
                   print(f"closed draft #{row['number']}")
 
-          for row in load("issue", "number,title,updatedAt,labels"):
+          issues = page_nodes(
+              "issues",
+              "number title updatedAt labels(first: 20) { nodes { name } }",
+          )
+          for row in issues:
+              title = row.get("title") or ""
+              if title.lower().startswith("security") and "security" not in names(row):
+                  gh("issue", "edit", str(row["number"]), "--repo", repo, "--add-label", "security")
+                  print(f"hold security issue #{row['number']}")
+
+          for row in issues:
               labels = names(row)
               title = row.get("title") or ""
               if title.lower().startswith("security"):
-                  if "security" not in labels:
-                      gh("issue", "edit", str(row["number"]), "--repo", repo, "--add-label", "security")
                   print(f"hold security issue #{row['number']}")
                   continue
               if labels & exempt:
                   continue
-              if age_days(row) >= 30:
+              if age_days(row) >= 30 and still_idle("issue", row["number"], 30):
                   gh(
                       "issue", "close", str(row["number"]), "--repo", repo,
                       "--reason", "not planned",

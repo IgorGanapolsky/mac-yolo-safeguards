@@ -48,10 +48,17 @@ check(
   'repo janitor must run every 6 hours',
 );
 check(
-  prHygiene.includes('days-before-issue-stale: 21')
+  prHygiene.includes('days-before-issue-stale: 23')
     && prHygiene.includes('days-before-issue-close: 7')
+    && prHygiene.includes('Closed after 30 days without an update')
     && prHygiene.includes('exempt-draft-pr: false'),
-  'silent issues and abandoned drafts must age out',
+  'silent issues age out at 30 days, the same window as the drain',
+);
+check(
+  prHygiene.includes('needs: drain')
+    && prHygiene.includes('hasNextPage')
+    && prHygiene.includes('still_idle'),
+  'drain pages every open item and finishes before stale comments reset the clock',
 );
 check(
   prHygiene.includes('exempt-pr-labels: keep,pinned,security,blocked,dependencies'),

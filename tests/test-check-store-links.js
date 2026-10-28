@@ -2,7 +2,7 @@
 'use strict';
 
 const assert = require('assert');
-const { linePromotesAppStore } = require('../tools/check-store-links');
+const { linePromotesAppStore, normalizeIosResultCount } = require('../tools/check-store-links');
 
 function test(name, fn) {
   try {
@@ -23,6 +23,27 @@ test('promotes a real App Store URL', () => {
     linePromotesAppStore('lookup https://itunes.apple.com/lookup?bundleId=com.example'),
     true
   );
+});
+
+test('still counts an App Store URL on a line that says it is not public', () => {
+  assert.strictEqual(
+    linePromotesAppStore('not public https://apps.apple.com/us/app/hermes/id1'),
+    true
+  );
+  assert.strictEqual(
+    linePromotesAppStore('https://Apps.Apple.com/us/app/hermes/id1'),
+    true
+  );
+});
+
+test('treats a missing or invalid iTunes resultCount as unknown', () => {
+  assert.strictEqual(normalizeIosResultCount(0), 0);
+  assert.strictEqual(normalizeIosResultCount(2), 2);
+  assert.strictEqual(normalizeIosResultCount(null), null);
+  assert.strictEqual(normalizeIosResultCount(undefined), null);
+  assert.strictEqual(normalizeIosResultCount('0'), null);
+  assert.strictEqual(normalizeIosResultCount(-1), null);
+  assert.strictEqual(normalizeIosResultCount(1.5), null);
 });
 
 test('ignores a host that is only a substring or a lookalike', () => {

@@ -4027,3 +4027,17 @@ PR #2199 required check `Public funnel checks` failed in `Tinker-brain revenue c
 - `tools/codeql-pattern-gate.js` (flag apps.apple.com / itunes.apple.com includes)
 - `tests/test-codeql-pattern-gate.js`
 - `plan.md` (this append)
+
+## Repo janitor (append 2026-10-28T21:10:00Z) — `grok-repo-janitor`
+
+PR #2199 stayed BLOCKED after the required checks succeeded because main requires conversation resolution and the review threads were still open. The drain now pages every open issue and pull request, labels every Security-titled issue before any close, re-reads `updatedAt` before close, and the stale job waits until drain succeeds or is skipped. The issue stale window is 23 days plus 7, matching the 30-day drain. An App Store URL on a line that also says "not public" still counts. A missing or non-integer iTunes `resultCount` stays unknown.
+
+Bluesky post https://bsky.app/profile/iganapolsky.bsky.social/post/3myxno5vxz22s is the public record created 2026-10-28T21:04:21Z. `verify-public-post.js` returned PARTIAL because the HTML shell is 35 characters. The AT Protocol record contains the gated sentence and the thumbgate.app UTM link.
+
+### File claims
+- `.github/workflows/pr-hygiene.yml`
+- `tests/test-dependency-automation-policy.js`
+- `tools/check-store-links.js`
+- `tests/test-check-store-links.js`
+- `docs/social/hermes-mobile-content-log.tsv`
+- `plan.md` (this append)

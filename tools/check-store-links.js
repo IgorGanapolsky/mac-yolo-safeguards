@@ -105,7 +105,7 @@ async function checkLiveStores() {
     warnings.push(`Could not reach iTunes lookup: ${itunes.error}`);
   } else if (itunes.status === 200) {
     try {
-      resultCount = JSON.parse(itunes.body).resultCount;
+      resultCount = normalizeIosResultCount(JSON.parse(itunes.body).resultCount);
     } catch (error) {
       warnings.push(`iTunes lookup returned non-JSON body: ${error.message}`);
     }
@@ -118,6 +118,11 @@ async function checkLiveStores() {
 }
 
 const APP_STORE_HOSTS = ['apps.apple.com', 'itunes.apple.com'];
+
+function normalizeIosResultCount(value) {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) return null;
+  return value;
+}
 
 function linePromotesAppStore(line) {
   const urls = String(line).match(/https?:\/\/[^\s<>)\]"']+/g) || [];
@@ -150,7 +155,8 @@ function scanDocsForDeadLinks() {
       if (hasDeadFragment && !flaggedAsDead) {
         deadLinkLines.push({ lineNumber: index + 1, text: line.trim() });
       }
-      if (linePromotesAppStore(line) && !flaggedAsDead) {
+      // A "not public" note does not cancel a real App Store URL on the same line.
+      if (linePromotesAppStore(line)) {
         appStoreLines.push({ lineNumber: index + 1, text: line.trim() });
       }
     });
@@ -282,6 +288,7 @@ if (require.main === module) {
 
 module.exports = {
   linePromotesAppStore,
+  normalizeIosResultCount,
   scanDocsForDeadLinks,
   applyIosPolicy,
 };
