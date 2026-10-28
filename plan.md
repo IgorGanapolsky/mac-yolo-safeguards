@@ -4063,3 +4063,12 @@ Extracted functions, no closes: #2203 idle 0.01 days, #1889 idle 70.04 days and 
 - `.github/workflows/pr-hygiene.yml`
 - `tests/test-dependency-automation-policy.js`
 - `plan.md` (this append)
+
+## Expo Doctor patch (append 2026-10-28T22:28:12Z) — `grok-expo-doctor`
+
+Main push CI on `c59a8793` failed in Hermes Mobile typecheck and tests at Expo Doctor. SDK 55 now expects `expo` ~55.0.32 (found 55.0.30) and `expo-updates` ~55.0.33 (found 55.0.28). `npx expo install --fix` moved only those two packages. `react` stays 19.2.0 and `react-native` stays 0.83.10. Local `npm run doctor:expo` passed 19/19, `npm run typecheck` passed, and `npm run test:ci` passed 267 suites and 2400 tests (1 skipped).
+
+### File claims
+- `hermes-mobile/package.json`
+- `hermes-mobile/package-lock.json`
+- `plan.md` (this append)
