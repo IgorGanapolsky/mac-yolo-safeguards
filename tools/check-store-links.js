@@ -2,6 +2,7 @@
 'use strict';
 
 const fs = require('fs');
+const { hostnameOf, hostIsOrSubdomain } = require('./lib/safe-url-host');
 
 const usage = `Usage:
   node tools/check-store-links.js [--out check-store-links.md]
@@ -116,6 +117,16 @@ async function checkLiveStores() {
   return { rows, failures, warnings, iosResultCount: resultCount };
 }
 
+const APP_STORE_HOSTS = ['apps.apple.com', 'itunes.apple.com'];
+
+function linePromotesAppStore(line) {
+  const urls = String(line).match(/https?:\/\/[^\s<>)\]"']+/g) || [];
+  return urls.some((raw) => {
+    const host = hostnameOf(raw.replace(/[.,;:]+$/, ''));
+    return APP_STORE_HOSTS.some((root) => hostIsOrSubdomain(host, root));
+  });
+}
+
 function scanDocsForDeadLinks() {
   const failures = [];
   const rows = [];
@@ -139,10 +150,7 @@ function scanDocsForDeadLinks() {
       if (hasDeadFragment && !flaggedAsDead) {
         deadLinkLines.push({ lineNumber: index + 1, text: line.trim() });
       }
-      const promotesAppStore =
-        (line.includes('apps.apple.com') || line.includes('itunes.apple.com/')) &&
-        !flaggedAsDead;
-      if (promotesAppStore) {
+      if (linePromotesAppStore(line) && !flaggedAsDead) {
         appStoreLines.push({ lineNumber: index + 1, text: line.trim() });
       }
     });
@@ -263,9 +271,17 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  console.error('');
-  console.error(usage);
-  process.exit(2);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error.message);
+    console.error('');
+    console.error(usage);
+    process.exit(2);
+  });
+}
+
+module.exports = {
+  linePromotesAppStore,
+  scanDocsForDeadLinks,
+  applyIosPolicy,
+};
