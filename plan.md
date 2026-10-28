@@ -4002,3 +4002,15 @@ Did **not** claim `task-leases.ts` (Codex AGENT-455), `app/api/tasks/route.ts` /
 - `but land` on ThumbGate / mac-yolo `main` is REFUSE — `npm run pr:manage` / `gh pr merge --auto`.
 - Linked worktrees (this repo, 80+ trees) use git. Official GitButler exception: never `but setup` from a linked worktree.
 - Complementary to OPEN Codex PR #2119 (`tools/gitbutler-route.js`). This PR does not steal AGENT-538.
+
+## Repo janitor (append 2026-10-28T20:10:00Z) — `grok-repo-janitor`
+
+The 06:00 UTC hygiene workflow was succeeding while exempting drafts and every issue, so the August board never drained. `Public funnel checks` failed every PR because iTunes `resultCount` 0 was a hard fail even when docs no longer promote an App Store URL. `macOS guard kit` failed every PR because `whereIsStateCheck` ages board rows out after 14 days and the ChatScreen fixture is dated 2026-09-10.
+
+### File claims
+- `.github/workflows/pr-hygiene.yml` (6h schedule, draft+issue aging, schedule-only drain)
+- `tests/test-dependency-automation-policy.js` (those assertions)
+- `tools/check-store-links.js` (iOS fail only when a scanned doc still promotes the URL)
+- `docs/social/hermes-mobile-content-engine.md` (iOS row: not on the public store)
+- `tests/test-agent-swarm-harness.js` (pin the contention fixture clock)
+- `plan.md` (this append)

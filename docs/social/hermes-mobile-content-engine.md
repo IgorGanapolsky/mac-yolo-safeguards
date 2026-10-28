@@ -60,7 +60,7 @@ Never auto-publish: output is a draft unless `PublishMode: PUBLISH_APPROVED`
 | Field | Value |
 |--------|--------|
 | **Android (ONLY)** | `com.iganapolsky.hermesmobile.paid` · https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile.paid&hl=en_US |
-| **iOS** | lookup `com.iganapolsky.hermesmobile` · https://apps.apple.com/us/app/hermes-ai-agent-leash/id6786778037 |
+| **iOS** | Not on the public US App Store (iTunes lookup resultCount 0; listing id6786778037 returned 404 on 2026-10-28). Do not promote an App Store URL. |
 | **Preferred links** | https://thumbgate.app/go/android · https://thumbgate.app/go/ios |
 | **GitHub** | https://github.com/IgorGanapolsky/mac-yolo-safeguards/tree/main/hermes-mobile |
 | **Pricing** | **Paid downloads only.** Re-fetch live price every run. Never “free to install.” |
