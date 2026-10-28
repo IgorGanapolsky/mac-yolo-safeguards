@@ -4063,3 +4063,12 @@ Extracted functions, no closes: #2203 idle 0.01 days, #1889 idle 70.04 days and 
 - `.github/workflows/pr-hygiene.yml`
 - `tests/test-dependency-automation-policy.js`
 - `plan.md` (this append)
+
+## Path normalizer AppleScript argv (append 2026-10-28T23:53:00Z) — `grok-path-normalizer`
+
+Code scanning alert 162 (`js/incomplete-sanitization`) is the Finder copy on `main` at `tools/lib/path-normalizer.js`. It escaped double quotes inside an AppleScript string and left backslashes alone. The filename now goes to `osascript` as an argv item. `folderName` stays one of the two Finder literals, `desktop` or `downloads folder`.
+
+### File claims
+- `tools/lib/path-normalizer.js`
+- `tests/test-path-normalizer.js`
+- `plan.md` (this append)

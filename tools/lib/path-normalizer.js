@@ -82,13 +82,17 @@ end tell`;
       }
 
       if (matchedName) {
-        // Copy file to /tmp for read access
-        const copyScript = `tell application "Finder"
-  set matchedItem to file "${matchedName.replace(/"/g, '\\"')}" of ${folderName}
-  set tmpFolder to POSIX file "/tmp" as alias
-  duplicate matchedItem to tmpFolder with replacing
-end tell`;
-        execFileSync('osascript', ['-e', copyScript], { encoding: 'utf8', shell: false });
+        // Copy file to /tmp for read access. The name is an argv item so a
+        // quote or backslash in the filename cannot break out of the AppleScript string.
+        const copyScript = `on run argv
+  set targetName to item 1 of argv
+  tell application "Finder"
+    set matchedItem to file targetName of ${folderName}
+    set tmpFolder to POSIX file "/tmp" as alias
+    duplicate matchedItem to tmpFolder with replacing
+  end tell
+end run`;
+        execFileSync('osascript', ['-e', copyScript, matchedName], { encoding: 'utf8', shell: false });
 
         const tmpCopiedPath = path.join('/tmp', matchedName);
         if (fs.existsSync(tmpCopiedPath)) {
