@@ -1,18 +1,22 @@
 name: PR hygiene
 
-# Autonomous PR janitor so the open-PR list never rots again.
+# Autonomous janitor so the open PR and issue lists do not freeze.
 #   1. auto-merge: any open, non-draft human PR that is mergeable + all required
 #      checks green lands on its own (GitHub waits for green; no human click).
 #      Dependabot is excluded here; dependabot-automerge.yml separately admits only
 #      semver-minor/patch updates, while major upgrades require compatibility review.
-#   2. stale: a PR with NO activity (push/comment/review) for STALE_DAYS gets a warning
-#      label + comment; DELETE_DAYS later with still no activity it is closed and its
-#      branch deleted. ANY activity resets the clock, so live agent work is never touched.
-# Exempt from auto-close: drafts, and PRs labeled keep / pinned / security / blocked.
+#   2. stale: a PR or issue with no activity gets a warning, then closes.
+#      A push, comment, or review resets the clock. Drafts are included: a draft
+#      with no update is not live work.
+#   3. drain (schedule and manual run only): close drafts idle for 14 days and
+#      issues idle for 30 days in one pass, so a multi-week freeze does not wait
+#      out the stale label window. Dependency PRs stay open so a red security
+#      bump is not thrown away.
+# Exempt labels: keep, pinned, security, blocked. PRs labeled dependencies too.
 
 on:
   schedule:
-    - cron: '0 6 * * *'   # once daily at 06:00 UTC
+    - cron: '17 */6 * * *'   # every 6 hours
   workflow_dispatch: {}
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
@@ -20,6 +24,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 concurrency:
   group: pr-hygiene
@@ -49,19 +54,24 @@ jobs:
 
   stale:
     name: Mark and close stale PRs
+    # Drain first. actions/stale comments when it marks an item, and that
+    # comment refreshes updatedAt, so a parallel drain would skip the item.
+    needs: drain
+    if: always() && (needs.drain.result == 'success' || needs.drain.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
         with:
           repo-token: ${{ github.token }}
-          # ---- PRs only; issues untouched ----
-          days-before-issue-stale: -1
-          days-before-issue-close: -1
+          days-before-issue-stale: 23
+          days-before-issue-close: 7
           days-before-pr-stale: 4
           days-before-pr-close: 3
           stale-pr-label: stale
-          exempt-pr-labels: keep,pinned,security,blocked
-          exempt-draft-pr: true
+          stale-issue-label: stale
+          exempt-pr-labels: keep,pinned,security,blocked,dependencies
+          exempt-issue-labels: keep,pinned,security,blocked
+          exempt-draft-pr: false
           delete-branch: true
           ascending: true   # oldest first, so the backlog drains predictably
           operations-per-run: 100
@@ -70,5 +80,142 @@ jobs:
             if nothing changes. Push a commit, comment, or add the `keep` label to hold it.
           close-pr-message: >
             Closed automatically after 7 days of inactivity by the PR-hygiene bot.
-            The branch is deleted but the commits are preserved in the reflog / any local
-            clone — reopen or re-push to revive. Add the `keep` label next time to exempt.
+            The branch is deleted but the commits are preserved on the pull request —
+            reopen or re-push to revive. Add the `keep` label next time to exempt.
+          stale-issue-message: >
+            No update for 23 days. This issue closes in 7 days unless someone
+            comments or adds the `keep` label.
+          close-issue-message: >
+            Closed after 30 days without an update. Reopen if it is still true.
+
+  drain:
+    name: Close abandoned drafts and silent issues
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Drain frozen drafts and issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          python3 << 'PY'
+          import json, os, subprocess
+          from datetime import datetime, timezone
+
+          repo = os.environ["REPO"]
+          exempt = {"keep", "pinned", "security", "blocked"}
+          now = datetime.now(timezone.utc)
+
+          def gh(*args):
+              subprocess.run(["gh", *args], check=True)
+
+          for name, color, desc in (
+              ("keep", "0E8A16", "Janitor must not close this"),
+              ("pinned", "1D76DB", "Pinned. Janitor must not close this"),
+              ("security", "B60205", "Security follow-up. Janitor must not close this"),
+          ):
+              subprocess.run([
+                  "gh", "label", "create", name, "--repo", repo,
+                  "--color", color, "--description", desc, "--force",
+              ], check=False)
+
+          owner, name = repo.split("/", 1)
+
+          def graphql(query):
+              out = subprocess.check_output(
+                  ["gh", "api", "graphql", "-f", f"query={query}"],
+                  text=True,
+              )
+              return json.loads(out)
+
+          def page_nodes(connection, selection):
+              items = []
+              cursor = None
+              while True:
+                  after = "" if cursor is None else f', after: "{cursor}"'
+                  query = (
+                      'query { repository(owner: "%s", name: "%s") { %s(states: [OPEN], first: 100%s) '
+                      "{ pageInfo { hasNextPage endCursor } nodes { %s } } } }"
+                      % (owner, name, connection, after, selection)
+                  )
+                  data = graphql(query)["data"]["repository"][connection]
+                  items.extend(data["nodes"])
+                  if not data["pageInfo"]["hasNextPage"]:
+                      return items
+                  cursor = data["pageInfo"]["endCursor"]
+
+          def names(row):
+              labels = row.get("labels") or []
+              if isinstance(labels, dict):
+                  labels = labels.get("nodes") or []
+              return {label.get("name") for label in labels}
+
+          def age_days(row):
+              updated = datetime.fromisoformat(row["updatedAt"].replace("Z", "+00:00"))
+              return (now - updated).total_seconds() / 86400
+
+          def still_idle(kind, number, min_days):
+              fields = "updatedAt,labels,title" if kind == "issue" else "updatedAt,labels,isDraft"
+              fresh = json.loads(subprocess.check_output([
+                  "gh", kind, "view", str(number), "--repo", repo, "--json", fields,
+              ], text=True))
+              if names(fresh) & exempt:
+                  return False
+              if kind == "issue" and (fresh.get("title") or "").lower().startswith("security"):
+                  return False
+              if kind == "pr" and not fresh.get("isDraft"):
+                  return False
+              return age_days(fresh) >= min_days
+
+          prs = page_nodes(
+              "pullRequests",
+              "number updatedAt isDraft author { login } labels(first: 20) { nodes { name } }",
+          )
+          for row in prs:
+              labels = names(row)
+              author = (row.get("author") or {}).get("login") or ""
+              if author in {"app/dependabot", "dependabot[bot]"} or "dependencies" in labels:
+                  if "stale" in labels:
+                      gh("pr", "edit", str(row["number"]), "--repo", repo, "--remove-label", "stale")
+                      print(f"unstale dependency #{row['number']}")
+                  continue
+              if labels & exempt:
+                  continue
+              if row.get("isDraft") and age_days(row) >= 14 and still_idle("pr", row["number"], 14):
+                  gh(
+                      "pr", "close", str(row["number"]), "--repo", repo, "--delete-branch",
+                      "--comment",
+                      "Closed by the repo janitor. This draft had no update for 14 days, "
+                      "so it was not in the merge queue. Reopen and push to revive it. "
+                      "Add the `keep` label to hold a draft open.",
+                  )
+                  print(f"closed draft #{row['number']}")
+
+          issues = page_nodes(
+              "issues",
+              "number title updatedAt labels(first: 20) { nodes { name } }",
+          )
+          for row in issues:
+              title = row.get("title") or ""
+              if title.lower().startswith("security") and "security" not in names(row):
+                  gh("issue", "edit", str(row["number"]), "--repo", repo, "--add-label", "security")
+                  print(f"hold security issue #{row['number']}")
+
+          for row in issues:
+              labels = names(row)
+              title = row.get("title") or ""
+              if title.lower().startswith("security"):
+                  print(f"hold security issue #{row['number']}")
+                  continue
+              if labels & exempt:
+                  continue
+              if age_days(row) >= 30 and still_idle("issue", row["number"], 30):
+                  gh(
+                      "issue", "close", str(row["number"]), "--repo", repo,
+                      "--reason", "not planned",
+                      "--comment",
+                      "Closed by the repo janitor after 30 days with no update. "
+                      "Reopen if this is still true, or add the `keep` label to hold it.",
+                  )
+                  print(f"closed issue #{row['number']}")
+          PY

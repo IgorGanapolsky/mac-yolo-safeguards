@@ -11,6 +11,7 @@ import pathlib
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timezone
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 BRAIN = REPO / "tools" / "tinker-brain"
@@ -291,6 +292,40 @@ class EvalHarnessTest(unittest.TestCase):
         ]
         self.assertEqual([r for r in contract_results if not r["ok"]], [])
         self.assertGreaterEqual(len(spec["cases"]) + len(contract_spec["cases"]), 48)
+
+
+class HealthClockTest(unittest.TestCase):
+    def test_repo_card_age_warns_and_snapshot_age_fails(self):
+        import tinker_brain_health as health
+
+        now = datetime(2026, 10, 28, tzinfo=timezone.utc)
+        old = "AS_OF_RESEARCH: 2026-09-10\nLEGAL_BRAND: ThumbGate\n"
+        saved_repo, saved_snap = health._REPO_CARD, health._SNAPSHOT_CARD
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            repo_card = root / "repo.txt"
+            snap_card = root / "snap.txt"
+            repo_card.write_text(old, encoding="utf-8")
+            try:
+                health._REPO_CARD = repo_card
+                health._SNAPSHOT_CARD = root / "missing-snap.txt"
+                repo_only = health.check(max_age_days=14, now=now)
+                self.assertTrue(repo_only["ok"])
+                self.assertEqual(repo_only["effectiveCard"], "repo")
+                stale = [f for f in repo_only["findings"] if f["check"] == "stale-card"]
+                self.assertEqual([f["severity"] for f in stale], ["warn"])
+                self.assertIn("48 days", stale[0]["detail"])
+
+                snap_card.write_text(old, encoding="utf-8")
+                health._SNAPSHOT_CARD = snap_card
+                snapped = health.check(max_age_days=14, now=now)
+                self.assertFalse(snapped["ok"])
+                self.assertEqual(snapped["effectiveCard"], "snapshot")
+                hard = [f for f in snapped["findings"] if f["check"] == "stale-card"]
+                self.assertEqual([f["severity"] for f in hard], ["fail"])
+            finally:
+                health._REPO_CARD = saved_repo
+                health._SNAPSHOT_CARD = saved_snap
 
 
 class ScorecardSmokeTest(unittest.TestCase):

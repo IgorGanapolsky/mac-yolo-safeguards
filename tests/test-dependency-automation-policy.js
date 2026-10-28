@@ -44,6 +44,31 @@ check(
   'broad PR hygiene must exclude both GitHub Dependabot author spellings',
 );
 check(
+  /cron: '17 \*\/6 \* \* \*'/.test(prHygiene),
+  'repo janitor must run every 6 hours',
+);
+check(
+  prHygiene.includes('days-before-issue-stale: 23')
+    && prHygiene.includes('days-before-issue-close: 7')
+    && prHygiene.includes('Closed after 30 days without an update')
+    && prHygiene.includes('exempt-draft-pr: false'),
+  'silent issues age out at 30 days, the same window as the drain',
+);
+check(
+  prHygiene.includes('needs: drain')
+    && prHygiene.includes('hasNextPage')
+    && prHygiene.includes('still_idle'),
+  'drain pages every open item and finishes before stale comments reset the clock',
+);
+check(
+  prHygiene.includes('exempt-pr-labels: keep,pinned,security,blocked,dependencies'),
+  'dependency PRs stay open so a red security bump is not discarded',
+);
+check(
+  prHygiene.includes("github.event_name != 'pull_request'"),
+  'immediate drain must not run from an unmerged pull request',
+);
+check(
   ci.includes("git ls-files '*.sh'") && localCi.includes("git ls-files '*.sh'"),
   'cloud and local syntax gates must inspect every tracked shell script',
 );

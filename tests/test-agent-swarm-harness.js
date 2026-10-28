@@ -258,6 +258,9 @@ test('whereIsStateCheck returns three questions with machine-readable evidence',
     planPath,
     repo: dir,
     env: { HERMES_FLEET_HOST_ROLE: 'mac_mini' },
+    // SAMPLE_PLAN's live rows are dated 2026-09-10. The gate treats rows older
+    // than 14 days as stale, so this clock stays inside that window.
+    nowMs: Date.parse('2026-09-12T00:00:00Z'),
   });
   assert.strictEqual(check.host.role, 'mac_mini');
   assert.strictEqual(check.questions.length, 3);

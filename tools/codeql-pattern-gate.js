@@ -107,7 +107,7 @@ const RULES = [
       if (file.includes('safe-url-host.js') || file.includes('codeql-pattern-gate.js')) return [];
       // u.includes('reddit.com') style host checks
       const re =
-        /\.includes\s*\(\s*['"](?:https?:\/\/)?(?:www\.)?(?:medium\.com|reddit\.com|linkedin\.com|twitter\.com|x\.com|threads\.(?:net|com)|news\.ycombinator\.com|bsky\.(?:app|social)|dev\.to)/;
+        /\.includes\s*\(\s*['"](?:https?:\/\/)?(?:www\.)?(?:medium\.com|reddit\.com|linkedin\.com|twitter\.com|x\.com|threads\.(?:net|com)|news\.ycombinator\.com|bsky\.(?:app|social)|dev\.to|apps\.apple\.com|itunes\.apple\.com)/;
       if (!re.test(text)) return [];
       // allow array.includes exact hostname in tests is ok if not URL-like variable — still flag for safety
       return [

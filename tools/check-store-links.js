@@ -2,6 +2,7 @@
 'use strict';
 
 const fs = require('fs');
+const { hostnameOf, hostIsOrSubdomain } = require('./lib/safe-url-host');
 
 const usage = `Usage:
   node tools/check-store-links.js [--out check-store-links.md]
@@ -35,6 +36,7 @@ const SCANNED_FILES = [
 const DEAD_FREE_PACKAGE_FRAGMENT = 'id=com.iganapolsky.hermesmobile&';
 const DEAD_FREE_PACKAGE_FRAGMENT_BARE = 'id=com.iganapolsky.hermesmobile)';
 const DEAD_FREE_PACKAGE_FRAGMENT_TSV = 'id=com.iganapolsky.hermesmobile\t';
+const NOT_A_LIVE_STORE_LINK = /unpublish|retired|404|dead link|not public|not on the public/i;
 
 function parseArgs(argv) {
   const args = {};
@@ -103,23 +105,31 @@ async function checkLiveStores() {
     warnings.push(`Could not reach iTunes lookup: ${itunes.error}`);
   } else if (itunes.status === 200) {
     try {
-      resultCount = JSON.parse(itunes.body).resultCount;
+      resultCount = normalizeIosResultCount(JSON.parse(itunes.body).resultCount);
     } catch (error) {
       warnings.push(`iTunes lookup returned non-JSON body: ${error.message}`);
-    }
-    if (resultCount !== null && resultCount < 1) {
-      failures.push(
-        'iOS iTunes lookup returned resultCount 0 — app would be promoted ' +
-          'as live when it is not public. Never link the App Store unless ' +
-          'this lookup is non-zero.'
-      );
     }
   } else {
     warnings.push(`iTunes lookup returned HTTP ${itunes.status}`);
   }
-  rows.push({ label: 'iOS iTunes lookup (expected resultCount >= 1)', ...itunes, resultCount });
+  rows.push({ label: 'iOS iTunes lookup (resultCount)', ...itunes, resultCount });
 
-  return { rows, failures, warnings };
+  return { rows, failures, warnings, iosResultCount: resultCount };
+}
+
+const APP_STORE_HOSTS = ['apps.apple.com', 'itunes.apple.com'];
+
+function normalizeIosResultCount(value) {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) return null;
+  return value;
+}
+
+function linePromotesAppStore(line) {
+  const urls = String(line).match(/https?:\/\/[^\s<>)\]"']+/g) || [];
+  return urls.some((raw) => {
+    const host = hostnameOf(raw.replace(/[.,;:]+$/, ''));
+    return APP_STORE_HOSTS.some((root) => hostIsOrSubdomain(host, root));
+  });
 }
 
 function scanDocsForDeadLinks() {
@@ -127,11 +137,12 @@ function scanDocsForDeadLinks() {
   const rows = [];
   for (const filePath of SCANNED_FILES) {
     if (!fs.existsSync(filePath)) {
-      rows.push({ file: filePath, exists: false, deadLinkLines: [] });
+      rows.push({ file: filePath, exists: false, deadLinkLines: [], appStoreLines: [] });
       continue;
     }
     const text = fs.readFileSync(filePath, 'utf8');
     const deadLinkLines = [];
+    const appStoreLines = [];
     text.split('\n').forEach((line, index) => {
       const hasDeadFragment =
         line.includes(DEAD_FREE_PACKAGE_FRAGMENT) ||
@@ -140,12 +151,16 @@ function scanDocsForDeadLinks() {
       // A line is fine if it explicitly documents the package as retired/dead
       // (e.g. the ground-truth table entry) rather than promoting it as a
       // live CTA link.
-      const flaggedAsDead = /unpublish|retired|404|dead link/i.test(line);
+      const flaggedAsDead = NOT_A_LIVE_STORE_LINK.test(line);
       if (hasDeadFragment && !flaggedAsDead) {
         deadLinkLines.push({ lineNumber: index + 1, text: line.trim() });
       }
+      // A "not public" note does not cancel a real App Store URL on the same line.
+      if (linePromotesAppStore(line)) {
+        appStoreLines.push({ lineNumber: index + 1, text: line.trim() });
+      }
     });
-    rows.push({ file: filePath, exists: true, deadLinkLines });
+    rows.push({ file: filePath, exists: true, deadLinkLines, appStoreLines });
     for (const hit of deadLinkLines) {
       failures.push(
         `${filePath}:${hit.lineNumber} references the retired free Play ` +
@@ -154,6 +169,28 @@ function scanDocsForDeadLinks() {
     }
   }
   return { rows, failures };
+}
+
+function applyIosPolicy(live, docs) {
+  if (live.iosResultCount === null || live.iosResultCount >= 1) return;
+  const promoted = [];
+  for (const row of docs.rows) {
+    for (const hit of row.appStoreLines || []) {
+      promoted.push(`${row.file}:${hit.lineNumber}`);
+    }
+  }
+  if (promoted.length > 0) {
+    live.failures.push(
+      'iOS iTunes lookup returned resultCount 0 while scanned docs still promote ' +
+        `an App Store URL (${promoted.join(', ')}). Never link the App Store ` +
+        'unless this lookup is non-zero.'
+    );
+    return;
+  }
+  live.warnings.push(
+    'iOS iTunes lookup resultCount 0 (not on the public US App Store). ' +
+      'Scanned docs do not promote an App Store URL.'
+  );
 }
 
 function renderConsole(live, docs) {
@@ -212,7 +249,7 @@ function renderMarkdown(live, docs, failures) {
     }
   }
   if (live.warnings.length > 0) {
-    lines.push('', '## Warnings (network errors — do not fail the build)', '');
+    lines.push('', '## Warnings (do not fail the build)', '');
     for (const warning of live.warnings) {
       lines.push(`- ${warning}`);
     }
@@ -228,6 +265,7 @@ async function main() {
   }
   const live = await checkLiveStores();
   const docs = scanDocsForDeadLinks();
+  applyIosPolicy(live, docs);
   const failures = renderConsole(live, docs);
   if (args.out) {
     fs.writeFileSync(args.out, `${renderMarkdown(live, docs, failures)}\n`);
@@ -239,9 +277,18 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  console.error('');
-  console.error(usage);
-  process.exit(2);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error.message);
+    console.error('');
+    console.error(usage);
+    process.exit(2);
+  });
+}
+
+module.exports = {
+  linePromotesAppStore,
+  normalizeIosResultCount,
+  scanDocsForDeadLinks,
+  applyIosPolicy,
+};

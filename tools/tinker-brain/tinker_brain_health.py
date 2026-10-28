@@ -17,7 +17,9 @@ Usage:
     python3 tools/tinker-brain/tinker_brain_health.py [--json] [--max-age-days 14]
     python3 tools/tinker-brain/tinker_brain_health.py --heal
     python3 tools/tinker-brain/tinker_brain_health.py --log-gap "question text"
-Exit: 0 healthy · 1 unhealthy (stale or diverged) · 2 heal failed
+Exit: 0 healthy · 1 unhealthy (diverged, missing, or a stale snapshot) · 2 heal failed
+A stale repo card with no snapshot is a warning. That date sits on main, so a
+hard fail blocks every pull request at once.
 """
 
 from __future__ import annotations
@@ -53,8 +55,11 @@ def _as_of(text: str) -> str | None:
     return m.group(1) if m else None
 
 
-def check(max_age_days: int = 14) -> dict:
+def check(max_age_days: int = 14, now: datetime | None = None) -> dict:
     findings: list[dict] = []
+    clock = now or datetime.now(timezone.utc)
+    if clock.tzinfo is None:
+        clock = clock.replace(tzinfo=timezone.utc)
 
     repo = _REPO_CARD.read_text(encoding="utf-8") if _REPO_CARD.is_file() else None
     snap = _SNAPSHOT_CARD.read_text(encoding="utf-8") if _SNAPSHOT_CARD.is_file() else None
@@ -97,14 +102,15 @@ def check(max_age_days: int = 14) -> dict:
             }
         )
     else:
-        age = (
-            datetime.now(timezone.utc)
-            - datetime.fromisoformat(as_of).replace(tzinfo=timezone.utc)
-        ).days
+        age = (clock - datetime.fromisoformat(as_of).replace(tzinfo=timezone.utc)).days
         if age > max_age_days:
+            # Repo-card age is one date on main, so a hard fail reddens every PR
+            # together (AS_OF 2026-09-10, still failing on 2026-10-28). A snapshot
+            # the runtime prefers stays a hard fail: heal that copy.
+            severity = "warn" if effective_name == "repo" else "fail"
             findings.append(
                 {
-                    "severity": "fail",
+                    "severity": severity,
                     "check": "stale-card",
                     "detail": (
                         f"{effective_name} card is {age} days old "

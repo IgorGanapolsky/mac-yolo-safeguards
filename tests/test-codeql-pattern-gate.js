@@ -49,6 +49,13 @@ test('flags url.includes host', () => {
   });
 });
 
+test('flags app store host includes', () => {
+  withTemp("if (line.includes('apps.apple.com') || line.includes('itunes.apple.com/')) {}\n", (f) => {
+    const hits = scanFile(f);
+    assert.ok(hits.some((h) => h.rule === 'no-url-host-includes-substring'), JSON.stringify(hits));
+  });
+});
+
 test('flags env console.log', () => {
   withTemp('console.log(process.env.SECRET_TOKEN);\n', (f) => {
     const hits = scanFile(f);

@@ -339,6 +339,10 @@ def main() -> int:
         for p in pillars:
             mark = "PASS" if p["ok"] else "FAIL"
             print(f"  [{mark}] {p['pillar']}: {p['grade']} ({p['score_10']}/10) — {p['notes'][:80]}")
+            health = (p.get("evidence") or {}).get("health") or {}
+            for finding in health.get("findings") or []:
+                if finding.get("severity") == "warn" and finding.get("check") == "stale-card":
+                    print(f"  [WARN] {finding['detail']}")
         o = receipt["overall"]
         print(
             f"  overall: {o['grade']} ({o['score_10']}/10) "
