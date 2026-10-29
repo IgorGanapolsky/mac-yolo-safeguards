@@ -4177,4 +4177,11 @@ Latent Space interview with Supabase, YouTube `zHG6sAss_kE`. Agents read `schema
 - `schemas/hermes-control-plane.shape.json`
 - `apps/hermes-control-plane/drizzle/0010_llm_calls.sql`
 - `apps/hermes-control-plane/drizzle/meta/_journal.json`
+## Confusion gate before the decision (append 2026-10-29T15:05:00Z) — `grok-confusion-before-decision`
+
+The gate from post 2115073742321713223 already measures three axes. The decision stack now runs that measurement first. A fired axis returns the brief before RAG, governance, and telemetry. The tweet prompt still scores zero on ambiguity. A `File | Owner | Claimed` row passed with `--plan` still holds a different actor.
+
+### File claims
+- `tools/agent-decision-stack.js`
+- `tests/test-decision-stack-confusion.js`
 - `plan.md` (this append)
