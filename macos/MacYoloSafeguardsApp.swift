@@ -510,6 +510,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                 img?.isTemplate = true
                 button.image = img
                 button.imagePosition = .imageLeading
+            }
             button.title = " 150G"
             button.setAccessibilityIdentifier("macyolo.status.item.button")
             button.target = self
