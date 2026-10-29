@@ -4185,3 +4185,23 @@ The gate from post 2115073742321713223 already measures three axes. The decision
 - `tools/agent-decision-stack.js`
 - `tests/test-decision-stack-confusion.js`
 - `plan.md` (this append)
+
+## Dayglass screen budget (append 2026-10-29T16:10:00Z) — `grok-dayglass-screen-budget`
+
+PR 2217 reads the front window into guard notifications and writes guard events into Dayglass. This slice is the other direction. A Dayglass window `{app_name, window_title}` is a bounded packet. The same window and task skip the decision brief. A new window that passes the confusion gate keeps that window line and does not run RAG, governance, or telemetry. A vague task stays held; the window title is not treated as a file or URL. The gate itself makes no model call. No token-bill percentage is measured here. The comparison in the test is this packet's byte length against the 6000-character graph slice Dayglass used to attach.
+
+### File claims
+- `tools/dayglass-screen-budget.js` (new)
+- `tools/agent-decision-stack.js`
+- `tests/test-dayglass-screen-budget.js` (new)
+- `plan.md` (this append)
+
+## Dayglass screen budget recheck (append 2026-10-29T16:25:00Z) — `grok-dayglass-screen-budget`
+
+An unchanged window no longer returns before the confusion gate. The same window and the same task skip the brief only after the gate proceeds. A new file owner, a vague task, or a blocked pattern manifest still stops the model call. The manifest check does not run RAG or telemetry.
+
+### File claims
+- `tools/dayglass-screen-budget.js`
+- `tools/agent-decision-stack.js`
+- `tests/test-dayglass-screen-budget.js`
+- `plan.md` (this append)
