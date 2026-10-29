@@ -1048,6 +1048,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             self.statusItem.button?.image = self.renderMenuBarPill(freeGB: freeMenuInt, memPct: memPressurePct, cpuPct: cpuPct)
             self.statusItem.button?.imagePosition = .imageOnly
             self.statusItem.button?.toolTip = "Mac YOLO Guard — Disk Free: \(freeMenuInt) GB • RAM Pressure: \(memPressurePct)% • CPU Load: \(cpuPct)%"
+            if let data = try? JSONSerialization.data(withJSONObject: payload, options: []),
                let jsonStr = String(data: data, encoding: .utf8) {
                 self.webView?.evaluateJavaScript("if (window.updateYoloHud) window.updateYoloHud(\(jsonStr));", completionHandler: nil)
             }
