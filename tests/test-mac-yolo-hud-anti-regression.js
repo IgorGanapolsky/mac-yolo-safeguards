@@ -46,17 +46,15 @@ function main() {
     '🤖',
     '🪟',
     '💻',
+    'hudPanel.alphaValue = 1',
   ];
   for (const b of banned) {
     assert.ok(!src.includes(b), `Regression string "${b}" is banned in macos/MacYoloSafeguardsApp.swift`);
   }
 
-  // 2. True native macOS translucency + Liquid Glass strict layering
-  assert.ok(src.includes('hudPanel.alphaValue = 0.88'), 'hudPanel.alphaValue = 0.88 required');
-  assert.ok(src.includes('NSVisualEffectView'), 'NSVisualEffectView required for behindWindow blur');
-  assert.ok(src.includes('visualEffectView.material = .hudWindow'), '.hudWindow material required');
-  assert.ok(src.includes('visualEffectView.blendingMode = .behindWindow'), '.behindWindow blending required');
-  assert.ok(src.includes('background: rgba(15, 11, 33, 0.58)'), 'Matte inner cards required (never stack glass on glass)');
+  // 2. True native macOS translucency + see-through cards
+  assert.ok(src.includes('hudPanel.alphaValue = 0.85'), 'hudPanel.alphaValue = 0.85 required');
+  assert.ok(src.includes('background: rgba(255, 255, 255, 0.08)'), 'Translucent rgba(255, 255, 255, 0.08) cards required');
 
   // 3. Custom Retina Menu Bar Pill + glowing Bento meters
   assert.ok(src.includes('func renderMenuBarPill('), 'renderMenuBarPill required for Retina menu bar capsule');

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # tools/launch-mac-yolo-menubar.sh
-# Ironclad regression guard for MacYoloSafeguards.app (<5ms binary check).
+# Launches '/Applications/Mac YOLO.app' (and keeps /Applications/MacYoloSafeguards.app synced)
+# while rejecting any binary missing 'Mac YOLO:' or containing 'Sizes appear after Scan'.
 set -euo pipefail
 
 CANONICAL_BIN="$HOME/.hermes/bin/MacYoloSafeguards-purple-bento"
@@ -10,7 +11,7 @@ REPO_SWIFT="$HOME/workspace/mac-yolo-safeguards/macos/MacYoloSafeguardsApp.swift
 
 is_valid_purple_bento_bin() {
   local bin="$1"
-  [[ -x "$bin" ]] && /usr/bin/grep -aq "Mac Health:" "$bin" && ! /usr/bin/grep -aq "Sizes appear after Scan" "$bin"
+  [[ -x "$bin" ]] && (/usr/bin/grep -aq "Mac YOLO:" "$bin" || /usr/bin/grep -aq "Mac Health:" "$bin") && ! /usr/bin/grep -aq "Sizes appear after Scan" "$bin"
 }
 
 ensure_canonical_binary() {

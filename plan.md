@@ -4190,4 +4190,5 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 - `scripts/verify.sh`
 - `tools/entire-cicd-regression-gate.js`
 - `.github/workflows/intent-check.yml`
+- `tools/mac-yolo-10channel-omnichannel-engine.js`
 - `plan.md` (this append)

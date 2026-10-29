@@ -24,9 +24,9 @@ private let HUD_HTML = #"""
     width: 100%;
     height: 100%;
     border-radius: 22px;
-    background: radial-gradient(circle at 82% 10%, rgba(139, 92, 246, 0.22) 0%, rgba(59, 24, 119, 0.16) 46%, rgba(24, 12, 54, 0.20) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.24);
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    background: rgba(8, 6, 20, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.38);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
     padding: 16px 16px 10px 16px;
     display: flex;
     flex-direction: column;
@@ -67,7 +67,7 @@ private let HUD_HTML = #"""
     filter: drop-shadow(0 4px 12px rgba(56, 189, 248, 0.45));
   }
   .card {
-    background: rgba(15, 11, 33, 0.58);
+    background: rgba(15, 11, 33, 0.50);
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
     border-radius: 14px;
@@ -125,7 +125,7 @@ private let HUD_HTML = #"""
     margin-bottom: 8px;
   }
   .tile {
-    background: rgba(15, 11, 33, 0.58);
+    background: rgba(15, 11, 33, 0.50);
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
     border-radius: 14px;
@@ -400,7 +400,7 @@ private let HUD_HTML = #"""
         <div class="shield-top">
           <div class="shield-left">
             <span class="shield-pill">✓</span>
-            <span>Protection by <strong>Mac YOLO Safeguards</strong></span>
+            <span>Protection by <strong>Mac YOLO</strong></span>
           </div>
           <span class="shield-status">✓ Protected</span>
         </div>
@@ -507,7 +507,7 @@ private let HUD_HTML = #"""
 
       <div class="card rec-card" id="settingsDrawer" style="display:none;padding:10px 13px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-          <div style="font-size:13px;font-weight:700;">Mac YOLO Safeguards</div>
+          <div style="font-size:13px;font-weight:700;">Mac YOLO Settings</div>
           <button class="tile-action" style="margin-top:0;" onclick="toggleSettingsDrawer(false)">← Back</button>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-top:1px solid rgba(255,255,255,0.12);">
@@ -523,6 +523,7 @@ private let HUD_HTML = #"""
 
     <div class="hud-footer">
       <button class="tile-action" style="margin-top:0;" onclick="sendAction('toggleStatusBarIcon')">Menu Bar Icon: <strong id="quickStatusIconLabel" style="color:#5eead4;">Shown ✓</strong></button>
+      <button class="tile-action" style="margin-top:0;border-color:rgba(52,211,153,0.45);color:#6ee7b7;" onclick="sendAction('openDashboard')">Get Pro / Team Kit ($49) →</button>
       <span id="footerSizeLabel" style="font-size:11px;color:rgba(255,255,255,0.68);cursor:pointer;" onclick="cycleHudSize()" title="Click to cycle size or drag corner">420×630</span>
     </div>
   </div>
@@ -712,9 +713,30 @@ class MacYoloHudPanel: NSPanel {
 }
 
 class MacYoloWebView: WKWebView {
+    override var isOpaque: Bool { false }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
         return true
     }
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        setValue(false, forKey: "drawsBackground")
+        wantsLayer = true
+        layer?.isOpaque = false
+        layer?.backgroundColor = NSColor.clear.cgColor
+    }
+}
+
+private func hudRoundedMask(radius: CGFloat) -> NSImage {
+    let side = radius * 2 + 2
+    let size = NSSize(width: side, height: side)
+    let img = NSImage(size: size, flipped: false) { rect in
+        NSColor.black.setFill()
+        NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
+        return true
+    }
+    img.capInsets = NSEdgeInsets(top: radius, left: radius, bottom: radius, right: radius)
+    img.resizingMode = .stretch
+    return img
 }
 
 class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
@@ -733,16 +755,15 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var hasCustomOrigin: Bool = false
     var lastActiveApp: String = "Claude"
     var lastActiveWin: String = "Claude"
-    var prevNetInBytes: UInt64 = 0
-    var prevNetOutBytes: UInt64 = 0
-    var prevNetSampleAt: Date = .distantPast
+    var wifiInterfaceName: String = ""
+    var netHistory: [(t: Date, inn: UInt64, out: UInt64)] = []
     var lastUpKB: Int = 0
     var lastDownKB: Int = 0
     func applicationDidFinishLaunching(_ notification: Notification) {
         let myPid = ProcessInfo.processInfo.processIdentifier
         for app in NSWorkspace.shared.runningApplications {
             if app.processIdentifier != myPid &&
-               (app.bundleIdentifier == "com.iganapolsky.macyolosafeguards" || app.localizedName == "MacYoloSafeguards") {
+               (app.bundleIdentifier == "com.iganapolsky.macyolosafeguards" || app.localizedName == "MacYoloSafeguards" || app.localizedName == "Mac YOLO") {
                 app.terminate()
             }
         }
@@ -791,8 +812,10 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
 
         globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] _ in
             guard let self = self, self.hudPanel != nil, self.hudPanel.isVisible else { return }
-            if Date().timeIntervalSince(self.lastShownAt) < 1.0 { return }
+            if Date().timeIntervalSince(self.lastShownAt) < 1.5 { return }
             let mouseLoc = NSEvent.mouseLocation
+            if mouseLoc.y < 105 { return }
+            if let screen = NSScreen.main, mouseLoc.y >= screen.frame.maxY - 36 { return }
             if !self.hudPanel.frame.contains(mouseLoc) {
                 if let btnWin = self.statusItem?.button?.window, btnWin.frame.contains(mouseLoc) {
                     return
@@ -866,8 +889,8 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             button.action = #selector(togglePopover(_:))
         }
 
-        gearMenu = NSMenu(title: "Mac YOLO Safeguards Menu")
-        gearMenu.addItem(NSMenuItem(title: "About Mac YOLO Safeguards", action: #selector(openDashboard), keyEquivalent: ""))
+        gearMenu = NSMenu(title: "Mac YOLO Menu")
+        gearMenu.addItem(NSMenuItem(title: "About Mac YOLO", action: #selector(openDashboard), keyEquivalent: ""))
         gearMenu.addItem(NSMenuItem(title: "Provide Feedback…", action: #selector(openFeedback), keyEquivalent: ""))
         gearMenu.addItem(NSMenuItem.separator())
         statusBarMenuItem = NSMenuItem(title: "Show Status Bar Icon", action: #selector(toggleStatusBarIcon(_:)), keyEquivalent: "")
@@ -892,13 +915,13 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             backing: .buffered,
             defer: false
         )
-        hudPanel.title = "Mac YOLO Safeguards"
+        hudPanel.title = "Mac YOLO"
         hudPanel.isFloatingPanel = true
         hudPanel.hidesOnDeactivate = false
         hudPanel.level = .statusBar
         hudPanel.isOpaque = false
         hudPanel.backgroundColor = .clear
-        hudPanel.alphaValue = 0.88
+        hudPanel.alphaValue = 1
         hudPanel.hasShadow = true
         hudPanel.isMovableByWindowBackground = true
         hudPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
@@ -908,9 +931,8 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         visualEffectView.material = .hudWindow
         visualEffectView.blendingMode = .behindWindow
         visualEffectView.state = .active
-        visualEffectView.wantsLayer = true
-        visualEffectView.layer?.cornerRadius = 22
-        visualEffectView.layer?.masksToBounds = true
+        visualEffectView.appearance = NSAppearance(named: .darkAqua)
+        visualEffectView.maskImage = hudRoundedMask(radius: 22)
         visualEffectView.autoresizingMask = [.width, .height]
 
         let wkConfig = WKWebViewConfiguration()
@@ -988,6 +1010,9 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         return true
     }
 
+    func applicationDidBecomeActive(_ notification: Notification) {
+        showFloatingHudNotification()
+    }
     @objc func openSettingsDrawer(_ sender: AnyObject?) {
         showFloatingHudNotification()
         webView?.evaluateJavaScript("if (window.toggleSettingsDrawer) window.toggleSettingsDrawer(true);", completionHandler: nil)
@@ -1041,37 +1066,75 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         }
     }
 
+    func resolvedWifiInterfaceName() -> String {
+        if !wifiInterfaceName.isEmpty { return wifiInterfaceName }
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/sbin/networksetup")
+        proc.arguments = ["-listallhardwareports"]
+        let pipe = Pipe()
+        proc.standardOutput = pipe
+        proc.standardError = Pipe()
+        var found = "en0"
+        if (try? proc.run()) != nil {
+            proc.waitUntilExit()
+            let text = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            var pendingWifi = false
+            for raw in text.split(separator: "\n") {
+                let line = String(raw)
+                if line.contains("Hardware Port: Wi-Fi") {
+                    pendingWifi = true
+                    continue
+                }
+                if pendingWifi && line.contains("Device:") {
+                    let parts = line.split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+                    if parts.count == 2, !parts[1].isEmpty { found = parts[1] }
+                    break
+                }
+            }
+        }
+        wifiInterfaceName = found
+        return found
+    }
+
+    func interfaceByteTotals(named ifname: String) -> (UInt64, UInt64)? {
+        var mib: [Int32] = [CTL_NET, PF_ROUTE, 0, 0, NET_RT_IFLIST2, 0]
+        var len = 0
+        if sysctl(&mib, UInt32(mib.count), nil, &len, nil, 0) != 0 || len <= 0 { return nil }
+        var buf = [UInt8](repeating: 0, count: len)
+        if sysctl(&mib, UInt32(mib.count), &buf, &len, nil, 0) != 0 { return nil }
+        var offset = 0
+        while offset + MemoryLayout<if_msghdr>.size <= len {
+            let hdr = buf.withUnsafeBytes { $0.load(fromByteOffset: offset, as: if_msghdr.self) }
+            let step = Int(hdr.ifm_msglen)
+            if step <= 0 || offset + step > len { break }
+            if Int32(hdr.ifm_type) == RTM_IFINFO2, offset + MemoryLayout<if_msghdr2>.size <= len {
+                let msg2 = buf.withUnsafeBytes { $0.load(fromByteOffset: offset, as: if_msghdr2.self) }
+                var nameC = [CChar](repeating: 0, count: Int(IFNAMSIZ))
+                if if_indextoname(UInt32(msg2.ifm_index), &nameC) != nil, String(cString: nameC) == ifname {
+                    return (msg2.ifm_data.ifi_ibytes, msg2.ifm_data.ifi_obytes)
+                }
+            }
+            offset += step
+        }
+        return nil
+    }
+
     func sampleNetworkRates() -> (String, String) {
         let now = Date()
-        let dt = now.timeIntervalSince(prevNetSampleAt)
-        if prevNetSampleAt != .distantPast && dt < 1.2 {
+        let wifi = resolvedWifiInterfaceName()
+        guard let (totalIn, totalOut) = interfaceByteTotals(named: wifi) else {
             return ("↑ \(lastUpKB) KB/sec", "↓ \(lastDownKB) KB/sec")
         }
-        var mib: [Int32] = [CTL_NET, PF_ROUTE, 0, 0, NET_RT_IFLIST2, 0]
-        var len: Int = 0
-        if sysctl(&mib, UInt32(mib.count), nil, &len, nil, 0) == 0, len > 0 {
-            var buf = [UInt8](repeating: 0, count: len)
-            if sysctl(&mib, UInt32(mib.count), &buf, &len, nil, 0) == 0 {
-                var totalIn: UInt64 = 0
-                var totalOut: UInt64 = 0
-                var offset = 0
-                while offset < len {
-                    let hdr = buf.withUnsafeBytes { $0.load(fromByteOffset: offset, as: if_msghdr.self) }
-                    if hdr.ifm_msglen == 0 { break }
-                    if Int32(hdr.ifm_type) == RTM_IFINFO2 {
-                        let msg2 = buf.withUnsafeBytes { $0.load(fromByteOffset: offset, as: if_msghdr2.self) }
-                        totalIn &+= msg2.ifm_data.ifi_ibytes
-                        totalOut &+= msg2.ifm_data.ifi_obytes
-                    }
-                    offset += Int(hdr.ifm_msglen)
-                }
-                if prevNetInBytes > 0 && dt >= 1.2 && dt < 30.0 && totalIn >= prevNetInBytes && totalOut >= prevNetOutBytes {
-                    lastDownKB = Int(Double(totalIn - prevNetInBytes) / 1024.0 / dt)
-                    lastUpKB = Int(Double(totalOut - prevNetOutBytes) / 1024.0 / dt)
-                }
-                prevNetInBytes = totalIn
-                prevNetOutBytes = totalOut
-                prevNetSampleAt = now
+        if let oldest = netHistory.first, totalIn < oldest.inn || totalOut < oldest.out {
+            netHistory.removeAll()
+        }
+        netHistory.append((t: now, inn: totalIn, out: totalOut))
+        netHistory.removeAll { now.timeIntervalSince($0.t) > 6.0 }
+        if let oldest = netHistory.first {
+            let dt = now.timeIntervalSince(oldest.t)
+            if dt >= 1.2 && totalIn >= oldest.inn && totalOut >= oldest.out {
+                lastDownKB = Int((Double(totalIn - oldest.inn) / 1024.0 / dt).rounded())
+                lastUpKB = Int((Double(totalOut - oldest.out) / 1024.0 / dt).rounded())
             }
         }
         return ("↑ \(lastUpKB) KB/sec", "↓ \(lastDownKB) KB/sec")
@@ -1144,7 +1207,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             self.statusItem.button?.title = ""
             self.statusItem.button?.image = self.renderMenuBarPill(freeGB: freeMenuInt, memPct: memPressurePct, cpuPct: cpuPct)
             self.statusItem.button?.imagePosition = .imageOnly
-            self.statusItem.button?.toolTip = "Mac YOLO Guard — Disk Free: \(freeMenuInt) GB • RAM Pressure: \(memPressurePct)% • CPU Load: \(cpuPct)%"
+            self.statusItem.button?.toolTip = "Mac YOLO — Disk Free: \(freeMenuInt) GB • RAM Pressure: \(memPressurePct)% • CPU Load: \(cpuPct)%"
             if let data = try? JSONSerialization.data(withJSONObject: payload, options: []),
                let jsonStr = String(data: data, encoding: .utf8) {
                 self.webView?.evaluateJavaScript("if (window.updateYoloHud) window.updateYoloHud(\(jsonStr));", completionHandler: nil)
@@ -1161,9 +1224,8 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     }
 
     func renderMenuBarPill(freeGB: Int, memPct: Int, cpuPct: Int) -> NSImage {
-        let size = NSSize(width: 124, height: 22)
+        let size = NSSize(width: 86, height: 22)
         let img = NSImage(size: size, flipped: false) { _ in
-            // 1. High-contrast glowing Indigo-Cyan Squircle Badge + Bright White/Cyan Shield Bolt
             let badgeRect = NSRect(x: 1.5, y: 2.5, width: 17.0, height: 17.0)
             let badgePath = NSBezierPath(roundedRect: badgeRect, xRadius: 4.8, yRadius: 4.8)
             NSColor(calibratedRed: 0.42, green: 0.22, blue: 0.92, alpha: 1.0).setFill()
@@ -1183,27 +1245,20 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             NSColor.white.setFill()
             boltPath.fill()
 
-            let labelFont = NSFont.systemFont(ofSize: 7.2, weight: .bold)
+            let labelFont = NSFont.systemFont(ofSize: 7.0, weight: .bold)
             let valFont = NSFont.monospacedDigitSystemFont(ofSize: 10.0, weight: .bold)
             let labelAttrs: [NSAttributedString.Key: Any] = [
                 .font: labelFont,
                 .foregroundColor: NSColor(calibratedWhite: 1.0, alpha: 0.72),
             ]
             let diskValColor = freeGB >= 80 ? NSColor.white : NSColor.systemYellow
-            let ramValColor = memPct < 75 ? NSColor(calibratedRed: 0.37, green: 0.92, blue: 0.83, alpha: 1.0) : NSColor.systemYellow
             let cpuValColor = cpuPct < 80 ? NSColor(calibratedRed: 0.38, green: 0.78, blue: 0.98, alpha: 1.0) : NSColor.systemPink
 
-            // Column 1: DISK / 147G
-            ("DISK" as NSString).draw(at: NSPoint(x: 23, y: 12.0), withAttributes: labelAttrs)
-            ("\(freeGB)G" as NSString).draw(at: NSPoint(x: 23, y: 1.0), withAttributes: [.font: valFont, .foregroundColor: diskValColor])
+            ("DISK" as NSString).draw(at: NSPoint(x: 22, y: 12.0), withAttributes: labelAttrs)
+            ("\(freeGB)G" as NSString).draw(at: NSPoint(x: 22, y: 1.0), withAttributes: [.font: valFont, .foregroundColor: diskValColor])
 
-            // Column 2: RAM / 70%
-            ("RAM" as NSString).draw(at: NSPoint(x: 61, y: 12.0), withAttributes: labelAttrs)
-            ("\(memPct)%" as NSString).draw(at: NSPoint(x: 61, y: 1.0), withAttributes: [.font: valFont, .foregroundColor: ramValColor])
-
-            // Column 3: CPU / 71%
-            ("CPU" as NSString).draw(at: NSPoint(x: 93, y: 12.0), withAttributes: labelAttrs)
-            ("\(cpuPct)%" as NSString).draw(at: NSPoint(x: 93, y: 1.0), withAttributes: [.font: valFont, .foregroundColor: cpuValColor])
+            ("CPU" as NSString).draw(at: NSPoint(x: 56, y: 12.0), withAttributes: labelAttrs)
+            ("\(cpuPct)%" as NSString).draw(at: NSPoint(x: 56, y: 1.0), withAttributes: [.font: valFont, .foregroundColor: cpuValColor])
             return true
         }
         img.isTemplate = false
@@ -1219,6 +1274,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             let yPos = screenFrame.maxY - f.height - 8
             hudPanel.setFrameOrigin(NSPoint(x: xPos, y: yPos))
         }
+        hudPanel.alphaValue = 1
         hudPanel.level = .statusBar
         hudPanel.hidesOnDeactivate = false
         hudPanel.orderFrontRegardless()
@@ -1246,7 +1302,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     }
 
     @objc func openDashboard() {
-        if let url = URL(string: "http://127.0.0.1:8766/api/status") {
+        if let url = URL(string: "https://iganapolsky.gumroad.com/l/vcrho") {
             NSWorkspace.shared.open(url)
         }
     }
