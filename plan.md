@@ -4166,3 +4166,12 @@ Codex on PR #2213. A `File | Owner | Claimed` row is an active claim, and that o
 - `tools/agent-confusion-gate.js`
 - `tests/test-agent-confusion-gate.js`
 - `plan.md` (this append)
+
+## Confusion gate before the decision (append 2026-10-29T15:05:00Z) — `grok-confusion-before-decision`
+
+The gate from post 2115073742321713223 already measures three axes. The decision stack now runs that measurement first. A fired axis returns the brief before RAG, governance, and telemetry. The tweet prompt still scores zero on ambiguity. A `File | Owner | Claimed` row passed with `--plan` still holds a different actor.
+
+### File claims
+- `tools/agent-decision-stack.js`
+- `tests/test-decision-stack-confusion.js`
+- `plan.md` (this append)
