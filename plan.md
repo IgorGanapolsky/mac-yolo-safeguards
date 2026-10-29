@@ -4205,3 +4205,12 @@ An unchanged window no longer returns before the confusion gate. The same window
 - `tools/agent-decision-stack.js`
 - `tests/test-dayglass-screen-budget.js`
 - `plan.md` (this append)
+
+## Confidence active flags (append 2026-10-29T16:50:00Z) — `grok-confidence-flags`
+
+Spotify Confidence flags list filtered to `state=ACTIVE`. Open PR 2212 already carries a sample catalog for those names. This slice does not edit that catalog. An empty list stays empty. An archived flag resolves to the caller-supplied default and does not return a variant. A client that is not associated cannot receive a variant. New rules start disabled, and the first enabled rule in priority order assigns the variant. A failed guardrail moves rollout reach back to the previous reach. A flag key cannot be renamed, and a key that encodes enabled or disabled is rejected.
+
+### File claims
+- `tools/confidence-active-flags-gate.js` (new)
+- `tests/test-confidence-active-flags-gate.js` (new)
+- `plan.md` (this append)
