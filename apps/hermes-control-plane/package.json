@@ -37,7 +37,7 @@
     "@noble/curves": "^1.9.7",
     "@scure/base": "^2.2.0",
     "drizzle-orm": "0.45.2",
-    "next": "16.3.4",
+    "next": "16.4.3",
     "postcss": "8.5.23",
     "react": "19.2.8",
     "react-dom": "19.2.8"
@@ -60,9 +60,9 @@
     "react-server-dom-webpack": "19.2.8",
     "tailwindcss": "4.2.1",
     "typescript": "^5.9.3",
-    "undici": "^8.9.0",
+    "undici": "^8.12.3",
     "vinext": "0.0.50",
-    "vite": "8.1.5",
+    "vite": "8.3.5",
     "vitest": "^4.1.11",
     "wrangler": "^4.120.0"
   },
@@ -71,11 +71,14 @@
       "esbuild": "0.25.12"
     },
     "postcss": "8.5.23",
-    "sharp": "0.35.4",
+    "sharp": "0.35.5",
+    "source-map-js": "1.2.2",
     "fast-uri": "3.1.7",
     "js-yaml": "4.3.2",
-    "brace-expansion": "5.0.9",
+    "brace-expansion": "5.0.12",
     "minimatch": "10.2.5",
+    "undici": "$undici",
+    "zod": "4.6.7",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-server-dom-webpack": "19.2.8"

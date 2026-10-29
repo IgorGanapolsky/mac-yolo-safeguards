@@ -4101,4 +4101,6 @@ Fixed `.mcp.json` (`github` via `github-mcp-stdio`, `grepai` `/Users/iganapolsky
 - `tools/openrouter-budget-guard.js`
 - `tools/ops-paths.js`
 - `tools/revenue-autonomous-loop.js`
+- `apps/hermes-control-plane/package.json`
+- `apps/hermes-control-plane/package-lock.json`
 - `plan.md` (this append)
