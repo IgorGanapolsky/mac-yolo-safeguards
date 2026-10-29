@@ -63,12 +63,11 @@ private let HUD_HTML = #"""
     filter: drop-shadow(0 4px 12px rgba(56, 189, 248, 0.45));
   }
   .card {
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.13);
+    background: rgba(15, 11, 33, 0.58);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
     border-radius: 14px;
     padding: 10px 13px;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
   }
   .shield-card {
     margin-bottom: 8px;
@@ -122,14 +121,28 @@ private let HUD_HTML = #"""
     margin-bottom: 8px;
   }
   .tile {
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.13);
+    background: rgba(15, 11, 33, 0.58);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
     border-radius: 14px;
     padding: 9px 12px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    min-height: 68px;
+    min-height: 70px;
+  }
+  .meter-track {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 99px;
+    overflow: hidden;
+    margin-top: 5px;
+  }
+  .meter-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 0.35s ease;
   }
   .tile-tall {
     min-height: 80px;
@@ -303,6 +316,7 @@ private let HUD_HTML = #"""
           <div>
             <div class="tile-head"><span class="tile-icon">🖴</span><span>Macintosh HD</span></div>
             <div class="tile-sub warn" id="diskAvail">Available: 150.24 GB</div>
+            <div class="meter-track"><div class="meter-fill" id="diskBarFill" style="width:84%;background:linear-gradient(90deg,#fbbf24,#38bdf8);"></div></div>
           </div>
           <button class="tile-action" onclick="sendAction('freeUpDisk')">Free Up</button>
         </div>
@@ -311,6 +325,7 @@ private let HUD_HTML = #"""
           <div>
             <div class="tile-head"><span class="tile-icon">▦</span><span>Memory</span></div>
             <div class="tile-sub" id="memPressure">Pressure: 38%</div>
+            <div class="meter-track"><div class="meter-fill" id="memBarFill" style="width:38%;background:linear-gradient(90deg,#34d399,#38bdf8);"></div></div>
           </div>
           <button class="tile-action" onclick="sendAction('freeUpMemory')">Free Up</button>
         </div>
@@ -321,6 +336,7 @@ private let HUD_HTML = #"""
             <span class="tile-val" id="battPct">100%</span>
           </div>
           <div class="tile-sub" id="battState">Fully charged</div>
+          <div class="meter-track"><div class="meter-fill" id="battBarFill" style="width:100%;background:linear-gradient(90deg,#22c55e,#5eead4);"></div></div>
         </div>
 
         <div class="tile">
@@ -329,6 +345,7 @@ private let HUD_HTML = #"""
             <span class="tile-val hot" id="cpuTemp">Load 1m</span>
           </div>
           <div class="tile-sub" id="cpuLoad">Load: 24%</div>
+          <div class="meter-track"><div class="meter-fill" id="cpuBarFill" style="width:24%;background:linear-gradient(90deg,#a855f7,#fb7185);"></div></div>
         </div>
 
         <div class="tile tile-tall">
@@ -431,6 +448,14 @@ private let HUD_HTML = #"""
       if (state.netDown) document.getElementById('netDown').textContent = state.netDown;
       if (state.recTitle) document.getElementById('recTitle').textContent = state.recTitle;
       if (state.recDesc) document.getElementById('recDesc').textContent = state.recDesc;
+      if (state.memPctNum) {
+        var mf = document.getElementById('memBarFill');
+        if (mf) mf.style.width = state.memPctNum + '%';
+      }
+      if (state.cpuPctNum) {
+        var cf = document.getElementById('cpuBarFill');
+        if (cf) cf.style.width = state.cpuPctNum + '%';
+      }
       if (state.statusBarIconVisible) {
         var isVis = (state.statusBarIconVisible === 'true');
         var btn = document.getElementById('statusBarToggleBtn');
@@ -556,14 +581,9 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.isVisible = showStatusBarIcon
         if let button = statusItem.button {
-            if #available(macOS 11.0, *) {
-                let cfg = NSImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
-                let img = NSImage(systemSymbolName: "bolt.shield.fill", accessibilityDescription: "Mac YOLO Guard")?.withSymbolConfiguration(cfg)
-                img?.isTemplate = true
-                button.image = img
-                button.imagePosition = .imageLeading
-            }
-            button.title = " 150G"
+            button.title = ""
+            button.image = renderMenuBarPill(freeGB: 147, memPct: 48, cpuPct: 22)
+            button.imagePosition = .imageOnly
             button.setAccessibilityIdentifier("macyolo.status.item.button")
             button.target = self
             button.action = #selector(togglePopover(_:))
@@ -768,7 +788,6 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
 
         let (upRate, downRate) = sampleNetworkRates()
         let onScreenLine = lastActiveWin == lastActiveApp ? lastActiveApp : "\(lastActiveApp) — \(lastActiveWin)"
-
         let payload: [String: String] = [
             "healthState": freeDecimalGB >= 80.0 ? "Excellent" : "Attention",
             "onScreenLine": onScreenLine,
@@ -776,9 +795,11 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "activeWin": lastActiveWin,
             "diskAvail": diskAvailStr,
             "memPressure": "Pressure: \(memPressurePct)%",
+            "memPctNum": "\(memPressurePct)",
             "battPct": "100%",
             "battState": "Fully charged",
             "cpuLoad": "Load: \(cpuPct)%",
+            "cpuPctNum": "\(cpuPct)",
             "cpuRight": "1m: \(load1Str)",
             "netUp": upRate,
             "netDown": downRate,
@@ -788,7 +809,9 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.statusItem.isVisible = self.showStatusBarIcon
-            self.statusItem.button?.title = " \(freeMenuInt)G"
+            self.statusItem.button?.title = ""
+            self.statusItem.button?.image = self.renderMenuBarPill(freeGB: freeMenuInt, memPct: memPressurePct, cpuPct: cpuPct)
+            self.statusItem.button?.imagePosition = .imageOnly
             if let data = try? JSONSerialization.data(withJSONObject: payload, options: []),
                let jsonStr = String(data: data, encoding: .utf8) {
                 self.webView?.evaluateJavaScript("if (window.updateYoloHud) window.updateYoloHud(\(jsonStr));", completionHandler: nil)
@@ -804,13 +827,93 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         }
     }
 
+    func renderMenuBarPill(freeGB: Int, memPct: Int, cpuPct: Int) -> NSImage {
+        let size = NSSize(width: 118, height: 20)
+        let img = NSImage(size: size, flipped: false) { rect in
+            let pillRect = rect.insetBy(dx: 1.0, dy: 1.0)
+            let pillPath = NSBezierPath(roundedRect: pillRect, xRadius: 9.0, yRadius: 9.0)
+            NSColor(calibratedRed: 0.16, green: 0.09, blue: 0.32, alpha: 0.90).setFill()
+            pillPath.fill()
+            NSColor(calibratedWhite: 1.0, alpha: 0.28).setStroke()
+            pillPath.lineWidth = 1.0
+            pillPath.stroke()
+
+            // 1. Glowing circular disk-health ring + center dot on left
+            let cx: CGFloat = 12.0
+            let cy: CGFloat = 10.0
+            let ringR: CGFloat = 5.5
+            let bgRing = NSBezierPath()
+            bgRing.appendArc(withCenter: NSPoint(x: cx, y: cy), radius: ringR, startAngle: 0, endAngle: 360)
+            NSColor(calibratedWhite: 1.0, alpha: 0.18).setStroke()
+            bgRing.lineWidth = 2.0
+            bgRing.stroke()
+
+            let arcRing = NSBezierPath()
+            arcRing.appendArc(withCenter: NSPoint(x: cx, y: cy), radius: ringR, startAngle: 90, endAngle: -195, clockwise: true)
+            (freeGB >= 80 ? NSColor(calibratedRed: 0.20, green: 0.92, blue: 0.72, alpha: 1.0) : NSColor.systemYellow).setStroke()
+            arcRing.lineWidth = 2.1
+            arcRing.lineCapStyle = .round
+            arcRing.stroke()
+
+            let dotRect = NSRect(x: cx - 2.2, y: cy - 2.2, width: 4.4, height: 4.4)
+            NSColor(calibratedRed: 0.36, green: 0.92, blue: 0.83, alpha: 1.0).setFill()
+            NSBezierPath(ovalIn: dotRect).fill()
+
+            // 2. Crisp "147G" storage text
+            let diskFont = NSFont.monospacedDigitSystemFont(ofSize: 11.5, weight: .bold)
+            let diskAttrs: [NSAttributedString.Key: Any] = [
+                .font: diskFont,
+                .foregroundColor: NSColor.white,
+            ]
+            let diskStr = "\(freeGB)G" as NSString
+            diskStr.draw(at: NSPoint(x: 22.0, y: 3.0), withAttributes: diskAttrs)
+
+            // 3. Subtle divider
+            let divPath = NSBezierPath()
+            divPath.move(to: NSPoint(x: 61.0, y: 4.5))
+            divPath.line(to: NSPoint(x: 61.0, y: 15.5))
+            NSColor(calibratedWhite: 1.0, alpha: 0.18).setStroke()
+            divPath.lineWidth = 1.0
+            divPath.stroke()
+
+            // 4. Live 2-bar micro-equalizer (CPU + RAM) + CPU% readout
+            let barH: CGFloat = 11.0
+            let cpuFillH = max(2.5, min(barH, barH * CGFloat(cpuPct) / 100.0))
+            let memFillH = max(2.5, min(barH, barH * CGFloat(memPct) / 100.0))
+            NSColor(calibratedWhite: 1.0, alpha: 0.16).setFill()
+            NSBezierPath(roundedRect: NSRect(x: 66.0, y: 4.5, width: 3.2, height: barH), xRadius: 1.5, yRadius: 1.5).fill()
+            NSBezierPath(roundedRect: NSRect(x: 71.0, y: 4.5, width: 3.2, height: barH), xRadius: 1.5, yRadius: 1.5).fill()
+
+            NSColor(calibratedRed: 0.22, green: 0.74, blue: 0.97, alpha: 1.0).setFill()
+            NSBezierPath(roundedRect: NSRect(x: 66.0, y: 4.5, width: 3.2, height: cpuFillH), xRadius: 1.5, yRadius: 1.5).fill()
+            NSColor(calibratedRed: 0.66, green: 0.33, blue: 0.97, alpha: 1.0).setFill()
+            NSBezierPath(roundedRect: NSRect(x: 71.0, y: 4.5, width: 3.2, height: memFillH), xRadius: 1.5, yRadius: 1.5).fill()
+
+            let cpuFont = NSFont.monospacedDigitSystemFont(ofSize: 10.5, weight: .semibold)
+            let cpuAttrs: [NSAttributedString.Key: Any] = [
+                .font: cpuFont,
+                .foregroundColor: NSColor(calibratedRed: 0.65, green: 0.95, blue: 0.99, alpha: 1.0),
+            ]
+            let cpuStr = "\(cpuPct)%" as NSString
+            cpuStr.draw(at: NSPoint(x: 77.5, y: 3.5), withAttributes: cpuAttrs)
+            return true
+        }
+        img.isTemplate = false
+        return img
+    }
+
     func showFloatingHudNotification() {
         lastShownAt = Date()
         refreshLiveTelemetry()
         if let screenFrame = NSScreen.main?.visibleFrame {
             let panelW: CGFloat = 420
             let panelH: CGFloat = 668
-            hudPanel.setFrameOrigin(NSPoint(x: screenFrame.maxX - panelW - 18, y: screenFrame.maxY - panelH - 8))
+            var xPos = screenFrame.maxX - panelW - 18
+            if let btnWin = statusItem?.button?.window {
+                let btnFrame = btnWin.frame
+                xPos = min(screenFrame.maxX - panelW - 12, max(screenFrame.minX + 12, btnFrame.midX - panelW / 2.0))
+            }
+            hudPanel.setFrameOrigin(NSPoint(x: xPos, y: screenFrame.maxY - panelH - 8))
         }
         hudPanel.orderFrontRegardless()
     }
