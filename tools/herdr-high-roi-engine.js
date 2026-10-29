@@ -19,9 +19,10 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
+const { writeVaultNote } = require('./shared-vault-memory');
+
 const JSON_MODE = process.argv.includes('--json');
 const HERDR_CLI = '/Users/igorganapolsky/.local/bin/herdr';
-const OBSIDIAN_VAULT_PATH = '/Users/igorganapolsky/Documents/Obsidian Vault/Agent-Memories';
 
 /**
  * Checks if Herdr CLI is installed and operational.
@@ -114,6 +115,31 @@ ${taskSummary}
   };
 }
 
+function saveObsidianSnapshot(vault, agentName, taskSummary, commitSha) {
+  const safeAgent = String(agentName || 'agent').replace(/[^a-zA-Z0-9._-]/g, '') || 'agent';
+  const summary = String(taskSummary || '').replace(/[\r\n]+/g, ' ').trim().slice(0, 500);
+  const sha = String(commitSha || '').replace(/[^a-fA-F0-9]/g, '').slice(0, 40);
+  const body = [
+    '---',
+    'type: agent-snapshot',
+    `agent: ${safeAgent}`,
+    `commit: ${sha}`,
+    '---',
+    '',
+    `# ${safeAgent}`,
+    '',
+    summary,
+    '',
+  ].join('\n');
+  const written = writeVaultNote(vault, `Agent-State/snapshots/${safeAgent}.md`, body);
+  return {
+    ok: written.ok === true,
+    reason: written.reason || '',
+    path: written.path || '',
+    agent: safeAgent,
+  };
+}
+
 function runHerdrHighRoiDiagnostic() {
   const cliStatus = checkHerdrCliStatus();
   const worktree = provisionHerdrWorktree('claude-worker-alpha');
@@ -160,5 +186,6 @@ module.exports = {
   provisionHerdrWorktree,
   formatHerdrNotification,
   generateObsidianSnapshot,
+  saveObsidianSnapshot,
   runHerdrHighRoiDiagnostic
 };
