@@ -4105,3 +4105,13 @@ Fixed `.mcp.json` (`github` via `github-mcp-stdio`, `grepai` `/Users/iganapolsky
 - `apps/hermes-control-plane/package-lock.json`
 - `tools/retrieval-query-rewrite.js`
 - `plan.md` (this append)
+
+## Copilot review depth (append 2026-10-29T13:22:20Z) — `grok-review-effort`
+
+GitHub Universe 2026 (Jay Parikh, 2026-10-28) ships Copilot code review at Lite, Balanced, and Max. The public review-request inputs still have no effort field (schema check 2026-10-29), so the depth is a comment marker. Documentation-only diffs are lite. Security-sensitive paths (workflows, tools/lib, auth or payment, revenue tools, security-audit, path-normalizer, Hermes Mobile package pins) are max. Everything else is balanced. A later push comments again only when the level rises. An older `@copilot review` comment with no marker counts as balanced. The classifier runs with the write token unset. This job is not a required check and does not use pull_request_target.
+
+### File claims
+- `tools/review-effort.js`
+- `tests/test-review-effort.js`
+- `.github/workflows/copilot-pr-review.yml`
+- `plan.md` (this append)
