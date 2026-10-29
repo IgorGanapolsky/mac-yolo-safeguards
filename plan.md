@@ -4115,3 +4115,12 @@ The aiprofitboardroom_ reel (Instagram `DfDBob0iL3Y`, captured 2026-10-29 09:26)
 - `tests/test-shared-vault-memory.js`
 - `tools/herdr-high-roi-engine.js`
 - `plan.md` (this append)
+
+## Swarm coordination grade (append 2026-10-29T14:05:00Z) — `grok-swarm-grade`
+
+Same prompt, many agents. `tools/swarm-coordination-grade.js` scores each coordination surface from evidence and sets the overall score to the lowest one. A constant 10/10 cannot become A+. The judge seat scores command output and does not edit the worker's files. Security-sensitive paths route to the frontier seat. Docs stay on the cheap seat.
+
+### File claims
+- `tools/swarm-coordination-grade.js`
+- `tests/test-swarm-coordination-grade.js`
+- `plan.md` (this append)
