@@ -4188,4 +4188,6 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 - `tools/launch-mac-yolo-menubar.sh`
 - `tests/test-mac-yolo-hud-anti-regression.js`
 - `scripts/verify.sh`
+- `tools/entire-cicd-regression-gate.js`
+- `.github/workflows/intent-check.yml`
 - `plan.md` (this append)

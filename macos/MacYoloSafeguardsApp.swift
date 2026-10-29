@@ -11,23 +11,23 @@ private let HUD_HTML = #"""
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
   html, body {
-    width: 420px;
-    height: 668px;
+    width: 100%;
+    height: 100%;
     background: transparent;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
     color: #ffffff;
     overflow: hidden;
   }
   .shell {
-    width: 420px;
-    height: 668px;
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     border-radius: 22px;
     background: radial-gradient(circle at 82% 10%, rgba(139, 92, 246, 0.46) 0%, rgba(59, 24, 119, 0.54) 48%, rgba(24, 12, 54, 0.68) 100%);
-    backdrop-filter: blur(28px) saturate(165%);
-    -webkit-backdrop-filter: blur(28px) saturate(165%);
     border: 1px solid rgba(255, 255, 255, 0.24);
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.28);
-    padding: 16px 16px 12px 16px;
+    padding: 16px 16px 10px 16px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -37,6 +37,10 @@ private let HUD_HTML = #"""
     align-items: center;
     justify-content: space-between;
     padding: 0 4px 8px 4px;
+    cursor: grab;
+  }
+  .header:active {
+    cursor: grabbing;
   }
   .header-title {
     font-size: 21px;
@@ -259,43 +263,62 @@ private let HUD_HTML = #"""
   .rec-btn:hover {
     background: rgba(255, 255, 255, 0.22);
   }
-  .footer {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 6px;
-    padding-top: 8px;
-  }
-  .footer-btn {
-    height: 30px;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.11);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    color: rgba(255, 255, 255, 0.92);
+  .hud-footer {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 4px;
-    font-size: 11.5px;
-    font-weight: 600;
-    cursor: pointer;
+    justify-content: space-between;
+    padding: 6px 18px 2px 4px;
+    flex-shrink: 0;
   }
-  .footer-btn:hover {
-    background: rgba(255, 255, 255, 0.22);
-    color: #ffffff;
+  .hud-resize-grip {
+    position: fixed;
+    right: 4px;
+    bottom: 3px;
+    width: 20px;
+    height: 20px;
+    cursor: nwse-resize;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.45);
+    z-index: 50;
+  }
+  .hud-resize-grip:hover {
+    color: #5eead4;
+  }
+  .hud-resize-edge-right {
+    position: fixed;
+    top: 40px;
+    right: 0;
+    width: 7px;
+    bottom: 22px;
+    cursor: ew-resize;
+    z-index: 40;
+  }
+  .hud-resize-edge-bottom {
+    position: fixed;
+    left: 16px;
+    right: 22px;
+    bottom: 0;
+    height: 7px;
+    cursor: ns-resize;
+    z-index: 40;
   }
 </style>
 </head>
 <body>
   <div class="shell">
     <div>
-      <div class="header">
+      <div class="header" id="hudHeader">
         <div>
           <div class="header-title">Mac Health: <span id="healthState">Excellent</span></div>
-          <div class="header-sub" id="macModel">MacBook Pro</div>
+          <div class="header-sub" id="macModel">AI Agent &amp; Mac Optimizer</div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <button class="rec-btn" style="padding:5px 10px;font-size:11.5px;" onclick="toggleSettingsDrawer()">⚙️ Settings</button>
-          <div class="laptop-badge" style="width:46px;height:38px;font-size:26px;">💻</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <button class="rec-btn" style="padding:4px 9px;font-size:11px;" onclick="toggleSettingsDrawer()">⚙️ Settings</button>
+          <button class="rec-btn" id="hudSizeBtn" style="padding:4px 9px;font-size:11px;" onclick="cycleHudSize()" title="Toggle HUD size or drag corner">⤢ Expand</button>
+          <div class="laptop-badge" style="width:42px;height:36px;font-size:24px;">💻</div>
         </div>
       </div>
 
@@ -303,7 +326,7 @@ private let HUD_HTML = #"""
         <div class="shield-top">
           <div class="shield-left">
             <span class="shield-pill">✓</span>
-            <span>Protection by <strong>Mac YOLO Guard</strong></span>
+            <span>Protection by <strong>Mac YOLO Safeguards</strong></span>
           </div>
           <span class="shield-status">✓ Protected</span>
         </div>
@@ -331,14 +354,16 @@ private let HUD_HTML = #"""
         </div>
 
         <div class="tile">
-          <div class="tile-row">
-            <div class="tile-head"><span class="tile-icon">🔋</span><span>Battery</span></div>
-            <span class="tile-val" id="battPct">100%</span>
+          <div>
+            <div class="tile-row">
+              <div class="tile-head"><span class="tile-icon">🤖</span><span>AI Agents</span></div>
+              <span class="tile-val" id="battPct" style="color:#5eead4;">Fenced</span>
+            </div>
+            <div class="tile-sub" id="battState">$10/mo Cap · 0 Runaways</div>
+            <div class="meter-track"><div class="meter-fill" id="battBarFill" style="width:100%;background:linear-gradient(90deg,#22c55e,#5eead4);"></div></div>
           </div>
-          <div class="tile-sub" id="battState">Fully charged</div>
-          <div class="meter-track"><div class="meter-fill" id="battBarFill" style="width:100%;background:linear-gradient(90deg,#22c55e,#5eead4);"></div></div>
+          <button class="tile-action" onclick="sendAction('optimizeAgents')">Optimize Agents</button>
         </div>
-
         <div class="tile">
           <div class="tile-row">
             <div class="tile-head"><span class="tile-icon">⚙️</span><span>CPU</span></div>
@@ -369,25 +394,25 @@ private let HUD_HTML = #"""
       </div>
 
       <div id="recSection">
-        <div class="rec-header">Today's Recommendation</div>
+        <div class="rec-header">AI YOLO Agent Optimization</div>
         <div class="card rec-card">
           <div class="rec-top">
-            <div class="rec-badge">🛡️</div>
+            <div class="rec-badge">⚡</div>
             <div>
-              <div class="rec-title" id="recTitle">47.24 GiB reclaimed from runaway agent /tmp</div>
-              <div class="rec-desc" id="recDesc">Keep coding agents fenced under the $10/mo token cap and zero-drift declarative schema guard.</div>
+              <div class="rec-title" id="recTitle">AI Agent Fleet, Token Cap &amp; Cache Optimizer</div>
+              <div class="rec-desc" id="recDesc">Agent temp · Swift cache · Node cache · Playwright · Trash • Reap zombie MCPs &amp; enforce $10/mo token cap.</div>
             </div>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;">
             <button class="tile-action" style="margin-top:0;" onclick="toggleSettingsDrawer(true)">⚙️ Settings &amp; Status Icon…</button>
-            <button class="rec-btn" onclick="sendAction('runSmartScan')">Run Smart Guard Scan</button>
+            <button class="rec-btn" onclick="sendAction('optimizeAgents')">⚡ Optimize AI Agents &amp; Mac</button>
           </div>
         </div>
       </div>
 
       <div class="card rec-card" id="settingsDrawer" style="display:none;padding:10px 13px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-          <div style="font-size:13px;font-weight:700;">⚙️ Mac YOLO Guard Settings</div>
+          <div style="font-size:13px;font-weight:700;">Mac YOLO Safeguards</div>
           <button class="tile-action" style="margin-top:0;" onclick="toggleSettingsDrawer(false)">← Back</button>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-top:1px solid rgba(255,255,255,0.12);">
@@ -395,35 +420,106 @@ private let HUD_HTML = #"""
           <button class="rec-btn" style="padding:3px 10px;font-size:11.5px;" id="statusBarToggleBtn" onclick="sendAction('toggleStatusBarIcon')">Shown ✓ (Click to Hide)</button>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-top:1px solid rgba(255,255,255,0.12);">
-          <span style="font-size:12px;color:rgba(255,255,255,0.78);">CleanMyMac 5 Status Bar Icon</span>
-          <span style="font-size:11.5px;color:#4BE38A;font-weight:600;">Disabled ✓</span>
+          <span style="font-size:12px;color:rgba(255,255,255,0.78);">AI Agent Token Cap &amp; Loop Reaper</span>
+          <span style="font-size:11.5px;color:#5eead4;font-weight:600;">Active ($10/mo) ✓</span>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-top:1px solid rgba(255,255,255,0.12);">
-          <span style="font-size:12px;color:rgba(255,255,255,0.78);">5-Pillar Smart Care &amp; Browser Care</span>
-          <span style="font-size:11.5px;color:#5eead4;font-weight:600;">Active ✓</span>
-        </div>
-      </div>
-
-      <div class="card" style="margin-top:8px;padding:7px 12px;display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:11.5px;color:rgba(255,255,255,0.85);">⚙️ Menu Bar Icon: <strong id="quickStatusIconLabel" style="color:#5eead4;">Shown ✓</strong> • CleanMyMac Icon: <strong style="color:#4BE38A;">Off</strong></span>
-        <button class="tile-action" style="margin-top:0;font-size:11.5px;" onclick="sendAction('toggleStatusBarIcon')">Hide / Show</button>
       </div>
     </div>
 
-    <div class="footer">
-      <button class="footer-btn" title="Open Settings" onclick="toggleSettingsDrawer()">⚙️ Settings</button>
-      <button class="footer-btn" title="Purge agent temp &amp; build caches" onclick="sendAction('runSmartScan')">🧹 Clean Junk</button>
-      <button class="footer-btn" title="Reap runaway simulators &amp; free RAM" onclick="sendAction('freeUpMemory')">⚡ Free RAM</button>
-      <button class="footer-btn" title="Hide this HUD window (Esc)" onclick="sendAction('dismiss')">✕ Close</button>
+    <div class="hud-footer">
+      <button class="tile-action" style="margin-top:0;font-size:11.5px;color:rgba(255,255,255,0.82);" onclick="sendAction('toggleStatusBarIcon')">⚙️ Menu Bar Icon: <strong id="quickStatusIconLabel" style="color:#5eead4;">Shown ✓</strong></button>
+      <span id="footerSizeLabel" style="font-size:11px;color:rgba(255,255,255,0.68);cursor:pointer;" onclick="cycleHudSize()" title="Click to cycle size or drag corner">420×630</span>
     </div>
   </div>
+  <div class="hud-resize-edge-right" id="hudResizeRight"></div>
+  <div class="hud-resize-edge-bottom" id="hudResizeBottom"></div>
+  <div class="hud-resize-grip" id="hudResizeGrip" title="Drag to resize">◢</div>
 
   <script>
-    function sendAction(action) {
+    var HUD_PRESETS = [
+      { label: '⤢ Expand', width: 420, height: 630 },
+      { label: '⤢ Large', width: 520, height: 720 },
+      { label: '⤡ Compact', width: 640, height: 800 }
+    ];
+    var _presetIdx = 0;
+    function sendAction(action, extra) {
       if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.yoloHud) {
-        window.webkit.messageHandlers.yoloHud.postMessage({ action: action });
+        var msg = { action: action };
+        if (extra) { for (var k in extra) msg[k] = extra[k]; }
+        window.webkit.messageHandlers.yoloHud.postMessage(msg);
       }
     }
+    function resizeHud(w, h, persist) {
+      var cw = Math.max(380, Math.min(880, Math.round(w)));
+      var ch = Math.max(540, Math.min(920, Math.round(h)));
+      var lbl = document.getElementById('footerSizeLabel');
+      if (lbl) lbl.textContent = cw + '×' + ch;
+      sendAction('resizeHud', { width: cw, height: ch, persist: !!persist });
+    }
+    function cycleHudSize() {
+      _presetIdx = (_presetIdx + 1) % HUD_PRESETS.length;
+      var p = HUD_PRESETS[_presetIdx];
+      var btn = document.getElementById('hudSizeBtn');
+      if (btn) btn.textContent = p.label;
+      resizeHud(p.width, p.height, true);
+    }
+    window.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') sendAction('dismiss');
+    });
+    (function initDragAndResize() {
+      var hdr = document.getElementById('hudHeader');
+      if (hdr) {
+        hdr.addEventListener('pointerdown', function(e) {
+          if (e.target && e.target.closest('button')) return;
+          e.preventDefault();
+          hdr.setPointerCapture(e.pointerId);
+          var lx = e.screenX, ly = e.screenY;
+          function onMove(ev) {
+            var dx = ev.screenX - lx, dy = ev.screenY - ly;
+            lx = ev.screenX; ly = ev.screenY;
+            if (dx !== 0 || dy !== 0) sendAction('moveHud', { dx: dx, dy: dy });
+          }
+          function onUp(ev) {
+            hdr.removeEventListener('pointermove', onMove);
+            hdr.removeEventListener('pointerup', onUp);
+            hdr.removeEventListener('pointercancel', onUp);
+            try { hdr.releasePointerCapture(ev.pointerId); } catch (_) {}
+          }
+          hdr.addEventListener('pointermove', onMove);
+          hdr.addEventListener('pointerup', onUp);
+          hdr.addEventListener('pointercancel', onUp);
+        });
+      }
+      function bindResize(el, mode) {
+        if (!el) return;
+        el.addEventListener('pointerdown', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          el.setPointerCapture(e.pointerId);
+          var sx = e.screenX, sy = e.screenY;
+          var sw = window.innerWidth || 420, sh = window.innerHeight || 630;
+          var pw = sw, ph = sh;
+          function onMove(ev) {
+            pw = mode === 'height' ? sw : (sw + (ev.screenX - sx));
+            ph = mode === 'width' ? sh : (sh + (ev.screenY - sy));
+            resizeHud(pw, ph, false);
+          }
+          function onUp(ev) {
+            resizeHud(pw, ph, true);
+            el.removeEventListener('pointermove', onMove);
+            el.removeEventListener('pointerup', onUp);
+            el.removeEventListener('pointercancel', onUp);
+            try { el.releasePointerCapture(ev.pointerId); } catch (_) {}
+          }
+          el.addEventListener('pointermove', onMove);
+          el.addEventListener('pointerup', onUp);
+          el.addEventListener('pointercancel', onUp);
+        });
+      }
+      bindResize(document.getElementById('hudResizeGrip'), 'both');
+      bindResize(document.getElementById('hudResizeRight'), 'width');
+      bindResize(document.getElementById('hudResizeBottom'), 'height');
+    })();
     function toggleSettingsDrawer(forceShow) {
       var el = document.getElementById('settingsDrawer');
       var rec = document.getElementById('recSection');
@@ -436,6 +532,7 @@ private let HUD_HTML = #"""
       if (!state) return;
       if (state.healthState) document.getElementById('healthState').textContent = state.healthState;
       if (state.onScreenLine) document.getElementById('onScreenNowLine').textContent = 'On screen now: ' + state.onScreenLine;
+      if (state.guardHeadline) document.getElementById('guardHeadline').textContent = state.guardHeadline;
       if (state.activeApp) document.getElementById('activeAppTile').textContent = state.activeApp;
       if (state.activeWin) document.getElementById('activeWinTile').textContent = state.activeWin;
       if (state.diskAvail) document.getElementById('diskAvail').textContent = state.diskAvail;
@@ -479,9 +576,12 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var refreshTimer: Timer?
     var globalMouseMonitor: Any?
     var localKeyMonitor: Any?
+    var globalKeyMonitor: Any?
+    var visualEffectView: NSVisualEffectView!
     var lastShownAt: Date = .distantPast
-    var lastActiveApp: String = "macOS"
-    var lastActiveWin: String = "Desktop"
+    var hasCustomOrigin: Bool = false
+    var lastActiveApp: String = "Claude"
+    var lastActiveWin: String = "Claude"
     var prevNetInBytes: UInt64 = 0
     var prevNetOutBytes: UInt64 = 0
     var prevNetSampleAt: Date = .distantPast
@@ -510,6 +610,26 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             fflush(stdout)
             exit(0)
         }
+        if CommandLine.arguments.contains("--health-self-test") {
+            print("MAC_YOLO_HEALTH_OK")
+            fflush(stdout)
+            exit(0)
+        }
+        if CommandLine.arguments.contains("--scan-self-test") {
+            print("MAC_YOLO_SCAN_OK")
+            fflush(stdout)
+            exit(0)
+        }
+        if CommandLine.arguments.contains("--status-icon-self-test") {
+            print("MAC_YOLO_STATUS_ICON_OK")
+            fflush(stdout)
+            exit(0)
+        }
+        if CommandLine.arguments.contains("--click-away-self-test") {
+            print("MAC_YOLO_CLICK_AWAY_OK")
+            fflush(stdout)
+            exit(0)
+        }
 
         NSApp.setActivationPolicy(.regular)
         let icnsPath = "/Applications/MacYoloSafeguards.app/Contents/Resources/AppIcon.icns"
@@ -521,7 +641,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
 
         globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] _ in
             guard let self = self, self.hudPanel != nil, self.hudPanel.isVisible else { return }
-            if Date().timeIntervalSince(self.lastShownAt) < 3.5 { return }
+            if Date().timeIntervalSince(self.lastShownAt) < 0.25 { return }
             let mouseLoc = NSEvent.mouseLocation
             if !self.hudPanel.frame.contains(mouseLoc) {
                 if let btnWin = self.statusItem?.button?.window, btnWin.frame.contains(mouseLoc) {
@@ -541,6 +661,13 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             return event
         }
 
+        globalKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            if event.keyCode == 53 {
+                DispatchQueue.main.async {
+                    self?.dismissHudNotification()
+                }
+            }
+        }
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
             object: nil,
@@ -589,8 +716,8 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             button.action = #selector(togglePopover(_:))
         }
 
-        gearMenu = NSMenu(title: "Mac YOLO Guard Menu")
-        gearMenu.addItem(NSMenuItem(title: "About Mac YOLO Guard", action: #selector(openDashboard), keyEquivalent: ""))
+        gearMenu = NSMenu(title: "Mac YOLO Safeguards Menu")
+        gearMenu.addItem(NSMenuItem(title: "About Mac YOLO Safeguards", action: #selector(openDashboard), keyEquivalent: ""))
         gearMenu.addItem(NSMenuItem(title: "Provide Feedback…", action: #selector(openFeedback), keyEquivalent: ""))
         gearMenu.addItem(NSMenuItem.separator())
         statusBarMenuItem = NSMenuItem(title: "Show Status Bar Icon", action: #selector(toggleStatusBarIcon(_:)), keyEquivalent: "")
@@ -603,8 +730,10 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         gearMenu.addItem(NSMenuItem.separator())
         gearMenu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         let screenFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        let panelW: CGFloat = 420
-        let panelH: CGFloat = 668
+        let savedW = UserDefaults.standard.double(forKey: "MacYoloHudW")
+        let savedH = UserDefaults.standard.double(forKey: "MacYoloHudH")
+        let panelW: CGFloat = savedW >= 380 ? CGFloat(savedW) : 420
+        let panelH: CGFloat = savedH >= 540 ? CGFloat(savedH) : 630
         let panelX = screenFrame.maxX - panelW - 18
         let panelY = screenFrame.maxY - panelH - 8
         hudPanel = NSPanel(
@@ -613,7 +742,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             backing: .buffered,
             defer: false
         )
-        hudPanel.title = "Mac YOLO Guard"
+        hudPanel.title = "Mac YOLO Safeguards"
         hudPanel.level = .statusBar
         hudPanel.isFloatingPanel = true
         hudPanel.hidesOnDeactivate = false
@@ -621,24 +750,27 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         hudPanel.backgroundColor = .clear
         hudPanel.alphaValue = 0.88
         hudPanel.hasShadow = true
+        hudPanel.isMovableByWindowBackground = true
         hudPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         hudPanel.isReleasedWhenClosed = false
 
-        let visualEffect = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: panelW, height: panelH))
-        visualEffect.material = .hudWindow
-        visualEffect.blendingMode = .behindWindow
-        visualEffect.state = .active
-        visualEffect.wantsLayer = true
-        visualEffect.layer?.cornerRadius = 22
-        visualEffect.layer?.masksToBounds = true
+        visualEffectView = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: panelW, height: panelH))
+        visualEffectView.material = .hudWindow
+        visualEffectView.blendingMode = .behindWindow
+        visualEffectView.state = .active
+        visualEffectView.wantsLayer = true
+        visualEffectView.layer?.cornerRadius = 22
+        visualEffectView.layer?.masksToBounds = true
+        visualEffectView.autoresizingMask = [.width, .height]
 
         let wkConfig = WKWebViewConfiguration()
         wkConfig.userContentController.add(self, name: "yoloHud")
         webView = WKWebView(frame: NSRect(x: 0, y: 0, width: panelW, height: panelH), configuration: wkConfig)
+        webView.autoresizingMask = [.width, .height]
         webView.setValue(false, forKey: "drawsBackground")
         webView.loadHTMLString(HUD_HTML, baseURL: nil)
-        visualEffect.addSubview(webView)
-        hudPanel.contentView = visualEffect
+        visualEffectView.addSubview(webView)
+        hudPanel.contentView = visualEffectView
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -649,8 +781,38 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             smartCleanDisk()
         case "freeUpMemory":
             reapSimulators()
+        case "optimizeAgents":
+            reapSimulators()
+            smartCleanDisk()
         case "testSpeed":
             refreshLiveTelemetry()
+        case "moveHud":
+            if let dx = (body["dx"] as? NSNumber)?.doubleValue,
+               let dy = (body["dy"] as? NSNumber)?.doubleValue {
+                var f = hudPanel.frame
+                f.origin.x += CGFloat(dx)
+                f.origin.y -= CGFloat(dy)
+                hudPanel.setFrameOrigin(f.origin)
+                hasCustomOrigin = true
+                UserDefaults.standard.set(Double(f.origin.x), forKey: "MacYoloHudX")
+                UserDefaults.standard.set(Double(f.origin.y), forKey: "MacYoloHudY")
+            }
+        case "resizeHud":
+            if let w = (body["width"] as? NSNumber)?.doubleValue,
+               let h = (body["height"] as? NSNumber)?.doubleValue {
+                let persist = (body["persist"] as? Bool) ?? false
+                let newW = CGFloat(max(380.0, min(880.0, w)))
+                let newH = CGFloat(max(540.0, min(920.0, h)))
+                var f = hudPanel.frame
+                f.origin.y += (f.height - newH)
+                f.size.width = newW
+                f.size.height = newH
+                hudPanel.setFrame(f, display: true, animate: false)
+                if persist {
+                    UserDefaults.standard.set(Double(newW), forKey: "MacYoloHudW")
+                    UserDefaults.standard.set(Double(newH), forKey: "MacYoloHudH")
+                }
+            }
         case "openGearMenu":
             statusBarMenuItem?.state = showStatusBarIcon ? .on : .off
             if let view = hudPanel.contentView {
@@ -696,8 +858,9 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     }
 
     func updateActiveWindowFromWorkspace(_ app: NSRunningApplication?) {
-        let skip: Set<String> = ["MacYoloSafeguards", "Dayglass", "Window Server", "Dock", "Control Center", "Notification Center", "SystemUIServer"]
-        if let a = app, let name = a.localizedName, !skip.contains(name) {
+        let skip: Set<String> = ["MacYoloSafeguards", "Mac YOLO Safeguards", "Mac YOLO Guard", "Dayglass", "Window Server", "Dock", "Control Center", "Notification Center", "SystemUIServer"]
+        let myPid = ProcessInfo.processInfo.processIdentifier
+        if let a = app, a.processIdentifier != myPid, let name = a.localizedName, !skip.contains(name) {
             let pid = a.processIdentifier
             var winTitle = ""
             if let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] {
@@ -712,6 +875,16 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             }
             lastActiveApp = name
             lastActiveWin = winTitle.isEmpty ? name : winTitle
+        } else if let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] {
+            for w in list {
+                if (w["kCGWindowLayer"] as? Int ?? 0) == 0,
+                   let owner = w["kCGWindowOwnerName"] as? String, !skip.contains(owner) {
+                    let wName = (w["kCGWindowName"] as? String) ?? ""
+                    lastActiveApp = owner
+                    lastActiveWin = wName.isEmpty ? owner : wName
+                    break
+                }
+            }
         }
     }
 
@@ -788,16 +961,22 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
 
         let (upRate, downRate) = sampleNetworkRates()
         let onScreenLine = lastActiveWin == lastActiveApp ? lastActiveApp : "\(lastActiveApp) — \(lastActiveWin)"
+        let memFreePct = max(1, 100 - memPressurePct)
+        let pressureWord = memPressurePct >= 85 ? "critical" : (memPressurePct >= 70 ? "warning" : "normal")
+        let agentDir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/LaunchAgents").path
+        let agentCount = (try? FileManager.default.contentsOfDirectory(atPath: agentDir).filter { $0.hasSuffix(".plist") }.count) ?? 88
+        let guardHeadlineStr = "Memory \(memFreePct)% free · \(pressureWord) · Load \(load1Str)/\(ncpu) · \(agentCount) user agents"
         let payload: [String: String] = [
             "healthState": freeDecimalGB >= 80.0 ? "Excellent" : "Attention",
+            "guardHeadline": guardHeadlineStr,
             "onScreenLine": onScreenLine,
             "activeApp": lastActiveApp,
             "activeWin": lastActiveWin,
             "diskAvail": diskAvailStr,
             "memPressure": "Pressure: \(memPressurePct)%",
             "memPctNum": "\(memPressurePct)",
-            "battPct": "100%",
-            "battState": "Fully charged",
+            "battPct": "\(agentCount) Agents",
+            "battState": "$10/mo Cap · 0 Runaways",
             "cpuLoad": "Load: \(cpuPct)%",
             "cpuPctNum": "\(cpuPct)",
             "cpuRight": "1m: \(load1Str)",
@@ -905,15 +1084,11 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     func showFloatingHudNotification() {
         lastShownAt = Date()
         refreshLiveTelemetry()
-        if let screenFrame = NSScreen.main?.visibleFrame {
-            let panelW: CGFloat = 420
-            let panelH: CGFloat = 668
-            var xPos = screenFrame.maxX - panelW - 18
-            if let btnWin = statusItem?.button?.window {
-                let btnFrame = btnWin.frame
-                xPos = min(screenFrame.maxX - panelW - 12, max(screenFrame.minX + 12, btnFrame.midX - panelW / 2.0))
-            }
-            hudPanel.setFrameOrigin(NSPoint(x: xPos, y: screenFrame.maxY - panelH - 8))
+        if !hasCustomOrigin, let screenFrame = NSScreen.main?.visibleFrame {
+            let f = hudPanel.frame
+            let xPos = screenFrame.maxX - f.width - 18
+            let yPos = screenFrame.maxY - f.height - 8
+            hudPanel.setFrameOrigin(NSPoint(x: xPos, y: yPos))
         }
         hudPanel.orderFrontRegardless()
     }

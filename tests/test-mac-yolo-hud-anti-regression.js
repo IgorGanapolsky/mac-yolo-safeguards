@@ -40,6 +40,7 @@ function main() {
     'var upKB = 145',
     'var downKB = 420',
     'Open Mac YOLO Guard',
+    '✕ Close',
   ];
   for (const b of banned) {
     assert.ok(!src.includes(b), `Regression string "${b}" is banned in macos/MacYoloSafeguardsApp.swift`);
@@ -48,8 +49,8 @@ function main() {
   // 2. True native macOS translucency + Liquid Glass strict layering
   assert.ok(src.includes('hudPanel.alphaValue = 0.88'), 'hudPanel.alphaValue = 0.88 required');
   assert.ok(src.includes('NSVisualEffectView'), 'NSVisualEffectView required for behindWindow blur');
-  assert.ok(src.includes('visualEffect.material = .hudWindow'), '.hudWindow material required');
-  assert.ok(src.includes('visualEffect.blendingMode = .behindWindow'), '.behindWindow blending required');
+  assert.ok(src.includes('visualEffectView.material = .hudWindow'), '.hudWindow material required');
+  assert.ok(src.includes('visualEffectView.blendingMode = .behindWindow'), '.behindWindow blending required');
   assert.ok(src.includes('background: rgba(15, 11, 33, 0.58)'), 'Matte inner cards required (never stack glass on glass)');
 
   // 3. Custom Retina Menu Bar Pill + glowing Bento meters
@@ -57,25 +58,31 @@ function main() {
   assert.ok(src.includes('button.imagePosition = .imageOnly'), 'Status item must use rendered Retina pill image');
   assert.ok(src.includes('id="diskBarFill"') && src.includes('id="memBarFill"') && src.includes('id="cpuBarFill"'), 'Bento tile meter bars required');
 
-  // 4. Unclipped 420x668 bounds & labeled footer buttons
-  assert.ok(src.includes('height: 668px') && src.includes('let panelH: CGFloat = 668'), '668px unclipped HUD height required');
-  assert.ok(src.includes('⚙️ Settings') && src.includes('🧹 Clean Junk') && src.includes('⚡ Free RAM') && src.includes('✕ Close'), 'All 4 labeled footer buttons required');
+  // 4. Dayglass-style drag-to-move, corner resize, top-right placement, and AI Agent Optimization card
+  assert.ok(src.includes('case "moveHud":') && src.includes('case "resizeHud":'), 'Dayglass moveHud and resizeHud handlers required');
+  assert.ok(src.includes('id="hudResizeGrip"') && src.includes('⤢ Expand'), 'Dayglass corner resize grip and Expand button required');
+  assert.ok(src.includes('AI YOLO Agent Optimization') && src.includes('user agents'), 'AI Agent Optimization card and live user agents health strip required');
 
   // 5. Steady network rate sampling decoupled from app switching
   assert.ok(src.includes('dt < 1.2'), 'dt < 1.2s guard required in sampleNetworkRates()');
 
-  // 6. On macOS host, verify /Applications binary matches canonical binary
+  // 6. Entire Trails CI/CD Pilot HUD Gate must be GREEN
+  const { evaluateEntireTrailHud } = require('../tools/entire-cicd-regression-gate');
+  const trail = evaluateEntireTrailHud();
+  assert.strictEqual(trail.ok, true);
+  assert.strictEqual(trail.stop_cop, 'green');
+
+  // 7. On macOS host, verify /Applications binary matches canonical purple-bento binary
   if (process.platform === 'darwin') {
-    const canonicalBin = path.join(os.homedir(), '.hermes', 'bin', 'MacYoloSafeguards-canonical');
+    const canonicalBin = path.join(os.homedir(), '.hermes', 'bin', 'MacYoloSafeguards-purple-bento');
     const appBin = '/Applications/MacYoloSafeguards.app/Contents/MacOS/MacYoloSafeguards';
     if (fs.existsSync(canonicalBin) && fs.existsSync(appBin)) {
       const cBuf = fs.readFileSync(canonicalBin);
       const aBuf = fs.readFileSync(appBin);
-      assert.strictEqual(cBuf.equals(aBuf), true, '/Applications binary must match ~/.hermes/bin/MacYoloSafeguards-canonical');
+      assert.strictEqual(cBuf.equals(aBuf), true, '/Applications binary must match ~/.hermes/bin/MacYoloSafeguards-purple-bento');
       assert.ok(!aBuf.includes(Buffer.from('Sizes appear after Scan')), 'Compiled binary must never contain black-box regression');
     }
   }
-
   console.log('test-mac-yolo-hud-anti-regression: PASS (all 8 HUD & Menu Bar Pill invariants verified)');
 }
 
