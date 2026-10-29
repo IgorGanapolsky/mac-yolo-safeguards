@@ -324,7 +324,6 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let icnsPath = "/Applications/MacYoloSafeguards.app/Contents/Resources/AppIcon.icns"
         if let iconImg = NSImage(contentsOfFile: icnsPath) {
             NSApp.applicationIconImage = iconImg
-            NSWorkspace.shared.setIcon(iconImg, forFile: "/Applications/MacYoloSafeguards.app", options: [])
         }
         updateActiveWindowFromWorkspace(NSWorkspace.shared.frontmostApplication)
 
