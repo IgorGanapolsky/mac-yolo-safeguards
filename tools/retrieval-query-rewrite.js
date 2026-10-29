@@ -95,6 +95,11 @@ const SYNONYM_RULES = [
     match: /rerank|cross.?encoder|colbert|dual.?path|retrieval\s+fusion/i,
     expand: ['retrieval-rerank', 'retrieval-dual-path', 'rrfFuse', 'colbert_lite'],
   },
+  {
+    id: 'lessons-feedback-dashboard',
+    match: /\bthumbgate\s+lessons\b|\blessons\s+response\s+feedback\b|\bfeedback\s+thumbs\b/i,
+    expand: ['LessonsClient', 'dashboard/lessons', 'api/lessons'],
+  },
 ];
 
 /**
