@@ -5,7 +5,7 @@ const assert = require('assert');
 const {
   getRootDiskUsage,
   runDiskSmartScan,
-} = require('../tools/mac-yolo-cleanmymac-steal');
+} = require('../tools/mac-yolo-disk-guard');
 const { callTool } = require('../tools/mac-yolo-mcp-server');
 const { routeRequest } = require('../tools/mac-yolo-service');
 
@@ -27,7 +27,7 @@ function main() {
   assert.strictEqual(httpScan.status, 200);
   assert.strictEqual(httpScan.body.ok, true);
 
-  console.log('test-mac-yolo-cleanmymac-steal: PASS');
+  console.log('test-mac-yolo-disk-guard: PASS');
 }
 
 main();

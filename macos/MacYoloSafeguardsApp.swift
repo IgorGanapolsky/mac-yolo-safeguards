@@ -15,22 +15,22 @@ class MacYoloPopoverViewController: NSViewController {
     weak var appDelegate: MacYoloAppDelegate?
 
     override func loadView() {
-        let root = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: 360, height: 310))
+        let root = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: 380, height: 310))
         root.material = .hudWindow
         root.blendingMode = .behindWindow
         root.state = .active
 
-        titleLabel = makeLabel("🛡 Mac YOLO Safeguards • CleanMyMac Guard", size: 13, bold: true, color: .white)
-        titleLabel.frame = NSRect(x: 16, y: 274, width: 328, height: 20)
+        titleLabel = makeLabel("🛡 Mac YOLO Safeguards • Disk & Screen Guard", size: 13, bold: true, color: .white)
+        titleLabel.frame = NSRect(x: 16, y: 274, width: 348, height: 20)
         root.addSubview(titleLabel)
 
         // Disk Space Lens Card
-        let diskBox = makeCard(frame: NSRect(x: 16, y: 176, width: 328, height: 90))
+        let diskBox = makeCard(frame: NSRect(x: 16, y: 176, width: 348, height: 90))
         diskTitleLabel = makeLabel("Disk Space: Measuring…", size: 12, bold: true, color: NSColor.systemTeal)
-        diskTitleLabel.frame = NSRect(x: 12, y: 60, width: 304, height: 18)
+        diskTitleLabel.frame = NSRect(x: 12, y: 60, width: 324, height: 18)
         diskBox.addSubview(diskTitleLabel)
 
-        diskBar = NSProgressIndicator(frame: NSRect(x: 12, y: 38, width: 304, height: 14))
+        diskBar = NSProgressIndicator(frame: NSRect(x: 12, y: 38, width: 324, height: 14))
         diskBar.isIndeterminate = false
         diskBar.minValue = 0
         diskBar.maxValue = 100
@@ -38,41 +38,41 @@ class MacYoloPopoverViewController: NSViewController {
         diskBox.addSubview(diskBar)
 
         diskDetailLabel = makeLabel("✓ Reclaimed 47.24 GiB from /private/tmp/claude-502", size: 11, bold: false, color: NSColor.lightGray)
-        diskDetailLabel.frame = NSRect(x: 12, y: 10, width: 304, height: 22)
+        diskDetailLabel.frame = NSRect(x: 12, y: 10, width: 324, height: 22)
         diskBox.addSubview(diskDetailLabel)
         root.addSubview(diskBox)
 
         // Real-Time On Screen Now Card
-        let screenBox = makeCard(frame: NSRect(x: 16, y: 104, width: 328, height: 62))
+        let screenBox = makeCard(frame: NSRect(x: 16, y: 104, width: 348, height: 62))
         onScreenTitleLabel = makeLabel("ON SCREEN NOW (REAL-TIME SWITCH TRACKER)", size: 10, bold: true, color: NSColor.systemGreen)
-        onScreenTitleLabel.frame = NSRect(x: 12, y: 38, width: 304, height: 14)
+        onScreenTitleLabel.frame = NSRect(x: 12, y: 38, width: 324, height: 14)
         screenBox.addSubview(onScreenTitleLabel)
 
         onScreenValueLabel = makeLabel("Detecting active window…", size: 12, bold: true, color: .white)
-        onScreenValueLabel.frame = NSRect(x: 12, y: 10, width: 304, height: 24)
+        onScreenValueLabel.frame = NSRect(x: 12, y: 10, width: 324, height: 24)
         onScreenValueLabel.lineBreakMode = .byTruncatingTail
         screenBox.addSubview(onScreenValueLabel)
         root.addSubview(screenBox)
 
         // Load & Token Budget Row
         loadValueLabel = makeLabel("Load Avg: -- • Token Cap: $10.00/mo [GREEN]", size: 11, bold: false, color: NSColor.secondaryLabelColor)
-        loadValueLabel.frame = NSRect(x: 16, y: 74, width: 328, height: 18)
+        loadValueLabel.frame = NSRect(x: 16, y: 74, width: 348, height: 18)
         root.addSubview(loadValueLabel)
 
         // Action Buttons
         cleanButton = NSButton(title: "✨ Smart Clean Junk", target: self, action: #selector(onCleanClicked))
         cleanButton.bezelStyle = .rounded
-        cleanButton.frame = NSRect(x: 16, y: 34, width: 158, height: 30)
+        cleanButton.frame = NSRect(x: 16, y: 34, width: 168, height: 30)
         root.addSubview(cleanButton)
 
         reapButton = NSButton(title: "⚡ Reap Simulators", target: self, action: #selector(onReapClicked))
         reapButton.bezelStyle = .rounded
-        reapButton.frame = NSRect(x: 186, y: 34, width: 158, height: 30)
+        reapButton.frame = NSRect(x: 196, y: 34, width: 168, height: 30)
         root.addSubview(reapButton)
 
-        let quitBtn = NSButton(title: "Dismiss", target: self, action: #selector(onDismissClicked))
+        let quitBtn = NSButton(title: "Dismiss (or click outside)", target: self, action: #selector(onDismissClicked))
         quitBtn.bezelStyle = .inline
-        quitBtn.frame = NSRect(x: 280, y: 8, width: 64, height: 18)
+        quitBtn.frame = NSRect(x: 204, y: 8, width: 160, height: 18)
         root.addSubview(quitBtn)
 
         self.view = root
@@ -99,7 +99,7 @@ class MacYoloPopoverViewController: NSViewController {
     }
 
     @objc func onCleanClicked() {
-        diskDetailLabel.stringValue = "Running CleanMyMac Smart Scan & Purge…"
+        diskDetailLabel.stringValue = "Running Disk Smart Scan & Temp Purge…"
         appDelegate?.smartCleanDisk()
     }
 
@@ -108,8 +108,7 @@ class MacYoloPopoverViewController: NSViewController {
     }
 
     @objc func onDismissClicked() {
-        appDelegate?.popover?.performClose(nil)
-        appDelegate?.hudPanel?.orderOut(nil)
+        appDelegate?.dismissHudNotification()
     }
 }
 
@@ -120,6 +119,9 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate {
     var hudPanel: NSPanel!
     var hudPanelVC: MacYoloPopoverViewController!
     var refreshTimer: Timer?
+    var globalMouseMonitor: Any?
+    var localKeyMonitor: Any?
+    var lastShownAt: Date = .distantPast
     var lastExternalWindowLabel: String = "Active Window"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -150,6 +152,29 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
         updateActiveWindowFromWorkspace(NSWorkspace.shared.frontmostApplication)
 
+        // Click anywhere outside the HUD notification panel to dismiss it immediately
+        globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] _ in
+            guard let self = self, self.hudPanel != nil, self.hudPanel.isVisible else { return }
+            if Date().timeIntervalSince(self.lastShownAt) < 0.35 { return }
+            let mouseLoc = NSEvent.mouseLocation
+            if !self.hudPanel.frame.contains(mouseLoc) {
+                if let btnWin = self.statusItem?.button?.window, btnWin.frame.contains(mouseLoc) {
+                    return
+                }
+                DispatchQueue.main.async {
+                    self.dismissHudNotification()
+                }
+            }
+        }
+
+        localKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            if event.keyCode == 53 {
+                self?.dismissHudNotification()
+                return nil
+            }
+            return event
+        }
+
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
             object: nil,
@@ -166,8 +191,6 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate {
             self?.refreshLiveTelemetry()
         }
 
-        // Show both the floating top-right CleanMyMac HUD Notification Panel (immune to macOS
-        // Focus/DND moon mode and menu-bar << hiders) and the status-bar popover.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
             self?.showFloatingHudNotification()
         }
@@ -188,8 +211,8 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate {
         }
 
         popover = NSPopover()
-        popover.contentSize = NSSize(width: 360, height: 310)
-        popover.behavior = .semitransient
+        popover.contentSize = NSSize(width: 380, height: 310)
+        popover.behavior = .transient
         popover.animates = true
         popover.appearance = NSAppearance(named: .vibrantDark)
 
@@ -199,7 +222,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate {
         popover.contentViewController = popoverVC
 
         let screenFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        let panelW: CGFloat = 360
+        let panelW: CGFloat = 380
         let panelH: CGFloat = 310
         let panelX = screenFrame.maxX - panelW - 18
         let panelY = screenFrame.maxY - panelH - 12
@@ -209,7 +232,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate {
             backing: .buffered,
             defer: false
         )
-        hudPanel.title = "🛡 Mac YOLO Safeguards • CleanMyMac & Screen Guard"
+        hudPanel.title = "🛡 Mac YOLO Safeguards • Disk & Screen Guard"
         hudPanel.level = .statusBar
         hudPanel.isFloatingPanel = true
         hudPanel.hidesOnDeactivate = false
@@ -218,6 +241,11 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate {
         hudPanelVC = MacYoloPopoverViewController()
         hudPanelVC.appDelegate = self
         hudPanel.contentView = hudPanelVC.view
+    }
+
+    func dismissHudNotification() {
+        popover?.performClose(nil)
+        hudPanel?.orderOut(nil)
     }
 
     func updateActiveWindowFromWorkspace(_ app: NSRunningApplication?) {
@@ -258,13 +286,13 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate {
         let freeStr = String(format: "%.1f", freeGiB)
         let totalStr = String(format: "%.0f", totalGiB)
         let pctStr = String(format: "%.1f", usedPct)
-        let statusTag = usedPct >= 90.0 ? "CRITICAL" : (usedPct >= 80.0 ? "LOW SPACE WARN" : "HEALTHY")
+        let statusTag = usedPct >= 90.0 ? "CRITICAL" : (usedPct >= 80.0 ? "WARN" : "OK")
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.statusItem.button?.title = " \(freeGiBInt)G"
             for vc in [self.popoverVC, self.hudPanelVC].compactMap({ $0 }) {
-                vc.diskTitleLabel.stringValue = "Disk: \(freeStr) GiB Free of \(totalStr) GiB (\(pctStr)% • \(statusTag))"
+                vc.diskTitleLabel.stringValue = "Disk: \(freeStr) GiB Free / \(totalStr) GiB (\(pctStr)% • \(statusTag))"
                 vc.diskBar.doubleValue = usedPct
                 vc.onScreenValueLabel.stringValue = self.lastExternalWindowLabel
                 vc.loadValueLabel.stringValue = "macOS Load (1m): \(load1) • Token Cap: $10.00/mo [GREEN]"
@@ -274,16 +302,17 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func togglePopover(_ sender: AnyObject?) {
         if hudPanel.isVisible {
-            hudPanel.orderOut(sender)
+            dismissHudNotification()
         } else {
             showFloatingHudNotification()
         }
     }
 
     func showFloatingHudNotification() {
+        lastShownAt = Date()
         refreshLiveTelemetry()
         if let screenFrame = NSScreen.main?.visibleFrame {
-            let panelW: CGFloat = 360
+            let panelW: CGFloat = 380
             let panelH: CGFloat = 310
             hudPanel.setFrameOrigin(NSPoint(x: screenFrame.maxX - panelW - 18, y: screenFrame.maxY - panelH - 12))
         }
@@ -294,7 +323,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate {
         let proc = Process()
         proc.launchPath = "/opt/homebrew/bin/node"
         let home = FileManager.default.homeDirectoryForCurrentUser.path
-        proc.arguments = ["\(home)/workspace/mac-yolo-safeguards/tools/mac-yolo-cleanmymac-steal.js", "--clean"]
+        proc.arguments = ["\(home)/workspace/mac-yolo-safeguards/tools/mac-yolo-disk-guard.js", "--clean"]
         try? proc.run()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
             self?.refreshLiveTelemetry()

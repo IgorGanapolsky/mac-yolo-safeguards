@@ -2,9 +2,9 @@
 'use strict';
 
 /**
- * tools/mac-yolo-cleanmymac-steal.js
+ * tools/mac-yolo-disk-guard.js
  *
- * CleanMyMac-Style "Smart Scan + Space Lens + 1-Click Safe Purge + Native Notification"
+ * Disk Space Lens, Smart Scan, 1-Click Safe Temp Purge, and Native Notification
  * purpose-built for AI Coding Agent Macs (`mac-yolo-safeguards`).
  *
  * Why this exists:
@@ -13,7 +13,7 @@
  *   into `/private/tmp` and `~/Library/Caches`, driving macOS APFS volumes to >=90%
  *   full without warning.
  *
- * Features stolen & upgraded from CleanMyMac:
+ * Capabilities:
  *   1. Space Lens & Smart Scan (`runDiskSmartScan`):
  *      - Measures APFS root disk (`totalGiB`, `usedGiB`, `freeGiB`, `usedPct`, `status`)
  *      - Categorizes reclaimable AI-agent & developer junk (`claude_tmp_runaways`,
@@ -27,7 +27,7 @@
  *        or after Smart Clean reclaims space.
  *
  * Usage:
- *   node tools/mac-yolo-cleanmymac-steal.js [--scan] [--clean] [--notify] [--json]
+ *   node tools/mac-yolo-disk-guard.js [--scan] [--clean] [--notify] [--json]
  */
 
 const fs = require('fs');

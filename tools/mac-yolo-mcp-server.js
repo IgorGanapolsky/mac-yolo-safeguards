@@ -117,7 +117,7 @@ function getToolDefinitions() {
     },
     {
       name: 'yolo_disk_smart_scan',
-      description: 'CleanMyMac-style disk Space Lens, Smart Scan, safe 1-click agent temp cache purge, and native macOS notification',
+      description: 'Disk Space Lens, Smart Scan, safe 1-click agent temp cache purge, and native macOS notification',
       inputSchema: {
         type: 'object',
         properties: {
@@ -277,7 +277,7 @@ function callTool(name, args = {}) {
   }
 
   if (name === 'yolo_disk_smart_scan') {
-    const { runDiskSmartScan, runDiskSmartClean } = require('./mac-yolo-cleanmymac-steal');
+    const { runDiskSmartScan, runDiskSmartClean } = require('./mac-yolo-disk-guard');
     if (args.clean) {
       return runDiskSmartClean({ notify: args.notify !== false });
     }
