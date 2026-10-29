@@ -4103,4 +4103,5 @@ Fixed `.mcp.json` (`github` via `github-mcp-stdio`, `grepai` `/Users/iganapolsky
 - `tools/revenue-autonomous-loop.js`
 - `apps/hermes-control-plane/package.json`
 - `apps/hermes-control-plane/package-lock.json`
+- `tools/retrieval-query-rewrite.js`
 - `plan.md` (this append)
