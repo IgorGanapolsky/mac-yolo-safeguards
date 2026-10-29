@@ -22,7 +22,7 @@ const { execSync } = require('child_process');
 const { writeVaultNote } = require('./shared-vault-memory');
 
 const JSON_MODE = process.argv.includes('--json');
-const HERDR_CLI = '/Users/igorganapolsky/.local/bin/herdr';
+const HERDR_CLI = '/Users/iganapolsky/.local/bin/herdr';
 
 /**
  * Checks if Herdr CLI is installed and operational.

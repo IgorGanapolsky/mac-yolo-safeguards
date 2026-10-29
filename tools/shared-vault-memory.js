@@ -24,7 +24,7 @@ const MAX_FILE_BYTES = 256 * 1024;
 const MAX_FILES = 4000;
 const MAX_MATCHES = 5;
 const TYPO_ROOT = '/Users/igorganapolsky';
-const SECRET = /github_pat_|sk_live_|BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}/;
+const SECRET = /github_pat_|ghp_[A-Za-z0-9]{20,}|sk_live_|BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}/;
 
 function resolveSharedVault(options = {}) {
   const env = options.env || process.env;
@@ -105,7 +105,7 @@ function searchNotes(vault, query, options = {}) {
     matches.push({
       path: path.relative(vault, file).split(path.sep).join('/'),
       score,
-      excerpt: text.replace(/\s+/g, ' ').trim().slice(0, EXCERPT_CAP),
+      excerpt: excerptAround(text, terms),
     });
   }
   matches.sort((a, b) => b.score - a.score || a.path.localeCompare(b.path));
@@ -146,6 +146,21 @@ function contentBrief(vault, query) {
   };
 }
 
+function excerptAround(text, terms) {
+  const collapsed = String(text || '').replace(/\s+/g, ' ').trim();
+  const lower = collapsed.toLowerCase();
+  let at = -1;
+  for (const term of terms) {
+    const hit = lower.indexOf(term);
+    if (hit !== -1 && (at === -1 || hit < at)) at = hit;
+  }
+  if (at === -1) return collapsed.slice(0, EXCERPT_CAP);
+  const start = Math.max(0, at - 40);
+  const budget = EXCERPT_CAP - (start > 0 ? 1 : 0);
+  const slice = collapsed.slice(start, start + budget);
+  return start > 0 ? `…${slice}` : slice;
+}
+
 function looksSecret(text) {
   return SECRET.test(String(text || ''));
 }
@@ -163,6 +178,21 @@ function assertInside(vault, target) {
   return dest;
 }
 
+function resolveInside(vault, parts) {
+  const root = fs.realpathSync(vault);
+  let current = root;
+  for (let index = 0; index < parts.length; index += 1) {
+    const next = path.join(current, parts[index]);
+    if (!fs.existsSync(next)) return path.join(current, ...parts.slice(index));
+    const real = fs.realpathSync(next);
+    if (real !== root && !real.startsWith(`${root}${path.sep}`)) {
+      throw new Error('path escapes vault');
+    }
+    current = real;
+  }
+  return current;
+}
+
 function writeVaultNote(vault, rel, body) {
   if (!vault || !fs.existsSync(vault)) return { ok: false, reason: 'vault missing' };
   if (looksSecret(body)) return { ok: false, reason: 'secret-like text refused' };
@@ -173,7 +203,8 @@ function writeVaultNote(vault, rel, body) {
   }
   let dest;
   try {
-    dest = assertInside(vault, path.join(vault, normalized));
+    assertInside(vault, path.join(vault, normalized));
+    dest = resolveInside(vault, parts);
   } catch {
     return { ok: false, reason: 'path escapes vault' };
   }
@@ -206,7 +237,41 @@ function upsertDaily(prior, agent, block, day) {
   return prior.slice(0, start) + block + tail;
 }
 
-function appendDailyLog(vault, entry = {}, now = new Date()) {
+function withDailyLock(lockPath, waitMs, fn) {
+  const deadline = Date.now() + waitMs;
+  while (true) {
+    let fd;
+    try {
+      fd = fs.openSync(lockPath, 'wx');
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+      try {
+        const age = Date.now() - fs.statSync(lockPath).mtimeMs;
+        if (age > 10000) {
+          fs.unlinkSync(lockPath);
+          continue;
+        }
+      } catch {
+        continue;
+      }
+      if (Date.now() >= deadline) return { ok: false, reason: 'daily log busy' };
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);
+      continue;
+    }
+    try {
+      return fn();
+    } finally {
+      fs.closeSync(fd);
+      try {
+        fs.unlinkSync(lockPath);
+      } catch {
+        /* the next writer can reclaim a stale lock */
+      }
+    }
+  }
+}
+
+function appendDailyLog(vault, entry = {}, now = new Date(), options = {}) {
   if (!vault || !fs.existsSync(vault)) return { ok: false, reason: 'vault missing' };
   const agent = cleanField(entry.agent || 'agent').replace(/[^a-zA-Z0-9._-]/g, '') || 'agent';
   const finished = cleanField(entry.finished);
@@ -219,10 +284,14 @@ function appendDailyLog(vault, entry = {}, now = new Date()) {
   const day = now.toISOString().slice(0, 10);
   const rel = `Agent-State/daily/${day}.md`;
   const dest = path.join(vault, 'Agent-State', 'daily', `${day}.md`);
-  let prior = '';
-  if (fs.existsSync(dest)) prior = fs.readFileSync(dest, 'utf8');
-  const next = upsertDaily(prior, agent, sectionBlock(agent, finished, learned, open), day);
-  return writeVaultNote(vault, rel, next);
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  const waitMs = Number.isFinite(options.lockWaitMs) ? options.lockWaitMs : 1500;
+  return withDailyLock(`${dest}.lock`, waitMs, () => {
+    let prior = '';
+    if (fs.existsSync(dest)) prior = fs.readFileSync(dest, 'utf8');
+    const next = upsertDaily(prior, agent, sectionBlock(agent, finished, learned, open), day);
+    return writeVaultNote(vault, rel, next);
+  });
 }
 
 function readFlag(argv, name) {

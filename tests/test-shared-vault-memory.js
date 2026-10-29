@@ -23,6 +23,15 @@ function check(name, fn) {
   passed += 1;
 }
 
+function citesExactUrl(packet, expected) {
+  const target = new URL(expected);
+  const found = String(packet).match(/https:\/\/[^\s)]+/g) || [];
+  return found.some((raw) => {
+    const url = new URL(raw);
+    return url.origin === target.origin && url.pathname === target.pathname;
+  });
+}
+
 function tempVault() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shared-vault-'));
   fs.mkdirSync(path.join(dir, 'Projects'), { recursive: true });
@@ -65,7 +74,7 @@ check('a matching note is the only context and nothing is invented', () => {
   assert.equal(brief.ok, true);
   assert.equal(brief.status, 'STAGED_FOR_APPROVAL');
   assert.deepEqual(brief.sources.map((source) => source.path), ['Projects/thumbgate.md']);
-  assert.equal(brief.packet.includes('https://thumbgate.app/'), true);
+  assert.equal(citesExactUrl(brief.packet, 'https://thumbgate.app/'), true);
   assert.equal(brief.packet.includes('Railway'), false);
   assert.equal(brief.packet.includes('$'), false);
   assert.equal(brief.packet.length <= PACKET_CHAR_CAP, true);
@@ -120,6 +129,39 @@ check('daily log keeps one section per agent and refuses secrets', () => {
   assert.equal(fs.readFileSync(file, 'utf8').includes('github_pat_'), false);
   const empty = appendDailyLog(vault, { agent: 'hermes' }, now);
   assert.equal(empty.ok, false);
+  const classic = `ghp_${'a'.repeat(36)}`;
+  const refused = appendDailyLog(vault, { agent: 'hermes', finished: classic }, now);
+  assert.equal(refused.ok, false);
+  assert.equal(fs.readFileSync(file, 'utf8').includes(classic), false);
+  const lock = `${file}.lock`;
+  fs.writeFileSync(lock, 'held');
+  const busy = appendDailyLog(vault, {
+    agent: 'judge',
+    finished: 'should not overwrite',
+  }, now, { lockWaitMs: 0 });
+  assert.equal(busy.ok, false);
+  assert.equal(busy.reason, 'daily log busy');
+  fs.unlinkSync(lock);
+});
+
+check('a symlink inside the vault cannot receive a note', () => {
+  const vault = tempVault();
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'shared-vault-out-'));
+  fs.symlinkSync(outside, path.join(vault, 'Agent-State'));
+  const leaked = writeVaultNote(vault, 'Agent-State/overwritten.md', 'leak');
+  assert.equal(leaked.ok, false);
+  assert.equal(fs.existsSync(path.join(outside, 'overwritten.md')), false);
+});
+
+check('the excerpt includes the matching passage', () => {
+  const vault = tempVault();
+  const filler = 'alpha '.repeat(80);
+  fs.writeFileSync(
+    path.join(vault, 'Projects', 'late.md'),
+    `# Late\n\n${filler}thumbgate lives here only.\n`,
+  );
+  const brief = contentBrief(vault, 'thumbgate');
+  assert.equal(brief.packet.includes('thumbgate lives here only'), true);
 });
 
 check('notes cannot escape the vault', () => {
