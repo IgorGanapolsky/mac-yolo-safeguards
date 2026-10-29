@@ -4080,3 +4080,25 @@ PR #2205 macOS guard kit failed in Node tool unit tests. `tests/test-path-normal
 ### File claims
 - `tests/test-path-normalizer.js`
 - `plan.md` (this append)
+
+## MCP wiring, CodeQL burn-down, repo hygiene, and 24/7 promotion (append 2026-10-29T01:44:00Z) — `omp-mcp-repo-hygiene`
+
+Fixed `.mcp.json` (`github` via `github-mcp-stdio`, `grepai` `/Users/iganapolsky/.hermes/semantic-index/mac-yolo-safeguards`, `gurobi` via `gurobi-mcp`, removed unauthenticated `semrush`), removed the tracked dangling `business_os` symlink with `~/.hermes/business_os/revenue` fallback in `tools/ops-paths.js` and `tools/revenue-autonomous-loop.js`, added `.github/FUNDING.yml` and 5-tier value ladder to `README.md`, added `tools/mac-yolo-24x7-promote.js`, and fixed CodeQL alerts `#183`, `#161`, `#132`, `#130`–`#131`, and `#128`–`#129`.
+
+### File claims
+- `.mcp.json`
+- `.github/FUNDING.yml`
+- `README.md`
+- `business_os`
+- `docs/MCP-INVENTORY.md`
+- `services/hermes-cloud-runner/server.js`
+- `tools/glm53-hermes-config.js`
+- `tools/install-fleet-repo-intelligence.sh`
+- `tools/jcode-yolo-wrapper.js`
+- `tools/mac-yolo-24x7-promote.js`
+- `tools/mcp-health-check.js`
+- `tools/netflix-oci-causal-engine.js`
+- `tools/openrouter-budget-guard.js`
+- `tools/ops-paths.js`
+- `tools/revenue-autonomous-loop.js`
+- `plan.md` (this append)

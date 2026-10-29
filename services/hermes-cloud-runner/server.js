@@ -183,14 +183,30 @@ const HOSTED_SYSTEM_PROMPT = [
 ].join(' ');
 
 function parseContinuitySmoke(prompt) {
-  const text = String(prompt || '');
+  const text = String(prompt || '').slice(0, 4096);
   // Require the explicit Continuity smoke marker so ordinary chat never matches.
-  if (!/\bcontinuity smoke\b/i.test(text)) return null;
-  const durationMatch = /(\d+)\s*-?\s*minutes?\b/i.exec(text);
-  const intervalMatch = /every\s+(\d+)\s*seconds?\b/i.exec(text);
-  if (!durationMatch || !intervalMatch) return null;
-  const durationMinutes = Number(durationMatch[1]);
-  const intervalSeconds = Number(intervalMatch[1]);
+  if (!text.toLowerCase().includes('continuity smoke')) return null;
+  const tokens = text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean);
+  let durationMinutes = NaN;
+  let intervalSeconds = NaN;
+  for (let i = 0; i < tokens.length; i += 1) {
+    if ((tokens[i] === 'minute' || tokens[i] === 'minutes') && i >= 1 && /^\d+$/.test(tokens[i - 1])) {
+      durationMinutes = Number(tokens[i - 1]);
+    }
+    if (
+      (tokens[i] === 'second' || tokens[i] === 'seconds') &&
+      i >= 2 &&
+      tokens[i - 2] === 'every' &&
+      /^\d+$/.test(tokens[i - 1])
+    ) {
+      intervalSeconds = Number(tokens[i - 1]);
+    }
+  }
   if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) return null;
   if (!Number.isFinite(intervalSeconds) || intervalSeconds <= 0) return null;
   // Inclusive ticks across the wall-clock window (0s, interval, ... <= duration).

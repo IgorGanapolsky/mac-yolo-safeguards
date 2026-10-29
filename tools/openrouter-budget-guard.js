@@ -200,19 +200,25 @@ async function queryOpenRouterLiveKey() {
   });
 }
 
+function hasOpenRouterConfigured() {
+  return getOpenRouterApiKey() !== null;
+}
+
 async function runDoctor() {
-  const apiKey = getOpenRouterApiKey();
-  const live = apiKey ? await queryOpenRouterLiveKey() : null;
+  const configured = hasOpenRouterConfigured();
+  const live = configured ? await queryOpenRouterLiveKey() : null;
+  const verified = live?.statusCode === 200;
+  const liveUsage = typeof live?.usage === 'number' ? Number(live.usage) : null;
   const budget = getBudgetPacingStatus();
 
   return {
     guard: 'OpenRouter Monthly $10 Budget & Rate-Pacing Guard',
     version: '1.0.0',
-    apiKeyConfigured: Boolean(apiKey),
-    liveAuthCheck: live?.statusCode === 200 ? 'AUTHENTICATED' : 'UNVERIFIED',
-    liveUsageTotal: live?.usage ?? null,
+    apiKeyConfigured: configured ? true : false,
+    liveAuthCheck: verified ? 'AUTHENTICATED' : 'UNVERIFIED',
+    liveUsageTotal: liveUsage,
     budgetController: budget,
-    status: apiKey && live?.statusCode === 200 && budget.allowPaid ? 'HEALTHY' : 'PROTECTED',
+    status: configured && verified && budget.allowPaid ? 'HEALTHY' : 'PROTECTED',
   };
 }
 

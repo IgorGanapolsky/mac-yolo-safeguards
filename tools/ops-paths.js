@@ -2,11 +2,23 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
-const OPS_DIR = process.env.MAC_YOLO_OPS_DIR
-  ? path.resolve(process.env.MAC_YOLO_OPS_DIR)
-  : path.join(REPO_ROOT, 'business_os', 'revenue');
+
+function resolveDefaultOpsDir() {
+  if (process.env.MAC_YOLO_OPS_DIR) {
+    return path.resolve(process.env.MAC_YOLO_OPS_DIR);
+  }
+  const repoBus = path.join(REPO_ROOT, 'business_os');
+  const stat = fs.lstatSync(repoBus, { throwIfNoEntry: false });
+  if (stat && stat.isSymbolicLink() && !fs.existsSync(repoBus)) {
+    return path.join(os.homedir(), '.hermes', 'business_os', 'revenue');
+  }
+  return path.join(REPO_ROOT, 'business_os', 'revenue');
+}
+
+const OPS_DIR = resolveDefaultOpsDir();
 const OPS_REL = path.relative(REPO_ROOT, OPS_DIR);
 
 function ensureOpsDir() {

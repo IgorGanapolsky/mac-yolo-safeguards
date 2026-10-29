@@ -25,9 +25,9 @@ const DOCS_PATH = path.join(REPO, 'docs/MCP-INVENTORY.md');
 const SERVER_META = {
   github: {
     scope: 'GitHub Issues/PRs/reviews — agent coordination bus',
-    secret: 'GITHUB_MCP_PAT / Authorization bearer',
-    locality: 'remote-http',
-    blastRadius: 'repo + org GitHub via token scopes',
+    secret: 'gh keyring via github-mcp-stdio (or GITHUB_PERSONAL_ACCESS_TOKEN)',
+    locality: 'local-stdio',
+    blastRadius: 'repo + org GitHub via token scopes (read-only lockdown default)',
   },
   context7: {
     scope: 'Library/framework documentation lookup',
@@ -46,6 +46,12 @@ const SERVER_META = {
     secret: 'SEMRUSH_API_KEY — only add Authorization header when key is non-empty',
     locality: 'remote-http',
     blastRadius: 'read Semrush project data; burns API units',
+  },
+  gurobi: {
+    scope: 'Gurobi LP/MIP optimization (dispatch, outreach batch, token budget, IIS)',
+    secret: 'none (size-limited free pip gurobipy)',
+    locality: 'local-stdio',
+    blastRadius: 'local solver evaluation only',
   },
   thumbgate: {
     scope: 'Lessons recall/capture, product gates (host-dependent)',

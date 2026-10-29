@@ -40,10 +40,17 @@ const { verifyChromeGmailSent } = require('./chrome-gmail-sent-verify');
 const REPO = path.resolve(__dirname, '..');
 
 /** Private ops live under business_os/ (gitignored). Prefer dirs that actually have pipeline data. */
+function isDanglingSymlink(p) {
+  const st = fs.lstatSync(p, { throwIfNoEntry: false });
+  return Boolean(st && st.isSymbolicLink() && !fs.existsSync(p));
+}
+
 function resolveRevenueDir() {
   if (process.env.REVENUE_DIR) return path.resolve(process.env.REVENUE_DIR);
+  const repoBus = path.join(REPO, 'business_os');
   const candidates = [
-    path.join(REPO, 'business_os', 'revenue'),
+    ...(isDanglingSymlink(repoBus) ? [] : [path.join(REPO, 'business_os', 'revenue')]),
+    path.join(os.homedir(), '.hermes', 'business_os', 'revenue'),
     // git worktree at <repo>/.worktrees/<name> → main checkout two levels up
     path.resolve(REPO, '..', '..', 'business_os', 'revenue'),
     path.join(os.homedir(), 'workspace/git/igor/mac-yolo-safeguards/business_os/revenue'),

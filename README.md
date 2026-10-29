@@ -40,9 +40,11 @@ If you run agents for a team or clients and have a repeated failure that costs h
 
 | Path | Deliverables | Pricing |
 |---|---|---|
+| **[Agent Safeguards Playbook](https://iganapolsky.gumroad.com/l/odrkon)** | Self-serve runbook: OS-level runaway-kill, timeout, and token-budget templates for Mac agent fleets. | `$9.99` |
+| **[Corporate-Expense Reliability Kit](https://iganapolsky.gumroad.com/l/vcrho)** | Drop-in team bundle: LaunchAgent templates, pre-execution gates, and audit receipt harness. | `$49` |
 | **Diagnostic Call** | 20-min live review, root-cause triage readout, recommended prevention rules, no installation. | `$499` |
+| **[AI Agent Hardening Sprint](./docs/AI-AGENT-HARDENING.md)** | Fixed-scope hardening for one high-cost agent workflow plus regression gate. | `$1,500` |
 | [Partner Pilot](./docs/PARTNER-PILOT.md) | Agencies or consultants need a reusable client-facing reliability package. | `$3,000` |
-
 Private workflow details: [book a 20-minute triage](https://cal.com/igor-g-kvqxfo/30min) or email [iganapolsky@gmail.com](mailto:iganapolsky@gmail.com). Public-safe intake: [open a paid hardening inquiry](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=paid-hardening-inquiry.yml).
 
 ## Background
