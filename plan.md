@@ -4167,6 +4167,16 @@ Codex on PR #2213. A `File | Owner | Claimed` row is an active claim, and that o
 - `tests/test-agent-confusion-gate.js`
 - `plan.md` (this append)
 
+## Declarative control-plane shape (append 2026-10-29T15:20:00Z) — `grok-declarative-schema`
+
+Latent Space interview with Supabase, YouTube `zHG6sAss_kE`. Agents read `schemas/hermes-control-plane.shape.json` instead of replaying every migration. The journal now includes `0009_store_entitlement_expires`, which the app already selects. `0010_llm_calls` creates the table the metrics route already queries. `schema.ts` still omits `organizations.store_entitlement_expires_at`; that gap stays visible and is not called zero. Disabling row-level security, `bytea`, and a blob column hold. No sales uplift figure is measured here.
+
+### File claims
+- `tools/declarative-schema-guard.js`
+- `tests/test-declarative-schema-guard.js`
+- `schemas/hermes-control-plane.shape.json`
+- `apps/hermes-control-plane/drizzle/0010_llm_calls.sql`
+- `apps/hermes-control-plane/drizzle/meta/_journal.json`
 ## Confusion gate before the decision (append 2026-10-29T15:05:00Z) — `grok-confusion-before-decision`
 
 The gate from post 2115073742321713223 already measures three axes. The decision stack now runs that measurement first. A fired axis returns the brief before RAG, governance, and telemetry. The tweet prompt still scores zero on ambiguity. A `File | Owner | Claimed` row passed with `--plan` still holds a different actor.
