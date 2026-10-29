@@ -4,7 +4,7 @@ import Foundation
 import WebKit
 
 private let menuPanelWidth: CGFloat = 328
-private let menuPanelHeight: CGFloat = 478
+private let menuPanelHeight: CGFloat = 512
 
 private let HUD_HTML = #"""
 <!DOCTYPE html>
@@ -15,7 +15,7 @@ private let HUD_HTML = #"""
   * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
   html, body {
     width: 328px;
-    height: 478px;
+    height: 512px;
     background: #1c1c1e;
     color: #f5f5f7;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
@@ -23,7 +23,7 @@ private let HUD_HTML = #"""
   }
   .shell {
     width: 328px;
-    height: 478px;
+    height: 512px;
     padding: 14px 16px 12px 16px;
     display: flex;
     flex-direction: column;
@@ -60,6 +60,7 @@ private let HUD_HTML = #"""
   }
   .primary:disabled { opacity: 0.55; cursor: default; }
   .note, .quiet { font-size: 11px; color: #98989d; line-height: 1.3; }
+  #healthLine { min-height: 42px; }
   .foot { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
   .link {
     background: none; border: none; color: #d1d1d6;
@@ -209,6 +210,10 @@ struct MachineHealth {
     var userAgents: Int = -1
     var batteryPct: Int = -1
     var batteryDischarging: Bool = false
+    var hotName: String = ""
+    var hotCpu: Double = -1
+    var swapUsedMiB: Double = -1
+    var swapTotalMiB: Double = -1
 }
 
 private func readMachineHealth() -> MachineHealth {
@@ -244,7 +249,46 @@ private func readMachineHealth() -> MachineHealth {
             health.batteryPct = pct
         }
     }
+    let hot = readHotProcess()
+    health.hotName = hot.name
+    health.hotCpu = hot.cpu
+    let swap = readSwap()
+    health.swapUsedMiB = swap.usedMiB
+    health.swapTotalMiB = swap.totalMiB
     return health
+}
+
+private func readHotProcess() -> (name: String, cpu: Double) {
+    guard let out = runTool("/bin/ps", ["-arcwwwxo", "pcpu=,ucomm="], timeout: 2) else {
+        return ("", -1)
+    }
+    for line in out.split(separator: "\n") {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { continue }
+        let parts = trimmed.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
+        guard parts.count == 2, let cpu = Double(parts[0]), cpu >= 0 else { continue }
+        let name = String(parts[1])
+        if name == "kernel_task" || name == "MacYoloSafeguards" { continue }
+        return (name, cpu)
+    }
+    return ("", -1)
+}
+
+private func readSwap() -> (usedMiB: Double, totalMiB: Double) {
+    guard let out = runTool("/usr/sbin/sysctl", ["-n", "vm.swapusage"], timeout: 2) else {
+        return (-1, -1)
+    }
+    func mib(_ label: String) -> Double {
+        guard let range = out.range(of: "\(label) = ") else { return -1 }
+        let token = out[range.upperBound...].prefix { $0 != " " }
+        let text = String(token)
+        let number = text.prefix { $0.isNumber || $0 == "." }
+        guard let value = Double(number), value >= 0 else { return -1 }
+        if text.hasSuffix("G") { return value * 1024 }
+        if text.hasSuffix("K") { return value / 1024 }
+        return value
+    }
+    return (mib("used"), mib("total"))
 }
 
 private func countLoadedUserAgents() -> Int {
@@ -292,6 +336,16 @@ private func healthSummary(_ health: MachineHealth) -> (text: String, color: Str
     }
     if health.userAgents >= 0 {
         parts.append("\(health.userAgents) user agents")
+    }
+    let loadHot = health.load1 >= 0 && health.cores > 0 && health.load1 >= Double(health.cores) * 1.5
+    if health.hotCpu >= 0 && !health.hotName.isEmpty && (health.hotCpu >= 25 || loadHot) {
+        parts.append(String(format: "%@ %.0f%%", health.hotName, health.hotCpu.rounded()))
+    }
+    if health.swapUsedMiB >= 1024 && health.swapTotalMiB > 0 {
+        parts.append(String(format: "Swap %.1f/%.0f GiB", health.swapUsedMiB / 1024, health.swapTotalMiB / 1024))
+        if health.swapUsedMiB / health.swapTotalMiB >= 0.8 && color == "#98989d" {
+            color = "#ffd60a"
+        }
     }
     if health.batteryPct >= 0 && (health.batteryDischarging || health.batteryPct < 40) {
         parts.append("Battery \(health.batteryPct)%")
@@ -425,9 +479,9 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         if CommandLine.arguments.contains("--health-self-test") {
             let health = readMachineHealth()
             let summary = healthSummary(health)
-            print("HEALTH memoryFree=\(health.memoryFreePct) pressure=\(health.pressureLevel) load=\(health.load1) cores=\(health.cores) agents=\(health.userAgents) battery=\(health.batteryPct) discharging=\(health.batteryDischarging)")
+            print("HEALTH memoryFree=\(health.memoryFreePct) pressure=\(health.pressureLevel) load=\(health.load1) cores=\(health.cores) agents=\(health.userAgents) battery=\(health.batteryPct) discharging=\(health.batteryDischarging) hot=\(health.hotName) hotCpu=\(health.hotCpu) swapUsed=\(health.swapUsedMiB) swapTotal=\(health.swapTotalMiB)")
             print("HEALTH line=\(summary.text)")
-            if health.pressureLevel > 0 && health.memoryFreePct >= 0 && health.load1 >= 0 && health.cores > 0 && health.userAgents >= 0 {
+            if health.pressureLevel > 0 && health.memoryFreePct >= 0 && health.load1 >= 0 && health.cores > 0 && health.userAgents >= 0 && health.hotCpu >= 0 && !health.hotName.isEmpty && health.swapUsedMiB >= 0 && health.swapTotalMiB >= 0 {
                 print("MAC_YOLO_HEALTH_OK")
                 fflush(stdout)
                 exit(0)
