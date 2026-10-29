@@ -4132,3 +4132,26 @@ The aiprofitboardroom_ reel (Instagram `DfDBob0iL3Y`, captured 2026-10-29 09:26)
 - `tests/test-shared-vault-memory.js`
 - `tools/herdr-high-roi-engine.js`
 - `plan.md` (this append)
+
+## Grepai MCP server path typo fix (append 2026-10-29T14:10:00Z) — `poolside`
+
+### Root cause
+`.poolside/settings.yaml` (repo-scoped, committed) pointed the `grepai` MCP server
+at `/Users/igorganapolsky/.hermes/semantic-index/mac-yolo-safeguards` — a path that
+does not exist because the actual home directory is `/Users/iganapolsky` (no "gor").
+The grepai project itself was already fully initialized and indexed at the correct
+path (`/Users/iganapolsky/.hermes/semantic-index/mac-yolo-safeguards`), so the MCP
+server failed to start with a "no grepai project found" error.
+
+### Fix
+One-line path correction in `.poolside/settings.yaml`:
+`igorganapolsky` → `iganapolsky`.
+
+### Evidence
+- `grepai status`: Files indexed: 2758, Total chunks: 12047, Index size: 79.3 MB,
+  Last updated: 2026-10-29 09:08:09, Provider: ollama (nomic-embed-text)
+- `grepai mcp-serve` with corrected path: starts successfully (exit 124 = timeout
+  killed the server, no "project not found" error)
+- `grepai search "semantic index"`: returns 5 real results from the codebase
+- `node tools/grepai-index-canary.js --dir ~/.hermes/semantic-index/mac-yolo-safeguards/.grepai --live`:
+  HEALTHY

@@ -11,4 +11,4 @@ mcp_servers:
         command: grepai
         args:
             - mcp-serve
-            - /Users/igorganapolsky/.hermes/semantic-index/mac-yolo-safeguards
+            - /Users/iganapolsky/.hermes/semantic-index/mac-yolo-safeguards
