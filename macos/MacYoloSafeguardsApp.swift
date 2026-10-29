@@ -88,8 +88,8 @@ private let HUD_HTML = #"""
     <div class="note" id="note">Sizes appear after Scan.</div>
     <div class="quiet" id="onScreen">On screen · …</div>
     <div class="foot">
-      <span class="quiet">Menu bar icon</span>
-      <button class="link" id="iconState" onclick="sendAction('toggleStatusBarIcon')">Shown</button>
+      <span class="quiet">Settings</span>
+      <button class="link" id="iconState" onclick="sendAction('toggleStatusBarIcon')">Status bar icon on</button>
       <button class="link" onclick="sendAction('dismiss')">Close</button>
     </div>
   </div>
@@ -143,7 +143,7 @@ private let HUD_HTML = #"""
       var onScreen = document.getElementById('onScreen');
       if (onScreen) onScreen.textContent = state.onScreen || '';
       var icon = document.getElementById('iconState');
-      if (icon) icon.textContent = state.iconState || 'Shown';
+      if (icon) icon.textContent = state.iconState || 'Status bar icon on';
     };
   </script>
 </body>
@@ -311,6 +311,9 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             fflush(stdout)
             exit(0)
         }
+        if CommandLine.arguments.contains("--status-icon-self-test") {
+            runStatusIconSelfTestAndExit()
+        }
 
         NSApp.setActivationPolicy(.accessory)
         DispatchQueue.main.async { [weak self] in
@@ -408,6 +411,9 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         addGearItem("About Mac YOLO Safeguards", #selector(openDashboard))
         addGearItem("Provide Feedback…", #selector(openFeedback))
         gearMenu.addItem(NSMenuItem.separator())
+        let settingsLabel = NSMenuItem(title: "Settings", action: nil, keyEquivalent: "")
+        settingsLabel.isEnabled = false
+        gearMenu.addItem(settingsLabel)
         statusBarMenuItem = NSMenuItem(title: "Show Status Bar Icon", action: #selector(toggleStatusBarIcon(_:)), keyEquivalent: "")
         statusBarMenuItem.target = self
         statusBarMenuItem.state = showStatusBarIcon ? .on : .off
@@ -579,16 +585,33 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     }
 
     @objc func toggleStatusBarIcon(_ sender: AnyObject?) {
-        showStatusBarIcon.toggle()
-        statusItem.isVisible = showStatusBarIcon
-        statusBarMenuItem?.state = showStatusBarIcon ? .on : .off
-        UserDefaults.standard.set(showStatusBarIcon, forKey: "MacYoloShowStatusBarIcon")
-        let proc = Process()
-        proc.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/node")
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        proc.arguments = ["\(home)/workspace/mac-yolo-safeguards/tools/mac-yolo-system-care-engine.js", "--status-icon", showStatusBarIcon ? "show" : "hide"]
-        try? proc.run()
+        applyStatusBarIconVisible(!showStatusBarIcon)
         pushMenu()
+    }
+
+    func applyStatusBarIconVisible(_ visible: Bool) {
+        showStatusBarIcon = visible
+        statusItem.isVisible = visible
+        statusBarMenuItem?.state = visible ? .on : .off
+        UserDefaults.standard.set(visible, forKey: "MacYoloShowStatusBarIcon")
+    }
+
+    func runStatusIconSelfTestAndExit() {
+        applyStatusBarIconVisible(true)
+        let shown = statusItem.isVisible
+        applyStatusBarIconVisible(false)
+        let hidden = statusItem.isVisible
+        let storedHidden = UserDefaults.standard.bool(forKey: "MacYoloShowStatusBarIcon")
+        applyStatusBarIconVisible(true)
+        let restored = statusItem.isVisible
+        let storedShown = UserDefaults.standard.bool(forKey: "MacYoloShowStatusBarIcon")
+        if shown && !hidden && !storedHidden && restored && storedShown {
+            print("MAC_YOLO_STATUS_ICON_OK shown=1 hidden=0 restored=1")
+            fflush(stdout)
+            exit(0)
+        }
+        fputs("MAC_YOLO_STATUS_ICON_FAIL\n", stderr)
+        exit(1)
     }
 
     func dismissHudNotification() {
@@ -766,7 +789,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "busy": menuBusy != .idle,
             "note": note,
             "onScreen": "On screen · \(onScreenName)",
-            "iconState": showStatusBarIcon ? "Shown" : "Hidden",
+            "iconState": showStatusBarIcon ? "Status bar icon on" : "Status bar icon off",
         ]
         if let button = statusItem?.button {
             statusItem.isVisible = showStatusBarIcon
