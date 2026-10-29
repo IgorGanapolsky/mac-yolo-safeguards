@@ -4223,3 +4223,15 @@ Codex on PR 2219. A support session cannot run an assigning PRAGMA or `PRAGMA op
 - `tools/tailscale-newsletter-gate.js`
 - `tests/test-tailscale-newsletter-gate.js`
 - `plan.md` (this append)
+
+## ThumbGate product surfaces (append 2026-10-29T16:55:00Z) — `grok-mac-yolo-product`
+
+`GET https://thumbgate.app/api/billing/plan` at 2026-10-29T16:23:03Z returned configured, active, unitAmount 1000, usd, month. That is the $10/month Cloud Continuity price. Cleared revenue stays null. This package is a loopback MCP (`mac-yolo-product`), an HTTP service on 127.0.0.1:47831, and menu-bar source that polls that service. It does not bind any other host, reap processes, or import the unmerged catalog on PR 2212. The menu-bar file is not compiled or installed here.
+
+### File claims
+- `tools/mac-yolo-product.js` (new)
+- `bin/mac-yolo-product` (new)
+- `macos/MacYoloProductApp.swift` (new)
+- `tests/test-mac-yolo-product.js` (new)
+- `docs/MAC-YOLO-PRODUCT.md` (new)
+- `plan.md` (this append)
