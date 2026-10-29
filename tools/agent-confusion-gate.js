@@ -84,43 +84,70 @@ function conflictingData(records) {
   return { fired: true, evidence: clip(`conflicting values for ${keys.join(', ')}`) };
 }
 
+function claimPath(cell) {
+  const trimmed = String(cell || '').trim().replace(/^`+|`+$/g, '');
+  const match = trimmed.match(/^[^\s]+/);
+  return match ? normalizePath(match[0]) : '';
+}
+
+function knownStatus(value) {
+  const status = String(value || '').trim().toLowerCase();
+  if (!status || status === 'status') return false;
+  return /^(done|released|closed|in_progress|in_review|blocked|todo|open|pending|wip)$/.test(status)
+    || status.startsWith('released');
+}
+
+function isReleased(status) {
+  const value = String(status || '').trim().toLowerCase();
+  return value === 'done' || value === 'released' || value === 'closed' || value.startsWith('released');
+}
+
+function pathsInCell(cell) {
+  const text = String(cell || '');
+  const quoted = [...text.matchAll(/`([^`]+)`/g)].map((match) => claimPath(match[1])).filter(looksLikePath);
+  if (quoted.length > 0) return quoted;
+  return text.split(',').map((part) => claimPath(part)).filter(looksLikePath);
+}
+
+function addClaim(records, source, file, owner, status) {
+  const key = claimPath(file);
+  const who = String(owner || '').trim();
+  if (!looksLikePath(key) || !who || who === '—' || who === '-' || /^owner$/i.test(who)) return;
+  if (isReleased(status)) return;
+  records.push({ key, source, value: who });
+}
+
 function ownersIn(planText, source) {
   const records = [];
   const label = source || 'plan';
   let sectionOwner = '';
+  let sectionStatus = '';
   for (const line of String(planText || '').split(/\r?\n/)) {
     const heading = line.match(/^##\s+\S.*\s[—–-]\s+`([^`]+)`\s*$/);
     if (heading) {
       sectionOwner = heading[1];
+      sectionStatus = '';
       continue;
     }
     const explicit = line.match(/^\s*[-*]\s+`?([^\s`]+)`?\s+[—–-]\s+(\S+)\s*$/);
     if (explicit && looksLikePath(explicit[1])) {
-      records.push({ key: normalizePath(explicit[1]), source: label, value: explicit[2] });
+      addClaim(records, label, explicit[1], explicit[2], sectionStatus);
       continue;
     }
     const bullet = line.match(/^\s*[-*]\s+`([^`]+)`\s*$/);
     if (bullet && sectionOwner && looksLikePath(bullet[1])) {
-      records.push({ key: normalizePath(bullet[1]), source: label, value: sectionOwner });
+      addClaim(records, label, bullet[1], sectionOwner, sectionStatus);
       continue;
     }
-    records.push(...tableClaims(line, label));
-  }
-  return records;
-}
-
-function tableClaims(line, source) {
-  if (!line.startsWith('|')) return [];
-  const cells = line.split('|').slice(1, -1).map((cell) => cell.trim());
-  if (cells.length < 5) return [];
-  const owner = cells[3];
-  if (!owner || owner === '—' || owner === '-' || /^owner$/i.test(owner) || owner.includes('---')) {
-    return [];
-  }
-  const records = [];
-  for (const match of cells[4].matchAll(/`([^`]+)`/g)) {
-    if (!looksLikePath(match[1])) continue;
-    records.push({ key: normalizePath(match[1]), source, value: owner });
+    if (!line.startsWith('|')) continue;
+    const cells = line.split('|').slice(1, -1).map((cell) => cell.trim());
+    if (cells.length === 0 || cells.every((cell) => /^:?-+:?$/.test(cell))) continue;
+    if (cells.length >= 5 && knownStatus(cells[2])) {
+      sectionStatus = cells[2];
+      for (const file of pathsInCell(cells[4])) addClaim(records, label, file, cells[3], sectionStatus);
+      continue;
+    }
+    if (cells.length === 3) addClaim(records, label, cells[0], cells[1], sectionStatus);
   }
   return records;
 }
@@ -174,12 +201,14 @@ function unclearBoundary({ command, path, claims, actor } = {}) {
 }
 
 function measure(input = {}) {
-  const records = Array.isArray(input.records) ? input.records.slice() : [];
-  if (input.planText) records.push(...ownersIn(input.planText, input.planSource || 'plan'));
+  const planRecords = input.planText ? ownersIn(input.planText, input.planSource || 'plan') : [];
+  const records = (Array.isArray(input.records) ? input.records.slice() : []).concat(planRecords);
+  const claims = (Array.isArray(input.claims) ? input.claims.slice() : [])
+    .concat(planRecords.map((record) => ({ path: record.key, owner: record.value })));
   const axes = [
     { id: AXES[0], ...ambiguousContext(input.instruction) },
     { id: AXES[1], ...conflictingData(records) },
-    { id: AXES[2], ...unclearBoundary(input) },
+    { id: AXES[2], ...unclearBoundary({ ...input, claims }) },
   ];
   const confusionScore = axes.filter((axis) => axis.fired).length;
   return {

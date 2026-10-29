@@ -4141,3 +4141,12 @@ Task `T-AGENT-CONFUSION-GATE-20261029`. Kiyu Gabriel's line at IBM TechXchange 2
 - `tools/agent-confusion-gate.js`
 - `tests/test-agent-confusion-gate.js`
 - `plan.md` (this append)
+
+## Agent confusion gate review (append 2026-10-29T14:22:00Z) — `grok-agent-confusion-gate`
+
+Codex on PR #2213. A `File | Owner | Claimed` row is an active claim, and that owner is also the boundary check, so one foreign owner holds. A `done` or `released` task does not keep the file. The current owner of a reused file is the later active row.
+
+### File claims
+- `tools/agent-confusion-gate.js`
+- `tests/test-agent-confusion-gate.js`
+- `plan.md` (this append)

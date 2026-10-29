@@ -135,6 +135,44 @@ check('two plan owners of one file are a data conflict', () => {
   assert.equal(result.confusionScore, 1);
 });
 
+check('a file ownership row holds a different actor and ignores a released owner', () => {
+  const plan = [
+    '| T-OLD | title | done | alpha | `tools/foo.js` | ac |',
+    '| File | Owner | Claimed |',
+    '|------|-------|---------|',
+    '| tools/foo.js | alpha | 2026-08-13T19:21:08Z |',
+    '| plan.md (this append) | alpha | 2026-08-13T19:21:08Z |',
+    '| T-NEW | title | in_progress | beta | `tools/foo.js` | ac |',
+    '| File | Owner | Claimed |',
+    '|------|-------|---------|',
+    '| tools/foo.js | beta | 2026-10-29T14:16:00Z |',
+  ].join('\n');
+  const records = ownersIn(plan, 'plan.md');
+  assert.deepEqual([...new Set(records.map((record) => `${record.key}=${record.value}`))], ['tools/foo.js=beta']);
+  const current = measure({
+    instruction: 'edit tools/foo.js',
+    planText: plan,
+    path: 'tools/foo.js',
+    actor: 'beta',
+    command: 'git diff',
+  });
+  assert.equal(current.confusionScore, 0);
+  assert.equal(current.decision, 'proceed');
+  const foreign = measure({
+    instruction: 'edit tools/foo.js',
+    planText: [
+      '| File | Owner | Claimed |',
+      '| tools/foo.js | alpha | 2026-10-29T14:16:00Z |',
+    ].join('\n'),
+    path: 'tools/foo.js',
+    actor: 'beta',
+    command: 'git diff',
+  });
+  assert.equal(foreign.axes[1].fired, false);
+  assert.equal(foreign.axes[2].fired, true);
+  assert.equal(foreign.decision, 'hold');
+});
+
 check('denied commands hold and ordinary ship commands do not', () => {
   assert.equal(unclearBoundary({ command: 'git push --force' }).fired, true);
   assert.equal(unclearBoundary({ command: 'git push origin main -f' }).fired, true);
@@ -228,6 +266,23 @@ check('cli exits 0 to proceed and 1 to hold', () => {
 
   const bad = spawnSync(process.execPath, [tool, '--nope'], { encoding: 'utf8' });
   assert.equal(bad.status, 2);
+
+  const planPath = path.join(dir, 'plan.md');
+  fs.writeFileSync(planPath, [
+    '| File | Owner | Claimed |',
+    '| tools/foo.js | alpha | 2026-10-29T14:16:00Z |',
+    '',
+  ].join('\n'));
+  const foreign = spawnSync(process.execPath, [
+    tool,
+    '--instruction', 'edit tools/foo.js',
+    '--path', 'tools/foo.js',
+    '--actor', 'beta',
+    '--command', 'git diff',
+    '--plan', planPath,
+  ], { encoding: 'utf8' });
+  assert.equal(foreign.status, 1, foreign.stderr);
+  assert.equal(JSON.parse(foreign.stdout).axes[2].fired, true);
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
