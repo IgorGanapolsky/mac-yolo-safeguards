@@ -4071,4 +4071,19 @@ Main push CI on `c59a8793` failed in Hermes Mobile typecheck and tests at Expo D
 ### File claims
 - `hermes-mobile/package.json`
 - `hermes-mobile/package-lock.json`
+## Path normalizer AppleScript argv (append 2026-10-28T23:53:00Z) — `grok-path-normalizer`
+
+Code scanning alert 162 (`js/incomplete-sanitization`) is the Finder copy on `main` at `tools/lib/path-normalizer.js`. It escaped double quotes inside an AppleScript string and left backslashes alone. The filename now goes to `osascript` as an argv item. `folderName` stays one of the two Finder literals, `desktop` or `downloads folder`.
+
+### File claims
+- `tools/lib/path-normalizer.js`
+- `tests/test-path-normalizer.js`
+- `plan.md` (this append)
+
+## Path normalizer test host (append 2026-10-29T00:00:02Z) — `grok-path-normalizer`
+
+PR #2205 macOS guard kit failed in Node tool unit tests. `tests/test-path-normalizer.js` reached `result.ok === false` because that job runs on Linux and the Finder copy is `process.platform === 'darwin'`. The test now sets `process.platform` to `darwin` before loading the module. The source contract is unchanged.
+
+### File claims
+- `tests/test-path-normalizer.js`
 - `plan.md` (this append)
