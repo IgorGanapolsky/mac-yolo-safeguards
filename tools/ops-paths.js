@@ -6,16 +6,36 @@ const os = require('os');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 
+function hasOpsData(dir) {
+  if (!fs.existsSync(dir)) return false;
+  try {
+    return fs.readdirSync(dir).some((f) => f.endsWith('.tsv'));
+  } catch {
+    return false;
+  }
+}
+
 function resolveDefaultOpsDir() {
   if (process.env.MAC_YOLO_OPS_DIR) {
     return path.resolve(process.env.MAC_YOLO_OPS_DIR);
   }
   const repoBus = path.join(REPO_ROOT, 'business_os');
+  const repoRev = path.join(repoBus, 'revenue');
+  const homeRev = path.join(os.homedir(), '.hermes', 'business_os', 'revenue');
   const stat = fs.lstatSync(repoBus, { throwIfNoEntry: false });
   if (stat && stat.isSymbolicLink() && !fs.existsSync(repoBus)) {
-    return path.join(os.homedir(), '.hermes', 'business_os', 'revenue');
+    return homeRev;
   }
-  return path.join(REPO_ROOT, 'business_os', 'revenue');
+  if (hasOpsData(repoRev)) {
+    return repoRev;
+  }
+  if (hasOpsData(homeRev)) {
+    return homeRev;
+  }
+  if (!fs.existsSync(repoBus)) {
+    return homeRev;
+  }
+  return repoRev;
 }
 
 const OPS_DIR = resolveDefaultOpsDir();

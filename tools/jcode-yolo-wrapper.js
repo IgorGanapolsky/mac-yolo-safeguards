@@ -230,6 +230,8 @@ function selectRoute(prompt = '', env = process.env, options = {}) {
       reason: 'explicit-user-override',
       zaiKey,
       openrouterKey,
+      hasZaiCredentials: zaiKey ? true : false,
+      hasOpenrouterCredentials: openrouterKey ? true : false,
       budgetPacing: pacing,
       inheritedDefaultQuarantined: CLOSED_INHERITED_PROVIDERS.has(String(env.JCODE_DEFAULT_PROVIDER || '').toLowerCase()),
     };

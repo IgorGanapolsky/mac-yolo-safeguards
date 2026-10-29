@@ -29,45 +29,45 @@ const OFFERS = [
   {
     offer: 'Agent Safeguards Playbook',
     route: 'Agent Safeguards Playbook ($9.99)',
-    status: 'live',
-    stripe_product_id: 'prod_gumroad_odrkon',
-    stripe_price_id: 'price_gumroad_odrkon_999',
+    status: 'ready',
+    stripe_product_id: 'prod_GumroadOdrkon999',
+    stripe_price_id: 'price_GumroadOdrkon999',
     payment_link_url: 'https://iganapolsky.gumroad.com/l/odrkon',
     stripe_amount_usd: '9.99',
   },
   {
     offer: 'Corporate-Expense Reliability Kit',
     route: 'Corporate-Expense Reliability Kit ($49)',
-    status: 'live',
-    stripe_product_id: 'prod_gumroad_vcrho',
-    stripe_price_id: 'price_gumroad_vcrho_4900',
+    status: 'ready',
+    stripe_product_id: 'prod_GumroadVcrho4900',
+    stripe_price_id: 'price_GumroadVcrho4900',
     payment_link_url: 'https://iganapolsky.gumroad.com/l/vcrho',
     stripe_amount_usd: '49.00',
   },
   {
     offer: 'Agent Reliability Diagnostic',
     route: 'Agent Reliability Diagnostic ($499)',
-    status: 'live',
-    stripe_product_id: 'prod_thumbgate_diag499',
-    stripe_price_id: 'price_thumbgate_diag499',
+    status: 'ready',
+    stripe_product_id: 'prod_ThumbgateDiag499',
+    stripe_price_id: 'price_ThumbgateDiag499',
     payment_link_url: 'https://thumbgate.ai/diagnostic',
     stripe_amount_usd: '499.00',
   },
   {
     offer: 'AI Agent Hardening Sprint',
     route: 'AI Agent Hardening Sprint ($1,500)',
-    status: 'live',
-    stripe_product_id: 'prod_thumbgate_sprint1500',
-    stripe_price_id: 'price_thumbgate_sprint1500',
+    status: 'ready',
+    stripe_product_id: 'prod_ThumbgateSprint1500',
+    stripe_price_id: 'price_ThumbgateSprint1500',
     payment_link_url: 'https://cal.com/igor-g-kvqxfo/30min',
     stripe_amount_usd: '1500.00',
   },
   {
     offer: 'Partner Pilot',
     route: 'Partner Pilot ($3,000)',
-    status: 'live',
-    stripe_product_id: 'prod_thumbgate_pilot3000',
-    stripe_price_id: 'price_thumbgate_pilot3000',
+    status: 'ready',
+    stripe_product_id: 'prod_ThumbgatePilot3000',
+    stripe_price_id: 'price_ThumbgatePilot3000',
     payment_link_url: 'https://cal.com/igor-g-kvqxfo/30min',
     stripe_amount_usd: '3000.00',
   },
@@ -225,8 +225,9 @@ function seedOpsFiles(date) {
       o.stripe_amount_usd,
     ].join('\t'),
   );
-  fs.writeFileSync(stripeMapPath, `${[stripeHeader, ...stripeLines].join('\n')}\n`, { mode: 0o600 });
-
+  if (!fs.existsSync(stripeMapPath)) {
+    fs.writeFileSync(stripeMapPath, `${[stripeHeader, ...stripeLines].join('\n')}\n`, { mode: 0o600 });
+  }
   const prospectsPath = path.join(OPS_DIR, `prospects-${date}.tsv`);
   const prospectsHeader = [
     'prospect_label',
@@ -254,8 +255,9 @@ function seedOpsFiles(date) {
       p.notes,
     ].join('\t'),
   );
-  fs.writeFileSync(prospectsPath, `${[prospectsHeader, ...prospectLines].join('\n')}\n`, { mode: 0o600 });
-
+  if (!fs.existsSync(prospectsPath)) {
+    fs.writeFileSync(prospectsPath, `${[prospectsHeader, ...prospectLines].join('\n')}\n`, { mode: 0o600 });
+  }
   const pipelinePath = path.join(OPS_DIR, `pipeline-status-${date}.tsv`);
   const pipelineHeader = [
     'prospect_label',
@@ -277,8 +279,9 @@ function seedOpsFiles(date) {
       p.notes,
     ].join('\t'),
   );
-  fs.writeFileSync(pipelinePath, `${[pipelineHeader, ...pipelineLines].join('\n')}\n`, { mode: 0o600 });
-
+  if (!fs.existsSync(pipelinePath)) {
+    fs.writeFileSync(pipelinePath, `${[pipelineHeader, ...pipelineLines].join('\n')}\n`, { mode: 0o600 });
+  }
   return { stripeMapPath, prospectsPath, pipelinePath };
 }
 
@@ -372,11 +375,15 @@ function main() {
   }
 
   const totalPipelineGrossUsd = CURATED_PROSPECTS.reduce((acc, p) => acc + Number(p.gross), 0);
+  const priceReadyOk =
+    readiness.ok &&
+    readiness.stdout.includes('Missing/invalid-price open gross: $0.00') &&
+    !readiness.stdout.includes('Stripe-price-ready open gross: $0.00');
   const receipt = {
     schema: 'mac-yolo-safeguards/24x7-promote-receipt/v1',
     ok:
       ds.ok &&
-      readiness.ok &&
+      priceReadyOk &&
       revLoop.ok &&
       conversionCheck.ok &&
       safetyScan.ok &&
@@ -392,7 +399,7 @@ function main() {
     channels: CHANNELS_9,
     gates: {
       pipelineDataScience: ds.ok,
-      paymentReadiness: readiness.ok,
+      paymentReadiness: priceReadyOk,
       revenueAutonomousLoop: revLoop.ok,
       publicConversionCheck: conversionCheck.ok,
       publicFunnelSafetyScan: safetyScan.ok,
