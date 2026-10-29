@@ -247,42 +247,28 @@ private let HUD_HTML = #"""
     background: rgba(255, 255, 255, 0.22);
   }
   .footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
     padding-top: 8px;
   }
-  .icon-btn {
-    width: 28px;
-    height: 28px;
+  .footer-btn {
+    height: 30px;
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    color: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.11);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: rgba(255, 255, 255, 0.92);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 14px;
-    cursor: pointer;
-  }
-  .icon-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-  }
-  .footer-center {
-    font-size: 13px;
+    gap: 4px;
+    font-size: 11.5px;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.9);
-    background: none;
-    border: none;
     cursor: pointer;
   }
-  .footer-center:hover {
+  .footer-btn:hover {
+    background: rgba(255, 255, 255, 0.22);
     color: #ffffff;
-    text-decoration: underline;
-  }
-  .footer-right {
-    display: flex;
-    gap: 6px;
   }
 </style>
 </head>
@@ -408,12 +394,10 @@ private let HUD_HTML = #"""
     </div>
 
     <div class="footer">
-      <button class="icon-btn" title="Dismiss HUD" onclick="sendAction('dismiss')">🖥️</button>
-      <button class="footer-center" onclick="sendAction('openDashboard')">Open Mac YOLO Guard</button>
-      <div class="footer-right">
-        <button class="icon-btn" title="Reap Simulators" onclick="sendAction('freeUpMemory')">⚡</button>
-        <button class="icon-btn" title="Menu &amp; Settings" onclick="sendAction('openGearMenu')">⚙️</button>
-      </div>
+      <button class="footer-btn" title="Open Settings" onclick="toggleSettingsDrawer()">⚙️ Settings</button>
+      <button class="footer-btn" title="Purge agent temp &amp; build caches" onclick="sendAction('runSmartScan')">🧹 Clean Junk</button>
+      <button class="footer-btn" title="Reap runaway simulators &amp; free RAM" onclick="sendAction('freeUpMemory')">⚡ Free RAM</button>
+      <button class="footer-btn" title="Hide this HUD window (Esc)" onclick="sendAction('dismiss')">✕ Close</button>
     </div>
   </div>
 
