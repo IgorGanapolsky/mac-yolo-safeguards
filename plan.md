@@ -4171,4 +4171,6 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 - `.mcp.json`
 - `tools/mcp-health-check.js`
 - `docs/MCP-INVENTORY.md`
+- `tools/gitlab-10-sdlc-prompts-steal.js`
+- `tests/test-gitlab-10-sdlc-prompts-steal.js`
 - `plan.md` (this append)

@@ -99,6 +99,17 @@ function getToolDefinitions() {
       description: 'Return the packaged mac-yolo-safeguards product suite (MCP Server, Native Mac Menu Bar App, HTTP Service) and 5-tier commercial pricing ladder',
       inputSchema: { type: 'object', properties: {} },
     },
+    {
+      name: 'yolo_sdlc_10_prompts',
+      description: 'GitLab 10 SDLC AI Prompts & 80% non-coding SDLC executors (breaking-change detector, doc-drift detector, release-notes compiler, pipeline RCA)',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          promptId: { type: 'string' },
+          variables: { type: 'object' },
+        },
+      },
+    },
   ];
 }
 
@@ -178,12 +189,26 @@ function callTool(name, args = {}) {
       productSuite: {
         mcpServer: 'bin/mac-yolo-mcp (registered in .mcp.json as mac-yolo-safeguards)',
         macMenuBarApp: '/Applications/MacYoloSafeguards.app (built from macos/MacYoloSafeguardsApp.swift)',
-        backgroundService: 'http://127.0.0.1:8765 (com.iganapolsky.mac-yolo-safeguards-service)',
+        backgroundService: 'http://127.0.0.1:8766 (com.iganapolsky.mac-yolo-safeguards-service)',
       },
       tiers: OFFERS,
     };
   }
 
+  if (name === 'yolo_sdlc_10_prompts') {
+    const {
+      SDLC_10_PROMPTS,
+      renderSdlcPrompt,
+      runAllGitlabSdlcChecks,
+    } = require('./gitlab-10-sdlc-prompts-steal');
+    if (args.promptId) {
+      return renderSdlcPrompt(args.promptId, args.variables || {});
+    }
+    return {
+      ...runAllGitlabSdlcChecks(),
+      prompts: SDLC_10_PROMPTS,
+    };
+  }
   throw new Error(`Unknown tool: ${name}`);
 }
 

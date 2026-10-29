@@ -63,6 +63,9 @@ function routeRequest(method, rawUrl, bodyObj = {}) {
     return { status: 200, body: callTool('yolo_business_catalog', {}) };
   }
 
+  if (method === 'GET' && pathname === '/api/sdlc-prompts') {
+    return { status: 200, body: callTool('yolo_sdlc_10_prompts', {}) };
+  }
   return { status: 404, body: { ok: false, error: `Not found: ${method} ${pathname}` } };
 }
 
@@ -116,7 +119,7 @@ function runSelfTest() {
 
   return {
     ok,
-    endpointsVerified: ['/api/status', '/api/flags?state=ACTIVE', '/api/guardrails', '/api/business', '/api/flags/resolve'],
+    endpointsVerified: ['/api/status', '/api/flags?state=ACTIVE', '/api/guardrails', '/api/business', '/api/sdlc-prompts', '/api/flags/resolve'],
     activeFlagsCount: flagsRes.body.returnedCount,
     guardrailsOk: guardrailsRes.body.ok,
     businessTiersCount: businessRes.body.tiers.length,
