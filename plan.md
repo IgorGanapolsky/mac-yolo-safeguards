@@ -4106,6 +4106,23 @@ Fixed `.mcp.json` (`github` via `github-mcp-stdio`, `grepai` `/Users/iganapolsky
 - `tools/retrieval-query-rewrite.js`
 - `plan.md` (this append)
 
+## Copilot review depth (append 2026-10-29T13:22:20Z) — `grok-review-effort`
+
+GitHub Universe 2026 (Jay Parikh, 2026-10-28) ships Copilot code review at Lite, Balanced, and Max. The public review-request inputs still have no effort field (schema check 2026-10-29), so the depth is a comment marker. Documentation-only diffs are lite. Security-sensitive paths (workflows, tools/lib, auth or payment, revenue tools, security-audit, path-normalizer, Hermes Mobile package pins) are max. Everything else is balanced. A later push comments again only when the level rises. An older `@copilot review` comment with no marker counts as balanced. The classifier runs with the write token unset. This job is not a required check and does not use pull_request_target.
+
+### File claims
+- `tools/review-effort.js`
+- `tests/test-review-effort.js`
+- `.github/workflows/copilot-pr-review.yml`
+- `plan.md` (this append)
+
+## Copilot review isolation (append 2026-10-29T13:37:26Z) — `grok-review-effort`
+
+The classifier job has `contents: read` only and prefers `tools/review-effort.js` from the base commit. The comment job never runs that JavaScript. It posts only when the effort is lite, balanced, or max.
+
+### File claims
+- `tests/test-review-effort.js`
+- `.github/workflows/copilot-pr-review.yml`
 ## Shared vault memory (append 2026-10-29T13:30:17Z) — `grok-shared-vault`
 
 The aiprofitboardroom_ reel (Instagram `DfDBob0iL3Y`, captured 2026-10-29 09:26) pitches Hermes, Jarvis, and Obsidian as one memory. The part worth taking is the vault itself: agents read the same notes before planning content, write a short daily section back, and do not paste the whole vault into the prompt. `tools/shared-vault-memory.js` resolves `HERMES_AGENT_SYNC_VAULT` or `~/Documents/AI-Agent-Sync`, blocks a content brief when no note matches, caps the packet at 2,000 characters, and refuses the old `/Users/igorganapolsky/Documents/Obsidian Vault` path. Herdr snapshots now write into that vault. Nothing here publishes or sends mail.
