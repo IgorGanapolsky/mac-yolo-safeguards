@@ -70,7 +70,7 @@ jobs:
           node tools/review-effort.js --files-from changed-files.txt > review-effort.json
           node tools/review-effort.js --decide review-effort.json comment-bodies.jsonl
           request="$(tr -d '[:space:]' < request.txt 2>/dev/null || echo no)"
-          effort="$(node -e 'const fs=require("fs"); const j=JSON.parse(fs.readFileSync("review-effort.json","utf8")); const e=String(j.effort||"balanced"); process.stdout.write(/^(lite|balanced|max)$/.test(e)?e:"balanced");')"
+          effort="$(node -e 'let raw=""; process.stdin.setEncoding("utf8"); process.stdin.on("data",(chunk)=>{ raw += chunk; }); process.stdin.on("end",()=>{ const effort=String((JSON.parse(raw).effort)||""); process.stdout.write(/^(lite|balanced|max)$/.test(effort)?effort:"balanced"); });' < review-effort.json)"
           case "$request" in
             yes|no) ;;
             *) request=no ;;
