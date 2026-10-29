@@ -4162,4 +4162,13 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 - `docs/aeo/AGENT-RELIABILITY-FAQ-DISCUSSIONS.md`
 - `tools/tailscale-october-steals.js`
 - `tests/test-tailscale-october-steals.js`
+- `tools/spotify-confidence-flags-steal.js`
+- `tools/mac-yolo-mcp-server.js`
+- `tools/mac-yolo-service.js`
+- `bin/mac-yolo-mcp`
+- `macos/MacYoloSafeguardsApp.swift`
+- `tests/test-spotify-confidence-and-packaged-product.js`
+- `.mcp.json`
+- `tools/mcp-health-check.js`
+- `docs/MCP-INVENTORY.md`
 - `plan.md` (this append)
