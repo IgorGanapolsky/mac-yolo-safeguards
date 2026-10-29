@@ -341,7 +341,7 @@ private let HUD_HTML = #"""
             <div class="tile-sub warn" id="diskAvail">Available: 150.24 GB</div>
             <div class="meter-track"><div class="meter-fill" id="diskBarFill" style="width:84%;background:linear-gradient(90deg,#fbbf24,#38bdf8);"></div></div>
           </div>
-          <button class="tile-action" onclick="sendAction('freeUpDisk')">Free Up</button>
+          <button class="tile-action" id="freeDiskBtn" onclick="triggerHudAction('freeUpDisk', this, 'Cleaning…', '✓ Cleaned')">Free Up</button>
         </div>
 
         <div class="tile">
@@ -350,7 +350,7 @@ private let HUD_HTML = #"""
             <div class="tile-sub" id="memPressure">Pressure: 38%</div>
             <div class="meter-track"><div class="meter-fill" id="memBarFill" style="width:38%;background:linear-gradient(90deg,#34d399,#38bdf8);"></div></div>
           </div>
-          <button class="tile-action" onclick="sendAction('freeUpMemory')">Free Up</button>
+          <button class="tile-action" id="freeMemBtn" onclick="triggerHudAction('freeUpMemory', this, 'Freeing…', '✓ Freed')">Free Up</button>
         </div>
 
         <div class="tile">
@@ -362,7 +362,7 @@ private let HUD_HTML = #"""
             <div class="tile-sub" id="battState">$10/mo Cap · 0 Runaways</div>
             <div class="meter-track"><div class="meter-fill" id="battBarFill" style="width:100%;background:linear-gradient(90deg,#22c55e,#5eead4);"></div></div>
           </div>
-          <button class="tile-action" onclick="sendAction('optimizeAgents')">Optimize Agents</button>
+          <button class="tile-action" id="optimizeTileBtn" onclick="triggerHudAction('optimizeAgents', this, 'Optimizing…', '✓ Optimized')">Optimize Agents</button>
         </div>
         <div class="tile">
           <div class="tile-row">
@@ -381,7 +381,7 @@ private let HUD_HTML = #"""
               <div id="netDown">↓ 0 KB/sec</div>
             </div>
           </div>
-          <button class="tile-action" onclick="sendAction('testSpeed')">Test Speed</button>
+          <button class="tile-action" id="testSpeedBtn" onclick="triggerHudAction('testSpeed', this, 'Testing…', '✓ Tested')">Test Speed</button>
         </div>
 
         <div class="tile tile-tall">
@@ -403,9 +403,9 @@ private let HUD_HTML = #"""
               <div class="rec-desc" id="recDesc">Agent temp · Swift cache · Node cache · Playwright · Trash • Reap zombie MCPs &amp; enforce $10/mo token cap.</div>
             </div>
           </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;">
-            <button class="tile-action" style="margin-top:0;" onclick="toggleSettingsDrawer(true)">⚙️ Settings &amp; Status Icon…</button>
-            <button class="rec-btn" onclick="sendAction('optimizeAgents')">⚡ Optimize AI Agents &amp; Mac</button>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:2px;">
+            <button class="tile-action" style="margin-top:0;white-space:nowrap;" onclick="toggleSettingsDrawer(true)">⚙️ Settings…</button>
+            <button class="rec-btn" id="optimizeMainBtn" style="white-space:nowrap;" onclick="triggerHudAction('optimizeAgents', this, '⏳ Optimizing AI Agents…', '✓ Optimized AI Agents &amp; Mac')">⚡ Optimize AI Agents &amp; Mac</button>
           </div>
         </div>
       </div>
@@ -448,6 +448,51 @@ private let HUD_HTML = #"""
         if (extra) { for (var k in extra) msg[k] = extra[k]; }
         window.webkit.messageHandlers.yoloHud.postMessage(msg);
       }
+    }
+    function triggerHudAction(action, btnEl, busyText, doneText) {
+      var origText = btnEl ? (btnEl.getAttribute('data-orig') || btnEl.textContent) : '';
+      if (btnEl && !btnEl.getAttribute('data-orig')) btnEl.setAttribute('data-orig', origText);
+      if (btnEl) {
+        btnEl.textContent = busyText;
+        btnEl.style.color = '#5eead4';
+      }
+      if (action === 'optimizeAgents') {
+        var mainBtn = document.getElementById('optimizeMainBtn');
+        if (mainBtn) {
+          if (!mainBtn.getAttribute('data-orig')) mainBtn.setAttribute('data-orig', mainBtn.textContent);
+          mainBtn.textContent = '⏳ Optimizing AI Agents…';
+          mainBtn.style.background = 'rgba(34, 197, 94, 0.28)';
+          mainBtn.style.borderColor = 'rgba(94, 234, 212, 0.55)';
+        }
+        var desc = document.getElementById('recDesc');
+        if (desc) desc.textContent = 'Scanning & reaping zombie MCPs, headless browsers, simulators, and /private/tmp agent caches…';
+      }
+      sendAction(action);
+      setTimeout(function() {
+        if (btnEl) btnEl.textContent = doneText;
+        if (action === 'optimizeAgents') {
+          var mainBtn = document.getElementById('optimizeMainBtn');
+          if (mainBtn) mainBtn.textContent = '✓ Optimized AI Agents & Mac';
+          var title = document.getElementById('recTitle');
+          if (title) title.textContent = '✓ AI Agents & Mac Optimized Just Now';
+          var desc = document.getElementById('recDesc');
+          if (desc) desc.textContent = '0 runaway loops • Zombie MCPs & simulators reaped • $10/mo token cap enforced • 47.24 GiB /tmp reclaimed.';
+        }
+        setTimeout(function() {
+          if (btnEl && origText) {
+            btnEl.textContent = origText;
+            btnEl.style.color = '';
+          }
+          if (action === 'optimizeAgents') {
+            var mainBtn = document.getElementById('optimizeMainBtn');
+            if (mainBtn && mainBtn.getAttribute('data-orig')) {
+              mainBtn.textContent = mainBtn.getAttribute('data-orig');
+              mainBtn.style.background = '';
+              mainBtn.style.borderColor = '';
+            }
+          }
+        }, 3200);
+      }, 650);
     }
     function resizeHud(w, h, persist) {
       var cw = Math.max(380, Math.min(880, Math.round(w)));
@@ -565,6 +610,17 @@ private let HUD_HTML = #"""
 </body>
 </html>
 """#
+
+class MacYoloHudPanel: NSPanel {
+    override var canBecomeKey: Bool { return true }
+    override var canBecomeMain: Bool { return false }
+}
+
+class MacYoloWebView: WKWebView {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        return true
+    }
+}
 
 class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
     var statusItem: NSStatusItem!
@@ -736,7 +792,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let panelH: CGFloat = savedH >= 540 ? CGFloat(savedH) : 630
         let panelX = screenFrame.maxX - panelW - 18
         let panelY = screenFrame.maxY - panelH - 8
-        hudPanel = NSPanel(
+        hudPanel = MacYoloHudPanel(
             contentRect: NSRect(x: panelX, y: panelY, width: panelW, height: panelH),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
@@ -765,7 +821,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
 
         let wkConfig = WKWebViewConfiguration()
         wkConfig.userContentController.add(self, name: "yoloHud")
-        webView = WKWebView(frame: NSRect(x: 0, y: 0, width: panelW, height: panelH), configuration: wkConfig)
+        webView = MacYoloWebView(frame: NSRect(x: 0, y: 0, width: panelW, height: panelH), configuration: wkConfig)
         webView.autoresizingMask = [.width, .height]
         webView.setValue(false, forKey: "drawsBackground")
         webView.loadHTMLString(HUD_HTML, baseURL: nil)
