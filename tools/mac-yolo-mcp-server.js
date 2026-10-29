@@ -126,6 +126,17 @@ function getToolDefinitions() {
         },
       },
     },
+    {
+      name: 'yolo_system_care',
+      description: '5-Pillar Smart Care Scan (Cleanup, Protection, Performance/Browser Care/LaunchAgents, Applications/Installers, My Clutter) + Status Bar Icon toggle',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          clean: { type: 'boolean', default: false },
+          showStatusBarIcon: { type: 'boolean' },
+        },
+      },
+    },
   ];
 }
 
@@ -282,6 +293,16 @@ function callTool(name, args = {}) {
       return runDiskSmartClean({ notify: args.notify !== false });
     }
     return runDiskSmartScan();
+  }
+  if (name === 'yolo_system_care') {
+    const {
+      runFivePillarSmartCare,
+      setStatusBarIconVisibility,
+    } = require('./mac-yolo-system-care-engine');
+    if (typeof args.showStatusBarIcon === 'boolean') {
+      setStatusBarIconVisibility(args.showStatusBarIcon);
+    }
+    return runFivePillarSmartCare({ clean: Boolean(args.clean) });
   }
   throw new Error(`Unknown tool: ${name}`);
 }

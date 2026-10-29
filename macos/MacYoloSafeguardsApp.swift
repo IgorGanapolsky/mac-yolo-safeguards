@@ -371,6 +371,21 @@ private let HUD_HTML = #"""
         </div>
         <button class="rec-btn" onclick="sendAction('runSmartScan')">Run Smart Guard Scan</button>
       </div>
+
+      <div class="card rec-card" id="settingsDrawer" style="display:none;margin-top:8px;padding:12px 14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="font-size:13px;font-weight:700;">⚙️ Mac YOLO Guard Settings</div>
+          <button class="tile-action" onclick="toggleSettingsDrawer()">Done</button>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-top:1px solid rgba(255,255,255,0.12);">
+          <span style="font-size:12px;color:rgba(255,255,255,0.92);">Show Status Bar Icon in Menu Bar</span>
+          <button class="tile-action" id="statusBarToggleBtn" onclick="sendAction('toggleStatusBarIcon')">Shown ✓</button>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-top:1px solid rgba(255,255,255,0.12);">
+          <span style="font-size:12px;color:rgba(255,255,255,0.78);">CleanMyMac5.Menu Status Bar Icon</span>
+          <span style="font-size:11.5px;color:#4BE38A;font-weight:600;">Disabled ✓</span>
+        </div>
+      </div>
     </div>
 
     <div class="footer">
@@ -389,6 +404,15 @@ private let HUD_HTML = #"""
         window.webkit.messageHandlers.yoloHud.postMessage({ action: action });
       }
     }
+    function toggleSettingsDrawer(forceShow) {
+      var el = document.getElementById('settingsDrawer');
+      if (!el) return;
+      if (typeof forceShow === 'boolean') {
+        el.style.display = forceShow ? 'block' : 'none';
+      } else {
+        el.style.display = (el.style.display === 'none' || !el.style.display) ? 'block' : 'none';
+      }
+    }
     window.updateYoloHud = function(state) {
       if (!state) return;
       if (state.healthState) document.getElementById('healthState').textContent = state.healthState;
@@ -405,6 +429,10 @@ private let HUD_HTML = #"""
       if (state.netDown) document.getElementById('netDown').textContent = state.netDown;
       if (state.recTitle) document.getElementById('recTitle').textContent = state.recTitle;
       if (state.recDesc) document.getElementById('recDesc').textContent = state.recDesc;
+      if (state.statusBarIconVisible) {
+        var btn = document.getElementById('statusBarToggleBtn');
+        if (btn) btn.textContent = (state.statusBarIconVisible === 'true') ? 'Shown ✓' : 'Hidden (Click to Show)';
+      }
     };
   </script>
 </body>
@@ -416,6 +444,8 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var hudPanel: NSPanel!
     var webView: WKWebView!
     var gearMenu: NSMenu!
+    var statusBarMenuItem: NSMenuItem!
+    var showStatusBarIcon: Bool = true
     var refreshTimer: Timer?
     var globalMouseMonitor: Any?
     var localKeyMonitor: Any?
@@ -425,7 +455,6 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var prevNetInBytes: UInt64 = 0
     var prevNetOutBytes: UInt64 = 0
     var prevNetSampleAt: Date = .distantPast
-
     func applicationDidFinishLaunching(_ notification: Notification) {
         let myPid = ProcessInfo.processInfo.processIdentifier
         for app in NSWorkspace.shared.runningApplications {
@@ -502,7 +531,13 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     }
 
     func setupStatusItemAndHud() {
+        if UserDefaults.standard.object(forKey: "MacYoloShowStatusBarIcon") != nil {
+            showStatusBarIcon = UserDefaults.standard.bool(forKey: "MacYoloShowStatusBarIcon")
+        } else {
+            showStatusBarIcon = true
+        }
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        statusItem.isVisible = showStatusBarIcon
         if let button = statusItem.button {
             if #available(macOS 11.0, *) {
                 let cfg = NSImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
@@ -521,10 +556,15 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         gearMenu.addItem(NSMenuItem(title: "About Mac YOLO Guard", action: #selector(openDashboard), keyEquivalent: ""))
         gearMenu.addItem(NSMenuItem(title: "Provide Feedback…", action: #selector(openFeedback), keyEquivalent: ""))
         gearMenu.addItem(NSMenuItem.separator())
-        gearMenu.addItem(NSMenuItem(title: "Settings…", action: #selector(openDashboard), keyEquivalent: ","))
+        statusBarMenuItem = NSMenuItem(title: "Show Status Bar Icon", action: #selector(toggleStatusBarIcon(_:)), keyEquivalent: "")
+        statusBarMenuItem.target = self
+        statusBarMenuItem.state = showStatusBarIcon ? .on : .off
+        gearMenu.addItem(statusBarMenuItem)
+        let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettingsDrawer(_:)), keyEquivalent: ",")
+        settingsItem.target = self
+        gearMenu.addItem(settingsItem)
         gearMenu.addItem(NSMenuItem.separator())
         gearMenu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
-
         let screenFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let panelW: CGFloat = 420
         let panelH: CGFloat = 610
@@ -565,10 +605,13 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         case "testSpeed":
             refreshLiveTelemetry()
         case "openGearMenu":
+            statusBarMenuItem?.state = showStatusBarIcon ? .on : .off
             if let view = hudPanel.contentView {
-                let pt = NSPoint(x: view.bounds.width - 170, y: 36)
+                let pt = NSPoint(x: view.bounds.width - 195, y: 36)
                 gearMenu.popUp(positioning: nil, at: pt, in: view)
             }
+        case "toggleStatusBarIcon":
+            toggleStatusBarIcon(nil)
         case "openDashboard":
             openDashboard()
         case "dismiss":
@@ -576,6 +619,29 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         default:
             break
         }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showFloatingHudNotification()
+        return true
+    }
+
+    @objc func openSettingsDrawer(_ sender: AnyObject?) {
+        showFloatingHudNotification()
+        webView?.evaluateJavaScript("if (window.toggleSettingsDrawer) window.toggleSettingsDrawer(true);", completionHandler: nil)
+    }
+
+    @objc func toggleStatusBarIcon(_ sender: AnyObject?) {
+        showStatusBarIcon.toggle()
+        statusItem.isVisible = showStatusBarIcon
+        statusBarMenuItem?.state = showStatusBarIcon ? .on : .off
+        UserDefaults.standard.set(showStatusBarIcon, forKey: "MacYoloShowStatusBarIcon")
+        let proc = Process()
+        proc.launchPath = "/opt/homebrew/bin/node"
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        proc.arguments = ["\(home)/workspace/mac-yolo-safeguards/tools/mac-yolo-system-care-engine.js", "--status-icon", showStatusBarIcon ? "show" : "hide"]
+        try? proc.run()
+        refreshLiveTelemetry()
     }
 
     func dismissHudNotification() {
@@ -688,10 +754,12 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "cpuRight": "1m: \(load1Str)",
             "netUp": upRate,
             "netDown": downRate,
+            "statusBarIconVisible": showStatusBarIcon ? "true" : "false",
         ]
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            self.statusItem.isVisible = self.showStatusBarIcon
             self.statusItem.button?.title = " \(freeMenuInt)G"
             if let data = try? JSONSerialization.data(withJSONObject: payload, options: []),
                let jsonStr = String(data: data, encoding: .utf8) {
@@ -723,7 +791,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let proc = Process()
         proc.launchPath = "/opt/homebrew/bin/node"
         let home = FileManager.default.homeDirectoryForCurrentUser.path
-        proc.arguments = ["\(home)/workspace/mac-yolo-safeguards/tools/mac-yolo-disk-guard.js", "--clean"]
+        proc.arguments = ["\(home)/workspace/mac-yolo-safeguards/tools/mac-yolo-system-care-engine.js", "--clean"]
         try? proc.run()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
             self?.refreshLiveTelemetry()

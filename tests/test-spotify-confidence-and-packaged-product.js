@@ -68,7 +68,7 @@ function main() {
   assert.strictEqual(initResp.result.serverInfo.name, 'mac-yolo-safeguards');
 
   const toolsResp = handleRpcRequest({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
-  assert.strictEqual(toolsResp.result.tools.length, 9);
+  assert.strictEqual(toolsResp.result.tools.length, 10);
 
   const callResp = handleRpcRequest({
     jsonrpc: '2.0',

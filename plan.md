@@ -4178,4 +4178,8 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 - `.github/FUNDING.yml`
 - `tools/mac-yolo-disk-guard.js`
 - `tests/test-mac-yolo-disk-guard.js`
+- `macos/AppIcon.icns`
+- `tools/mac-yolo-system-care-engine.js`
+- `tests/test-mac-yolo-system-care-engine.js`
+- `docs/MAC-SYSTEM-CARE-COMPETITIVE-STEAL-202610.md`
 - `plan.md` (this append)
