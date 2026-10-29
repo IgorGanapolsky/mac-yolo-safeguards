@@ -90,15 +90,15 @@ private let HUD_HTML = #"""
     gap: 8px;
   }
   .shield-pill {
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     border-radius: 6px;
-    background: linear-gradient(135deg, #22c55e, #16a34a);
+    background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+    border: 1px solid rgba(255, 255, 255, 0.28);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
-    box-shadow: 0 2px 8px rgba(34, 197, 94, 0.45);
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.45);
   }
   .shield-status {
     color: rgba(255, 255, 255, 0.85);
@@ -293,13 +293,13 @@ private let HUD_HTML = #"""
     width: 38px;
     height: 38px;
     border-radius: 10px;
-    background: linear-gradient(135deg, #ec4899, #8b5cf6);
+    background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+    border: 1px solid rgba(255, 255, 255, 0.28);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 20px;
     flex-shrink: 0;
-    box-shadow: 0 4px 12px rgba(236, 72, 153, 0.35);
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.45);
   }
   .rec-title {
     font-size: 13px;
@@ -380,9 +380,14 @@ private let HUD_HTML = #"""
   <div class="shell">
     <div>
       <div class="header" id="hudHeader">
-        <div>
-          <div class="header-title">Mac Health: <span id="healthState">Excellent</span></div>
-          <div class="header-sub" id="macModel">AI Agent &amp; Mac Optimizer</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:34px;height:34px;border-radius:8px;background:linear-gradient(180deg,#6d28d9 0%,#4c1d95 100%);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.35);flex-shrink:0;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2L4 5.4V11.2C4 16.5 7.4 21.3 12 22.8C16.6 21.3 20 16.5 20 11.2V5.4L12 2Z" fill="#ffffff"/><path d="M13.2 6.8L8.2 13.0H11.6L10.8 17.4L15.8 11.2H12.4L13.2 6.8Z" fill="#5eead4"/></svg>
+          </div>
+          <div>
+            <div class="header-title">Mac Health: <span id="healthState">Excellent</span></div>
+            <div class="header-sub" id="macModel">AI Agent &amp; Mac Optimizer</div>
+          </div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;">
           <button class="hdr-pill" onclick="toggleSettingsDrawer()">
@@ -399,7 +404,7 @@ private let HUD_HTML = #"""
       <div class="card shield-card">
         <div class="shield-top">
           <div class="shield-left">
-            <span class="shield-pill">✓</span>
+            <span class="shield-pill"><svg width="16" height="16" viewBox="0 0 32 32"><path d="M16 3L5 7.5v8.2C5 22.8 9.7 28.9 16 31c6.3-2.1 11-8.2 11-15.3V7.5L16 3z" fill="#ffffff"/><polygon points="17.5 8 10.5 17 15.5 17 14.2 24.5 21.5 15 16.5 15 17.5 8" fill="#14b8a6"/></svg></span>
             <span>Protection by <strong>Mac YOLO</strong></span>
           </div>
           <span class="shield-status">✓ Protected</span>
@@ -491,7 +496,7 @@ private let HUD_HTML = #"""
         <div class="card rec-card">
           <div class="rec-top">
             <div class="rec-badge">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              <svg width="24" height="24" viewBox="0 0 32 32"><path d="M16 3L5 7.5v8.2C5 22.8 9.7 28.9 16 31c6.3-2.1 11-8.2 11-15.3V7.5L16 3z" fill="#ffffff"/><polygon points="17.5 8 10.5 17 15.5 17 14.2 24.5 21.5 15 16.5 15 17.5 8" fill="#14b8a6"/></svg>
             </div>
             <div>
               <div class="rec-title" id="recTitle">AI Agent Fleet, Token Cap &amp; Cache Optimizer</div>
@@ -812,7 +817,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
 
         globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] _ in
             guard let self = self, self.hudPanel != nil, self.hudPanel.isVisible else { return }
-            if Date().timeIntervalSince(self.lastShownAt) < 1.5 { return }
+            if Date().timeIntervalSince(self.lastShownAt) < 120.0 { return }
             let mouseLoc = NSEvent.mouseLocation
             if mouseLoc.y < 105 { return }
             if let screen = NSScreen.main, mouseLoc.y >= screen.frame.maxY - 36 { return }
@@ -921,7 +926,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         hudPanel.level = .statusBar
         hudPanel.isOpaque = false
         hudPanel.backgroundColor = .clear
-        hudPanel.alphaValue = 1
+        hudPanel.alphaValue = 0.85
         hudPanel.hasShadow = true
         hudPanel.isMovableByWindowBackground = true
         hudPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
@@ -1225,25 +1230,16 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
 
     func renderMenuBarPill(freeGB: Int, memPct: Int, cpuPct: Int) -> NSImage {
         let size = NSSize(width: 86, height: 22)
+        let appIconImg = NSImage(contentsOfFile: "/Applications/MacYoloSafeguards.app/Contents/Resources/AppIcon.icns") ?? NSApp.applicationIconImage
         let img = NSImage(size: size, flipped: false) { _ in
-            let badgeRect = NSRect(x: 1.5, y: 2.5, width: 17.0, height: 17.0)
-            let badgePath = NSBezierPath(roundedRect: badgeRect, xRadius: 4.8, yRadius: 4.8)
-            NSColor(calibratedRed: 0.42, green: 0.22, blue: 0.92, alpha: 1.0).setFill()
-            badgePath.fill()
-            NSColor(calibratedRed: 0.36, green: 0.92, blue: 0.83, alpha: 0.85).setStroke()
-            badgePath.lineWidth = 1.0
-            badgePath.stroke()
-
-            let boltPath = NSBezierPath()
-            boltPath.move(to: NSPoint(x: 11.2, y: 16.5))
-            boltPath.line(to: NSPoint(x: 6.5, y: 10.6))
-            boltPath.line(to: NSPoint(x: 9.8, y: 10.6))
-            boltPath.line(to: NSPoint(x: 8.8, y: 5.5))
-            boltPath.line(to: NSPoint(x: 13.5, y: 11.4))
-            boltPath.line(to: NSPoint(x: 10.2, y: 11.4))
-            boltPath.close()
-            NSColor.white.setFill()
-            boltPath.fill()
+            let badgeRect = NSRect(x: 1.0, y: 2.0, width: 18.0, height: 18.0)
+            if let icon = appIconImg {
+                icon.draw(in: badgeRect, from: .zero, operation: .sourceOver, fraction: 1.0)
+            } else {
+                let badgePath = NSBezierPath(roundedRect: badgeRect, xRadius: 4.5, yRadius: 4.5)
+                NSColor(calibratedRed: 0.42, green: 0.18, blue: 0.85, alpha: 1.0).setFill()
+                badgePath.fill()
+            }
 
             let labelFont = NSFont.systemFont(ofSize: 7.0, weight: .bold)
             let valFont = NSFont.monospacedDigitSystemFont(ofSize: 10.0, weight: .bold)
@@ -1274,7 +1270,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             let yPos = screenFrame.maxY - f.height - 8
             hudPanel.setFrameOrigin(NSPoint(x: xPos, y: yPos))
         }
-        hudPanel.alphaValue = 1
+        hudPanel.alphaValue = 0.85
         hudPanel.level = .statusBar
         hudPanel.hidesOnDeactivate = false
         hudPanel.orderFrontRegardless()

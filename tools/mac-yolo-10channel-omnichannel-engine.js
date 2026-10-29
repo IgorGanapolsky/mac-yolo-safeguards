@@ -38,7 +38,7 @@ const OUT_DIR = path.join(os.homedir(), '.hermes', 'omnichannel-20261029');
 const LINKS = {
   githubRelease: 'https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v1.0.0',
   tier1Playbook999: 'https://iganapolsky.gumroad.com/l/odrkon',
-  tier2TeamKit49: 'https://iganapolsky.gumroad.com/l/vcrho',
+  tier2TeamKit49: 'https://iganapolsky.gumroad.com/l/nllmvb',
   tier3Diagnostic499: 'https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k',
   tier4Sprint1500: 'https://buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38',
   tier5Pilot3000: 'https://buy.stripe.com/fZucN5bmI8HkbO98qf3sI3j',
