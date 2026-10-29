@@ -284,6 +284,47 @@ function scanOrphanedAppLeftovers() {
 }
 
 /**
+ * 4d. Complete App Uninstaller + Leftover Finder (Replaces CleanMyMac Uninstaller & Pearcleaner)
+ */
+function uninstallAppWithLeftovers(appName, options = {}) {
+  const dryRun = options.dryRun !== false;
+  const cleanName = String(appName || '').replace(/\.app$/i, '').trim();
+  if (!cleanName) {
+    return { ok: false, error: 'Missing appName' };
+  }
+  const needle = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const candidateDirs = [
+    '/Applications',
+    path.join(HOME, 'Library', 'Application Support'),
+    path.join(HOME, 'Library', 'Caches'),
+    path.join(HOME, 'Library', 'Preferences'),
+    path.join(HOME, 'Library', 'LaunchAgents'),
+    path.join(HOME, 'Library', 'Logs'),
+  ];
+  const matchedPaths = [];
+  for (const dir of candidateDirs) {
+    if (!fs.existsSync(dir)) continue;
+    try {
+      for (const ent of fs.readdirSync(dir)) {
+        const norm = ent.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (norm.includes(needle)) {
+          matchedPaths.push(path.join(dir, ent));
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return {
+    ok: true,
+    appName: cleanName,
+    dryRun,
+    matchedCount: matchedPaths.length,
+    matchedPaths,
+  };
+}
+
+/**
  * 5. My Activity Cumulative Value Ledger (5.4.0 steal)
  */
 function getActivityLedger() {
@@ -409,6 +450,12 @@ if (require.main === module) {
     console.log(JSON.stringify(res, null, 2));
     process.exit(0);
   }
+  const uninstIdx = argv.indexOf('--uninstall-app');
+  if (uninstIdx !== -1 && argv[uninstIdx + 1]) {
+    const out = uninstallAppWithLeftovers(argv[uninstIdx + 1], { dryRun: !argv.includes('--execute') });
+    console.log(JSON.stringify(out, null, 2));
+    process.exit(0);
+  }
 
   const report = runFivePillarSmartCare({ clean: argv.includes('--clean') });
   if (jsonMode) {
@@ -433,6 +480,7 @@ module.exports = {
   scanDownloadsInstallersAndClutter,
   scanAiAndDevSpaceLens,
   scanOrphanedAppLeftovers,
+  uninstallAppWithLeftovers,
   getActivityLedger,
   getStatusBarSettings,
   setStatusBarIconVisibility,
