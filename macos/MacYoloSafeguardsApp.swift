@@ -24,7 +24,7 @@ private let HUD_HTML = #"""
     width: 100%;
     height: 100%;
     border-radius: 22px;
-    background: radial-gradient(circle at 82% 10%, rgba(139, 92, 246, 0.46) 0%, rgba(59, 24, 119, 0.54) 48%, rgba(24, 12, 54, 0.68) 100%);
+    background: radial-gradient(circle at 82% 10%, rgba(139, 92, 246, 0.22) 0%, rgba(59, 24, 119, 0.16) 46%, rgba(24, 12, 54, 0.20) 100%);
     border: 1px solid rgba(255, 255, 255, 0.24);
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.28);
     padding: 16px 16px 10px 16px;
@@ -163,15 +163,37 @@ private let HUD_HTML = #"""
     font-size: 13.5px;
     font-weight: 600;
   }
-  .tile-icon {
-    font-size: 17px;
-    opacity: 0.9;
+  .ico-badge {
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 2px 6px rgba(0, 0, 0, 0.25);
   }
+  .ico-badge svg {
+    width: 14px;
+    height: 14px;
+    stroke-width: 2;
+    stroke: #ffffff;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .ico-disk { background: linear-gradient(135deg, rgba(56, 189, 248, 0.42), rgba(37, 99, 235, 0.42)); }
+  .ico-mem  { background: linear-gradient(135deg, rgba(52, 211, 153, 0.42), rgba(16, 185, 129, 0.42)); }
+  .ico-ai   { background: linear-gradient(135deg, rgba(168, 85, 247, 0.48), rgba(236, 72, 153, 0.42)); }
+  .ico-cpu  { background: linear-gradient(135deg, rgba(251, 113, 133, 0.45), rgba(245, 158, 11, 0.42)); }
+  .ico-net  { background: linear-gradient(135deg, rgba(99, 102, 241, 0.45), rgba(56, 189, 248, 0.42)); }
+  .ico-win  { background: linear-gradient(135deg, rgba(45, 212, 191, 0.42), rgba(14, 165, 233, 0.42)); }
   .tile-sub {
     font-size: 11.5px;
-    color: rgba(255, 255, 255, 0.72);
-    margin-top: 3px;
-    padding-left: 25px;
+    color: rgba(255, 255, 255, 0.76);
+    margin-top: 4px;
+    padding-left: 2px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -184,17 +206,57 @@ private let HUD_HTML = #"""
   }
   .tile-action {
     align-self: flex-end;
-    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
     font-weight: 600;
-    color: #38bdf8;
-    background: none;
-    border: none;
+    color: #bae6fd;
+    background: linear-gradient(180deg, rgba(56, 189, 248, 0.20) 0%, rgba(56, 189, 248, 0.10) 100%);
+    border: 1px solid rgba(56, 189, 248, 0.34);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
+    padding: 3px 10px;
+    border-radius: 999px;
     cursor: pointer;
-    margin-top: 4px;
+    margin-top: 5px;
+    white-space: nowrap;
+    transition: all 0.15s ease;
   }
   .tile-action:hover {
-    color: #7dd3fc;
-    text-decoration: underline;
+    color: #ffffff;
+    background: linear-gradient(180deg, rgba(56, 189, 248, 0.34) 0%, rgba(56, 189, 248, 0.20) 100%);
+    border-color: rgba(125, 211, 252, 0.60);
+    transform: translateY(-0.5px);
+  }
+  .hdr-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 11px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.08) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 2px 6px rgba(0, 0, 0, 0.20);
+    color: #ffffff;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .hdr-pill:hover {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.14) 100%);
+    border-color: rgba(255, 255, 255, 0.42);
+  }
+  .hdr-pill svg {
+    width: 12.5px;
+    height: 12.5px;
+    stroke: #5eead4;
+    stroke-width: 2;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
   .tile-val {
     font-size: 12.5px;
@@ -251,17 +313,24 @@ private let HUD_HTML = #"""
   }
   .rec-btn {
     align-self: flex-end;
-    background: rgba(255, 255, 255, 0.14);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+    border: 1px solid rgba(255, 255, 255, 0.36);
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.42);
     color: #ffffff;
-    font-size: 12px;
-    font-weight: 600;
+    font-size: 11.5px;
+    font-weight: 650;
     padding: 6px 14px;
-    border-radius: 8px;
+    border-radius: 999px;
+    white-space: nowrap;
     cursor: pointer;
+    transition: all 0.15s ease;
   }
   .rec-btn:hover {
-    background: rgba(255, 255, 255, 0.22);
+    filter: brightness(1.08);
+    transform: translateY(-0.5px);
   }
   .hud-footer {
     display: flex;
@@ -316,9 +385,14 @@ private let HUD_HTML = #"""
           <div class="header-sub" id="macModel">AI Agent &amp; Mac Optimizer</div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;">
-          <button class="rec-btn" style="padding:4px 9px;font-size:11px;" onclick="toggleSettingsDrawer()">⚙️ Settings</button>
-          <button class="rec-btn" id="hudSizeBtn" style="padding:4px 9px;font-size:11px;" onclick="cycleHudSize()" title="Toggle HUD size or drag corner">⤢ Expand</button>
-          <div class="laptop-badge" style="width:42px;height:36px;font-size:24px;">💻</div>
+          <button class="hdr-pill" onclick="toggleSettingsDrawer()">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82-.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <span>Settings</span>
+          </button>
+          <button class="hdr-pill" id="hudSizeBtn" onclick="cycleHudSize()" title="Toggle HUD size or drag corner">
+            <svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+            <span id="hudSizeBtnText">Expand</span>
+          </button>
         </div>
       </div>
 
@@ -337,7 +411,10 @@ private let HUD_HTML = #"""
       <div class="bento">
         <div class="tile">
           <div>
-            <div class="tile-head"><span class="tile-icon">🖴</span><span>Macintosh HD</span></div>
+            <div class="tile-head">
+              <span class="ico-badge ico-disk"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><line x1="2" y1="12" x2="22" y2="12"/><circle cx="6" cy="8" r="1"/><circle cx="6" cy="16" r="1"/></svg></span>
+              <span>Macintosh HD</span>
+            </div>
             <div class="tile-sub warn" id="diskAvail">Available: 150.24 GB</div>
             <div class="meter-track"><div class="meter-fill" id="diskBarFill" style="width:84%;background:linear-gradient(90deg,#fbbf24,#38bdf8);"></div></div>
           </div>
@@ -346,7 +423,10 @@ private let HUD_HTML = #"""
 
         <div class="tile">
           <div>
-            <div class="tile-head"><span class="tile-icon">▦</span><span>Memory</span></div>
+            <div class="tile-head">
+              <span class="ico-badge ico-mem"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2"/><line x1="8" y1="6" x2="8" y2="3"/><line x1="12" y1="6" x2="12" y2="3"/><line x1="16" y1="6" x2="16" y2="3"/><line x1="8" y1="21" x2="8" y2="18"/><line x1="12" y1="21" x2="12" y2="18"/><line x1="16" y1="21" x2="16" y2="18"/></svg></span>
+              <span>Memory</span>
+            </div>
             <div class="tile-sub" id="memPressure">Pressure: 38%</div>
             <div class="meter-track"><div class="meter-fill" id="memBarFill" style="width:38%;background:linear-gradient(90deg,#34d399,#38bdf8);"></div></div>
           </div>
@@ -356,7 +436,10 @@ private let HUD_HTML = #"""
         <div class="tile">
           <div>
             <div class="tile-row">
-              <div class="tile-head"><span class="tile-icon">🤖</span><span>AI Agents</span></div>
+              <div class="tile-head">
+                <span class="ico-badge ico-ai"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0-1.3-1.3L12 3z"/></svg></span>
+                <span>AI Agents</span>
+              </div>
               <span class="tile-val" id="battPct" style="color:#5eead4;">Fenced</span>
             </div>
             <div class="tile-sub" id="battState">$10/mo Cap · 0 Runaways</div>
@@ -364,9 +447,13 @@ private let HUD_HTML = #"""
           </div>
           <button class="tile-action" id="optimizeTileBtn" onclick="triggerHudAction('optimizeAgents', this, 'Optimizing…', '✓ Optimized')">Optimize Agents</button>
         </div>
+
         <div class="tile">
           <div class="tile-row">
-            <div class="tile-head"><span class="tile-icon">⚙️</span><span>CPU</span></div>
+            <div class="tile-head">
+              <span class="ico-badge ico-cpu"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="2" x2="9" y2="6"/><line x1="15" y1="2" x2="15" y2="6"/><line x1="9" y1="18" x2="9" y2="22"/><line x1="15" y1="18" x2="15" y2="22"/><line x1="2" y1="9" x2="6" y2="9"/><line x1="2" y1="15" x2="6" y2="15"/><line x1="18" y1="9" x2="22" y2="9"/><line x1="18" y1="15" x2="22" y2="15"/></svg></span>
+              <span>CPU</span>
+            </div>
             <span class="tile-val hot" id="cpuTemp">Load 1m</span>
           </div>
           <div class="tile-sub" id="cpuLoad">Load: 24%</div>
@@ -375,8 +462,11 @@ private let HUD_HTML = #"""
 
         <div class="tile tile-tall">
           <div>
-            <div class="tile-head"><span class="tile-icon">🛜</span><span id="netName">Tailnet &amp; Wi-Fi</span></div>
-            <div class="net-rates">
+            <div class="tile-head">
+              <span class="ico-badge ico-net"><svg viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1"/></svg></span>
+              <span id="netName">Tailnet &amp; Wi-Fi</span>
+            </div>
+            <div class="net-rates" style="padding-left:2px;">
               <div id="netUp">↑ 0 KB/sec</div>
               <div id="netDown">↓ 0 KB/sec</div>
             </div>
@@ -386,9 +476,12 @@ private let HUD_HTML = #"""
 
         <div class="tile tile-tall">
           <div>
-            <div class="tile-head"><span class="tile-icon">🪟</span><span>On Screen Now</span></div>
-            <div class="tile-sub good" id="activeAppTile" style="padding-left:0;margin-top:6px;font-weight:600;">Active App</div>
-            <div class="tile-sub" id="activeWinTile" style="padding-left:0;margin-top:2px;">Window title</div>
+            <div class="tile-head">
+              <span class="ico-badge ico-win"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><line x1="3" y1="9" x2="21" y2="9"/><circle cx="6.5" cy="6.5" r="0.8"/><circle cx="9.5" cy="6.5" r="0.8"/></svg></span>
+              <span>On Screen Now</span>
+            </div>
+            <div class="tile-sub good" id="activeAppTile" style="padding-left:2px;margin-top:6px;font-weight:600;">Active App</div>
+            <div class="tile-sub" id="activeWinTile" style="padding-left:2px;margin-top:2px;">Window title</div>
           </div>
         </div>
       </div>
@@ -397,15 +490,17 @@ private let HUD_HTML = #"""
         <div class="rec-header">AI YOLO Agent Optimization</div>
         <div class="card rec-card">
           <div class="rec-top">
-            <div class="rec-badge">⚡</div>
+            <div class="rec-badge">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            </div>
             <div>
               <div class="rec-title" id="recTitle">AI Agent Fleet, Token Cap &amp; Cache Optimizer</div>
               <div class="rec-desc" id="recDesc">Agent temp · Swift cache · Node cache · Playwright · Trash • Reap zombie MCPs &amp; enforce $10/mo token cap.</div>
             </div>
           </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:2px;">
-            <button class="tile-action" style="margin-top:0;white-space:nowrap;" onclick="toggleSettingsDrawer(true)">⚙️ Settings…</button>
-            <button class="rec-btn" id="optimizeMainBtn" style="white-space:nowrap;" onclick="triggerHudAction('optimizeAgents', this, '⏳ Optimizing AI Agents…', '✓ Optimized AI Agents &amp; Mac')">⚡ Optimize AI Agents &amp; Mac</button>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:4px;">
+            <button class="tile-action" style="margin-top:0;" onclick="toggleSettingsDrawer(true)">Configure Guard…</button>
+            <button class="rec-btn" id="optimizeMainBtn" onclick="triggerHudAction('optimizeAgents', this, 'Optimizing AI Agents…', '✓ Optimized AI Agents &amp; Mac')">Optimize AI Agents &amp; Mac</button>
           </div>
         </div>
       </div>
@@ -417,7 +512,7 @@ private let HUD_HTML = #"""
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-top:1px solid rgba(255,255,255,0.12);">
           <span style="font-size:12px;color:rgba(255,255,255,0.92);">Mac YOLO Status Bar Icon</span>
-          <button class="rec-btn" style="padding:3px 10px;font-size:11.5px;" id="statusBarToggleBtn" onclick="sendAction('toggleStatusBarIcon')">Shown ✓ (Click to Hide)</button>
+          <button class="tile-action" style="margin-top:0;" id="statusBarToggleBtn" onclick="sendAction('toggleStatusBarIcon')">Shown ✓ (Click to Hide)</button>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-top:1px solid rgba(255,255,255,0.12);">
           <span style="font-size:12px;color:rgba(255,255,255,0.78);">AI Agent Token Cap &amp; Loop Reaper</span>
@@ -427,7 +522,7 @@ private let HUD_HTML = #"""
     </div>
 
     <div class="hud-footer">
-      <button class="tile-action" style="margin-top:0;font-size:11.5px;color:rgba(255,255,255,0.82);" onclick="sendAction('toggleStatusBarIcon')">⚙️ Menu Bar Icon: <strong id="quickStatusIconLabel" style="color:#5eead4;">Shown ✓</strong></button>
+      <button class="tile-action" style="margin-top:0;" onclick="sendAction('toggleStatusBarIcon')">Menu Bar Icon: <strong id="quickStatusIconLabel" style="color:#5eead4;">Shown ✓</strong></button>
       <span id="footerSizeLabel" style="font-size:11px;color:rgba(255,255,255,0.68);cursor:pointer;" onclick="cycleHudSize()" title="Click to cycle size or drag corner">420×630</span>
     </div>
   </div>
@@ -437,9 +532,9 @@ private let HUD_HTML = #"""
 
   <script>
     var HUD_PRESETS = [
-      { label: '⤢ Expand', width: 420, height: 630 },
-      { label: '⤢ Large', width: 520, height: 720 },
-      { label: '⤡ Compact', width: 640, height: 800 }
+      { label: 'Expand', width: 420, height: 630 },
+      { label: 'Large', width: 520, height: 720 },
+      { label: 'Compact', width: 640, height: 800 }
     ];
     var _presetIdx = 0;
     function sendAction(action, extra) {
@@ -476,7 +571,7 @@ private let HUD_HTML = #"""
           var title = document.getElementById('recTitle');
           if (title) title.textContent = '✓ AI Agents & Mac Optimized Just Now';
           var desc = document.getElementById('recDesc');
-          if (desc) desc.textContent = '0 runaway loops • Zombie MCPs & simulators reaped • $10/mo token cap enforced • 47.24 GiB /tmp reclaimed.';
+          if (desc) desc.textContent = 'Zombie MCPs and simulators reaped. Token cap stays $10/mo.';
         }
         setTimeout(function() {
           if (btnEl && origText) {
@@ -504,8 +599,8 @@ private let HUD_HTML = #"""
     function cycleHudSize() {
       _presetIdx = (_presetIdx + 1) % HUD_PRESETS.length;
       var p = HUD_PRESETS[_presetIdx];
-      var btn = document.getElementById('hudSizeBtn');
-      if (btn) btn.textContent = p.label;
+      var btnTxt = document.getElementById('hudSizeBtnText');
+      if (btnTxt) btnTxt.textContent = p.label;
       resizeHud(p.width, p.height, true);
     }
     window.addEventListener('keydown', function(e) {
@@ -691,13 +786,12 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let icnsPath = "/Applications/MacYoloSafeguards.app/Contents/Resources/AppIcon.icns"
         if let iconImg = NSImage(contentsOfFile: icnsPath) {
             NSApp.applicationIconImage = iconImg
-            NSWorkspace.shared.setIcon(iconImg, forFile: "/Applications/MacYoloSafeguards.app", options: [])
         }
         updateActiveWindowFromWorkspace(NSWorkspace.shared.frontmostApplication)
 
         globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] _ in
             guard let self = self, self.hudPanel != nil, self.hudPanel.isVisible else { return }
-            if Date().timeIntervalSince(self.lastShownAt) < 0.25 { return }
+            if Date().timeIntervalSince(self.lastShownAt) < 1.0 { return }
             let mouseLoc = NSEvent.mouseLocation
             if !self.hudPanel.frame.contains(mouseLoc) {
                 if let btnWin = self.statusItem?.button?.window, btnWin.frame.contains(mouseLoc) {
@@ -799,9 +893,9 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             defer: false
         )
         hudPanel.title = "Mac YOLO Safeguards"
-        hudPanel.level = .statusBar
         hudPanel.isFloatingPanel = true
         hudPanel.hidesOnDeactivate = false
+        hudPanel.level = .statusBar
         hudPanel.isOpaque = false
         hudPanel.backgroundColor = .clear
         hudPanel.alphaValue = 0.88
@@ -824,6 +918,9 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         webView = MacYoloWebView(frame: NSRect(x: 0, y: 0, width: panelW, height: panelH), configuration: wkConfig)
         webView.autoresizingMask = [.width, .height]
         webView.setValue(false, forKey: "drawsBackground")
+        webView.wantsLayer = true
+        webView.layer?.isOpaque = false
+        webView.layer?.backgroundColor = NSColor.clear.cgColor
         webView.loadHTMLString(HUD_HTML, baseURL: nil)
         visualEffectView.addSubview(webView)
         hudPanel.contentView = visualEffectView
@@ -1064,38 +1161,49 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     }
 
     func renderMenuBarPill(freeGB: Int, memPct: Int, cpuPct: Int) -> NSImage {
-        let size = NSSize(width: 122, height: 22)
+        let size = NSSize(width: 124, height: 22)
         let img = NSImage(size: size, flipped: false) { _ in
-            // 1. Left SF Symbol shield icon
-            if #available(macOS 11.0, *),
-               let sym = NSImage(systemSymbolName: "bolt.shield.fill", accessibilityDescription: nil) {
-                let cfg = NSImage.SymbolConfiguration(pointSize: 12.5, weight: .semibold)
-                if let configured = sym.withSymbolConfiguration(cfg) {
-                    configured.draw(in: NSRect(x: 2, y: 3.5, width: 15, height: 15))
-                }
-            }
+            // 1. High-contrast glowing Indigo-Cyan Squircle Badge + Bright White/Cyan Shield Bolt
+            let badgeRect = NSRect(x: 1.5, y: 2.5, width: 17.0, height: 17.0)
+            let badgePath = NSBezierPath(roundedRect: badgeRect, xRadius: 4.8, yRadius: 4.8)
+            NSColor(calibratedRed: 0.42, green: 0.22, blue: 0.92, alpha: 1.0).setFill()
+            badgePath.fill()
+            NSColor(calibratedRed: 0.36, green: 0.92, blue: 0.83, alpha: 0.85).setStroke()
+            badgePath.lineWidth = 1.0
+            badgePath.stroke()
+
+            let boltPath = NSBezierPath()
+            boltPath.move(to: NSPoint(x: 11.2, y: 16.5))
+            boltPath.line(to: NSPoint(x: 6.5, y: 10.6))
+            boltPath.line(to: NSPoint(x: 9.8, y: 10.6))
+            boltPath.line(to: NSPoint(x: 8.8, y: 5.5))
+            boltPath.line(to: NSPoint(x: 13.5, y: 11.4))
+            boltPath.line(to: NSPoint(x: 10.2, y: 11.4))
+            boltPath.close()
+            NSColor.white.setFill()
+            boltPath.fill()
 
             let labelFont = NSFont.systemFont(ofSize: 7.2, weight: .bold)
             let valFont = NSFont.monospacedDigitSystemFont(ofSize: 10.0, weight: .bold)
             let labelAttrs: [NSAttributedString.Key: Any] = [
                 .font: labelFont,
-                .foregroundColor: NSColor(calibratedWhite: 1.0, alpha: 0.68),
+                .foregroundColor: NSColor(calibratedWhite: 1.0, alpha: 0.72),
             ]
             let diskValColor = freeGB >= 80 ? NSColor.white : NSColor.systemYellow
             let ramValColor = memPct < 75 ? NSColor(calibratedRed: 0.37, green: 0.92, blue: 0.83, alpha: 1.0) : NSColor.systemYellow
             let cpuValColor = cpuPct < 80 ? NSColor(calibratedRed: 0.38, green: 0.78, blue: 0.98, alpha: 1.0) : NSColor.systemPink
 
             // Column 1: DISK / 147G
-            ("DISK" as NSString).draw(at: NSPoint(x: 21, y: 12.0), withAttributes: labelAttrs)
-            ("\(freeGB)G" as NSString).draw(at: NSPoint(x: 21, y: 1.0), withAttributes: [.font: valFont, .foregroundColor: diskValColor])
+            ("DISK" as NSString).draw(at: NSPoint(x: 23, y: 12.0), withAttributes: labelAttrs)
+            ("\(freeGB)G" as NSString).draw(at: NSPoint(x: 23, y: 1.0), withAttributes: [.font: valFont, .foregroundColor: diskValColor])
 
-            // Column 2: RAM / 61%
-            ("RAM" as NSString).draw(at: NSPoint(x: 59, y: 12.0), withAttributes: labelAttrs)
-            ("\(memPct)%" as NSString).draw(at: NSPoint(x: 59, y: 1.0), withAttributes: [.font: valFont, .foregroundColor: ramValColor])
+            // Column 2: RAM / 70%
+            ("RAM" as NSString).draw(at: NSPoint(x: 61, y: 12.0), withAttributes: labelAttrs)
+            ("\(memPct)%" as NSString).draw(at: NSPoint(x: 61, y: 1.0), withAttributes: [.font: valFont, .foregroundColor: ramValColor])
 
-            // Column 3: CPU / 24%
-            ("CPU" as NSString).draw(at: NSPoint(x: 91, y: 12.0), withAttributes: labelAttrs)
-            ("\(cpuPct)%" as NSString).draw(at: NSPoint(x: 91, y: 1.0), withAttributes: [.font: valFont, .foregroundColor: cpuValColor])
+            // Column 3: CPU / 71%
+            ("CPU" as NSString).draw(at: NSPoint(x: 93, y: 12.0), withAttributes: labelAttrs)
+            ("\(cpuPct)%" as NSString).draw(at: NSPoint(x: 93, y: 1.0), withAttributes: [.font: valFont, .foregroundColor: cpuValColor])
             return true
         }
         img.isTemplate = false
@@ -1111,6 +1219,8 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             let yPos = screenFrame.maxY - f.height - 8
             hudPanel.setFrameOrigin(NSPoint(x: xPos, y: yPos))
         }
+        hudPanel.level = .statusBar
+        hudPanel.hidesOnDeactivate = false
         hudPanel.orderFrontRegardless()
     }
 

@@ -59,6 +59,11 @@ const REJECTED_APPROACHES = [
     pattern: 'var upKB = 145',
     reason: 'User rejected fake 145/420 KB/sec network rate fallback on app switch.',
   },
+  {
+    id: 'nineties-unicode-emoji-tile-icons',
+    pattern: '🖴',
+    reason: 'User rejected 90s Unicode/emoji tile icons; must use 2026 Concentric Duotone Vector SVG Badges (.ico-badge).',
+  },
 ];
 
 const REQUIRED_BENTO_INVARIANTS = [
@@ -69,6 +74,8 @@ const REQUIRED_BENTO_INVARIANTS = [
   { id: 'dayglass-corner-resize', pattern: "case \"resizeHud\":" },
   { id: 'ai-agent-optimization-card', pattern: 'AI YOLO Agent Optimization' },
   { id: 'machine-health-live-strip', pattern: 'user agents' },
+  { id: 'duotone-vector-svg-badges', pattern: 'class="ico-badge ico-disk"' },
+  { id: 'specular-pill-buttons', pattern: 'class="hdr-pill"' },
 ];
 
 function checkEntireCliStatus() {

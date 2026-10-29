@@ -41,6 +41,11 @@ function main() {
     'var downKB = 420',
     'Open Mac YOLO Guard',
     '✕ Close',
+    '🖴',
+    '▦',
+    '🤖',
+    '🪟',
+    '💻',
   ];
   for (const b of banned) {
     assert.ok(!src.includes(b), `Regression string "${b}" is banned in macos/MacYoloSafeguardsApp.swift`);
@@ -60,7 +65,8 @@ function main() {
 
   // 4. Dayglass-style drag-to-move, corner resize, top-right placement, and AI Agent Optimization card
   assert.ok(src.includes('case "moveHud":') && src.includes('case "resizeHud":'), 'Dayglass moveHud and resizeHud handlers required');
-  assert.ok(src.includes('id="hudResizeGrip"') && src.includes('⤢ Expand'), 'Dayglass corner resize grip and Expand button required');
+  assert.ok(src.includes('id="hudResizeGrip"') && src.includes('id="hudSizeBtnText">Expand<'), 'Dayglass corner resize grip and SVG Expand button required');
+  assert.ok(src.includes('class="ico-badge ico-disk"') && src.includes('class="hdr-pill"'), 'Duotone SVG icon badges and specular pill buttons required');
   assert.ok(src.includes('AI YOLO Agent Optimization') && src.includes('user agents'), 'AI Agent Optimization card and live user agents health strip required');
 
   // 5. Steady network rate sampling decoupled from app switching
