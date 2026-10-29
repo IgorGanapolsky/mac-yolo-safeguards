@@ -349,8 +349,8 @@ private let HUD_HTML = #"""
           <div>
             <div class="tile-head"><span class="tile-icon">🛜</span><span id="netName">Tailnet &amp; Wi-Fi</span></div>
             <div class="net-rates">
-              <div id="netUp">↑ 120 KB/sec</div>
-              <div id="netDown">↓ 540 KB/sec</div>
+              <div id="netUp">↑ 0 KB/sec</div>
+              <div id="netDown">↓ 0 KB/sec</div>
             </div>
           </div>
           <button class="tile-action" onclick="sendAction('testSpeed')">Test Speed</button>
@@ -476,6 +476,8 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var prevNetInBytes: UInt64 = 0
     var prevNetOutBytes: UInt64 = 0
     var prevNetSampleAt: Date = .distantPast
+    var lastUpKB: Int = 0
+    var lastDownKB: Int = 0
     func applicationDidFinishLaunching(_ notification: Notification) {
         let myPid = ProcessInfo.processInfo.processIdentifier
         for app in NSWorkspace.shared.runningApplications {
@@ -535,9 +537,19 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             object: nil,
             queue: .main
         ) { [weak self] note in
+            guard let self = self else { return }
             let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
-            self?.updateActiveWindowFromWorkspace(app)
-            self?.refreshLiveTelemetry()
+            self.updateActiveWindowFromWorkspace(app)
+            let onScreenLine = self.lastActiveWin == self.lastActiveApp ? self.lastActiveApp : "\(self.lastActiveApp) — \(self.lastActiveWin)"
+            let activePayload: [String: String] = [
+                "onScreenLine": onScreenLine,
+                "activeApp": self.lastActiveApp,
+                "activeWin": self.lastActiveWin,
+            ]
+            if let data = try? JSONSerialization.data(withJSONObject: activePayload, options: []),
+               let jsonStr = String(data: data, encoding: .utf8) {
+                self.webView?.evaluateJavaScript("if (window.updateYoloHud) window.updateYoloHud(\(jsonStr));", completionHandler: nil)
+            }
         }
 
         refreshLiveTelemetry()
@@ -700,8 +712,11 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     }
 
     func sampleNetworkRates() -> (String, String) {
-        var upKB = 145
-        var downKB = 420
+        let now = Date()
+        let dt = now.timeIntervalSince(prevNetSampleAt)
+        if prevNetSampleAt != .distantPast && dt < 1.2 {
+            return ("↑ \(lastUpKB) KB/sec", "↓ \(lastDownKB) KB/sec")
+        }
         var mib: [Int32] = [CTL_NET, PF_ROUTE, 0, 0, NET_RT_IFLIST2, 0]
         var len: Int = 0
         if sysctl(&mib, UInt32(mib.count), nil, &len, nil, 0) == 0, len > 0 {
@@ -720,18 +735,16 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                     }
                     offset += Int(hdr.ifm_msglen)
                 }
-                let now = Date()
-                let dt = now.timeIntervalSince(prevNetSampleAt)
-                if prevNetInBytes > 0 && dt > 0.2 && dt < 30.0 && totalIn >= prevNetInBytes && totalOut >= prevNetOutBytes {
-                    downKB = Int(Double(totalIn - prevNetInBytes) / 1024.0 / dt)
-                    upKB = Int(Double(totalOut - prevNetOutBytes) / 1024.0 / dt)
+                if prevNetInBytes > 0 && dt >= 1.2 && dt < 30.0 && totalIn >= prevNetInBytes && totalOut >= prevNetOutBytes {
+                    lastDownKB = Int(Double(totalIn - prevNetInBytes) / 1024.0 / dt)
+                    lastUpKB = Int(Double(totalOut - prevNetOutBytes) / 1024.0 / dt)
                 }
                 prevNetInBytes = totalIn
                 prevNetOutBytes = totalOut
                 prevNetSampleAt = now
             }
         }
-        return ("↑ \(upKB) KB/sec", "↓ \(downKB) KB/sec")
+        return ("↑ \(lastUpKB) KB/sec", "↓ \(lastDownKB) KB/sec")
     }
 
     func refreshLiveTelemetry() {
