@@ -4,7 +4,7 @@ import Foundation
 import WebKit
 
 private let menuPanelWidth: CGFloat = 328
-private let menuPanelHeight: CGFloat = 456
+private let menuPanelHeight: CGFloat = 478
 
 private let HUD_HTML = #"""
 <!DOCTYPE html>
@@ -15,7 +15,7 @@ private let HUD_HTML = #"""
   * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
   html, body {
     width: 328px;
-    height: 456px;
+    height: 478px;
     background: #1c1c1e;
     color: #f5f5f7;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
@@ -23,7 +23,7 @@ private let HUD_HTML = #"""
   }
   .shell {
     width: 328px;
-    height: 456px;
+    height: 478px;
     padding: 14px 16px 12px 16px;
     display: flex;
     flex-direction: column;
@@ -76,6 +76,7 @@ private let HUD_HTML = #"""
     <div class="free" id="freeNum">—</div>
     <div class="unit">GiB free</div>
     <div class="sub" id="subLine">Reading the startup disk…</div>
+    <div class="quiet" id="healthLine">Reading memory and load…</div>
     <div class="track"><div class="meter" id="meter"></div></div>
     <div class="rows" id="rows">
       <div class="row"><span>Agent temp</span><span>—</span></div>
@@ -142,6 +143,11 @@ private let HUD_HTML = #"""
       if (note) note.textContent = state.note || '';
       var onScreen = document.getElementById('onScreen');
       if (onScreen) onScreen.textContent = state.onScreen || '';
+      var health = document.getElementById('healthLine');
+      if (health) {
+        health.textContent = state.healthLine || '';
+        if (state.healthColor) health.style.color = state.healthColor;
+      }
       var icon = document.getElementById('iconState');
       if (icon) icon.textContent = state.iconState || 'Status bar icon on';
     };
@@ -193,6 +199,107 @@ private func runTool(_ path: String, _ args: [String], timeout: TimeInterval) ->
     let data = pipe.fileHandleForReading.readDataToEndOfFile()
     guard proc.terminationStatus == 0 else { return nil }
     return String(data: data, encoding: .utf8)
+}
+
+struct MachineHealth {
+    var memoryFreePct: Int = -1
+    var pressureLevel: Int = 0
+    var load1: Double = -1
+    var cores: Int = 0
+    var userAgents: Int = -1
+    var batteryPct: Int = -1
+    var batteryDischarging: Bool = false
+}
+
+private func readMachineHealth() -> MachineHealth {
+    var health = MachineHealth()
+    if let levelText = runTool("/usr/sbin/sysctl", ["-n", "kern.memorystatus_vm_pressure_level"], timeout: 2),
+       let level = Int(levelText.trimmingCharacters(in: .whitespacesAndNewlines)) {
+        health.pressureLevel = level
+    }
+    if let mem = runTool("/usr/bin/memory_pressure", ["-Q"], timeout: 2),
+       let marker = mem.range(of: "System-wide memory free percentage:") {
+        let rest = mem[marker.upperBound...]
+        let digits = rest.prefix { $0 == " " || $0.isNumber }
+        if let pct = Int(digits.trimmingCharacters(in: .whitespaces)), (0...100).contains(pct) {
+            health.memoryFreePct = pct
+        }
+    }
+    if let loadText = runTool("/usr/sbin/sysctl", ["-n", "vm.loadavg"], timeout: 2) {
+        let parts = loadText.split { $0 == " " || $0 == "{" || $0 == "}" || $0 == "\n" }
+        if let first = parts.first, let value = Double(first) {
+            health.load1 = value
+        }
+    }
+    if let ncpu = runTool("/usr/sbin/sysctl", ["-n", "hw.ncpu"], timeout: 2),
+       let cores = Int(ncpu.trimmingCharacters(in: .whitespacesAndNewlines)) {
+        health.cores = cores
+    }
+    health.userAgents = countLoadedUserAgents()
+    if let batt = runTool("/usr/bin/pmset", ["-g", "batt"], timeout: 2) {
+        health.batteryDischarging = batt.contains("discharging")
+        if let pct = batt.split(separator: "%").first.flatMap({ chunk in
+            Int(chunk.split { !$0.isNumber }.last ?? "")
+        }) {
+            health.batteryPct = pct
+        }
+    }
+    return health
+}
+
+private func countLoadedUserAgents() -> Int {
+    let dir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/LaunchAgents")
+    guard let names = try? FileManager.default.contentsOfDirectory(atPath: dir.path) else { return -1 }
+    let labels = Set(names.filter { $0.hasSuffix(".plist") }.map { String($0.dropLast(".plist".count)) })
+    guard let out = runTool("/bin/launchctl", ["list"], timeout: 2) else { return -1 }
+    var count = 0
+    for line in out.split(separator: "\n").dropFirst() {
+        let parts = line.split { $0 == " " || $0 == "\t" }
+        guard let label = parts.last else { continue }
+        if labels.contains(String(label)) { count += 1 }
+    }
+    return count
+}
+
+private func healthSummary(_ health: MachineHealth) -> (text: String, color: String) {
+    let pressureWord: String
+    var color = "#98989d"
+    switch health.pressureLevel {
+    case 1:
+        pressureWord = "normal"
+    case 2:
+        pressureWord = "warning"
+        color = "#ffd60a"
+    case 4, 8:
+        pressureWord = "critical"
+        color = "#ff453a"
+    default:
+        pressureWord = health.pressureLevel > 0 ? "level \(health.pressureLevel)" : "unread"
+    }
+    var parts: [String] = []
+    if health.memoryFreePct >= 0 {
+        parts.append("Memory \(health.memoryFreePct)% free · \(pressureWord)")
+    } else if health.pressureLevel > 0 {
+        parts.append("Memory \(pressureWord)")
+    } else {
+        parts.append("Memory unread")
+    }
+    if health.load1 >= 0 && health.cores > 0 {
+        parts.append(String(format: "Load %.1f/%d", health.load1, health.cores))
+        if health.load1 >= Double(health.cores) * 1.5 && color == "#98989d" {
+            color = "#ffd60a"
+        }
+    }
+    if health.userAgents >= 0 {
+        parts.append("\(health.userAgents) user agents")
+    }
+    if health.batteryPct >= 0 && (health.batteryDischarging || health.batteryPct < 40) {
+        parts.append("Battery \(health.batteryPct)%")
+        if health.batteryPct < 20 && color == "#98989d" {
+            color = "#ffd60a"
+        }
+    }
+    return (parts.joined(separator: " · "), color)
 }
 
 private func readRootDisk() -> RootDisk {
@@ -281,6 +388,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var lastActiveApp: String = "macOS"
     var lastActiveWin: String = "Desktop"
     var rootDisk = RootDisk()
+    var machineHealth = MachineHealth()
     var menuBusy: MenuBusy = .idle
     var didScan = false
     var menuRows: [MenuRow] = [
@@ -313,6 +421,19 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         }
         if CommandLine.arguments.contains("--status-icon-self-test") {
             runStatusIconSelfTestAndExit()
+        }
+        if CommandLine.arguments.contains("--health-self-test") {
+            let health = readMachineHealth()
+            let summary = healthSummary(health)
+            print("HEALTH memoryFree=\(health.memoryFreePct) pressure=\(health.pressureLevel) load=\(health.load1) cores=\(health.cores) agents=\(health.userAgents) battery=\(health.batteryPct) discharging=\(health.batteryDischarging)")
+            print("HEALTH line=\(summary.text)")
+            if health.pressureLevel > 0 && health.memoryFreePct >= 0 && health.load1 >= 0 && health.cores > 0 && health.userAgents >= 0 {
+                print("MAC_YOLO_HEALTH_OK")
+                fflush(stdout)
+                exit(0)
+            }
+            fputs("MAC_YOLO_HEALTH_FAIL\n", stderr)
+            exit(1)
         }
 
         NSApp.setActivationPolicy(.accessory)
@@ -727,11 +848,15 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     }
 
     func refreshLiveTelemetry() {
-        let disk = readRootDisk()
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            if disk.ok { self.rootDisk = disk }
-            self.pushMenu()
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let disk = readRootDisk()
+            let health = readMachineHealth()
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if disk.ok { self.rootDisk = disk }
+                self.machineHealth = health
+                self.pushMenu()
+            }
         }
     }
 
@@ -789,6 +914,8 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "busy": menuBusy != .idle,
             "note": note,
             "onScreen": "On screen · \(onScreenName)",
+            "healthLine": healthSummary(machineHealth).text,
+            "healthColor": healthSummary(machineHealth).color,
             "iconState": showStatusBarIcon ? "Status bar icon on" : "Status bar icon off",
         ]
         if let button = statusItem?.button {
