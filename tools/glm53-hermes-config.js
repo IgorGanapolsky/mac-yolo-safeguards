@@ -262,8 +262,8 @@ function main() {
     console.log(`Route: ${plan.route} (${plan.model})`);
     console.log(`Monthly Budget: $${plan.monthlyBudgetUsd}/mo ($${plan.dailyBurnPaceUsd}/day pace)`);
     console.log(`Provider: ${plan.provider} -> ${plan.baseUrl}`);
-    console.log(`API Key Ref: ${plan.apiKeyReference}`);
-    console.log(`Commands to apply:\n${plan.commandText.map((c) => '  ' + c).join('\n')}\n`);
+    console.log(`Context Window: ${plan.contextLength} (${plan.operationalMaxTokens} operational max tokens)`);
+    console.log(`Set Default: ${plan.setDefault ? 'yes' : 'no'} (${plan.commands.length} config steps)\n`);
     if (results) {
       console.log(`Apply Results:`);
       for (const res of results) {

@@ -470,25 +470,29 @@ function runActorCriticCausalLoop(dataset, initialSpec, options = {}) {
 /**
  * Generates synthetic observational dataset for testing & demonstrations
  */
+function cryptoUnitRandom() {
+  return crypto.randomInt(0, 1_000_000) / 1_000_000;
+}
+
 function generateSyntheticObservationalData(n = 500) {
   const data = [];
   for (let i = 0; i < n; i++) {
     // Confounder: User baseline activity & engagement
-    const baselineActivity = Math.random() * 10;
-    const accountAgeDays = Math.floor(Math.random() * 365) + 30;
-    
+    const baselineActivity = cryptoUnitRandom() * 10;
+    const accountAgeDays = crypto.randomInt(30, 395);
+
     // Confounded treatment assignment (more active users adopt new feature)
     const logit = -1.5 + 0.3 * baselineActivity + 0.002 * accountAgeDays;
     const probTreatment = sigmoid(logit);
-    const treated = Math.random() < probTreatment ? 1 : 0;
+    const treated = cryptoUnitRandom() < probTreatment ? 1 : 0;
 
     // True causal effect of feature = +1.2 units of 60-day retention
     // Baseline outcome also heavily depends on baselineActivity (3.0 * baselineActivity)
-    const noise = (Math.random() - 0.5) * 2;
+    const noise = (cryptoUnitRandom() - 0.5) * 2;
     const outcome = 10 + (treated ? 1.2 : 0) + 2.5 * baselineActivity + 0.01 * accountAgeDays + noise;
 
     // Placebo outcome (measured BEFORE treatment; cannot causally depend on treated)
-    const placebo = 5 + 2.0 * baselineActivity + (Math.random() - 0.5) * 1.5;
+    const placebo = 5 + 2.0 * baselineActivity + (cryptoUnitRandom() - 0.5) * 1.5;
 
     data.push({
       id: `usr_${i + 1}`,

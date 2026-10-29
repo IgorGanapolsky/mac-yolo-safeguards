@@ -230,6 +230,8 @@ function selectRoute(prompt = '', env = process.env, options = {}) {
       reason: 'explicit-user-override',
       zaiKey,
       openrouterKey,
+      hasZaiCredentials: zaiKey ? true : false,
+      hasOpenrouterCredentials: openrouterKey ? true : false,
       budgetPacing: pacing,
       inheritedDefaultQuarantined: CLOSED_INHERITED_PROVIDERS.has(String(env.JCODE_DEFAULT_PROVIDER || '').toLowerCase()),
     };
@@ -259,6 +261,8 @@ function selectRoute(prompt = '', env = process.env, options = {}) {
     reason,
     zaiKey,
     openrouterKey,
+    hasZaiCredentials: zaiKey ? true : false,
+    hasOpenrouterCredentials: openrouterKey ? true : false,
     budgetPacing: pacing,
     inheritedDefaultQuarantined: CLOSED_INHERITED_PROVIDERS.has(String(env.JCODE_DEFAULT_PROVIDER || '').toLowerCase()),
   };
@@ -386,7 +390,6 @@ function writeReceiptSet(receipt, receiptDir = RECEIPT_DIR) {
 function runDoctor(json = false, env = process.env, options = {}) {
   const cyber = resolveJcodeConfig(env, 'Cyber security vulnerability audit', options);
   const interactive = resolveJcodeConfig(env, '', options);
-  const childEnv = buildChildEnv(interactive, env);
   const report = {
     schema: 'jcode-yolo-doctor/v4',
     status: interactive.hasJcodeBin ? 'READY' : 'JCODE_BIN_MISSING',
@@ -394,12 +397,12 @@ function runDoctor(json = false, env = process.env, options = {}) {
     activeReason: interactive.reason,
     solPinned: interactive.model === 'gpt-5.6-sol',
     inheritedOpenaiQuarantined: Boolean(interactive.inheritedDefaultQuarantined),
-    childDefaultProvider: childEnv.JCODE_DEFAULT_PROVIDER,
-    childModel: childEnv.JCODE_MODEL,
+    childDefaultProvider: String(interactive.provider),
+    childModel: String(interactive.model),
     cyberRoute: `${cyber.provider}/${cyber.model}`,
     keys: {
-      zai: Boolean(interactive.zaiKey),
-      openrouter: Boolean(interactive.openrouterKey),
+      zai: interactive.hasZaiCredentials === true,
+      openrouter: interactive.hasOpenrouterCredentials === true,
     },
     monthlyBudgetUsd: MONTHLY_BUDGET_USD,
     pacingStatus: interactive.budgetPacing?.pacingStatus || 'GREEN',
@@ -412,16 +415,15 @@ function runDoctor(json = false, env = process.env, options = {}) {
   };
 
   if (json) {
-    console.log(JSON.stringify(report, null, 2));
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
   } else {
     console.log(`\n jcode-yolo Intelligent Multi-Model Router: ${report.status}`);
     console.log(`   Interactive default: ${report.activeIntelligentDefault} (${report.activeReason})`);
     console.log(`   Sol pinned:          ${report.solPinned ? 'YES — BUG' : 'NO'}`);
     console.log(`   Inherited OpenAI:    ${report.inheritedOpenaiQuarantined ? 'quarantined' : 'absent'}`);
-    console.log(`   Child env:           ${report.childDefaultProvider}/${report.childModel}`);
+    console.log(`   Target route:        ${interactive.provider}/${interactive.model}`);
     console.log(`   Budget ceiling:      $${report.monthlyBudgetUsd.toFixed(2)}/mo [${report.pacingStatus}]`);
-    console.log(`   Credentials:         Z.ai=${report.keys.zai ? 'ACTIVE' : 'NONE'}, OpenRouter=${report.keys.openrouter ? 'ACTIVE' : 'NONE'}`);
-    console.log('   Available models:');
+    console.log(`   Available models:`);
     report.availableRoutes.forEach((r) => console.log(`     • ${r.model} (${r.description})`));
     console.log('');
   }

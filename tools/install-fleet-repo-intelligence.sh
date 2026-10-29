@@ -5,7 +5,7 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-HOME_DIR="${HOME:-/Users/igorganapolsky}"
+HOME_DIR="${HOME:-/Users/iganapolsky}"
 INDEX_ROOT="${HERMES_SEMANTIC_INDEX_ROOT:-$HOME_DIR/.hermes/semantic-index}"
 CLONE_NAME="${HERMES_SEMANTIC_CLONE_NAME:-mac-yolo-safeguards}"
 CLONE_PATH="$INDEX_ROOT/$CLONE_NAME"
