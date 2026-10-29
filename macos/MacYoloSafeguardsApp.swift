@@ -5,10 +5,10 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var statusMenu: NSMenu!
     var loadItem: NSMenuItem!
+    var diskItem: NSMenuItem!
     var budgetItem: NSMenuItem!
     var flagsItem: NSMenuItem!
     var refreshTimer: Timer?
-
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusItem()
 
@@ -53,6 +53,10 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate {
         loadItem.isEnabled = false
         statusMenu.addItem(loadItem)
 
+        diskItem = NSMenuItem(title: "Disk Space (CleanMyMac Guard): Checking…", action: nil, keyEquivalent: "")
+        diskItem.isEnabled = false
+        statusMenu.addItem(diskItem)
+
         budgetItem = NSMenuItem(title: "Token Budget: $10.00/mo Cap [GREEN]", action: nil, keyEquivalent: "")
         budgetItem.isEnabled = false
         statusMenu.addItem(budgetItem)
@@ -63,6 +67,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate {
 
         statusMenu.addItem(NSMenuItem.separator())
         statusMenu.addItem(NSMenuItem(title: "Run 12-Point Health Check (yolo-health)", action: #selector(runHealthCheck), keyEquivalent: "h"))
+        statusMenu.addItem(NSMenuItem(title: "Smart Clean Agent & Temp Junk (CleanMyMac Mode)", action: #selector(smartCleanDisk), keyEquivalent: "k"))
         statusMenu.addItem(NSMenuItem(title: "Reap Runaway iOS Simulators Now", action: #selector(reapSimulators), keyEquivalent: "r"))
         statusMenu.addItem(NSMenuItem(title: "Copy MCP Server Config JSON", action: #selector(copyMcpConfig), keyEquivalent: "c"))
         statusMenu.addItem(NSMenuItem.separator())
@@ -77,8 +82,31 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate {
         var load: [Double] = [0.0, 0.0, 0.0]
         getloadavg(&load, 3)
         let load1 = String(format: "%.2f", load[0])
+        var freeGiBStr = "?"
+        var usedPctStr = "?"
+        if let attrs = try? FileManager.default.attributesOfFileSystem(forPath: "/"),
+           let total = (attrs[.systemSize] as? NSNumber)?.doubleValue,
+           let free = (attrs[.systemFreeSize] as? NSNumber)?.doubleValue,
+           total > 0 {
+            let freeGiB = free / (1024.0 * 1024.0 * 1024.0)
+            let usedPct = ((total - free) / total) * 100.0
+            freeGiBStr = String(format: "%.1f", freeGiB)
+            usedPctStr = String(format: "%.1f", usedPct)
+        }
         DispatchQueue.main.async { [weak self] in
             self?.loadItem.title = "macOS Load Avg (1m): \(load1) • Guard: ACTIVE"
+            self?.diskItem.title = "Disk: \(freeGiBStr) GiB Free (\(usedPctStr)% used)"
+        }
+    }
+
+    @objc func smartCleanDisk() {
+        let proc = Process()
+        proc.launchPath = "/opt/homebrew/bin/node"
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        proc.arguments = ["\(home)/workspace/mac-yolo-safeguards/tools/mac-yolo-cleanmymac-steal.js", "--clean"]
+        try? proc.run()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            self?.refreshLiveTelemetry()
         }
     }
 

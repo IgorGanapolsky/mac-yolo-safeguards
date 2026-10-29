@@ -115,6 +115,17 @@ function getToolDefinitions() {
       description: 'Honest cross-fleet revenue, traffic, checkout funnel, and observability gap report (separates $0 cleared external cash from owner test charges and staged pipeline)',
       inputSchema: { type: 'object', properties: {} },
     },
+    {
+      name: 'yolo_disk_smart_scan',
+      description: 'CleanMyMac-style disk Space Lens, Smart Scan, safe 1-click agent temp cache purge, and native macOS notification',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          clean: { type: 'boolean', default: false },
+          notify: { type: 'boolean', default: false },
+        },
+      },
+    },
   ];
 }
 
@@ -263,6 +274,14 @@ function callTool(name, args = {}) {
         primaryFunnelBottleneck: 'checkout_start_to_paid_drop (8 checkout starts today -> 4 cancel page views -> 0 paid confirmations)',
       },
     };
+  }
+
+  if (name === 'yolo_disk_smart_scan') {
+    const { runDiskSmartScan, runDiskSmartClean } = require('./mac-yolo-cleanmymac-steal');
+    if (args.clean) {
+      return runDiskSmartClean({ notify: args.notify !== false });
+    }
+    return runDiskSmartScan();
   }
   throw new Error(`Unknown tool: ${name}`);
 }

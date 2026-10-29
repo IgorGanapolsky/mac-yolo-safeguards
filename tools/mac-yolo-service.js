@@ -70,6 +70,14 @@ function routeRequest(method, rawUrl, bodyObj = {}) {
   if (method === 'GET' && pathname === '/api/observability/revenue') {
     return { status: 200, body: callTool('yolo_revenue_observability', {}) };
   }
+
+  if (method === 'GET' && pathname === '/api/disk') {
+    return { status: 200, body: callTool('yolo_disk_smart_scan', { clean: false }) };
+  }
+
+  if (method === 'POST' && pathname === '/api/disk/clean') {
+    return { status: 200, body: callTool('yolo_disk_smart_scan', { clean: true, notify: true }) };
+  }
   return { status: 404, body: { ok: false, error: `Not found: ${method} ${pathname}` } };
 }
 
@@ -123,7 +131,7 @@ function runSelfTest() {
 
   return {
     ok,
-    endpointsVerified: ['/api/status', '/api/flags?state=ACTIVE', '/api/guardrails', '/api/business', '/api/sdlc-prompts', '/api/observability/revenue', '/api/flags/resolve'],
+    endpointsVerified: ['/api/status', '/api/flags?state=ACTIVE', '/api/guardrails', '/api/business', '/api/sdlc-prompts', '/api/observability/revenue', '/api/disk', '/api/flags/resolve'],
     activeFlagsCount: flagsRes.body.returnedCount,
     guardrailsOk: guardrailsRes.body.ok,
     businessTiersCount: businessRes.body.tiers.length,

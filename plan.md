@@ -4176,4 +4176,6 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 - `tools/mac-yolo-stripe-provisioner.js`
 - `README.md`
 - `.github/FUNDING.yml`
+- `tools/mac-yolo-cleanmymac-steal.js`
+- `tests/test-mac-yolo-cleanmymac-steal.js`
 - `plan.md` (this append)
