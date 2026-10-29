@@ -4,7 +4,7 @@ import Foundation
 import WebKit
 
 private let menuPanelWidth: CGFloat = 328
-private let menuPanelHeight: CGFloat = 512
+private let menuPanelHeight: CGFloat = 528
 
 private let HUD_HTML = #"""
 <!DOCTYPE html>
@@ -15,7 +15,7 @@ private let HUD_HTML = #"""
   * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
   html, body {
     width: 328px;
-    height: 512px;
+    height: 528px;
     background: #1c1c1e;
     color: #f5f5f7;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
@@ -23,7 +23,7 @@ private let HUD_HTML = #"""
   }
   .shell {
     width: 328px;
-    height: 512px;
+    height: 528px;
     padding: 14px 16px 12px 16px;
     display: flex;
     flex-direction: column;
@@ -61,6 +61,7 @@ private let HUD_HTML = #"""
   .primary:disabled { opacity: 0.55; cursor: default; }
   .note, .quiet { font-size: 11px; color: #98989d; line-height: 1.3; }
   #healthLine { min-height: 42px; }
+  #note { min-height: 28px; }
   .foot { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
   .link {
     background: none; border: none; color: #d1d1d6;
@@ -452,6 +453,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         MenuRow(label: "Playwright", safe: false, bytes: -1),
         MenuRow(label: "Trash", safe: false, bytes: -1),
     ]
+    var pendingCleanPaths: [String] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let myPid = ProcessInfo.processInfo.processIdentifier
@@ -527,10 +529,19 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             runClickAwaySelfTestAndExit()
         }
         if CommandLine.arguments.contains("--scan-self-test") {
-            let rows = measureCategories()
+            let measured = measureCategories()
             let disk = readRootDisk()
-            for row in rows {
+            for row in measured.rows {
                 print("SCAN \(row.label) safe=\(row.safe) bytes=\(row.bytes)")
+            }
+            print("SCAN paths=\(measured.cleanPaths.joined(separator: ","))")
+            for path in measured.cleanPaths {
+                let name = (path as NSString).lastPathComponent
+                let allowed = path == "/private/tmp/\(name)" && (isClaudeTmp(name) || name == "swift-module-cache" || name == "node-compile-cache")
+                if !allowed {
+                    fputs("MAC_YOLO_SCAN_FAIL \(path)\n", stderr)
+                    exit(1)
+                }
             }
             print(String(format: "SCAN disk free=%.2f used=%.1f ok=%@", disk.freeGiB, disk.usedPct, disk.ok ? "yes" : "no"))
             print("MAC_YOLO_SCAN_OK")
@@ -827,40 +838,44 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         }
     }
 
-    func measureCategories() -> [MenuRow] {
+    func measureCategories() -> (rows: [MenuRow], cleanPaths: [String]) {
         let fm = FileManager.default
         var agent: Int64 = 0
         var agentUnknown = false
+        var cleanPaths: [String] = []
         if let names = try? fm.contentsOfDirectory(atPath: "/private/tmp") {
-            for name in names where isClaudeTmp(name) {
-                let measured = duBytes("/private/tmp/\(name)")
-                if measured < 0 { agentUnknown = true } else { agent += measured }
+            for name in names.sorted() where isClaudeTmp(name) {
+                let path = "/private/tmp/\(name)"
+                let measured = duBytes(path)
+                if measured < 0 {
+                    agentUnknown = true
+                } else {
+                    agent += measured
+                    if measured > 0 { cleanPaths.append(path) }
+                }
             }
         }
+        let swiftBytes = duBytes("/private/tmp/swift-module-cache")
+        if swiftBytes > 0 { cleanPaths.append("/private/tmp/swift-module-cache") }
+        let nodeBytes = duBytes("/private/tmp/node-compile-cache")
+        if nodeBytes > 0 { cleanPaths.append("/private/tmp/node-compile-cache") }
         let home = fm.homeDirectoryForCurrentUser.path
-        return [
+        let rows = [
             MenuRow(label: "Agent temp", safe: true, bytes: agentUnknown ? -1 : agent),
-            MenuRow(label: "Swift cache", safe: true, bytes: duBytes("/private/tmp/swift-module-cache")),
-            MenuRow(label: "Node cache", safe: true, bytes: duBytes("/private/tmp/node-compile-cache")),
+            MenuRow(label: "Swift cache", safe: true, bytes: swiftBytes),
+            MenuRow(label: "Node cache", safe: true, bytes: nodeBytes),
             MenuRow(label: "Playwright", safe: false, bytes: duBytes(home + "/Library/Caches/ms-playwright")),
             MenuRow(label: "Trash", safe: false, bytes: duBytes(home + "/.Trash")),
         ]
+        return (rows, cleanPaths)
     }
 
-    func deleteMeasuredSafe(_ rows: [MenuRow]) {
+    func deleteMeasuredSafe(_ paths: [String]) {
         let fm = FileManager.default
-        if let agent = rows.first(where: { $0.label == "Agent temp" }), agent.bytes > 0,
-           let names = try? fm.contentsOfDirectory(atPath: "/private/tmp") {
-            for name in names where isClaudeTmp(name) {
-                let path = "/private/tmp/\(name)"
-                guard path.hasPrefix("/private/tmp/") else { continue }
-                try? fm.removeItem(atPath: path)
-            }
-        }
-        for label in ["Swift cache", "Node cache"] {
-            guard let row = rows.first(where: { $0.label == label }), row.bytes > 0 else { continue }
-            let path = label == "Swift cache" ? "/private/tmp/swift-module-cache" : "/private/tmp/node-compile-cache"
-            guard path.hasPrefix("/private/tmp/") else { continue }
+        for path in paths {
+            let name = (path as NSString).lastPathComponent
+            guard path == "/private/tmp/\(name)" else { continue }
+            guard isClaudeTmp(name) || name == "swift-module-cache" || name == "node-compile-cache" else { continue }
             try? fm.removeItem(atPath: path)
         }
     }
@@ -871,9 +886,10 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         pushMenu()
         DispatchQueue.global(qos: .utility).async { [weak self] in
             guard let self = self else { return }
-            let rows = self.measureCategories()
+            let measured = self.measureCategories()
             DispatchQueue.main.async {
-                self.menuRows = rows
+                self.menuRows = measured.rows
+                self.pendingCleanPaths = measured.cleanPaths
                 self.didScan = true
                 self.menuBusy = .idle
                 self.rootDisk = readRootDisk()
@@ -884,15 +900,16 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
 
     func runSafeClean() {
         guard menuBusy == .idle, didScan, safeBytes() > 0 else { return }
-        let snapshot = menuRows
+        let paths = pendingCleanPaths
         menuBusy = .cleaning
         pushMenu()
         DispatchQueue.global(qos: .utility).async { [weak self] in
             guard let self = self else { return }
-            self.deleteMeasuredSafe(snapshot)
-            let rows = self.measureCategories()
+            self.deleteMeasuredSafe(paths)
+            let measured = self.measureCategories()
             DispatchQueue.main.async {
-                self.menuRows = rows
+                self.menuRows = measured.rows
+                self.pendingCleanPaths = measured.cleanPaths
                 self.didScan = true
                 self.menuBusy = .idle
                 self.rootDisk = readRootDisk()
@@ -930,16 +947,17 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         case .cleaning:
             buttonLabel = "Cleaning…"
             buttonAction = "clean"
-            note = "Removing measured agent temp under /private/tmp."
+            note = "Removing only the /private/tmp paths listed before Clean."
         case .idle:
             if didScan && safe > 0 {
                 buttonLabel = "Clean \(formatBytes(safe))"
                 buttonAction = "clean"
-                note = "Clean removes measured agent temp only."
+                let names = pendingCleanPaths.map { ($0 as NSString).lastPathComponent }.joined(separator: ", ")
+                note = names.isEmpty ? "Clean removes measured agent temp only." : "Clean deletes only \(names) in /private/tmp."
             } else if didScan {
                 buttonLabel = "Scan"
                 buttonAction = "scan"
-                note = "No agent temp to remove."
+                note = "No agent temp to remove. Playwright and Trash stay."
             } else {
                 buttonLabel = "Scan"
                 buttonAction = "scan"
