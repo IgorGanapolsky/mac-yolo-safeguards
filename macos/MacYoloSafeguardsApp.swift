@@ -22,9 +22,11 @@ private let HUD_HTML = #"""
     width: 420px;
     height: 668px;
     border-radius: 22px;
-    background: radial-gradient(circle at 82% 10%, rgba(126, 58, 242, 0.55) 0%, rgba(46, 21, 99, 0.96) 45%, rgba(21, 11, 48, 0.99) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    background: radial-gradient(circle at 82% 10%, rgba(139, 92, 246, 0.46) 0%, rgba(59, 24, 119, 0.54) 48%, rgba(24, 12, 54, 0.68) 100%);
+    backdrop-filter: blur(28px) saturate(165%);
+    -webkit-backdrop-filter: blur(28px) saturate(165%);
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.28);
     padding: 16px 16px 12px 16px;
     display: flex;
     flex-direction: column;
@@ -483,9 +485,6 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             }
         }
 
-        if !CommandLine.arguments.contains("--self-test") {
-            NSApp.setActivationPolicy(.regular)
-        }
         setupStatusItemAndHud()
 
         if CommandLine.arguments.contains("--self-test") {
@@ -501,6 +500,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             exit(0)
         }
 
+        NSApp.setActivationPolicy(.regular)
         let icnsPath = "/Applications/MacYoloSafeguards.app/Contents/Resources/AppIcon.icns"
         if let iconImg = NSImage(contentsOfFile: icnsPath) {
             NSApp.applicationIconImage = iconImg
@@ -603,16 +603,26 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         hudPanel.hidesOnDeactivate = false
         hudPanel.isOpaque = false
         hudPanel.backgroundColor = .clear
+        hudPanel.alphaValue = 0.88
         hudPanel.hasShadow = true
         hudPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         hudPanel.isReleasedWhenClosed = false
+
+        let visualEffect = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: panelW, height: panelH))
+        visualEffect.material = .hudWindow
+        visualEffect.blendingMode = .behindWindow
+        visualEffect.state = .active
+        visualEffect.wantsLayer = true
+        visualEffect.layer?.cornerRadius = 22
+        visualEffect.layer?.masksToBounds = true
 
         let wkConfig = WKWebViewConfiguration()
         wkConfig.userContentController.add(self, name: "yoloHud")
         webView = WKWebView(frame: NSRect(x: 0, y: 0, width: panelW, height: panelH), configuration: wkConfig)
         webView.setValue(false, forKey: "drawsBackground")
         webView.loadHTMLString(HUD_HTML, baseURL: nil)
-        hudPanel.contentView = webView
+        visualEffect.addSubview(webView)
+        hudPanel.contentView = visualEffect
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
