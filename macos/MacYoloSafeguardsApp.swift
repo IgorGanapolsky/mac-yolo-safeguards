@@ -12,7 +12,7 @@ private let HUD_HTML = #"""
   * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
   html, body {
     width: 420px;
-    height: 610px;
+    height: 668px;
     background: transparent;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
     color: #ffffff;
@@ -20,12 +20,12 @@ private let HUD_HTML = #"""
   }
   .shell {
     width: 420px;
-    height: 610px;
+    height: 668px;
     border-radius: 22px;
     background: radial-gradient(circle at 82% 10%, rgba(126, 58, 242, 0.55) 0%, rgba(46, 21, 99, 0.96) 45%, rgba(21, 11, 48, 0.99) 100%);
     border: 1px solid rgba(255, 255, 255, 0.18);
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.22);
-    padding: 20px 18px 14px 18px;
+    padding: 16px 16px 12px 16px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -34,7 +34,7 @@ private let HUD_HTML = #"""
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 4px 10px 4px;
+    padding: 0 4px 8px 4px;
   }
   .header-title {
     font-size: 21px;
@@ -64,12 +64,12 @@ private let HUD_HTML = #"""
     background: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.13);
     border-radius: 14px;
-    padding: 12px 14px;
+    padding: 10px 13px;
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
   }
   .shield-card {
-    margin-bottom: 10px;
+    margin-bottom: 8px;
   }
   .shield-top {
     display: flex;
@@ -116,21 +116,21 @@ private let HUD_HTML = #"""
   .bento {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-bottom: 10px;
+    gap: 8px;
+    margin-bottom: 8px;
   }
   .tile {
     background: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.13);
     border-radius: 14px;
-    padding: 11px 13px;
+    padding: 9px 12px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    min-height: 78px;
+    min-height: 68px;
   }
   .tile-tall {
-    min-height: 92px;
+    min-height: 80px;
   }
   .tile-row {
     display: flex;
@@ -193,15 +193,15 @@ private let HUD_HTML = #"""
     line-height: 1.45;
   }
   .rec-header {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
-    margin: 2px 4px 6px 4px;
+    margin: 0 4px 5px 4px;
   }
   .rec-card {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 12px 14px;
+    gap: 6px;
+    padding: 10px 12px;
   }
   .rec-top {
     display: flex;
@@ -292,7 +292,10 @@ private let HUD_HTML = #"""
           <div class="header-title">Mac Health: <span id="healthState">Excellent</span></div>
           <div class="header-sub" id="macModel">MacBook Pro</div>
         </div>
-        <div class="laptop-badge">💻</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button class="rec-btn" style="padding:5px 10px;font-size:11.5px;" onclick="toggleSettingsDrawer()">⚙️ Settings</button>
+          <div class="laptop-badge" style="width:46px;height:38px;font-size:26px;">💻</div>
+        </div>
       </div>
 
       <div class="card shield-card">
@@ -360,31 +363,45 @@ private let HUD_HTML = #"""
         </div>
       </div>
 
-      <div class="rec-header">Today's Recommendation</div>
-      <div class="card rec-card">
-        <div class="rec-top">
-          <div class="rec-badge">🛡️</div>
-          <div>
-            <div class="rec-title" id="recTitle">47.24 GiB reclaimed from runaway agent /tmp</div>
-            <div class="rec-desc" id="recDesc">Keep coding agents fenced under the $10/mo token cap and zero-drift declarative schema guard.</div>
+      <div id="recSection">
+        <div class="rec-header">Today's Recommendation</div>
+        <div class="card rec-card">
+          <div class="rec-top">
+            <div class="rec-badge">🛡️</div>
+            <div>
+              <div class="rec-title" id="recTitle">47.24 GiB reclaimed from runaway agent /tmp</div>
+              <div class="rec-desc" id="recDesc">Keep coding agents fenced under the $10/mo token cap and zero-drift declarative schema guard.</div>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;">
+            <button class="tile-action" style="margin-top:0;" onclick="toggleSettingsDrawer(true)">⚙️ Settings &amp; Status Icon…</button>
+            <button class="rec-btn" onclick="sendAction('runSmartScan')">Run Smart Guard Scan</button>
           </div>
         </div>
-        <button class="rec-btn" onclick="sendAction('runSmartScan')">Run Smart Guard Scan</button>
       </div>
 
-      <div class="card rec-card" id="settingsDrawer" style="display:none;margin-top:8px;padding:12px 14px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div class="card rec-card" id="settingsDrawer" style="display:none;padding:10px 13px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
           <div style="font-size:13px;font-weight:700;">⚙️ Mac YOLO Guard Settings</div>
-          <button class="tile-action" onclick="toggleSettingsDrawer()">Done</button>
+          <button class="tile-action" style="margin-top:0;" onclick="toggleSettingsDrawer(false)">← Back</button>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-top:1px solid rgba(255,255,255,0.12);">
-          <span style="font-size:12px;color:rgba(255,255,255,0.92);">Show Status Bar Icon in Menu Bar</span>
-          <button class="tile-action" id="statusBarToggleBtn" onclick="sendAction('toggleStatusBarIcon')">Shown ✓</button>
+          <span style="font-size:12px;color:rgba(255,255,255,0.92);">Mac YOLO Status Bar Icon</span>
+          <button class="rec-btn" style="padding:3px 10px;font-size:11.5px;" id="statusBarToggleBtn" onclick="sendAction('toggleStatusBarIcon')">Shown ✓ (Click to Hide)</button>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-top:1px solid rgba(255,255,255,0.12);">
-          <span style="font-size:12px;color:rgba(255,255,255,0.78);">CleanMyMac5.Menu Status Bar Icon</span>
+          <span style="font-size:12px;color:rgba(255,255,255,0.78);">CleanMyMac 5 Status Bar Icon</span>
           <span style="font-size:11.5px;color:#4BE38A;font-weight:600;">Disabled ✓</span>
         </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-top:1px solid rgba(255,255,255,0.12);">
+          <span style="font-size:12px;color:rgba(255,255,255,0.78);">5-Pillar Smart Care &amp; Browser Care</span>
+          <span style="font-size:11.5px;color:#5eead4;font-weight:600;">Active ✓</span>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:8px;padding:7px 12px;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:11.5px;color:rgba(255,255,255,0.85);">⚙️ Menu Bar Icon: <strong id="quickStatusIconLabel" style="color:#5eead4;">Shown ✓</strong> • CleanMyMac Icon: <strong style="color:#4BE38A;">Off</strong></span>
+        <button class="tile-action" style="margin-top:0;font-size:11.5px;" onclick="sendAction('toggleStatusBarIcon')">Hide / Show</button>
       </div>
     </div>
 
@@ -406,12 +423,11 @@ private let HUD_HTML = #"""
     }
     function toggleSettingsDrawer(forceShow) {
       var el = document.getElementById('settingsDrawer');
+      var rec = document.getElementById('recSection');
       if (!el) return;
-      if (typeof forceShow === 'boolean') {
-        el.style.display = forceShow ? 'block' : 'none';
-      } else {
-        el.style.display = (el.style.display === 'none' || !el.style.display) ? 'block' : 'none';
-      }
+      var show = (typeof forceShow === 'boolean') ? forceShow : (el.style.display === 'none' || !el.style.display);
+      el.style.display = show ? 'flex' : 'none';
+      if (rec) rec.style.display = show ? 'none' : 'block';
     }
     window.updateYoloHud = function(state) {
       if (!state) return;
@@ -430,8 +446,11 @@ private let HUD_HTML = #"""
       if (state.recTitle) document.getElementById('recTitle').textContent = state.recTitle;
       if (state.recDesc) document.getElementById('recDesc').textContent = state.recDesc;
       if (state.statusBarIconVisible) {
+        var isVis = (state.statusBarIconVisible === 'true');
         var btn = document.getElementById('statusBarToggleBtn');
-        if (btn) btn.textContent = (state.statusBarIconVisible === 'true') ? 'Shown ✓' : 'Hidden (Click to Show)';
+        if (btn) btn.textContent = isVis ? 'Shown ✓ (Click to Hide)' : 'Hidden (Click to Show)';
+        var lbl = document.getElementById('quickStatusIconLabel');
+        if (lbl) lbl.textContent = isVis ? 'Shown ✓' : 'Hidden';
       }
     };
   </script>
@@ -567,7 +586,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         gearMenu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         let screenFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let panelW: CGFloat = 420
-        let panelH: CGFloat = 610
+        let panelH: CGFloat = 668
         let panelX = screenFrame.maxX - panelW - 18
         let panelY = screenFrame.maxY - panelH - 8
         hudPanel = NSPanel(
@@ -781,7 +800,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         refreshLiveTelemetry()
         if let screenFrame = NSScreen.main?.visibleFrame {
             let panelW: CGFloat = 420
-            let panelH: CGFloat = 610
+            let panelH: CGFloat = 668
             hudPanel.setFrameOrigin(NSPoint(x: screenFrame.maxX - panelW - 18, y: screenFrame.maxY - panelH - 8))
         }
         hudPanel.orderFrontRegardless()
