@@ -39,10 +39,19 @@ function surface(id, score, findings) {
   return { id, score: capped, letter: letter(capped), findings: findings || [] };
 }
 
+function finiteCount(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value))) return Number(value);
+  return null;
+}
+
 function gradeGithubIssues(github) {
   if (!github || github.openIssues == null) return surface('githubIssues', null, ['open issue count was not measured']);
-  const held = Number(github.securityHeld || 0);
-  const other = Number(github.openIssues) - held;
+  const total = finiteCount(github.openIssues);
+  if (total == null) return surface('githubIssues', null, ['open issue count is not a number']);
+  const held = github.securityHeld == null ? 0 : finiteCount(github.securityHeld);
+  if (held == null) return surface('githubIssues', null, ['security hold count is not a number']);
+  const other = total - held;
   if (other > 0) {
     return surface('githubIssues', 4, [`${other} public issues are outside the security hold`]);
   }
@@ -52,6 +61,7 @@ function gradeGithubIssues(github) {
 
 function gradeGithubPrs(github) {
   if (!github || github.openPrs == null) return surface('githubPrs', null, ['open pull request count was not measured']);
+  if (github.requiredRed == null) return surface('githubPrs', null, ['required check status was not measured']);
   let score = 10;
   const behind = Number(github.behindOrDirty || 0);
   if (behind > 0) score -= Math.min(5, behind);
@@ -88,11 +98,13 @@ function gradeWorktrees(worktrees) {
 function gradeVault(vault) {
   if (!vault || vault.exists == null) return surface('vault', null, ['vault was not measured']);
   if (!vault.exists) return surface('vault', 1, ['shared vault path is missing']);
-  let score = vault.snapshotAgeDays != null && vault.snapshotAgeDays <= 1 && vault.handoff ? 10 : 8;
+  const age = finiteCount(vault.snapshotAgeDays);
+  const ageKnown = age != null && age >= 0;
+  let score = ageKnown && age <= 1 && vault.handoff ? 10 : 8;
   const findings = ['shared vault exists'];
-  if (vault.snapshotAgeDays == null || vault.snapshotAgeDays > 14) {
+  if (!ageKnown || age > 14) {
     score = 6;
-    findings.push(`fleet snapshot is ${vault.snapshotAgeDays == null ? 'missing' : `${vault.snapshotAgeDays} days`} old`);
+    findings.push(`fleet snapshot is ${ageKnown ? `${age} days` : 'missing'} old`);
   }
   if (!vault.handoff) {
     score = Math.min(score, 6);
@@ -115,8 +127,9 @@ function gradeLinear(linear) {
 }
 
 function gradeGitButler(gitbutler) {
-  if (!gitbutler || gitbutler.targetSet == null) return surface('gitbutler', null, ['GitButler target was not measured']);
-  if (!gitbutler.installed) return surface('gitbutler', 2, ['but is not installed']);
+  if (!gitbutler) return surface('gitbutler', null, ['GitButler target was not measured']);
+  if (gitbutler.installed === false) return surface('gitbutler', 2, ['but is not installed']);
+  if (gitbutler.targetSet == null) return surface('gitbutler', null, ['GitButler target was not measured']);
   if (!gitbutler.targetSet) {
     return surface('gitbutler', 3, ['but status: no target branch is configured']);
   }
@@ -139,6 +152,9 @@ function gradeHerdr(herdr) {
 function gradeGemini(gemini) {
   if (!gemini || gemini.cli == null) return surface('gemini', null, ['Gemini was not measured']);
   if (!gemini.cli) return surface('gemini', 2, ['Gemini CLI is not installed']);
+  if (gemini.notebookWired == null || gemini.judgeRun == null) {
+    return surface('gemini', null, ['Gemini judge wiring was not measured']);
+  }
   if (!gemini.notebookWired) {
     return surface('gemini', 4, ['Gemini CLI is installed and is not wired as the judge']);
   }
@@ -147,9 +163,12 @@ function gradeGemini(gemini) {
 }
 
 function gradeJudge(judge) {
-  if (!judge) return surface('judge', null, ['judge seat was not measured']);
+  if (!judge || judge.hardcodedTen == null) return surface('judge', null, ['judge seat was not measured']);
   if (judge.hardcodedTen) {
     return surface('judge', 2, ['a tool still returns a constant 10/10']);
+  }
+  if (judge.seatDistinct == null || judge.commandResult == null) {
+    return surface('judge', null, ['the judge seat was not measured']);
   }
   if (!judge.seatDistinct) {
     return surface('judge', 4, ['the judge seat is empty or is the same agent that wrote the diff']);
@@ -175,7 +194,8 @@ function grade(evidence = {}) {
   ];
   const missing = surfaces.filter((item) => item.score === null).map((item) => item.id);
   const scores = surfaces.map((item) => item.score).filter((score) => score !== null);
-  const overallScore = scores.length === 0 ? null : Math.min(...scores);
+  let overallScore = scores.length === 0 ? null : Math.min(...scores);
+  if (missing.length > 0 && overallScore === 10) overallScore = 9;
   const aPlus = missing.length === 0 && surfaces.every((item) => item.score === 10);
   return {
     ok: true,
@@ -183,7 +203,9 @@ function grade(evidence = {}) {
     overall: {
       score: aPlus ? 10 : overallScore,
       letter: aPlus ? 'A+' : letter(overallScore),
-      rule: 'overall score is the lowest measured surface',
+      rule: missing.length > 0
+        ? 'overall score is the lowest measured surface, and a missing surface cannot be A+'
+        : 'overall score is the lowest measured surface',
     },
     missing,
     surfaces,
@@ -237,7 +259,7 @@ function buildSow(prompt) {
       { when: 'a numeric grade or a ship claim', tier: 'judge' },
     ],
     aPlusRequires: [
-      'GitButler has a target branch, or agents commit only in isolated worktrees and the shared checkout stays clean',
+      'GitButler has a target branch',
       'The vault fleet snapshot is under a day old',
       'Herdr lane globs name directories that exist in this repository, and the judge file exists',
       'Linear claims expire, and creating one does not hit the issue cap',
@@ -297,25 +319,70 @@ function laneFit(lanesPath, repoRoot) {
   return 'partial';
 }
 
+const PAGE = 50;
+const REQUIRED_CHECKS = [
+  'Public funnel checks',
+  'Socket Security: Project Report',
+  'Hermes Mobile typecheck and tests',
+  'macOS guard kit',
+  'Maestro ship-guard (Android emulator)',
+  'Maestro stranger cold-start (Android emulator)',
+  'Hermes Mobile iPad simulator gate',
+  'unit-and-coverage',
+  'verify',
+];
+
+function requiredChecksRed(pulls) {
+  if (!Array.isArray(pulls)) return null;
+  if (pulls.length === 0) return false;
+  let sawRollup = false;
+  for (const pr of pulls) {
+    const rollup = pr && pr.statusCheckRollup;
+    if (!Array.isArray(rollup)) continue;
+    sawRollup = true;
+    for (const check of rollup) {
+      if (!check || !REQUIRED_CHECKS.includes(check.name || check.context || '')) continue;
+      const conclusion = String(check.conclusion || '').toUpperCase();
+      if (conclusion === 'FAILURE' || conclusion === 'CANCELLED' || conclusion === 'TIMED_OUT') return true;
+    }
+  }
+  return sawRollup ? false : null;
+}
+
+function pageCount(items) {
+  return items.length >= PAGE ? null : items.length;
+}
+
+function gitbutlerEvidence(but) {
+  if (/not found|ENOENT/.test(but.error || '')) return { installed: false, targetSet: null };
+  const text = `${but.stdout || ''}\n${but.stderr || ''}`;
+  if (/no target branch/i.test(text)) return { installed: true, targetSet: false };
+  if (!but.ok) return { installed: true, targetSet: null };
+  return { installed: true, targetSet: true };
+}
+
 function probe(repoRoot, home) {
   const root = repoRoot || process.cwd();
   const house = home || os.homedir();
   const vault = path.join(house, 'Documents', 'AI-Agent-Sync');
-  const issues = run('gh', ['issue', 'list', '--state', 'open', '--limit', '50', '--json', 'number,title'], root);
-  const prs = run('gh', ['pr', 'list', '--state', 'open', '--limit', '50', '--json', 'number,mergeStateStatus'], root);
+  const issues = run('gh', ['issue', 'list', '--state', 'open', '--limit', String(PAGE), '--json', 'number,title'], root);
+  const prs = run('gh', ['pr', 'list', '--state', 'open', '--limit', String(PAGE), '--json', 'number,mergeStateStatus,statusCheckRollup'], root);
   let github = {};
   if (issues.ok && prs.ok) {
     const openIssues = JSON.parse(issues.stdout);
     const openPrs = JSON.parse(prs.stdout);
+    const issueCount = pageCount(openIssues);
+    const prCount = pageCount(openPrs);
     github = {
-      openIssues: openIssues.length,
+      openIssues: issueCount,
       securityHeld: openIssues.filter((item) => /^security/i.test(item.title || '')).length,
-      openPrs: openPrs.length,
+      openPrs: prCount,
       behindOrDirty: openPrs.filter((item) => /BEHIND|DIRTY|CONFLICTING/.test(item.mergeStateStatus || '')).length,
-      requiredRed: false,
+      requiredRed: prCount == null ? null : requiredChecksRed(openPrs),
     };
   }
-  const planText = fs.existsSync(path.join(root, 'plan.md')) ? fs.readFileSync(path.join(root, 'plan.md'), 'utf8') : '';
+  const planPath = path.join(root, 'plan.md');
+  const planText = fs.existsSync(planPath) ? fs.readFileSync(planPath, 'utf8') : null;
   const worktreeList = run('git', ['worktree', 'list', '--porcelain'], root);
   const primary = (worktreeList.stdout.match(/^worktree (.+)$/m) || [])[1] || root;
   const shared = run('git', ['status', '--porcelain'], primary);
@@ -330,7 +397,7 @@ function probe(repoRoot, home) {
     prompt: 'same prompt broadcast to every agent',
     github,
     plan: {
-      inProgressRows: (planText.match(/\| in_progress \|/g) || []).length,
+      inProgressRows: planText == null ? null : (planText.match(/\| in_progress \|/g) || []).length,
       sharedDirty: shared.stdout.trim().length > 0,
     },
     worktrees: {
@@ -348,10 +415,7 @@ function probe(repoRoot, home) {
       startedCount: linear.ok ? (linear.stdout.match(/AGENT-\d+/g) || []).length : null,
       limitHit: /limit/i.test(linear.stderr),
     },
-    gitbutler: {
-      installed: !/not found|ENOENT/.test(but.error),
-      targetSet: but.ok || !/no target branch/i.test(`${but.stdout}\n${but.stderr}`),
-    },
+    gitbutler: gitbutlerEvidence(but),
     herdr: {
       serverRunning: /status:\s*running/.test(herdr.stdout),
       lanesMatchRepo: laneFit(lanesPath, root),
@@ -359,13 +423,13 @@ function probe(repoRoot, home) {
     },
     gemini: {
       cli: gemini.ok,
-      notebookWired: false,
-      judgeRun: false,
+      notebookWired: null,
+      judgeRun: null,
     },
     judge: {
       hardcodedTen: engineText.includes('10/10 (HERDR_HIGH_ROI_A_PLUS)'),
-      seatDistinct: false,
-      commandResult: false,
+      seatDistinct: null,
+      commandResult: null,
     },
   });
 }
@@ -389,4 +453,5 @@ module.exports = {
   judgeMayScore,
   letter,
   probe,
+  requiredChecksRed,
 };

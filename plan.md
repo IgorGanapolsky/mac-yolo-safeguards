@@ -4124,3 +4124,12 @@ Same prompt, many agents. `tools/swarm-coordination-grade.js` scores each coordi
 - `tools/swarm-coordination-grade.js`
 - `tests/test-swarm-coordination-grade.js`
 - `plan.md` (this append)
+
+## Swarm grade review (append 2026-10-29T14:28:00Z) — `grok-swarm-grade`
+
+A missing surface cannot print an overall A+. The live probe reads `statusCheckRollup` for the required checks. A full page of 50 issues or pull requests stays unmeasured. A non-numeric issue count, a missing `plan.md`, a failed `but status`, and an unmeasured Gemini or judge seat stay unmeasured. `done` is not involved here. The constant `10/10` in the Herdr engine still scores the judge at 2.
+
+### File claims
+- `tools/swarm-coordination-grade.js`
+- `tests/test-swarm-coordination-grade.js`
+- `plan.md` (this append)

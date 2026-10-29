@@ -2,12 +2,15 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const {
   buildSow,
   claimFiles,
   expertTier,
   grade,
   judgeMayScore,
+  requiredChecksRed,
 } = require('../tools/swarm-coordination-grade');
 
 let passed = 0;
@@ -91,6 +94,61 @@ check('one prompt hash is shared by every seat', () => {
   assert.equal(sow.lanes.map((lane) => lane.seat).join(','), 'planner,worker,judge');
   assert.equal(sow.lanes[2].does.includes('Reject a 10'), true);
   assert.equal(sow.id, `SOW-${sow.promptHash}`);
+});
+
+check('omitted surfaces cannot print an A+ overall', () => {
+  const report = grade({ github: { openIssues: 0 } });
+  assert.equal(report.aPlus, false);
+  assert.equal(report.overall.letter === 'A+', false);
+  assert.equal(report.overall.score <= 9, true);
+  assert.equal(report.missing.length > 0, true);
+});
+
+check('a non-numeric issue count is unmeasured', () => {
+  const report = grade({ ...perfect, github: { ...perfect.github, openIssues: 'unknown' } });
+  const issues = report.surfaces.find((item) => item.id === 'githubIssues');
+  assert.equal(issues.score, null);
+  assert.equal(report.aPlus, false);
+});
+
+check('a failed required check caps the pull request surface', () => {
+  const red = grade({ ...perfect, github: { ...perfect.github, requiredRed: true } });
+  const prs = red.surfaces.find((item) => item.id === 'githubPrs');
+  assert.equal(prs.score <= 3, true);
+  assert.match(prs.findings.join(' '), /required check is red/);
+  const unknown = grade({ ...perfect, github: { ...perfect.github, requiredRed: null } });
+  const unknownPrs = unknown.surfaces.find((item) => item.id === 'githubPrs');
+  assert.equal(unknownPrs.score, null);
+  assert.equal(unknown.aPlus, false);
+});
+
+check('required check status comes from the rollup', () => {
+  assert.equal(requiredChecksRed([]), false);
+  assert.equal(requiredChecksRed([{ mergeStateStatus: 'BLOCKED' }]), null);
+  assert.equal(requiredChecksRed([{
+    statusCheckRollup: [{ name: 'verify', conclusion: 'FAILURE' }],
+  }]), true);
+  assert.equal(requiredChecksRed([{
+    statusCheckRollup: [
+      { name: 'verify', conclusion: 'SUCCESS' },
+      { name: 'Hermes Mobile iPad simulator gate', conclusion: 'SKIPPED' },
+    ],
+  }]), false);
+  const src = fs.readFileSync(path.join(__dirname, '../tools/swarm-coordination-grade.js'), 'utf8');
+  assert.equal(src.includes('statusCheckRollup'), true);
+  assert.equal(src.includes('requiredRed: false'), false);
+});
+
+check('a failed but status and a missing plan stay unmeasured', () => {
+  const report = grade({
+    ...perfect,
+    plan: { inProgressRows: null, sharedDirty: false },
+    gitbutler: { installed: true, targetSet: null },
+  });
+  assert.equal(report.surfaces.find((item) => item.id === 'plan').score, null);
+  assert.equal(report.surfaces.find((item) => item.id === 'gitbutler').score, null);
+  assert.equal(report.aPlus, false);
+  assert.equal(report.overall.letter === 'A+', false);
 });
 
 console.log(`swarm-coordination-grade: ${passed} checks passed`);
