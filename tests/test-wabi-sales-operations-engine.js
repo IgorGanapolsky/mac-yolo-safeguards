@@ -34,7 +34,7 @@ function main() {
 
   const diagPlan = buildCollaborativeDealPlanWidget({ company: 'ScaleAI', teamMacs: 7 });
   assert.strictEqual(diagPlan.recommendedTier.priceUsd, 499);
-  assert.strictEqual(diagPlan.recommendedTier.checkoutUrl, 'https://buy.stripe.com/9B69ATbmI4r4ak5e0DS3i3k');
+  assert.strictEqual(diagPlan.recommendedTier.checkoutUrl, 'https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k');
 
   const sprintPlan = buildCollaborativeDealPlanWidget({ company: 'GrowthEng', teamMacs: 12 });
   assert.strictEqual(sprintPlan.recommendedTier.priceUsd, 1500);
@@ -47,7 +47,7 @@ function main() {
   assert.strictEqual(countdown.ok, true);
   assert.strictEqual(countdown.hoursRemaining, 48);
   assert.strictEqual(countdown.priceUsd, 499);
-  assert.strictEqual(countdown.checkoutUrl, 'https://buy.stripe.com/9B69ATbmI4r4ak5e0DS3i3k');
+  assert.strictEqual(countdown.checkoutUrl, 'https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k');
 
   // 4. Wabi Pillar 3: Email & Checkout Deadline Recovery Scanner
   const scan = scanDealAndCheckoutDeadlines({ checkoutStarts24h: 8, cancelPageViews24h: 4 });

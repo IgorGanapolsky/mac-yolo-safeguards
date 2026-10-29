@@ -135,12 +135,12 @@ function buildCollaborativeDealPlanWidget(prospect = {}) {
     recommendedTier: {
       id: recommendedOffer.id,
       offer: recommendedOffer.offer,
-      priceUsd: recommendedOffer.stripe_amount_usd,
+      priceUsd: Number(recommendedOffer.stripe_amount_usd),
       checkoutUrl: recommendedOffer.payment_link_url,
     },
     allTiers: MAC_YOLO_STRIPE_CATALOG.map((t) => ({
       offer: t.offer,
-      priceUsd: t.stripe_amount_usd,
+      priceUsd: Number(t.stripe_amount_usd),
       checkoutUrl: t.payment_link_url,
     })),
     sharedPlanSteps,
@@ -158,7 +158,7 @@ function buildSharedDealCountdownWidget(deal = {}) {
   const deadlineIso = new Date(nowMs + hoursRemaining * 3600 * 1000).toISOString();
   const title = deal.title || '48-Hour Agent Reliability Diagnostic Delivery & Founding Rate Window';
   const tier =
-    MAC_YOLO_STRIPE_CATALOG.find((t) => t.stripe_amount_usd === Number(deal.priceUsd)) ||
+    MAC_YOLO_STRIPE_CATALOG.find((t) => Number(t.stripe_amount_usd) === Number(deal.priceUsd)) ||
     MAC_YOLO_STRIPE_CATALOG[1]; // default $49 Corporate-Expense Kit
 
   return {
@@ -169,7 +169,7 @@ function buildSharedDealCountdownWidget(deal = {}) {
     deadlineIso,
     sharedVisibility: 'all_thread_participants',
     checkoutOffer: tier.offer,
-    priceUsd: tier.stripe_amount_usd,
+    priceUsd: Number(tier.stripe_amount_usd),
     checkoutUrl: tier.payment_link_url,
     markdownCard: `⏳ **Shared Deal Countdown: ${title}**\n- **Time Remaining:** \`${hoursRemaining}h\` (until \`${deadlineIso}\`)\n- **Instant Lock-In:** [${tier.offer} ($${tier.stripe_amount_usd})](${tier.payment_link_url})`,
   };
