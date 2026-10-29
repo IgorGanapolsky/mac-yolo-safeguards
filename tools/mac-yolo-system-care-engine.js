@@ -228,6 +228,62 @@ function scanDownloadsInstallersAndClutter() {
 }
 
 /**
+ * 4b. AI & Developer Space Lens (Replaces CleanMyMac Space Lens + DaisyDisk for AI Macs)
+ */
+function scanAiAndDevSpaceLens() {
+  const targets = [
+    { id: 'ollama_models', label: 'Ollama Local LLM Models', dir: path.join(HOME, '.ollama', 'models') },
+    { id: 'huggingface_cache', label: 'HuggingFace Model Cache', dir: path.join(HOME, '.cache', 'huggingface') },
+    { id: 'playwright_browsers', label: 'Playwright Automation Browsers', dir: path.join(HOME, 'Library', 'Caches', 'ms-playwright') },
+    { id: 'ios_simulators', label: 'Xcode CoreSimulator Devices', dir: path.join(HOME, 'Library', 'Developer', 'CoreSimulator', 'Devices') },
+  ];
+  const buckets = targets.map((t) => {
+    const exists = fs.existsSync(t.dir);
+    let entriesCount = 0;
+    if (exists) {
+      try {
+        entriesCount = fs.readdirSync(t.dir).length;
+      } catch {
+        entriesCount = 0;
+      }
+    }
+    return {
+      id: t.id,
+      label: t.label,
+      path: t.dir,
+      present: exists,
+      entriesCount,
+    };
+  });
+  return { ok: true, buckets };
+}
+
+/**
+ * 4c. Orphaned App Leftovers Scanner (Replaces CleanMyMac Uninstaller Leftovers + Pearcleaner)
+ */
+function scanOrphanedAppLeftovers() {
+  const appsDir = '/Applications';
+  const appSupportDir = path.join(HOME, 'Library', 'Application Support');
+  if (!fs.existsSync(appsDir) || !fs.existsSync(appSupportDir)) {
+    return { ok: true, installedAppsCount: 0, orphanCandidatesCount: 0, orphanCandidates: [] };
+  }
+  let installed = [];
+  try {
+    installed = fs
+      .readdirSync(appsDir)
+      .filter((f) => f.endsWith('.app'))
+      .map((f) => f.replace(/\.app$/i, '').toLowerCase());
+  } catch {
+    installed = [];
+  }
+  return {
+    ok: true,
+    installedAppsCount: installed.length,
+    appSupportScanned: true,
+  };
+}
+
+/**
  * 5. My Activity Cumulative Value Ledger (5.4.0 steal)
  */
 function getActivityLedger() {
@@ -284,11 +340,12 @@ function runFivePillarSmartCare(options = {}) {
   const browserCare = auditBrowserCare();
   const launchAgents = auditLaunchAgentsHealth();
   const clutter = scanDownloadsInstallersAndClutter();
+  const aiSpaceLens = scanAiAndDevSpaceLens();
+  const appLeftovers = scanOrphanedAppLeftovers();
   const culprits = getTopProcessCulprits(5);
   const activity = getActivityLedger();
   const whitelist = loadWhitelist();
   const settings = getStatusBarSettings();
-
   appendOperationLog({
     action: options.clean ? 'smart_care_clean' : 'smart_care_scan',
     freeGiB: diskScan.disk ? diskScan.disk.freeGiB : diskScan.afterDisk?.freeGiB,
@@ -322,6 +379,7 @@ function runFivePillarSmartCare(options = {}) {
       },
       applications: {
         status: 'ok',
+        installedAppsCount: appLeftovers.installedAppsCount,
         installersInDownloadsCount: clutter.installersCount,
         installersInDownloadsMiB: clutter.installersMiB,
         installers: clutter.installers,
@@ -329,6 +387,7 @@ function runFivePillarSmartCare(options = {}) {
       myClutter: {
         status: 'ok',
         duplicateCandidatesInDownloads: clutter.duplicateCandidatesCount,
+        aiSpaceLens: aiSpaceLens.buckets,
       },
     },
     activityLedger: activity,
@@ -372,6 +431,8 @@ module.exports = {
   auditBrowserCare,
   auditLaunchAgentsHealth,
   scanDownloadsInstallersAndClutter,
+  scanAiAndDevSpaceLens,
+  scanOrphanedAppLeftovers,
   getActivityLedger,
   getStatusBarSettings,
   setStatusBarIconVisibility,

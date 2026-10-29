@@ -8,6 +8,8 @@ const {
   auditBrowserCare,
   auditLaunchAgentsHealth,
   scanDownloadsInstallersAndClutter,
+  scanAiAndDevSpaceLens,
+  scanOrphanedAppLeftovers,
   getActivityLedger,
   getStatusBarSettings,
   setStatusBarIconVisibility,
@@ -43,6 +45,14 @@ function main() {
   assert.strictEqual(clutter.ok, true);
   assert.ok(typeof clutter.installersCount === 'number');
 
+
+  // 5b. AI & Dev Space Lens + Orphaned App Leftovers
+  const aiLens = scanAiAndDevSpaceLens();
+  assert.strictEqual(aiLens.ok, true);
+  assert.strictEqual(aiLens.buckets.length, 4);
+  const appLeftovers = scanOrphanedAppLeftovers();
+  assert.strictEqual(appLeftovers.ok, true);
+  assert.ok(appLeftovers.installedAppsCount > 0);
   // 6. My Activity Cumulative Ledger (5.4.0 steal)
   const ledger = getActivityLedger();
   assert.ok(ledger.totalSpaceReclaimedGiB >= 47.24);
