@@ -483,6 +483,9 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             }
         }
 
+        if !CommandLine.arguments.contains("--self-test") {
+            NSApp.setActivationPolicy(.regular)
+        }
         setupStatusItemAndHud()
 
         if CommandLine.arguments.contains("--self-test") {
@@ -498,7 +501,6 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             exit(0)
         }
 
-        NSApp.setActivationPolicy(.regular)
         let icnsPath = "/Applications/MacYoloSafeguards.app/Contents/Resources/AppIcon.icns"
         if let iconImg = NSImage(contentsOfFile: icnsPath) {
             NSApp.applicationIconImage = iconImg
@@ -508,7 +510,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
 
         globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] _ in
             guard let self = self, self.hudPanel != nil, self.hudPanel.isVisible else { return }
-            if Date().timeIntervalSince(self.lastShownAt) < 0.35 { return }
+            if Date().timeIntervalSince(self.lastShownAt) < 3.5 { return }
             let mouseLoc = NSEvent.mouseLocation
             if !self.hudPanel.frame.contains(mouseLoc) {
                 if let btnWin = self.statusItem?.button?.window, btnWin.frame.contains(mouseLoc) {

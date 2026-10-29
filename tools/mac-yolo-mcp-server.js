@@ -137,6 +137,17 @@ function getToolDefinitions() {
         },
       },
     },
+    {
+      name: 'yolo_wabi_sales_ops',
+      description: 'Wabi-driven collaborative sales operations: Shared Fleet Plan & ROI Mini-App, Shared 48h Deal Countdown Widget, and Email/Checkout Deadline Recovery Scanner',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          company: { type: 'string' },
+          teamMacs: { type: 'number', default: 8 },
+        },
+      },
+    },
   ];
 }
 
@@ -303,6 +314,10 @@ function callTool(name, args = {}) {
       setStatusBarIconVisibility(args.showStatusBarIcon);
     }
     return runFivePillarSmartCare({ clean: Boolean(args.clean) });
+  }
+  if (name === 'yolo_wabi_sales_ops') {
+    const { runWabiSalesOperations } = require('./wabi-sales-operations-engine');
+    return runWabiSalesOperations(args);
   }
   throw new Error(`Unknown tool: ${name}`);
 }

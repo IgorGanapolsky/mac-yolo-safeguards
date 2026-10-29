@@ -316,6 +316,8 @@ function main() {
   const supabaseIbm = runSupabaseIbmGuardrails();
   const { runAllTailscaleSteals } = require('./tailscale-october-steals');
   const tailscaleSteals = runAllTailscaleSteals();
+  const { runWabiSalesOperations } = require('./wabi-sales-operations-engine');
+  const wabiSalesOps = runWabiSalesOperations();
   let thumbgateMakeMoney = { skipped: true };
   let dayglassMakeMoney = { skipped: true };
   if (!skipSiblings) {
@@ -346,7 +348,8 @@ function main() {
       safetyScan.ok &&
       Boolean(gurobiBatch.ok) &&
       Boolean(supabaseIbm.ok) &&
-      Boolean(tailscaleSteals.ok),
+      Boolean(tailscaleSteals.ok) &&
+      Boolean(wabiSalesOps.ok),
     startedAt,
     completedAt: new Date().toISOString(),
     date,
@@ -365,6 +368,7 @@ function main() {
       gurobiOutreachOptimal: Boolean(gurobiBatch.ok && gurobiBatch.status === 'OPTIMAL'),
       declarativeSchemaAndConfusionGate: Boolean(supabaseIbm.ok),
       tailscaleOctoberStealsGate: Boolean(tailscaleSteals.ok),
+      wabiSalesOperationsGate: Boolean(wabiSalesOps.ok),
     },
     gurobiProof: gurobiBatch.proof || null,
     supabaseIbmSummary: {
@@ -380,6 +384,11 @@ function main() {
       magicRouteSelected: tailscaleSteals.pillars.magicRouteStickyConnector.selected,
       tailwormSafe: tailscaleSteals.pillars.tailwormSafeguards.ok,
       sweMuxAttentionPanes: tailscaleSteals.pillars.sweMuxAttentionRanker.attentionCount,
+    },
+    wabiSalesOpsSummary: {
+      ok: wabiSalesOps.ok,
+      recommendedTier: wabiSalesOps.wabiPillars.collaborativeDealPlan.recommendedTier,
+      activeRecoveryWindowsCount: wabiSalesOps.wabiPillars.deadlineRecoveryScanner.activeWindowsCount,
     },
     siblingEngines: {
       thumbgateMakeMoney,

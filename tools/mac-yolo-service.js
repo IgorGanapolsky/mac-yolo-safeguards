@@ -91,6 +91,15 @@ function routeRequest(method, rawUrl, bodyObj = {}) {
       }),
     };
   }
+
+  if (method === 'GET' && pathname === '/api/sales/wabi') {
+    return { status: 200, body: callTool('yolo_wabi_sales_ops', {}) };
+  }
+
+  if (method === 'POST' && pathname === '/api/sales/wabi/widget') {
+    const { buildCollaborativeDealPlanWidget } = require('./wabi-sales-operations-engine');
+    return { status: 200, body: buildCollaborativeDealPlanWidget(bodyObj || {}) };
+  }
   return { status: 404, body: { ok: false, error: `Not found: ${method} ${pathname}` } };
 }
 
@@ -144,7 +153,7 @@ function runSelfTest() {
 
   return {
     ok,
-    endpointsVerified: ['/api/status', '/api/flags?state=ACTIVE', '/api/guardrails', '/api/business', '/api/sdlc-prompts', '/api/observability/revenue', '/api/disk', '/api/system-care', '/api/flags/resolve'],
+    endpointsVerified: ['/api/status', '/api/flags?state=ACTIVE', '/api/guardrails', '/api/business', '/api/sdlc-prompts', '/api/observability/revenue', '/api/disk', '/api/system-care', '/api/sales/wabi', '/api/flags/resolve'],
     activeFlagsCount: flagsRes.body.returnedCount,
     guardrailsOk: guardrailsRes.body.ok,
     businessTiersCount: businessRes.body.tiers.length,
