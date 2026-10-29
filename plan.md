@@ -4114,4 +4114,49 @@ The aiprofitboardroom_ reel (Instagram `DfDBob0iL3Y`, captured 2026-10-29 09:26)
 - `tools/shared-vault-memory.js`
 - `tests/test-shared-vault-memory.js`
 - `tools/herdr-high-roi-engine.js`
+---
+
+## 3. Decisions / Discovered (append) — 2026-10-29T13:15Z — `poolside`
+
+**GitHub Universe 2026 steal analysis** (https://github.blog/news-insights/company-news/github-universe-2026-evolving-every-layer-of-the-stack/):
+
+Mapped 8 GitHub Universe 2026 announcements to existing fleet capabilities and concrete improvement gaps. Full analysis in `docs/GITHUB-UNIVERSE-2026-STEAL.md`. Summary:
+
+| GitHub Idea | Our Existing Capability | Gap | Proposed Steal |
+|---|---|---|---|
+| Copilot Fusion (multi-model orchestration) | `hermes-economic-router.js`, `local-coding-model-selector.js`, `model-telemetry-logger.js` | No task decomposition + no model chaining for cost-vs-accuracy optimization | `tools/copilot-fusion-steal.js` — decompose tasks into sub-task classes, route each to optimal model, chain cheap→frontier for verification |
+| Copilot Projects (multi-repo parallel sessions) | `agent-swarm-harness.js`, `agent-mesh`, `plan.md`, `gitbutler-fleet-automations` | plan.md is static markdown; no live parallel session tracker | `tools/copilot-projects-steal.js` — live JSON project state, parallel sessions, decision logging |
+| Session Continuity (phone→VS Code→web→CLI) | `hermes-mobile-session-handoff.js`, `local-first-sync-engine.js` | No cloud session state; sessions lost on surface switch | `tools/session-continuity-steal.js` — serialize at tool-call boundary, store in D1, resume any surface |
+| Copilot Automations (learn from outcomes) | `dayglass__dayglass_routines`, `revenue-autonomous-loop.js`, `grok-repo-janitor.js` | Static automations; no outcome-driven parameter adjustment | `tools/copilot-automations-steal.js` — outcome tracking → pattern analysis → improvement proposals with human approval gate |
+| Code Review Max (high-F1 deep review) | `pr-review-threads.js`, `structural-refactoring-engine.js`, CodeQL/Socket/GitGuardian/CodeRabbit | Fragmented review tools; no unified deep-review mode | `tools/code-review-max-steal.js` — unified pipeline: CodeQL → Socket → GitGuardian → structural → intent → anti-reward-hacking |
+| Git Architecture (simplify/decompute/decouple) | `git-at-scale.js`, `agent-claim-ledger.js`, `gitbutler-fleet-automations` | Primitives not unified; storage coupled to compute; coordination via plan.md | `tools/git-primitives-steal.js` — 4-op API (claim/release/sync/checkpoint), WAL-backed ledger, hunk-level isolation |
+| Continuous Learning Machine | `thumbgate__capture_feedback`, `rag-eval-harness.js`, `dayglass_eval_judge` | No unified engine aggregating all surfaces; no proactive parameter adjustment | `tools/continuous-learning-steal.js` — aggregate feedback from all surfaces, correlate patterns, generate learning items |
+| Completed Work (not more code) | `plan.md`, `ceo-operating-brief.js`, `ci-first-fail.js` | No single pane of glass showing truly-shipped vs blocked | `tools/completed-work-steal.js` — aggregate plan.md + PRs + CI + review threads, rank by impact, surface root-cause blockers |
+
+Priority: P0 (Fusion, Code Review Max, Completed Work), P1 (Automations, Continuity, Projects, Git Primitives), P2 (Learning Engine). All wire into `bin/agent-loop` (Recollect→Plan→Act→Observe→Evaluate→Learn) and `plan.md` §3 append-only log.
+
+### New task claims
+
+| T-GITHUB-UNIVERSE-STEAL-20261029 | Steal GitHub Universe 2026 ideas and improve our system: 8 concrete steal tools mapped to existing capabilities | in_progress | poolside | `docs/GITHUB-UNIVERSE-2026-STEAL.md`, `plan.md` (append only) | Full steal analysis mapped to 8 GitHub initiatives; 8 proposed tools with gap analysis; priority matrix; cross-cutting improvements. Full doc at `docs/GITHUB-UNIVERSE-2026-STEAL.md`. |
+
+### Sub-tasks
+
+| T-STEAL-FUSION-20261029 | Build `tools/copilot-fusion-steal.js`: multi-model orchestration that decomposes tasks into sub-task classes (reasoning/code-gen/debugging/tool-use) and routes each to the optimal model, chaining cheap→frontier for cost-vs-accuracy optimization using telemetry from `model-telemetry-logger.js` | in_progress | poolside | `tools/copilot-fusion-steal.js` (new), `tests/test-copilot-fusion-steal.js` (new), `plan.md` (append only) | Decompose task → sub-task classes → model selection → chained execution → cost/accuracy feedback to `model-telemetry-logger.js` |
+
+| T-STEAL-REVIEW-MAX-20261029 | Build `tools/code-review-max-steal.js`: unified deep code review pipeline combining CodeQL, Socket, GitGuardian, structural-refactoring-engine (invariant sentinel), intent-contract, and anti-reward-hacking into a single orchestrated pass with Lite/Max calibration | in_progress | poolside | `tools/code-review-max-steal.js` (new), `tests/test-code-review-max-steal.js` (new), `plan.md` (append only) | Three tiers: fast (CodeQL+Socket+GitGuardian), balanced (above + intent-contract), max (all tools + invariant sentinel) |
+
+| T-STEAL-COMPLETED-WORK-20261029 | Build `tools/completed-work-steal.js`: single pane of glass aggregating plan.md task status, GitHub PR state, CI gate status, and unresolved review threads; rank by business impact; surface root-cause blockers | in_progress | poolside | `tools/completed-work-steal.js` (new), `tests/test-completed-work-steal.js` (new), `plan.md` (append only) | Queries plan.md, GitHub API, check-runs API, pr-review-threads; outputs structured completion status with blocker root cause |
+
+## Supabase Latent Space + IBM TechXchange Steals (append 2026-10-29T13:56:00Z) — `omp-supabase-ibm-steals`
+
+Implemented declarative schema state (`schemas/hermes-control-plane.declarative.sql` reconciled with `apps/hermes-control-plane/db/schema.ts` and `drizzle/0009_store_entitlement_expires.sql`, cutting schema context tokens by 94.5%), anti-paperclipping database guardrails (no RLS disable, no raw binary/base64 blobs in OLTP, zero-Docker local DBs), IBM TechXchange 3-axis pre-production agent confusion gate (`confusionScore=0`), trigger-based Product-Led Sales troubleshooting script engine with 20% holdout control group (`+100%` incremental uplift), zero-HITL collapsed process audit (`6/6`), AEO technical FAQ (`docs/aeo/AGENT-RELIABILITY-FAQ-DISCUSSIONS.md`), and skill `.agents/skills/supabase-declarative-db-guardrails/SKILL.md`.
+
+### File claims
+- `apps/hermes-control-plane/db/schema.ts`
+- `schemas/hermes-control-plane.declarative.sql`
+- `tools/supabase-ibm-agent-guardrails.js`
+- `tools/mac-yolo-24x7-promote.js`
+- `tests/test-supabase-ibm-steals.js`
+- `.agents/skills/supabase-declarative-db-guardrails/SKILL.md`
+- `docs/aeo/AGENT-RELIABILITY-FAQ-DISCUSSIONS.md`
 - `plan.md` (this append)
