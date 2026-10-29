@@ -17,6 +17,7 @@ const {
   selectPatternsFromRaw,
 } = require('./agentic-pattern-selector');
 const { measure } = require('./agent-confusion-gate');
+const { budget } = require('./dayglass-screen-budget');
 
 const REPO = path.resolve(__dirname, '..');
 
@@ -42,6 +43,9 @@ Options:
   --path TEXT          Optional file measured against its recorded owner.
   --actor TEXT         Optional actor for that file-owner check.
   --plan PATH          Optional plan file. Active file owners feed the same gate.
+  --screen JSON        Optional Dayglass front window {app_name, window_title}.
+                       When set, an unchanged window or a passed gate skips RAG.
+  --previous JSON      Optional {key, task} from the last screen decision.
   --pattern-manifest PATH
                        Optional typed task manifest for deterministic pattern selection.
   --json               Print structured brief only.`;
@@ -58,6 +62,8 @@ function parseArgs(argv) {
     path: '',
     actor: '',
     planText: '',
+    screen: null,
+    previous: null,
     skipThumbgate: false,
     skipGraphify: false,
     skipLocalRetrieval: false,
@@ -81,6 +87,16 @@ function parseArgs(argv) {
       const value = argv[++i] || '';
       if (!value) throw new Error('--plan requires a path');
       args.planText = fs.readFileSync(value, 'utf8');
+    }
+    else if (arg === '--screen') {
+      const value = argv[++i];
+      if (!value) throw new Error('--screen requires JSON');
+      args.screen = JSON.parse(value);
+    }
+    else if (arg === '--previous') {
+      const value = argv[++i];
+      if (!value) throw new Error('--previous requires JSON');
+      args.previous = JSON.parse(value);
     }
     else if (arg === '--pattern-manifest') {
       const value = argv[i + 1];
@@ -644,9 +660,39 @@ function confusionFromArgs(args) {
   });
 }
 
+function screenBrief(args, task) {
+  const decision = budget({ ...args, task });
+  if (decision.runFullBrief) return null;
+  return {
+    checkedAt: new Date().toISOString(),
+    task,
+    confusion: decision.confusion,
+    screen: decision.screen,
+    budget: {
+      action: decision.action,
+      modelCalls: decision.modelCalls,
+      callModel: decision.callModel,
+      contextBytes: decision.contextBytes,
+      runFullBrief: false,
+      replacedGraphChars: decision.replacedGraphChars,
+      prompt: decision.prompt,
+      reason: decision.reason,
+    },
+    patterns: { skipped: true, reason: decision.reason },
+    governance: { skipped: true, reason: decision.reason },
+    rag: {},
+    telemetry: {},
+    recommendation: decision.reason,
+  };
+}
+
 function buildBrief(args) {
   const task = args.task.trim();
   if (!task) throw new Error('--task is required');
+  if (args.screen) {
+    const early = screenBrief(args, task);
+    if (early) return early;
+  }
   const confusion = confusionFromArgs({ ...args, task });
   if (confusion.decision === 'hold') {
     return {
