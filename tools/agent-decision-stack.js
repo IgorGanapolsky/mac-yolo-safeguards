@@ -663,7 +663,11 @@ function confusionFromArgs(args) {
 function screenBrief(args, task) {
   const decision = budget({ ...args, task });
   if (decision.runFullBrief) return null;
-  return {
+  const patterns = args.patternManifest
+    ? loadPatternReceipt(args.patternManifest)
+    : { skipped: true, reason: decision.reason };
+  const patternBlocked = !patterns.skipped && patterns.status === 'block';
+  const brief = {
     checkedAt: new Date().toISOString(),
     task,
     confusion: decision.confusion,
@@ -671,19 +675,24 @@ function screenBrief(args, task) {
     budget: {
       action: decision.action,
       modelCalls: decision.modelCalls,
-      callModel: decision.callModel,
+      callModel: patternBlocked ? false : decision.callModel,
       contextBytes: decision.contextBytes,
       runFullBrief: false,
       replacedGraphChars: decision.replacedGraphChars,
-      prompt: decision.prompt,
+      prompt: patternBlocked ? '' : decision.prompt,
       reason: decision.reason,
     },
-    patterns: { skipped: true, reason: decision.reason },
-    governance: { skipped: true, reason: decision.reason },
+    patterns,
+    governance: {
+      skipped: true,
+      reason: patternBlocked ? 'blocked by agentic pattern contract' : decision.reason,
+    },
     rag: {},
     telemetry: {},
     recommendation: decision.reason,
   };
+  if (patternBlocked) brief.recommendation = recommendNextAction(brief);
+  return brief;
 }
 
 function buildBrief(args) {

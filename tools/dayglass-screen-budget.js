@@ -40,20 +40,6 @@ function budget(input = {}) {
   const previous = input.previous && typeof input.previous === 'object' ? input.previous : {};
   const previousKey = String(previous.key || '');
   const previousTask = String(previous.task || '');
-  if (screen.key && previousKey === screen.key && previousTask === task) {
-    return {
-      action: 'skip',
-      modelCalls: 0,
-      callModel: false,
-      contextBytes: 0,
-      runFullBrief: false,
-      replacedGraphChars: GRAPH_SLICE_CHARS,
-      screen,
-      confusion: null,
-      prompt: '',
-      reason: 'Front window and task are unchanged, so the decision brief stays cached.',
-    };
-  }
   const confusion = measure({
     instruction: task,
     command: input.command,
@@ -77,6 +63,20 @@ function budget(input = {}) {
       confusion,
       prompt: '',
       reason: 'Hold. A confusion axis fired before this decision.',
+    };
+  }
+  if (screen.key && previousKey === screen.key && previousTask === task) {
+    return {
+      action: 'skip',
+      modelCalls: 0,
+      callModel: false,
+      contextBytes: 0,
+      runFullBrief: false,
+      replacedGraphChars: GRAPH_SLICE_CHARS,
+      screen,
+      confusion,
+      prompt: '',
+      reason: 'Front window and task are unchanged, and the confusion gate still proceeds.',
     };
   }
   if (screen.key) {

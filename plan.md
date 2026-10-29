@@ -4195,3 +4195,13 @@ PR 2217 reads the front window into guard notifications and writes guard events 
 - `tools/agent-decision-stack.js`
 - `tests/test-dayglass-screen-budget.js` (new)
 - `plan.md` (this append)
+
+## Dayglass screen budget recheck (append 2026-10-29T16:25:00Z) — `grok-dayglass-screen-budget`
+
+An unchanged window no longer returns before the confusion gate. The same window and the same task skip the brief only after the gate proceeds. A new file owner, a vague task, or a blocked pattern manifest still stops the model call. The manifest check does not run RAG or telemetry.
+
+### File claims
+- `tools/dayglass-screen-budget.js`
+- `tools/agent-decision-stack.js`
+- `tests/test-dayglass-screen-budget.js`
+- `plan.md` (this append)

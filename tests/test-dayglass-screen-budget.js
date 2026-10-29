@@ -2,6 +2,8 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
@@ -34,7 +36,23 @@ check('an unchanged window skips the brief', () => {
   assert.equal(again.callModel, false);
   assert.equal(again.contextBytes, 0);
   assert.equal(again.runFullBrief, false);
-  assert.equal(again.confusion, null);
+  assert.equal(again.confusion.decision, 'proceed');
+});
+
+check('an unchanged window still holds a foreign file owner', () => {
+  const first = budget({ task: 'edit tools/foo.js', screen });
+  const held = budget({
+    task: 'edit tools/foo.js',
+    screen,
+    path: 'tools/foo.js',
+    actor: 'beta',
+    claims: [{ path: 'tools/foo.js', owner: 'alpha' }],
+    previous: { key: first.screen.key, task: 'edit tools/foo.js' },
+  });
+  assert.equal(held.action, 'hold');
+  assert.equal(held.callModel, false);
+  assert.equal(held.confusion.decision, 'hold');
+  assert.equal(held.confusion.axes[2].fired, true);
 });
 
 check('a vague task stays held when a window title looks like a file', () => {
@@ -91,17 +109,51 @@ check('the decision stack returns that packet before telemetry', () => {
   assert.ok(brief.budget.contextBytes < GRAPH_SLICE_CHARS);
 });
 
+check('a supplied pattern manifest still blocks a screen brief', () => {
+  const manifest = path.join(os.tmpdir(), `screen-budget-manifest-${process.pid}.json`);
+  fs.writeFileSync(manifest, '{}\n');
+  try {
+    const brief = buildBrief({
+      task: 'edit tools/foo.js',
+      screen,
+      patternManifest: manifest,
+    });
+    assert.equal(brief.patterns.status, 'block');
+    assert.equal(brief.patterns.skipped, undefined);
+    assert.equal(brief.budget.callModel, false);
+    assert.equal(brief.budget.prompt, '');
+    assert.deepEqual(brief.telemetry, {});
+    assert.deepEqual(brief.rag, {});
+    assert.match(brief.recommendation, /BLOCKED by agentic pattern contract/);
+  } finally {
+    fs.unlinkSync(manifest);
+  }
+});
+
 check('cli json matches the library', () => {
-  const payload = JSON.stringify({
+  const heldPayload = JSON.stringify({
     task: 'fix it',
     screen: shop,
     previous: { key: 'Google Chrome\nAuctions In Progress | ShopGoodwill.com', task: 'fix it' },
+  });
+  const heldRun = spawnSync(process.execPath, [script, '--json', heldPayload], { encoding: 'utf8' });
+  assert.equal(heldRun.status, 1, heldRun.stderr);
+  const heldBody = JSON.parse(heldRun.stdout);
+  assert.equal(heldBody.action, 'hold');
+  assert.equal(heldBody.confusion.decision, 'hold');
+
+  const first = budget({ task: 'edit tools/foo.js', screen });
+  const payload = JSON.stringify({
+    task: 'edit tools/foo.js',
+    screen,
+    previous: { key: first.screen.key, task: 'edit tools/foo.js' },
   });
   const run = spawnSync(process.execPath, [script, '--json', payload], { encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr);
   const body = JSON.parse(run.stdout);
   assert.equal(body.action, 'skip');
   assert.equal(body.contextBytes, 0);
+  assert.equal(body.confusion.decision, 'proceed');
 
   const stackRun = spawnSync(process.execPath, [
     stack,
