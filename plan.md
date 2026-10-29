@@ -4205,3 +4205,21 @@ An unchanged window no longer returns before the confusion gate. The same window
 - `tools/agent-decision-stack.js`
 - `tests/test-dayglass-screen-budget.js`
 - `plan.md` (this append)
+
+## Tailscale October newsletter gate (append 2026-10-29T16:40:00Z) — `grok-tailscale-newsletter`
+
+October 29, 2026 Tailscale newsletter. The six ideas are named policy blocks that remove byte-identically, sticky connector selection, the Tailworm floor at Tailscale 1.104.4, identity-scoped database access, a personal agent kept off the open web, and attention ranking across side-by-side coding sessions. Open PR 2212 already carries a sample runner for those names. This slice does not edit that runner. A missing version is below the floor. A write needs `lease.expiresAt` in the future. A write keyword that exists only inside a SQL comment is denied. An empty pane list stays empty.
+
+### File claims
+- `tools/tailscale-newsletter-gate.js` (new)
+- `tests/test-tailscale-newsletter-gate.js` (new)
+- `plan.md` (this append)
+
+## Tailscale newsletter gate review (append 2026-10-29T16:45:00Z) — `grok-tailscale-newsletter`
+
+Codex on PR 2219. A support session cannot run an assigning PRAGMA or `PRAGMA optimize`. A query-form `PRAGMA table_info(...)` stays read-only. A block name matches only when the marker ends, so `temp-oncall` and `temp-oncall-2` are separate blocks.
+
+### File claims
+- `tools/tailscale-newsletter-gate.js`
+- `tests/test-tailscale-newsletter-gate.js`
+- `plan.md` (this append)
