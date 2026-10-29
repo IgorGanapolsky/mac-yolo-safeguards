@@ -80,7 +80,10 @@ function main() {
   const catalog = JSON.parse(callResp.result.content[0].text);
   assert.strictEqual(catalog.ok, true);
   assert.strictEqual(catalog.tiers.length, 5);
-
+  const { verifyCatalogIsolation } = require('../tools/mac-yolo-stripe-provisioner');
+  const iso = verifyCatalogIsolation(catalog.tiers);
+  assert.strictEqual(iso.ok, true);
+  assert.strictEqual(iso.zeroThumbgateReferences, true);
   const guardAudit = callTool('yolo_guardrails_audit', {});
   assert.strictEqual(guardAudit.ok, true);
 

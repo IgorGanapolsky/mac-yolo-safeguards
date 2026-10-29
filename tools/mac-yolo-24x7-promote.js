@@ -25,53 +25,7 @@ const RECEIPT_DIR = path.join(HOME, '.hermes', 'receipts');
 const RECEIPT_PATH = path.join(RECEIPT_DIR, 'mac-yolo-24x7-promote-latest.json');
 const VAULT_REPORT_DIR = path.join(HOME, 'Documents', 'AI-Agent-Sync', 'Projects', 'mac-yolo-safeguards', 'Reports');
 
-const OFFERS = [
-  {
-    offer: 'Agent Safeguards Playbook',
-    route: 'Agent Safeguards Playbook ($9.99)',
-    status: 'ready',
-    stripe_product_id: 'prod_GumroadOdrkon999',
-    stripe_price_id: 'price_GumroadOdrkon999',
-    payment_link_url: 'https://iganapolsky.gumroad.com/l/odrkon',
-    stripe_amount_usd: '9.99',
-  },
-  {
-    offer: 'Corporate-Expense Reliability Kit',
-    route: 'Corporate-Expense Reliability Kit ($49)',
-    status: 'ready',
-    stripe_product_id: 'prod_GumroadVcrho4900',
-    stripe_price_id: 'price_GumroadVcrho4900',
-    payment_link_url: 'https://iganapolsky.gumroad.com/l/vcrho',
-    stripe_amount_usd: '49.00',
-  },
-  {
-    offer: 'Agent Reliability Diagnostic',
-    route: 'Agent Reliability Diagnostic ($499)',
-    status: 'ready',
-    stripe_product_id: 'prod_ThumbgateDiag499',
-    stripe_price_id: 'price_ThumbgateDiag499',
-    payment_link_url: 'https://thumbgate.ai/diagnostic',
-    stripe_amount_usd: '499.00',
-  },
-  {
-    offer: 'AI Agent Hardening Sprint',
-    route: 'AI Agent Hardening Sprint ($1,500)',
-    status: 'ready',
-    stripe_product_id: 'prod_ThumbgateSprint1500',
-    stripe_price_id: 'price_ThumbgateSprint1500',
-    payment_link_url: 'https://cal.com/igor-g-kvqxfo/30min',
-    stripe_amount_usd: '1500.00',
-  },
-  {
-    offer: 'Partner Pilot',
-    route: 'Partner Pilot ($3,000)',
-    status: 'ready',
-    stripe_product_id: 'prod_ThumbgatePilot3000',
-    stripe_price_id: 'price_ThumbgatePilot3000',
-    payment_link_url: 'https://cal.com/igor-g-kvqxfo/30min',
-    stripe_amount_usd: '3000.00',
-  },
-];
+const { MAC_YOLO_STRIPE_CATALOG: OFFERS } = require('./mac-yolo-stripe-provisioner');
 
 const CURATED_PROSPECTS = [
   {
@@ -193,9 +147,9 @@ const CHANNELS_9 = [
   },
   {
     channel: 'zyvop',
-    title: 'mac-yolo-safeguards + ThumbGate: OS-level runaway protection & pre-execution human gates for autonomous coding agents',
-    cta: 'https://thumbgate.app',
-    paidCta: 'https://iganapolsky.gumroad.com/l/vcrho',
+    title: 'mac-yolo-safeguards: OS-level runaway protection, MCP server & native macOS menu bar guard for autonomous coding agents',
+    cta: 'https://github.com/IgorGanapolsky/mac-yolo-safeguards',
+    paidCta: 'https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k',
   },
 ];
 

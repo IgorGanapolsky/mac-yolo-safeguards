@@ -4173,4 +4173,7 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 - `docs/MCP-INVENTORY.md`
 - `tools/gitlab-10-sdlc-prompts-steal.js`
 - `tests/test-gitlab-10-sdlc-prompts-steal.js`
+- `tools/mac-yolo-stripe-provisioner.js`
+- `README.md`
+- `.github/FUNDING.yml`
 - `plan.md` (this append)
