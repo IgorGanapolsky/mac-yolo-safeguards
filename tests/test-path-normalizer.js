@@ -34,6 +34,9 @@ Module._load = function patched(request, parent, isMain) {
   return loaded;
 };
 
+// The Finder copy runs only on darwin. The macOS guard kit job executes
+// these node tests on Linux, so the test has to enter that branch itself.
+Object.defineProperty(process, 'platform', { value: 'darwin', configurable: true });
 const { resolveResilientPath } = require(path.join(root, 'tools/lib/path-normalizer.js'));
 const result = resolveResilientPath(`/Users/example/Desktop/${hostile}`);
 Module._load = realLoad;

@@ -4072,3 +4072,11 @@ Code scanning alert 162 (`js/incomplete-sanitization`) is the Finder copy on `ma
 - `tools/lib/path-normalizer.js`
 - `tests/test-path-normalizer.js`
 - `plan.md` (this append)
+
+## Path normalizer test host (append 2026-10-29T00:00:02Z) — `grok-path-normalizer`
+
+PR #2205 macOS guard kit failed in Node tool unit tests. `tests/test-path-normalizer.js` reached `result.ok === false` because that job runs on Linux and the Finder copy is `process.platform === 'darwin'`. The test now sets `process.platform` to `darwin` before loading the module. The source contract is unchanged.
+
+### File claims
+- `tests/test-path-normalizer.js`
+- `plan.md` (this append)
