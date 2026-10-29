@@ -4132,3 +4132,21 @@ The aiprofitboardroom_ reel (Instagram `DfDBob0iL3Y`, captured 2026-10-29 09:26)
 - `tests/test-shared-vault-memory.js`
 - `tools/herdr-high-roi-engine.js`
 - `plan.md` (this append)
+
+## Agent confusion gate (append 2026-10-29T14:16:00Z) — `grok-agent-confusion-gate`
+
+Task `T-AGENT-CONFUSION-GATE-20261029`. Kiyu Gabriel's line at IBM TechXchange 2026, quoted by Sarbjeet Johal (post 2115073742321713223), is that confused agents are bad agents. The reply from rameshchitor (post 2115165243458609579) is the part we take: ambiguous context, conflicting data, and an unclear tool boundary are measurable before the action. `tools/agent-confusion-gate.js` counts how many of those three axes fire. Zero proceeds. Any fired axis holds. An empty instruction holds. "fix it" holds. A URL, an issue number, a ticket, or a filename in that same text clears the ambiguity axis, so the tweet prompt itself proceeds. Two different values for one key hold. Two plan owners of one file are that conflict. `git push --force`, `git push -f`, `gh pr merge --admin`, `git reflog`, and `git log --all --grep` hold. A path whose recorded owner is not the actor holds. `git push -u` and `gh pr merge --squash --auto` do not. The gate does not call a model, does not spawn a process, and does not read the live vault.
+
+### File claims
+- `tools/agent-confusion-gate.js`
+- `tests/test-agent-confusion-gate.js`
+- `plan.md` (this append)
+
+## Agent confusion gate review (append 2026-10-29T14:22:00Z) — `grok-agent-confusion-gate`
+
+Codex on PR #2213. A `File | Owner | Claimed` row is an active claim, and that owner is also the boundary check, so one foreign owner holds. A `done` or `released` task does not keep the file. The current owner of a reused file is the later active row.
+
+### File claims
+- `tools/agent-confusion-gate.js`
+- `tests/test-agent-confusion-gate.js`
+- `plan.md` (this append)
