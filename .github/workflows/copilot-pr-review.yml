@@ -1,8 +1,9 @@
 name: Copilot PR review
 
-# High-ROI / Aug 2026: every PR is auto-requested for a Copilot code review at
-# ready-for-review, so review cycles are cut without anyone typing `@copilot review`.
-# Mirrors pr-hygiene.yml conventions (gh CLI, no checkout, per-PR concurrency).
+# Match review depth to the diff: lite for documentation, max for
+# security-sensitive paths, balanced otherwise. The review-request API has
+# no effort field, so the depth is the comment marker. This job is not a
+# required check. Classifier JavaScript runs only after GH_TOKEN is unset.
 on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
@@ -20,22 +21,74 @@ jobs:
     name: Request Copilot code review
     runs-on: ubuntu-latest
     steps:
-      - name: Comment @copilot review (deduped)
+      - name: Checkout pull request (no credentials)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Classify review effort
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          unset GH_TOKEN GITHUB_TOKEN ACTIONS_RUNTIME_TOKEN
+          : > changed-files.txt
+          if [ -n "${BASE_SHA}" ] && git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+            git diff --name-only "$BASE_SHA" "$HEAD_SHA" > changed-files.txt
+          else
+            echo "base commit unavailable; classifying with no file list"
+          fi
+          node tools/review-effort.js --files-from changed-files.txt > review-effort.json
+
+      - name: Decide whether to request review
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
-          # Draft PRs are not ready for review; skip silently.
-          if gh pr view "$PR" --repo "$REPO" --json isDraft --jq '.isDraft' | grep -q true; then
-            echo "draft PR #$PR — skipping Copilot review request"; exit 0
+          if gh pr view "$PR" --repo "$REPO" --json isDraft --jq '.isDraft' | grep -qx true; then
+            echo "draft PR #$PR — skipping Copilot review request"
+            echo no > request.txt
+            exit 0
           fi
-          # Avoid duplicate review requests: if any existing comment already asked
-          # Copilot to review this PR, do not post again (prevents double-posting).
-          EXISTING=$(gh api "repos/$REPO/issues/$PR/comments" --jq '.[].body // ""' 2>/dev/null || true)
-          if printf '%s\n' "$EXISTING" | grep -qi '@copilot review'; then
-            echo "Copilot review already requested on PR #$PR"; exit 0
+          if ! gh api --paginate "repos/$REPO/issues/$PR/comments" --jq '.[] | .body | @json' > comment-bodies.jsonl; then
+            echo "could not list comments; treating prior requests as none"
+            : > comment-bodies.jsonl
           fi
-          gh pr comment "$PR" --repo "$REPO" --body "@copilot review"
+          unset GH_TOKEN GITHUB_TOKEN ACTIONS_RUNTIME_TOKEN
+          node tools/review-effort.js --decide review-effort.json comment-bodies.jsonl
+
+      - name: Comment @copilot review
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          request="$(tr -d '[:space:]' < request.txt 2>/dev/null || echo no)"
+          if [ "$request" != yes ]; then
+            echo "not commenting on PR #$PR (request=$request)"
+            exit 0
+          fi
+          head -n 1 comment.md | grep -Eq '^<!-- review-effort:(lite|balanced|max) -->$'
+          grep -q '@copilot review' comment.md
+          bytes="$(wc -c < comment.md | tr -d '[:space:]')"
+          test "$bytes" -lt 4000
+          set +e
+          out="$(gh pr comment "$PR" --repo "$REPO" --body-file comment.md 2>&1)"
+          code=$?
+          set -e
+          if [ "$code" -ne 0 ]; then
+            if printf '%s\n' "$out" | grep -q '403'; then
+              echo "comment API returned 403; leaving the check green"
+              exit 0
+            fi
+            printf '%s\n' "$out"
+            exit "$code"
+          fi
+          printf '%s\n' "$out"
           echo "requested Copilot code review on PR #$PR"
