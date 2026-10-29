@@ -4133,6 +4133,22 @@ The aiprofitboardroom_ reel (Instagram `DfDBob0iL3Y`, captured 2026-10-29 09:26)
 - `tools/herdr-high-roi-engine.js`
 - `plan.md` (this append)
 
+## Swarm coordination grade (append 2026-10-29T14:05:00Z) — `grok-swarm-grade`
+
+Same prompt, many agents. `tools/swarm-coordination-grade.js` scores each coordination surface from evidence and sets the overall score to the lowest one. A constant 10/10 cannot become A+. The judge seat scores command output and does not edit the worker's files. Security-sensitive paths route to the frontier seat. Docs stay on the cheap seat.
+
+### File claims
+- `tools/swarm-coordination-grade.js`
+- `tests/test-swarm-coordination-grade.js`
+- `plan.md` (this append)
+
+## Swarm grade review (append 2026-10-29T14:28:00Z) — `grok-swarm-grade`
+
+A missing surface cannot print an overall A+. The live probe reads `statusCheckRollup` for the required checks. A full page of 50 issues or pull requests stays unmeasured. A non-numeric issue count, a missing `plan.md`, a failed `but status`, and an unmeasured Gemini or judge seat stay unmeasured. `done` is not involved here. The constant `10/10` in the Herdr engine still scores the judge at 2.
+
+### File claims
+- `tools/swarm-coordination-grade.js`
+- `tests/test-swarm-coordination-grade.js`
 ## Agent confusion gate (append 2026-10-29T14:16:00Z) — `grok-agent-confusion-gate`
 
 Task `T-AGENT-CONFUSION-GATE-20261029`. Kiyu Gabriel's line at IBM TechXchange 2026, quoted by Sarbjeet Johal (post 2115073742321713223), is that confused agents are bad agents. The reply from rameshchitor (post 2115165243458609579) is the part we take: ambiguous context, conflicting data, and an unclear tool boundary are measurable before the action. `tools/agent-confusion-gate.js` counts how many of those three axes fire. Zero proceeds. Any fired axis holds. An empty instruction holds. "fix it" holds. A URL, an issue number, a ticket, or a filename in that same text clears the ambiguity axis, so the tweet prompt itself proceeds. Two different values for one key hold. Two plan owners of one file are that conflict. `git push --force`, `git push -f`, `gh pr merge --admin`, `git reflog`, and `git log --all --grep` hold. A path whose recorded owner is not the actor holds. `git push -u` and `gh pr merge --squash --auto` do not. The gate does not call a model, does not spawn a process, and does not read the live vault.
