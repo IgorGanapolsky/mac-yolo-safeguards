@@ -4214,3 +4214,12 @@ October 29, 2026 Tailscale newsletter. The six ideas are named policy blocks tha
 - `tools/tailscale-newsletter-gate.js` (new)
 - `tests/test-tailscale-newsletter-gate.js` (new)
 - `plan.md` (this append)
+
+## Tailscale newsletter gate review (append 2026-10-29T16:45:00Z) — `grok-tailscale-newsletter`
+
+Codex on PR 2219. A support session cannot run an assigning PRAGMA or `PRAGMA optimize`. A query-form `PRAGMA table_info(...)` stays read-only. A block name matches only when the marker ends, so `temp-oncall` and `temp-oncall-2` are separate blocks.
+
+### File claims
+- `tools/tailscale-newsletter-gate.js`
+- `tests/test-tailscale-newsletter-gate.js`
+- `plan.md` (this append)

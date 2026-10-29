@@ -10,6 +10,7 @@ const {
   rankAttention,
   verifyBlock,
   applyBlock,
+  removeBlock,
   selectConnector,
   refereeSession,
   fixtureReport,
@@ -78,6 +79,22 @@ check('an on-call write needs an unexpired lease', () => {
     sql: 'SELECT id FROM organizations',
     staticPasswordOnLaptop: true,
   }, now).reason, 'static_password_on_laptop');
+  assert.equal(evaluateDbAccess({
+    identityRole: 'support',
+    sql: 'PRAGMA user_version = 42',
+  }, now).allowed, false);
+  assert.equal(evaluateDbAccess({
+    identityRole: 'support',
+    sql: 'PRAGMA journal_mode = OFF',
+  }, now).reason, 'support_is_read_only');
+  assert.equal(evaluateDbAccess({
+    identityRole: 'support',
+    sql: 'PRAGMA optimize',
+  }, now).allowed, false);
+  assert.equal(evaluateDbAccess({
+    identityRole: 'support',
+    sql: 'PRAGMA table_info(organizations)',
+  }, now).reason, 'read_only');
 });
 
 check('an empty attention list stays empty', () => {
@@ -101,6 +118,10 @@ check('a named policy block removes byte-identically', () => {
   assert.equal(proof.byteIdentical, true);
   assert.equal(proof.beforeSha256, proof.afterSha256);
   assert.throws(() => applyBlock(policy, 'temp-oncall', ['// END SCURGERY:temp-oncall']), /marker/);
+  const longer = applyBlock(policy, 'temp-oncall-2', ['// grant']);
+  const both = applyBlock(longer, 'temp-oncall', ['// other']);
+  assert.equal(removeBlock(both, 'temp-oncall'), longer);
+  assert.equal(removeBlock(longer, 'temp-oncall'), longer);
 });
 
 check('a healthy connector stays sticky inside the margin', () => {

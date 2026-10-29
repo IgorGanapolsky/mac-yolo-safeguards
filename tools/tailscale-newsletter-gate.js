@@ -70,12 +70,22 @@ function stripSqlComments(sql) {
   return String(sql || '').replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/--[^\n]*/g, ' ');
 }
 
+const WRITE_PRAGMA = new Set(['optimize', 'wal_checkpoint', 'incremental_vacuum', 'shrink_memory']);
+
+function isReadOnlyPragma(text) {
+  if (/=/.test(text)) return false;
+  const match = text.match(/^pragma\s+([a-z_][a-z0-9_]*)/i);
+  if (!match || WRITE_PRAGMA.has(match[1].toLowerCase())) return false;
+  return /^pragma\s+[a-z_][a-z0-9_]*(\s*\([^)]*\))?$/i.test(text);
+}
+
 function isReadOnlySql(sql) {
   const raw = String(sql || '');
   if (WRITE_KEYWORD.test(raw)) return false;
   const text = stripSqlComments(raw).trim();
   if (!text || text.includes(';')) return false;
-  return /^(select|explain\s+select|show|pragma)\b/i.test(text);
+  if (/^pragma\b/i.test(text)) return isReadOnlyPragma(text);
+  return /^(select|explain\s+select|show)\b/i.test(text);
 }
 
 function evaluateDbAccess(request = {}, nowMs = Date.now()) {
@@ -132,11 +142,23 @@ function blockMarkers(name) {
   };
 }
 
+function markerIndex(src, marker, from = 0) {
+  let cursor = from;
+  while (cursor <= src.length) {
+    const start = src.indexOf(marker, cursor);
+    if (start === -1) return -1;
+    const next = src[start + marker.length];
+    if (next === undefined || next === '\n' || next === '\r') return start;
+    cursor = start + marker.length;
+  }
+  return -1;
+}
+
 function applyBlock(original, name, lines) {
   if (!/^[A-Za-z0-9_.-]+$/.test(String(name || ''))) throw new Error('invalid block name');
   const src = String(original ?? '');
   const { begin, end } = blockMarkers(name);
-  if (src.includes(begin) || src.includes(end)) throw new Error('block already present');
+  if (markerIndex(src, begin) !== -1 || markerIndex(src, end) !== -1) throw new Error('block already present');
   const body = Array.isArray(lines) ? lines.join('\n') : String(lines || '');
   if (/\/\/ (?:BEGIN|END) SCURGERY:/.test(body)) throw new Error('block body contains a marker');
   return `${src}${begin}\n${body}\n${end}\n`;
@@ -146,11 +168,11 @@ function removeBlock(modified, name) {
   if (!/^[A-Za-z0-9_.-]+$/.test(String(name || ''))) throw new Error('invalid block name');
   const src = String(modified ?? '');
   const { begin, end } = blockMarkers(name);
-  const start = src.indexOf(begin);
+  const start = markerIndex(src, begin);
   if (start === -1) return src;
+  const stop = markerIndex(src, end, start + begin.length);
   const close = `${end}\n`;
-  const stop = src.indexOf(close, start + begin.length);
-  if (stop === -1) throw new Error('unclosed block');
+  if (stop === -1 || src.slice(stop, stop + close.length) !== close) throw new Error('unclosed block');
   return src.slice(0, start) + src.slice(stop + close.length);
 }
 
