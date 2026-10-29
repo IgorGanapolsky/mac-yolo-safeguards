@@ -4106,6 +4106,23 @@ Fixed `.mcp.json` (`github` via `github-mcp-stdio`, `grepai` `/Users/iganapolsky
 - `tools/retrieval-query-rewrite.js`
 - `plan.md` (this append)
 
+## Copilot review depth (append 2026-10-29T13:22:20Z) — `grok-review-effort`
+
+GitHub Universe 2026 (Jay Parikh, 2026-10-28) ships Copilot code review at Lite, Balanced, and Max. The public review-request inputs still have no effort field (schema check 2026-10-29), so the depth is a comment marker. Documentation-only diffs are lite. Security-sensitive paths (workflows, tools/lib, auth or payment, revenue tools, security-audit, path-normalizer, Hermes Mobile package pins) are max. Everything else is balanced. A later push comments again only when the level rises. An older `@copilot review` comment with no marker counts as balanced. The classifier runs with the write token unset. This job is not a required check and does not use pull_request_target.
+
+### File claims
+- `tools/review-effort.js`
+- `tests/test-review-effort.js`
+- `.github/workflows/copilot-pr-review.yml`
+- `plan.md` (this append)
+
+## Copilot review isolation (append 2026-10-29T13:37:26Z) — `grok-review-effort`
+
+The classifier job has `contents: read` only and prefers `tools/review-effort.js` from the base commit. The comment job never runs that JavaScript. It posts only when the effort is lite, balanced, or max.
+
+### File claims
+- `tests/test-review-effort.js`
+- `.github/workflows/copilot-pr-review.yml`
 ## Shared vault memory (append 2026-10-29T13:30:17Z) — `grok-shared-vault`
 
 The aiprofitboardroom_ reel (Instagram `DfDBob0iL3Y`, captured 2026-10-29 09:26) pitches Hermes, Jarvis, and Obsidian as one memory. The part worth taking is the vault itself: agents read the same notes before planning content, write a short daily section back, and do not paste the whole vault into the prompt. `tools/shared-vault-memory.js` resolves `HERMES_AGENT_SYNC_VAULT` or `~/Documents/AI-Agent-Sync`, blocks a content brief when no note matches, caps the packet at 2,000 characters, and refuses the old `/Users/igorganapolsky/Documents/Obsidian Vault` path. Herdr snapshots now write into that vault. Nothing here publishes or sends mail.
@@ -4182,3 +4199,55 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 - **Gap:** No frame-freshness freeze detection. If `dayglass.sqlite frames.last_seen_at` is stale (>30s), the Mac's screen capture is stuck → potential freeze. This is more direct than CPU/memory heuristics.
 - **Decision:** Implementation approach — add `dg_active_window()` function to guard that curls `/api/status` (fallback: `dayglass-windowlist`), modify `notify()` to append the window context, add `dg_log_event()` to INSERT into Dayglass sqlite, add frame-freshness check as new guard section. Add Dayglass health check to `yolo-health`.
 - **Integration file:** The main repo's `.poolside/settings.yaml` was already fixed for the grepai path typo (PR #2214). No additional MCP config changes needed — Dayglass has its own MCP server.
+## Swarm coordination grade (append 2026-10-29T14:05:00Z) — `grok-swarm-grade`
+
+Same prompt, many agents. `tools/swarm-coordination-grade.js` scores each coordination surface from evidence and sets the overall score to the lowest one. A constant 10/10 cannot become A+. The judge seat scores command output and does not edit the worker's files. Security-sensitive paths route to the frontier seat. Docs stay on the cheap seat.
+
+### File claims
+- `tools/swarm-coordination-grade.js`
+- `tests/test-swarm-coordination-grade.js`
+- `plan.md` (this append)
+
+## Swarm grade review (append 2026-10-29T14:28:00Z) — `grok-swarm-grade`
+
+A missing surface cannot print an overall A+. The live probe reads `statusCheckRollup` for the required checks. A full page of 50 issues or pull requests stays unmeasured. A non-numeric issue count, a missing `plan.md`, a failed `but status`, and an unmeasured Gemini or judge seat stay unmeasured. `done` is not involved here. The constant `10/10` in the Herdr engine still scores the judge at 2.
+
+### File claims
+- `tools/swarm-coordination-grade.js`
+- `tests/test-swarm-coordination-grade.js`
+## Agent confusion gate (append 2026-10-29T14:16:00Z) — `grok-agent-confusion-gate`
+
+Task `T-AGENT-CONFUSION-GATE-20261029`. Kiyu Gabriel's line at IBM TechXchange 2026, quoted by Sarbjeet Johal (post 2115073742321713223), is that confused agents are bad agents. The reply from rameshchitor (post 2115165243458609579) is the part we take: ambiguous context, conflicting data, and an unclear tool boundary are measurable before the action. `tools/agent-confusion-gate.js` counts how many of those three axes fire. Zero proceeds. Any fired axis holds. An empty instruction holds. "fix it" holds. A URL, an issue number, a ticket, or a filename in that same text clears the ambiguity axis, so the tweet prompt itself proceeds. Two different values for one key hold. Two plan owners of one file are that conflict. `git push --force`, `git push -f`, `gh pr merge --admin`, `git reflog`, and `git log --all --grep` hold. A path whose recorded owner is not the actor holds. `git push -u` and `gh pr merge --squash --auto` do not. The gate does not call a model, does not spawn a process, and does not read the live vault.
+
+### File claims
+- `tools/agent-confusion-gate.js`
+- `tests/test-agent-confusion-gate.js`
+- `plan.md` (this append)
+
+## Agent confusion gate review (append 2026-10-29T14:22:00Z) — `grok-agent-confusion-gate`
+
+Codex on PR #2213. A `File | Owner | Claimed` row is an active claim, and that owner is also the boundary check, so one foreign owner holds. A `done` or `released` task does not keep the file. The current owner of a reused file is the later active row.
+
+### File claims
+- `tools/agent-confusion-gate.js`
+- `tests/test-agent-confusion-gate.js`
+- `plan.md` (this append)
+
+## Declarative control-plane shape (append 2026-10-29T15:20:00Z) — `grok-declarative-schema`
+
+Latent Space interview with Supabase, YouTube `zHG6sAss_kE`. Agents read `schemas/hermes-control-plane.shape.json` instead of replaying every migration. The journal now includes `0009_store_entitlement_expires`, which the app already selects. `0010_llm_calls` creates the table the metrics route already queries. `schema.ts` still omits `organizations.store_entitlement_expires_at`; that gap stays visible and is not called zero. Disabling row-level security, `bytea`, and a blob column hold. No sales uplift figure is measured here.
+
+### File claims
+- `tools/declarative-schema-guard.js`
+- `tests/test-declarative-schema-guard.js`
+- `schemas/hermes-control-plane.shape.json`
+- `apps/hermes-control-plane/drizzle/0010_llm_calls.sql`
+- `apps/hermes-control-plane/drizzle/meta/_journal.json`
+## Confusion gate before the decision (append 2026-10-29T15:05:00Z) — `grok-confusion-before-decision`
+
+The gate from post 2115073742321713223 already measures three axes. The decision stack now runs that measurement first. A fired axis returns the brief before RAG, governance, and telemetry. The tweet prompt still scores zero on ambiguity. A `File | Owner | Claimed` row passed with `--plan` still holds a different actor.
+
+### File claims
+- `tools/agent-decision-stack.js`
+- `tests/test-decision-stack-confusion.js`
+- `plan.md` (this append)
