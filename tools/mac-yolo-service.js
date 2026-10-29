@@ -18,6 +18,10 @@
 
 const http = require('http');
 const { URL } = require('url');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const { spawnSync } = require('child_process');
 const { callTool } = require('./mac-yolo-mcp-server');
 const {
   listFlags,
@@ -160,6 +164,31 @@ function runSelfTest() {
   };
 }
 
+function enforceCanonicalMenubarBinary() {
+  if (process.platform !== 'darwin') return { healed: false };
+  const canonicalBin = path.join(os.homedir(), '.hermes', 'bin', 'MacYoloSafeguards-canonical');
+  const appBundle = '/Applications/MacYoloSafeguards.app';
+  const appBin = path.join(appBundle, 'Contents', 'MacOS', 'MacYoloSafeguards');
+  try {
+    if (!fs.existsSync(canonicalBin)) return { healed: false };
+    const cBuf = fs.readFileSync(canonicalBin);
+    const aBuf = fs.existsSync(appBin) ? fs.readFileSync(appBin) : Buffer.alloc(0);
+    if (!cBuf.equals(aBuf)) {
+      spawnSync('/usr/bin/chflags', ['-R', 'nouchg', appBundle]);
+      fs.copyFileSync(canonicalBin, appBin);
+      fs.chmodSync(appBin, 0o755);
+      spawnSync('codesign', ['--force', '--deep', '--sign', '-', appBundle]);
+      fs.copyFileSync(appBin, canonicalBin);
+      spawnSync('killall', ['-9', 'MacYoloSafeguards']);
+      spawnSync('launchctl', ['kickstart', '-k', `gui/${process.getuid()}/com.iganapolsky.mac-yolo-safeguards-menubar`]);
+      return { healed: true };
+    }
+  } catch {
+    /* ignore */
+  }
+  return { healed: false };
+}
+
 if (require.main === module) {
   const argv = process.argv.slice(2);
   if (argv.includes('--self-test')) {
@@ -177,6 +206,8 @@ if (require.main === module) {
   const portIdx = argv.indexOf('--port');
   const port = portIdx !== -1 && argv[portIdx + 1] ? Number(argv[portIdx + 1]) : DEFAULT_PORT;
   const server = createServiceServer();
+  enforceCanonicalMenubarBinary();
+  setInterval(enforceCanonicalMenubarBinary, 3000).unref();
   server.listen(port, '127.0.0.1', () => {
     console.log(`[mac-yolo-service] listening on http://127.0.0.1:${port}`);
   });

@@ -4185,4 +4185,5 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 - `tools/wabi-sales-operations-engine.js`
 - `tests/test-wabi-sales-operations-engine.js`
 - `.agents/skills/wabi-sales-operations-steal/SKILL.md`
+- `tools/launch-mac-yolo-menubar.sh`
 - `plan.md` (this append)
