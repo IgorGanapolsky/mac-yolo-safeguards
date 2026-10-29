@@ -4223,3 +4223,12 @@ Codex on PR 2219. A support session cannot run an assigning PRAGMA or `PRAGMA op
 - `tools/tailscale-newsletter-gate.js`
 - `tests/test-tailscale-newsletter-gate.js`
 - `plan.md` (this append)
+
+## GitLab delivery prompts (append 2026-10-29T17:10:00Z) — `grok-gitlab-delivery-prompts`
+
+GitLab's March 4, 2026 post lists ten prompts for review, security, release notes, docs, planning, tests, and pipeline failures: https://about.gitlab.com/blog/10-ai-prompts-to-speed-your-teams-software-delivery/. Open PR 2212 already carries a prompt catalog for those names. This slice does not edit that catalog and does not record their lifecycle percentage. An empty diff is not an approval. A breaking change cannot be filed as a feature note. A false positive needs a reason. A coverage percentage does not clear an untested name. A pipeline cause that is not in the log is not an explanation.
+
+### File claims
+- `tools/gitlab-delivery-prompts-gate.js` (new)
+- `tests/test-gitlab-delivery-prompts-gate.js` (new)
+- `plan.md` (this append)
