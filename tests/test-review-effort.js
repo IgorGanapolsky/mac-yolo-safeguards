@@ -183,7 +183,7 @@ check('cli decide writes the comment only when escalating', () => {
   assert.equal(fs.readFileSync(path.join(dir, 'request.txt'), 'utf8'), 'no\n');
 });
 
-check('workflow posts from the comment and does not run classifier code with the token', () => {
+check('workflow isolates classifier code from the write token', () => {
   const workflow = fs.readFileSync(path.join(root, '.github/workflows/copilot-pr-review.yml'), 'utf8');
   assert.equal(workflow.includes('pull_request_target'), false);
   assert.equal(workflow.includes('persist-credentials: false'), true);
@@ -196,14 +196,19 @@ check('workflow posts from the comment and does not run classifier code with the
   assert.match(workflow, /review-effort:\(lite\|balanced\|max\)/);
   assert.match(workflow, /opened, reopened, synchronize, ready_for_review/);
   assert.match(workflow, /grep -q '403'/);
-  const classify = workflow.indexOf('Classify review effort');
-  const decide = workflow.indexOf('Decide whether to request review');
-  const comment = workflow.indexOf('Comment @copilot review');
-  assert.equal(classify < decide && decide < comment, true);
-  const decideStep = workflow.slice(decide, comment);
-  const unsetAt = decideStep.lastIndexOf('unset GH_TOKEN GITHUB_TOKEN');
-  const nodeAt = decideStep.lastIndexOf('node tools/review-effort.js --decide');
-  assert.equal(unsetAt !== -1 && unsetAt < nodeAt, true);
+  assert.match(workflow, /git checkout "\$\{BASE_SHA\}" -- tools\/review-effort\.js/);
+  const classifyJob = workflow.indexOf('classify-review-effort:');
+  const commentJob = workflow.indexOf('request-copilot-review:');
+  assert.equal(classifyJob !== -1 && commentJob > classifyJob, true);
+  const classifySection = workflow.slice(classifyJob, commentJob);
+  const commentSection = workflow.slice(commentJob);
+  assert.equal(classifySection.includes('pull-requests: write'), false);
+  assert.equal(classifySection.includes('node tools/review-effort.js'), true);
+  assert.equal(commentSection.includes('pull-requests: write'), true);
+  assert.equal(commentSection.includes('node tools/review-effort.js'), false);
+  const unsetAt = classifySection.lastIndexOf('unset GH_TOKEN GITHUB_TOKEN');
+  const nodeAt = classifySection.lastIndexOf('node tools/review-effort.js');
+  assert.equal(unsetAt !== -1 && nodeAt !== -1 && unsetAt < nodeAt, true);
 });
 
 console.log(`review-effort: ${passed} checks passed`);

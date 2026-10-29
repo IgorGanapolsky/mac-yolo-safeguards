@@ -4115,3 +4115,12 @@ GitHub Universe 2026 (Jay Parikh, 2026-10-28) ships Copilot code review at Lite,
 - `tests/test-review-effort.js`
 - `.github/workflows/copilot-pr-review.yml`
 - `plan.md` (this append)
+
+## Copilot review isolation (append 2026-10-29T13:37:26Z) — `grok-review-effort`
+
+The classifier job has `contents: read` only and prefers `tools/review-effort.js` from the base commit. The comment job never runs that JavaScript. It posts only when the effort is lite, balanced, or max.
+
+### File claims
+- `tests/test-review-effort.js`
+- `.github/workflows/copilot-pr-review.yml`
+- `plan.md` (this append)
