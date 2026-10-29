@@ -28,6 +28,12 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 #   4. ESCALATION: if it fires 3+ times in 10 minutes, also quits the
 #      likely culprit app (Antigravity IDE) so the loop is broken.
 #   5. Self-heals via `install.sh` if any safeguard file is missing.
+#   6. Dayglass integration: appends real-time "On screen now" (active
+#      window/app) to every notification, uses Dayglass /api/health/mac as a
+#      health data source when available, detects screen freezes via frame
+#      staleness, and logs all guard events to Dayglass analytics_events
+#      for work-episode context. Falls back to native checks when Dayglass
+#      is unavailable. Disable with DG_DISABLED=1.
 
 # Resolve the canonical repository directory from the script's real path.
 # Since sim-runaway-guard.sh is a symlink, resolving its real path gives the repo directory.
@@ -77,6 +83,78 @@ fi
 
 now=$(date +%s)
 
+# --- Dayglass integration: real-time "On screen now" + health data ---
+# Dayglass (macOS screen memory at http://127.0.0.1:3333) provides real-time
+# window/app detection and system health. The guard uses it as a primary data
+# source: appending the active window to every notification, and logging guard
+# events to Dayglass's analytics_events table for work-episode context.
+# When Dayglass is unavailable, the guard falls back to native checks.
+DG_SERVER=${DG_SERVER:-http://127.0.0.1:3333}
+DG_SQLITE=${DG_SQLITE:-"$HOME/.dayglass/dayglass.sqlite"}
+DG_QUERY_TIMEOUT=${DG_QUERY_TIMEOUT:-3}
+DG_FRAME_STALE_SEC=${DG_FRAME_STALE_SEC:-30}
+
+dg_active_window() {
+  # Returns "App — Title" (or just "App") of the frontmost user window, or
+  # empty string if Dayglass is unavailable / disabled.
+  if [ "${DG_DISABLED:-0}" = "1" ]; then return 0; fi
+  # Try HTTP API first (/api/status active_window), then dayglass-windowlist binary.
+  if command -v curl >/dev/null 2>&1; then
+    _dg_win=$(/usr/bin/curl -s --max-time "$DG_QUERY_TIMEOUT" "$DG_SERVER/api/status" 2>/dev/null \
+      | /usr/bin/python3 -c '
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    w = d.get("active_window") or {}
+    app = (w.get("app_name") or "").strip()
+    title = (w.get("window_title") or "").strip()
+    if app:
+        print(f"{app} — {title}" if title and title != app else app)
+except Exception:
+    pass
+' 2>/dev/null)
+    [ -n "$_dg_win" ] && printf '%s' "$_dg_win" && return 0
+  fi
+  _dg_bin="$HOME/.dayglass/bin/dayglass-windowlist"
+  if [ -x "$_dg_bin" ]; then
+    _dg_win=$("$_dg_bin" 2>/dev/null | /usr/bin/awk -F'\t' '
+      NR > 1 {
+        app=$1; title=$2
+        if (app != "" && app != "Window Server" && app != "Dock" && app != "Finder" && app != "SecurityAgent") {
+          print app (title != "" && title != app ? " — " title : "")
+          exit
+        }
+      }')
+    [ -n "$_dg_win" ] && printf '%s' "$_dg_win" && return 0
+  fi
+  return 0
+}
+
+dg_log_event() {
+  # Log a guard event to Dayglass analytics_events table for work-episode context.
+  # Args: EVENT_NAME, PROPERTIES_JSON
+  if [ "${DG_DISABLED:-0}" = "1" ]; then return 0; fi
+  [ -f "$DG_SQLITE" ] || return 0
+  command -v sqlite3 >/dev/null 2>&1 || return 0
+  _dg_today=$(/bin/date +%Y-%m-%d)
+  /usr/bin/sqlite3 "$DG_SQLITE" 2>/dev/null <<SQL
+INSERT INTO analytics_events (event_name, properties_json, source, timestamp)
+VALUES ('$1', '$2', 'sim-runaway-guard.sh', '$_dg_today');
+SQL
+}
+
+dg_frame_stale_seconds() {
+  # Prints seconds since the most recent frame was last_seen (stale = frozen screen).
+  if [ "${DG_DISABLED:-0}" = "1" ]; then return 0; fi
+  [ -f "$DG_SQLITE" ] || return 0
+  command -v sqlite3 >/dev/null 2>&1 || return 0
+  /usr/bin/sqlite3 "$DG_SQLITE" 2>/dev/null <<'SQL'
+.mode list
+SELECT CAST((julianday('now') - julianday(last_seen_at)) * 86400 AS INTEGER)
+FROM frames ORDER BY id DESC LIMIT 1;
+SQL
+}
+
 notify() {
   # macOS notification + log line. Works from LaunchAgent in gui/$(id -u).
   # Args: TITLE, MSG, [OPEN_FILE].
@@ -109,6 +187,11 @@ notify() {
     return 0
   fi
   date +%s > "$_stamp" 2>/dev/null || true
+  # --- Dayglass: append "On screen now" context to the message ---
+  _dg_win=$(dg_active_window 2>/dev/null)
+  if [ -n "$_dg_win" ]; then
+    MSG="$MSG  ·  On screen now: $_dg_win"
+  fi
   # Off-box delivery (ntfy-compatible webhook): a thrashing Mac can't render
   # its own notification banners — push the alert to the user's phone instead.
   # Set YOLO_WEBHOOK_URL (or drop the URL in ~/.config/yolo-guard/webhook),
@@ -184,6 +267,27 @@ if [ -n "$ADB_BIN" ] && command -v "$ADB_BIN" >/dev/null 2>&1; then
       fi
     fi
   done
+fi
+
+# --- Dayglass frame-freshness freeze detection ---
+# If the Dayglass capture daemon hasn't captured a new frame in DG_FRAME_STALE_SEC
+# (default 30s), the screen is likely frozen — a stronger freeze signal than
+# CPU/memory heuristics. This is a log + debounced notify (never a kill).
+if [ "${DG_DISABLED:-0}" != "1" ]; then
+  _dg_stale=$(dg_frame_stale_seconds 2>/dev/null)
+  case "$_dg_stale" in
+    ''|*[!0-9]*) _dg_stale=0 ;;
+  esac
+  if [ "$_dg_stale" -gt "$DG_FRAME_STALE_SEC" ]; then
+    echo "$(date) DG_FRAME_STALE: last frame ${dg_stale}s ago (threshold=${DG_FRAME_STALE_SEC}s)" >> "$LOG"
+    dg_log_event "guard_frame_stale" "{\"stale_seconds\":$_dg_stale,\"threshold\":$DG_FRAME_STALE_SEC}"
+    _dg_fs_stamp="${TMPDIR:-/tmp}/yolo-notify-dg-frame-stale.ts"
+    _dg_fs_last=0; [ -f "$_dg_fs_stamp" ] && _dg_fs_last=$(/bin/cat "$_dg_fs_stamp" 2>/dev/null || echo 0)
+    if [ $((now - _dg_fs_last)) -ge 900 ]; then
+      date +%s > "$_dg_fs_stamp" 2>/dev/null || true
+      notify "yolo-guard: screen capture stuck" "Dayglass hasn't captured a new frame in ${_dg_stale}s. The Mac may be frozen. Investigate — screen memory is stale."
+    fi
+  fi
 fi
 
 # --- Self-heal: if any expected symlink is missing, re-run install.sh ---
@@ -338,6 +442,7 @@ if [ -z "$REASON" ]; then
         echo "$(date) CODEQL_KILL: PID $cpid at ${ccpu}% CPU aggregate=${CODEQL_TOTAL_CPU}% count=$CODEQL_COUNT streak=$CODEQL_STREAK" >> "$LOG"
       done
       notify "yolo-guard: killed CodeQL workers" "Killed $CODEQL_COUNT CodeQL workers at aggregate ${CODEQL_TOTAL_CPU}% CPU (streak=$CODEQL_STREAK)."
+      dg_log_event "guard_codeql_kill" "{\"count\":$CODEQL_COUNT,\"total_cpu\":${CODEQL_TOTAL_CPU},\"streak\":$CODEQL_STREAK}"
       if [ "$CODEQL_STREAK" -ge "$CODEQL_DISABLE_AFTER_FIRES" ]; then
         for extdir in $CODEQL_EXT_DIRS; do
           if [ -d "$extdir" ]; then
@@ -390,6 +495,7 @@ if [ -z "$REASON" ]; then
       if [ "$streak" -ge "$CPU_SUSTAINED_FIRES" ]; then
         /bin/kill -9 "$pid" 2>/dev/null
         notify "yolo-guard: killed CPU runaway" "$kill_name (PID $pid) at ${pcpu}% CPU for $streak checks — safe background process."
+        dg_log_event "guard_cpu_kill" "{\"name\":\"$kill_name\",\"pid\":$pid,\"pcpu\":$pcpu,\"streak\":$streak}"
         echo "$(date) CPU_KILL: $kill_name PID $pid at ${pcpu}% CPU (streak=$streak) — kill -9" >> "$LOG"
       else
         CPU_NEW_STATE="${CPU_NEW_STATE}${pid} ${streak}
@@ -444,6 +550,7 @@ CPU_HOT_EOF
       # terminal-notifier: clicking opens the status file (NOT Script Editor).
       # osascript fallback is not click-actionable, so the path is in the body.
       notify "yolo-guard: inspect $CPU_NOTIFY_NAME ${CPU_NOTIFY_PCPU}% CPU" "Sustained CPU runaway (PID $CPU_NOTIFY_PID). Details: $CPU_STATUS_FILE" "$CPU_STATUS_FILE"
+      dg_log_event "guard_cpu_notify" "{\"name\":\"$CPU_NOTIFY_NAME\",\"pid\":\"$CPU_NOTIFY_PID\",\"pcpu\":$CPU_NOTIFY_PCPU}"
       echo "$now" > "$CPU_LAST_FILE"
       echo "$(date) CPU_NOTIFY: $CPU_NOTIFY_NAME PID $CPU_NOTIFY_PID ${CPU_NOTIFY_PCPU}% status=$CPU_STATUS_FILE" >> "$LOG"
     fi
@@ -532,6 +639,7 @@ CPU_HOT_EOF
         /bin/sleep 3
         if /bin/ps -p "$epid" >/dev/null 2>&1; then /bin/kill -KILL "$epid" 2>/dev/null || true; fi
         notify "yolo-guard: reclaimed orphaned emulator" "Killed headless Android emulator PID $epid (${eage}s old, ${eavd:-no-avd}) under memory pressure ($MEM_PRESSURE). No active test referenced it."
+        dg_log_event "guard_emulator_reclaim" "{\"pid\":$epid,\"age_sec\":$eage,\"avd\":\"${eavd:-none}\",\"pressure\":\"$MEM_PRESSURE\"}"
         echo "$(date) EMULATOR_RECLAIM: killed PID $epid age=${eage}s avd=$eavd pressure=$MEM_PRESSURE" >> "$LOG"
       done
     fi
@@ -556,6 +664,7 @@ CPU_HOT_EOF
       for prof in $STALE_CDP; do
         /usr/bin/pkill -9 -f "$prof" 2>/dev/null
         notify "yolo-guard: reclaimed stale automation Chrome" "Killed orphaned $prof under memory pressure ($MEM_PRESSURE). Throwaway profile — no user data."
+        dg_log_event "guard_cdp_reclaim" "{\"profile\":\"$prof\",\"pressure\":\"$MEM_PRESSURE\"}"
         echo "$(date) CDP_RECLAIM: pkill -9 -f $prof pressure=$MEM_PRESSURE" >> "$LOG"
       done
     fi
@@ -593,6 +702,7 @@ CPU_HOT_EOF
             if /bin/ps -p "$cpid" >/dev/null 2>&1; then /bin/kill -KILL "$cpid" 2>/dev/null || true; fi
           done
           notify "yolo-guard: reclaimed abandoned Hermes CDP" "Stopped orphaned Hermes automation Chrome PID $HERMES_CDP_MAIN under memory pressure ($MEM_PRESSURE). Profile data was preserved; normal Chrome was untouched."
+          dg_log_event "guard_hermes_cdp_reclaim" "{\"pid\":$HERMES_CDP_MAIN,\"pressure\":\"$MEM_PRESSURE\"}"
           echo "$(date) HERMES_CDP_RECLAIM: killed pid=$HERMES_CDP_MAIN profile=$HERMES_CDP_PROFILE pressure=$MEM_PRESSURE" >> "$LOG"
         fi
       fi
@@ -617,6 +727,7 @@ CPU_HOT_EOF
           /usr/bin/osascript -e "quit app \"$app\"" >/dev/null 2>&1
           /usr/bin/pkill -9 -f "$app.app/Contents/MacOS/" 2>/dev/null
           notify "yolo-guard: reclaimed $app" "Quit redundant secondary browser (~${RECLAIMED_MB}MB) under memory pressure ($MEM_PRESSURE) to protect Hermes headroom. Tabs restore on relaunch."
+          dg_log_event "guard_browser_reclaim" "{\"app\":\"$app\",\"rss_mb\":$RECLAIMED_MB,\"pressure\":\"$MEM_PRESSURE\"}"
           echo "$(date) BROWSER_RECLAIM: $app ~${RECLAIMED_MB}MB pressure=$MEM_PRESSURE" >> "$LOG"
         fi
       done
@@ -649,6 +760,7 @@ CPU_HOT_EOF
         # dropped), status path in the body. notify() prefers terminal-notifier
         # and falls back to non-click-actionable osascript.
         notify "yolo-guard: $HOG_NAME ${HOG_RSS}MB · kill -INT $HOG_PID" "Memory pressure ($MEM_PRESSURE). Details: $STATUS_FILE" "$STATUS_FILE"
+        dg_log_event "guard_mem_notify" "{\"name\":\"$HOG_NAME\",\"pid\":\"$HOG_PID\",\"rss_mb\":$HOG_RSS,\"pressure\":\"$MEM_PRESSURE\"}"
         echo "$(date) NOTIFY: yolo-guard: $HOG_NAME at ${HOG_RSS}MB (PID $HOG_PID) — Free mem ${FREE_PCT}%. To restart: kill -INT $HOG_PID. Details: $STATUS_FILE" >> "$LOG"
         # Dump a human-readable status report the user can find.
         {
@@ -761,6 +873,7 @@ CPU_HOT_EOF
           echo "  Source: $REPO/sim-runaway-guard.sh"
         } > "$APP_AGG_STATUS_FILE"
         notify "yolo-guard: $AGG_APP ${AGG_MB}MB across ${AGG_N} procs" "Memory pressure ($MEM_PRESSURE). Close tabs/windows. Details: $APP_AGG_STATUS_FILE" "$APP_AGG_STATUS_FILE"
+        dg_log_event "guard_mem_app_notify" "{\"app\":\"$AGG_APP\",\"rss_mb\":$AGG_MB,\"procs\":$AGG_N,\"pressure\":\"$MEM_PRESSURE\"}"
         echo "$now" > "$MEM_APP_LAST_FILE"
         echo "$(date) MEM_APP_NOTIFY: $AGG_APP ${AGG_MB}MB/${AGG_N}procs free=${FREE_PCT}%" >> "$LOG"
       fi
@@ -800,6 +913,7 @@ if [ "$recent_fires" -ge "$ESCALATE_AFTER_FIRES" ]; then
     done
     if [ "$quit_any" = "1" ]; then
       notify "yolo-guard escalated" "Quit opt-in app(s) after $recent_fires runaways in 10 min"
+      dg_log_event "guard_escalation" "{\"recent_fires\":$recent_fires,\"window_sec\":$ESCALATE_WINDOW_SEC,\"action\":\"app_quit\"}"
       : > "$FIRES_LOG"
     else
       # Loud alert dialog instead of a quiet notification.
@@ -809,9 +923,11 @@ if [ "$recent_fires" -ge "$ESCALATE_AFTER_FIRES" ]; then
     # Default: loud alert dialog so user knows to act manually. No app gets killed.
     /usr/bin/osascript -e "display alert \"yolo-guard: persistent runaway\" message \"$recent_fires sim runaways in 10 min. Check which app keeps booting simulators (likely Antigravity IDE, Xcode, or Cursor). The guard will not auto-quit GUI apps.\" as critical" 2>/dev/null &
     echo "$(date) ESCALATE: notified user (no auto-kill — user policy)" >> "$LOG"
+    dg_log_event "guard_escalation" "{\"recent_fires\":$recent_fires,\"window_sec\":$ESCALATE_WINDOW_SEC,\"action\":\"alert_only\"}"
   fi
 else
   notify "yolo-guard fired" "$REASON"
+  dg_log_event "guard_fired" "{\"reason\":\"$REASON\",\"load\":\"$LOAD\",\"sim_count\":$SIM_COUNT,\"sim_mem_pct\":$SIM_MEM}"
 fi
 
 exit 0

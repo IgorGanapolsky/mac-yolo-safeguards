@@ -4160,3 +4160,25 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 - `.agents/skills/supabase-declarative-db-guardrails/SKILL.md`
 - `docs/aeo/AGENT-RELIABILITY-FAQ-DISCUSSIONS.md`
 - `plan.md` (this append)
+
+## Dayglass ↔ mac-yolo-safeguards bidirectional integration (append 2026-10-29T15:00:00Z) — `poolside`
+
+### File claims
+- `sim-runaway-guard.sh`
+- `tools/dg-query.sh` (new)
+- `tools/dg-health.js` (new)
+- `tests/test-dg-integration.js` (new)
+- `plan.md` (this append)
+
+### New task claims
+
+| T-DAYGASS-INTEGRATION-20261029 | Integrate Dayglass real-time window/app detection with mac-yolo-safeguards notifications, and feed guard events into Dayglass analytics | in_progress | poolside | `sim-runaway-guard.sh`, `tools/dg-query.sh` (new), `tools/dg-health.js` (new), `tests/test-dg-integration.js` (new), `plan.md` (append only) | 1) Guard queries Dayglass `/api/status` for active_window → appends "On screen now: App — Title" to all notifications. 2) Guard uses `/api/health/mac` as primary health source, native ps/vm_stat as fallback. 3) New frame-freshness freeze detection (stale frames = frozen Mac). 4) Guard events logged to Dayglass analytics_events. 5) yolo-health checks Dayglass server + frame freshness. |
+
+### Decisions / Discovered
+
+- **Verified (live):** Dayglass server is running on `http://127.0.0.1:3333`. `/api/status` returns `active_window: {app_name, window_title, preview_lines}`. `/api/health/mac` returns CPU/memory/swap/load/top_procs/recommendations. `dayglass-windowlist` binary returns real-time TSV `app_name\twindow_title`.
+- **Gap:** `sim-runaway-guard.sh` notifications do NOT include any "On screen now" context. The guard duplicates health checks (ps/vm_stat) that Dayglass already provides via `/api/health/mac`.
+- **Gap:** Guard events (kills, reclaims, escalations) are written only to `/tmp/shutdown-simulators.log` — not to Dayglass's `dayglass.sqlite` analytics_events table for work episode context.
+- **Gap:** No frame-freshness freeze detection. If `dayglass.sqlite frames.last_seen_at` is stale (>30s), the Mac's screen capture is stuck → potential freeze. This is more direct than CPU/memory heuristics.
+- **Decision:** Implementation approach — add `dg_active_window()` function to guard that curls `/api/status` (fallback: `dayglass-windowlist`), modify `notify()` to append the window context, add `dg_log_event()` to INSERT into Dayglass sqlite, add frame-freshness check as new guard section. Add Dayglass health check to `yolo-health`.
+- **Integration file:** The main repo's `.poolside/settings.yaml` was already fixed for the grepai path typo (PR #2214). No additional MCP config changes needed — Dayglass has its own MCP server.
