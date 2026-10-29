@@ -4158,5 +4158,8 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 - `tools/mac-yolo-24x7-promote.js`
 - `tests/test-supabase-ibm-steals.js`
 - `.agents/skills/supabase-declarative-db-guardrails/SKILL.md`
+- `.agents/skills/tailscale-october-newsletter-steals/SKILL.md`
 - `docs/aeo/AGENT-RELIABILITY-FAQ-DISCUSSIONS.md`
+- `tools/tailscale-october-steals.js`
+- `tests/test-tailscale-october-steals.js`
 - `plan.md` (this append)

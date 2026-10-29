@@ -360,6 +360,8 @@ function main() {
   const gurobiBatch = runGurobiOutreachOptimization(date);
   const { runAllChecks: runSupabaseIbmGuardrails } = require('./supabase-ibm-agent-guardrails');
   const supabaseIbm = runSupabaseIbmGuardrails();
+  const { runAllTailscaleSteals } = require('./tailscale-october-steals');
+  const tailscaleSteals = runAllTailscaleSteals();
   let thumbgateMakeMoney = { skipped: true };
   let dayglassMakeMoney = { skipped: true };
   if (!skipSiblings) {
@@ -389,7 +391,8 @@ function main() {
       conversionCheck.ok &&
       safetyScan.ok &&
       Boolean(gurobiBatch.ok) &&
-      Boolean(supabaseIbm.ok),
+      Boolean(supabaseIbm.ok) &&
+      Boolean(tailscaleSteals.ok),
     startedAt,
     completedAt: new Date().toISOString(),
     date,
@@ -407,6 +410,7 @@ function main() {
       publicFunnelSafetyScan: safetyScan.ok,
       gurobiOutreachOptimal: Boolean(gurobiBatch.ok && gurobiBatch.status === 'OPTIMAL'),
       declarativeSchemaAndConfusionGate: Boolean(supabaseIbm.ok),
+      tailscaleOctoberStealsGate: Boolean(tailscaleSteals.ok),
     },
     gurobiProof: gurobiBatch.proof || null,
     supabaseIbmSummary: {
@@ -415,6 +419,13 @@ function main() {
       confusionScore: supabaseIbm.pillars.ibmPreProductionConfusionGate.confusionScore,
       plsIncrementalUpliftPct: supabaseIbm.pillars.productLedSalesTriggerEngine.incrementalUpliftPct,
       zeroHitlCollapsedProcesses: supabaseIbm.pillars.zeroHitlCollapsedProcesses.collapsedZeroHitlCount,
+    },
+    tailscaleStealsSummary: {
+      ok: tailscaleSteals.ok,
+      scurgeryByteIdentical: tailscaleSteals.pillars.scurgeryByteIdenticalPolicy.byteIdentical,
+      magicRouteSelected: tailscaleSteals.pillars.magicRouteStickyConnector.selected,
+      tailwormSafe: tailscaleSteals.pillars.tailwormSafeguards.ok,
+      sweMuxAttentionPanes: tailscaleSteals.pillars.sweMuxAttentionRanker.attentionCount,
     },
     siblingEngines: {
       thumbgateMakeMoney,
