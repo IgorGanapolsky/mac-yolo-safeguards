@@ -4123,4 +4123,12 @@ The classifier job has `contents: read` only and prefers `tools/review-effort.js
 ### File claims
 - `tests/test-review-effort.js`
 - `.github/workflows/copilot-pr-review.yml`
+## Shared vault memory (append 2026-10-29T13:30:17Z) — `grok-shared-vault`
+
+The aiprofitboardroom_ reel (Instagram `DfDBob0iL3Y`, captured 2026-10-29 09:26) pitches Hermes, Jarvis, and Obsidian as one memory. The part worth taking is the vault itself: agents read the same notes before planning content, write a short daily section back, and do not paste the whole vault into the prompt. `tools/shared-vault-memory.js` resolves `HERMES_AGENT_SYNC_VAULT` or `~/Documents/AI-Agent-Sync`, blocks a content brief when no note matches, caps the packet at 2,000 characters, and refuses the old `/Users/igorganapolsky/Documents/Obsidian Vault` path. Herdr snapshots now write into that vault. Nothing here publishes or sends mail.
+
+### File claims
+- `tools/shared-vault-memory.js`
+- `tests/test-shared-vault-memory.js`
+- `tools/herdr-high-roi-engine.js`
 - `plan.md` (this append)
