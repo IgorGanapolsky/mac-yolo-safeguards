@@ -1047,7 +1047,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             self.statusItem.button?.title = ""
             self.statusItem.button?.image = self.renderMenuBarPill(freeGB: freeMenuInt, memPct: memPressurePct, cpuPct: cpuPct)
             self.statusItem.button?.imagePosition = .imageOnly
-            if let data = try? JSONSerialization.data(withJSONObject: payload, options: []),
+            self.statusItem.button?.toolTip = "Mac YOLO Guard — Disk Free: \(freeMenuInt) GB • RAM Pressure: \(memPressurePct)% • CPU Load: \(cpuPct)%"
                let jsonStr = String(data: data, encoding: .utf8) {
                 self.webView?.evaluateJavaScript("if (window.updateYoloHud) window.updateYoloHud(\(jsonStr));", completionHandler: nil)
             }
@@ -1063,74 +1063,38 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     }
 
     func renderMenuBarPill(freeGB: Int, memPct: Int, cpuPct: Int) -> NSImage {
-        let size = NSSize(width: 118, height: 20)
-        let img = NSImage(size: size, flipped: false) { rect in
-            let pillRect = rect.insetBy(dx: 1.0, dy: 1.0)
-            let pillPath = NSBezierPath(roundedRect: pillRect, xRadius: 9.0, yRadius: 9.0)
-            NSColor(calibratedRed: 0.16, green: 0.09, blue: 0.32, alpha: 0.90).setFill()
-            pillPath.fill()
-            NSColor(calibratedWhite: 1.0, alpha: 0.28).setStroke()
-            pillPath.lineWidth = 1.0
-            pillPath.stroke()
+        let size = NSSize(width: 122, height: 22)
+        let img = NSImage(size: size, flipped: false) { _ in
+            // 1. Left SF Symbol shield icon
+            if #available(macOS 11.0, *),
+               let sym = NSImage(systemSymbolName: "bolt.shield.fill", accessibilityDescription: nil) {
+                let cfg = NSImage.SymbolConfiguration(pointSize: 12.5, weight: .semibold)
+                if let configured = sym.withSymbolConfiguration(cfg) {
+                    configured.draw(in: NSRect(x: 2, y: 3.5, width: 15, height: 15))
+                }
+            }
 
-            // 1. Glowing circular disk-health ring + center dot on left
-            let cx: CGFloat = 12.0
-            let cy: CGFloat = 10.0
-            let ringR: CGFloat = 5.5
-            let bgRing = NSBezierPath()
-            bgRing.appendArc(withCenter: NSPoint(x: cx, y: cy), radius: ringR, startAngle: 0, endAngle: 360)
-            NSColor(calibratedWhite: 1.0, alpha: 0.18).setStroke()
-            bgRing.lineWidth = 2.0
-            bgRing.stroke()
-
-            let arcRing = NSBezierPath()
-            arcRing.appendArc(withCenter: NSPoint(x: cx, y: cy), radius: ringR, startAngle: 90, endAngle: -195, clockwise: true)
-            (freeGB >= 80 ? NSColor(calibratedRed: 0.20, green: 0.92, blue: 0.72, alpha: 1.0) : NSColor.systemYellow).setStroke()
-            arcRing.lineWidth = 2.1
-            arcRing.lineCapStyle = .round
-            arcRing.stroke()
-
-            let dotRect = NSRect(x: cx - 2.2, y: cy - 2.2, width: 4.4, height: 4.4)
-            NSColor(calibratedRed: 0.36, green: 0.92, blue: 0.83, alpha: 1.0).setFill()
-            NSBezierPath(ovalIn: dotRect).fill()
-
-            // 2. Crisp "147G" storage text
-            let diskFont = NSFont.monospacedDigitSystemFont(ofSize: 11.5, weight: .bold)
-            let diskAttrs: [NSAttributedString.Key: Any] = [
-                .font: diskFont,
-                .foregroundColor: NSColor.white,
+            let labelFont = NSFont.systemFont(ofSize: 7.2, weight: .bold)
+            let valFont = NSFont.monospacedDigitSystemFont(ofSize: 10.0, weight: .bold)
+            let labelAttrs: [NSAttributedString.Key: Any] = [
+                .font: labelFont,
+                .foregroundColor: NSColor(calibratedWhite: 1.0, alpha: 0.68),
             ]
-            let diskStr = "\(freeGB)G" as NSString
-            diskStr.draw(at: NSPoint(x: 22.0, y: 3.0), withAttributes: diskAttrs)
+            let diskValColor = freeGB >= 80 ? NSColor.white : NSColor.systemYellow
+            let ramValColor = memPct < 75 ? NSColor(calibratedRed: 0.37, green: 0.92, blue: 0.83, alpha: 1.0) : NSColor.systemYellow
+            let cpuValColor = cpuPct < 80 ? NSColor(calibratedRed: 0.38, green: 0.78, blue: 0.98, alpha: 1.0) : NSColor.systemPink
 
-            // 3. Subtle divider
-            let divPath = NSBezierPath()
-            divPath.move(to: NSPoint(x: 61.0, y: 4.5))
-            divPath.line(to: NSPoint(x: 61.0, y: 15.5))
-            NSColor(calibratedWhite: 1.0, alpha: 0.18).setStroke()
-            divPath.lineWidth = 1.0
-            divPath.stroke()
+            // Column 1: DISK / 147G
+            ("DISK" as NSString).draw(at: NSPoint(x: 21, y: 12.0), withAttributes: labelAttrs)
+            ("\(freeGB)G" as NSString).draw(at: NSPoint(x: 21, y: 1.0), withAttributes: [.font: valFont, .foregroundColor: diskValColor])
 
-            // 4. Live 2-bar micro-equalizer (CPU + RAM) + CPU% readout
-            let barH: CGFloat = 11.0
-            let cpuFillH = max(2.5, min(barH, barH * CGFloat(cpuPct) / 100.0))
-            let memFillH = max(2.5, min(barH, barH * CGFloat(memPct) / 100.0))
-            NSColor(calibratedWhite: 1.0, alpha: 0.16).setFill()
-            NSBezierPath(roundedRect: NSRect(x: 66.0, y: 4.5, width: 3.2, height: barH), xRadius: 1.5, yRadius: 1.5).fill()
-            NSBezierPath(roundedRect: NSRect(x: 71.0, y: 4.5, width: 3.2, height: barH), xRadius: 1.5, yRadius: 1.5).fill()
+            // Column 2: RAM / 61%
+            ("RAM" as NSString).draw(at: NSPoint(x: 59, y: 12.0), withAttributes: labelAttrs)
+            ("\(memPct)%" as NSString).draw(at: NSPoint(x: 59, y: 1.0), withAttributes: [.font: valFont, .foregroundColor: ramValColor])
 
-            NSColor(calibratedRed: 0.22, green: 0.74, blue: 0.97, alpha: 1.0).setFill()
-            NSBezierPath(roundedRect: NSRect(x: 66.0, y: 4.5, width: 3.2, height: cpuFillH), xRadius: 1.5, yRadius: 1.5).fill()
-            NSColor(calibratedRed: 0.66, green: 0.33, blue: 0.97, alpha: 1.0).setFill()
-            NSBezierPath(roundedRect: NSRect(x: 71.0, y: 4.5, width: 3.2, height: memFillH), xRadius: 1.5, yRadius: 1.5).fill()
-
-            let cpuFont = NSFont.monospacedDigitSystemFont(ofSize: 10.5, weight: .semibold)
-            let cpuAttrs: [NSAttributedString.Key: Any] = [
-                .font: cpuFont,
-                .foregroundColor: NSColor(calibratedRed: 0.65, green: 0.95, blue: 0.99, alpha: 1.0),
-            ]
-            let cpuStr = "\(cpuPct)%" as NSString
-            cpuStr.draw(at: NSPoint(x: 77.5, y: 3.5), withAttributes: cpuAttrs)
+            // Column 3: CPU / 24%
+            ("CPU" as NSString).draw(at: NSPoint(x: 91, y: 12.0), withAttributes: labelAttrs)
+            ("\(cpuPct)%" as NSString).draw(at: NSPoint(x: 91, y: 1.0), withAttributes: [.font: valFont, .foregroundColor: cpuValColor])
             return true
         }
         img.isTemplate = false
