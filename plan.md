@@ -4224,6 +4224,18 @@ Codex on PR 2219. A support session cannot run an assigning PRAGMA or `PRAGMA op
 - `tests/test-tailscale-newsletter-gate.js`
 - `plan.md` (this append)
 
+## ThumbGate product surfaces (append 2026-10-29T16:55:00Z) — `grok-mac-yolo-product`
+
+`GET https://thumbgate.app/api/billing/plan` at 2026-10-29T16:23:03Z returned configured, active, unitAmount 1000, usd, month. That is the $10/month Cloud Continuity price. Cleared revenue stays null. This package is a loopback MCP (`mac-yolo-product`), an HTTP service on 127.0.0.1:47831, and menu-bar source that polls that service. It does not bind any other host, reap processes, or import the unmerged catalog on PR 2212. The menu-bar file is not compiled or installed here.
+
+### File claims
+- `tools/mac-yolo-product.js` (new)
+- `bin/mac-yolo-product` (new)
+- `macos/MacYoloProductApp.swift` (new)
+- `tests/test-mac-yolo-product.js` (new)
+- `docs/MAC-YOLO-PRODUCT.md` (new)
+- `plan.md` (this append)
+
 ## GitLab delivery prompts (append 2026-10-29T17:10:00Z) — `grok-gitlab-delivery-prompts`
 
 GitLab's March 4, 2026 post lists ten prompts for review, security, release notes, docs, planning, tests, and pipeline failures: https://about.gitlab.com/blog/10-ai-prompts-to-speed-your-teams-software-delivery/. Open PR 2212 already carries a prompt catalog for those names. This slice does not edit that catalog and does not record their lifecycle percentage. An empty diff is not an approval. A breaking change cannot be filed as a feature note. A false positive needs a reason. A coverage percentage does not clear an untested name. A pipeline cause that is not in the log is not an explanation.
