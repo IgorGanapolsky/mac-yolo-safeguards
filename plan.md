@@ -4195,4 +4195,9 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 - `tools/ultramarine-and-android-summit-26-steals.js`
 - `tests/test-ultramarine-and-android-summit-26-steals.js`
 - `.agents/skills/ultramarine-and-android-summit-26-steals/SKILL.md`
+- `tools/prompt-caching-and-judgment-calls-steal.js`
+- `tests/test-prompt-caching-and-judgment-calls-steal.js`
+- `.agents/skills/prompt-caching-and-judgment-calls-steal/SKILL.md`
+- `tools/herdr-moe-llm-judge-swarm-sow.js`
+- `tests/test-herdr-moe-llm-judge-swarm-sow.js`
 - `plan.md` (this append)

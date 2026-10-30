@@ -289,10 +289,17 @@ function scanOrphanedAppLeftovers() {
 function uninstallAppWithLeftovers(appName, options = {}) {
   const dryRun = options.dryRun !== false;
   const cleanName = String(appName || '').replace(/\.app$/i, '').trim();
-  if (!cleanName) {
-    return { ok: false, error: 'Missing appName' };
+  if (!cleanName || cleanName.length < 3) {
+    return { ok: false, error: 'Missing or too-short appName (min 3 chars)' };
   }
   const needle = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const protectedTokens = ['apple', 'macyolo', 'dayglass', 'thumbgate', 'ghostty', 'finder', 'safari'];
+  if (protectedTokens.some((p) => needle.includes(p))) {
+    return { ok: false, error: `Protected system/core app cannot be uninstalled: ${cleanName}` };
+  }
+  // Match needle as a word-boundary or daemon variant (e.g. "paper" → "paperd", "paperd.sock")
+  // but do NOT match it as a substring inside a longer word (e.g. "wallpaper", "paperclip").
+  const needleRegex = new RegExp(`(^|[^a-z0-9])${needle}(d)?([^a-z0-9]|$)`, 'i');
   const candidateDirs = [
     '/Applications',
     path.join(HOME, 'Library', 'Application Support'),
@@ -306,8 +313,8 @@ function uninstallAppWithLeftovers(appName, options = {}) {
     if (!fs.existsSync(dir)) continue;
     try {
       for (const ent of fs.readdirSync(dir)) {
-        const norm = ent.toLowerCase().replace(/[^a-z0-9]/g, '');
-        if (norm.includes(needle)) {
+        if (ent.toLowerCase().startsWith('com.apple.')) continue;
+        if (needleRegex.test(ent)) {
           matchedPaths.push(path.join(dir, ent));
         }
       }
@@ -315,12 +322,30 @@ function uninstallAppWithLeftovers(appName, options = {}) {
       /* ignore */
     }
   }
+  const removedPaths = [];
+  if (!dryRun) {
+    for (const p of matchedPaths) {
+      try {
+        if (p.endsWith('.plist') && p.includes('/LaunchAgents/') && process.platform === 'darwin') {
+          const lbl = path.basename(p, '.plist');
+          spawnSync('launchctl', ['bootout', `gui/${process.getuid()}/${lbl}`]);
+        }
+        fs.rmSync(p, { recursive: true, force: true });
+        removedPaths.push(p);
+      } catch {
+        /* ignore */
+      }
+    }
+    appendOperationLog({ action: 'uninstall_app_with_leftovers', appName: cleanName, removedCount: removedPaths.length });
+  }
   return {
     ok: true,
     appName: cleanName,
     dryRun,
     matchedCount: matchedPaths.length,
     matchedPaths,
+    removedCount: removedPaths.length,
+    removedPaths,
   };
 }
 

@@ -25,7 +25,7 @@ private let HUD_HTML = #"""
     width: 100%;
     height: 100%;
     border-radius: 22px;
-    background: radial-gradient(circle at 82% 10%, rgba(126, 58, 242, 0.54) 0%, rgba(46, 21, 99, 0.74) 48%, rgba(21, 11, 48, 0.80) 100%);
+    background: rgba(8, 6, 20, 0.10);
     border: 1px solid rgba(255, 255, 255, 0.38);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
     padding: 16px 16px 10px 16px;
@@ -68,7 +68,7 @@ private let HUD_HTML = #"""
     filter: drop-shadow(0 4px 12px rgba(56, 189, 248, 0.45));
   }
   .card {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(15, 11, 33, 0.50);
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
     border-radius: 14px;
@@ -126,7 +126,7 @@ private let HUD_HTML = #"""
     margin-bottom: 8px;
   }
   .tile {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(15, 11, 33, 0.50);
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
     border-radius: 14px;
@@ -387,7 +387,7 @@ private let HUD_HTML = #"""
           </div>
           <div>
             <div class="header-title">Mac Health: <span id="healthState">Excellent</span></div>
-            <div class="header-sub" id="macModel">AI Agent &amp; Mac Optimizer</div>
+            <div class="header-sub" id="macModel">Disk, memory, load, and Wi-Fi</div>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;">
@@ -491,20 +491,19 @@ private let HUD_HTML = #"""
       </div>
 
       <div id="recSection">
-        <div class="rec-header">AI YOLO Agent Optimization</div>
+        <div class="rec-header">Clean /tmp only</div>
         <div class="card rec-card">
           <div class="rec-top">
             <div class="rec-badge">
               <svg width="24" height="24" viewBox="0 0 32 32"><path d="M16 3L5 7.5v8.2C5 22.8 9.7 28.9 16 31c6.3-2.1 11-8.2 11-15.3V7.5L16 3z" fill="#ffffff"/><polygon points="17.5 8 10.5 17 15.5 17 14.2 24.5 21.5 15 16.5 15 17.5 8" fill="#14b8a6"/></svg>
             </div>
             <div>
-              <div class="rec-title" id="recTitle">AI Agent Fleet, Token Cap &amp; Cache Optimizer</div>
-              <div class="rec-desc" id="recDesc">Deletes /private/tmp/claude-[digits], swift-module-cache &amp; node-compile-cache • Reaps zombie MCPs &amp; enforces $10/mo token cap.</div>
+              <div class="rec-title" id="recTitle">Junk left by coding agents</div>
+              <div class="rec-desc" id="recDesc">Deletes /private/tmp/claude-[digits], swift-module-cache, and node-compile-cache. Leaves Trash and Playwright alone.</div>
             </div>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:4px;">
-            <button class="tile-action" style="margin-top:0;" onclick="toggleSettingsDrawer(true)">Configure Guard…</button>
-            <button class="rec-btn" id="optimizeMainBtn" onclick="triggerHudAction('optimizeAgents', this, 'Optimizing AI Agents…', '✓ Optimized AI Agents &amp; Mac')">Optimize AI Agents &amp; Mac</button>
+            <button class="rec-btn" id="optimizeMainBtn" onclick="triggerHudAction('freeUpDisk', this, 'Cleaning…', 'Clean /tmp')">Clean /tmp</button>
           </div>
         </div>
       </div>
@@ -699,16 +698,7 @@ class MacYoloWebView: WKWebView {
 private func forceTransparentWebView(_ webView: WKWebView) {
     webView.setValue(false, forKey: "drawsBackground")
     webView.underPageBackgroundColor = .clear
-    webView.wantsLayer = true
-    webView.layer?.isOpaque = false
-    webView.layer?.backgroundColor = NSColor.clear.cgColor
-    webView.layer?.cornerRadius = 22
-    webView.layer?.masksToBounds = true
-    let sel = NSSelectorFromString("_setDrawsTransparentBackground:")
-    guard webView.responds(to: sel) else { return }
-    let imp = webView.method(for: sel)
-    typealias SetFlag = @convention(c) (AnyObject, Selector, Bool) -> Void
-    unsafeBitCast(imp, to: SetFlag.self)(webView, sel, true)
+    webView.setValue(NSColor.clear, forKey: "backgroundColor")
 }
 
 private func hudRoundedMask(radius: CGFloat) -> NSImage {
@@ -918,25 +908,29 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         hudPanel.level = .statusBar
         hudPanel.isOpaque = false
         hudPanel.backgroundColor = .clear
-        hudPanel.alphaValue = 0.88
+        hudPanel.alphaValue = 1
         hudPanel.hasShadow = true
         hudPanel.isMovableByWindowBackground = true
         hudPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         hudPanel.isReleasedWhenClosed = false
 
         let wkConfig = WKWebViewConfiguration()
+        wkConfig.setValue(false, forKey: "drawsBackground")
         wkConfig.userContentController.add(self, name: "yoloHud")
         webView = MacYoloWebView(frame: NSRect(x: 0, y: 0, width: panelW, height: panelH), configuration: wkConfig)
         webView.autoresizingMask = [.width, .height]
         forceTransparentWebView(webView)
         webView.loadHTMLString(HUD_HTML, baseURL: nil)
-        let glass = NSGlassEffectView(frame: NSRect(x: 0, y: 0, width: panelW, height: panelH))
-        glass.style = .clear
+        let host = NSView(frame: NSRect(x: 0, y: 0, width: panelW, height: panelH))
+        host.autoresizingMask = [.width, .height]
+        let glass = NSGlassEffectView(frame: host.bounds)
+        glass.style = .regular
         glass.cornerRadius = 22
         glass.autoresizingMask = [.width, .height]
-        webView.frame = glass.bounds
-        glass.contentView = webView
-        hudPanel.contentView = glass
+        host.addSubview(glass)
+        webView.frame = host.bounds
+        host.addSubview(webView)
+        hudPanel.contentView = host
         DispatchQueue.main.async { [weak self] in
             if let webView = self?.webView { forceTransparentWebView(webView) }
         }
@@ -1260,7 +1254,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             hudPanel.setFrameOrigin(NSPoint(x: xPos, y: yPos))
         }
         hudPanel.isFloatingPanel = true
-        hudPanel.alphaValue = 0.88
+        hudPanel.alphaValue = 1
         hudPanel.level = .statusBar
         hudPanel.hidesOnDeactivate = false
         hudPanel.orderFrontRegardless()
