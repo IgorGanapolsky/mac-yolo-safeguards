@@ -4256,6 +4256,17 @@ The 29 Oct 2026 Android Studio note and https://developer.android.com/blog/posts
 - `SKILLS.md` (one registry row)
 - `plan.md` (this append)
 
+## Agent judgment calls (append 2026-10-30) — `grok-agents-judgment-calls`
+
+Anthropic's 2026 study https://www.anthropic.com/research/agents-judgment-calls found that an expert sign-off can follow an agent's lean, and that the later write-up can repeat the agent's wording. This slice reviews a merge, a send, a spend, or a recommendation before it counts. Both options need a case. The caller records their own prior. A choice that follows the lean needs local evidence. The study's rates are not stored as our measurements. This slice does not edit the judgment calculator on the open swarm pull request, and it does not call a model.
+
+### File claims
+- `tools/agents-judgment-calls-gate.js` (new)
+- `tests/test-agents-judgment-calls-gate.js` (new)
+- `.agents/skills/agents-judgment-calls-gate/SKILL.md` (new)
+- `SKILLS.md` (one registry row)
+- `plan.md` (this append)
+
 ## Ultramarine 1 Flash route (append 2026-10-30) — `grok-ultramarine-flash-route`
 
 The 2026-10-30 Paper Instruments note says the Ultramarine 1 Flash weights are on Hugging Face and the existing API keeps working, with Fireworks and Baseten as partners. The weights repo is `paperinstruments/Ultramarine-1-Flash` (320B total, 18B active). The model card states a 1,048,576-token context and a tested local serve command at 262,144 tokens on four B300 GPUs. The training table on that card, and the Feather harness, compact at 131,072. This slice does not download the weights. The route is Paper Instruments, then Fireworks `accounts/fireworks/models/ultramarine-1-flash-us`, then a Baseten https URL. No credential returns `not_configured` and sends nothing. Vendor rate cards stay attached to the provider page they came from.
@@ -4273,4 +4284,12 @@ The route test identifies Paper Instruments and Fireworks by the URL hostname. A
 
 ### File claims
 - `tests/test-ultramarine-flash-route.js`
+## Judgment review holes (append 2026-10-30) — `grok-agents-judgment-calls`
+
+A review with no task is still a judgment and stays blocked. A rollout recommendation is a judgment. A local success rate is a study claim only when the same text attributes it to the study.
+
+### File claims
+- `tools/agents-judgment-calls-gate.js`
+- `tests/test-agents-judgment-calls-gate.js`
+- `.agents/skills/agents-judgment-calls-gate/SKILL.md`
 - `plan.md` (this append)
