@@ -4192,4 +4192,7 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 - `.github/workflows/intent-check.yml`
 - `tools/mac-yolo-10channel-omnichannel-engine.js`
 - `macos/MacYoloTranslucentHud.swift`
+- `tools/ultramarine-and-android-summit-26-steals.js`
+- `tests/test-ultramarine-and-android-summit-26-steals.js`
+- `.agents/skills/ultramarine-and-android-summit-26-steals/SKILL.md`
 - `plan.md` (this append)

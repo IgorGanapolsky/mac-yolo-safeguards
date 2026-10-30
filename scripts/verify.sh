@@ -21,5 +21,6 @@ node tests/test-retrieval-query-rewrite.js
 node tests/test-prolo-android-podcasts-only.js
 node tests/test-mac-yolo-hud-anti-regression.js
 node tools/entire-cicd-regression-gate.js
+node tests/test-ultramarine-and-android-summit-26-steals.js
 
 echo "✅ All Local CI Verification Checks Passed!"
