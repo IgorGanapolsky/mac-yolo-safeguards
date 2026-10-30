@@ -22,7 +22,9 @@ const path = require('path');
 const os = require('os');
 
 const ROOT = path.resolve(__dirname, '..');
-const SWIFT_PATH = path.join(ROOT, 'macos', 'MacYoloSafeguardsApp.swift');
+const SWIFT_PATH = fs.existsSync(path.join(ROOT, 'macos', 'MacYoloTranslucentHud.swift'))
+  ? path.join(ROOT, 'macos', 'MacYoloTranslucentHud.swift')
+  : path.join(ROOT, 'macos', 'MacYoloSafeguardsApp.swift');
 const LAUNCHER_PATH = path.join(ROOT, 'tools', 'launch-mac-yolo-menubar.sh');
 
 function main() {

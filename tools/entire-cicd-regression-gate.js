@@ -25,7 +25,9 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
-const SWIFT_PATH = path.join(ROOT, 'macos', 'MacYoloSafeguardsApp.swift');
+const SWIFT_PATH = fs.existsSync(path.join(ROOT, 'macos', 'MacYoloTranslucentHud.swift'))
+  ? path.join(ROOT, 'macos', 'MacYoloTranslucentHud.swift')
+  : path.join(ROOT, 'macos', 'MacYoloSafeguardsApp.swift');
 const ENTIRE_BIN = '/Users/iganapolsky/.local/bin/entire';
 
 const REJECTED_APPROACHES = [

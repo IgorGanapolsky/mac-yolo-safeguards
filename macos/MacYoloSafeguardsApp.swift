@@ -25,7 +25,7 @@ private let HUD_HTML = #"""
     width: 100%;
     height: 100%;
     border-radius: 22px;
-    background: radial-gradient(circle at 82% 10%, rgba(126, 58, 242, 0.54) 0%, rgba(46, 21, 99, 0.74) 48%, rgba(21, 11, 48, 0.80) 100%);
+    background: rgba(8, 6, 20, 0.10);
     border: 1px solid rgba(255, 255, 255, 0.38);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
     padding: 16px 16px 10px 16px;
@@ -68,7 +68,7 @@ private let HUD_HTML = #"""
     filter: drop-shadow(0 4px 12px rgba(56, 189, 248, 0.45));
   }
   .card {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(15, 11, 33, 0.50);
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
     border-radius: 14px;
@@ -126,7 +126,7 @@ private let HUD_HTML = #"""
     margin-bottom: 8px;
   }
   .tile {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(15, 11, 33, 0.50);
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
     border-radius: 14px;
@@ -491,7 +491,6 @@ private let HUD_HTML = #"""
       </div>
 
       <div id="recSection">
-        <div class="rec-header">AI YOLO Agent Optimization</div>
         <div class="rec-header">Clean /tmp only</div>
         <div class="card rec-card">
           <div class="rec-top">
@@ -909,7 +908,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         hudPanel.level = .statusBar
         hudPanel.isOpaque = false
         hudPanel.backgroundColor = .clear
-        hudPanel.alphaValue = 0.88
+        hudPanel.alphaValue = 1
         hudPanel.hasShadow = true
         hudPanel.isMovableByWindowBackground = true
         hudPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
@@ -922,16 +921,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         webView.autoresizingMask = [.width, .height]
         forceTransparentWebView(webView)
         webView.loadHTMLString(HUD_HTML, baseURL: nil)
-        let host = NSView(frame: NSRect(x: 0, y: 0, width: panelW, height: panelH))
-        host.autoresizingMask = [.width, .height]
-        let glass = NSGlassEffectView(frame: host.bounds)
-        glass.style = .regular
-        glass.cornerRadius = 22
-        glass.autoresizingMask = [.width, .height]
-        host.addSubview(glass)
-        webView.frame = host.bounds
-        host.addSubview(webView)
-        hudPanel.contentView = host
+        hudPanel.contentView = webView
         DispatchQueue.main.async { [weak self] in
             if let webView = self?.webView { forceTransparentWebView(webView) }
         }
@@ -1255,7 +1245,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             hudPanel.setFrameOrigin(NSPoint(x: xPos, y: yPos))
         }
         hudPanel.isFloatingPanel = true
-        hudPanel.alphaValue = 0.88
+        hudPanel.alphaValue = 1
         hudPanel.level = .statusBar
         hudPanel.hidesOnDeactivate = false
         hudPanel.orderFrontRegardless()
