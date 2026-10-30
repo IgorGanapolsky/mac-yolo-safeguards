@@ -4200,4 +4200,6 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 - `.agents/skills/prompt-caching-and-judgment-calls-steal/SKILL.md`
 - `tools/herdr-moe-llm-judge-swarm-sow.js`
 - `tests/test-herdr-moe-llm-judge-swarm-sow.js`
+- `tools/mac-yolo-release-cd-engine.js`
+- `tests/test-mac-yolo-release-cd-engine.js`
 - `plan.md` (this append)
