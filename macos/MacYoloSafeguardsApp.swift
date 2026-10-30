@@ -28,7 +28,7 @@ private let HUD_HTML = #"""
     background: radial-gradient(circle at 82% 10%, rgba(126, 58, 242, 0.54) 0%, rgba(46, 21, 99, 0.74) 48%, rgba(21, 11, 48, 0.80) 100%);
     border: 1px solid rgba(255, 255, 255, 0.38);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
-    padding: 16px 16px 10px 16px;
+    padding: 12px 14px 8px 14px;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
@@ -42,24 +42,26 @@ private let HUD_HTML = #"""
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 4px 8px 4px;
+    padding: 0 2px 6px 2px;
     cursor: grab;
   }
   .header:active {
     cursor: grabbing;
   }
   .header-title {
-    font-size: 21px;
+    font-size: 16.5px;
     font-weight: 700;
     letter-spacing: -0.3px;
+    white-space: nowrap;
   }
   .header-title span {
     color: #5eead4;
   }
   .header-sub {
-    font-size: 13px;
+    font-size: 11.5px;
     color: rgba(255, 255, 255, 0.72);
     margin-top: 2px;
+    white-space: nowrap;
   }
   .laptop-badge {
     width: 56px;
@@ -77,18 +79,18 @@ private let HUD_HTML = #"""
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
     border-radius: 14px;
-    padding: 10px 13px;
+    padding: 8px 11px;
   }
   .shield-card {
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
   .shield-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 600;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
   }
   .shield-left {
     display: flex;
@@ -126,20 +128,22 @@ private let HUD_HTML = #"""
   }
   .bento {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-bottom: 8px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 7px;
+    margin-bottom: 6px;
   }
   .tile {
+    min-width: 0;
+    overflow: hidden;
     background: rgba(15, 11, 33, 0.46);
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
-    border-radius: 14px;
-    padding: 9px 12px;
+    border-radius: 13px;
+    padding: 7px 10px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    min-height: 70px;
+    min-height: 62px;
   }
   .meter-track {
     width: 100%;
@@ -147,26 +151,36 @@ private let HUD_HTML = #"""
     background: rgba(255, 255, 255, 0.12);
     border-radius: 99px;
     overflow: hidden;
-    margin-top: 5px;
+    margin-top: 4px;
   }
   .meter-fill {
     height: 100%;
     border-radius: 99px;
   }
   .tile-tall {
-    min-height: 80px;
+    min-height: 66px;
   }
   .tile-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 4px;
+    min-width: 0;
   }
   .tile-head {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 13.5px;
+    gap: 6px;
+    font-size: 12.5px;
     font-weight: 600;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .tile-head span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .ico-badge {
     width: 24px;
@@ -286,8 +300,8 @@ private let HUD_HTML = #"""
   .rec-card {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 10px 12px;
+    gap: 4px;
+    padding: 8px 11px;
   }
   .rec-top {
     display: flex;
@@ -560,7 +574,7 @@ private let HUD_HTML = #"""
 
     <div class="hud-footer">
       <button class="tile-action" style="margin-top:0;" onclick="sendAction('toggleStatusBarIcon')">Menu Bar Icon: <strong id="quickStatusIconLabel" style="color:#5eead4;">Shown ✓</strong></button>
-      <span id="footerSizeLabel" style="font-size:11px;color:rgba(255,255,255,0.68);cursor:pointer;" onclick="cycleHudSize()" title="Click to cycle size or drag corner">420×704</span>
+      <span id="footerSizeLabel" style="font-size:11px;color:rgba(255,255,255,0.68);cursor:pointer;" onclick="cycleHudSize()" title="Click to cycle size or drag corner">480×688</span>
     </div>
   </div>
   <div class="hud-resize-edge-right" id="hudResizeRight"></div>
@@ -569,9 +583,9 @@ private let HUD_HTML = #"""
 
   <script>
     var HUD_PRESETS = [
-      { label: '420×704', width: 420, height: 704 },
-      { label: '520×720', width: 520, height: 720 },
-      { label: '640×800', width: 640, height: 800 }
+      { label: '480×688', width: 480, height: 688 },
+      { label: '540×720', width: 540, height: 720 },
+      { label: '640×780', width: 640, height: 780 }
     ];
     var _presetIdx = 0;
     function sendAction(action, extra) {
@@ -936,15 +950,15 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let screenFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let savedW = UserDefaults.standard.double(forKey: "MacYoloHudW")
         let savedH = UserDefaults.standard.double(forKey: "MacYoloHudH")
-        let panelW: CGFloat = savedW >= 380 ? CGFloat(savedW) : 420
-        let panelH: CGFloat = savedH >= 700 ? CGFloat(savedH) : 704
+        let panelW: CGFloat = savedW >= 460 ? CGFloat(savedW) : 480
+        let panelH: CGFloat = savedH >= 680 ? CGFloat(savedH) : 688
         var panelX = screenFrame.maxX - panelW - 18
-        var panelY = screenFrame.maxY - panelH - 4
+        let panelY = screenFrame.maxY - panelH - 8
         if let btnWin = statusItem?.button?.window {
             let bf = btnWin.frame
             if bf.width > 0 && bf.origin.x > 0 {
-                panelX = max(screenFrame.minX + 12, min(screenFrame.maxX - panelW - 12, round(bf.minX)))
-                panelY = (bf.minY > 0 ? bf.minY : screenFrame.maxY) - panelH - 4
+                let centeredX = round(bf.midX - (panelW / 2.0))
+                panelX = max(screenFrame.minX + 12, min(screenFrame.maxX - panelW - 12, centeredX))
             }
         }
         hudPanel = MacYoloHudPanel(
@@ -1377,12 +1391,12 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         if !hasCustomOrigin, let screenFrame = NSScreen.main?.visibleFrame {
             let f = hudPanel.frame
             var xPos = screenFrame.maxX - f.width - 18
-            var yPos = screenFrame.maxY - f.height - 4
+            let yPos = screenFrame.maxY - f.height - 8
             if let btnWin = statusItem?.button?.window {
                 let bf = btnWin.frame
                 if bf.width > 0 && bf.origin.x > 0 {
-                    xPos = max(screenFrame.minX + 12, min(screenFrame.maxX - f.width - 12, round(bf.minX)))
-                    yPos = (bf.minY > 0 ? bf.minY : screenFrame.maxY) - f.height - 4
+                    let centeredX = round(bf.midX - (f.width / 2.0))
+                    xPos = max(screenFrame.minX + 12, min(screenFrame.maxX - f.width - 12, centeredX))
                 }
             }
             hudPanel.setFrameOrigin(NSPoint(x: xPos, y: yPos))
