@@ -25,3 +25,5 @@ jobs:
           set -eu
           node tests/test-intent-check.js
           node scripts/intent-check.js --json
+          node tools/entire-cicd-regression-gate.js
+          node tests/test-mac-yolo-hud-anti-regression.js
