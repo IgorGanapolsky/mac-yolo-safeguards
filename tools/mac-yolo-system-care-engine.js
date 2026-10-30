@@ -75,7 +75,7 @@ function appendOperationLog(entry) {
  */
 function getTopProcessCulprits(limit = 5) {
   try {
-    const out = execFileSync('ps', ['-Ao', 'pid,pcpu,rss,comm', '-r'], {
+    const out = execFileSync('ps', ['-Ao', 'pid,pcpu,rss,comm'], {
       encoding: 'utf8',
       timeout: 4000,
     });
@@ -95,7 +95,7 @@ function getTopProcessCulprits(limit = 5) {
         memoryMiB: Number((rssKiB / 1024).toFixed(1)),
       });
     }
-    const topCpu = procs.slice(0, limit);
+    const topCpu = [...procs].sort((a, b) => b.cpuPct - a.cpuPct).slice(0, limit);
     const topMem = [...procs].sort((a, b) => b.memoryMiB - a.memoryMiB).slice(0, limit);
     return { ok: true, topCpu, topMemory: topMem };
   } catch (err) {

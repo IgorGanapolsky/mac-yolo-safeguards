@@ -1,6 +1,6 @@
 ---
 name: wabi-sales-operations-steal
-description: Use when driving sales operations, outbound/inbound deal threads, or abandoned checkout recovery using Wabi's ("Start something together", wabi.ai) 3 collaborative micro-widget patterns: Shared Deal Plan & ROI Map, Shared SLA/Trial Countdown Widget, and Email/Funnel Deadline Recovery Scanner.
+description: "Use when driving sales operations, outbound/inbound deal threads, or abandoned checkout recovery using Wabi's 3 collaborative micro-widget patterns."
 ---
 
 # Wabi Collaborative Sales Operations Skill (`wabi-sales-operations-steal`)
