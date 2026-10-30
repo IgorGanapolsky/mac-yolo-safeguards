@@ -4244,3 +4244,14 @@ GitLab's March 4, 2026 post lists ten prompts for review, security, release note
 - `tools/gitlab-delivery-prompts-gate.js` (new)
 - `tests/test-gitlab-delivery-prompts-gate.js` (new)
 - `plan.md` (this append)
+
+## Android Dev Summit change review (append 2026-10-30) — `grok-ads26-gate`
+
+The 29 Oct 2026 Android Studio note and https://developer.android.com/blog/posts/android-dev-summit-26-developer-tools-performance describe change review before commit, previews without booting an emulator, skills before Android work, and a memory fix that is measured and rechecked. Lightbuild is an early Canary build and stays off production. This slice does not install Android Studio, Android CLI, Lightbuild, or an XR emulator, and it does not record Google's speed figures as our measurements. Existing Hermes ship scripts remain the only place an emulator boot is allowed.
+
+### File claims
+- `tools/android-dev-summit-26-gate.js` (new)
+- `tests/test-android-dev-summit-26-gate.js` (new)
+- `.agents/skills/android-dev-summit-26-gate/SKILL.md` (new)
+- `SKILLS.md` (one registry row)
+- `plan.md` (this append)
