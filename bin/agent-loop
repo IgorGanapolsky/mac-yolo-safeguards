@@ -50,10 +50,31 @@ run_node() {
   rm -f "$tmp"
 }
 
-# Run a bash script and capture output
-run_bash() {
-  local script="$1"; shift
-  bash "$ROOT/scripts/$script" "$@" 2>/dev/null || true
+# Refresh the declarative coordination schema (stolen from Supabase pg-delta pattern).
+# Agents read schemas/coordination.json instead of parsing 4108 lines of plan.md.
+refresh_schema() {
+  if [ -x "$ROOT/tools/schema-steal.js" ]; then
+    node "$ROOT/tools/schema-steal.js" 2>/dev/null || true
+  fi
+}
+
+# Run the pre-action confusion detector (stolen from IBM "Test for confusion before production").
+# Returns 0 = no confusion, 1 = low/medium signals, 2 = critical confusion.
+run_confusion_check() {
+  if [ -x "$ROOT/tools/confusion-detector-steal.js" ]; then
+    node "$ROOT/tools/confusion-detector-steal.js" --cmd "${1:-}" --tool-name "${2:-shell}" 2>/dev/null
+    return $?
+  fi
+  return 0
+}
+
+# Run the judgment-calls audit (stolen from Anthropic "Agents and the Art of Work").
+# Presents multiple options with confidence scores instead of a single lean,
+# reducing unwarranted human deferral to the agent's recommendation.
+run_judgment_audit() {
+  if [ -x "$ROOT/tools/judgment-calls-steal.js" ]; then
+    node "$ROOT/tools/judgment-calls-steal.js" --task "${1:-}" --json 2>/dev/null || true
+  fi
 }
 
 # ─── Step 1: Recollect ───────────────────────────────────────────────────────
@@ -61,6 +82,9 @@ run_bash() {
 recollect() {
   local json_out="$1"
   log "Recollect: RAG context + recent lessons"
+
+  # Refresh coordination schema before anything else
+  refresh_schema
 
   local rag_health=""
   if [ -f "$ROOT/.grepai/stats.json" ]; then
@@ -250,6 +274,23 @@ act() {
   if [ "$graph_stale" = "True" ]; then
     actions+=("ℹ️  Graphify index is stale — run: node tools/graphify-staleness-check.js --update")
   fi
+
+  # Priority 6: Pre-action confusion gate (stolen from IBM "Test for confusion before production")
+  # Runs before the agent presents its actions — catches ambiguity, data conflicts,
+  # tool boundary violations before they influence decisions.
+  run_confusion_check
+  local confusion_rc=$?
+  if [ "$confusion_rc" = "2" ]; then
+    actions=("🔴 CRITICAL: Confusion detected (conflicting ownership claims or data conflicts). ABORT — resolve before proceeding." "${actions[@]}")
+  elif [ "$confusion_rc" = "1" ]; then
+    actions+=("🟡 Confusion signals detected — review context ambiguity before acting. Run: node tools/confusion-detector-steal.js --json")
+  fi
+
+  # Stolen from Anthropic "Agents and the Art of Work": present judgment audit
+  # (multi-option, confidence-calibrated) instead of a single lean, reducing
+  # unwarranted human deferral to the agent's recommendation.
+  log "Act: judgment audit (multi-option + confidence)"
+  run_judgment_audit "Agent loop priority action selection"
 
   # Output
   if [ "$json_mode" = "true" ]; then

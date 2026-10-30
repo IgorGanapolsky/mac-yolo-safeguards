@@ -33,6 +33,34 @@ if [[ -f "$repo_root/tools/codeql-pattern-gate.js" ]]; then
   fi
 fi
 
+# 0c) AI Change Review — confusion detector + judgment audit (stolen from
+#     Android Dev Summit "AI Change Review catches issues before commit").
+#     Runs on ALL staged files BEFORE the hermes-mobile early-exit so that
+#     non-TS/TSX changes (shell, JS, markdown, configs, swift) are also gated.
+staged_all=$(git diff --cached --name-only --diff-filter=ACM)
+if [ -n "$staged_all" ] && [ -x "$repo_root/tools/confusion-detector-steal.js" ]; then
+  confusion_output=$(node "$repo_root/tools/confusion-detector-steal.js" \
+    --cmd "git diff --cached" --tool-name "pre-commit" 2>/dev/null || true)
+  confusion_rc=$?
+  # exit codes: 0 = no confusion, 1 = low/medium, 2 = critical
+  if [ "$confusion_rc" = "2" ]; then
+    echo "✗ Confusion CRITICAL — resolve before committing."
+    echo "  $confusion_output"
+    exit 1
+  elif [ "$confusion_rc" = "1" ] && [ "$JSON_MODE" != "true" ]; then
+    echo "⚠ Low/medium confusion signals detected — review before committing."
+    echo "  Run: node tools/confusion-detector-steal.js --cmd \"git diff --cached\" --json"
+    echo "  (Warning only — continuing commit)"
+  fi
+fi
+if [ -n "$staged_all" ] && [ -x "$repo_root/tools/judgment-calls-steal.js" ]; then
+  judgment_output=$(node "$repo_root/tools/judgment-calls-steal.js" --task "Staged commit review" --json 2>/dev/null || true)
+  if [ -n "$judgment_output" ] && [ -d "$repo_root/.ai" ]; then
+    mkdir -p "$repo_root/.ai"
+    echo "{\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"files\":$(printf '%s\n' "$staged_all" | python3 -c "import sys; print('[]')" 2>/dev/null || echo '[]'),\"judgment\":$(printf '%s' "$judgment_output" | python3 -c "import sys; print('{}')" 2>/dev/null || echo '{}')}" >> "$repo_root/.ai/judgment-pre-commit-audit.jsonl"
+  fi
+fi
+
 # Only act when hermes-mobile TS/TSX is staged (skip docs/asset/other commits).
 staged=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^hermes-mobile/.*\.(ts|tsx)$' || true)
 [ -z "$staged" ] && exit 0
