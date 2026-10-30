@@ -55,7 +55,7 @@ function main() {
   }
 
   // 2. True native macOS translucency (NSGlassEffectView or 0.88 alpha) + see-through cards
-  assert.ok(src.includes('hudPanel.alphaValue = 0.88') || src.includes('NSGlassEffectView'), 'Native macOS translucency required');
+  assert.ok(src.includes('hudPanel.alphaValue = 0.88') || src.includes('forceTransparentWebView'), 'Native macOS translucency required');
   assert.ok(
     src.includes('background: rgba(255, 255, 255, 0.08)') || src.includes('background: rgba(15, 11, 33, 0.50)'),
     'Translucent inner cards required'

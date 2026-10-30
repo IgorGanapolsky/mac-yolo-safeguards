@@ -908,7 +908,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         hudPanel.level = .statusBar
         hudPanel.isOpaque = false
         hudPanel.backgroundColor = .clear
-        hudPanel.alphaValue = 1
+        hudPanel.alphaValue = 0.88
         hudPanel.hasShadow = true
         hudPanel.isMovableByWindowBackground = true
         hudPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
