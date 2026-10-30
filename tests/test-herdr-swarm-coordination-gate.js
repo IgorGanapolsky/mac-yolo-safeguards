@@ -103,6 +103,30 @@ function main() {
   assert.ok(ids(sharedMain).includes('isolation_missing'));
   assert.ok(ids(sharedMain).includes('herdr_lease_missing'));
 
+  const suffixedPr = reviewCoordination({
+    ...ready(),
+    pullRequestUrl: 'https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/2228/files',
+  });
+  assert.ok(ids(suffixedPr).includes('github_missing'));
+  assert.strictEqual(suffixedPr.awardedGrade, null);
+
+  const folderNote = reviewCoordination({ ...ready(), notePath: 'Documents/AI-Agent-Sync/' });
+  assert.ok(ids(folderNote).includes('obsidian_missing'));
+
+  const missingNotebook = reviewCoordination({ ...ready(), notebookDoc: 'docs/not-a-real-notebook.md' });
+  assert.ok(ids(missingNotebook).includes('gemini_notebook_missing'));
+
+  const notebookUrl = reviewCoordination({
+    ...ready(),
+    notebookDoc: '',
+    notebookUrl: 'https://notebooklm.google.com/notebook/abc',
+  });
+  assert.strictEqual(notebookUrl.awardedGrade, 'A+');
+
+  const noClaim = reviewCoordination({ ...ready(), workerClaim: '' });
+  assert.ok(ids(noClaim).includes('judge_missing'));
+  assert.ok(!ids(noClaim).includes('judge_copied_worker'));
+
   const cli = spawnSync(process.execPath, ['tools/herdr-swarm-coordination-gate.js', '--json'], {
     cwd: path.join(__dirname, '..'),
     encoding: 'utf8',
@@ -113,6 +137,46 @@ function main() {
   assert.strictEqual(host.calledModel, false);
   assert.ok(!cli.stdout.includes('10/10'));
   assert.ok(!cli.stdout.includes('A+'));
+
+  const statusText = spawnSync(process.execPath, ['tools/herdr-swarm-coordination-gate.js'], {
+    cwd: path.join(__dirname, '..'),
+    encoding: 'utf8',
+  });
+  assert.strictEqual(statusText.status, 0);
+  assert.ok(statusText.stdout.includes('Swarm coordination host status.'));
+  assert.ok(statusText.stdout.includes('Herdr binary in ~/.local/bin:'));
+  assert.ok(statusText.stdout.includes('GitButler binary in ~/.local/bin:'));
+  assert.ok(!statusText.stdout.includes('does not award a grade'));
+  assert.ok(!statusText.stdout.includes('Review:'));
+
+  const stolenSkip = spawnSync(process.execPath, [
+    'tools/herdr-swarm-coordination-gate.js',
+    '--review',
+    '--json',
+    '--task', 'ship the herdr swarm coordination gate',
+    '--prompt-hash', '0123456789abcdef',
+    '--seat', 'worker@workshop',
+    '--branch', 'agent/herdr-swarm-coordination-gate-20261030',
+    '--writers', '1',
+    '--isolation', 'worktree',
+    '--linear-skip', '--verdict-evidence',
+    '--note', 'Documents/AI-Agent-Sync/Swarm-SOWs/herdr-swarm-coordination.md',
+    '--notebook-doc', 'docs/HERDR-SWARM-COORDINATION-SOW.md',
+    '--pr', 'https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/2228',
+    '--judge', 'codex',
+    '--worker', 'grok',
+    '--verdict', 'accept',
+    '--verdict-evidence', 'node tests/test-herdr-swarm-coordination-gate.js printed PASS',
+    '--worker-claim', 'the swarm lease is held by one writer',
+    '--experts', 'fast,judge',
+    '--chosen', 'fast',
+  ], {
+    cwd: path.join(__dirname, '..'),
+    encoding: 'utf8',
+  });
+  const stolen = JSON.parse(stolenSkip.stdout);
+  assert.ok(ids(stolen).includes('linear_missing'));
+  assert.strictEqual(stolen.awardedGrade, null);
 
   console.log('test-herdr-swarm-coordination-gate: PASS');
 }

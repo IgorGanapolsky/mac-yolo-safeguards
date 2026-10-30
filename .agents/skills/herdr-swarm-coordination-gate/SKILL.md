@@ -7,11 +7,12 @@ description: "Grade a Herdr swarm across Linear, the vault, GitButler or a workt
 
 Use this when a prompt is shared by several agents and the swarm needs one writer, a separate judge, and a recorded expert choice.
 
-The contract is `docs/HERDR-SWARM-COORDINATION-SOW.md`. The grade is the lowest plane. Installed tools do not score a plane. The status command does not award a grade and does not call a model.
+The contract is `docs/HERDR-SWARM-COORDINATION-SOW.md`. The grade is the lowest plane. Installed tools do not score a plane. The status command, without `--review`, does not award a grade and does not call a model.
 
 The GitHub plane requires a pull request on this repository. A coordination task that also names an issue stays blocked. A public issue does not replace the pull request.
 
 ```bash
+node tools/herdr-swarm-coordination-gate.js --review
 node tools/herdr-swarm-coordination-gate.js
 node tests/test-herdr-swarm-coordination-gate.js
 ```

@@ -22,4 +22,6 @@ One prompt from Igor is the same prompt for every agent in the swarm. The swarm 
 - Agent coordination stays out of GitHub issues.
 - Do not edit the swarm scorecard on the open swarm pull request. That file already records its own top grade.
 
-Review command: `node tools/herdr-swarm-coordination-gate.js`
+Review command: `node tools/herdr-swarm-coordination-gate.js --review`
+
+That command reads the proof flags and prints `Review: A+` or `Review: blocked`. Running the same command without `--review` only prints host status and exits 0. That is not a grade.

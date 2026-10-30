@@ -55,8 +55,10 @@ function linearOk(input) {
 }
 
 function obsidianOk(input) {
-  const note = filled(input.notePath);
-  if (/^(?:\/Users\/[^/\s]+\/)?Documents\/(?:AI-Agent-Sync|Igor)\//.test(note) && !note.includes('business_os')) {
+  const note = filled(input.notePath).replace(/\\/g, '/');
+  const inVault = /^(?:\/Users\/[^/\s]+\/)?Documents\/(?:AI-Agent-Sync|Igor)\/\S+$/.test(note);
+  const fileName = note.split('/').filter(Boolean).pop() || '';
+  if (inVault && !note.endsWith('/') && fileName.includes('.') && !note.includes('business_os')) {
     return true;
   }
   const skip = filled(input.obsidianSkipReason);
@@ -73,7 +75,11 @@ function isolationOk(input) {
 function geminiOk(input) {
   if (/^https:\/\/notebooklm\.google\.com\/\S+$/.test(filled(input.notebookUrl))) return true;
   const doc = filled(input.notebookDoc);
-  return doc.startsWith('docs/') && doc.endsWith('.md');
+  if (!doc.startsWith('docs/') || !doc.endsWith('.md') || doc.includes('..') || doc.includes('\\')) return false;
+  const root = path.resolve(__dirname, '..');
+  const full = path.resolve(root, doc);
+  const docsRoot = path.resolve(root, 'docs') + path.sep;
+  return full.startsWith(docsRoot) && fs.existsSync(full);
 }
 
 function coordinationTask(task) {
@@ -95,7 +101,7 @@ function judgeResult(input) {
   const worker = filled(input.workerModel).toLowerCase();
   const verdict = filled(input.verdict).toLowerCase();
   const evidence = filled(input.verdictEvidence);
-  if (!judge || !worker || (verdict !== 'accept' && verdict !== 'reject') || !evidence) {
+  if (!judge || !worker || !filled(input.workerClaim) || (verdict !== 'accept' && verdict !== 'reject') || !evidence) {
     return { ok: false, id: 'judge_missing' };
   }
   if (judge === worker) return { ok: false, id: 'judge_same_model' };
@@ -183,9 +189,9 @@ function observeHost() {
 
 function formatStatus(host) {
   return [
-    'Swarm coordination review is ready. This command does not award a grade.',
-    'Herdr binary on disk: ' + (host.herdrBinary ? 'yes' : 'no'),
-    'GitButler binary on disk: ' + (host.gitButlerBinary ? 'yes' : 'no'),
+    'Swarm coordination host status.',
+    'Herdr binary in ~/.local/bin: ' + (host.herdrBinary ? 'yes' : 'no'),
+    'GitButler binary in ~/.local/bin: ' + (host.gitButlerBinary ? 'yes' : 'no'),
     'Vault swarm folder on disk: ' + (host.vaultSowDir ? 'yes' : 'no'),
     'awardedGrade: null',
   ].join('\n');
@@ -193,7 +199,10 @@ function formatStatus(host) {
 
 function argValue(argv, flag) {
   const index = argv.indexOf(flag);
-  return index >= 0 ? argv[index + 1] : '';
+  if (index < 0 || index + 1 >= argv.length) return '';
+  const next = argv[index + 1];
+  if (String(next).startsWith('--')) return '';
+  return next;
 }
 
 function main() {
@@ -225,7 +234,6 @@ function main() {
     });
     if (argv.includes('--json')) console.log(JSON.stringify(report));
     else {
-      console.log(formatStatus(observeHost()));
       console.log(report.awardedGrade === 'A+' ? 'Review: A+' : 'Review: blocked');
       console.log('overall: ' + report.overall);
       for (const item of report.findings) console.log('blocked: ' + item.id);
