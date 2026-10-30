@@ -21,6 +21,8 @@ Experts in that study signed work whose open choices had followed an agent's lea
 - A reason that repeats the agent's wording needs a credit.
 - A second check that names the same model as the first is blocked.
 - A routine typo is left alone.
+- A review with no task stays blocked. A rollout recommendation is a judgment.
+- A local success rate is a study claim only when the same text attributes it to the study.
 
 ## Commands
 

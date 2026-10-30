@@ -107,11 +107,55 @@ function main() {
   assert.strictEqual(typo.ok, true);
   assert.strictEqual(typo.judgment, false);
 
+  const empty = reviewJudgment({});
+  assert.strictEqual(empty.judgment, true);
+  assert.strictEqual(empty.ok, false);
+  assert.ok(ids(empty).includes('options_missing'));
+
+  const rollout = reviewJudgment({ task: 'production rollout recommendation' });
+  assert.strictEqual(rollout.judgment, true);
+  assert.strictEqual(rollout.ok, false);
+  assert.ok(ids(rollout).includes('choice_missing'));
+
+  const localRate = reviewJudgment({
+    ...kept(),
+    localEvidence: 'node load-test.js: success rate 86%, target 85%',
+  });
+  assert.strictEqual(localRate.ok, true);
+  assert.ok(!ids(localRate).includes('vendor_study_claim'));
+  assert.strictEqual(localRate.measuredDeferral, null);
+
   const oneSided = reviewJudgment({
     ...kept(),
     caseForB: kept().caseForA,
   });
   assert.ok(ids(oneSided).includes('one_sided'));
+
+  const bareReview = spawnSync(process.execPath, [
+    'tools/agents-judgment-calls-gate.js',
+    '--review',
+    '--task',
+    'production rollout recommendation',
+    '--json',
+  ], {
+    cwd: path.join(__dirname, '..'),
+    encoding: 'utf8',
+  });
+  assert.strictEqual(bareReview.status, 2);
+  const bareReport = JSON.parse(bareReview.stdout);
+  assert.strictEqual(bareReport.judgment, true);
+  assert.strictEqual(bareReport.ok, false);
+
+  const missingTask = spawnSync(process.execPath, [
+    'tools/agents-judgment-calls-gate.js',
+    '--review',
+    '--json',
+  ], {
+    cwd: path.join(__dirname, '..'),
+    encoding: 'utf8',
+  });
+  assert.strictEqual(missingTask.status, 2);
+  assert.strictEqual(JSON.parse(missingTask.stdout).ok, false);
 
   const cli = spawnSync(process.execPath, ['tools/agents-judgment-calls-gate.js', '--json'], {
     cwd: path.join(__dirname, '..'),

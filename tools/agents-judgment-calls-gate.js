@@ -13,20 +13,25 @@
 
 const SOURCE = 'https://www.anthropic.com/research/agents-judgment-calls';
 
-const JUDGMENT = /\b(merge|approve|send|spend|delete|ship|publish|recommend|policy|roll out|discontinue)\b/i;
+const JUDGMENT = /\b(merge|approve|send|spend|delete|ship|publish|recommend\w*|policy|roll[\s-]?out|discontinue)\b/i;
 
-const VENDOR_STUDY = [
+const BARE_RATE = [
   /86\s*%/i,
-  /blind deferral/i,
-  /60\s*%\s*(?:switched|abandon|of the time)/i,
   /77\s*%/i,
   /91(?:\.1)?\s*%/i,
+  /28\s*%\s*faster/i,
+];
+
+const STUDY_SPECIFIC = [
+  /blind deferral/i,
+  /mode collapse/i,
+  /60\s*%\s*(?:switched|abandon|of the time)/i,
   /112\s*(?:out of|\/)\s*123/i,
   /55\s*%[^.\n]{0,40}6\s*%/i,
-  /28\s*%\s*faster/i,
   /62\s*(?:to|–|-)\s*82\s*percentage/i,
-  /mode collapse/i,
 ];
+
+const STUDY_ATTRIBUTION = /\b(anthropic|defer\w*|judgment[\s-]calls?)\b|anthropic\.com\/research\/agents-judgment-calls/i;
 
 function finding(id) {
   return { id, severity: 'block' };
@@ -52,9 +57,15 @@ function sameText(left, right) {
   return false;
 }
 
+function claimsVendorStudy(blob) {
+  if (STUDY_SPECIFIC.some((pattern) => pattern.test(blob))) return true;
+  return BARE_RATE.some((pattern) => pattern.test(blob)) && STUDY_ATTRIBUTION.test(blob);
+}
+
 function isJudgment(input, task) {
   if (input.kind === 'judgment') return true;
   if (input.kind === 'routine') return false;
+  if (!task) return true;
   return JUDGMENT.test(task);
 }
 
@@ -69,7 +80,7 @@ function reviewJudgment(input = {}) {
     input.localEvidence,
   ].join('\n');
   const findings = [];
-  if (VENDOR_STUDY.some((pattern) => pattern.test(blob))) findings.push(finding('vendor_study_claim'));
+  if (claimsVendorStudy(blob)) findings.push(finding('vendor_study_claim'));
 
   const judgment = isJudgment(input, task);
   if (!judgment) {
