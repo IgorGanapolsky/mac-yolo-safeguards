@@ -209,6 +209,24 @@ private let HUD_HTML = #"""
   .tile-sub.good {
     color: #5eead4;
   }
+  .tile-details {
+    padding: 5px 12px 0 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    display: none;
+  }
+  .tile.active-details .tile-details {
+    display: block;
+  }
+  .tile-chevron {
+    margin-left: auto;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.30);
+    transition: transform 0.2s ease;
+    user-select: none;
+  }
+  .tile.active-details .tile-chevron {
+    transform: rotate(90deg);
+  }
   .tile-action {
     align-self: flex-end;
     display: inline-flex;
@@ -419,80 +437,112 @@ private let HUD_HTML = #"""
       </div>
 
       <div class="bento">
-        <div class="tile">
+        <div class="tile" data-tile="disk">
           <div>
             <div class="tile-head">
               <span class="ico-badge ico-disk"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><line x1="2" y1="12" x2="22" y2="12"/><circle cx="6" cy="8" r="1"/><circle cx="6" cy="16" r="1"/></svg></span>
               <span>Macintosh HD</span>
+            <span class="tile-chevron">›</span>
             </div>
             <div class="tile-sub warn" id="diskAvail">Available: 150.24 GB</div>
             <div class="meter-track"><div class="meter-fill" id="diskBarFill" style="width:84%;background:linear-gradient(90deg,#fbbf24,#38bdf8);"></div></div>
           </div>
+          <div class="tile-details" id="diskDetails">
+            <div class="tile-sub" id="diskDetailTotal">Total: — GB</div>
+            <div class="tile-sub" id="diskDetailUsed">Used: — GB</div>
+          </div>
           <button class="tile-action" id="freeDiskBtn" title="Deletes /private/tmp/claude-[digits], swift-module-cache, and node-compile-cache" onclick="triggerHudAction('freeUpDisk', this, 'Cleaning…', 'Clean /tmp')">Clean /tmp</button>
         </div>
 
-        <div class="tile">
+        <div class="tile" data-tile="mem">
           <div>
             <div class="tile-head">
               <span class="ico-badge ico-mem"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2"/><line x1="8" y1="6" x2="8" y2="3"/><line x1="12" y1="6" x2="12" y2="3"/><line x1="16" y1="6" x2="16" y2="3"/><line x1="8" y1="21" x2="8" y2="18"/><line x1="12" y1="21" x2="12" y2="18"/><line x1="16" y1="21" x2="16" y2="18"/></svg></span>
               <span>Memory</span>
+            <span class="tile-chevron">›</span>
             </div>
             <div class="tile-sub" id="memPressure">Pressure: 38%</div>
+            <div class="tile-sub" id="swapUsage" style="font-size:11px;color:rgba(255,255,255,0.55);">Swap: —</div>
             <div class="meter-track"><div class="meter-fill" id="memBarFill" style="width:38%;background:linear-gradient(90deg,#34d399,#38bdf8);"></div></div>
+          </div>
+          <div class="tile-details" id="memDetails">
+            <div class="tile-sub" id="memDetailActive">Active: — GB</div>
+            <div class="tile-sub" id="memDetailWired">Wired: — GB</div>
+            <div class="tile-sub" id="memDetailCompressed">Compressed: — GB</div>
           </div>
           <button class="tile-action" id="freeMemBtn" title="Shuts down iOS Simulators. Does not purge memory." onclick="triggerHudAction('freeUpMemory', this, 'Quitting…', 'Quit simulators')">Quit simulators</button>
         </div>
 
-        <div class="tile">
+        <div class="tile" data-tile="agents">
           <div>
             <div class="tile-row">
               <div class="tile-head">
                 <span class="ico-badge ico-ai"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0-1.3-1.3L12 3z"/></svg></span>
                 <span>LaunchAgents</span>
+            <span class="tile-chevron">›</span>
               </div>
               <span class="tile-val" id="battPct" style="color:#5eead4;">—</span>
             </div>
             <div class="tile-sub" id="battState">plist files in ~/Library/LaunchAgents</div>
           </div>
+          <div class="tile-details" id="agentDetails">
+            <div class="tile-sub" id="agentDetailCrashLoop">Crash-looping: scanning…</div>
+            <div class="tile-sub" id="agentDetailStaleMCPs">Stale MCPs: scanning…</div>
+          </div>
         </div>
 
-        <div class="tile tile-tall">
+        <div class="tile tile-tall" data-tile="cpu">
           <div>
             <div class="tile-row">
               <div class="tile-head">
                 <span class="ico-badge ico-cpu"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="2" x2="9" y2="6"/><line x1="15" y1="2" x2="15" y2="6"/><line x1="9" y1="18" x2="9" y2="22"/><line x1="15" y1="18" x2="15" y2="22"/><line x1="2" y1="9" x2="6" y2="9"/><line x1="2" y1="15" x2="6" y2="15"/><line x1="18" y1="9" x2="22" y2="9"/><line x1="18" y1="15" x2="22" y2="15"/></svg></span>
                 <span>CPU &amp; Fans</span>
+            <span class="tile-chevron">›</span>
               </div>
               <span class="tile-val hot" id="cpuTemp">1m: —</span>
             </div>
-            <div class="tile-sub" id="cpuLoad">Load: 24% · Scanning hogs…</div>
+            <div class="tile-sub" id="cpuLoad">CPU: 0% · Scanning processes…</div>
             <div class="meter-track"><div class="meter-fill" id="cpuBarFill" style="width:24%;background:linear-gradient(90deg,#a855f7,#fb7185);"></div></div>
+          </div>
+          <div class="tile-details" id="cpuDetails">
+            <div class="tile-sub" id="cpuDetailTop">Top: scanning…</div>
+            <div class="tile-sub" id="cpuDetailLoadAvg">Load avg: — / — cores</div>
           </div>
           <button class="tile-action" onclick="triggerHudAction('coolDownFans', this, 'Cooling…', 'Fans Cooled ✓')">Cool Down Fans</button>
         </div>
 
-        <div class="tile tile-tall">
+        <div class="tile tile-tall" data-tile="net">
           <div>
             <div class="tile-head">
               <span class="ico-badge ico-net"><svg viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1"/></svg></span>
               <span id="netName">Tailnet &amp; Wi-Fi</span>
+            <span class="tile-chevron">›</span>
             </div>
             <div class="net-rates" style="padding-left:2px;">
               <div id="netUp">↑ 0 KB/sec</div>
               <div id="netDown">↓ 0 KB/sec</div>
             </div>
           </div>
+          <div class="tile-details" id="netDetails">
+            <div class="tile-sub" id="netDetailInterface">Interface: —</div>
+            <div class="tile-sub" id="netDetailTotal">Total: —</div>
+          </div>
           <button class="tile-action" id="testSpeedBtn" title="Re-reads disk, memory, load, and Wi-Fi. Does not run a speed test." onclick="triggerHudAction('testSpeed', this, 'Refreshing…', 'Refresh')">Refresh</button>
         </div>
 
-        <div class="tile tile-tall">
+        <div class="tile tile-tall" data-tile="window">
           <div>
             <div class="tile-head">
               <span class="ico-badge ico-win"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><line x1="3" y1="9" x2="21" y2="9"/><circle cx="6.5" cy="6.5" r="0.8"/><circle cx="9.5" cy="6.5" r="0.8"/></svg></span>
               <span>On Screen Now</span>
+            <span class="tile-chevron">›</span>
             </div>
             <div class="tile-sub good" id="activeAppTile" style="padding-left:2px;margin-top:6px;font-weight:600;">Active App</div>
             <div class="tile-sub" id="activeWinTile" style="padding-left:2px;margin-top:2px;">Window title</div>
+          </div>
+          <div class="tile-details" id="winDetails">
+            <div class="tile-sub" id="winDetailBundle">Bundle: —</div>
+            <div class="tile-sub" id="winDetailPID">PID: —</div>
           </div>
         </div>
       </div>
@@ -663,6 +713,26 @@ private let HUD_HTML = #"""
       el.style.display = show ? 'flex' : 'none';
       if (rec) rec.style.display = show ? 'none' : 'block';
     }
+    function toggleTileDetails(tileId, ev) {
+      if (ev && ev.target && ev.target.closest('button')) return;
+      var tile = document.querySelector('[data-tile="' + tileId + '"]');
+      if (!tile) return;
+      tile.classList.toggle('active-details');
+      sendAction('tileClicked', { tile: tileId, expanded: tile.classList.contains('active-details') });
+    }
+    (function initTileClick() {
+      var bentoEl = document.querySelector('.bento');
+      if (bentoEl) {
+        bentoEl.addEventListener('click', function(e) {
+          var tile = e.target.closest('.tile');
+          if (!tile) return;
+          if (e.target.closest('button')) return;
+          tile.classList.toggle('active-details');
+          var tileId = tile.getAttribute('data-tile');
+          if (tileId) sendAction('tileClicked', { tile: tileId, expanded: tile.classList.contains('active-details') });
+        });
+      }
+    })();
     function setTextIfChanged(id, val) {
       if (val === undefined || val === null) return;
       var el = document.getElementById(id);
@@ -681,6 +751,18 @@ private let HUD_HTML = #"""
       setTextIfChanged('activeWinTile', state.activeWin);
       setTextIfChanged('diskAvail', state.diskAvail);
       setTextIfChanged('memPressure', state.memPressure);
+      setTextIfChanged('swapUsage', state.swapUsage);
+      setTextIfChanged('diskDetailTotal', state.diskDetailTotal);
+      setTextIfChanged('diskDetailUsed', state.diskDetailUsed);
+      setTextIfChanged('memDetailActive', state.memDetailActive);
+      setTextIfChanged('memDetailWired', state.memDetailWired);
+      setTextIfChanged('memDetailCompressed', state.memDetailCompressed);
+      setTextIfChanged('cpuDetailTop', state.cpuDetailTop);
+      setTextIfChanged('cpuDetailLoadAvg', state.cpuDetailLoadAvg);
+      setTextIfChanged('netDetailInterface', state.netDetailInterface);
+      setTextIfChanged('netDetailTotal', state.netDetailTotal);
+      setTextIfChanged('agentDetailCrashLoop', state.agentDetailCrashLoop);
+      setTextIfChanged('agentDetailStaleMCPs', state.agentDetailStaleMCPs);
       setTextIfChanged('battPct', state.battPct);
       setTextIfChanged('battState', state.battState);
       setTextIfChanged('cpuLoad', state.cpuLoad);
@@ -765,6 +847,9 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var netHistory: [(t: Date, inn: UInt64, out: UInt64)] = []
     var lastUpKB: Int = 0
     var lastDownKB: Int = 0
+    var lastCpuIdle: UInt32 = 0
+    var lastCpuTotal: UInt32 = 0
+    var lastCpuSampleTime: TimeInterval = 0
     func applicationDidFinishLaunching(_ notification: Notification) {
         let myPid = ProcessInfo.processInfo.processIdentifier
         for app in NSWorkspace.shared.runningApplications {
@@ -923,8 +1008,17 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let savedH = UserDefaults.standard.double(forKey: "MacYoloHudH")
         let panelW: CGFloat = savedW >= 380 ? CGFloat(savedW) : 420
         let panelH: CGFloat = savedH >= 540 ? CGFloat(savedH) : 630
-        let panelX = screenFrame.maxX - panelW - 18
-        let panelY = screenFrame.maxY - panelH - 8
+        var panelX = screenFrame.minX + 16
+        var panelY = screenFrame.maxY - panelH - 8
+        // Anchor to status bar button — same anchor pattern as Dayglass NSPopover show(relativeTo:button.bounds, preferredEdge:.minY)
+        if let button = statusItem.button, let btnWindow = button.window {
+            let buttonFrame = button.convert(button.bounds, to: nil)
+            let screenButtonFrame = btnWindow.convertToScreen(buttonFrame)
+            panelX = screenButtonFrame.midX - panelW / 2
+            panelY = screenButtonFrame.minY - panelH - 4
+            panelX = max(screenFrame.minX + 8, min(screenFrame.maxX - panelW - 8, panelX))
+            panelY = max(screenFrame.minY, min(screenFrame.maxY - panelH - 4, panelY))
+        }
         hudPanel = MacYoloHudPanel(
             contentRect: NSRect(x: panelX, y: panelY, width: panelW, height: panelH),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -935,9 +1029,9 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         hudPanel.isFloatingPanel = true
         hudPanel.hidesOnDeactivate = false
         hudPanel.level = .statusBar
-        hudPanel.isOpaque = false
-        hudPanel.backgroundColor = .clear
-        hudPanel.alphaValue = 0.88
+        hudPanel.isOpaque = true
+        hudPanel.backgroundColor = NSColor(red: 8/255, green: 6/255, blue: 20/255, alpha: 0.94)
+        hudPanel.alphaValue = 1.0
         hudPanel.hasShadow = true
         hudPanel.isMovableByWindowBackground = true
         hudPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
@@ -1213,17 +1307,78 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         return (shortStr, rTitle, rDesc)
     }
 
+
+    func sampleActualCpuPct() -> (pct: Int, load1: Double, load1Str: String) {
+        var load: [Double] = [0.0, 0.0, 0.0]
+        getloadavg(&load, 3)
+        let load1Str = String(format: "%.1f", load[0])
+
+        var cpuInfo = host_cpu_load_info()
+        var count = mach_msg_type_number_t(MemoryLayout<host_cpu_load_info>.size / MemoryLayout<integer_t>.size)
+        let cpuRes = withUnsafeMutablePointer(to: &cpuInfo) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                host_statistics(mach_host_self(), HOST_CPU_LOAD_INFO, $0, &count)
+            }
+        }
+        if cpuRes == KERN_SUCCESS {
+            let idle = cpuInfo.cpu_ticks.3
+            let total = cpuInfo.cpu_ticks.0 + cpuInfo.cpu_ticks.1 + cpuInfo.cpu_ticks.2 + cpuInfo.cpu_ticks.3
+            let now = Date().timeIntervalSince1970
+            if lastCpuTotal > 0 && total > lastCpuTotal && now > lastCpuSampleTime {
+                let totalDelta = total - lastCpuTotal
+                let idleDelta = idle - lastCpuIdle
+                let usedDelta = totalDelta - idleDelta
+                let pct = Int(round(Double(usedDelta) / Double(totalDelta) * 100.0))
+                lastCpuIdle = idle
+                lastCpuTotal = total
+                lastCpuSampleTime = now
+                return (max(1, min(100, pct)), load[0], load1Str)
+            }
+            lastCpuIdle = idle
+            lastCpuTotal = total
+            lastCpuSampleTime = now
+            return (3, load[0], load1Str)
+        }
+        return (3, load[0], load1Str)
+    }
+
+    func sampleSwapUsage() -> String {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/sbin/sysctl")
+        task.arguments = ["-n", "vm.swapusage"]
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.standardError = Pipe()
+        (try? task.run())
+        task.waitUntilExit()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        let output = String(data: data, encoding: .utf8) ?? ""
+        if let usedIdx = output.range(of: "used = ") {
+            let after = output[usedIdx.upperBound...]
+            if let spaceIdx = after.firstIndex(of: " ") {
+                return String(after[..<spaceIdx])
+            }
+            return String(after.trimmingCharacters(in: .whitespaces))
+        }
+        return "—"
+    }
     func refreshLiveTelemetry() {
         var load: [Double] = [0.0, 0.0, 0.0]
         getloadavg(&load, 3)
         let ncpu = max(1, ProcessInfo.processInfo.activeProcessorCount)
-        let cpuPct = min(100, max(3, Int(round((load[0] / Double(ncpu)) * 100.0))))
+        let cpuData = sampleActualCpuPct()
+        let cpuPct = cpuData.pct
         let load1Str = String(format: "%.1f", load[0])
 
         var freeDecimalGB = 150.24
-        if let attrs = try? FileManager.default.attributesOfFileSystem(forPath: "/"),
-           let free = (attrs[.systemFreeSize] as? NSNumber)?.doubleValue {
+        var diskTotalGB = 150.24
+        var diskUsedGB = 0.0
+        if let attrs = try? FileManager.default.attributesOfFileSystem(forPath: "/") {
+            let free = (attrs[.systemFreeSize] as? NSNumber)?.doubleValue ?? 0
+            let total = (attrs[.systemSize] as? NSNumber)?.doubleValue ?? 0
             freeDecimalGB = free / 1_000_000_000.0
+            diskTotalGB = total / 1_000_000_000.0
+            diskUsedGB = max(0, (total - free)) / 1_000_000_000.0
         }
         let freeMenuInt = Int(round(freeDecimalGB))
         let diskAvailStr = String(format: "Available: %.2f GB", freeDecimalGB)
@@ -1247,6 +1402,10 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                 memPressurePct = min(99, max(8, Int(round(((active + wired + compressed) / totalMem) * 100.0))))
             }
         }
+        let memPageSize = Double(vm_kernel_page_size)
+        let memActiveGB = Double(vmStats.active_count) * memPageSize / 1_000_000_000
+        let memWiredGB = Double(vmStats.wire_count) * memPageSize / 1_000_000_000
+        let memCompressedGB = Double(vmStats.compressor_page_count) * memPageSize / 1_000_000_000
 
         let (upRate, downRate) = sampleNetworkRates()
         let onScreenLine = lastActiveWin == lastActiveApp ? lastActiveApp : "\(lastActiveApp) — \(lastActiveWin)"
@@ -1254,7 +1413,22 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let pressureWord = memPressurePct >= 85 ? "critical" : (memPressurePct >= 70 ? "warning" : "normal")
         let agentDir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/LaunchAgents").path
         let agentCount = (try? FileManager.default.contentsOfDirectory(atPath: agentDir).filter { $0.hasSuffix(".plist") }.count) ?? 88
-        let guardHeadlineStr = "Memory \(memFreePct)% free · \(pressureWord) · Load \(load1Str)/\(ncpu) · \(agentCount) user agents"
+        let swapUsageStr = sampleSwapUsage()
+        let netIface = resolvedWifiInterfaceName()
+        var crashLoopCount = 0
+        let now = Date()
+        let agentDirURL = URL(fileURLWithPath: agentDir)
+        if let agentFiles = try? FileManager.default.contentsOfDirectory(atPath: agentDir) {
+            for p in agentFiles where p.hasSuffix(".plist") {
+                let plistPath = agentDirURL.appendingPathComponent(p).path
+                if let attrs = try? FileManager.default.attributesOfItem(atPath: plistPath),
+                   let modDate = attrs[.modificationDate] as? Date,
+                   now.timeIntervalSince(modDate) < 15 {
+                    crashLoopCount += 1
+                }
+            }
+        }
+        let guardHeadlineStr = "Memory \(memFreePct)% free · Swap \(swapUsageStr) · \(pressureWord) · Load \(load1Str)/\(ncpu) · \(agentCount) user agents"
         let culprits = sampleTopCpuCulprits()
         let healthStateStr: String
         let healthColorStr: String
@@ -1283,11 +1457,23 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "cpuLoad": "Load \(cpuPct)% · \(culprits.shortLine)",
             "cpuPctNum": "\(cpuPct)",
             "cpuRight": "1m: \(load1Str)",
+            "swapUsage": "Swap: \(swapUsageStr)",
             "netUp": upRate,
             "netDown": downRate,
             "recTitle": culprits.recTitle,
             "recDesc": culprits.recDesc,
             "statusBarIconVisible": showStatusBarIcon ? "true" : "false",
+            "diskDetailTotal": String(format: "Total: %.1f GB", diskTotalGB),
+            "diskDetailUsed": String(format: "Used: %.1f GB", diskUsedGB),
+            "memDetailActive": String(format: "Active: %.1f GB", memActiveGB),
+            "memDetailWired": String(format: "Wired: %.1f GB", memWiredGB),
+            "memDetailCompressed": String(format: "Compressed: %.1f GB", memCompressedGB),
+            "cpuDetailTop": culprits.shortLine.isEmpty ? "Top: none" : "Top: \(culprits.shortLine)",
+            "cpuDetailLoadAvg": "Load avg: \(load1Str) / \(ncpu) cores",
+            "netDetailInterface": "Interface: \(netIface)",
+            "netDetailTotal": "Total: \(lastUpKB) \u{2191} \(lastDownKB) \u{2193} KB/sec",
+            "agentDetailCrashLoop": "Crash-looping: \(crashLoopCount)",
+            "agentDetailStaleMCPs": "Stale MCPs: \u{2014}",
         ]
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -1295,7 +1481,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             self.statusItem.button?.title = ""
             self.statusItem.button?.image = self.renderMenuBarPill(freeGB: freeMenuInt, memPct: memPressurePct, cpuPct: cpuPct)
             self.statusItem.button?.imagePosition = .imageOnly
-            self.statusItem.button?.toolTip = "Mac YOLO — Disk Free: \(freeMenuInt) GB • RAM Pressure: \(memPressurePct)% • CPU Load: \(cpuPct)%"
+            self.statusItem.button?.toolTip = "Mac YOLO — Disk: \(freeMenuInt)GB free • RAM: \(memPressurePct)% • Swap \(swapUsageStr) • CPU: \(cpuPct)%"
             if let data = try? JSONSerialization.data(withJSONObject: payload, options: []),
                let jsonStr = String(data: data, encoding: .utf8) {
                 self.webView?.evaluateJavaScript("if (window.updateYoloHud) window.updateYoloHud(\(jsonStr));", completionHandler: nil)
@@ -1349,12 +1535,21 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         refreshLiveTelemetry()
         if !hasCustomOrigin, let screenFrame = NSScreen.main?.visibleFrame {
             let f = hudPanel.frame
-            let xPos = screenFrame.maxX - f.width - 18
-            let yPos = screenFrame.maxY - f.height - 8
+            var xPos = screenFrame.minX + 16
+            var yPos = screenFrame.maxY - f.height - 8
+            // Anchor to status bar button — same anchor pattern as Dayglass NSPopover show(relativeTo:button.bounds, preferredEdge:.minY)
+            if let button = statusItem?.button, let btnWindow = button.window {
+                let buttonFrame = button.convert(button.bounds, to: nil)
+                let screenButtonFrame = btnWindow.convertToScreen(buttonFrame)
+                xPos = screenButtonFrame.midX - f.width / 2
+                yPos = screenButtonFrame.minY - f.height - 4
+                xPos = max(screenFrame.minX + 8, min(screenFrame.maxX - f.width - 8, xPos))
+                yPos = max(screenFrame.minY, min(screenFrame.maxY - f.height - 4, yPos))
+            }
             hudPanel.setFrameOrigin(NSPoint(x: xPos, y: yPos))
         }
         hudPanel.isFloatingPanel = true
-        hudPanel.alphaValue = 0.88
+        hudPanel.alphaValue = 1.0
         hudPanel.level = .statusBar
         hudPanel.hidesOnDeactivate = false
         hudPanel.orderFrontRegardless()
