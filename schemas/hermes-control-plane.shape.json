@@ -1,0 +1,296 @@
+{
+  "source": "apps/hermes-control-plane/db/schema.ts plus folded drizzle migrations",
+  "tables": [
+    {
+      "name": "audit_events",
+      "columns": [
+        "action",
+        "actor_id",
+        "actor_type",
+        "created_at",
+        "id",
+        "metadata",
+        "organization_id",
+        "target_id",
+        "target_type"
+      ]
+    },
+    {
+      "name": "auth_states",
+      "columns": [
+        "created_at",
+        "expires_at",
+        "return_to",
+        "state_hash"
+      ]
+    },
+    {
+      "name": "billing_events",
+      "columns": [
+        "event_id",
+        "event_type",
+        "organization_id",
+        "processed_at"
+      ]
+    },
+    {
+      "name": "devices",
+      "columns": [
+        "created_at",
+        "failover_mode",
+        "fingerprint",
+        "id",
+        "last_seen_at",
+        "name",
+        "organization_id",
+        "public_jwk",
+        "revoked_at",
+        "updated_at"
+      ]
+    },
+    {
+      "name": "experiment_assignments",
+      "columns": [
+        "assigned_at",
+        "experiment_id",
+        "subject_id",
+        "subject_type",
+        "variant"
+      ]
+    },
+    {
+      "name": "experiment_events",
+      "columns": [
+        "event_name",
+        "experiment_id",
+        "id",
+        "subject_id",
+        "subject_type",
+        "timestamp",
+        "value",
+        "variant"
+      ]
+    },
+    {
+      "name": "experiments",
+      "columns": [
+        "created_at",
+        "description",
+        "id",
+        "key",
+        "seed",
+        "status",
+        "updated_at",
+        "variants"
+      ]
+    },
+    {
+      "name": "feature_flags",
+      "columns": [
+        "created_at",
+        "description",
+        "enabled",
+        "key",
+        "org_id",
+        "updated_at"
+      ]
+    },
+    {
+      "name": "funnel_attribution_counters",
+      "columns": [
+        "count",
+        "cta_id",
+        "day",
+        "event",
+        "updated_at",
+        "utm_campaign",
+        "utm_medium",
+        "utm_source"
+      ]
+    },
+    {
+      "name": "funnel_counters",
+      "columns": [
+        "count",
+        "day",
+        "event",
+        "updated_at"
+      ]
+    },
+    {
+      "name": "llm_calls",
+      "columns": [
+        "cached_prompt_tokens",
+        "completion_tokens",
+        "cost_usd",
+        "created_at",
+        "error",
+        "id",
+        "latency_ms",
+        "model",
+        "organization_id",
+        "prompt_tokens",
+        "provider",
+        "route",
+        "success",
+        "task_id",
+        "trace_id"
+      ]
+    },
+    {
+      "name": "memberships",
+      "columns": [
+        "created_at",
+        "id",
+        "organization_id",
+        "role",
+        "user_id"
+      ]
+    },
+    {
+      "name": "organizations",
+      "columns": [
+        "created_at",
+        "id",
+        "name",
+        "plan",
+        "store_entitlement_expires_at",
+        "trial_ends_at",
+        "updated_at",
+        "workos_organization_id"
+      ]
+    },
+    {
+      "name": "pairing_grants",
+      "columns": [
+        "approved_at",
+        "approved_by_user_id",
+        "consumed_at",
+        "created_at",
+        "device_code_hash",
+        "device_id",
+        "device_name",
+        "expires_at",
+        "fingerprint",
+        "id",
+        "organization_id",
+        "public_jwk",
+        "user_code_display",
+        "user_code_hash"
+      ]
+    },
+    {
+      "name": "request_nonces",
+      "columns": [
+        "created_at",
+        "device_id",
+        "expires_at",
+        "nonce_hash"
+      ]
+    },
+    {
+      "name": "response_feedback",
+      "columns": [
+        "created_at",
+        "id",
+        "note",
+        "organization_id",
+        "signal",
+        "task_id",
+        "updated_at",
+        "user_id"
+      ]
+    },
+    {
+      "name": "sessions",
+      "columns": [
+        "created_at",
+        "expires_at",
+        "id_hash",
+        "organization_id",
+        "user_id",
+        "workos_session_id"
+      ]
+    },
+    {
+      "name": "tasks",
+      "columns": [
+        "completed_at",
+        "created_at",
+        "created_by_user_id",
+        "device_id",
+        "error",
+        "id",
+        "idempotency_key",
+        "lease_expires_at",
+        "lease_generation",
+        "lease_owner",
+        "lease_token_hash",
+        "organization_id",
+        "prompt",
+        "result",
+        "route",
+        "status",
+        "thread_id",
+        "updated_at"
+      ]
+    },
+    {
+      "name": "thread_operations",
+      "columns": [
+        "completed_at",
+        "created_at",
+        "created_by_user_id",
+        "device_id",
+        "error",
+        "id",
+        "lease_expires_at",
+        "lease_generation",
+        "lease_owner",
+        "lease_token_hash",
+        "operation",
+        "organization_id",
+        "source_session_id",
+        "status",
+        "thread_id",
+        "title",
+        "updated_at"
+      ]
+    },
+    {
+      "name": "threads",
+      "columns": [
+        "cloud_rejoined_at",
+        "context_snapshot",
+        "created_at",
+        "created_by_user_id",
+        "deleted_at",
+        "device_id",
+        "id",
+        "message_count",
+        "model",
+        "organization_id",
+        "preview",
+        "source",
+        "source_session_id",
+        "source_updated_at",
+        "synced_at",
+        "title",
+        "title_override",
+        "updated_at"
+      ]
+    },
+    {
+      "name": "users",
+      "columns": [
+        "avatar_url",
+        "created_at",
+        "email",
+        "id",
+        "name",
+        "updated_at",
+        "workos_user_id"
+      ]
+    }
+  ]
+}

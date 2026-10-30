@@ -64,6 +64,20 @@
       "when": 1789137000008,
       "tag": "0008_cloud_rejoined_at",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1789137000009,
+      "tag": "0009_store_entitlement_expires",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1789137000010,
+      "tag": "0010_llm_calls",
+      "breakpoints": true
     }
   ]
 }

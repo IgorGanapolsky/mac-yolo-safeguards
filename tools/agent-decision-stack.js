@@ -16,6 +16,8 @@ const {
   blockedReceipt,
   selectPatternsFromRaw,
 } = require('./agentic-pattern-selector');
+const { measure } = require('./agent-confusion-gate');
+const { budget } = require('./dayglass-screen-budget');
 
 const REPO = path.resolve(__dirname, '..');
 
@@ -37,6 +39,13 @@ Options:
   --skip-governance    Skip semantic-governance / context-definition gate.
   --governance TEXT    Optional governance domain (e.g. 'revenue', 'mobile', 'public-api').
   --evidence TEXT      Concrete signal that justifies a revenue/growth decision.
+  --command TEXT       Optional command measured by the confusion gate.
+  --path TEXT          Optional file measured against its recorded owner.
+  --actor TEXT         Optional actor for that file-owner check.
+  --plan PATH          Optional plan file. Active file owners feed the same gate.
+  --screen JSON        Optional Dayglass front window {app_name, window_title}.
+                       When set, an unchanged window or a passed gate skips RAG.
+  --previous JSON      Optional {key, task} from the last screen decision.
   --pattern-manifest PATH
                        Optional typed task manifest for deterministic pattern selection.
   --json               Print structured brief only.`;
@@ -49,6 +58,12 @@ function parseArgs(argv) {
     governance: '',
     evidence: '',
     patternManifest: '',
+    command: '',
+    path: '',
+    actor: '',
+    planText: '',
+    screen: null,
+    previous: null,
     skipThumbgate: false,
     skipGraphify: false,
     skipLocalRetrieval: false,
@@ -65,6 +80,24 @@ function parseArgs(argv) {
     else if (arg === '--graphify-query') args.graphifyQuery = argv[++i] || '';
     else if (arg === '--governance') args.governance = argv[++i] || '';
     else if (arg === '--evidence') args.evidence = argv[++i] || '';
+    else if (arg === '--command') args.command = argv[++i] || '';
+    else if (arg === '--path') args.path = argv[++i] || '';
+    else if (arg === '--actor') args.actor = argv[++i] || '';
+    else if (arg === '--plan') {
+      const value = argv[++i] || '';
+      if (!value) throw new Error('--plan requires a path');
+      args.planText = fs.readFileSync(value, 'utf8');
+    }
+    else if (arg === '--screen') {
+      const value = argv[++i];
+      if (!value) throw new Error('--screen requires JSON');
+      args.screen = JSON.parse(value);
+    }
+    else if (arg === '--previous') {
+      const value = argv[++i];
+      if (!value) throw new Error('--previous requires JSON');
+      args.previous = JSON.parse(value);
+    }
     else if (arg === '--pattern-manifest') {
       const value = argv[i + 1];
       if (!value || value.startsWith('--')) throw new Error('--pattern-manifest requires a path');
@@ -615,9 +648,73 @@ function recommendNextAction(brief) {
   return 'Proceed with change protocol; capture lesson after verification.';
 }
 
+function confusionFromArgs(args) {
+  return measure({
+    instruction: args.task,
+    command: args.command,
+    path: args.path,
+    actor: args.actor,
+    claims: args.claims,
+    records: args.records,
+    planText: args.planText,
+  });
+}
+
+function screenBrief(args, task) {
+  const decision = budget({ ...args, task });
+  if (decision.runFullBrief) return null;
+  const patterns = args.patternManifest
+    ? loadPatternReceipt(args.patternManifest)
+    : { skipped: true, reason: decision.reason };
+  const patternBlocked = !patterns.skipped && patterns.status === 'block';
+  const brief = {
+    checkedAt: new Date().toISOString(),
+    task,
+    confusion: decision.confusion,
+    screen: decision.screen,
+    budget: {
+      action: decision.action,
+      modelCalls: decision.modelCalls,
+      callModel: patternBlocked ? false : decision.callModel,
+      contextBytes: decision.contextBytes,
+      runFullBrief: false,
+      replacedGraphChars: decision.replacedGraphChars,
+      prompt: patternBlocked ? '' : decision.prompt,
+      reason: decision.reason,
+    },
+    patterns,
+    governance: {
+      skipped: true,
+      reason: patternBlocked ? 'blocked by agentic pattern contract' : decision.reason,
+    },
+    rag: {},
+    telemetry: {},
+    recommendation: decision.reason,
+  };
+  if (patternBlocked) brief.recommendation = recommendNextAction(brief);
+  return brief;
+}
+
 function buildBrief(args) {
   const task = args.task.trim();
   if (!task) throw new Error('--task is required');
+  if (args.screen) {
+    const early = screenBrief(args, task);
+    if (early) return early;
+  }
+  const confusion = confusionFromArgs({ ...args, task });
+  if (confusion.decision === 'hold') {
+    return {
+      checkedAt: new Date().toISOString(),
+      task,
+      confusion,
+      patterns: { skipped: true, reason: 'held by confusion gate' },
+      governance: { skipped: true, reason: 'held by confusion gate' },
+      rag: {},
+      telemetry: {},
+      recommendation: 'Hold. A confusion axis fired before this decision.',
+    };
+  }
 
   const patterns = args.patternManifest
     ? loadPatternReceipt(args.patternManifest)
@@ -625,6 +722,7 @@ function buildBrief(args) {
   const brief = {
     checkedAt: new Date().toISOString(),
     task,
+    confusion,
     patterns,
     governance: { skipped: true, reason: 'not evaluated yet' },
     rag: {},
@@ -674,13 +772,22 @@ function main() {
   const brief = buildBrief(args);
   const patternBlocked = brief.patterns && !brief.patterns.skipped && brief.patterns.status === 'block';
   const governanceBlocked = brief.governance && !brief.governance.skipped && brief.governance.status === 'block';
-  const exitCode = patternBlocked || governanceBlocked ? 1 : 0;
+  const confusionHeld = brief.confusion && brief.confusion.decision === 'hold';
+  const exitCode = patternBlocked || governanceBlocked || confusionHeld ? 1 : 0;
   if (args.json) {
     console.log(JSON.stringify(brief, null, 2));
     process.exit(exitCode);
   }
   console.log(`# Agent decision stack — ${brief.checkedAt}`);
   console.log(`Task: ${brief.task}\n`);
+  if (brief.confusion) {
+    console.log('## Confusion gate');
+    console.log(`decision=${brief.confusion.decision} score=${brief.confusion.confusionScore}`);
+    for (const axis of brief.confusion.axes || []) {
+      if (axis.fired) console.log(`- ${axis.id}: ${axis.evidence}`);
+    }
+    console.log('');
+  }
   if (brief.patterns && !brief.patterns.skipped) {
     console.log('## Agentic pattern receipt');
     console.log(`status=${brief.patterns.status} hash=${brief.patterns.receiptHash || '-'}`);
@@ -773,6 +880,7 @@ function main() {
 
 module.exports = {
   buildBrief,
+  confusionFromArgs,
   extractGhRunFeatures,
   graphifyQuery,
   loadPatternReceipt,
