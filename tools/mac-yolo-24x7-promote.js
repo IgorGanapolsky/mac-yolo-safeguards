@@ -25,53 +25,7 @@ const RECEIPT_DIR = path.join(HOME, '.hermes', 'receipts');
 const RECEIPT_PATH = path.join(RECEIPT_DIR, 'mac-yolo-24x7-promote-latest.json');
 const VAULT_REPORT_DIR = path.join(HOME, 'Documents', 'AI-Agent-Sync', 'Projects', 'mac-yolo-safeguards', 'Reports');
 
-const OFFERS = [
-  {
-    offer: 'Agent Safeguards Playbook',
-    route: 'Agent Safeguards Playbook ($9.99)',
-    status: 'ready',
-    stripe_product_id: 'prod_GumroadOdrkon999',
-    stripe_price_id: 'price_GumroadOdrkon999',
-    payment_link_url: 'https://iganapolsky.gumroad.com/l/odrkon',
-    stripe_amount_usd: '9.99',
-  },
-  {
-    offer: 'Corporate-Expense Reliability Kit',
-    route: 'Corporate-Expense Reliability Kit ($49)',
-    status: 'ready',
-    stripe_product_id: 'prod_GumroadVcrho4900',
-    stripe_price_id: 'price_GumroadVcrho4900',
-    payment_link_url: 'https://iganapolsky.gumroad.com/l/vcrho',
-    stripe_amount_usd: '49.00',
-  },
-  {
-    offer: 'Agent Reliability Diagnostic',
-    route: 'Agent Reliability Diagnostic ($499)',
-    status: 'ready',
-    stripe_product_id: 'prod_ThumbgateDiag499',
-    stripe_price_id: 'price_ThumbgateDiag499',
-    payment_link_url: 'https://thumbgate.ai/diagnostic',
-    stripe_amount_usd: '499.00',
-  },
-  {
-    offer: 'AI Agent Hardening Sprint',
-    route: 'AI Agent Hardening Sprint ($1,500)',
-    status: 'ready',
-    stripe_product_id: 'prod_ThumbgateSprint1500',
-    stripe_price_id: 'price_ThumbgateSprint1500',
-    payment_link_url: 'https://cal.com/igor-g-kvqxfo/30min',
-    stripe_amount_usd: '1500.00',
-  },
-  {
-    offer: 'Partner Pilot',
-    route: 'Partner Pilot ($3,000)',
-    status: 'ready',
-    stripe_product_id: 'prod_ThumbgatePilot3000',
-    stripe_price_id: 'price_ThumbgatePilot3000',
-    payment_link_url: 'https://cal.com/igor-g-kvqxfo/30min',
-    stripe_amount_usd: '3000.00',
-  },
-];
+const { MAC_YOLO_STRIPE_CATALOG: OFFERS } = require('./mac-yolo-stripe-provisioner');
 
 const CURATED_PROSPECTS = [
   {
@@ -193,9 +147,9 @@ const CHANNELS_9 = [
   },
   {
     channel: 'zyvop',
-    title: 'mac-yolo-safeguards + ThumbGate: OS-level runaway protection & pre-execution human gates for autonomous coding agents',
-    cta: 'https://thumbgate.app',
-    paidCta: 'https://iganapolsky.gumroad.com/l/vcrho',
+    title: 'mac-yolo-safeguards: OS-level runaway protection, MCP server & native macOS menu bar guard for autonomous coding agents',
+    cta: 'https://github.com/IgorGanapolsky/mac-yolo-safeguards',
+    paidCta: 'https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k',
   },
 ];
 
@@ -358,7 +312,12 @@ function main() {
   const conversionCheck = runCmd(process.execPath, ['tools/public-conversion-check.js']);
   const safetyScan = runCmd(process.execPath, ['tools/public-funnel-safety-scan.js']);
   const gurobiBatch = runGurobiOutreachOptimization(date);
-
+  const { runAllChecks: runSupabaseIbmGuardrails } = require('./supabase-ibm-agent-guardrails');
+  const supabaseIbm = runSupabaseIbmGuardrails();
+  const { runAllTailscaleSteals } = require('./tailscale-october-steals');
+  const tailscaleSteals = runAllTailscaleSteals();
+  const { runWabiSalesOperations } = require('./wabi-sales-operations-engine');
+  const wabiSalesOps = runWabiSalesOperations();
   let thumbgateMakeMoney = { skipped: true };
   let dayglassMakeMoney = { skipped: true };
   if (!skipSiblings) {
@@ -387,7 +346,10 @@ function main() {
       revLoop.ok &&
       conversionCheck.ok &&
       safetyScan.ok &&
-      Boolean(gurobiBatch.ok),
+      Boolean(gurobiBatch.ok) &&
+      Boolean(supabaseIbm.ok) &&
+      Boolean(tailscaleSteals.ok) &&
+      Boolean(wabiSalesOps.ok),
     startedAt,
     completedAt: new Date().toISOString(),
     date,
@@ -404,8 +366,30 @@ function main() {
       publicConversionCheck: conversionCheck.ok,
       publicFunnelSafetyScan: safetyScan.ok,
       gurobiOutreachOptimal: Boolean(gurobiBatch.ok && gurobiBatch.status === 'OPTIMAL'),
+      declarativeSchemaAndConfusionGate: Boolean(supabaseIbm.ok),
+      tailscaleOctoberStealsGate: Boolean(tailscaleSteals.ok),
+      wabiSalesOperationsGate: Boolean(wabiSalesOps.ok),
     },
     gurobiProof: gurobiBatch.proof || null,
+    supabaseIbmSummary: {
+      ok: supabaseIbm.ok,
+      declarativeTablesSynced: supabaseIbm.pillars.declarativeSchemaDrift.tableCount,
+      confusionScore: supabaseIbm.pillars.ibmPreProductionConfusionGate.confusionScore,
+      plsIncrementalUpliftPct: supabaseIbm.pillars.productLedSalesTriggerEngine.incrementalUpliftPct,
+      zeroHitlCollapsedProcesses: supabaseIbm.pillars.zeroHitlCollapsedProcesses.collapsedZeroHitlCount,
+    },
+    tailscaleStealsSummary: {
+      ok: tailscaleSteals.ok,
+      scurgeryByteIdentical: tailscaleSteals.pillars.scurgeryByteIdenticalPolicy.byteIdentical,
+      magicRouteSelected: tailscaleSteals.pillars.magicRouteStickyConnector.selected,
+      tailwormSafe: tailscaleSteals.pillars.tailwormSafeguards.ok,
+      sweMuxAttentionPanes: tailscaleSteals.pillars.sweMuxAttentionRanker.attentionCount,
+    },
+    wabiSalesOpsSummary: {
+      ok: wabiSalesOps.ok,
+      recommendedTier: wabiSalesOps.wabiPillars.collaborativeDealPlan.recommendedTier,
+      activeRecoveryWindowsCount: wabiSalesOps.wabiPillars.deadlineRecoveryScanner.activeWindowsCount,
+    },
     siblingEngines: {
       thumbgateMakeMoney,
       dayglassMakeMoney,
