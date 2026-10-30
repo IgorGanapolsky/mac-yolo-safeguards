@@ -83,11 +83,10 @@ function coordinationTask(task) {
 function githubResult(input, task) {
   const prOk = REPO_PR.test(filled(input.pullRequestUrl));
   const issue = filled(input.issueNumber);
-  if (issue && coordinationTask(task) && input.publicSafe !== true) {
+  if (issue && coordinationTask(task)) {
     return { ok: false, id: 'github_issue_is_private_board' };
   }
   if (prOk) return { ok: true };
-  if (issue && input.publicSafe === true && !coordinationTask(task)) return { ok: true };
   return { ok: false, id: 'github_missing' };
 }
 

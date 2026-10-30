@@ -4304,4 +4304,12 @@ A review with no task is still a judgment and stays blocked. A rollout recommend
 - `tools/agents-judgment-calls-gate.js`
 - `tests/test-agents-judgment-calls-gate.js`
 - `.agents/skills/agents-judgment-calls-gate/SKILL.md`
+## Herdr swarm GitHub proof (append 2026-10-30) — `grok-herdr-swarm-coordination`
+
+A coordination task that includes an issue number stays blocked, including when a pull request is also present. The GitHub plane requires that pull request. A public issue does not take its place.
+
+### File claims
+- `tools/herdr-swarm-coordination-gate.js`
+- `tests/test-herdr-swarm-coordination-gate.js`
+- `docs/HERDR-SWARM-COORDINATION-SOW.md`
 - `plan.md` (this append)

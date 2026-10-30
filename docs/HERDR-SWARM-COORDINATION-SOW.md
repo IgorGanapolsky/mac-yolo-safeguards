@@ -11,7 +11,7 @@ One prompt from Igor is the same prompt for every agent in the swarm. The swarm 
 | Obsidian | A note under `Documents/AI-Agent-Sync/` or `Documents/Igor/`, or a written reason this task does not go in the vault |
 | GitButler or worktree | Branch `agent/...` isolated as `worktree` or `gitbutler`. This repo's write path is the worktree. |
 | Gemini notebook | A NotebookLM URL, or a Markdown file under `docs/` |
-| GitHub | A pull request on `IgorGanapolsky/mac-yolo-safeguards`. A GitHub issue is only for a public product report. |
+| GitHub | A pull request on `IgorGanapolsky/mac-yolo-safeguards`. A coordination task that also carries an issue number stays blocked. A public issue does not replace the pull request. |
 | Judge | A verdict of accept or reject from a model other than the worker, with evidence that is not the worker's own sentence |
 | Experts | At least two named experts, and the chosen expert is one of them |
 

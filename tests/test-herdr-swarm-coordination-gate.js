@@ -80,6 +80,25 @@ function main() {
   });
   assert.ok(ids(privateIssue).includes('github_issue_is_private_board'));
 
+  const flaggedIssue = reviewCoordination({
+    ...ready(),
+    issueNumber: '15',
+    publicSafe: true,
+    task: 'coordinate the herdr swarm',
+  });
+  assert.ok(ids(flaggedIssue).includes('github_issue_is_private_board'));
+  assert.strictEqual(flaggedIssue.awardedGrade, null);
+
+  const issueOnly = reviewCoordination({
+    ...ready(),
+    task: 'fix product bug',
+    pullRequestUrl: '',
+    issueNumber: '15',
+    publicSafe: true,
+  });
+  assert.ok(ids(issueOnly).includes('github_missing'));
+  assert.strictEqual(issueOnly.awardedGrade, null);
+
   const sharedMain = reviewCoordination({ ...ready(), branch: 'main', isolation: 'gitbutler' });
   assert.ok(ids(sharedMain).includes('isolation_missing'));
   assert.ok(ids(sharedMain).includes('herdr_lease_missing'));
