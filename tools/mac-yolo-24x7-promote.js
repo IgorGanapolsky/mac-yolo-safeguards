@@ -358,7 +358,8 @@ function main() {
   const conversionCheck = runCmd(process.execPath, ['tools/public-conversion-check.js']);
   const safetyScan = runCmd(process.execPath, ['tools/public-funnel-safety-scan.js']);
   const gurobiBatch = runGurobiOutreachOptimization(date);
-
+  const { runAllChecks: runSupabaseIbmGuardrails } = require('./supabase-ibm-agent-guardrails');
+  const supabaseIbm = runSupabaseIbmGuardrails();
   let thumbgateMakeMoney = { skipped: true };
   let dayglassMakeMoney = { skipped: true };
   if (!skipSiblings) {
@@ -387,7 +388,8 @@ function main() {
       revLoop.ok &&
       conversionCheck.ok &&
       safetyScan.ok &&
-      Boolean(gurobiBatch.ok),
+      Boolean(gurobiBatch.ok) &&
+      Boolean(supabaseIbm.ok),
     startedAt,
     completedAt: new Date().toISOString(),
     date,
@@ -404,8 +406,16 @@ function main() {
       publicConversionCheck: conversionCheck.ok,
       publicFunnelSafetyScan: safetyScan.ok,
       gurobiOutreachOptimal: Boolean(gurobiBatch.ok && gurobiBatch.status === 'OPTIMAL'),
+      declarativeSchemaAndConfusionGate: Boolean(supabaseIbm.ok),
     },
     gurobiProof: gurobiBatch.proof || null,
+    supabaseIbmSummary: {
+      ok: supabaseIbm.ok,
+      declarativeTablesSynced: supabaseIbm.pillars.declarativeSchemaDrift.tableCount,
+      confusionScore: supabaseIbm.pillars.ibmPreProductionConfusionGate.confusionScore,
+      plsIncrementalUpliftPct: supabaseIbm.pillars.productLedSalesTriggerEngine.incrementalUpliftPct,
+      zeroHitlCollapsedProcesses: supabaseIbm.pillars.zeroHitlCollapsedProcesses.collapsedZeroHitlCount,
+    },
     siblingEngines: {
       thumbgateMakeMoney,
       dayglassMakeMoney,

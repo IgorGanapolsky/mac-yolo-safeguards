@@ -63,6 +63,8 @@ link "$REPO/poolside-yolo"                     "$INSTALL_HOME/.local/bin/poolsid
 link "$REPO/hermes-context"                    "$INSTALL_HOME/.local/bin/hermes-context"
 link "$REPO/scripts/heal-launchd-paths.sh"     "$INSTALL_HOME/.local/bin/heal-launchd-paths.sh"
 link "$REPO/scripts/grok-yolo-leak-reaper.sh"  "$INSTALL_HOME/.local/bin/grok-yolo-leak-reaper.sh"
+link "$REPO/tools/dg-query.sh"                  "$INSTALL_HOME/.local/bin/dg-query"
+link "$REPO/tools/dg-health.js"                   "$INSTALL_HOME/.local/bin/dg-health"
 
 # Instead of symlinking the plist, write a copy with {{HOME}} substituted to point to the actual home directory
 PLIST_DEST="$INSTALL_HOME/Library/LaunchAgents/com.igor.shutdown-simulators.plist"

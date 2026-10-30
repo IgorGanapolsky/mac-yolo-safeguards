@@ -112,9 +112,52 @@ host_check "launchctl print gui/\$(id -u)/$GUARD_LABEL 2>/dev/null | grep -q 'ru
 check "grep -q 'memory hog' '$GUARD_SCRIPT'"                            "memory-hog branch present"
 check "grep -q 'YOLO_RECLAIM_OLLAMA' '$GUARD_SCRIPT'"                   "Ollama worker reclaim present"
 check "grep -q 'YOLO_CODEQL_CPU_TOTAL_THRESHOLD' '$GUARD_SCRIPT'"        "CodeQL aggregate CPU guard present"
+check "grep -q 'dg_active_window' '$GUARD_SCRIPT'"                        "Dayglass On-screen-now integration present"
+check "grep -q 'dg_log_event' '$GUARD_SCRIPT'"                             "Dayglass guard-event logging wired in"
+check "grep -q 'dg_frame_stale' '$GUARD_SCRIPT'"                           "Dayglass frame-freshness freeze detection present"
 
 echo ""
-echo "=== Mac text hotkeys ==="
+echo "=== Dayglass integration ==="
+DG_SERVER_URL="http://127.0.0.1:3333"
+DG_SQLITE="$HOME/.dayglass/dayglass.sqlite"
+if command -v curl >/dev/null 2>&1; then
+  DG_HTTP_OK=$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "$DG_SERVER_URL/api/status" 2>/dev/null || echo "000")
+else
+  DG_HTTP_OK="000"
+fi
+if [ "$DG_HTTP_OK" = "200" ]; then
+  printf "  [$OK] Dayglass server reachable\n"; pass=$((pass+1))
+  # Show active window
+  DG_WIN=$(curl -s --max-time 3 "$DG_SERVER_URL/api/status" 2>/dev/null \
+    | python3 -c '
+import sys,json
+d=json.load(sys.stdin); w=d.get("active_window") or {}
+app=w.get("app_name",""); title=w.get("window_title","")
+print(f"{app} — {title}" if title and title!=app else app)
+' 2>/dev/null)
+  printf "  Active window:        %s\n" "${DG_WIN:-<none>}"
+  # Check health endpoint
+  DG_HEALTH_OK=$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "$DG_SERVER_URL/api/health/mac" 2>/dev/null || echo "000")
+  if [ "$DG_HEALTH_OK" = "200" ]; then
+    printf "  [$OK] /api/health/mac responding\n"; pass=$((pass+1))
+  else
+    printf "  [$BAD] /api/health/mac returned HTTP $DG_HEALTH_OK\n"; fail=$((fail+1))
+  fi
+  # Check frame freshness
+  DG_STALE=$(sqlite3 "$DG_SQLITE" "SELECT CAST((julianday('now') - julianday(last_seen_at)) * 86400 AS INTEGER) FROM frames ORDER BY id DESC LIMIT 1;" 2>/dev/null || echo "")
+  if [ -n "$DG_STALE" ] && [ "$DG_STALE" != "" ]; then
+    if [ "$DG_STALE" -le 30 ]; then
+      printf "  [$OK] Frame freshness: last frame ${DG_STALE}s ago\n"; pass=$((pass+1))
+    else
+      printf "  [$WARN] Frame freshness: last frame ${DG_STALE}s ago (stale >30s)\n"
+    fi
+  else
+    printf "  [$WARN] dayglass.sqlite not found at $DG_SQLITE\n"
+  fi
+else
+  printf "  [$WARN] Dayglass server not reachable at $DG_SERVER_URL (DG_DISABLED or server down)\n"
+fi
+host_check "node '$HOME/workspace/mac-yolo-safeguards/tools/dg-health.js' >/dev/null 2>&1" "dg-health.js passes all checks"
 HOTKEY_CONFIG="$HOME/Documents/mac-text-hotkeys/init.lua"
 HOTKEY_TEST="$HOME/workspace/git/igor/mac-yolo-safeguards/tests/test-mac-text-hotkeys-config.js"
 HOTKEY_E2E="$HOME/workspace/git/igor/mac-yolo-safeguards/scripts/verify-mac-text-hotkeys-e2e.sh"
