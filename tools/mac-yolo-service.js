@@ -214,8 +214,7 @@ if (require.main === module) {
   const portIdx = argv.indexOf('--port');
   const port = portIdx !== -1 && argv[portIdx + 1] ? Number(argv[portIdx + 1]) : DEFAULT_PORT;
   const server = createServiceServer();
-  enforceCanonicalMenubarBinary();
-  setInterval(enforceCanonicalMenubarBinary, 3000).unref();
+  // Do not run a periodic killall loop that flashes the HUD on screen
   server.listen(port, '127.0.0.1', () => {
     console.log(`[mac-yolo-service] listening on http://127.0.0.1:${port}`);
   });

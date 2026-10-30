@@ -25,13 +25,18 @@ private let HUD_HTML = #"""
     width: 100%;
     height: 100%;
     border-radius: 22px;
-    background: rgba(8, 6, 20, 0.10);
+    background: radial-gradient(circle at 82% 10%, rgba(126, 58, 242, 0.54) 0%, rgba(46, 21, 99, 0.74) 48%, rgba(21, 11, 48, 0.80) 100%);
     border: 1px solid rgba(255, 255, 255, 0.38);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
     padding: 16px 16px 10px 16px;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: flex-start;
+  }
+  .shell > div:first-of-type {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
   }
   .header {
     display: flex;
@@ -68,7 +73,7 @@ private let HUD_HTML = #"""
     filter: drop-shadow(0 4px 12px rgba(56, 189, 248, 0.45));
   }
   .card {
-    background: rgba(15, 11, 33, 0.50);
+    background: rgba(15, 11, 33, 0.46);
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
     border-radius: 14px;
@@ -126,7 +131,7 @@ private let HUD_HTML = #"""
     margin-bottom: 8px;
   }
   .tile {
-    background: rgba(15, 11, 33, 0.50);
+    background: rgba(15, 11, 33, 0.46);
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
     border-radius: 14px;
@@ -147,7 +152,6 @@ private let HUD_HTML = #"""
   .meter-fill {
     height: 100%;
     border-radius: 99px;
-    transition: width 0.35s ease;
   }
   .tile-tall {
     min-height: 80px;
@@ -641,37 +645,42 @@ private let HUD_HTML = #"""
       el.style.display = show ? 'flex' : 'none';
       if (rec) rec.style.display = show ? 'none' : 'block';
     }
+    function setTextIfChanged(id, val) {
+      if (val === undefined || val === null) return;
+      var el = document.getElementById(id);
+      if (el && el.textContent !== val) el.textContent = val;
+    }
     window.updateYoloHud = function(state) {
       if (!state) return;
-      if (state.healthState) document.getElementById('healthState').textContent = state.healthState;
-      if (state.onScreenLine) document.getElementById('onScreenNowLine').textContent = 'On screen now: ' + state.onScreenLine;
-      if (state.guardHeadline) document.getElementById('guardHeadline').textContent = state.guardHeadline;
-      if (state.activeApp) document.getElementById('activeAppTile').textContent = state.activeApp;
-      if (state.activeWin) document.getElementById('activeWinTile').textContent = state.activeWin;
-      if (state.diskAvail) document.getElementById('diskAvail').textContent = state.diskAvail;
-      if (state.memPressure) document.getElementById('memPressure').textContent = state.memPressure;
-      if (state.battPct) document.getElementById('battPct').textContent = state.battPct;
-      if (state.battState) document.getElementById('battState').textContent = state.battState;
-      if (state.cpuLoad) document.getElementById('cpuLoad').textContent = state.cpuLoad;
-      if (state.cpuRight) document.getElementById('cpuTemp').textContent = state.cpuRight;
-      if (state.netUp) document.getElementById('netUp').textContent = state.netUp;
-      if (state.netDown) document.getElementById('netDown').textContent = state.netDown;
-      if (state.recTitle) document.getElementById('recTitle').textContent = state.recTitle;
-      if (state.recDesc) document.getElementById('recDesc').textContent = state.recDesc;
+      setTextIfChanged('healthState', state.healthState);
+      if (state.onScreenLine) setTextIfChanged('onScreenNowLine', 'On screen now: ' + state.onScreenLine);
+      setTextIfChanged('guardHeadline', state.guardHeadline);
+      setTextIfChanged('activeAppTile', state.activeApp);
+      setTextIfChanged('activeWinTile', state.activeWin);
+      setTextIfChanged('diskAvail', state.diskAvail);
+      setTextIfChanged('memPressure', state.memPressure);
+      setTextIfChanged('battPct', state.battPct);
+      setTextIfChanged('battState', state.battState);
+      setTextIfChanged('cpuLoad', state.cpuLoad);
+      setTextIfChanged('cpuTemp', state.cpuRight);
+      setTextIfChanged('netUp', state.netUp);
+      setTextIfChanged('netDown', state.netDown);
+      setTextIfChanged('recTitle', state.recTitle);
+      setTextIfChanged('recDesc', state.recDesc);
       if (state.memPctNum) {
         var mf = document.getElementById('memBarFill');
-        if (mf) mf.style.width = state.memPctNum + '%';
+        var mw = state.memPctNum + '%';
+        if (mf && mf.style.width !== mw) mf.style.width = mw;
       }
       if (state.cpuPctNum) {
         var cf = document.getElementById('cpuBarFill');
-        if (cf) cf.style.width = state.cpuPctNum + '%';
+        var cw = state.cpuPctNum + '%';
+        if (cf && cf.style.width !== cw) cf.style.width = cw;
       }
       if (state.statusBarIconVisible) {
         var isVis = (state.statusBarIconVisible === 'true');
-        var btn = document.getElementById('statusBarToggleBtn');
-        if (btn) btn.textContent = isVis ? 'Shown ✓ (Click to Hide)' : 'Hidden (Click to Show)';
-        var lbl = document.getElementById('quickStatusIconLabel');
-        if (lbl) lbl.textContent = isVis ? 'Shown ✓' : 'Hidden';
+        setTextIfChanged('statusBarToggleBtn', isVis ? 'Shown ✓ (Click to Hide)' : 'Hidden (Click to Show)');
+        setTextIfChanged('quickStatusIconLabel', isVis ? 'Shown ✓' : 'Hidden');
       }
     };
   </script>
@@ -789,7 +798,6 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             guard let self = self, self.hudPanel != nil, self.hudPanel.isVisible else { return }
             if Date().timeIntervalSince(self.lastShownAt) < 0.3 { return }
             let mouseLoc = NSEvent.mouseLocation
-            if mouseLoc.y < 105 { return }
             if !self.hudPanel.frame.contains(mouseLoc) {
                 if let btnWin = self.statusItem?.button?.window, btnWin.frame.contains(mouseLoc) {
                     return
@@ -877,7 +885,6 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         }
 
         gearMenu = NSMenu(title: "Mac YOLO Menu")
-        gearMenu.addItem(NSMenuItem(title: "About Mac YOLO", action: #selector(openDashboard), keyEquivalent: ""))
         gearMenu.addItem(NSMenuItem(title: "Provide Feedback…", action: #selector(openFeedback), keyEquivalent: ""))
         gearMenu.addItem(NSMenuItem.separator())
         statusBarMenuItem = NSMenuItem(title: "Show Status Bar Icon", action: #selector(toggleStatusBarIcon(_:)), keyEquivalent: "")
@@ -914,6 +921,14 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         hudPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         hudPanel.isReleasedWhenClosed = false
 
+        visualEffectView = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: panelW, height: panelH))
+        visualEffectView.material = .hudWindow
+        visualEffectView.blendingMode = .behindWindow
+        visualEffectView.state = .active
+        visualEffectView.wantsLayer = true
+        visualEffectView.maskImage = hudRoundedMask(radius: 22)
+        visualEffectView.autoresizingMask = [.width, .height]
+
         let wkConfig = WKWebViewConfiguration()
         wkConfig.setValue(false, forKey: "drawsBackground")
         wkConfig.userContentController.add(self, name: "yoloHud")
@@ -921,10 +936,8 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         webView.autoresizingMask = [.width, .height]
         forceTransparentWebView(webView)
         webView.loadHTMLString(HUD_HTML, baseURL: nil)
-        hudPanel.contentView = webView
-        DispatchQueue.main.async { [weak self] in
-            if let webView = self?.webView { forceTransparentWebView(webView) }
-        }
+        visualEffectView.addSubview(webView)
+        hudPanel.contentView = visualEffectView
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -975,8 +988,6 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             }
         case "toggleStatusBarIcon":
             toggleStatusBarIcon(nil)
-        case "openDashboard":
-            openDashboard()
         case "dismiss":
             dismissHudNotification()
         default:
@@ -989,9 +1000,6 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         return true
     }
 
-    func applicationDidBecomeActive(_ notification: Notification) {
-        showFloatingHudNotification()
-    }
     @objc func openSettingsDrawer(_ sender: AnyObject?) {
         showFloatingHudNotification()
         webView?.evaluateJavaScript("if (window.toggleSettingsDrawer) window.toggleSettingsDrawer(true);", completionHandler: nil)
@@ -1245,7 +1253,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             hudPanel.setFrameOrigin(NSPoint(x: xPos, y: yPos))
         }
         hudPanel.isFloatingPanel = true
-        hudPanel.alphaValue = 1
+        hudPanel.alphaValue = 0.88
         hudPanel.level = .statusBar
         hudPanel.hidesOnDeactivate = false
         hudPanel.orderFrontRegardless()
@@ -1269,12 +1277,6 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         try? proc.run()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             self?.refreshLiveTelemetry()
-        }
-    }
-
-    @objc func openDashboard() {
-        if let url = URL(string: "https://iganapolsky.gumroad.com/l/vcrho") {
-            NSWorkspace.shared.open(url)
         }
     }
 
