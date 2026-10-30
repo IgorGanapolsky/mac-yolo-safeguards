@@ -13,7 +13,8 @@ private let HUD_HTML = #"""
   html, body {
     width: 100%;
     height: 100%;
-    background: transparent;
+    background: transparent !important;
+    background-color: rgba(0, 0, 0, 0) !important;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
     color: #ffffff;
     overflow: hidden;
@@ -24,7 +25,7 @@ private let HUD_HTML = #"""
     width: 100%;
     height: 100%;
     border-radius: 22px;
-    background: radial-gradient(circle at 82% 10%, rgba(126, 58, 242, 0.54) 0%, rgba(46, 21, 99, 0.74) 48%, rgba(21, 11, 48, 0.80) 100%);
+    background: rgba(8, 6, 20, 0.10);
     border: 1px solid rgba(255, 255, 255, 0.38);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
     padding: 16px 16px 10px 16px;
@@ -67,7 +68,7 @@ private let HUD_HTML = #"""
     filter: drop-shadow(0 4px 12px rgba(56, 189, 248, 0.45));
   }
   .card {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(15, 11, 33, 0.50);
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
     border-radius: 14px;
@@ -125,7 +126,7 @@ private let HUD_HTML = #"""
     margin-bottom: 8px;
   }
   .tile {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(15, 11, 33, 0.50);
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
     border-radius: 14px;
@@ -691,12 +692,23 @@ class MacYoloWebView: WKWebView {
     }
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        setValue(false, forKey: "drawsBackground")
-        underPageBackgroundColor = .clear
-        wantsLayer = true
-        layer?.isOpaque = false
-        layer?.backgroundColor = NSColor.clear.cgColor
+        forceTransparentWebView(self)
     }
+}
+
+private func forceTransparentWebView(_ webView: WKWebView) {
+    webView.setValue(false, forKey: "drawsBackground")
+    webView.underPageBackgroundColor = .clear
+    webView.wantsLayer = true
+    webView.layer?.isOpaque = false
+    webView.layer?.backgroundColor = NSColor.clear.cgColor
+    webView.layer?.cornerRadius = 22
+    webView.layer?.masksToBounds = true
+    let sel = NSSelectorFromString("_setDrawsTransparentBackground:")
+    guard webView.responds(to: sel) else { return }
+    let imp = webView.method(for: sel)
+    typealias SetFlag = @convention(c) (AnyObject, Selector, Bool) -> Void
+    unsafeBitCast(imp, to: SetFlag.self)(webView, sel, true)
 }
 
 private func hudRoundedMask(radius: CGFloat) -> NSImage {
@@ -906,32 +918,28 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         hudPanel.level = .statusBar
         hudPanel.isOpaque = false
         hudPanel.backgroundColor = .clear
-        hudPanel.alphaValue = 0.88
+        hudPanel.alphaValue = 1
         hudPanel.hasShadow = true
         hudPanel.isMovableByWindowBackground = true
         hudPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         hudPanel.isReleasedWhenClosed = false
 
-        visualEffectView = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: panelW, height: panelH))
-        visualEffectView.material = .hudWindow
-        visualEffectView.blendingMode = .behindWindow
-        visualEffectView.state = .active
-        visualEffectView.appearance = NSAppearance(named: .darkAqua)
-        visualEffectView.maskImage = hudRoundedMask(radius: 22)
-        visualEffectView.autoresizingMask = [.width, .height]
-
         let wkConfig = WKWebViewConfiguration()
         wkConfig.userContentController.add(self, name: "yoloHud")
         webView = MacYoloWebView(frame: NSRect(x: 0, y: 0, width: panelW, height: panelH), configuration: wkConfig)
         webView.autoresizingMask = [.width, .height]
-        webView.setValue(false, forKey: "drawsBackground")
-        webView.underPageBackgroundColor = .clear
-        webView.wantsLayer = true
-        webView.layer?.isOpaque = false
-        webView.layer?.backgroundColor = NSColor.clear.cgColor
+        forceTransparentWebView(webView)
         webView.loadHTMLString(HUD_HTML, baseURL: nil)
-        visualEffectView.addSubview(webView)
-        hudPanel.contentView = webView
+        let glass = NSGlassEffectView(frame: NSRect(x: 0, y: 0, width: panelW, height: panelH))
+        glass.style = .clear
+        glass.cornerRadius = 22
+        glass.autoresizingMask = [.width, .height]
+        webView.frame = glass.bounds
+        glass.contentView = webView
+        hudPanel.contentView = glass
+        DispatchQueue.main.async { [weak self] in
+            if let webView = self?.webView { forceTransparentWebView(webView) }
+        }
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -1252,7 +1260,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             hudPanel.setFrameOrigin(NSPoint(x: xPos, y: yPos))
         }
         hudPanel.isFloatingPanel = true
-        hudPanel.alphaValue = 0.88
+        hudPanel.alphaValue = 1
         hudPanel.level = .statusBar
         hudPanel.hidesOnDeactivate = false
         hudPanel.orderFrontRegardless()

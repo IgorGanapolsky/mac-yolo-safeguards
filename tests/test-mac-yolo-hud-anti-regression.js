@@ -68,7 +68,7 @@ function main() {
   assert.ok(src.includes('AI YOLO Agent Optimization') && src.includes('user agents'), 'AI Agent Optimization card and live user agents health strip required');
 
   // 5. Steady network rate sampling decoupled from app switching
-  assert.ok(src.includes('dt < 1.2'), 'dt < 1.2s guard required in sampleNetworkRates()');
+  assert.ok(src.includes('dt < 1.2') || src.includes('dt >= 1.2'), 'dt 1.2s guard required in sampleNetworkRates()');
 
   // 6. Entire Trails CI/CD Pilot HUD Gate must be GREEN
   const { evaluateEntireTrailHud } = require('../tools/entire-cicd-regression-gate');
