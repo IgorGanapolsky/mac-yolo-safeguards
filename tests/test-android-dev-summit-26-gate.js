@@ -93,6 +93,31 @@ function main() {
   assert.strictEqual(ship.ok, true);
   assert.strictEqual(ship.purpose, 'ship');
 
+  const previewFlagBoot = reviewAgentChange({
+    task: 'check the hermes-mobile preview',
+    diff: 'spacing',
+    previewCommand: 'emulator -avd Pixel_6',
+    skillPresent: true,
+    deviceConnected: true,
+  });
+  assert.strictEqual(previewFlagBoot.ok, false);
+  assert.ok(ids(previewFlagBoot).includes('emulator_boot_for_preview'));
+
+  const mentionedScript = reviewAgentChange({
+    task: 'ship the release proof',
+    command: 'xcrun simctl boot arbitrary-device',
+    diff: 'Compare hermes-mobile/scripts/run-fresh-user-e2e.sh',
+  });
+  assert.strictEqual(mentionedScript.ok, false);
+  assert.ok(ids(mentionedScript).includes('unlisted_emulator_boot'));
+
+  const compound = reviewAgentChange({
+    task: 'ship the e2e release proof',
+    command: 'bash hermes-mobile/scripts/run-fresh-user-e2e.sh && emulator -avd Pixel_6',
+    diff: 'ship script plus a second boot',
+  });
+  assert.ok(ids(compound).includes('unlisted_emulator_boot'));
+
   const unmeasured = reviewAgentChange({
     task: 'memory',
     diff: 'fixed the leak in the session list',
@@ -136,6 +161,19 @@ function main() {
   assert.strictEqual(live.measuredSpeedup, null);
   assert.strictEqual(typeof live.connectedDevices, 'number');
   assert.ok(!cli.stdout.includes('77%'));
+
+  const missingDiff = spawnSync(process.execPath, [
+    path.join(__dirname, '../tools/android-dev-summit-26-gate.js'),
+    '--review',
+    '--task',
+    'review the agent change',
+    '--json',
+  ], { encoding: 'utf8', cwd: path.join(__dirname, '..') });
+  assert.strictEqual(missingDiff.status, 2);
+  const missingReport = JSON.parse(missingDiff.stdout);
+  assert.strictEqual(missingReport.ok, false);
+  assert.ok(missingReport.findings.some((item) => item.id === 'empty_diff'));
+  assert.strictEqual(missingReport.measuredSpeedup, null);
 
   console.log('test-android-dev-summit-26-gate: PASS');
 }

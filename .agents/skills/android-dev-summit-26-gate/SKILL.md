@@ -12,7 +12,8 @@ Google's 29 Oct 2026 Android Studio note and their tools write-up describe four 
 ## What this gate does
 
 - A preview task needs the Hermes ship skill on disk and either a connected device or a named preview command.
-- `emulator -avd` and `xcrun simctl boot` are blocked unless the command is one of the existing Hermes ship scripts.
+- `emulator -avd` and `xcrun simctl boot` are blocked in the command, the diff, and the preview flag. A ship task may run one of the existing Hermes ship scripts, and that command has to be the script itself.
+- A review with no diff is blocked.
 - A Lightbuild line under `hermes-mobile` is blocked. Production stays on the current build.
 - An XR emulator install is blocked.
 - An empty diff is not an approval.

@@ -48,33 +48,40 @@ function purposeFor(task) {
   return 'general';
 }
 
-function listedShip(text) {
-  return SHIP_SCRIPTS.some((script) => String(text || '').includes(script));
+function invokedShipScript(command) {
+  const text = String(command || '').trim();
+  if (!text || BOOT.test(text) || /[&;|]/.test(text)) return false;
+  return SHIP_SCRIPTS.some((script) => {
+    const escaped = script.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp('^(?:(?:bash|sh|zsh)\\s+)?' + escaped + '(?:\\s+.*)?$').test(text);
+  });
 }
 
 function reviewAgentChange(input = {}) {
   const task = String(input.task || '');
-  const diff = input.diff == null ? null : String(input.diff);
+  const diff = input.diff == null ? '' : String(input.diff);
   const command = String(input.command || '');
+  const previewCommand = String(input.previewCommand || '');
   const files = String(input.files || '');
-  const blob = [task, diff || '', command].join('\n');
+  const blob = [task, diff, command, previewCommand].join('\n');
   const purpose = input.purpose || purposeFor(task);
   const findings = [];
 
-  if (diff != null && diff.trim() === '') findings.push(finding('empty_diff'));
+  if (diff.trim() === '') findings.push(finding('empty_diff'));
   if (VENDOR_SPEED.some((pattern) => pattern.test(blob))) findings.push(finding('vendor_speed_claim'));
   if (diff && /lightbuild/i.test(diff) && /hermes-mobile/.test(files + diff)) {
     findings.push(finding('experimental_build_in_production'));
   }
   if (/\bxr emulator\b/i.test(blob)) findings.push(finding('xr_emulator_refused'));
 
-  const boots = BOOT.test(command) || BOOT.test(diff || '');
-  if (boots && purpose !== 'ship') findings.push(finding('emulator_boot_for_preview'));
-  if (boots && purpose === 'ship' && !listedShip(command + '\n' + (diff || ''))) {
+  const directBoot = BOOT.test(command) || BOOT.test(previewCommand);
+  const diffBoot = BOOT.test(diff);
+  if ((directBoot || diffBoot) && purpose !== 'ship') findings.push(finding('emulator_boot_for_preview'));
+  if ((directBoot || diffBoot) && purpose === 'ship' && (directBoot || !invokedShipScript(command))) {
     findings.push(finding('unlisted_emulator_boot'));
   }
-  if (purpose === 'preview' && !boots) {
-    const ready = input.deviceConnected === true || String(input.previewCommand || '').trim().length > 0;
+  if (purpose === 'preview' && !directBoot && !diffBoot) {
+    const ready = input.deviceConnected === true || previewCommand.trim().length > 0;
     if (!ready) findings.push(finding('preview_not_ready'));
   }
   if (purpose === 'preview' && input.skillPresent !== true) findings.push(finding('domain_skill_missing'));
@@ -155,7 +162,7 @@ function main() {
     const host = liveHostStatus(process.cwd());
     const report = reviewAgentChange({
       task: argValue(argv, '--task'),
-      diff: argv.includes('--diff') ? argValue(argv, '--diff') : undefined,
+      diff: argv.includes('--diff') ? argValue(argv, '--diff') : '',
       command: argValue(argv, '--command'),
       files: argValue(argv, '--files'),
       previewCommand: argValue(argv, '--preview'),
