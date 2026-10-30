@@ -27,6 +27,7 @@ function main() {
   assert.ok(!source.includes('8.19'));
   assert.ok(!source.includes('59.3'));
   assert.ok(!/huggingface-local/.test(source));
+  assert.ok(source.includes('dispatchUltramarine({ task, force: true }, process.env, cliCallDeps())'));
 
   const blocked = routeUltramarineTask({
     task: 'Reconcile the quarterly memo and the income statement.',
@@ -138,6 +139,81 @@ function main() {
     assert.strictEqual(JSON.stringify(dispatched).includes(secret), false);
     assert.deepStrictEqual(dispatched.attempts.map((attempt) => attempt.httpStatus), [503, 200]);
 
+    const envToken = 'env-token-not-real';
+    const dotenvToken = 'dotenv-token-not-real';
+    const keychainToken = 'keychain-token-not-real';
+    return dispatchUltramarine({
+      force: true,
+      task: 'earnings memo',
+    }, { ...cleanEnv, FIREWORKS_API_KEY: envToken }, {
+      async fetch(url, options) {
+        assert.ok(String(url).includes('api.fireworks.ai'));
+        assert.strictEqual(options.headers.Authorization, 'Bearer ' + envToken);
+        return { status: 200 };
+      },
+    }).then((fromEnv) => {
+      assert.strictEqual(fromEnv.called, true);
+      assert.strictEqual(fromEnv.selectedProvider.id, 'fireworks');
+      assert.strictEqual(JSON.stringify(fromEnv).includes(envToken), false);
+      return dispatchUltramarine({
+        force: true,
+        task: 'earnings memo',
+        credentials: { 'ultramarine-api': true },
+      }, cleanEnv, {
+        readDotenv(key) { return key === 'PAPERINSTRUMENTS_API_KEY' ? dotenvToken : ''; },
+        async fetch(url, options) {
+          assert.ok(String(url).includes('api.paperinstruments.com'));
+          assert.strictEqual(options.headers.Authorization, 'Bearer ' + dotenvToken);
+          return { status: 200 };
+        },
+      });
+    }).then((fromDotenv) => {
+      assert.strictEqual(fromDotenv.called, true);
+      assert.strictEqual(JSON.stringify(fromDotenv).includes(dotenvToken), false);
+      return dispatchUltramarine({
+        force: true,
+        task: 'earnings memo',
+        credentials: { fireworks: true },
+      }, cleanEnv, {
+        readDotenv() { return ''; },
+        keychainRead(item) { return item.service === 'FIREWORKS_API_KEY' ? keychainToken : ''; },
+        async fetch(url, options) {
+          assert.ok(String(url).includes('api.fireworks.ai'));
+          assert.strictEqual(options.headers.Authorization, 'Bearer ' + keychainToken);
+          return { status: 200 };
+        },
+      });
+    }).then((fromKeychain) => {
+      assert.strictEqual(fromKeychain.called, true);
+      assert.strictEqual(JSON.stringify(fromKeychain).includes(keychainToken), false);
+      return dispatchUltramarine({
+        force: true,
+        task: 'earnings memo',
+        credentials: { 'ultramarine-api': true, fireworks: true },
+      }, cleanEnv, {
+        tokenFor() { return 'failover-token-not-real'; },
+        async fetch(url) {
+          if (String(url).includes('paperinstruments')) throw new Error('connection reset');
+          return { status: 200 };
+        },
+      });
+    }).then((failedOver) => {
+      assert.strictEqual(failedOver.ok, true);
+      assert.strictEqual(failedOver.selectedProvider.id, 'fireworks');
+      assert.strictEqual(failedOver.attempts[0].error, 'request_failed');
+      assert.strictEqual(JSON.stringify(failedOver).includes('connection reset'), false);
+      assert.strictEqual(JSON.stringify(failedOver).includes('failover-token-not-real'), false);
+      return dispatchUltramarine({
+        force: true,
+        task: 'earnings memo',
+        credentials: { 'ultramarine-api': true },
+      }, cleanEnv, {
+        tokenFor() { return 'should-not-send'; },
+      });
+    }).then((noFetch) => {
+      assert.strictEqual(noFetch.called, false);
+      assert.strictEqual(JSON.stringify(noFetch).includes('should-not-send'), false);
+
     const cli = spawnSync(process.execPath, [path.join(__dirname, '../tools/ultramarine-flash-route.js'), '--status'], {
       env: cleanEnv,
       encoding: 'utf8',
@@ -149,6 +225,7 @@ function main() {
     assert.ok(!cli.stdout.includes(secret));
     assert.ok(!cli.stdout.includes('$0.13'));
     console.log('test-ultramarine-flash-route: PASS');
+    });
   });
 }
 

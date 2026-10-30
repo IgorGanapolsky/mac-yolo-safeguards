@@ -67,16 +67,21 @@ function nonEmpty(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-function dotenvHas(key, env) {
-  if (env && env.ULTRAMARINE_SKIP_DOTENV === '1') return false;
+function dotenvValue(key, env) {
+  if (env && env.ULTRAMARINE_SKIP_DOTENV === '1') return '';
   try {
     const text = fs.readFileSync(path.join(os.homedir(), '.hermes', '.env'), 'utf8');
     const match = text.match(new RegExp('^' + key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '=(.*)$', 'm'));
-    if (!match) return false;
-    return nonEmpty(match[1].trim().replace(/^['"]|['"]$/g, ''));
+    if (!match) return '';
+    const value = match[1].trim().replace(/^['"]|['"]$/g, '');
+    return nonEmpty(value) ? value : '';
   } catch {
-    return false;
+    return '';
   }
+}
+
+function dotenvHas(key, env) {
+  return nonEmpty(dotenvValue(key, env));
 }
 
 function keychainHas(item, env, probe) {
@@ -96,6 +101,16 @@ function defaultKeychainProbe(item) {
     { stdio: 'ignore' },
   );
   return result.status === 0;
+}
+
+function defaultKeychainRead(item) {
+  const result = spawnSync(
+    '/usr/bin/security',
+    ['find-generic-password', '-s', item.service, '-a', item.account, '-w'],
+    { encoding: 'utf8' },
+  );
+  if (!result || result.status !== 0) return '';
+  return String(result.stdout || '').replace(/\s+$/g, '');
 }
 
 function httpsUrl(value) {
@@ -231,9 +246,37 @@ function buildChatBody(task, provider) {
 }
 
 function tokenFor(provider, env, deps) {
-  if (deps && typeof deps.tokenFor === 'function') return deps.tokenFor(provider.id);
-  const key = provider.envKeys.find((name) => nonEmpty(env[name]));
-  return key ? env[key].trim() : '';
+  if (deps && typeof deps.tokenFor === 'function') {
+    const custom = deps.tokenFor(provider.id);
+    return nonEmpty(custom) ? String(custom).trim() : '';
+  }
+  const fromEnv = provider.envKeys.find((name) => nonEmpty(env[name]));
+  if (fromEnv) return env[fromEnv].trim();
+  const readDotenv = deps && typeof deps.readDotenv === 'function'
+    ? deps.readDotenv
+    : (key) => dotenvValue(key, env);
+  for (const name of provider.envKeys) {
+    let value = '';
+    try { value = readDotenv(name); } catch { value = ''; }
+    if (nonEmpty(value)) return String(value).trim();
+  }
+  if (!provider.keychain) return '';
+  if (env && env.ULTRAMARINE_SKIP_KEYCHAIN === '1' && !(deps && typeof deps.keychainRead === 'function')) return '';
+  const readKeychain = deps && typeof deps.keychainRead === 'function' ? deps.keychainRead : defaultKeychainRead;
+  try {
+    const value = readKeychain(provider.keychain);
+    return nonEmpty(value) ? String(value).trim() : '';
+  } catch {
+    return '';
+  }
+}
+
+function cliCallDeps() {
+  return {
+    fetch(url, options) {
+      return globalThis.fetch(url, options);
+    },
+  };
 }
 
 async function dispatchUltramarine(task, env = process.env, deps = {}) {
@@ -251,14 +294,20 @@ async function dispatchUltramarine(task, env = process.env, deps = {}) {
       attempts.push({ id: provider.id, called: false });
       continue;
     }
-    const response = await deps.fetch(view.endpoint, {
-      method: 'POST',
-      headers: {
-        Authorization: 'Bearer ' + token,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(buildChatBody(task, view)),
-    });
+    let response;
+    try {
+      response = await deps.fetch(view.endpoint, {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(buildChatBody(task, view)),
+      });
+    } catch {
+      attempts.push({ id: provider.id, called: true, error: 'request_failed' });
+      continue;
+    }
     const httpStatus = Number(response && response.status);
     attempts.push({ id: provider.id, called: true, httpStatus });
     if (httpStatus >= 200 && httpStatus < 300) {
@@ -320,7 +369,7 @@ async function main() {
     if (!report.ok) {
       exitCode = 2;
     } else {
-      const dispatched = await dispatchUltramarine({ task, force: true }, process.env);
+      const dispatched = await dispatchUltramarine({ task, force: true }, process.env, cliCallDeps());
       if (argv.includes('--json')) console.log(JSON.stringify(dispatched));
       else console.log(formatStatus(dispatched));
       process.exit(dispatched.called && dispatched.ok ? 0 : 2);
