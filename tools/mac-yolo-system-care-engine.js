@@ -460,6 +460,36 @@ function runFivePillarSmartCare(options = {}) {
   };
 }
 
+function coolDownFansAndReapRunaways() {
+  const reapedPids = [];
+  try {
+    const out = execFileSync('/bin/ps', ['-Ao', 'pid,ppid,command'], { encoding: 'utf8', timeout: 4000 });
+    for (const line of out.trim().split('\n').slice(1)) {
+      const m = line.trim().match(/^(\d+)\s+(\d+)\s+(.+)$/);
+      if (!m) continue;
+      const pid = Number(m[1]);
+      const cmd = m[3];
+      if (
+        cmd.includes('claude-code/2.1.309') ||
+        cmd.includes('mac-autonomy-self-heal.sh') ||
+        cmd.includes('sync-agent-skills.sh --check') ||
+        (cmd.includes('find /Users/') && cmd.includes('-name'))
+      ) {
+        try {
+          process.kill(pid, 'SIGTERM');
+          reapedPids.push(pid);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  appendOperationLog({ action: 'cool_down_fans', reapedCount: reapedPids.length, reapedPids });
+  return { ok: true, reapedCount: reapedPids.length, reapedPids };
+}
+
 if (require.main === module) {
   const argv = process.argv.slice(2);
   const jsonMode = argv.includes('--json');
@@ -482,6 +512,10 @@ if (require.main === module) {
     process.exit(0);
   }
 
+  if (argv.includes('--cool-down-fans')) {
+    console.log(JSON.stringify(coolDownFansAndReapRunaways(), null, 2));
+    process.exit(0);
+  }
   const report = runFivePillarSmartCare({ clean: argv.includes('--clean') });
   if (jsonMode) {
     console.log(JSON.stringify(report, null, 2));
@@ -509,5 +543,6 @@ module.exports = {
   getActivityLedger,
   getStatusBarSettings,
   setStatusBarIconVisibility,
+  coolDownFansAndReapRunaways,
   runFivePillarSmartCare,
 };

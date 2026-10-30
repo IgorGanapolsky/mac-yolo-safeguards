@@ -456,16 +456,19 @@ private let HUD_HTML = #"""
           </div>
         </div>
 
-        <div class="tile">
-          <div class="tile-row">
-            <div class="tile-head">
-              <span class="ico-badge ico-cpu"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="2" x2="9" y2="6"/><line x1="15" y1="2" x2="15" y2="6"/><line x1="9" y1="18" x2="9" y2="22"/><line x1="15" y1="18" x2="15" y2="22"/><line x1="2" y1="9" x2="6" y2="9"/><line x1="2" y1="15" x2="6" y2="15"/><line x1="18" y1="9" x2="22" y2="9"/><line x1="18" y1="15" x2="22" y2="15"/></svg></span>
-              <span>CPU</span>
+        <div class="tile tile-tall">
+          <div>
+            <div class="tile-row">
+              <div class="tile-head">
+                <span class="ico-badge ico-cpu"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="2" x2="9" y2="6"/><line x1="15" y1="2" x2="15" y2="6"/><line x1="9" y1="18" x2="9" y2="22"/><line x1="15" y1="18" x2="15" y2="22"/><line x1="2" y1="9" x2="6" y2="9"/><line x1="2" y1="15" x2="6" y2="15"/><line x1="18" y1="9" x2="22" y2="9"/><line x1="18" y1="15" x2="22" y2="15"/></svg></span>
+                <span>CPU &amp; Fans</span>
+              </div>
+              <span class="tile-val hot" id="cpuTemp">1m: —</span>
             </div>
-            <span class="tile-val hot" id="cpuTemp">Load 1m</span>
+            <div class="tile-sub" id="cpuLoad">Load: 24% · Scanning hogs…</div>
+            <div class="meter-track"><div class="meter-fill" id="cpuBarFill" style="width:24%;background:linear-gradient(90deg,#a855f7,#fb7185);"></div></div>
           </div>
-          <div class="tile-sub" id="cpuLoad">Load: 24%</div>
-          <div class="meter-track"><div class="meter-fill" id="cpuBarFill" style="width:24%;background:linear-gradient(90deg,#a855f7,#fb7185);"></div></div>
+          <button class="tile-action" onclick="triggerHudAction('coolDownFans', this, 'Cooling…', 'Fans Cooled ✓')">Cool Down Fans</button>
         </div>
 
         <div class="tile tile-tall">
@@ -495,33 +498,48 @@ private let HUD_HTML = #"""
       </div>
 
       <div id="recSection">
-        <div class="rec-header">Clean /tmp only</div>
+        <div class="rec-header">AI YOLO Agent Optimization</div>
         <div class="card rec-card">
           <div class="rec-top">
             <div class="rec-badge">
               <svg width="24" height="24" viewBox="0 0 32 32"><path d="M16 3L5 7.5v8.2C5 22.8 9.7 28.9 16 31c6.3-2.1 11-8.2 11-15.3V7.5L16 3z" fill="#ffffff"/><polygon points="17.5 8 10.5 17 15.5 17 14.2 24.5 21.5 15 16.5 15 17.5 8" fill="#14b8a6"/></svg>
             </div>
             <div>
-              <div class="rec-title" id="recTitle">Junk left by coding agents</div>
-              <div class="rec-desc" id="recDesc">Deletes /private/tmp/claude-[digits], swift-module-cache, and node-compile-cache. Leaves Trash and Playwright alone.</div>
+              <div class="rec-title" id="recTitle">Live Fan &amp; CPU Culprits</div>
+              <div class="rec-desc" id="recDesc">Scanning top CPU &amp; fan culprits across active agent swarms and background daemons…</div>
             </div>
           </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:4px;">
-            <button class="rec-btn" id="optimizeMainBtn" onclick="triggerHudAction('freeUpDisk', this, 'Cleaning…', 'Clean /tmp')">Clean /tmp</button>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-top:4px;">
+            <div style="display:flex;gap:6px;">
+              <button class="rec-btn" id="coolFansMainBtn" onclick="triggerHudAction('coolDownFans', this, 'Cooling Fans…', 'Fans Cooled ✓')">Cool Down Fans</button>
+              <button class="tile-action" style="margin-top:0;padding:6px 10px;" onclick="triggerHudAction('freeUpDisk', this, 'Cleaning…', 'Cleaned ✓')">Clean /tmp</button>
+            </div>
+            <button class="tile-action" style="margin-top:0;padding:6px 10px;" onclick="toggleSettingsDrawer(true)">Uninstall Apps…</button>
           </div>
         </div>
       </div>
 
       <div class="card rec-card" id="settingsDrawer" style="display:none;padding:10px 13px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-          <div style="font-size:13px;font-weight:700;">Mac YOLO Settings</div>
+          <div style="font-size:13px;font-weight:700;">Settings &amp; App Uninstaller</div>
           <button class="tile-action" style="margin-top:0;" onclick="toggleSettingsDrawer(false)">← Back</button>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-top:1px solid rgba(255,255,255,0.12);">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid rgba(255,255,255,0.12);">
           <span style="font-size:12px;color:rgba(255,255,255,0.92);">Mac YOLO Status Bar Icon</span>
           <button class="tile-action" style="margin-top:0;" id="statusBarToggleBtn" onclick="sendAction('toggleStatusBarIcon')">Shown ✓ (Click to Hide)</button>
         </div>
-
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid rgba(255,255,255,0.12);">
+          <span style="font-size:12px;color:rgba(255,255,255,0.88);">Paper (com.papercompute · 1.8 GB)</span>
+          <span style="font-size:11px;color:#34d399;font-weight:700;">✓ Uninstalled</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid rgba(255,255,255,0.12);">
+          <span style="font-size:12px;color:rgba(255,255,255,0.88);">CleanMyMac 5 (454 MB + 9 leftovers)</span>
+          <button class="tile-action" style="margin-top:0;color:#fca5a5;" onclick="sendAction('uninstallApp', {appName:'CleanMyMac'});this.textContent='Uninstalled ✓';">Uninstall</button>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;padding-top:5px;border-top:1px solid rgba(255,255,255,0.12);">
+          <input id="customUninstallInput" type="text" placeholder="App name (e.g. Dropbox)" style="flex:1;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.22);border-radius:7px;padding:4px 8px;color:#fff;font-size:11px;outline:none;" />
+          <button class="tile-action" style="margin-top:0;color:#fca5a5;" onclick="var inp=document.getElementById('customUninstallInput');if(inp&&inp.value.trim()){sendAction('uninstallApp',{appName:inp.value.trim()});this.textContent='Purged ✓';}">Uninstall App</button>
+        </div>
       </div>
     </div>
 
@@ -652,7 +670,11 @@ private let HUD_HTML = #"""
     }
     window.updateYoloHud = function(state) {
       if (!state) return;
-      setTextIfChanged('healthState', state.healthState);
+      if (state.healthState) {
+        setTextIfChanged('healthState', state.healthState);
+        var hsEl = document.getElementById('healthState');
+        if (hsEl) hsEl.style.color = state.healthColor || '#5eead4';
+      }
       if (state.onScreenLine) setTextIfChanged('onScreenNowLine', 'On screen now: ' + state.onScreenLine);
       setTextIfChanged('guardHeadline', state.guardHeadline);
       setTextIfChanged('activeAppTile', state.activeApp);
@@ -948,9 +970,19 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             smartCleanDisk()
         case "freeUpMemory":
             reapSimulators()
-        case "optimizeAgents":
-            reapSimulators()
-            smartCleanDisk()
+        case "optimizeAgents", "coolDownFans":
+            coolDownFans()
+        case "uninstallApp":
+            if let appName = body["appName"] as? String, !appName.isEmpty {
+                let proc = Process()
+                proc.launchPath = "/opt/homebrew/bin/node"
+                let home = FileManager.default.homeDirectoryForCurrentUser.path
+                proc.arguments = ["\(home)/workspace/mac-yolo-safeguards/tools/mac-yolo-system-care-engine.js", "--uninstall-app", appName, "--execute"]
+                try? proc.run()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+                    self?.refreshLiveTelemetry()
+                }
+            }
         case "testSpeed":
             refreshLiveTelemetry()
         case "moveHud":
@@ -1127,6 +1159,60 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         return ("↑ \(lastUpKB) KB/sec", "↓ \(lastDownKB) KB/sec")
     }
 
+    func sampleTopCpuCulprits() -> (shortLine: String, recTitle: String, recDesc: String) {
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/bin/ps")
+        proc.arguments = ["-Ao", "%cpu,rss,comm", "-r"]
+        let pipe = Pipe()
+        proc.standardOutput = pipe
+        proc.standardError = Pipe()
+        var counts: [String: Int] = [:]
+        var cpuByApp: [String: Double] = [:]
+        var ramByApp: [String: Double] = [:]
+        var totalProcs = 0
+        if (try? proc.run()) != nil {
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            proc.waitUntilExit()
+            let text = String(data: data, encoding: .utf8) ?? ""
+            for raw in text.split(separator: "\n").dropFirst() {
+                totalProcs += 1
+                let parts = raw.trimmingCharacters(in: .whitespaces).split(separator: " ", maxSplits: 2, omittingEmptySubsequences: true)
+                if parts.count < 3 { continue }
+                let cpu = Double(parts[0]) ?? 0.0
+                let rssMB = (Double(parts[1]) ?? 0.0) / 1024.0
+                let fullComm = String(parts[2])
+                let base = (fullComm as NSString).lastPathComponent
+                if base == "ps" || base == "MacYoloSafeguards" || base == "WindowServer" || base == "kernel_task" { continue }
+                let label: String
+                if fullComm.contains("BrowserOS") { label = "BrowserOS" }
+                else if fullComm.contains("Ghostty") || base == "ghostty" { label = "Ghostty" }
+                else if fullComm.contains("Cursor") || base.contains("cursor") { label = "Cursor" }
+                else if fullComm.contains("Claude") || base.contains("claude") { label = "Claude" }
+                else if fullComm.contains("Google Chrome") { label = "Chrome" }
+                else if base.lowercased().contains("python") { label = "Python" }
+                else if base == "node" { label = "node" }
+                else { label = base }
+                counts[label, default: 0] += 1
+                cpuByApp[label, default: 0.0] += cpu
+                ramByApp[label, default: 0.0] += rssMB
+            }
+        }
+        let ranked = counts.keys.sorted {
+            (cpuByApp[$0, default: 0] * 12.0 + ramByApp[$0, default: 0]) > (cpuByApp[$1, default: 0] * 12.0 + ramByApp[$1, default: 0])
+        }
+        let top3 = ranked.prefix(3).map { name -> String in
+            let c = counts[name, default: 1]
+            let gb = ramByApp[name, default: 0] / 1024.0
+            return gb >= 0.8 ? String(format: "%@ (%.1fG)", name, gb) : (c > 2 ? "\(name)×\(c)" : name)
+        }
+        let shortStr = top3.isEmpty ? "Ghostty · BrowserOS · Python" : top3.joined(separator: " · ")
+        let pyCount = counts["Python", default: 0]
+        let nodeCount = counts["node", default: 0]
+        let rTitle = "Fan & CPU Culprits: \(shortStr)"
+        let rDesc = "\(totalProcs) active procs (\(pyCount) Python, \(nodeCount) node MCPs). Click Cool Down Fans to reap runaway hooks/loops & quiet fans."
+        return (shortStr, rTitle, rDesc)
+    }
+
     func refreshLiveTelemetry() {
         var load: [Double] = [0.0, 0.0, 0.0]
         getloadavg(&load, 3)
@@ -1169,8 +1255,22 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let agentDir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/LaunchAgents").path
         let agentCount = (try? FileManager.default.contentsOfDirectory(atPath: agentDir).filter { $0.hasSuffix(".plist") }.count) ?? 88
         let guardHeadlineStr = "Memory \(memFreePct)% free · \(pressureWord) · Load \(load1Str)/\(ncpu) · \(agentCount) user agents"
+        let culprits = sampleTopCpuCulprits()
+        let healthStateStr: String
+        let healthColorStr: String
+        if cpuPct >= 55 || memPressurePct >= 82 {
+            healthStateStr = "High Fan / CPU Load (\(cpuPct)%)"
+            healthColorStr = "#fb7185"
+        } else if cpuPct >= 40 || memPressurePct >= 70 {
+            healthStateStr = "Elevated Load (\(cpuPct)%)"
+            healthColorStr = "#fbbf24"
+        } else {
+            healthStateStr = "Excellent"
+            healthColorStr = "#34d399"
+        }
         let payload: [String: String] = [
-            "healthState": freeDecimalGB >= 80.0 ? "Excellent" : "Attention",
+            "healthState": healthStateStr,
+            "healthColor": healthColorStr,
             "guardHeadline": guardHeadlineStr,
             "onScreenLine": onScreenLine,
             "activeApp": lastActiveApp,
@@ -1180,14 +1280,15 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "memPctNum": "\(memPressurePct)",
             "battPct": "\(agentCount)",
             "battState": "plist files in ~/Library/LaunchAgents",
-            "cpuLoad": "Load: \(cpuPct)%",
+            "cpuLoad": "Load \(cpuPct)% · \(culprits.shortLine)",
             "cpuPctNum": "\(cpuPct)",
             "cpuRight": "1m: \(load1Str)",
             "netUp": upRate,
             "netDown": downRate,
+            "recTitle": culprits.recTitle,
+            "recDesc": culprits.recDesc,
             "statusBarIconVisible": showStatusBarIcon ? "true" : "false",
         ]
-
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.statusItem.isVisible = self.showStatusBarIcon
@@ -1280,6 +1381,18 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         }
     }
 
+
+    @objc func coolDownFans() {
+        let proc = Process()
+        proc.launchPath = "/opt/homebrew/bin/node"
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        proc.arguments = ["\(home)/workspace/mac-yolo-safeguards/tools/mac-yolo-system-care-engine.js", "--cool-down-fans"]
+        try? proc.run()
+        reapSimulators()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+            self?.refreshLiveTelemetry()
+        }
+    }
     @objc func openFeedback() {
         if let url = URL(string: "https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=free-incident-report.yml") {
             NSWorkspace.shared.open(url)
