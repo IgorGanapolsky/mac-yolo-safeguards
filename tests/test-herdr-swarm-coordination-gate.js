@@ -103,12 +103,24 @@ function main() {
   assert.ok(ids(sharedMain).includes('isolation_missing'));
   assert.ok(ids(sharedMain).includes('herdr_lease_missing'));
 
-  const suffixedPr = reviewCoordination({
+  const filesTab = reviewCoordination({
     ...ready(),
     pullRequestUrl: 'https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/2228/files',
   });
-  assert.ok(ids(suffixedPr).includes('github_missing'));
-  assert.strictEqual(suffixedPr.awardedGrade, null);
+  assert.strictEqual(filesTab.awardedGrade, 'A+');
+
+  const queryPr = reviewCoordination({
+    ...ready(),
+    pullRequestUrl: 'https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/2228?diff=1',
+  });
+  assert.strictEqual(queryPr.awardedGrade, 'A+');
+
+  const unknownTab = reviewCoordination({
+    ...ready(),
+    pullRequestUrl: 'https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/2228/settings',
+  });
+  assert.ok(ids(unknownTab).includes('github_missing'));
+  assert.strictEqual(unknownTab.awardedGrade, null);
 
   const folderNote = reviewCoordination({ ...ready(), notePath: 'Documents/AI-Agent-Sync/' });
   assert.ok(ids(folderNote).includes('obsidian_missing'));

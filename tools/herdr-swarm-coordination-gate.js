@@ -12,7 +12,7 @@ const os = require('os');
 const path = require('path');
 
 const SOURCE = 'https://www.anthropic.com/research/agents-judgment-calls';
-const REPO_PR = /^https:\/\/github\.com\/IgorGanapolsky\/mac-yolo-safeguards\/pull\/\d+$/;
+const REPO_PR = /^https:\/\/github\.com\/IgorGanapolsky\/mac-yolo-safeguards\/pull\/\d+(?:\/(?:files|commits|checks))?(?:[?#]\S*)?$/;
 
 const VENDOR_METRIC = [
   /78(?:\.5)?\s*%/i,
