@@ -5,6 +5,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { hostnameOf } = require('../tools/lib/safe-url-host');
 const {
   WEIGHTS_REPO,
   routeUltramarineTask,
@@ -127,7 +128,7 @@ function main() {
       const parsed = JSON.parse(options.body);
       assert.ok(!Object.prototype.hasOwnProperty.call(parsed, 'top_k'));
       assert.ok(String(options.headers.Authorization).includes(secret));
-      if (String(url).includes('paperinstruments')) return { status: 503 };
+      if (hostnameOf(url) === 'api.paperinstruments.com') return { status: 503 };
       assert.strictEqual(parsed.model, 'accounts/fireworks/models/ultramarine-1-flash-us');
       return { status: 200 };
     },
@@ -147,7 +148,7 @@ function main() {
       task: 'earnings memo',
     }, { ...cleanEnv, FIREWORKS_API_KEY: envToken }, {
       async fetch(url, options) {
-        assert.ok(String(url).includes('api.fireworks.ai'));
+        assert.strictEqual(hostnameOf(url), 'api.fireworks.ai');
         assert.strictEqual(options.headers.Authorization, 'Bearer ' + envToken);
         return { status: 200 };
       },
@@ -162,7 +163,7 @@ function main() {
       }, cleanEnv, {
         readDotenv(key) { return key === 'PAPERINSTRUMENTS_API_KEY' ? dotenvToken : ''; },
         async fetch(url, options) {
-          assert.ok(String(url).includes('api.paperinstruments.com'));
+          assert.strictEqual(hostnameOf(url), 'api.paperinstruments.com');
           assert.strictEqual(options.headers.Authorization, 'Bearer ' + dotenvToken);
           return { status: 200 };
         },
@@ -178,7 +179,7 @@ function main() {
         readDotenv() { return ''; },
         keychainRead(item) { return item.service === 'FIREWORKS_API_KEY' ? keychainToken : ''; },
         async fetch(url, options) {
-          assert.ok(String(url).includes('api.fireworks.ai'));
+          assert.strictEqual(hostnameOf(url), 'api.fireworks.ai');
           assert.strictEqual(options.headers.Authorization, 'Bearer ' + keychainToken);
           return { status: 200 };
         },
@@ -193,7 +194,7 @@ function main() {
       }, cleanEnv, {
         tokenFor() { return 'failover-token-not-real'; },
         async fetch(url) {
-          if (String(url).includes('paperinstruments')) throw new Error('connection reset');
+          if (hostnameOf(url) === 'api.paperinstruments.com') throw new Error('connection reset');
           return { status: 200 };
         },
       });
