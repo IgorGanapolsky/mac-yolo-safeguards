@@ -545,7 +545,7 @@ private let HUD_HTML = #"""
 
     <div class="hud-footer">
       <button class="tile-action" style="margin-top:0;" onclick="sendAction('toggleStatusBarIcon')">Menu Bar Icon: <strong id="quickStatusIconLabel" style="color:#5eead4;">Shown ✓</strong></button>
-      <span id="footerSizeLabel" style="font-size:11px;color:rgba(255,255,255,0.68);cursor:pointer;" onclick="cycleHudSize()" title="Click to cycle size or drag corner">420×630</span>
+      <span id="footerSizeLabel" style="font-size:11px;color:rgba(255,255,255,0.68);cursor:pointer;" onclick="cycleHudSize()" title="Click to cycle size or drag corner">420×704</span>
     </div>
   </div>
   <div class="hud-resize-edge-right" id="hudResizeRight"></div>
@@ -554,7 +554,7 @@ private let HUD_HTML = #"""
 
   <script>
     var HUD_PRESETS = [
-      { label: '420×630', width: 420, height: 630 },
+      { label: '420×704', width: 420, height: 704 },
       { label: '520×720', width: 520, height: 720 },
       { label: '640×800', width: 640, height: 800 }
     ];
@@ -922,9 +922,17 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let savedW = UserDefaults.standard.double(forKey: "MacYoloHudW")
         let savedH = UserDefaults.standard.double(forKey: "MacYoloHudH")
         let panelW: CGFloat = savedW >= 380 ? CGFloat(savedW) : 420
-        let panelH: CGFloat = savedH >= 540 ? CGFloat(savedH) : 630
-        let panelX = screenFrame.maxX - panelW - 18
-        let panelY = screenFrame.maxY - panelH - 8
+        let panelH: CGFloat = savedH >= 700 ? CGFloat(savedH) : 704
+        var panelX = screenFrame.maxX - panelW - 18
+        var panelY = screenFrame.maxY - panelH - 4
+        if let btnWin = statusItem?.button?.window {
+            let bf = btnWin.frame
+            if bf.width > 0 && bf.origin.x > 0 {
+                let centeredX = round(bf.midX - (panelW / 2.0))
+                panelX = max(screenFrame.minX + 12, min(screenFrame.maxX - panelW - 12, centeredX))
+                panelY = (bf.minY > 0 ? bf.minY : screenFrame.maxY) - panelH - 4
+            }
+        }
         hudPanel = MacYoloHudPanel(
             contentRect: NSRect(x: panelX, y: panelY, width: panelW, height: panelH),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -1349,8 +1357,16 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         refreshLiveTelemetry()
         if !hasCustomOrigin, let screenFrame = NSScreen.main?.visibleFrame {
             let f = hudPanel.frame
-            let xPos = screenFrame.maxX - f.width - 18
-            let yPos = screenFrame.maxY - f.height - 8
+            var xPos = screenFrame.maxX - f.width - 18
+            var yPos = screenFrame.maxY - f.height - 4
+            if let btnWin = statusItem?.button?.window {
+                let bf = btnWin.frame
+                if bf.width > 0 && bf.origin.x > 0 {
+                    let centeredX = round(bf.midX - (f.width / 2.0))
+                    xPos = max(screenFrame.minX + 12, min(screenFrame.maxX - f.width - 12, centeredX))
+                    yPos = (bf.minY > 0 ? bf.minY : screenFrame.maxY) - f.height - 4
+                }
+            }
             hudPanel.setFrameOrigin(NSPoint(x: xPos, y: yPos))
         }
         hudPanel.isFloatingPanel = true
