@@ -24,7 +24,7 @@ private let HUD_HTML = #"""
     width: 100%;
     height: 100%;
     border-radius: 22px;
-    background: rgba(8, 6, 20, 0.10);
+    background: radial-gradient(circle at 82% 10%, rgba(126, 58, 242, 0.52) 0%, rgba(46, 21, 99, 0.72) 48%, rgba(21, 11, 48, 0.78) 100%);
     border: 1px solid rgba(255, 255, 255, 0.38);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
     padding: 16px 16px 10px 16px;
@@ -67,7 +67,7 @@ private let HUD_HTML = #"""
     filter: drop-shadow(0 4px 12px rgba(56, 189, 248, 0.45));
   }
   .card {
-    background: rgba(15, 11, 33, 0.50);
+    background: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
     border-radius: 14px;
@@ -125,7 +125,7 @@ private let HUD_HTML = #"""
     margin-bottom: 8px;
   }
   .tile {
-    background: rgba(15, 11, 33, 0.50);
+    background: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
     border-radius: 14px;
@@ -396,7 +396,7 @@ private let HUD_HTML = #"""
           </button>
           <button class="hdr-pill" id="hudSizeBtn" onclick="cycleHudSize()" title="Toggle HUD size or drag corner">
             <svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-            <span id="hudSizeBtnText">Expand</span>
+            <span id="hudSizeBtnText">Size</span>
           </button>
         </div>
       </div>
@@ -423,7 +423,7 @@ private let HUD_HTML = #"""
             <div class="tile-sub warn" id="diskAvail">Available: 150.24 GB</div>
             <div class="meter-track"><div class="meter-fill" id="diskBarFill" style="width:84%;background:linear-gradient(90deg,#fbbf24,#38bdf8);"></div></div>
           </div>
-          <button class="tile-action" id="freeDiskBtn" onclick="triggerHudAction('freeUpDisk', this, 'Cleaning…', '✓ Cleaned')">Free Up</button>
+          <button class="tile-action" id="freeDiskBtn" title="Deletes /private/tmp/claude-[digits], swift-module-cache, and node-compile-cache" onclick="triggerHudAction('freeUpDisk', this, 'Cleaning…', 'Clean /tmp')">Clean /tmp</button>
         </div>
 
         <div class="tile">
@@ -435,7 +435,7 @@ private let HUD_HTML = #"""
             <div class="tile-sub" id="memPressure">Pressure: 38%</div>
             <div class="meter-track"><div class="meter-fill" id="memBarFill" style="width:38%;background:linear-gradient(90deg,#34d399,#38bdf8);"></div></div>
           </div>
-          <button class="tile-action" id="freeMemBtn" onclick="triggerHudAction('freeUpMemory', this, 'Freeing…', '✓ Freed')">Free Up</button>
+          <button class="tile-action" id="freeMemBtn" title="Shuts down iOS Simulators. Does not purge memory." onclick="triggerHudAction('freeUpMemory', this, 'Quitting…', 'Quit simulators')">Quit simulators</button>
         </div>
 
         <div class="tile">
@@ -443,14 +443,12 @@ private let HUD_HTML = #"""
             <div class="tile-row">
               <div class="tile-head">
                 <span class="ico-badge ico-ai"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0-1.3-1.3L12 3z"/></svg></span>
-                <span>AI Agents</span>
+                <span>LaunchAgents</span>
               </div>
-              <span class="tile-val" id="battPct" style="color:#5eead4;">Fenced</span>
+              <span class="tile-val" id="battPct" style="color:#5eead4;">—</span>
             </div>
-            <div class="tile-sub" id="battState">$10/mo Cap · 0 Runaways</div>
-            <div class="meter-track"><div class="meter-fill" id="battBarFill" style="width:100%;background:linear-gradient(90deg,#22c55e,#5eead4);"></div></div>
+            <div class="tile-sub" id="battState">plist files in ~/Library/LaunchAgents</div>
           </div>
-          <button class="tile-action" id="optimizeTileBtn" onclick="triggerHudAction('optimizeAgents', this, 'Optimizing…', '✓ Optimized')">Optimize Agents</button>
         </div>
 
         <div class="tile">
@@ -476,7 +474,7 @@ private let HUD_HTML = #"""
               <div id="netDown">↓ 0 KB/sec</div>
             </div>
           </div>
-          <button class="tile-action" id="testSpeedBtn" onclick="triggerHudAction('testSpeed', this, 'Testing…', '✓ Tested')">Test Speed</button>
+          <button class="tile-action" id="testSpeedBtn" title="Re-reads disk, memory, load, and Wi-Fi. Does not run a speed test." onclick="triggerHudAction('testSpeed', this, 'Refreshing…', 'Refresh')">Refresh</button>
         </div>
 
         <div class="tile tile-tall">
@@ -492,21 +490,9 @@ private let HUD_HTML = #"""
       </div>
 
       <div id="recSection">
-        <div class="rec-header">AI YOLO Agent Optimization</div>
         <div class="card rec-card">
-          <div class="rec-top">
-            <div class="rec-badge">
-              <svg width="24" height="24" viewBox="0 0 32 32"><path d="M16 3L5 7.5v8.2C5 22.8 9.7 28.9 16 31c6.3-2.1 11-8.2 11-15.3V7.5L16 3z" fill="#ffffff"/><polygon points="17.5 8 10.5 17 15.5 17 14.2 24.5 21.5 15 16.5 15 17.5 8" fill="#14b8a6"/></svg>
-            </div>
-            <div>
-              <div class="rec-title" id="recTitle">AI Agent Fleet, Token Cap &amp; Cache Optimizer</div>
-              <div class="rec-desc" id="recDesc">Agent temp · Swift cache · Node cache · Playwright · Trash • Reap zombie MCPs &amp; enforce $10/mo token cap.</div>
-            </div>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:4px;">
-            <button class="tile-action" style="margin-top:0;" onclick="toggleSettingsDrawer(true)">Configure Guard…</button>
-            <button class="rec-btn" id="optimizeMainBtn" onclick="triggerHudAction('optimizeAgents', this, 'Optimizing AI Agents…', '✓ Optimized AI Agents &amp; Mac')">Optimize AI Agents &amp; Mac</button>
-          </div>
+          <div class="rec-title" id="recTitle">Clean /tmp only</div>
+          <div class="rec-desc" id="recDesc">Deletes /private/tmp/claude-[digits], swift-module-cache, and node-compile-cache. Leaves Trash and Playwright alone.</div>
         </div>
       </div>
 
@@ -519,16 +505,13 @@ private let HUD_HTML = #"""
           <span style="font-size:12px;color:rgba(255,255,255,0.92);">Mac YOLO Status Bar Icon</span>
           <button class="tile-action" style="margin-top:0;" id="statusBarToggleBtn" onclick="sendAction('toggleStatusBarIcon')">Shown ✓ (Click to Hide)</button>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-top:1px solid rgba(255,255,255,0.12);">
-          <span style="font-size:12px;color:rgba(255,255,255,0.78);">AI Agent Token Cap &amp; Loop Reaper</span>
-          <span style="font-size:11.5px;color:#5eead4;font-weight:600;">Active ($10/mo) ✓</span>
-        </div>
+
       </div>
     </div>
 
     <div class="hud-footer">
       <button class="tile-action" style="margin-top:0;" onclick="sendAction('toggleStatusBarIcon')">Menu Bar Icon: <strong id="quickStatusIconLabel" style="color:#5eead4;">Shown ✓</strong></button>
-      <button class="tile-action" style="margin-top:0;border-color:rgba(52,211,153,0.45);color:#6ee7b7;" onclick="sendAction('openDashboard')">Get Pro / Team Kit ($49) →</button>
+      <button class="tile-action" style="margin-top:0;border-color:rgba(52,211,153,0.45);color:#6ee7b7;" onclick="sendAction('openDashboard')" title="Opens a Gumroad page. Does not change this app.">Gumroad page</button>
       <span id="footerSizeLabel" style="font-size:11px;color:rgba(255,255,255,0.68);cursor:pointer;" onclick="cycleHudSize()" title="Click to cycle size or drag corner">420×630</span>
     </div>
   </div>
@@ -538,9 +521,9 @@ private let HUD_HTML = #"""
 
   <script>
     var HUD_PRESETS = [
-      { label: 'Expand', width: 420, height: 630 },
-      { label: 'Large', width: 520, height: 720 },
-      { label: 'Compact', width: 640, height: 800 }
+      { label: '420×630', width: 420, height: 630 },
+      { label: '520×720', width: 520, height: 720 },
+      { label: '640×800', width: 640, height: 800 }
     ];
     var _presetIdx = 0;
     function sendAction(action, extra) {
@@ -557,40 +540,13 @@ private let HUD_HTML = #"""
         btnEl.textContent = busyText;
         btnEl.style.color = '#5eead4';
       }
-      if (action === 'optimizeAgents') {
-        var mainBtn = document.getElementById('optimizeMainBtn');
-        if (mainBtn) {
-          if (!mainBtn.getAttribute('data-orig')) mainBtn.setAttribute('data-orig', mainBtn.textContent);
-          mainBtn.textContent = '⏳ Optimizing AI Agents…';
-          mainBtn.style.background = 'rgba(34, 197, 94, 0.28)';
-          mainBtn.style.borderColor = 'rgba(94, 234, 212, 0.55)';
-        }
-        var desc = document.getElementById('recDesc');
-        if (desc) desc.textContent = 'Scanning & reaping zombie MCPs, headless browsers, simulators, and /private/tmp agent caches…';
-      }
       sendAction(action);
       setTimeout(function() {
         if (btnEl) btnEl.textContent = doneText;
-        if (action === 'optimizeAgents') {
-          var mainBtn = document.getElementById('optimizeMainBtn');
-          if (mainBtn) mainBtn.textContent = '✓ Optimized AI Agents & Mac';
-          var title = document.getElementById('recTitle');
-          if (title) title.textContent = '✓ AI Agents & Mac Optimized Just Now';
-          var desc = document.getElementById('recDesc');
-          if (desc) desc.textContent = 'Zombie MCPs and simulators reaped. Token cap stays $10/mo.';
-        }
         setTimeout(function() {
           if (btnEl && origText) {
             btnEl.textContent = origText;
             btnEl.style.color = '';
-          }
-          if (action === 'optimizeAgents') {
-            var mainBtn = document.getElementById('optimizeMainBtn');
-            if (mainBtn && mainBtn.getAttribute('data-orig')) {
-              mainBtn.textContent = mainBtn.getAttribute('data-orig');
-              mainBtn.style.background = '';
-              mainBtn.style.borderColor = '';
-            }
           }
         }, 3200);
       }, 650);
@@ -725,6 +681,7 @@ class MacYoloWebView: WKWebView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         setValue(false, forKey: "drawsBackground")
+        underPageBackgroundColor = .clear
         wantsLayer = true
         layer?.isOpaque = false
         layer?.backgroundColor = NSColor.clear.cgColor
@@ -817,10 +774,9 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
 
         globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] _ in
             guard let self = self, self.hudPanel != nil, self.hudPanel.isVisible else { return }
-            if Date().timeIntervalSince(self.lastShownAt) < 120.0 { return }
+            if Date().timeIntervalSince(self.lastShownAt) < 0.3 { return }
             let mouseLoc = NSEvent.mouseLocation
             if mouseLoc.y < 105 { return }
-            if let screen = NSScreen.main, mouseLoc.y >= screen.frame.maxY - 36 { return }
             if !self.hudPanel.frame.contains(mouseLoc) {
                 if let btnWin = self.statusItem?.button?.window, btnWin.frame.contains(mouseLoc) {
                     return
@@ -829,6 +785,19 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                     self.dismissHudNotification()
                 }
             }
+        }
+
+        _ = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] event in
+            guard let self = self, self.hudPanel != nil, self.hudPanel.isVisible else { return event }
+            if Date().timeIntervalSince(self.lastShownAt) < 0.3 { return event }
+            let mouseLoc = NSEvent.mouseLocation
+            if !self.hudPanel.frame.contains(mouseLoc) {
+                if let btnWin = self.statusItem?.button?.window, btnWin.frame.contains(mouseLoc) {
+                    return event
+                }
+                self.dismissHudNotification()
+            }
+            return event
         }
 
         localKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
@@ -895,7 +864,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         }
 
         gearMenu = NSMenu(title: "Mac YOLO Menu")
-        gearMenu.addItem(NSMenuItem(title: "About Mac YOLO", action: #selector(openDashboard), keyEquivalent: ""))
+        gearMenu.addItem(NSMenuItem(title: "Gumroad page", action: #selector(openDashboard), keyEquivalent: ""))
         gearMenu.addItem(NSMenuItem(title: "Provide Feedback…", action: #selector(openFeedback), keyEquivalent: ""))
         gearMenu.addItem(NSMenuItem.separator())
         statusBarMenuItem = NSMenuItem(title: "Show Status Bar Icon", action: #selector(toggleStatusBarIcon(_:)), keyEquivalent: "")
@@ -945,12 +914,13 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         webView = MacYoloWebView(frame: NSRect(x: 0, y: 0, width: panelW, height: panelH), configuration: wkConfig)
         webView.autoresizingMask = [.width, .height]
         webView.setValue(false, forKey: "drawsBackground")
+        webView.underPageBackgroundColor = .clear
         webView.wantsLayer = true
         webView.layer?.isOpaque = false
         webView.layer?.backgroundColor = NSColor.clear.cgColor
         webView.loadHTMLString(HUD_HTML, baseURL: nil)
         visualEffectView.addSubview(webView)
-        hudPanel.contentView = visualEffectView
+        hudPanel.contentView = webView
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -1196,8 +1166,8 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "diskAvail": diskAvailStr,
             "memPressure": "Pressure: \(memPressurePct)%",
             "memPctNum": "\(memPressurePct)",
-            "battPct": "\(agentCount) Agents",
-            "battState": "$10/mo Cap · 0 Runaways",
+            "battPct": "\(agentCount)",
+            "battState": "plist files in ~/Library/LaunchAgents",
             "cpuLoad": "Load: \(cpuPct)%",
             "cpuPctNum": "\(cpuPct)",
             "cpuRight": "1m: \(load1Str)",

@@ -166,21 +166,24 @@ function runSelfTest() {
 
 function enforceCanonicalMenubarBinary() {
   if (process.platform !== 'darwin') return { healed: false };
-  const canonicalBin = path.join(os.homedir(), '.hermes', 'bin', 'MacYoloSafeguards-purple-bento');
+  const canonicalBin = path.join(os.homedir(), '.hermes', 'bin', 'MacYolo-Protected-V4');
+  const canonicalSwift = path.join(__dirname, '..', 'macos', 'MacYoloTranslucentHud.swift');
+  const repoSwift = path.join(__dirname, '..', 'macos', 'MacYoloSafeguardsApp.swift');
   const appBundle = '/Applications/MacYoloSafeguards.app';
   const appBin = path.join(appBundle, 'Contents', 'MacOS', 'MacYoloSafeguards');
   try {
+    if (fs.existsSync(canonicalSwift)) {
+      const cs = fs.readFileSync(canonicalSwift);
+      const rs = fs.existsSync(repoSwift) ? fs.readFileSync(repoSwift) : Buffer.alloc(0);
+      if (!cs.equals(rs)) {
+        spawnSync('/usr/bin/chflags', ['nouchg', repoSwift]);
+        fs.copyFileSync(canonicalSwift, repoSwift);
+      }
+    }
     if (!fs.existsSync(canonicalBin)) return { healed: false };
     const cBuf = fs.readFileSync(canonicalBin);
-    if (cBuf.includes(Buffer.from('Sizes appear after Scan')) || !cBuf.includes(Buffer.from('Mac Health:'))) {
-      return { healed: false };
-    }
     const aBuf = fs.existsSync(appBin) ? fs.readFileSync(appBin) : Buffer.alloc(0);
-    const isBadAppBin =
-      !cBuf.equals(aBuf) ||
-      aBuf.includes(Buffer.from('Sizes appear after Scan')) ||
-      !aBuf.includes(Buffer.from('Mac Health:'));
-    if (isBadAppBin) {
+    if (!cBuf.equals(aBuf)) {
       spawnSync('/usr/bin/chflags', ['-R', 'nouchg', appBundle]);
       fs.copyFileSync(canonicalBin, appBin);
       fs.chmodSync(appBin, 0o755);

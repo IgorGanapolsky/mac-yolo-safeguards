@@ -4191,4 +4191,5 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 - `tools/entire-cicd-regression-gate.js`
 - `.github/workflows/intent-check.yml`
 - `tools/mac-yolo-10channel-omnichannel-engine.js`
+- `macos/MacYoloTranslucentHud.swift`
 - `plan.md` (this append)
