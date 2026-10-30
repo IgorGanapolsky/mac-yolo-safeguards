@@ -4254,6 +4254,16 @@ The 29 Oct 2026 Android Studio note and https://developer.android.com/blog/posts
 - `tests/test-android-dev-summit-26-gate.js` (new)
 - `.agents/skills/android-dev-summit-26-gate/SKILL.md` (new)
 - `SKILLS.md` (one registry row)
+## Herdr swarm coordination review (append 2026-10-30) — `grok-herdr-swarm-coordination`
+
+The same prompt can reach several agents. One writer holds the lease. The grade is the lowest plane. An installed Herdr binary, a GitButler binary, or a vault folder is not a score. Study-style rates and token-savings figures are not stored. This slice does not call a model and does not write a capsule.
+
+### File claims
+- `tools/herdr-swarm-coordination-gate.js` (new)
+- `tests/test-herdr-swarm-coordination-gate.js` (new)
+- `docs/HERDR-SWARM-COORDINATION-SOW.md` (new)
+- `.agents/skills/herdr-swarm-coordination-gate/SKILL.md` (new)
+- `SKILLS.md` (one row)
 - `plan.md` (this append)
 
 ## Agent judgment calls (append 2026-10-30) — `grok-agents-judgment-calls`
