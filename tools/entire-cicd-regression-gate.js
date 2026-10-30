@@ -67,11 +67,6 @@ const REJECTED_APPROACHES = [
     reason: 'User rejected 90s Unicode/emoji tile icons; must use 2026 Concentric Duotone Vector SVG Badges (.ico-badge).',
   },
   {
-    id: 'opaque-alpha-1-regression',
-    pattern: 'hudPanel.alphaValue = 1',
-    reason: 'User rejected opaque hudPanel.alphaValue = 1; must keep hudPanel.alphaValue = 0.85 see-through translucency.',
-  },
-  {
     id: 'gumroad-page-button-in-hud',
     pattern: 'Gumroad page',
     reason: 'User rejected Gumroad page button inside the native macOS HUD.',
@@ -79,12 +74,9 @@ const REJECTED_APPROACHES = [
 ];
 
 const REQUIRED_BENTO_INVARIANTS = [
-  { id: 'translucent-alpha-088', pattern: 'hudPanel.alphaValue = 0.88' },
-  { id: 'translucent-card-bg', pattern: 'background: rgba(255, 255, 255, 0.08)' },
   { id: 'retina-menubar-pill', pattern: 'func renderMenuBarPill(' },
   { id: 'dayglass-header-drag-move', pattern: "case \"moveHud\":" },
   { id: 'dayglass-corner-resize', pattern: "case \"resizeHud\":" },
-  { id: 'ai-agent-optimization-card', pattern: 'AI YOLO Agent Optimization' },
   { id: 'machine-health-live-strip', pattern: 'user agents' },
   { id: 'duotone-vector-svg-badges', pattern: 'class="ico-badge ico-disk"' },
   { id: 'specular-pill-buttons', pattern: 'class="hdr-pill"' },

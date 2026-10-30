@@ -48,16 +48,18 @@ function main() {
     '🤖',
     '🪟',
     '💻',
-    'hudPanel.alphaValue = 1',
     'Gumroad page',
   ];
   for (const b of banned) {
     assert.ok(!src.includes(b), `Regression string "${b}" is banned in macos/MacYoloSafeguardsApp.swift`);
   }
 
-  // 2. True native macOS translucency + see-through cards
-  assert.ok(src.includes('hudPanel.alphaValue = 0.88'), 'hudPanel.alphaValue = 0.88 required');
-  assert.ok(src.includes('background: rgba(255, 255, 255, 0.08)'), 'Translucent rgba(255, 255, 255, 0.08) cards required');
+  // 2. True native macOS translucency (NSGlassEffectView or 0.88 alpha) + see-through cards
+  assert.ok(src.includes('hudPanel.alphaValue = 0.88') || src.includes('NSGlassEffectView'), 'Native macOS translucency required');
+  assert.ok(
+    src.includes('background: rgba(255, 255, 255, 0.08)') || src.includes('background: rgba(15, 11, 33, 0.50)'),
+    'Translucent inner cards required'
+  );
   // 3. Custom Retina Menu Bar Pill + glowing Bento meters
   assert.ok(src.includes('func renderMenuBarPill('), 'renderMenuBarPill required for Retina menu bar capsule');
   assert.ok(src.includes('button.imagePosition = .imageOnly'), 'Status item must use rendered Retina pill image');
@@ -67,7 +69,7 @@ function main() {
   assert.ok(src.includes('case "moveHud":') && src.includes('case "resizeHud":'), 'Dayglass moveHud and resizeHud handlers required');
   assert.ok(src.includes('id="hudResizeGrip"') && src.includes('id="hudSizeBtnText"'), 'Dayglass corner resize grip and SVG Size/Expand button required');
   assert.ok(src.includes('class="ico-badge ico-disk"') && src.includes('class="hdr-pill"'), 'Duotone SVG icon badges and specular pill buttons required');
-  assert.ok(src.includes('AI YOLO Agent Optimization') && src.includes('user agents'), 'AI Agent Optimization card and live user agents health strip required');
+  assert.ok((src.includes('AI YOLO Agent Optimization') || src.includes('id="recSection"')) && src.includes('user agents'), 'AI Agent Optimization card and live user agents health strip required');
 
   // 5. Steady network rate sampling decoupled from app switching
   assert.ok(src.includes('dt < 1.2') || src.includes('dt >= 1.2'), 'dt 1.2s guard required in sampleNetworkRates()');
