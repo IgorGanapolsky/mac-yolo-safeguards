@@ -53,6 +53,12 @@ const SERVER_META = {
     locality: 'local-stdio',
     blastRadius: 'local solver evaluation only',
   },
+  'mac-yolo-safeguards': {
+    scope: 'macOS runaway guard, $10/mo token cap, Spotify Confidence ACTIVE flags, and Supabase/IBM/Tailscale guardrails',
+    secret: 'none (local OS & guardrail telemetry)',
+    locality: 'local-stdio',
+    blastRadius: 'read-only status + optional safe simulator reaper (never touches GUI apps)',
+  },
   thumbgate: {
     scope: 'Lessons recall/capture, product gates (host-dependent)',
     secret: 'host ThumbGate MCP wiring',

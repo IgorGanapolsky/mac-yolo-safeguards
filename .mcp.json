@@ -22,6 +22,11 @@
       "command": "gurobi-mcp",
       "args": [],
       "$comment": "Real gurobipy MCP via ~/.local/bin/gurobi-mcp (size-limited free pip). AE Fabrizio 2026-08-12: free pip first, full trial later."
+    },
+    "mac-yolo-safeguards": {
+      "command": "mac-yolo-mcp",
+      "args": [],
+      "$comment": "Official mac-yolo-safeguards MCP server (health, $10/mo token budget gate, Spotify Confidence ACTIVE flags, Supabase/IBM/Tailscale guardrails, simulator reaper, and commercial catalog)."
     }
   }
 }
