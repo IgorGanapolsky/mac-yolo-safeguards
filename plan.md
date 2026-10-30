@@ -4251,3 +4251,62 @@ The gate from post 2115073742321713223 already measures three axes. The decision
 - `tools/agent-decision-stack.js`
 - `tests/test-decision-stack-confusion.js`
 - `plan.md` (this append)
+
+## Dayglass screen budget (append 2026-10-29T16:10:00Z) — `grok-dayglass-screen-budget`
+
+PR 2217 reads the front window into guard notifications and writes guard events into Dayglass. This slice is the other direction. A Dayglass window `{app_name, window_title}` is a bounded packet. The same window and task skip the decision brief. A new window that passes the confusion gate keeps that window line and does not run RAG, governance, or telemetry. A vague task stays held; the window title is not treated as a file or URL. The gate itself makes no model call. No token-bill percentage is measured here. The comparison in the test is this packet's byte length against the 6000-character graph slice Dayglass used to attach.
+
+### File claims
+- `tools/dayglass-screen-budget.js` (new)
+- `tools/agent-decision-stack.js`
+- `tests/test-dayglass-screen-budget.js` (new)
+- `plan.md` (this append)
+
+## Dayglass screen budget recheck (append 2026-10-29T16:25:00Z) — `grok-dayglass-screen-budget`
+
+An unchanged window no longer returns before the confusion gate. The same window and the same task skip the brief only after the gate proceeds. A new file owner, a vague task, or a blocked pattern manifest still stops the model call. The manifest check does not run RAG or telemetry.
+
+### File claims
+- `tools/dayglass-screen-budget.js`
+- `tools/agent-decision-stack.js`
+- `tests/test-dayglass-screen-budget.js`
+- `plan.md` (this append)
+
+## Tailscale October newsletter gate (append 2026-10-29T16:40:00Z) — `grok-tailscale-newsletter`
+
+October 29, 2026 Tailscale newsletter. The six ideas are named policy blocks that remove byte-identically, sticky connector selection, the Tailworm floor at Tailscale 1.104.4, identity-scoped database access, a personal agent kept off the open web, and attention ranking across side-by-side coding sessions. Open PR 2212 already carries a sample runner for those names. This slice does not edit that runner. A missing version is below the floor. A write needs `lease.expiresAt` in the future. A write keyword that exists only inside a SQL comment is denied. An empty pane list stays empty.
+
+### File claims
+- `tools/tailscale-newsletter-gate.js` (new)
+- `tests/test-tailscale-newsletter-gate.js` (new)
+- `plan.md` (this append)
+
+## Tailscale newsletter gate review (append 2026-10-29T16:45:00Z) — `grok-tailscale-newsletter`
+
+Codex on PR 2219. A support session cannot run an assigning PRAGMA or `PRAGMA optimize`. A query-form `PRAGMA table_info(...)` stays read-only. A block name matches only when the marker ends, so `temp-oncall` and `temp-oncall-2` are separate blocks.
+
+### File claims
+- `tools/tailscale-newsletter-gate.js`
+- `tests/test-tailscale-newsletter-gate.js`
+- `plan.md` (this append)
+
+## ThumbGate product surfaces (append 2026-10-29T16:55:00Z) — `grok-mac-yolo-product`
+
+`GET https://thumbgate.app/api/billing/plan` at 2026-10-29T16:23:03Z returned configured, active, unitAmount 1000, usd, month. That is the $10/month Cloud Continuity price. Cleared revenue stays null. This package is a loopback MCP (`mac-yolo-product`), an HTTP service on 127.0.0.1:47831, and menu-bar source that polls that service. It does not bind any other host, reap processes, or import the unmerged catalog on PR 2212. The menu-bar file is not compiled or installed here.
+
+### File claims
+- `tools/mac-yolo-product.js` (new)
+- `bin/mac-yolo-product` (new)
+- `macos/MacYoloProductApp.swift` (new)
+- `tests/test-mac-yolo-product.js` (new)
+- `docs/MAC-YOLO-PRODUCT.md` (new)
+- `plan.md` (this append)
+
+## GitLab delivery prompts (append 2026-10-29T17:10:00Z) — `grok-gitlab-delivery-prompts`
+
+GitLab's March 4, 2026 post lists ten prompts for review, security, release notes, docs, planning, tests, and pipeline failures: https://about.gitlab.com/blog/10-ai-prompts-to-speed-your-teams-software-delivery/. Open PR 2212 already carries a prompt catalog for those names. This slice does not edit that catalog and does not record their lifecycle percentage. An empty diff is not an approval. A breaking change cannot be filed as a feature note. A false positive needs a reason. A coverage percentage does not clear an untested name. A pipeline cause that is not in the log is not an explanation.
+
+### File claims
+- `tools/gitlab-delivery-prompts-gate.js` (new)
+- `tests/test-gitlab-delivery-prompts-gate.js` (new)
+- `plan.md` (this append)
