@@ -4253,5 +4253,13 @@ The 29 Oct 2026 Android Studio note and https://developer.android.com/blog/posts
 - `tools/android-dev-summit-26-gate.js` (new)
 - `tests/test-android-dev-summit-26-gate.js` (new)
 - `.agents/skills/android-dev-summit-26-gate/SKILL.md` (new)
+## Ultramarine 1 Flash route (append 2026-10-30) — `grok-ultramarine-flash-route`
+
+The 2026-10-30 Paper Instruments note says the Ultramarine 1 Flash weights are on Hugging Face and the existing API keeps working, with Fireworks and Baseten as partners. The weights repo is `paperinstruments/Ultramarine-1-Flash` (320B total, 18B active). The model card states a 1,048,576-token context and a tested local serve command at 262,144 tokens on four B300 GPUs. The training table on that card, and the Feather harness, compact at 131,072. This slice does not download the weights. The route is Paper Instruments, then Fireworks `accounts/fireworks/models/ultramarine-1-flash-us`, then a Baseten https URL. No credential returns `not_configured` and sends nothing. Vendor rate cards stay attached to the provider page they came from.
+
+### File claims
+- `tools/ultramarine-flash-route.js` (new)
+- `tests/test-ultramarine-flash-route.js` (new)
+- `.agents/skills/ultramarine-flash-route/SKILL.md` (new)
 - `SKILLS.md` (one registry row)
 - `plan.md` (this append)
