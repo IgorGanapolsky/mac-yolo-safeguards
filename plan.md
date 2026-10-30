@@ -4253,6 +4253,14 @@ The 29 Oct 2026 Android Studio note and https://developer.android.com/blog/posts
 - `tools/android-dev-summit-26-gate.js` (new)
 - `tests/test-android-dev-summit-26-gate.js` (new)
 - `.agents/skills/android-dev-summit-26-gate/SKILL.md` (new)
+## Agent judgment calls (append 2026-10-30) — `grok-agents-judgment-calls`
+
+Anthropic's 2026 study https://www.anthropic.com/research/agents-judgment-calls found that an expert sign-off can follow an agent's lean, and that the later write-up can repeat the agent's wording. This slice reviews a merge, a send, a spend, or a recommendation before it counts. Both options need a case. The caller records their own prior. A choice that follows the lean needs local evidence. The study's rates are not stored as our measurements. This slice does not edit the judgment calculator on the open swarm pull request, and it does not call a model.
+
+### File claims
+- `tools/agents-judgment-calls-gate.js` (new)
+- `tests/test-agents-judgment-calls-gate.js` (new)
+- `.agents/skills/agents-judgment-calls-gate/SKILL.md` (new)
 - `SKILLS.md` (one registry row)
 - `plan.md` (this append)
 
