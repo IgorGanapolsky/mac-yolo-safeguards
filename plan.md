@@ -4256,6 +4256,18 @@ The 29 Oct 2026 Android Studio note and https://developer.android.com/blog/posts
 - `SKILLS.md` (one registry row)
 - `plan.md` (this append)
 
+## Herdr swarm coordination review (append 2026-10-30) — `grok-herdr-swarm-coordination`
+
+The same prompt can reach several agents. One writer holds the lease. The grade is the lowest plane. An installed Herdr binary, a GitButler binary, or a vault folder is not a score. Study-style rates and token-savings figures are not stored. This slice does not call a model and does not write a capsule.
+
+### File claims
+- `tools/herdr-swarm-coordination-gate.js` (new)
+- `tests/test-herdr-swarm-coordination-gate.js` (new)
+- `docs/HERDR-SWARM-COORDINATION-SOW.md` (new)
+- `.agents/skills/herdr-swarm-coordination-gate/SKILL.md` (new)
+- `SKILLS.md` (one row)
+- `plan.md` (this append)
+
 ## Agent judgment calls (append 2026-10-30) — `grok-agents-judgment-calls`
 
 Anthropic's 2026 study https://www.anthropic.com/research/agents-judgment-calls found that an expert sign-off can follow an agent's lean, and that the later write-up can repeat the agent's wording. This slice reviews a merge, a send, a spend, or a recommendation before it counts. Both options need a case. The caller records their own prior. A choice that follows the lean needs local evidence. The study's rates are not stored as our measurements. This slice does not edit the judgment calculator on the open swarm pull request, and it does not call a model.
@@ -4292,4 +4304,12 @@ A review with no task is still a judgment and stays blocked. A rollout recommend
 - `tools/agents-judgment-calls-gate.js`
 - `tests/test-agents-judgment-calls-gate.js`
 - `.agents/skills/agents-judgment-calls-gate/SKILL.md`
+## Herdr swarm GitHub proof (append 2026-10-30) — `grok-herdr-swarm-coordination`
+
+A coordination task that includes an issue number stays blocked, including when a pull request is also present. The GitHub plane requires that pull request. A public issue does not take its place.
+
+### File claims
+- `tools/herdr-swarm-coordination-gate.js`
+- `tests/test-herdr-swarm-coordination-gate.js`
+- `docs/HERDR-SWARM-COORDINATION-SOW.md`
 - `plan.md` (this append)
