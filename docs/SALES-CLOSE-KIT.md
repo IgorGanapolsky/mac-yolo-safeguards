@@ -98,7 +98,7 @@ Price:
 
 - Diagnostic: $499
 - Hardening sprint: $1,500
-- Partner pilot: $3,000
+- Partner pilot: $3,000 once — https://buy.stripe.com/9B6eVdcqM7DgcSdayn3sJ0Z
 
 Terms:
 
