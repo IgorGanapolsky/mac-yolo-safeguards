@@ -12,10 +12,15 @@
  * macOS cannot name a signal's sender, so this guard does the next best thing:
  *
  *   status     agent processes by kind, process storms, recent kill incidents
- *   clean      stop process storms (dry run unless --execute); live sessions are never touched
+ *   clean      stop process storms and extra copies of orphaned MCP servers (dry run unless
+ *              --execute); live sessions and the MCP servers and hooks they launched are never touched
+ *   pressure   memory pressure verdict; when not normal, the same cleanup (dry run unless --execute).
+ *              The watch loop runs it every minute and cleans up on its own only at critical.
  *   watch      tracer: when 2+ Claude processes vanish in one tick, save what was running,
  *              what had just started, and any pkill/killall calls the shims logged
  *   incidents  list saved kill incidents
+ *   kill-check what the pkill/killall shims ask before every call: exit 3 refuses a kill of a
+ *              live agent, or of anything it launched, from outside that agent's process tree
  *   install    copy itself to ~/.local/share/mac-yolo-safeguards, load the watch LaunchAgent,
  *              and put pkill/killall shims in ~/.local/bin that log callers, then run the real tool
  */
@@ -38,6 +43,12 @@ const STORM_MIN_COPIES = 40;
 const WATCH_INTERVAL_MS = 1000;
 const WATCH_RING_TICKS = 5;
 const MIN_VANISHED = 2;
+const ORPHAN_MIN_AGE_SEC = 600;
+const PRESSURE_CHECK_TICKS = 60;
+const RELIEVE_COOLDOWN_MS = 10 * 60 * 1000;
+const PRESSURE_LOG = path.join(LOG_DIR, 'pressure.jsonl');
+// process.execPath points into a versioned Homebrew Cellar folder that an upgrade deletes.
+const STABLE_NODE = ['/opt/homebrew/bin/node', '/usr/local/bin/node'].find((p) => fs.existsSync(p)) || process.execPath;
 
 // Never signal Electron/Chromium helpers, installed apps, terminals, transports, or local
 // inference. Only apps under /Applications and /System count as apps: Homebrew's Python
@@ -110,12 +121,65 @@ function isProtected(proc) {
   return isLiveAgentProcess(proc.command) || proc.tty !== '??' || NEVER_RE.test(proc.command);
 }
 
-// A storm is one command line running in many copies at once — a wrapper that
-// re-invokes itself, or a retry loop with no backoff. Live sessions never count.
-function findStorms(procs, minCopies = STORM_MIN_COPIES) {
+function indexByPid(procs) {
+  return new Map(procs.map((p) => [p.pid, p]));
+}
+
+// The nearest live agent session above this process, at most maxHops parents up.
+function liveAgentAncestor(proc, byPid, maxHops = Infinity) {
+  let cur = byPid.get(proc.ppid);
+  for (let hops = 1; cur && hops <= maxHops && cur.pid > 1; hops += 1) {
+    if (isLiveAgentProcess(cur.command)) return cur;
+    cur = byPid.get(cur.ppid);
+  }
+  return null;
+}
+
+// MCP servers and hooks a live session launched (directly, or through npx/uvx/a shell).
+// Killing one breaks that session's tools mid-task, so reapers must leave them alone.
+// The 2026-11-01 storm nested hundreds of levels deep, so three hops never reaches it.
+const DEPENDENCY_HOPS = 3;
+function isAgentDependency(proc, byPid) {
+  return Boolean(liveAgentAncestor(proc, byPid, DEPENDENCY_HOPS));
+}
+
+// An MCP server whose session is gone: launchd adopted it (ppid 1) and no LaunchAgent
+// runs it. One copy of each may be a server someone started on purpose with nohup, so
+// only extra copies of the same command line count, and the newest copy is kept.
+function findOrphanMcpServers(procs, { launchdPids = new Set(), minAgeSec = ORPHAN_MIN_AGE_SEC } = {}) {
   const groups = new Map();
   for (const p of procs) {
+    if (p.ppid !== 1 || launchdPids.has(p.pid) || p.ageSec < minAgeSec) continue;
+    if (p.kind !== 'mcp-server' && p.kind !== 'claude-mcp-serve') continue;
     if (isProtected(p)) continue;
+    if (!groups.has(p.command)) groups.set(p.command, []);
+    groups.get(p.command).push(p);
+  }
+  const orphans = [];
+  for (const members of groups.values()) {
+    members.sort((a, b) => a.ageSec - b.ageSec);
+    orphans.push(...members.slice(1));
+  }
+  return orphans;
+}
+
+function launchdJobPids() {
+  try {
+    const out = execFileSync('/bin/launchctl', ['list'], { encoding: 'utf8' });
+    return new Set(out.split('\n').map((l) => Number(l.split('\t')[0])).filter((n) => n > 0));
+  } catch {
+    return new Set();
+  }
+}
+
+// A storm is one command line running in many copies at once — a wrapper that
+// re-invokes itself, or a retry loop with no backoff. Live sessions and the tools
+// they launched never count.
+function findStorms(procs, minCopies = STORM_MIN_COPIES) {
+  const byPid = indexByPid(procs);
+  const groups = new Map();
+  for (const p of procs) {
+    if (isProtected(p) || isAgentDependency(p, byPid)) continue;
     if (!groups.has(p.command)) groups.set(p.command, []);
     groups.get(p.command).push(p);
   }
@@ -151,11 +215,43 @@ function memorySnapshot() {
     }
   };
   const swap = read('vm.swapusage').match(/total = ([\d.]+)M\s+used = ([\d.]+)M/);
+  // os.freemem() counts only never-used pages, which macOS keeps near zero on purpose.
+  // memory_pressure's figure counts what the kernel could hand out right now.
+  let freeMemoryPct = null;
+  try {
+    const out = execFileSync('/usr/bin/memory_pressure', ['-Q'], { encoding: 'utf8', timeout: 5000 });
+    const m = out.match(/free percentage: (\d+)%/);
+    if (m) freeMemoryPct = Number(m[1]);
+  } catch {
+    freeMemoryPct = Number(((os.freemem() / os.totalmem()) * 100).toFixed(1));
+  }
   return {
     pressureLevel: Number(read('kern.memorystatus_vm_pressure_level')) || null,
+    swapUsedMB: swap ? Math.round(Number(swap[2])) : null,
     swapUsedPct: swap ? Math.round((Number(swap[2]) * 100) / Number(swap[1])) : null,
-    freeMemoryPct: Number(((os.freemem() / os.totalmem()) * 100).toFixed(1)),
+    ramMB: Math.round(os.totalmem() / 1048576),
+    freeMemoryPct,
   };
+}
+
+// Pure. The kernel's own verdict leads (1 normal, 2 warn, 4 critical). macOS adds swap
+// files as it needs them and leaves cold pages there, so swap alone is never pressure;
+// it is named as a reason, and only the kernel level or a low free figure raise the level.
+function assessPressure(memory) {
+  const reasons = [];
+  let level = 'normal';
+  const raise = (to, why) => {
+    reasons.push(why);
+    if (to === 'critical' || level === 'normal') level = to;
+  };
+  if (memory.pressureLevel === 4) raise('critical', 'kernel reports critical memory pressure');
+  else if (memory.pressureLevel === 2) raise('warn', 'kernel reports memory pressure warning');
+  if (memory.freeMemoryPct !== null && memory.freeMemoryPct < 10) raise('critical', `only ${memory.freeMemoryPct}% memory free`);
+  else if (memory.freeMemoryPct !== null && memory.freeMemoryPct < 20) raise('warn', `only ${memory.freeMemoryPct}% memory free`);
+  if (memory.swapUsedMB !== null && memory.ramMB && memory.swapUsedMB > memory.ramMB * 0.75) {
+    reasons.push(`${memory.swapUsedMB} MB in swap on ${memory.ramMB} MB of RAM`);
+  }
+  return { level, reasons };
 }
 
 function listIncidents(limit = 10) {
@@ -180,14 +276,32 @@ function listIncidents(limit = 10) {
 }
 
 function status(procs = listProcesses()) {
+  const memory = memorySnapshot();
   return {
     ok: true,
     agents: summarizeAgents(procs),
     storms: findStorms(procs).map(({ pids, ...rest }) => rest),
-    memory: memorySnapshot(),
+    orphanMcpServers: findOrphanMcpServers(procs, { launchdPids: launchdJobPids() }).length,
+    memory,
+    pressure: assessPressure(memory),
     tracer: { running: tracerRunning(), shimsInstalled: shimsInstalled() },
     recentIncidents: listIncidents(5),
   };
+}
+
+function commandOf(pid) {
+  try {
+    return execFileSync('/bin/ps', ['-o', 'command=', '-p', String(pid)], { encoding: 'utf8' }).trim();
+  } catch {
+    return null;
+  }
+}
+
+// A pid can be reused between the scan and the signal. Signal only if it still runs
+// the command we decided to stop.
+function signalIfSame(pid, command) {
+  const now = commandOf(pid);
+  return now !== null && now.startsWith(command.slice(0, 160)) && signal(pid, 'SIGTERM');
 }
 
 function signal(pid, sig) {
@@ -199,18 +313,54 @@ function signal(pid, sig) {
   }
 }
 
-function clean({ execute = false, minCopies = STORM_MIN_COPIES } = {}) {
-  const storms = findStorms(listProcesses(), minCopies);
+// Stops storms and extra copies of orphaned MCP servers. Never apps, terminals, live
+// sessions, or anything a live session launched.
+function clean({ execute = false, minCopies = STORM_MIN_COPIES, procs = listProcesses(), launchdPids = launchdJobPids() } = {}) {
+  const storms = findStorms(procs, minCopies);
+  const orphans = findOrphanMcpServers(procs, { launchdPids });
+  const orphanSummary = orphans.map((p) => ({ pid: p.pid, rssMB: p.rssMB, ageSec: p.ageSec, command: p.command.slice(0, 160) }));
   if (!execute) {
-    return { ok: true, dryRun: true, wouldStop: storms.map(({ pids, ...rest }) => rest) };
+    return { ok: true, dryRun: true, wouldStop: storms.map(({ pids, ...rest }) => rest), wouldStopOrphans: orphanSummary };
   }
   const stopped = storms.map((s) => ({
     command: s.command,
     copies: s.copies,
     rssMB: s.rssMB,
-    signalled: s.pids.filter((pid) => signal(pid, 'SIGTERM')).length,
+    signalled: s.pids.filter((pid) => signalIfSame(pid, s.command)).length,
   }));
-  return { ok: true, dryRun: false, stopped };
+  const stoppedOrphans = orphanSummary.filter((o) => signalIfSame(o.pid, o.command));
+  return { ok: true, dryRun: false, stopped, stoppedOrphans };
+}
+
+function notify(title, message) {
+  try {
+    execFileSync('/usr/bin/osascript', ['-e', `display notification ${JSON.stringify(message)} with title ${JSON.stringify(title)}`], { stdio: 'ignore', timeout: 5000 });
+  } catch {
+    // no GUI session (CI, ssh)
+  }
+}
+
+// What to do under memory pressure: say so, and stop storms and orphaned MCP copies.
+// Apps and live sessions are the person's call, so they are only named, never closed.
+function relieve({ execute = false, memory = memorySnapshot(), procs = listProcesses() } = {}) {
+  const pressure = assessPressure(memory);
+  if (pressure.level === 'normal') return { ok: true, pressure, acted: false };
+  const result = clean({ execute, procs });
+  const biggest = procs
+    .filter((p) => !p.kind && p.tty === '??')
+    .sort((a, b) => b.rssMB - a.rssMB)
+    .slice(0, 3)
+    .map((p) => ({ pid: p.pid, rssMB: p.rssMB, command: p.command.slice(0, 120) }));
+  const entry = { at: new Date().toISOString(), pressure, memory, execute, ...result, biggest };
+  if (execute) {
+    try {
+      fs.mkdirSync(LOG_DIR, { recursive: true });
+      fs.appendFileSync(PRESSURE_LOG, `${JSON.stringify(entry)}\n`);
+    } catch {
+      // logging is best effort
+    }
+  }
+  return { ...entry, acted: true };
 }
 
 // Our own reapers log the pids they signal. If a vanished pid is in one of those
@@ -317,30 +467,126 @@ function watch({ intervalMs = WATCH_INTERVAL_MS, minVanished = MIN_VANISHED } = 
     }
     ring.push(current);
     if (ring.length > WATCH_RING_TICKS) ring.shift();
+    ticks += 1;
+    if (ticks % PRESSURE_CHECK_TICKS === 0 && now - lastRelief >= RELIEVE_COOLDOWN_MS) {
+      const memory = memorySnapshot();
+      const pressure = assessPressure(memory);
+      // The level is bursty: act on critical only when two checks in a row agree.
+      criticalChecks = pressure.level === 'critical' ? criticalChecks + 1 : 0;
+      if (pressure.level !== 'normal') {
+        lastRelief = now;
+        const result = relieve({ execute: criticalChecks >= 2, memory, procs: current });
+        const stopped = (result.stopped || []).reduce((s, x) => s + x.signalled, 0) + (result.stoppedOrphans || []).length;
+        notify('Mac YOLO: memory ' + pressure.level, `${pressure.reasons.join('; ')}${stopped ? `. Stopped ${stopped} runaway processes.` : ''}`);
+        console.log(`${new Date(now).toISOString()} memory ${pressure.level}: ${pressure.reasons.join('; ')}; stopped ${stopped}`);
+      }
+    }
   };
+  let ticks = 0;
+  let lastRelief = 0;
+  let criticalChecks = 0;
   tick();
   setInterval(tick, intervalMs);
 }
 
-function shimScript(realBinary) {
+// The live agent, or the Claude app, that owns this process: the nearest one at or above it.
+function agentOwner(proc, byPid) {
+  for (let cur = proc, hops = 0; cur && cur.pid > 1 && hops < 64; cur = byPid.get(cur.ppid), hops += 1) {
+    if (isLiveAgentProcess(cur.command) || /^\/Applications\/Claude\.app\/Contents\/MacOS\/Claude( |$)/.test(cur.command)) return cur;
+  }
+  return null;
+}
+
+function ancestry(pid, byPid) {
+  const chain = new Set();
+  for (let cur = byPid.get(pid), hops = 0; cur && hops < 64; cur = byPid.get(cur.ppid), hops += 1) chain.add(cur.pid);
+  return chain;
+}
+
+// Pure. A kill from outside an agent's process tree may not touch that agent, or the
+// MCP servers and hooks it launched. 2026-11-01 17:00:55Z: another agent ran
+// `pkill -f "python.*dayglass-mcp"` and took down the Claude app's Dayglass server.
+function decideKill(targetPids, callerPid, byPid) {
+  const callerChain = ancestry(callerPid, byPid);
+  const blocked = [];
+  for (const pid of targetPids) {
+    if (callerChain.has(pid)) continue;
+    const proc = byPid.get(pid);
+    const owner = proc && agentOwner(proc, byPid);
+    if (owner && !callerChain.has(owner.pid)) {
+      blocked.push({ pid, command: proc.command.slice(0, 120), owner: owner.command.slice(0, 120) });
+    }
+  }
+  return { refuse: blocked.length > 0, blocked };
+}
+
+// Pure. What the real pkill or killall would match, as pgrep arguments or killall names.
+function killTargets(tool, args, procs, pgrep) {
+  if (tool === 'pkill') {
+    // pkill's own options: a leading -SIGNAL, and -I (ask first). pgrep takes the rest.
+    const pgrepArgs = args.filter((a, i) => !(i === 0 && /^-(\d+|[A-Z][A-Z0-9]*)$/.test(a)) && a !== '-I');
+    return pgrep(pgrepArgs);
+  }
+  const names = [];
+  let regex = false;
+  for (let i = 0; i < args.length; i += 1) {
+    const a = args[i];
+    if (a === '-m') regex = true;
+    else if (['-u', '-t', '-c', '-s'].includes(a)) i += 1;
+    else if (!a.startsWith('-')) names.push(a);
+  }
+  const exe = (p) => path.basename(p.command.split(' ')[0]);
+  return procs
+    .filter((p) => names.some((n) => (regex ? new RegExp(n).test(exe(p)) : exe(p) === n)))
+    .map((p) => p.pid);
+}
+
+function runPgrep(args) {
+  try {
+    return execFileSync('pgrep', args, { encoding: 'utf8' }).split('\n').map(Number).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+// Called by the shims before every pkill/killall. Exit 0 lets the kill run; 3 refuses it.
+function killCheck(tool, callerPid, args, env = process.env) {
+  if (env.MAC_YOLO_ALLOW_AGENT_KILL === '1') return { refuse: false, blocked: [], override: true };
+  const procs = listProcesses();
+  const byPid = indexByPid(procs);
+  const mine = ancestry(callerPid, byPid);
+  mine.add(process.pid);
+  const targets = killTargets(tool, args, procs, runPgrep).filter((pid) => !mine.has(pid));
+  return decideKill(targets, callerPid, byPid);
+}
+
+function shimScript(realBinary, { logDir = LOG_DIR, guardScript = path.join(INSTALL_DIR, 'mac-yolo-agent-guard.js'), node = STABLE_NODE } = {}) {
+  const tool = path.basename(realBinary);
+  const log = path.join(logDir, 'kill-calls.log');
   return `#!/bin/bash
-# Mac YOLO agent guard shim: when asked to stop agent processes, log who asked,
-# then run the real ${path.basename(realBinary)} with the same arguments.
-case " $* " in
-  *claude*|*Claude*|*node*|*codex*|*cursor*|*python*)
-    {
-      line="$(/bin/date -u +%Y-%m-%dT%H:%M:%SZ) ${path.basename(realBinary)} pid=$$ args=$*"
-      p=$PPID
-      for _ in 1 2 3 4 5 6; do
-        [ -z "$p" ] || [ "$p" = 0 ] && break
-        line="$line <- $p:$(/bin/ps -o command= -p "$p" 2>/dev/null | /usr/bin/cut -c1-160)"
-        p=$(/bin/ps -o ppid= -p "$p" 2>/dev/null | /usr/bin/tr -d ' ')
-      done
-      /bin/mkdir -p "${LOG_DIR}"
-      echo "$line" >> "${SHIM_LOG}"
-    } 2>/dev/null
-    ;;
-esac
+# Mac YOLO agent guard shim: log who asked, refuse to kill a live agent or anything it
+# launched unless the caller is that agent (MAC_YOLO_ALLOW_AGENT_KILL=1 overrides),
+# then run the real ${tool} with the same arguments.
+tool="$(/usr/bin/basename "$0")"
+{
+  line="$(/bin/date -u +%Y-%m-%dT%H:%M:%SZ) $tool pid=$$ args=$*"
+  p=$PPID
+  for _ in 1 2 3 4 5 6; do
+    [ -z "$p" ] || [ "$p" = 0 ] && break
+    line="$line <- $p:$(/bin/ps -o command= -p "$p" 2>/dev/null | /usr/bin/cut -c1-160)"
+    p=$(/bin/ps -o ppid= -p "$p" 2>/dev/null | /usr/bin/tr -d ' ')
+  done
+  /bin/mkdir -p "${logDir}"
+  echo "$line" >> "${log}"
+} 2>/dev/null
+if [ -x "${node}" ] && [ -f "${guardScript}" ]; then
+  verdict="$("${node}" "${guardScript}" kill-check "$tool" $$ "$@" 2>/dev/null)"
+  if [ $? -eq 3 ]; then
+    echo "$(/bin/date -u +%Y-%m-%dT%H:%M:%SZ) REFUSED $tool pid=$$ args=$* $verdict" >> "${log}" 2>/dev/null
+    echo "$tool: refused by Mac YOLO agent guard: a live agent owns a matching process. $verdict" >&2
+    exit 1
+  fi
+fi
 exec ${realBinary} "$@"
 `;
 }
@@ -371,7 +617,7 @@ function plist(scriptPath) {
   <key>Label</key><string>${LAUNCH_LABEL}</string>
   <key>ProgramArguments</key>
   <array>
-    <string>${process.execPath}</string>
+    <string>${STABLE_NODE}</string>
     <string>${scriptPath}</string>
     <string>watch</string>
   </array>
@@ -379,6 +625,8 @@ function plist(scriptPath) {
   <key>KeepAlive</key><true/>
   <key>ProcessType</key><string>Background</string>
   <key>Nice</key><integer>10</integer>
+  <key>LowPriorityIO</key><true/>
+  <key>ThrottleInterval</key><integer>30</integer>
   <key>StandardOutPath</key><string>${path.join(LOG_DIR, 'agent-guard.log')}</string>
   <key>StandardErrorPath</key><string>${path.join(LOG_DIR, 'agent-guard.log')}</string>
 </dict>
@@ -417,11 +665,19 @@ if (require.main === module) {
   const print = (obj) => console.log(JSON.stringify(obj, null, 2));
   if (cmd === 'status') print(status());
   else if (cmd === 'clean') print(clean({ execute: rest.includes('--execute') }));
+  else if (cmd === 'pressure') print(relieve({ execute: rest.includes('--execute') }));
   else if (cmd === 'incidents') print({ ok: true, incidents: listIncidents(20) });
-  else if (cmd === 'watch') watch();
+  else if (cmd === 'kill-check') {
+    const [tool, callerPid, ...args] = rest;
+    const verdict = killCheck(tool, Number(callerPid), args);
+    if (verdict.refuse) {
+      console.log(verdict.blocked.map((b) => `${b.pid} owned by ${b.owner.split(' ')[0]}`).join('; '));
+      process.exit(3);
+    }
+  } else if (cmd === 'watch') watch();
   else if (cmd === 'install') print(install());
   else {
-    console.error('usage: mac-yolo-agent-guard [status|clean [--execute]|incidents|watch|install]');
+    console.error('usage: mac-yolo-agent-guard [status|clean [--execute]|pressure [--execute]|incidents|watch|install]');
     process.exit(2);
   }
 }
@@ -429,6 +685,16 @@ if (require.main === module) {
 module.exports = {
   classify,
   isLiveAgentProcess,
+  isAgentDependency,
+  liveAgentAncestor,
+  indexByPid,
+  findOrphanMcpServers,
+  assessPressure,
+  relieve,
+  signalIfSame,
+  decideKill,
+  killTargets,
+  killCheck,
   reaperHits,
   parsePs,
   findStorms,

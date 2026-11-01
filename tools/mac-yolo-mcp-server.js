@@ -129,11 +129,11 @@ function getToolDefinitions() {
     },
     {
       name: 'yolo_agent_guard',
-      description: 'AI agent processes by kind, process storms (one command in 40+ copies), memory pressure, and saved incidents where several Claude Code processes were killed at once. action=clean stops storms; it is a dry run unless execute=true and never touches live sessions.',
+      description: 'AI agent processes by kind, process storms (one command in 40+ copies), memory pressure, and saved incidents where several Claude Code processes were killed at once. action=clean stops storms and extra copies of orphaned MCP servers; action=pressure gives the memory pressure verdict and, when not normal, the same cleanup. Both are dry runs unless execute=true and never touch live sessions or the MCP servers and hooks they launched.',
       inputSchema: {
         type: 'object',
         properties: {
-          action: { type: 'string', enum: ['status', 'clean', 'incidents'], default: 'status' },
+          action: { type: 'string', enum: ['status', 'clean', 'pressure', 'incidents'], default: 'status' },
           execute: { type: 'boolean', default: false },
         },
       },
@@ -313,6 +313,7 @@ function callTool(name, args = {}) {
   if (name === 'yolo_agent_guard') {
     const agentGuard = require('./mac-yolo-agent-guard');
     if (args.action === 'clean') return agentGuard.clean({ execute: args.execute === true });
+    if (args.action === 'pressure') return agentGuard.relieve({ execute: args.execute === true });
     if (args.action === 'incidents') return { ok: true, incidents: agentGuard.listIncidents(20) };
     return agentGuard.status();
   }

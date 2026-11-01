@@ -28,7 +28,7 @@
  */
 
 const fs = require('fs');
-const { isLiveAgentProcess } = require('./mac-yolo-agent-guard');
+const { isLiveAgentProcess, liveAgentAncestor, indexByPid, parsePs } = require('./mac-yolo-agent-guard');
 const path = require('path');
 const os = require('os');
 const { execFileSync, spawnSync } = require('child_process');
@@ -473,21 +473,29 @@ function isRunawayCommand(cmd) {
   );
 }
 
+// Anything a live session started (its Bash tool running find, a hook, an MCP server)
+// belongs to that session's task, however deep it sits, so it is spared too.
+function runawayPids(procs) {
+  const byPid = indexByPid(procs);
+  return procs
+    .filter((p) => p.pid !== process.pid && isRunawayCommand(p.command) && !liveAgentAncestor(p, byPid))
+    .map((p) => p.pid);
+}
+
 function coolDownFansAndReapRunaways() {
   const reapedPids = [];
   try {
-    const out = execFileSync('/bin/ps', ['-Ao', 'pid,ppid,command'], { encoding: 'utf8', timeout: 4000 });
-    for (const line of out.trim().split('\n').slice(1)) {
-      const m = line.trim().match(/^(\d+)\s+(\d+)\s+(.+)$/);
-      if (!m) continue;
-      const pid = Number(m[1]);
-      if (isRunawayCommand(m[3])) {
-        try {
-          process.kill(pid, 'SIGTERM');
-          reapedPids.push(pid);
-        } catch {
-          /* ignore */
-        }
+    const out = execFileSync('/bin/ps', ['-axo', 'pid=,ppid=,rss=,etime=,tty=,command='], {
+      encoding: 'utf8',
+      timeout: 4000,
+      maxBuffer: 32 * 1024 * 1024,
+    });
+    for (const pid of runawayPids(parsePs(out))) {
+      try {
+        process.kill(pid, 'SIGTERM');
+        reapedPids.push(pid);
+      } catch {
+        /* ignore */
       }
     }
   } catch {
@@ -552,5 +560,6 @@ module.exports = {
   setStatusBarIconVisibility,
   coolDownFansAndReapRunaways,
   isRunawayCommand,
+  runawayPids,
   runFivePillarSmartCare,
 };
