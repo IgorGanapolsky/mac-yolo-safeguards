@@ -1,14 +1,15 @@
 name: Copilot PR review
 
-# High-ROI / Aug 2026: every PR is auto-requested for a Copilot code review at
-# ready-for-review, so review cycles are cut without anyone typing `@copilot review`.
-# Mirrors pr-hygiene.yml conventions (gh CLI, no checkout, per-PR concurrency).
+# Match review depth to the diff: lite for documentation, max for
+# security-sensitive paths, balanced otherwise. The review-request API has
+# no effort field, so the depth is the comment marker. This job is not a
+# required check. Classifier JavaScript runs in a contents:read job. The
+# comment job never executes that file.
 on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
 
 permissions:
-  pull-requests: write
   contents: read
 
 concurrency:
@@ -16,26 +17,124 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  classify-review-effort:
+    name: Classify review effort
+    runs-on: ubuntu-latest
+    outputs:
+      effort: ${{ steps.classify.outputs.effort }}
+      request: ${{ steps.classify.outputs.request }}
+    steps:
+      - name: Checkout pull request (no credentials)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Classify review effort
+        id: classify
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          output_file="${GITHUB_OUTPUT}"
+          if [ -n "${BASE_SHA}" ] && git cat-file -e "${BASE_SHA}:tools/review-effort.js" 2>/dev/null; then
+            git checkout "${BASE_SHA}" -- tools/review-effort.js
+          fi
+          if [ ! -f tools/review-effort.js ]; then
+            echo "classifier missing; not requesting review"
+            printf 'effort=balanced\nrequest=no\n' >> "$output_file"
+            exit 0
+          fi
+          if gh pr view "$PR" --repo "$REPO" --json isDraft --jq '.isDraft' | grep -qx true; then
+            echo "draft PR #$PR — skipping Copilot review request"
+            printf 'effort=balanced\nrequest=no\n' >> "$output_file"
+            exit 0
+          fi
+          if ! gh api --paginate "repos/$REPO/issues/$PR/comments" --jq '.[] | .body | @json' > comment-bodies.jsonl; then
+            echo "could not list comments; treating prior requests as none"
+            : > comment-bodies.jsonl
+          fi
+          unset GH_TOKEN GITHUB_TOKEN ACTIONS_RUNTIME_TOKEN
+          unset GITHUB_OUTPUT GITHUB_ENV GITHUB_PATH GITHUB_STEP_SUMMARY
+          : > changed-files.txt
+          if [ -n "${BASE_SHA}" ] && git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+            git diff --name-only "$BASE_SHA" "$HEAD_SHA" > changed-files.txt
+          else
+            echo "base commit unavailable; classifying with no file list"
+          fi
+          node tools/review-effort.js --files-from changed-files.txt > review-effort.json
+          node tools/review-effort.js --decide review-effort.json comment-bodies.jsonl
+          request="$(tr -d '[:space:]' < request.txt 2>/dev/null || echo no)"
+          effort="$(node -e 'let raw=""; process.stdin.setEncoding("utf8"); process.stdin.on("data",(chunk)=>{ raw += chunk; }); process.stdin.on("end",()=>{ const effort=String((JSON.parse(raw).effort)||""); process.stdout.write(/^(lite|balanced|max)$/.test(effort)?effort:"balanced"); });' < review-effort.json)"
+          case "$request" in
+            yes|no) ;;
+            *) request=no ;;
+          esac
+          case "$effort" in
+            lite|balanced|max) ;;
+            *) effort=balanced; request=no ;;
+          esac
+          printf 'effort=%s\nrequest=%s\n' "$effort" "$request" >> "$output_file"
+
   request-copilot-review:
     name: Request Copilot code review
+    needs: classify-review-effort
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
     steps:
-      - name: Comment @copilot review (deduped)
+      - name: Comment @copilot review
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
+          EFFORT: ${{ needs.classify-review-effort.outputs.effort }}
+          REQUEST: ${{ needs.classify-review-effort.outputs.request }}
         run: |
           set -euo pipefail
-          # Draft PRs are not ready for review; skip silently.
-          if gh pr view "$PR" --repo "$REPO" --json isDraft --jq '.isDraft' | grep -q true; then
-            echo "draft PR #$PR — skipping Copilot review request"; exit 0
+          case "$REQUEST" in
+            yes) ;;
+            *)
+              echo "not commenting on PR #$PR (request=$REQUEST)"
+              exit 0
+              ;;
+          esac
+          case "$EFFORT" in
+            lite|balanced|max) ;;
+            *)
+              echo "refusing unmarked effort"
+              exit 0
+              ;;
+          esac
+          {
+            printf '<!-- review-effort:%s -->\n' "$EFFORT"
+            printf '@copilot review\n\n'
+            printf 'Review depth for this diff: %s.\n' "$EFFORT"
+            printf '%s\n' 'Max is for security-sensitive diffs (workflows, tools/lib, auth, payments, revenue, package pins, path-normalizer).'
+            printf '%s\n' 'Lite is for documentation-only diffs. Balanced is the default.'
+            printf '%s\n' 'The review-request API has no effort field, so this comment is the request.'
+          } > comment.md
+          head -n 1 comment.md | grep -Eq '^<!-- review-effort:(lite|balanced|max) -->$'
+          grep -q '@copilot review' comment.md
+          bytes="$(wc -c < comment.md | tr -d '[:space:]')"
+          test "$bytes" -lt 4000
+          set +e
+          out="$(gh pr comment "$PR" --repo "$REPO" --body-file comment.md 2>&1)"
+          code=$?
+          set -e
+          if [ "$code" -ne 0 ]; then
+            if printf '%s\n' "$out" | grep -q '403'; then
+              echo "comment API returned 403; leaving the check green"
+              exit 0
+            fi
+            printf '%s\n' "$out"
+            exit "$code"
           fi
-          # Avoid duplicate review requests: if any existing comment already asked
-          # Copilot to review this PR, do not post again (prevents double-posting).
-          EXISTING=$(gh api "repos/$REPO/issues/$PR/comments" --jq '.[].body // ""' 2>/dev/null || true)
-          if printf '%s\n' "$EXISTING" | grep -qi '@copilot review'; then
-            echo "Copilot review already requested on PR #$PR"; exit 0
-          fi
-          gh pr comment "$PR" --repo "$REPO" --body "@copilot review"
+          printf '%s\n' "$out"
           echo "requested Copilot code review on PR #$PR"
