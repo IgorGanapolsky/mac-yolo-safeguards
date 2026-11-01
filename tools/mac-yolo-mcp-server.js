@@ -14,6 +14,7 @@
  *   - yolo_token_budget_gate:  $10/mo hard metered token cap + Z.ai GLM-5.3 / local Ollama $0 fallback check
  *   - yolo_reap_simulators:    Safe inspection/reaping of runaway iOS Simulator processes (never touches GUI apps)
  *   - yolo_business_catalog:   5-tier commercial product, license, and instant-checkout catalog
+ *   - yolo_agent_guard:        Agent processes by kind, process storms, storm cleanup, and Claude kill incidents
  */
 
 const os = require('os');
@@ -123,6 +124,17 @@ function getToolDefinitions() {
         properties: {
           clean: { type: 'boolean', default: false },
           notify: { type: 'boolean', default: false },
+        },
+      },
+    },
+    {
+      name: 'yolo_agent_guard',
+      description: 'AI agent processes by kind, process storms (one command in 40+ copies), memory pressure, and saved incidents where several Claude Code processes were killed at once. action=clean stops storms; it is a dry run unless execute=true and never touches live sessions.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          action: { type: 'string', enum: ['status', 'clean', 'incidents'], default: 'status' },
+          execute: { type: 'boolean', default: false },
         },
       },
     },
@@ -298,6 +310,12 @@ function callTool(name, args = {}) {
     };
   }
 
+  if (name === 'yolo_agent_guard') {
+    const agentGuard = require('./mac-yolo-agent-guard');
+    if (args.action === 'clean') return agentGuard.clean({ execute: args.execute === true });
+    if (args.action === 'incidents') return { ok: true, incidents: agentGuard.listIncidents(20) };
+    return agentGuard.status();
+  }
   if (name === 'yolo_disk_smart_scan') {
     const { runDiskSmartScan, runDiskSmartClean } = require('./mac-yolo-disk-guard');
     if (args.clean) {
