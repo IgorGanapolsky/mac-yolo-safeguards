@@ -22,7 +22,7 @@ Public intake: https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?
 ```
 {
   "Partner Pilot": {
-    "url": "https://buy.stripe.com/9B6eVdcqM7DgcSdayn3sJ0Z",
+    "url": "https://buy.stripe.com/fZucN5bmI8HkbO98qf3sI3j",
     "http": 200,
     "ok": true,
     "amount": "3000.00"
