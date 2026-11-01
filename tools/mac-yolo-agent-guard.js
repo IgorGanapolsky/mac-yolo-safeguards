@@ -671,7 +671,7 @@ if (require.main === module) {
     const [tool, callerPid, ...args] = rest;
     const verdict = killCheck(tool, Number(callerPid), args);
     if (verdict.refuse) {
-      console.log(verdict.blocked.map((b) => `${b.pid} owned by ${b.owner.split(' ')[0]}`).join('; '));
+      console.log(verdict.blocked.map((b) => `${b.pid} (${b.command.slice(0, 60)}) belongs to ${b.owner.slice(0, 80)}`).join('; '));
       process.exit(3);
     }
   } else if (cmd === 'watch') watch();
