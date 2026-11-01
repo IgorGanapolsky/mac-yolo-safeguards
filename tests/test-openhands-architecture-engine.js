@@ -61,6 +61,14 @@ function main() {
     ]).pattern,
     'context_window_overflow',
   );
+  assert.strictEqual(
+    detectStuckTrajectory([
+      { action_type: 'edit', action_args: { file: 'a.js' }, observation_status: 'ok', observation: 'one' },
+      { action_type: 'edit', action_args: { file: 'b.js' }, observation_status: 'ok', observation: 'two' },
+      { action_type: 'edit', action_args: { file: 'c.js' }, observation_status: 'ok', observation: 'three' },
+    ]).stuck,
+    false,
+  );
 
   // 3. Head+Tail Condenser
   const events = Array.from({ length: 16 }, (_, i) => ({
@@ -116,6 +124,15 @@ function main() {
     text: 'Measured stranger cash is $0.',
   });
   assert.strictEqual(honestZero.passed, true);
+
+  const fakeChargeId = evaluateWithRubricCritic({
+    has_executable_verification: true,
+    claims_revenue_without_stripe_receipt: false,
+    incomplete_changes: false,
+    asks_user_to_run_manual_command: false,
+    text: 'Received $20. Charge py_testcharge12345678.',
+  });
+  assert.strictEqual(fakeChargeId.passed, false);
 
   const report = runSelfTestAndPersistReceipt();
   assert.strictEqual(report.capabilities.critic_refinement_verified, true);

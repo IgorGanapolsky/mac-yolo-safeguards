@@ -20,7 +20,7 @@
  *      and `factory-watchdog` (deterministic zero-LLM merge gate).
  *   5. Rubric-Supervised Critic with Iterative Refinement (`arxiv:2603.03800` / `agent-canvas/critic.md`):
  *      Scores `success_likelihood` in [0, 1] and detects `incomplete_changes`, `missing_validation`,
- *      `unverified_revenue_claim`, and `babysitting_handoff`. Automatically loops refinement when below threshold.
+ *      `unverified_revenue_claim`, and `babysitting_handoff`. Returns refinement_required when below threshold.
  */
 
 const crypto = require('crypto');
@@ -160,6 +160,11 @@ function resolveTriggeredMicroagents({ touchedPaths = [], promptText = '' }) {
   return matched;
 }
 
+function actionArgsKey(args) {
+  if (args === undefined || args === null) return '';
+  return typeof args === 'string' ? args : JSON.stringify(args);
+}
+
 function eventIsContextOverflow(event) {
   if (!event || typeof event !== 'object') return false;
   const status = String(event.observation_status || '').toLowerCase();
@@ -216,7 +221,7 @@ function detectStuckTrajectory(events = []) {
 
   // Pattern 3: Repeating identical Action + Observation (3x)
   const sigs = tail3.map(
-    (e) => `${e.action_type || ''}:${e.action_args || ''}=>${e.observation_status || ''}:${e.observation_summary || ''}`,
+    (e) => `${e.action_type || ''}:${actionArgsKey(e.action_args)}=>${e.observation_status || ''}:${e.observation_summary || e.observation || ''}`,
   );
   if (sigs[0] && sigs[0] === sigs[1] && sigs[1] === sigs[2]) {
     return {
@@ -228,7 +233,7 @@ function detectStuckTrajectory(events = []) {
 
   // Pattern 4: Alternating A -> B -> A -> B ping-pong cycle
   if (events.length >= 4) {
-    const tail4 = events.slice(-4).map((e) => `${e.action_type}:${e.action_args}`);
+    const tail4 = events.slice(-4).map((e) => `${e.action_type}:${actionArgsKey(e.action_args)}`);
     if (
       tail4[0] === tail4[2] &&
       tail4[1] === tail4[3] &&
@@ -281,6 +286,16 @@ function condenseEventStream(events = [], { keepHead = 2, keepTail = 4, maxEvent
 
   const nextEvents = [...head, condensationEvent, ...tail];
   const condensedChars = serializeLen(nextEvents);
+  if (condensedChars >= rawChars) {
+    return {
+      condensed: false,
+      original_event_count: events.length,
+      retained_event_count: events.length,
+      token_reduction_pct: 0,
+      reduction_basis: 'synthetic_character_length',
+      events,
+    };
+  }
   const reductionPct =
     rawChars > 0 ? Number((((rawChars - condensedChars) / rawChars) * 100).toFixed(1)) : 0;
 
@@ -296,7 +311,6 @@ function condenseEventStream(events = [], { keepHead = 2, keepTail = 4, maxEvent
 }
 
 const POSITIVE_DOLLAR = /\$\s?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?/g;
-const STRIPE_OBJECT_ID = /\b(?:ch|py|pi)_[A-Za-z0-9]{8,}\b/;
 
 function candidateText(candidateOutput) {
   return ['text', 'output', 'message', 'content']
@@ -310,7 +324,6 @@ function textClaimsUnverifiedCash(text) {
   if (/\$\s?149(?:\.00)?[\s\S]{0,48}historical|historical[\s\S]{0,48}\$\s?149(?:\.00)?/i.test(text)) {
     return true;
   }
-  if (STRIPE_OBJECT_ID.test(text)) return false;
   const amounts = text.match(POSITIVE_DOLLAR) || [];
   return amounts.some((raw) => {
     const value = Number(raw.replace(/[$,\s]/g, ''));
@@ -451,7 +464,7 @@ function runSelfTestAndPersistReceipt() {
         criticRefined.success_likelihood === 1.0 &&
         criticUncitedDollar.passed === false &&
         criticHonestZero.passed === true &&
-        criticCitedCharge.passed === true &&
+        criticCitedCharge.passed === false &&
         !JSON.stringify(criticUncitedDollar.detected_issues).includes('149'),
     },
     software_factory: SOFTWARE_FACTORY_PROFILES,
