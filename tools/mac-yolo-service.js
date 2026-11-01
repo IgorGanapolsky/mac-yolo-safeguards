@@ -91,6 +91,10 @@ function routeRequest(method, rawUrl, bodyObj = {}) {
     return { status: 200, body: callTool('yolo_agent_guard', { action: 'incidents' }) };
   }
 
+  if (method === 'GET' && pathname === '/api/agents/pressure') {
+    return { status: 200, body: callTool('yolo_agent_guard', { action: 'pressure' }) };
+  }
+
   if (method === 'POST' && pathname === '/api/agents/clean') {
     return { status: 200, body: callTool('yolo_agent_guard', { action: 'clean', execute: true }) };
   }
@@ -169,7 +173,7 @@ function runSelfTest() {
 
   return {
     ok,
-    endpointsVerified: ['/api/status', '/api/flags?state=ACTIVE', '/api/guardrails', '/api/business', '/api/sdlc-prompts', '/api/observability/revenue', '/api/disk', '/api/agents', '/api/system-care', '/api/sales/wabi', '/api/flags/resolve'],
+    endpointsVerified: ['/api/status', '/api/flags?state=ACTIVE', '/api/guardrails', '/api/business', '/api/sdlc-prompts', '/api/observability/revenue', '/api/disk', '/api/agents', '/api/agents/pressure', '/api/system-care', '/api/sales/wabi', '/api/flags/resolve'],
     activeFlagsCount: flagsRes.body.returnedCount,
     guardrailsOk: guardrailsRes.body.ok,
     businessTiersCount: businessRes.body.tiers.length,
@@ -209,6 +213,29 @@ function enforceCanonicalMenubarBinary() {
   return { healed: false };
 }
 
+// This service starts at every login. A background loop that kills processes once took
+// down every Claude Code session on the Mac, so the loop is off unless
+// MAC_YOLO_SELF_HEAL asks for it: "dry-run" (or "1") only reports what it would stop,
+// "execute" stops it. Either way it goes through the agent guard, which never touches
+// apps, live sessions, or the MCP servers and hooks those sessions launched.
+const SELF_HEAL_INTERVAL_MS = 60000;
+function startSelfHeal({ env = process.env, intervalMs = SELF_HEAL_INTERVAL_MS, log = console.log } = {}) {
+  const raw = String(env.MAC_YOLO_SELF_HEAL || '').trim().toLowerCase();
+  if (!raw || raw === '0' || raw === 'off') return null;
+  const mode = raw === 'execute' ? 'execute' : 'dry-run';
+  const { relieve } = require('./mac-yolo-agent-guard');
+  const timer = setInterval(() => {
+    try {
+      const result = relieve({ execute: mode === 'execute' });
+      if (result.acted) log(`[mac-yolo-service] self-heal ${mode}: memory ${result.pressure.level}`);
+    } catch {
+      /* a failed tick waits for the next one */
+    }
+  }, intervalMs);
+  timer.unref();
+  return { mode, stop: () => clearInterval(timer) };
+}
+
 if (require.main === module) {
   const argv = process.argv.slice(2);
   if (argv.includes('--self-test')) {
@@ -226,14 +253,15 @@ if (require.main === module) {
   const portIdx = argv.indexOf('--port');
   const port = portIdx !== -1 && argv[portIdx + 1] ? Number(argv[portIdx + 1]) : DEFAULT_PORT;
   const server = createServiceServer();
-  // Do not run a periodic killall loop that flashes the HUD on screen
+  const selfHeal = startSelfHeal();
   server.listen(port, '127.0.0.1', () => {
-    console.log(`[mac-yolo-service] listening on http://127.0.0.1:${port}`);
+    console.log(`[mac-yolo-service] listening on http://127.0.0.1:${port} (self-heal: ${selfHeal ? selfHeal.mode : 'off'})`);
   });
 }
 
 module.exports = {
   DEFAULT_PORT,
+  startSelfHeal,
   routeRequest,
   createServiceServer,
   runSelfTest,
