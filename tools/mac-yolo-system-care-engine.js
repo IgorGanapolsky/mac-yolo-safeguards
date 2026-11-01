@@ -28,6 +28,7 @@
  */
 
 const fs = require('fs');
+const { isLiveAgentProcess } = require('./mac-yolo-agent-guard');
 const path = require('path');
 const os = require('os');
 const { execFileSync, spawnSync } = require('child_process');
@@ -460,6 +461,18 @@ function runFivePillarSmartCare(options = {}) {
   };
 }
 
+// Live agent sessions are never runaways. A rule here once matched every Claude Code
+// desktop session by its install path, and each Cool Down Fans pass killed them all
+// (2026-11-01, 10:22-11:03).
+function isRunawayCommand(cmd) {
+  if (isLiveAgentProcess(cmd)) return false;
+  return (
+    cmd.includes('mac-autonomy-self-heal.sh') ||
+    cmd.includes('sync-agent-skills.sh --check') ||
+    (cmd.includes('find /Users/') && cmd.includes('-name'))
+  );
+}
+
 function coolDownFansAndReapRunaways() {
   const reapedPids = [];
   try {
@@ -468,13 +481,7 @@ function coolDownFansAndReapRunaways() {
       const m = line.trim().match(/^(\d+)\s+(\d+)\s+(.+)$/);
       if (!m) continue;
       const pid = Number(m[1]);
-      const cmd = m[3];
-      if (
-        cmd.includes('claude-code/2.1.309') ||
-        cmd.includes('mac-autonomy-self-heal.sh') ||
-        cmd.includes('sync-agent-skills.sh --check') ||
-        (cmd.includes('find /Users/') && cmd.includes('-name'))
-      ) {
+      if (isRunawayCommand(m[3])) {
         try {
           process.kill(pid, 'SIGTERM');
           reapedPids.push(pid);
@@ -544,5 +551,6 @@ module.exports = {
   getStatusBarSettings,
   setStatusBarIconVisibility,
   coolDownFansAndReapRunaways,
+  isRunawayCommand,
   runFivePillarSmartCare,
 };

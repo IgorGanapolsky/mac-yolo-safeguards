@@ -83,6 +83,18 @@ function routeRequest(method, rawUrl, bodyObj = {}) {
     return { status: 200, body: callTool('yolo_disk_smart_scan', { clean: true, notify: true }) };
   }
 
+  if (method === 'GET' && pathname === '/api/agents') {
+    return { status: 200, body: callTool('yolo_agent_guard', { action: 'status' }) };
+  }
+
+  if (method === 'GET' && pathname === '/api/agents/incidents') {
+    return { status: 200, body: callTool('yolo_agent_guard', { action: 'incidents' }) };
+  }
+
+  if (method === 'POST' && pathname === '/api/agents/clean') {
+    return { status: 200, body: callTool('yolo_agent_guard', { action: 'clean', execute: true }) };
+  }
+
   if (method === 'GET' && pathname === '/api/system-care') {
     return { status: 200, body: callTool('yolo_system_care', { clean: false }) };
   }
@@ -157,7 +169,7 @@ function runSelfTest() {
 
   return {
     ok,
-    endpointsVerified: ['/api/status', '/api/flags?state=ACTIVE', '/api/guardrails', '/api/business', '/api/sdlc-prompts', '/api/observability/revenue', '/api/disk', '/api/system-care', '/api/sales/wabi', '/api/flags/resolve'],
+    endpointsVerified: ['/api/status', '/api/flags?state=ACTIVE', '/api/guardrails', '/api/business', '/api/sdlc-prompts', '/api/observability/revenue', '/api/disk', '/api/agents', '/api/system-care', '/api/sales/wabi', '/api/flags/resolve'],
     activeFlagsCount: flagsRes.body.returnedCount,
     guardrailsOk: guardrailsRes.body.ok,
     businessTiersCount: businessRes.body.tiers.length,

@@ -1214,7 +1214,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         case "freeUpDisk", "runSmartScan":
             smartCleanDisk()
         case "freeUpMemory":
-            reapSimulators()
+            freeAgentRam()
         case "optimizeAgents", "coolDownFans":
             coolDownFans()
         case "listUninstallApps":
@@ -1911,6 +1911,18 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
             self?.refreshLiveTelemetry()
         }
+    }
+
+    // Shuts down simulators and stops process storms (one command running in 40+ copies).
+    // Live agent sessions are never touched.
+    @objc func freeAgentRam() {
+        let proc = Process()
+        proc.launchPath = "/opt/homebrew/bin/node"
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        proc.arguments = ["\(home)/workspace/mac-yolo-safeguards/tools/mac-yolo-agent-guard.js", "clean", "--execute"]
+        proc.standardOutput = FileHandle.nullDevice
+        try? proc.run()
+        reapSimulators()
     }
 
     @objc func reapSimulators() {
