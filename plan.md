@@ -19,7 +19,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 ## 1. Task Board
 
-| T-AGENTIC-PATTERN-RECEIPTS-20260826 | Add deterministic minimum-pattern selection receipts for agent tasks | released | codex-agentic-pattern-receipts | `tools/agentic-pattern-selector.js`, `tests/test-agentic-pattern-selector.js`, `tools/agent-decision-stack.js` (pattern receipt integration only), `tests/test-agent-decision-stack.js` (pattern receipt cases only), `.agents/skills/agentic-pattern-selector/**`, `docs/AGENTIC-PATTERN-RECEIPTS.md`, `plan.md` (append only) | GitHub #2143 / merged PR #2147 / Linear AGENT-561; merge `99c680017`; all GitHub checks green and three review threads resolved; root CI-parity 319 pass / 0 fail / 2 documented exclusions; independent review APPROVE; credential-shaped values rejected, valid hashes canonicalized, malformed bytes raw-hashed, invalid UTF-8 rejected, bounded depth/content-free errors/side-effect early stop verified |
+| T-HUD-TRANSLUCENCY-REVEAL-20261102 | Restore native NSVisualEffectView HUD translucency and fix macOS Finder reveal action | done | hermes-agent | `macos/MacYoloTranslucentHud.swift`, `macos/MacYoloSafeguardsApp.swift`, `plan.md` | Verified frosted glass HUD appearance, blur support, and folder/file `NSWorkspace` selection/opening in macOS Sequoia |
 
 | T-AGENT-558-WEBMCP-READINESS-20260826 | Add a fail-closed Chrome WebMCP capability with deterministic manifest linting, isolated runtime probes, confirmation-gated consequential tools, and fleet installation | in_progress | codex-agent-558-webmcp | `.agents/skills/chrome-webmcp/**`, `plan.md` (append only) | GitHub #2137 / Linear AGENT-558; valid read and confirmation-gated write tools pass; unsafe writes and invalid schemas fail; Chrome Stable and Canary runtime probes are machine-readable; unsupported BrowserOS stays on DOM/CDP fallback; strict skill validation and focused tests pass |
 
@@ -4203,3 +4203,17 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 - `tools/mac-yolo-release-cd-engine.js`
 - `tests/test-mac-yolo-release-cd-engine.js`
 - `plan.md` (this append)
+
+## 3. Decisions / Discovered (append-only) — 2026-10-30 — codex-revenue-controls-audit
+
+- BLOCKED T-REVENUE-CONTROLS-AUDIT-20261030. Outcome: verified customer revenue and evidence-backed delivery controls. Next action: obtain the existing owner release for tools/mac-yolo-release-cd-engine.js and tests/test-mac-yolo-release-cd-engine.js before changing them. These files are claimed under omp-supabase-ibm-steals above; no claimed file was edited. Inspection found getObservabilityAndAnalytics returns fixed revenue/visitor/health values with ok:true, which does not establish current production state. Stripe connector exposes test mode only; existing Stripe CLI live read rejected expired authentication. Revenue remains unknown, not zero. Three recent main Actions runs returned success, which does not verify all ten controls. Coordination comment not sent because exact-message authorization is absent.
+
+## 2. File Ownership Map — 2026-10-30 — codex-entire-onboarding
+
+- `.entire/settings.local.json` (local ignored settings only) → codex-entire-onboarding. Scope: private checkpoint destination; preserve disabled automatic uploads. Acceptance: Entire status readback confirms destination and disabled uploads.
+
+- 2026-10-30 codex-entire-onboarding: RELEASED `.entire/settings.local.json` claim. Owner-approved public mirror provider-ready, private checkpoint repository verified, dedicated routing read back, auto uploads disabled, code/commit search works. No application code changed. Session capture on next normal commit and private hosted retrieval remain unverified. Private receipt: Documents/Codex/2026-10-30/entire-research/onboarding-receipt.json.
+
+## 3. Decisions / Discovered (append-only) — 2026-11-01 — hermes-hud-translucency-triage
+
+- BLOCKED T-HUD-TRANSLUCENCY-REGRESSION-20261101. Symptom: Mac YOLO HUD renders as a flat opaque dark plate (no blur/see-through). Root cause (from uncommitted WIP diff vs HEAD e3bb9a63 in macos/MacYoloTranslucentHud.swift + MacYoloSafeguardsApp.swift, both claimed under omp-supabase-ibm-steals): WIP added `hudPlate` (alpha 1, #100c1c), `MacYoloWebView.isOpaque = true`, `drawsBackground = true`, `underPageBackgroundColor/backgroundColor = hudPlate`, `layer.isOpaque = true`, and html/body `background:#100c1c`; HEAD had `isOpaque=false`, `drawsBackground=false`, clear backgrounds over a frozen blurred-desktop layer. /tmp/macyolo-glass.log shows capture works (`ok luma 46`), but the opaque WebView covers the glass layer. Next action for the file owner: restore transparent WebView (isOpaque false, drawsBackground false, clear backgrounds) and keep frozen-glass layer visible; keep `.shell::before` tint <= 0.22. No claimed file edited by this agent.

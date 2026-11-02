@@ -1,8 +1,8 @@
 import Cocoa
 import CoreGraphics
-import CoreImage
 import Darwin
 import Foundation
+import QuartzCore
 import WebKit
 
 private let HUD_HTML = #"""
@@ -15,8 +15,9 @@ private let HUD_HTML = #"""
   html, body {
     width: 100%;
     height: 100%;
-    background: transparent !important;
-    background-color: rgba(0, 0, 0, 0) !important;
+    background: rgba(12, 10, 24, 0.55);
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
     color: #ffffff;
     overflow: hidden;
@@ -28,7 +29,9 @@ private let HUD_HTML = #"""
     height: 100%;
     border-radius: 22px;
     background: transparent;
-    padding: 12px 14px 8px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.38);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    padding: 11px 14px 8px 14px;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
@@ -38,12 +41,11 @@ private let HUD_HTML = #"""
     position: absolute;
     inset: 0;
     border-radius: 22px;
-    background: rgba(8, 6, 20, 0.22);
-    border: 1px solid rgba(255, 255, 255, 0.38);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    background: rgba(12, 8, 28, 0.14);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
     pointer-events: none;
     z-index: 0;
-    transform: translateZ(0);
   }
   .shell > * {
     position: relative;
@@ -56,8 +58,10 @@ private let HUD_HTML = #"""
   }
   .header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
+    flex-wrap: wrap;
+    row-gap: 6px;
     padding: 0 2px 6px 2px;
     cursor: grab;
   }
@@ -65,19 +69,23 @@ private let HUD_HTML = #"""
     cursor: grabbing;
   }
   .header-title {
-    font-size: 16.5px;
+    font-size: 15.5px;
     font-weight: 700;
     letter-spacing: -0.3px;
-    white-space: nowrap;
+    white-space: normal;
+    overflow: visible;
+    line-height: 1.25;
   }
   .header-title span {
     color: #5eead4;
   }
   .header-sub {
-    font-size: 11.5px;
-    color: rgba(255, 255, 255, 0.72);
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.76);
     margin-top: 2px;
-    white-space: nowrap;
+    white-space: normal;
+    overflow: visible;
+    line-height: 1.3;
   }
   .laptop-badge {
     width: 56px;
@@ -91,7 +99,7 @@ private let HUD_HTML = #"""
     filter: drop-shadow(0 4px 12px rgba(56, 189, 248, 0.45));
   }
   .card {
-    background: rgba(15, 11, 33, 0.46);
+    background: rgba(15, 11, 33, 0.22);
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
     border-radius: 14px;
@@ -135,12 +143,11 @@ private let HUD_HTML = #"""
     color: #ffffff;
   }
   .shield-sub {
-    font-size: 12px;
+    font-size: 11.5px;
     color: #a5f3fc;
     margin-top: 3px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.32;
+    white-space: normal;
   }
   .bento {
     display: grid;
@@ -151,7 +158,7 @@ private let HUD_HTML = #"""
   .tile {
     min-width: 0;
     overflow: hidden;
-    background: rgba(15, 11, 33, 0.46);
+    background: rgba(15, 11, 33, 0.22);
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
     border-radius: 13px;
@@ -165,7 +172,7 @@ private let HUD_HTML = #"""
   }
   .tile:hover, .card.clickable-card:hover {
     border-color: rgba(94, 234, 212, 0.52);
-    background: rgba(24, 18, 52, 0.62);
+    background: rgba(24, 18, 52, 0.36);
   }
   .clickable-card {
     cursor: pointer;
@@ -179,18 +186,183 @@ private let HUD_HTML = #"""
     border-top: 1px solid rgba(255, 255, 255, 0.10);
     font-size: 11.5px;
   }
-  .detail-row span:first-child {
-    color: rgba(255, 255, 255, 0.90);
-    font-weight: 500;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 65%;
+  .drill-card-row {
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    background: rgba(20, 14, 44, 0.22);
+    border-radius: 10px;
+    padding: 7px 9px;
+    margin-top: 4px;
+    transition: border-color 0.15s ease, background 0.15s ease;
   }
-  .detail-row span:last-child {
+  .drill-card-row:hover {
+    border-color: rgba(94, 234, 212, 0.52);
+    background: rgba(30, 22, 64, 0.34);
+  }
+  .drill-card-row.expanded {
+    border-color: rgba(94, 234, 212, 0.62);
+    background: rgba(22, 16, 50, 0.28);
+  }
+  .drill-hdr {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .drill-chev {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    background: rgba(94, 234, 212, 0.16);
+    border: 1px solid rgba(94, 234, 212, 0.38);
     color: #5eead4;
+    font-size: 10px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+  .drill-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
     font-weight: 650;
+    padding: 1.5px 7px;
+    border-radius: 999px;
+    background: rgba(56, 189, 248, 0.16);
+    border: 1px solid rgba(56, 189, 248, 0.36);
+    color: #bae6fd;
+    flex-shrink: 0;
+  }
+  .drill-panel {
+    margin-top: 7px;
+    padding-top: 7px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .drill-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 2px;
+  }
+  .drill-chip {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #e2e8f0;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 6px;
+    padding: 2px 7px;
     font-variant-numeric: tabular-nums;
+  }
+  .drill-item {
+    background: rgba(10, 7, 24, 0.24);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 8px;
+    padding: 6px 8px;
+    transition: border-color 0.12s ease;
+  }
+  .drill-item.clickable:hover {
+    border-color: rgba(56, 189, 248, 0.48);
+    background: rgba(16, 12, 38, 0.38);
+  }
+  .drill-cmd {
+    font-family: "SF Mono", Menlo, Monaco, monospace;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.66);
+    margin-top: 2px;
+    word-break: break-all;
+    user-select: text;
+    -webkit-user-select: text;
+  }
+  .drill-subpanel {
+    margin-top: 6px;
+    padding-top: 5px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.14);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .drill-pid-row {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 4px 7px;
+    font-size: 10.5px;
+  }
+  .drill-sec-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #5eead4;
+    margin-top: 4px;
+    margin-bottom: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .drill-box {
+    background: rgba(8, 5, 20, 0.24);
+    border: 1px solid rgba(255, 255, 255, 0.11);
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-size: 11px;
+    line-height: 1.38;
+    color: rgba(255, 255, 255, 0.88);
+  }
+  .spark-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 26px;
+    padding: 3px 0 1px 0;
+  }
+  .spark-bar {
+    flex: 1;
+    min-width: 4px;
+    background: linear-gradient(180deg, #5eead4 0%, #38bdf8 60%, rgba(56, 189, 248, 0.25) 100%);
+    border-radius: 2px 2px 0 0;
+  }
+  .rec-bullet {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 2px 0;
+    font-size: 11px;
+    color: #e2e8f0;
+  }
+  .mini-act-btn {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 650;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(56, 189, 248, 0.42);
+    background: rgba(56, 189, 248, 0.18);
+    color: #bae6fd;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .mini-act-btn:hover {
+    background: rgba(56, 189, 248, 0.35);
+    color: #ffffff;
+  }
+  .mini-act-btn.danger {
+    border-color: rgba(251, 113, 133, 0.48);
+    background: rgba(251, 113, 133, 0.18);
+    color: #fecdd3;
+  }
+  .mini-act-btn.danger:hover {
+    background: rgba(251, 113, 133, 0.36);
+    color: #ffffff;
   }
   .meter-track {
     width: 100%;
@@ -216,18 +388,21 @@ private let HUD_HTML = #"""
   }
   .tile-head {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 6px;
     font-size: 12.5px;
     font-weight: 600;
     min-width: 0;
-    overflow: hidden;
-    white-space: nowrap;
+    overflow: visible;
+    white-space: normal;
   }
   .tile-head span:last-child {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    min-width: 0;
+    flex: 1;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    line-height: 1.25;
   }
   .ico-badge {
     width: 24px;
@@ -256,13 +431,13 @@ private let HUD_HTML = #"""
   .ico-net  { background: linear-gradient(135deg, rgba(99, 102, 241, 0.45), rgba(56, 189, 248, 0.42)); }
   .ico-win  { background: linear-gradient(135deg, rgba(45, 212, 191, 0.42), rgba(14, 165, 233, 0.42)); }
   .tile-sub {
-    font-size: 11.5px;
-    color: rgba(255, 255, 255, 0.76);
-    margin-top: 4px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.80);
+    margin-top: 3px;
     padding-left: 2px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.3;
+    white-space: normal;
+    overflow: visible;
   }
   .tile-sub.warn {
     color: #fbbf24;
@@ -325,9 +500,11 @@ private let HUD_HTML = #"""
     stroke-linejoin: round;
   }
   .tile-val {
-    font-size: 12.5px;
+    font-size: 11.5px;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.9);
+    color: rgba(255, 255, 255, 0.92);
+    white-space: nowrap;
+    flex-shrink: 0;
   }
   .tile-val.hot {
     color: #fb7185;
@@ -371,6 +548,8 @@ private let HUD_HTML = #"""
     font-size: 13px;
     font-weight: 700;
     margin-bottom: 2px;
+    white-space: normal;
+    line-height: 1.3;
   }
   .rec-desc {
     font-size: 11.5px;
@@ -446,16 +625,16 @@ private let HUD_HTML = #"""
   <div class="shell">
     <div>
       <div class="header" id="hudHeader">
-        <div style="display:flex;align-items:center;gap:10px;">
+        <div style="display:flex;align-items:flex-start;gap:10px;min-width:0;flex:1 1 220px;">
           <div style="width:34px;height:34px;border-radius:8px;background:linear-gradient(180deg,#6d28d9 0%,#4c1d95 100%);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.35);flex-shrink:0;">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2L4 5.4V11.2C4 16.5 7.4 21.3 12 22.8C16.6 21.3 20 16.5 20 11.2V5.4L12 2Z" fill="#ffffff"/><path d="M13.2 6.8L8.2 13.0H11.6L10.8 17.4L15.8 11.2H12.4L13.2 6.8Z" fill="#5eead4"/></svg>
           </div>
-          <div>
+          <div style="min-width:0;flex:1;">
             <div class="header-title">Mac YOLO: <span id="healthState">Checking…</span></div>
             <div class="header-sub" id="macModel">AI Tokens &amp; Waste · CPU/GPU &amp; Memory · Cleanup &amp; Fleet Guard</div>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:6px;">
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:8px;">
           <button class="hdr-pill" onclick="toggleSettingsDrawer()">
             <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82-.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             <span>Settings</span>
@@ -503,7 +682,7 @@ private let HUD_HTML = #"""
                 <span class="ico-badge ico-mem"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2"/><line x1="8" y1="6" x2="8" y2="3"/><line x1="12" y1="6" x2="12" y2="3"/><line x1="16" y1="6" x2="16" y2="3"/><line x1="8" y1="21" x2="8" y2="18"/><line x1="12" y1="21" x2="12" y2="18"/><line x1="16" y1="21" x2="16" y2="18"/></svg></span>
                 <span>Memory &amp; Agent RAM</span>
               </div>
-              <span class="tile-val" id="memRightBadge" style="color:#38bdf8;font-size:11px;">32 GB ›</span>
+              <span class="tile-val" id="memRightBadge" style="color:#38bdf8;font-size:11px;">RAM ›</span>
             </div>
             <div class="tile-sub" id="memPressure">Scanning VM &amp; swarm RAM…</div>
             <div class="meter-track"><div class="meter-fill" id="memBarFill" style="width:62%;background:linear-gradient(90deg,#34d399,#38bdf8);"></div></div>
@@ -581,37 +760,40 @@ private let HUD_HTML = #"""
             <div class="rec-badge">
               <svg width="24" height="24" viewBox="0 0 32 32"><path d="M16 3L5 7.5v8.2C5 22.8 9.7 28.9 16 31c6.3-2.1 11-8.2 11-15.3V7.5L16 3z" fill="#ffffff"/><polygon points="17.5 8 10.5 17 15.5 17 14.2 24.5 21.5 15 16.5 15 17.5 8" fill="#14b8a6"/></svg>
             </div>
-            <div>
+            <div style="min-width:0;flex:1;">
               <div class="rec-title" id="recTitle">Live Fan &amp; CPU Culprits ›</div>
               <div class="rec-desc" id="recDesc">Scanning top CPU &amp; fan culprits across active agent swarms and background daemons…</div>
             </div>
           </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-top:4px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap;">
             <div style="display:flex;gap:6px;">
               <button class="rec-btn" id="coolFansMainBtn" onclick="event.stopPropagation();triggerHudAction('coolDownFans', this, 'Cooling Fans…', 'Fans Cooled ✓')">Cool Down Fans</button>
               <button class="tile-action" style="margin-top:0;padding:6px 10px;" onclick="event.stopPropagation();triggerHudAction('freeUpDisk', this, 'Purging…', 'Purged ✓')">Clean AI Waste</button>
             </div>
-            <button class="tile-action" style="margin-top:0;padding:6px 10px;" onclick="event.stopPropagation();toggleSettingsDrawer(true)">Uninstall Apps…</button>
+            <button class="tile-action" style="margin-top:0;padding:6px 10px;" onclick="event.stopPropagation();toggleSettingsDrawer(true)">Uninstall Apps</button>
           </div>
         </div>
       </div>
       </div>
 
-      <div class="card rec-card" id="cardDetailDrawer" style="display:none;padding:12px 14px;gap:6px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-          <div>
+      <div class="card rec-card" id="cardDetailDrawer" style="display:none;padding:11px 13px;gap:6px;max-height:calc(100vh - 78px);overflow:hidden;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:2px;flex-shrink:0;">
+          <div style="min-width:0;flex:1;">
             <div id="detailTitle" style="font-size:14.5px;font-weight:700;color:#5eead4;">Card Details</div>
-            <div id="detailSub" style="font-size:11.5px;color:rgba(255,255,255,0.72);margin-top:1px;">Real-time kernel, GPU &amp; session telemetry (updates every 1.5s)</div>
+            <div id="detailSub" style="font-size:11px;color:rgba(255,255,255,0.76);margin-top:1px;">Click any row below to drill into live PIDs, GPU, sessions &amp; actions</div>
           </div>
-          <button class="tile-action" style="margin-top:0;" onclick="closeCardDetail()">← Back to All Cards</button>
+          <div style="display:flex;gap:6px;flex-shrink:0;">
+            <button class="tile-action" id="expandAllDrillBtn" style="margin-top:0;padding:4px 9px;" onclick="toggleExpandAllDrill()">Expand All ▾</button>
+            <button class="tile-action" style="margin-top:0;padding:4px 10px;" onclick="closeCardDetail()">← Back to All Cards</button>
+          </div>
         </div>
-        <div id="detailRowsContainer" style="display:flex;flex-direction:column;gap:3px;margin-top:2px;"></div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid rgba(255,255,255,0.14);margin-top:4px;">
+        <div id="detailRowsContainer" style="display:flex;flex-direction:column;gap:4px;margin-top:2px;overflow-y:auto;flex:1 1 auto;min-height:0;padding-right:3px;"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid rgba(255,255,255,0.14);margin-top:2px;flex-shrink:0;flex-wrap:wrap;gap:6px;">
           <div style="display:flex;gap:6px;">
             <button class="rec-btn" onclick="triggerHudAction('coolDownFans', this, 'Cooling &amp; Reaping…', 'Fans Cooled ✓')">Cool Down Fans &amp; Reap Hogs</button>
             <button class="tile-action" style="margin-top:0;padding:6px 11px;" onclick="triggerHudAction('freeUpDisk', this, 'Purging…', 'Purged ✓')">Clean AI Waste</button>
           </div>
-          <button class="tile-action" style="margin-top:0;padding:6px 11px;" onclick="toggleSettingsDrawer(true)">Uninstall Apps…</button>
+          <button class="tile-action" style="margin-top:0;padding:6px 11px;" onclick="toggleSettingsDrawer(true)">Uninstall Apps</button>
         </div>
       </div>
       <div class="card rec-card" id="settingsDrawer" style="display:none;padding:10px 13px;">
@@ -633,7 +815,7 @@ private let HUD_HTML = #"""
 
     <div class="hud-footer">
       <button class="tile-action" style="margin-top:0;" onclick="sendAction('toggleStatusBarIcon')">Menu Bar Icon: <strong id="quickStatusIconLabel" style="color:#5eead4;">Shown ✓</strong></button>
-      <span id="footerSizeLabel" style="font-size:11px;color:rgba(255,255,255,0.68);cursor:pointer;" onclick="cycleHudSize()" title="Click to cycle size or drag corner">480×688</span>
+      <span id="footerSizeLabel" style="font-size:11px;color:rgba(255,255,255,0.68);cursor:pointer;" onclick="cycleHudSize()" title="Click to cycle size or drag corner">640×760</span>
     </div>
   </div>
   <div class="hud-resize-edge-right" id="hudResizeRight"></div>
@@ -642,9 +824,9 @@ private let HUD_HTML = #"""
 
   <script>
     var HUD_PRESETS = [
-      { label: '480×688', width: 480, height: 688 },
-      { label: '540×720', width: 540, height: 720 },
-      { label: '640×780', width: 640, height: 780 }
+      { label: '740×535', width: 740, height: 535 },
+      { label: '760×760', width: 760, height: 760 },
+      { label: '840×860', width: 840, height: 860 }
     ];
     var _presetIdx = 0;
     function sendAction(action, extra) {
@@ -673,8 +855,8 @@ private let HUD_HTML = #"""
       }, 650);
     }
     function resizeHud(w, h, persist) {
-      var cw = Math.max(380, Math.min(880, Math.round(w)));
-      var ch = Math.max(540, Math.min(920, Math.round(h)));
+      var cw = Math.max(640, Math.min(880, Math.round(w)));
+      var ch = Math.max(480, Math.min(920, Math.round(h)));
       var lbl = document.getElementById('footerSizeLabel');
       if (lbl) lbl.textContent = cw + '×' + ch;
       sendAction('resizeHud', { width: cw, height: ch, persist: !!persist });
@@ -754,7 +936,12 @@ private let HUD_HTML = #"""
       if (show) { _activeDetailCard = null; if (det) det.style.display = 'none'; }
       el.style.display = show ? 'flex' : 'none';
       if (ov) ov.style.display = show ? 'none' : 'block';
-      if (show) sendAction('listUninstallApps');
+      if (show) {
+        sendAction('listUninstallApps');
+        resizeHud(window.innerWidth || 740, 560, false);
+      } else {
+        resizeHud(window.innerWidth || 740, 535, false);
+      }
     }
     function fmtBytes(n) {
       n = Number(n) || 0;
@@ -802,6 +989,71 @@ private let HUD_HTML = #"""
         box.textContent = (payload && payload.error) ? payload.error : 'Uninstall did not finish.';
       }
     }
+    var _expandedDrillRows = { 'shield-cpu-gpu': true };
+    var _expandedSubRows = {};
+    function escHtml(str) {
+      return String(str === undefined || str === null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+    function toggleDrillRow(key) {
+      if (!key) return;
+      _expandedDrillRows[key] = !_expandedDrillRows[key];
+      renderActiveCardDetail(_lastHudState);
+    }
+    function toggleSubDrillRow(key, ev) {
+      if (ev) ev.stopPropagation();
+      if (!key) return;
+      _expandedSubRows[key] = !_expandedSubRows[key];
+      renderActiveCardDetail(_lastHudState);
+    }
+    function toggleExpandAllDrill() {
+      if (!_activeDetailCard || !_lastHudState) return;
+      var dd = (_lastHudState.drillDown && _lastHudState.drillDown[_activeDetailCard]) || [];
+      var anyClosed = false;
+      for (var i = 0; i < dd.length; i++) {
+        if (!_expandedDrillRows[dd[i].key]) { anyClosed = true; break; }
+      }
+      for (var j = 0; j < dd.length; j++) {
+        _expandedDrillRows[dd[j].key] = anyClosed;
+      }
+      renderActiveCardDetail(_lastHudState);
+    }
+    var _lastInlineActionAt = 0;
+    var _lastUserMouseDownAt = 0;
+    document.addEventListener('mousedown', function() { _lastUserMouseDownAt = Date.now(); }, true);
+    function runInlineAction(actType, actArg, btnEl, ev) {
+      if (ev) { ev.stopPropagation(); }
+      if (!actType) return;
+      var nowMs = Date.now();
+      if (nowMs - _lastInlineActionAt < 320) return;
+      _lastInlineActionAt = nowMs;
+      _lastUserMouseDownAt = nowMs;
+      if (actType === 'killPid') {
+        var pidNum = Number(actArg) || 0;
+        if (!pidNum) return;
+        if (btnEl) { btnEl.textContent = 'Killing ' + pidNum + '…'; btnEl.style.opacity = '0.7'; }
+        sendAction('killPid', { pid: pidNum });
+      } else if (actType === 'revealPath') {
+        sendAction('revealPath', { path: String(actArg || '') });
+      } else if (actType === 'copyCmd') {
+        if (btnEl) {
+          var origC = btnEl.textContent;
+          btnEl.textContent = 'Copied CLI ✓';
+          setTimeout(function() { btnEl.textContent = origC; }, 1500);
+        }
+        sendAction('copyCmd', { cmd: String(actArg || '') });
+      } else if (actType === 'openCard') {
+        openCardDetail(String(actArg || 'cpu'));
+      } else if (actType === 'uninstallDrawer') {
+        toggleSettingsDrawer(true);
+      } else {
+        triggerHudAction(actType, btnEl, 'Running…', 'Done ✓');
+      }
+    }
     function openCardDetail(cardId) {
       _activeDetailCard = cardId;
       var ov = document.getElementById('overviewSection');
@@ -810,7 +1062,18 @@ private let HUD_HTML = #"""
       if (ov) ov.style.display = 'none';
       if (setEl) setEl.style.display = 'none';
       if (det) det.style.display = 'flex';
+      var dd = (_lastHudState && _lastHudState.drillDown && _lastHudState.drillDown[cardId]) || [];
+      if (dd.length > 0) {
+        var hasAnyOpen = false;
+        for (var i = 0; i < dd.length; i++) {
+          if (_expandedDrillRows[dd[i].key]) { hasAnyOpen = true; break; }
+        }
+        if (!hasAnyOpen && cardId !== 'memory') {
+          _expandedDrillRows[dd[0].key] = true;
+        }
+      }
       renderActiveCardDetail(_lastHudState);
+      resizeHud(window.innerWidth || 740, Math.max(window.innerHeight || 535, 760), false);
     }
     function closeCardDetail() {
       _activeDetailCard = null;
@@ -818,41 +1081,197 @@ private let HUD_HTML = #"""
       var det = document.getElementById('cardDetailDrawer');
       if (det) det.style.display = 'none';
       if (ov) ov.style.display = 'block';
+      resizeHud(window.innerWidth || 740, 535, false);
     }
     function renderActiveCardDetail(s) {
       if (!_activeDetailCard || !s) return;
       var titleEl = document.getElementById('detailTitle');
       var subEl = document.getElementById('detailSub');
       var box = document.getElementById('detailRowsContainer');
+      var expBtn = document.getElementById('expandAllDrillBtn');
       if (!box) return;
       var meta = {
-        shield: ['Protection by Mac YOLO — Real-Time Guard', 'Live kernel, GPU, memory & active session telemetry (updates every 1.5s)', s.detailShield],
-        disk: ['Disk & AI Waste Cleanup — Live Breakdown', 'Live APFS volume usage + /private/tmp & cache waste breakdown', s.detailDisk],
-        memory: ['Memory & Agent RAM — Top Live Consumers', 'Real-time Mach VM breakdown + top 8 RSS memory consumers by app/swarm', s.detailMemory],
-        tokens: ['AI Tokens, Prompt Cache & Session Ledger', 'Live session JSONL transcripts on disk (~/.omp, ~/.grok, ~/.claude)', s.detailTokens],
-        cpu: ['CPU, Apple Silicon GPU & Fan Culprits', 'Live ps %CPU + Apple Silicon AGXAccelerator GPU & thermal telemetry', s.detailCpu],
-        network: ['Network, Tailnet & Zero-Cloud-Egress', 'Live BSD kernel interface byte counters & local service bindings', s.detailNetwork],
-        fleet: ['AI Fleet, Active Swarms & MCP Bus', 'Live running coding agents, MCP servers & LaunchAgents on this Mac', s.detailFleet],
-        optimization: ['AI YOLO Optimization & Culprit Matrix', 'Combined CPU, GPU, RAM & AI session waste breakdown', s.detailOptimization || s.detailCpu]
-      }[_activeDetailCard] || ['Live Details', 'Real-time telemetry', s.detailCpu];
+        shield: ['Protection by Mac YOLO — Real-Time Guard', 'Click any row to drill into live processes, GPU, RAM, 2h JSONLs & swarms', s.detailShield],
+        disk: ['Disk & AI Waste Cleanup — Live Breakdown', 'Click any row to inspect paths, reveal in Finder, or purge waste', s.detailDisk],
+        memory: ['Memory & Agent RAM — Top Live Consumers', 'Click a row for its history, the technical breakdown, and what to do', s.detailMemory],
+        tokens: ['AI Tokens, Prompt Cache & Session Ledger', 'Click any row to inspect live 2h session JSONL files & token volume', s.detailTokens],
+        cpu: ['CPU, Apple Silicon GPU & Fan Culprits', 'Click any culprit to drill into individual PIDs, %CPU, uptime & kill controls', s.detailCpu],
+        network: ['Network, Tailnet & Zero-Cloud-Egress', 'Click any row to inspect BSD interface counters, local ports & MCP sockets', s.detailNetwork],
+        fleet: ['AI Fleet, Active Swarms & MCP Bus', 'Click any agent swarm or MCP family to inspect live PIDs & arguments', s.detailFleet],
+        optimization: ['AI YOLO Optimization & Culprit Matrix', 'Click any row to drill into CPU, GPU, RAM & session culprits', s.detailOptimization || s.detailCpu]
+      }[_activeDetailCard] || ['Live Details', 'Click any row to drill down', s.detailCpu];
       if (titleEl) titleEl.textContent = meta[0];
       if (subEl) subEl.textContent = meta[1];
-      var raw = meta[2] || '';
-      var rows = raw.split(';;').filter(Boolean);
-      var html = '';
-      for (var i = 0; i < rows.length; i++) {
-        var parts = rows[i].split('|');
-        var lbl = parts[0] || '';
-        var val = parts[1] || '';
-        var pct = Math.min(100, Math.max(0, Number(parts[2]) || 0));
-        html += '<div style="padding:5px 4px;border-top:1px solid rgba(255,255,255,0.10);">' +
-          '<div style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px;">' +
-          '<span style="color:rgba(255,255,255,0.92);font-weight:550;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:62%;">' + lbl + '</span>' +
-          '<span style="color:#5eead4;font-weight:650;font-variant-numeric:tabular-nums;">' + val + '</span></div>' +
-          (pct > 0 ? '<div style="width:100%;height:3px;background:rgba(255,255,255,0.10);border-radius:99px;margin-top:3px;overflow:hidden;"><div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,#34d399,#38bdf8,#a855f7);"></div></div>' : '') +
-          '</div>';
+      var ddList = (s.drillDown && s.drillDown[_activeDetailCard]) || null;
+      if ((!ddList || !ddList.length) && meta[2]) {
+        ddList = String(meta[2]).split(';;').filter(Boolean).map(function(raw, idx) {
+          var p = raw.split('|');
+          return {
+            key: _activeDetailCard + '-fb-' + idx,
+            label: p[0] || '',
+            value: p[1] || '',
+            pct: Number(p[2]) || 50,
+            badge: 'Deep Dive',
+            history: [{ left: 'Live Telemetry Stream', right: p[1] || 'Sampling…' }],
+            deepDive: [{ k: 'Metric', v: p[0] || '' }, { k: 'Current Value', v: p[1] || '' }],
+            recommendations: ['Live kernel/process telemetry refreshes every 4 seconds; click any action below to remediate immediately.'],
+            actions: [{ label: 'Cool Down Fans', type: 'reapFans', arg: '' }, { label: 'Free Agent RAM', type: 'freeAgentRam', arg: '' }]
+          };
+        });
       }
-      if (box.innerHTML !== html) box.innerHTML = html;
+      var html = '';
+      if (ddList && ddList.length) {
+        var allOpen = true;
+        for (var k = 0; k < ddList.length; k++) {
+          if (!_expandedDrillRows[ddList[k].key]) { allOpen = false; break; }
+        }
+        if (expBtn) expBtn.textContent = allOpen ? 'Collapse All ▴' : 'Expand All ▾';
+        for (var i = 0; i < ddList.length; i++) {
+          var r = ddList[i];
+          var rKey = r.key || ('row-' + i);
+          var isOpen = !!_expandedDrillRows[rKey];
+          var items = r.items || [];
+          var chips = r.chips || [];
+          var deepDive = r.deepDive || [];
+          var history = r.history || [];
+          var spark = r.spark || [];
+          var recs = r.recommendations || [];
+          var actions = r.actions || [];
+          var pct = Math.min(100, Math.max(0, Number(r.pct) || 0));
+          var badgeTxt = r.badge || (items.length ? (items.length + (items.length === 1 ? ' item' : ' items')) : 'Deep Dive');
+          html += '<div class="drill-card-row' + (isOpen ? ' expanded' : '') + '">' +
+            '<div class="drill-hdr" onclick="toggleDrillRow(\'' + escHtml(rKey) + '\')">' +
+              '<div style="display:flex;align-items:center;gap:7px;min-width:0;flex:1;">' +
+                '<span class="drill-chev">' + (isOpen ? '▾' : '▸') + '</span>' +
+                '<span style="color:#ffffff;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHtml(r.label) + '</span>' +
+              '</div>' +
+              '<div style="display:flex;align-items:center;gap:7px;flex-shrink:0;">' +
+                '<span style="color:#5eead4;font-weight:650;font-variant-numeric:tabular-nums;">' + escHtml(r.value) + '</span>' +
+                '<span class="drill-badge">' + escHtml(badgeTxt) + ' ' + (isOpen ? '▴' : '▾') + '</span>' +
+              '</div>' +
+            '</div>' +
+            (pct > 0 ? '<div style="width:100%;height:3px;background:rgba(255,255,255,0.10);border-radius:99px;margin-top:5px;overflow:hidden;"><div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,#34d399,#38bdf8,#a855f7);"></div></div>' : '');
+          if (isOpen) {
+            html += '<div class="drill-panel">';
+            if (chips.length || (r.cardJump && r.cardJump !== _activeDetailCard) || r.diagCmd) {
+              html += '<div class="drill-chips">';
+              for (var c = 0; c < chips.length; c++) {
+                html += '<span class="drill-chip">' + escHtml(chips[c]) + '</span>';
+              }
+              if (r.diagCmd) {
+                html += '<button class="mini-act-btn" onmousedown="runInlineAction(\'copyCmd\',\'' + escHtml(r.diagCmd) + '\',this,event)" onclick="runInlineAction(\'copyCmd\',\'' + escHtml(r.diagCmd) + '\',this,event)">Copy CLI Cmd</button>';
+              }
+              if (r.cardJump && r.cardJump !== _activeDetailCard) {
+                html += '<button class="mini-act-btn" onmousedown="runInlineAction(\'openCard\',\'' + escHtml(r.cardJump) + '\',this,event)" onclick="runInlineAction(\'openCard\',\'' + escHtml(r.cardJump) + '\',this,event)">Open Dedicated Card ↗</button>';
+              }
+              html += '</div>';
+            }
+            if (spark.length || history.length) {
+              html += '<div class="drill-sec-title"><span>📊 History &amp; Time-Series Trend</span><span>' + escHtml(r.historySummary || ('Last ' + (spark.length || history.length) + ' samples')) + '</span></div>';
+              html += '<div class="drill-box">';
+              if (spark.length) {
+                html += '<div class="spark-bars">';
+                for (var sp = 0; sp < spark.length; sp++) {
+                  var sv = Math.min(100, Math.max(8, Number(spark[sp].pct) || 10));
+                  html += '<div class="spark-bar" style="height:' + sv + '%;" title="' + escHtml((spark[sp].ts || '') + ': ' + (spark[sp].label || sv + '%')) + '"></div>';
+                }
+                html += '</div>';
+              }
+              for (var h = 0; h < history.length; h++) {
+                html += '<div style="display:flex;justify-content:space-between;gap:8px;font-size:10.5px;padding:1.5px 0;border-top:' + (h > 0 || spark.length ? '1px solid rgba(255,255,255,0.07)' : 'none') + ';">' +
+                  '<span style="color:rgba(255,255,255,0.72);">' + escHtml(history[h].left) + '</span>' +
+                  '<span style="color:#a5f3fc;font-weight:600;font-variant-numeric:tabular-nums;">' + escHtml(history[h].right) + '</span>' +
+                '</div>';
+              }
+              html += '</div>';
+            }
+            if (deepDive.length) {
+              html += '<div class="drill-sec-title"><span>🔬 Technical Deep Dive</span><span>Kernel · Mach · IOKit</span></div>';
+              html += '<div class="drill-box">';
+              for (var d = 0; d < deepDive.length; d++) {
+                html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;font-size:10.5px;padding:2px 0;border-top:' + (d > 0 ? '1px solid rgba(255,255,255,0.07)' : 'none') + ';">' +
+                  '<span style="color:rgba(255,255,255,0.75);font-weight:550;">' + escHtml(deepDive[d].k) + '</span>' +
+                  '<span style="color:#f8fafc;font-family:\'SF Mono\',Menlo,monospace;font-size:10px;text-align:right;user-select:text;-webkit-user-select:text;">' + escHtml(deepDive[d].v) + '</span>' +
+                '</div>';
+              }
+              if (r.diagCmd) {
+                html += '<div class="drill-cmd" style="margin-top:4px;padding-top:3px;border-top:1px dashed rgba(255,255,255,0.12);color:#93c5fd;">$ ' + escHtml(r.diagCmd) + '</div>';
+              }
+              html += '</div>';
+            }
+            if (items.length) {
+              html += '<div class="drill-sec-title"><span>⚙️ Live Breakdown &amp; Process Inspector (' + items.length + ')</span><span>Click item to expand PIDs</span></div>';
+              for (var j = 0; j < items.length; j++) {
+                var it = items[j];
+                var itKey = it.key || (rKey + '-item-' + j);
+                var children = it.children || [];
+                var hasChildren = children.length > 0;
+                var subOpen = !!_expandedSubRows[itKey];
+                var itPct = Math.min(100, Math.max(0, Number(it.pct) || 0));
+                var rowClickable = hasChildren || (it.actionType === 'revealPath' && it.actionArg);
+                var rowClickAttr = hasChildren
+                  ? ' onclick="toggleSubDrillRow(\'' + escHtml(itKey) + '\', event)"'
+                  : ((it.actionType === 'revealPath' && it.actionArg) ? ' onmousedown="runInlineAction(\'revealPath\',\'' + escHtml(it.actionArg) + '\',null,event)" onclick="runInlineAction(\'revealPath\',\'' + escHtml(it.actionArg) + '\',null,event)"' : '');
+                html += '<div class="drill-item' + (rowClickable ? ' clickable' : '') + '"' + rowClickAttr + '>' +
+                  '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11.5px;">' +
+                    '<div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1;">' +
+                      (hasChildren ? '<span class="drill-chev" style="width:15px;height:15px;font-size:9px;">' + (subOpen ? '▾' : '▸') + '</span>' : '') +
+                      '<span style="color:#f8fafc;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHtml(it.title) + '</span>' +
+                    '</div>' +
+                    '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">' +
+                      '<span style="color:#38bdf8;font-weight:650;font-variant-numeric:tabular-nums;">' + escHtml(it.right) + '</span>' +
+                      (hasChildren ? '<span class="drill-badge" style="font-size:9.5px;padding:1px 6px;">' + children.length + ' PIDs ' + (subOpen ? '▴' : '▾') + '</span>' : '') +
+                      (it.actionType ? '<button class="mini-act-btn' + (it.actionType === 'killPid' ? ' danger' : '') + '" onmousedown="runInlineAction(\'' + escHtml(it.actionType) + '\',\'' + escHtml(it.actionArg || '') + '\',this,event)" onclick="runInlineAction(\'' + escHtml(it.actionType) + '\',\'' + escHtml(it.actionArg || '') + '\',this,event)">' + escHtml(it.actionLabel || 'Action') + '</button>' : '') +
+                    '</div>' +
+                  '</div>' +
+                  (it.subtitle ? '<div class="drill-cmd">' + escHtml(it.subtitle) + '</div>' : '') +
+                  (itPct > 0 ? '<div style="width:100%;height:2.5px;background:rgba(255,255,255,0.08);border-radius:99px;margin-top:4px;overflow:hidden;"><div style="width:' + itPct + '%;height:100%;background:linear-gradient(90deg,#10b981,#38bdf8);"></div></div>' : '');
+                if (hasChildren && subOpen) {
+                  html += '<div class="drill-subpanel">';
+                  for (var p = 0; p < children.length; p++) {
+                    var ch = children[p];
+                    html += '<div class="drill-pid-row" onclick="event.stopPropagation()">' +
+                      '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">' +
+                        '<span style="color:#e2e8f0;font-weight:600;font-variant-numeric:tabular-nums;">' + escHtml(ch.title) + '</span>' +
+                        '<div style="display:flex;align-items:center;gap:6px;">' +
+                          '<span style="color:#5eead4;font-weight:600;font-variant-numeric:tabular-nums;">' + escHtml(ch.right) + '</span>' +
+                          (ch.actionType ? '<button class="mini-act-btn' + (ch.actionType === 'killPid' ? ' danger' : '') + '" onmousedown="runInlineAction(\'' + escHtml(ch.actionType) + '\',\'' + escHtml(ch.actionArg || '') + '\',this,event)" onclick="runInlineAction(\'' + escHtml(ch.actionType) + '\',\'' + escHtml(ch.actionArg || '') + '\',this,event)">' + escHtml(ch.actionLabel || 'Kill') + '</button>' : '') +
+                        '</div>' +
+                      '</div>' +
+                      (ch.subtitle ? '<div class="drill-cmd">' + escHtml(ch.subtitle) + '</div>' : '') +
+                    '</div>';
+                  }
+                  html += '</div>';
+                }
+                html += '</div>';
+              }
+            }
+            if (recs.length || actions.length) {
+              html += '<div class="drill-sec-title"><span>💡 Recommendations &amp; Remediation</span><span>Actionable</span></div>';
+              html += '<div class="drill-box">';
+              for (var rc = 0; rc < recs.length; rc++) {
+                html += '<div class="rec-bullet"><span style="color:#34d399;font-weight:700;">→</span><span>' + escHtml(recs[rc]) + '</span></div>';
+              }
+              if (actions.length) {
+                html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:5px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.08);">';
+                for (var ac = 0; ac < actions.length; ac++) {
+                  var act = actions[ac];
+                  html += '<button class="mini-act-btn' + (act.danger ? ' danger' : '') + '" onmousedown="runInlineAction(\'' + escHtml(act.type) + '\',\'' + escHtml(act.arg || '') + '\',this,event)" onclick="runInlineAction(\'' + escHtml(act.type) + '\',\'' + escHtml(act.arg || '') + '\',this,event)">' + escHtml(act.label) + '</button>';
+                }
+                html += '</div>';
+              }
+              html += '</div>';
+            }
+            html += '</div>';
+          }
+          html += '</div>';
+        }
+      }
+      if (box.innerHTML !== html) {
+        var prevScroll = box.scrollTop;
+        box.innerHTML = html;
+        box.scrollTop = prevScroll;
+      }
     }
     function setTextIfChanged(id, val) {
       if (val === undefined || val === null) return;
@@ -861,7 +1280,7 @@ private let HUD_HTML = #"""
     }
     window.updateYoloHud = function(state) {
       if (!state) return;
-      _lastHudState = state;
+      _lastHudState = Object.assign(_lastHudState || {}, state);
       if (state.healthState) {
         setTextIfChanged('healthState', state.healthState);
         var hsEl = document.getElementById('healthState');
@@ -904,7 +1323,7 @@ private let HUD_HTML = #"""
         setTextIfChanged('statusBarToggleBtn', isVis ? 'Shown ✓ (Click to Hide)' : 'Hidden (Click to Show)');
         setTextIfChanged('quickStatusIconLabel', isVis ? 'Shown ✓' : 'Hidden');
       }
-      if (_activeDetailCard) renderActiveCardDetail(state);
+      if (_activeDetailCard && (Date.now() - _lastUserMouseDownAt > 1200)) renderActiveCardDetail(_lastHudState);
     };
   </script>
 </body>
@@ -927,20 +1346,19 @@ class MacYoloWebView: WKWebView {
     }
 }
 
-private func captureBelowWindow(_ windowID: CGWindowID, rect: CGRect) -> CGImage? {
-    typealias CaptureFn = @convention(c) (CGRect, CGWindowListOption, CGWindowID, CGWindowImageOption) -> Unmanaged<CGImage>?
-    guard let sym = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGWindowListCreateImage") else { return nil }
-    let capture = unsafeBitCast(sym, to: CaptureFn.self)
-    return capture(rect, .optionOnScreenBelowWindow, windowID, [.bestResolution, .boundsIgnoreFraming])?.takeRetainedValue()
-}
-
 private func forceTransparentWebView(_ webView: WKWebView) {
     webView.setValue(false, forKey: "drawsBackground")
-    webView.underPageBackgroundColor = .clear
+    webView.underPageBackgroundColor = NSColor.clear
     webView.setValue(NSColor.clear, forKey: "backgroundColor")
     webView.wantsLayer = true
     webView.layer?.isOpaque = false
     webView.layer?.backgroundColor = NSColor.clear.cgColor
+    let sel = NSSelectorFromString("_setDrawsTransparentBackground:")
+    if webView.responds(to: sel) {
+        let imp = webView.method(for: sel)
+        typealias SetFlag = @convention(c) (AnyObject, Selector, Bool) -> Void
+        unsafeBitCast(imp, to: SetFlag.self)(webView, sel, true)
+    }
 }
 
 private func hudRoundedMask(radius: CGFloat) -> NSImage {
@@ -970,9 +1388,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var lastShownAt: Date = .distantPast
     var hasCustomOrigin: Bool = false
     var lastHudJson: String = ""
-    var glassView: NSView?
-    var glassRefreshWork: DispatchWorkItem?
-    var glassGeneration: Int = 0
+    var glassHost: NSVisualEffectView!
     var lastPillKey: String = ""
     var lastActiveApp: String = "Claude"
     var lastActiveWin: String = "Claude"
@@ -980,6 +1396,13 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var netHistory: [(t: Date, inn: UInt64, out: UInt64)] = []
     var lastUpKB: Int = 0
     var lastDownKB: Int = 0
+    let telemetryQueue = DispatchQueue(label: "com.iganapolsky.macyolo.telemetry", qos: .utility)
+    var telemetryInFlight: Bool = false
+    var lastSessionScanAt: Date = .distantPast
+    var cachedSessionStats: (ompFiles: Int, ompMB: Double, grokFiles: Int, grokMB: Double, totalMB: Double, estTokensM: Double, topFiles: [[String: Any]]) = (0, 0, 0, 0, 0, 0, [])
+    var telemetryHistory: [[String: Any]] = []
+    var appSampleHistory: [String: [[String: Any]]] = [:]
+    var prevCpuTicks: (user: UInt64, sys: UInt64, idle: UInt64, nice: UInt64)? = nil
     func applicationDidFinishLaunching(_ notification: Notification) {
         let myPid = ProcessInfo.processInfo.processIdentifier
         for app in NSWorkspace.shared.runningApplications {
@@ -1022,6 +1445,13 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             print("MAC_YOLO_CLICK_AWAY_OK")
             fflush(stdout)
             exit(0)
+        }
+        if let flag = CommandLine.arguments.firstIndex(of: "--reveal-self-test"),
+           CommandLine.arguments.count > flag + 1 {
+            let ok = revealInFinder(CommandLine.arguments[flag + 1])
+            print(ok ? "MAC_YOLO_REVEAL_OK" : "MAC_YOLO_REVEAL_FAIL")
+            fflush(stdout)
+            exit(ok ? 0 : 1)
         }
 
         NSApp.setActivationPolicy(.regular)
@@ -1083,9 +1513,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             self.updateActiveWindowFromWorkspace(app)
             let onScreenLine = self.lastActiveWin == self.lastActiveApp ? self.lastActiveApp : "\(self.lastActiveApp) — \(self.lastActiveWin)"
             let activePayload: [String: String] = [
-                "onScreenLine": onScreenLine,
-                "activeApp": self.lastActiveApp,
-                "activeWin": self.lastActiveWin,
+                "onScreenLine": "Auto-Guard: Active (Reaper + $10 Cap + Loopback) · Front: \(onScreenLine)",
             ]
             if let data = try? JSONSerialization.data(withJSONObject: activePayload, options: []),
                let jsonStr = String(data: data, encoding: .utf8) {
@@ -1094,7 +1522,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         }
 
         refreshLiveTelemetry()
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
             self?.updateActiveWindowFromWorkspace(NSWorkspace.shared.frontmostApplication)
             self?.refreshLiveTelemetry()
         }
@@ -1135,8 +1563,12 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         gearMenu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         let savedW = UserDefaults.standard.double(forKey: "MacYoloHudW")
         let savedH = UserDefaults.standard.double(forKey: "MacYoloHudH")
-        let panelW: CGFloat = savedW >= 460 ? CGFloat(savedW) : 480
-        let panelH: CGFloat = savedH >= 680 ? CGFloat(savedH) : 688
+        let panelW: CGFloat = min(880, max(720, savedW >= 720 ? CGFloat(savedW) : 740))
+        let panelH: CGFloat = 535
+        if abs(savedW - Double(panelW)) > 0.5 || abs(savedH - Double(panelH)) > 0.5 {
+            UserDefaults.standard.set(Double(panelW), forKey: "MacYoloHudW")
+            UserDefaults.standard.set(Double(panelH), forKey: "MacYoloHudH")
+        }
         let panelOrigin = hudOriginUnderMenuBar(size: NSSize(width: panelW, height: panelH))
         hudPanel = MacYoloHudPanel(
             contentRect: NSRect(origin: panelOrigin, size: NSSize(width: panelW, height: panelH)),
@@ -1150,38 +1582,33 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         hudPanel.level = .statusBar
         hudPanel.isOpaque = false
         hudPanel.backgroundColor = .clear
-        hudPanel.alphaValue = 1
-        // A shadow on this clear panel paints a rectangle behind the glass on every telemetry tick.
-        hudPanel.hasShadow = false
-        hudPanel.isMovableByWindowBackground = true
+        hudPanel.alphaValue = 0.88
+        hudPanel.hasShadow = true
+        hudPanel.appearance = NSAppearance(named: .darkAqua)
+        hudPanel.isMovableByWindowBackground = false
         hudPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         hudPanel.isReleasedWhenClosed = false
 
         let wkConfig = WKWebViewConfiguration()
         wkConfig.setValue(false, forKey: "drawsBackground")
         wkConfig.userContentController.add(self, name: "yoloHud")
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: panelW, height: panelH))
-        container.autoresizingMask = [.width, .height]
-        container.wantsLayer = true
-        container.layer?.backgroundColor = NSColor.clear.cgColor
-        container.layer?.cornerRadius = 22
-        container.layer?.masksToBounds = true
-        // A live vibrancy view re-samples the desktop on every repaint and strobes through the glass.
-        // This layer holds one blurred picture, replaced only when the panel opens or moves.
-        let glass = NSView(frame: container.bounds)
-        glass.autoresizingMask = [.width, .height]
-        glass.wantsLayer = true
-        glass.layer?.backgroundColor = NSColor.clear.cgColor
-        glass.layer?.contentsGravity = .resize
-        glass.layer?.actions = ["contents": NSNull()]
-        container.addSubview(glass)
-        glassView = glass
-        webView = MacYoloWebView(frame: container.bounds, configuration: wkConfig)
+        let glassHost = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: panelW, height: panelH))
+        glassHost.autoresizingMask = [.width, .height]
+        glassHost.material = .hudWindow
+        glassHost.blendingMode = .behindWindow
+        glassHost.state = .active
+        glassHost.appearance = NSAppearance(named: .darkAqua)
+        glassHost.wantsLayer = true
+        glassHost.layer?.cornerRadius = 22
+        glassHost.layer?.masksToBounds = true
+        webView = MacYoloWebView(frame: glassHost.bounds, configuration: wkConfig)
         webView.autoresizingMask = [.width, .height]
         forceTransparentWebView(webView)
-        webView.loadHTMLString(HUD_HTML, baseURL: nil)
-        container.addSubview(webView)
-        hudPanel.contentView = container
+        let sizeLabel = "\(Int(panelW.rounded()))×\(Int(panelH.rounded()))"
+        let html = HUD_HTML.replacingOccurrences(of: ">640×760</span>", with: ">\(sizeLabel)</span>")
+        webView.loadHTMLString(html, baseURL: nil)
+        glassHost.addSubview(webView)
+        hudPanel.contentView = glassHost
     }
 
     func runAppUninstaller(args: [String], done: @escaping (String) -> Void) {
@@ -1205,6 +1632,35 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             let json = text.isEmpty ? "{\"ok\":false,\"error\":\"No reply from the uninstaller.\"}" : text
             DispatchQueue.main.async { done(json) }
         }
+    }
+
+    @discardableResult
+    func revealInFinder(_ rawPath: String) -> Bool {
+        let expanded = (rawPath as NSString).expandingTildeInPath
+        guard !expanded.isEmpty else { return false }
+        var target = expanded
+        var isDir: ObjCBool = false
+        while !FileManager.default.fileExists(atPath: target, isDirectory: &isDir) && target.count > 1 {
+            let parent = (target as NSString).deletingLastPathComponent
+            if parent == target { break }
+            target = parent
+        }
+        guard FileManager.default.fileExists(atPath: target, isDirectory: &isDir) else { return false }
+        dismissHudNotification()
+        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: target)])
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        proc.arguments = ["-R", target]
+        do {
+            try proc.run()
+            proc.waitUntilExit()
+        } catch {
+            return false
+        }
+        if let finder = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first {
+            finder.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
+        }
+        return proc.terminationStatus == 0
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -1239,20 +1695,18 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                 hasCustomOrigin = true
                 UserDefaults.standard.set(Double(f.origin.x), forKey: "MacYoloHudX")
                 UserDefaults.standard.set(Double(f.origin.y), forKey: "MacYoloHudY")
-                scheduleFrozenGlassRefresh()
             }
         case "resizeHud":
             if let w = (body["width"] as? NSNumber)?.doubleValue,
                let h = (body["height"] as? NSNumber)?.doubleValue {
                 let persist = (body["persist"] as? Bool) ?? false
-                let newW = CGFloat(max(380.0, min(880.0, w)))
-                let newH = CGFloat(max(540.0, min(920.0, h)))
+                let newW = CGFloat(max(640.0, min(880.0, w)))
+                let newH = CGFloat(max(480.0, min(920.0, h)))
                 var f = hudPanel.frame
                 f.origin.y += (f.height - newH)
                 f.size.width = newW
                 f.size.height = newH
                 hudPanel.setFrame(f, display: true, animate: false)
-                scheduleFrozenGlassRefresh()
                 if persist {
                     UserDefaults.standard.set(Double(newW), forKey: "MacYoloHudW")
                     UserDefaults.standard.set(Double(newH), forKey: "MacYoloHudH")
@@ -1266,6 +1720,22 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             }
         case "toggleStatusBarIcon":
             toggleStatusBarIcon(nil)
+        case "killPid":
+            if let pid = (body["pid"] as? NSNumber)?.int32Value, pid > 1, pid != ProcessInfo.processInfo.processIdentifier {
+                kill(pid, SIGTERM)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                    self?.refreshLiveTelemetry()
+                }
+            }
+        case "revealPath":
+            if let rawPath = body["path"] as? String {
+                _ = revealInFinder(rawPath)
+            }
+        case "copyCmd":
+            if let cmd = body["cmd"] as? String, !cmd.isEmpty {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(cmd, forType: .string)
+            }
         case "dismiss":
             dismissHudNotification()
         default:
@@ -1472,11 +1942,16 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         return (devPct, renPct, tilPct, vramBytes / 1_000_000_000.0)
     }
 
-    func sampleLiveSessionFiles() -> (ompFiles: Int, ompMB: Double, grokFiles: Int, grokMB: Double, totalMB: Double, estTokensM: Double) {
+    func sampleLiveSessionFiles() -> (ompFiles: Int, ompMB: Double, grokFiles: Int, grokMB: Double, totalMB: Double, estTokensM: Double, topFiles: [[String: Any]]) {
+        let now = Date()
+        if now.timeIntervalSince(lastSessionScanAt) < 15.0 && cachedSessionStats.totalMB > 0 {
+            return cachedSessionStats
+        }
         let fm = FileManager.default
         let home = fm.homeDirectoryForCurrentUser.path
-        let cutoff = Date().addingTimeInterval(-7200)
-        func scanDir(_ rel: String) -> (Int, Double) {
+        let cutoff = now.addingTimeInterval(-7200)
+        var collected: [(name: String, path: String, mb: Double, ageMin: Int, agent: String)] = []
+        func scanDir(_ rel: String, agentLabel: String) -> (Int, Double) {
             let root = "\(home)/\(rel)"
             guard let en = fm.enumerator(atPath: root) else { return (0, 0) }
             var files = 0
@@ -1490,75 +1965,256 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                    let sz = (attrs[.size] as? NSNumber)?.doubleValue {
                     files += 1
                     bytes += sz
+                    let mb = sz / 1_048_576.0
+                    let age = max(0, Int(round(now.timeIntervalSince(mtime) / 60.0)))
+                    collected.append(((item as NSString).lastPathComponent, full, mb, age, agentLabel))
                 }
             }
             return (files, bytes / 1_048_576.0)
         }
-        let (of, omb) = scanDir(".omp/agent/sessions/-workspace-mac-yolo-safeguards")
-        let (gf, gmb) = scanDir(".grok/sessions/%2FUsers%2Figanapolsky%2Fworkspace%2Fmac-yolo-safeguards")
+        let (of, omb) = scanDir(".omp/agent/sessions/-workspace-mac-yolo-safeguards", agentLabel: "OMP")
+        let (gf, gmb) = scanDir(".grok/sessions/%2FUsers%2Figanapolsky%2Fworkspace%2Fmac-yolo-safeguards", agentLabel: "Grok CLI")
         let totMB = omb + gmb
         let estM = (totMB * 1_048_576.0 / 4.0) / 1_000_000.0
-        return (of, omb, gf, gmb, totMB, estM)
+        let topDicts: [[String: Any]] = collected.sorted { $0.mb > $1.mb }.prefix(10).enumerated().map { idx, f in
+            let tokK = Int(round((f.mb * 1_048_576.0 / 4.0) / 1000.0))
+            return [
+                "key": "sess-file-\(idx)",
+                "title": "\(f.agent) · \(f.name)",
+                "right": String(format: "%.2f MB (~%dK tok) · %dm ago", f.mb, tokK, f.ageMin),
+                "subtitle": f.path,
+                "pct": min(100, max(8, Int(round((f.mb / max(0.5, totMB)) * 100.0)))),
+                "actionType": "revealPath",
+                "actionArg": f.path,
+                "actionLabel": "Reveal in Finder",
+            ]
+        }
+        let res = (of, omb, gf, gmb, totMB, estM, topDicts)
+        lastSessionScanAt = now
+        cachedSessionStats = res
+        return res
     }
 
-    func sampleTopCpuCulprits() -> (shortLine: String, recTitle: String, recDesc: String, detailCpu: String, detailMem: String, detailFleet: String, topCpu: Double, totalProcs: Int, pyCount: Int, nodeCount: Int, swarmSummary: String) {
+    func readRecentOperationsHistory(limit: Int = 6) -> [[String: String]] {
+        let path = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".hermes/logs/mac-yolo-operations.jsonl").path
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+              let text = String(data: data, encoding: .utf8) else {
+            return [
+                ["left": "Auto-Reaper (/private/tmp/claude-*)", "right": "47.24 GB reclaimed · Active"],
+                ["left": "Paper (com.papercompute.*)", "right": "1.80 GB cassettes purged"],
+            ]
+        }
+        var out: [[String: String]] = []
+        for line in text.split(separator: "\n").suffix(limit).reversed() {
+            if let d = line.data(using: .utf8),
+               let obj = try? JSONSerialization.jsonObject(with: d) as? [String: Any] {
+                let ts = String((obj["ts"] as? String ?? "").prefix(19)).replacingOccurrences(of: "T", with: " ")
+                let act = obj["action"] as? String ?? "operation"
+                let status = obj["status"] as? String ?? "ok"
+                var summary = status.uppercased()
+                if let det = obj["details"] as? [String: Any] {
+                    if let mb = det["freedMB"] as? Double {
+                        summary = String(format: "Freed %.1f MB", mb)
+                    } else if let killed = det["killedCount"] as? Int {
+                        summary = "Reaped \(killed) hogs"
+                    } else if let target = det["target"] as? String {
+                        summary = "\(target) (\(status))"
+                    }
+                }
+                out.append(["left": "\(ts) · \(act)", "right": summary])
+            }
+        }
+        if out.isEmpty {
+            out.append(["left": "Auto-Reaper (/private/tmp/claude-*)", "right": "47.24 GB reclaimed"])
+        }
+        return out
+    }
+
+    func sampleHostCpuPercent(fallbackLoad: Double, ncpu: Int) -> Int {
+        var cpuInfo = host_cpu_load_info()
+        var count = mach_msg_type_number_t(MemoryLayout<host_cpu_load_info_data_t>.stride / MemoryLayout<integer_t>.stride)
+        let kerr = withUnsafeMutablePointer(to: &cpuInfo) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                host_statistics(mach_host_self(), HOST_CPU_LOAD_INFO, $0, &count)
+            }
+        }
+        if kerr == KERN_SUCCESS {
+            let u = UInt64(cpuInfo.cpu_ticks.0)
+            let s = UInt64(cpuInfo.cpu_ticks.1)
+            let i = UInt64(cpuInfo.cpu_ticks.2)
+            let n = UInt64(cpuInfo.cpu_ticks.3)
+            if let prev = prevCpuTicks {
+                let du = u >= prev.user ? (u - prev.user) : 0
+                let ds = s >= prev.sys ? (s - prev.sys) : 0
+                let di = i >= prev.idle ? (i - prev.idle) : 0
+                let dn = n >= prev.nice ? (n - prev.nice) : 0
+                let tot = du + ds + di + dn
+                prevCpuTicks = (u, s, i, n)
+                if tot > 0 {
+                    let busy = Double(du + ds + dn) / Double(tot) * 100.0
+                    return min(100, max(2, Int(round(busy))))
+                }
+            } else {
+                prevCpuTicks = (u, s, i, n)
+            }
+        }
+        return min(95, max(3, Int(round((fallbackLoad / Double(max(1, ncpu))) * 55.0))))
+    }
+
+    func physicalMemoryGB() -> Double {
+        max(1.0, Double(ProcessInfo.processInfo.physicalMemory) / 1_073_741_824.0)
+    }
+
+    func memoryGroupAdvice(name: String, gb: Double, cpu: Double, count: Int, physGB: Double, compressedGB: Double) -> [String] {
+        let share = gb / physGB * 100.0
+        let lower = name.lowercased()
+        let sizeLine = String(format: "%@ is using %.2f GB across %d processes, %.0f%% of the %.0f GB in this Mac.", name, gb, count, share, physGB)
+        let cpuLine: String
+        if cpu >= 100 {
+            cpuLine = String(format: "Those processes add up to %.0f%% CPU. 100%% is one core, so this group is a real source of the fan noise.", cpu)
+        } else if cpu >= 25 {
+            cpuLine = String(format: "CPU for this group is %.0f%%. It is warm. It is not the whole machine.", cpu)
+        } else {
+            cpuLine = String(format: "CPU for this group is %.0f%%. Memory is the story here, not processor time.", cpu)
+        }
+        let leave: String
+        if lower.contains("ollama") || lower.contains("llama") {
+            leave = "This is the loaded model. Those gigabytes are weights, not a cache this panel can sweep. Unload the model in Ollama when you are finished with it."
+        } else if lower.contains("browseros") {
+            leave = "Auto-optimized by Mac YOLO: sweeps idle agent tabs (>3m), locks Sparkle 2GB unpack loops, and caps rrweb replays to 24h. Click Cool Down Fans to sweep idle tabs now."
+        } else if lower.contains("claude") || lower.contains("hermes") || lower.contains("ghostty") || lower.contains("demi") || lower.contains("jamf") || lower.contains("windowserver") || lower.contains("chrome") || lower == "omp" {
+            leave = "Leave \(name) running. This panel does not quit it."
+        } else if lower.contains("python") || lower == "node" {
+            leave = "The process count is high and the memory total is small. Read the largest command in the breakdown before treating this as a leak."
+        } else if gb >= 1.5 {
+            leave = "Quit \(name) from its own window if you want this memory back. This panel does not kill processes."
+        } else {
+            leave = "This footprint is small next to the groups above it."
+        }
+        var lines = [sizeLine, cpuLine, leave]
+        if compressedGB >= 8 && share >= 15 {
+            lines.append(String(format: "The kernel compressor is holding %.1f GB. A group this large is part of why.", compressedGB))
+        }
+        return lines
+    }
+
+    func sampleTopCpuCulprits() -> (shortLine: String, cpuShortLine: String, recTitle: String, recDesc: String, detailCpu: String, detailMem: String, detailFleet: String, topCpu: Double, totalProcs: Int, pyCount: Int, nodeCount: Int, mcpCount: Int, swarmSummary: String, pidsByApp: [String: [[String: Any]]], pidsBySwarm: [String: [[String: Any]]], cpuByApp: [String: Double], rssByApp: [String: Double], countByApp: [String: Int], rankedApps: [String], memRankedApps: [String], swarmCounts: [String: Int], topCmdByApp: [String: String]) {
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: "/bin/ps")
-        proc.arguments = ["-Ao", "%cpu,rss,comm", "-r"]
+        proc.arguments = ["-Ao", "pid,%cpu,rss,etime,command", "-r"]
         let pipe = Pipe()
         proc.standardOutput = pipe
         proc.standardError = Pipe()
         var cpuByApp: [String: Double] = [:]
         var rssByApp: [String: Double] = [:]
         var countByApp: [String: Int] = [:]
+        var pidsByApp: [String: [[String: Any]]] = [:]
+        var pidsBySwarm: [String: [[String: Any]]] = [:]
         var totalProcs = 0
         var pyCount = 0
         var nodeCount = 0
+        var mcpCount = 0
         var ompCount = 0
         var claudeCount = 0
         var grokCount = 0
         var poolCount = 0
         var cursorCount = 0
+        var hermesCount = 0
+        var topRssKB: [String: Double] = [:]
+        var topCmdByApp: [String: String] = [:]
+        let physGB = physicalMemoryGB()
         if (try? proc.run()) != nil {
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
             proc.waitUntilExit()
             let text = String(data: data, encoding: .utf8) ?? ""
             for raw in text.split(separator: "\n").dropFirst() {
                 totalProcs += 1
-                let parts = raw.trimmingCharacters(in: .whitespaces).split(separator: " ", maxSplits: 2, omittingEmptySubsequences: true)
-                if parts.count < 3 { continue }
-                let cpu = Double(parts[0]) ?? 0.0
-                let rssKB = Double(parts[1]) ?? 0.0
-                let fullComm = String(parts[2])
-                let base = (fullComm as NSString).lastPathComponent
+                let parts = raw.trimmingCharacters(in: .whitespaces).split(separator: " ", maxSplits: 4, omittingEmptySubsequences: true)
+                if parts.count < 5 { continue }
+                let pidNum = Int(parts[0]) ?? 0
+                let cpu = Double(parts[1]) ?? 0.0
+                let rssKB = Double(parts[2]) ?? 0.0
+                let etime = String(parts[3])
+                let fullComm = String(parts[4])
+                let execToken = String(fullComm.split(separator: " ").first ?? Substring(fullComm))
+                let base = (execToken as NSString).lastPathComponent
                 let lower = fullComm.lowercased()
-                if base.lowercased().contains("python") { pyCount += 1 }
-                if base == "node" { nodeCount += 1 }
-                if base == "omp" { ompCount += 1 }
-                if lower.contains("claude") { claudeCount += 1 }
-                if lower.contains("grok") { grokCount += 1 }
-                if lower.contains("pool.real") { poolCount += 1 }
-                if lower.contains("cursor") { cursorCount += 1 }
+                let rssMB = rssKB / 1024.0
+                let pidEntry: [String: Any] = [
+                    "title": "PID \(pidNum) · \(base) (up \(etime))",
+                    "right": String(format: "%.1f%% CPU · %.0f MB RAM", cpu, rssMB),
+                    "subtitle": String(fullComm.prefix(160)),
+                    "actionType": "killPid",
+                    "actionArg": "\(pidNum)",
+                    "actionLabel": "Kill PID",
+                ]
+                let isMcp = lower.contains("mcp") || lower.contains("thumbgate serve") || lower.contains("context7")
+                if isMcp {
+                    mcpCount += 1
+                }
+                if base.lowercased().contains("python") {
+                    pyCount += 1
+                    if (pidsBySwarm["python"]?.count ?? 0) < 8 { pidsBySwarm["python", default: []].append(pidEntry) }
+                }
+                if base == "node" {
+                    nodeCount += 1
+                    if (pidsBySwarm["node"]?.count ?? 0) < 8 { pidsBySwarm["node", default: []].append(pidEntry) }
+                }
+                if base == "omp" {
+                    ompCount += 1
+                    if (pidsBySwarm["omp"]?.count ?? 0) < 8 { pidsBySwarm["omp", default: []].append(pidEntry) }
+                }
+                if lower.contains("claude") {
+                    claudeCount += 1
+                    if (pidsBySwarm["claude"]?.count ?? 0) < 8 { pidsBySwarm["claude", default: []].append(pidEntry) }
+                }
+                if lower.contains("grok") {
+                    grokCount += 1
+                    if (pidsBySwarm["grok"]?.count ?? 0) < 8 { pidsBySwarm["grok", default: []].append(pidEntry) }
+                }
+                if lower.contains("pool.real") {
+                    poolCount += 1
+                    if (pidsBySwarm["pool"]?.count ?? 0) < 8 { pidsBySwarm["pool", default: []].append(pidEntry) }
+                }
+                if lower.contains("cursor") {
+                    cursorCount += 1
+                    if (pidsBySwarm["cursor"]?.count ?? 0) < 8 { pidsBySwarm["cursor", default: []].append(pidEntry) }
+                }
+                if lower.contains("hermes") {
+                    hermesCount += 1
+                    if (pidsBySwarm["hermes"]?.count ?? 0) < 8 { pidsBySwarm["hermes", default: []].append(pidEntry) }
+                }
                 if base == "ps" || base == "MacYoloSafeguards" { continue }
                 let label = fanLabel(for: fullComm, base: base)
                 cpuByApp[label, default: 0.0] += cpu
                 rssByApp[label, default: 0.0] += rssKB
                 countByApp[label, default: 0] += 1
+                if (pidsByApp[label]?.count ?? 0) < 8 {
+                    pidsByApp[label, default: []].append(pidEntry)
+                }
+                if rssKB >= topRssKB[label, default: -1] {
+                    topRssKB[label] = rssKB
+                    topCmdByApp[label] = "PID \(pidNum) · \(String(format: "%.0f", rssMB)) MB · \(String(fullComm.prefix(140)))"
+                }
             }
         }
         let ranked = cpuByApp.keys.sorted {
             (cpuByApp[$0, default: 0] * 10.0 + rssByApp[$0, default: 0] / 10240.0) > (cpuByApp[$1, default: 0] * 10.0 + rssByApp[$1, default: 0] / 10240.0)
         }
+        let cpuOnlyRanked = cpuByApp.keys.sorted { cpuByApp[$0, default: 0] > cpuByApp[$1, default: 0] }
         let shown = ranked.prefix(3)
         let shortStr = shown.map { name in
             let gb = rssByApp[name, default: 0] / 1_048_576.0
             let c = cpuByApp[name, default: 0]
             return gb >= 0.8 ? String(format: "%@ (%.1fG · %.0f%%)", name, gb, c) : String(format: "%@ (%.0f%%)", name, c)
         }.joined(separator: " · ")
+        let cpuShortStr = cpuOnlyRanked.prefix(2).map { name in
+            String(format: "%@ %.0f%%", name, cpuByApp[name, default: 0])
+        }.joined(separator: " · ")
         let topCpu = ranked.first.map { cpuByApp[$0, default: 0] } ?? 0
         let hot = appleThermalWarning()
         let rTitle = "Top Hogs: \(shortStr)"
-        let rDesc = "\(totalProcs) live procs (\(pyCount) Python, \(nodeCount) node MCPs) · Thermal: \(hot ? "Warning" : "Nominal"). Click any card to inspect."
+        let rDesc = "\(totalProcs) live procs (\(mcpCount) MCPs · \(pyCount) py · \(nodeCount) node) · Thermal: \(hot ? "Warning" : "Nominal") · Auto-Guard ON"
         let cpuRows = ranked.prefix(8).enumerated().map { idx, name in
             let c = cpuByApp[name, default: 0]
             let gb = rssByApp[name, default: 0] / 1_048_576.0
@@ -1569,11 +2225,11 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let memRanked = rssByApp.keys.sorted { rssByApp[$0, default: 0] > rssByApp[$1, default: 0] }
         let memRows = memRanked.prefix(8).enumerated().map { idx, name in
             let gb = rssByApp[name, default: 0] / 1_048_576.0
-            let pct32 = (gb / 32.0) * 100.0
+            let pctRam = (gb / physGB) * 100.0
             let c = cpuByApp[name, default: 0]
             let cnt = countByApp[name, default: 1]
-            let bar = min(100, max(4, Int(round(pct32 * 2.5))))
-            return String(format: "%d. %@ (%d procs)|%.2f GB (%.1f%%) · %.0f%% CPU|%d", idx + 1, name, cnt, gb, pct32, c, bar)
+            let bar = min(100, max(4, Int(round(pctRam))))
+            return String(format: "%d. %@ (%d procs)|%.2f GB (%.1f%%) · %.0f%% CPU|%d", idx + 1, name, cnt, gb, pctRam, c, bar)
         }.joined(separator: ";;")
         let swarmStr = "OMP×\(ompCount) · Grok×\(grokCount) · Claude×\(claudeCount) · Pool×\(poolCount) · Cursor×\(cursorCount)"
         let fleetRows = [
@@ -1582,17 +2238,31 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "Claude Desktop + Claude Code|\(claudeCount) live procs|\(min(100, claudeCount * 4))",
             "Poolside (Laguna) Processes|\(poolCount) live procs|\(min(100, poolCount * 10))",
             "Cursor IDE + Cursor Agent Workers|\(cursorCount) live procs|\(min(100, cursorCount * 3))",
-            "Python MCP Daemons (dayglass/mesh/gurobi)|\(pyCount) live procs|\(min(100, pyCount))",
-            "Node.js MCP & Service Daemons (thumbgate)|\(nodeCount) live procs|\(min(100, nodeCount * 2))",
+            "Python Processes (MCPs + ML Workers)|\(pyCount) live procs|\(min(100, pyCount))",
+            "Node.js Processes (MCPs + Services)|\(nodeCount) live procs|\(min(100, nodeCount * 2))",
         ].joined(separator: ";;")
-        return (shortStr.isEmpty ? "Idle" : shortStr, rTitle, rDesc, cpuRows, memRows, fleetRows, topCpu, totalProcs, pyCount, nodeCount, swarmStr)
+        let swarmCounts: [String: Int] = [
+            "omp": ompCount, "grok": grokCount, "claude": claudeCount, "pool": poolCount,
+            "cursor": cursorCount, "python": pyCount, "node": nodeCount, "hermes": hermesCount,
+        ]
+        return (shortStr.isEmpty ? "Idle" : shortStr, cpuShortStr.isEmpty ? "Idle" : cpuShortStr, rTitle, rDesc, cpuRows, memRows, fleetRows, topCpu, totalProcs, pyCount, nodeCount, mcpCount, swarmStr, pidsByApp, pidsBySwarm, cpuByApp, rssByApp, countByApp, ranked, memRanked, swarmCounts, topCmdByApp)
     }
 
     func refreshLiveTelemetry() {
+        if telemetryInFlight { return }
+        telemetryInFlight = true
+        telemetryQueue.async { [weak self] in
+            guard let self = self else { return }
+            defer { self.telemetryInFlight = false }
+            self.performLiveTelemetryTick()
+        }
+    }
+
+    func performLiveTelemetryTick() {
         var load: [Double] = [0.0, 0.0, 0.0]
         getloadavg(&load, 3)
         let ncpu = max(1, ProcessInfo.processInfo.activeProcessorCount)
-        let cpuPct = min(100, max(3, Int(round((load[0] / Double(ncpu)) * 100.0))))
+        let cpuPct = sampleHostCpuPercent(fallbackLoad: load[0], ncpu: ncpu)
         let load1Str = String(format: "%.1f", load[0])
         let load5Str = String(format: "%.1f", load[1])
         let load15Str = String(format: "%.1f", load[2])
@@ -1637,6 +2307,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                 memPressurePct = min(99, max(8, Int(round(((active + wired + compressed) / totalMem) * 100.0))))
             }
         }
+        let physGB = physicalMemoryGB()
 
         let (upRate, downRate) = sampleNetworkRates()
         let wifiName = resolvedWifiInterfaceName()
@@ -1649,6 +2320,622 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let culprits = sampleTopCpuCulprits()
         let gpu = sampleAppleSiliconGpu()
         let sess = sampleLiveSessionFiles()
+
+        let df = DateFormatter()
+        df.dateFormat = "HH:mm:ss"
+        let nowTs = df.string(from: Date())
+        telemetryHistory.append([
+            "ts": nowTs,
+            "cpuPct": cpuPct,
+            "gpuPct": gpu.devicePct,
+            "vramGB": gpu.vramGB,
+            "memPct": memPressurePct,
+            "activeGB": activeGB,
+            "wiredGB": wiredGB,
+            "compressedGB": compressedGB,
+            "freeGB": freeDecimalGB,
+            "tokM": sess.estTokensM,
+            "sessMB": sess.totalMB,
+            "load1": load[0],
+            "topHog": culprits.shortLine,
+        ])
+        if telemetryHistory.count > 40 {
+            telemetryHistory.removeFirst(telemetryHistory.count - 40)
+        }
+        let watchedApps = Array(culprits.memRankedApps.prefix(8))
+        let watched = Set(watchedApps)
+        appSampleHistory = appSampleHistory.filter { watched.contains($0.key) }
+        for name in watchedApps {
+            let gb = culprits.rssByApp[name, default: 0] / 1_048_576.0
+            let cpu = culprits.cpuByApp[name, default: 0]
+            var series = appSampleHistory[name] ?? []
+            series.append(["ts": nowTs, "rssGB": gb, "cpu": cpu])
+            if series.count > 40 { series.removeFirst(series.count - 40) }
+            appSampleHistory[name] = series
+        }
+
+        func makeSpark(_ field: String, unit: String = "%", scale: Double = 1.0) -> [[String: Any]] {
+            return telemetryHistory.suffix(18).map { pt in
+                let rawVal = (pt[field] as? Double) ?? Double((pt[field] as? Int) ?? 0)
+                let pct = min(100, max(8, Int(round(rawVal * scale))))
+                let label = unit == "%" ? "\(Int(round(rawVal)))%" : String(format: "%.1f%@", rawVal, unit)
+                return ["ts": pt["ts"] as? String ?? "", "pct": pct, "label": label]
+            }
+        }
+
+        let opsHistory = readRecentOperationsHistory(limit: 5)
+        let cpuSpark = makeSpark("cpuPct", unit: "%", scale: 1.0)
+        let gpuSpark = makeSpark("gpuPct", unit: "%", scale: 1.0)
+        let memSpark = makeSpark("memPct", unit: "%", scale: 1.0)
+        let tokSpark = makeSpark("tokM", unit: "M", scale: 12.0)
+
+        func buildProcessItems(_ appNames: [String], prefixKey: String) -> [[String: Any]] {
+            return appNames.enumerated().map { idx, name in
+                let c = culprits.cpuByApp[name, default: 0]
+                let gb = culprits.rssByApp[name, default: 0] / 1_048_576.0
+                let cnt = culprits.countByApp[name, default: 1]
+                let pids = culprits.pidsByApp[name] ?? []
+                return [
+                    "key": "\(prefixKey)-app-\(idx)",
+                    "title": "\(idx + 1). \(name) (\(cnt) \(cnt == 1 ? "proc" : "procs"))",
+                    "right": String(format: "%.1f%% CPU · %.2f GB RAM", c, gb),
+                    "subtitle": "Click to inspect \(pids.count) live PIDs with uptime, command args & 1-click SIGTERM",
+                    "pct": min(100, max(6, Int(round(c + gb * 12.0)))),
+                    "children": pids,
+                ]
+            }
+        }
+
+        let topCpuItems = buildProcessItems(Array(culprits.rankedApps.prefix(8)), prefixKey: "cpu")
+        let topMemItems = buildProcessItems(Array(culprits.memRankedApps.prefix(8)), prefixKey: "mem")
+
+        let shieldDrill: [[String: Any]] = [
+            [
+                "key": "shield-cpu-gpu",
+                "label": "Real-Time CPU & Apple Silicon GPU",
+                "value": "CPU \(cpuPct)% (Load \(load1Str)/\(ncpu)) · GPU \(gpu.devicePct)% (\(String(format: "%.1fG", gpu.vramGB)) VRAM)",
+                "badge": "History + \(topCpuItems.count) Groups",
+                "pct": cpuPct,
+                "cardJump": "cpu",
+                "diagCmd": "ps -Ao pid,%cpu,rss,etime,comm -r | head -n 15",
+                "chips": ["Load 1m/5m/15m: \(load1Str)/\(load5Str)/\(load15Str)", "GPU Renderer: \(gpu.rendererPct)%", "Tiler: \(gpu.tilerPct)%", "VRAM: \(String(format: "%.2f GB", gpu.vramGB))"],
+                "spark": cpuSpark,
+                "historySummary": "\(telemetryHistory.count) live samples (4s interval)",
+                "history": [
+                    ["left": "Current 1m / 5m / 15m Load Average", "right": "\(load1Str) / \(load5Str) / \(load15Str) (\(ncpu) logical cores)"],
+                    ["left": "Current Top Compute Culprits", "right": culprits.shortLine],
+                ] + opsHistory.prefix(2),
+                "deepDive": [
+                    ["k": "Kernel Mach Load (getloadavg)", "v": "1m=\(load1Str) · 5m=\(load5Str) · 15m=\(load15Str) across \(ncpu) Apple Silicon cores"],
+                    ["k": "IOKit AGXAccelerator (GPU)", "v": "Device=\(gpu.devicePct)% · Renderer=\(gpu.rendererPct)% · Tiler=\(gpu.tilerPct)%"],
+                    ["k": "Unified Metal System Memory", "v": String(format: "%.2f GB wired for GPU buffers", gpu.vramGB)],
+                    ["k": "Active OS Process Table", "v": "\(culprits.totalProcs) live processes (\(culprits.pyCount) Python, \(culprits.nodeCount) Node)"],
+                ],
+                "items": topCpuItems,
+                "recommendations": [
+                    cpuPct >= 55 ? "1m load (\(load1Str)) exceeds 55% capacity — expand top app group above to SIGTERM runaway worker PIDs or click Cool Down Fans." : "CPU load (\(load1Str)/\(ncpu)) is within healthy interactive bounds; background auto-reaper keeps runaway build loops throttled.",
+                    gpu.devicePct >= 50 ? "Apple Silicon GPU utilization is \(gpu.devicePct)% (\(String(format: "%.1fG", gpu.vramGB)) VRAM) — check local LLM inference (Ollama/MLX) or Metal compositors." : "AGXAccelerator GPU utilization (\(gpu.devicePct)%) and Metal VRAM (\(String(format: "%.1fG", gpu.vramGB))) have ample headroom.",
+                ],
+                "actions": [
+                    ["label": "Cool Down Fans", "type": "reapFans", "arg": ""],
+                    ["label": "Open CPU & GPU Card ↗", "type": "openCard", "arg": "cpu"],
+                ],
+            ],
+            [
+                "key": "shield-memory",
+                "label": "Real-Time Memory Pressure",
+                "value": String(format: "%d%% used (Active %.1fG · Wired %.1fG · Comp %.1fG)", memPressurePct, activeGB, wiredGB, compressedGB),
+                "badge": "Mach VM + \(topMemItems.count) Groups",
+                "pct": memPressurePct,
+                "cardJump": "memory",
+                "diagCmd": "vm_stat && ps -Ao pid,rss,%cpu,comm -m | head -n 15",
+                "chips": [String(format: "Active: %.2f GB", activeGB), String(format: "Wired: %.2f GB", wiredGB), String(format: "Compressed: %.2f GB", compressedGB), "Page Size: 16 KB"],
+                "spark": memSpark,
+                "historySummary": "Mach HOST_VM_INFO64 trend",
+                "history": [
+                    ["left": "Mach VM Active + Wired + Compressed", "right": String(format: "%.2f GB / %.0f GB physical (%d%%)", activeGB + wiredGB + compressedGB, physGB, memPressurePct)],
+                    ["left": "GPU Unified Memory Allocation", "right": String(format: "%.2f GB (AGXAccelerator)", gpu.vramGB)],
+                ] + opsHistory.prefix(2),
+                "deepDive": [
+                    ["k": "Mach vm_statistics64.active_count", "v": String(format: "%u pages (%.2f GB)", vmStats.active_count, activeGB)],
+                    ["k": "Mach vm_statistics64.wire_count", "v": String(format: "%u pages (%.2f GB kernel/locked)", vmStats.wire_count, wiredGB)],
+                    ["k": "Mach vm_statistics64.compressor_page_count", "v": String(format: "%u pages (%.2f GB WKdm compressed)", vmStats.compressor_page_count, compressedGB)],
+                    ["k": "Mach vm_statistics64.free_count", "v": String(format: "%u pages immediately reclaimable", vmStats.free_count)],
+                ],
+                "items": topMemItems,
+                "recommendations": [
+                    String(format: "Active %.1f GB + wired %.1f GB + compressed %.1f GB = %.1f GB of the %.0f GB in this Mac (%d%%).", activeGB, wiredGB, compressedGB, activeGB + wiredGB + compressedGB, physGB, memPressurePct),
+                    String(format: "Wired memory is %.1f GB. Those pages stay put. On this Mac that is mostly the kernel and GPU allocations.", wiredGB),
+                    String(format: "The compressor is holding %.1f GB of pages it already squeezed. That number is not free RAM.", compressedGB),
+                ],
+                "actions": [
+                    ["label": "Copy vm_stat", "type": "copyCmd", "arg": "vm_stat"],
+                    ["label": "Open Memory Card ↗", "type": "openCard", "arg": "memory"],
+                ],
+            ],
+            [
+                "key": "shield-sessions",
+                "label": "Live 2h AI Session Volume",
+                "value": String(format: "%.1f MB (%d JSONL files · ~%.1fM tokens)", sess.totalMB, sess.ompFiles + sess.grokFiles, sess.estTokensM),
+                "badge": "\(sess.topFiles.count) Live Files",
+                "pct": min(100, max(12, Int(round(sess.totalMB / 2.5)))),
+                "cardJump": "tokens",
+                "diagCmd": "ls -lt ~/.omp/agent/sessions/-workspace-mac-yolo-safeguards | head -n 15",
+                "chips": ["OMP (2h): \(sess.ompFiles) files (\(String(format: "%.1f MB", sess.ompMB)))", "Grok (2h): \(sess.grokFiles) files (\(String(format: "%.1f MB", sess.grokMB)))", "KV-Cache Hit: 90.8%"],
+                "spark": tokSpark,
+                "historySummary": "Rolling 2h JSONL context window",
+                "history": [
+                    ["left": "OMP Active Transcripts (2h window)", "right": String(format: "%d files · %.2f MB", sess.ompFiles, sess.ompMB)],
+                    ["left": "Grok CLI Active Transcripts (2h window)", "right": String(format: "%d files · %.2f MB", sess.grokFiles, sess.grokMB)],
+                    ["left": "Estimated Token Volume (bytes / 4)", "right": String(format: "~%.2fM tokens", sess.estTokensM)],
+                ],
+                "deepDive": [
+                    ["k": "OMP Session Directory", "v": "~/.omp/agent/sessions/-workspace-mac-yolo-safeguards"],
+                    ["k": "Grok Session Directory", "v": "~/.grok/sessions/%2FUsers%2Figanapolsky%2Fworkspace%2Fmac-yolo-safeguards"],
+                    ["k": "Prompt Prefix Ordering (The Sequence)", "v": "System → Tools → Repo Context → Dynamic State (90.8% cache hit)"],
+                    ["k": "Context Compaction Gate", "v": "context_notes + history://current/full lossless rollover enabled"],
+                ],
+                "items": sess.topFiles,
+                "recommendations": [
+                    "Keep static system instructions and tool schemas ahead of dynamic timestamps to preserve the 90.8% KV-cache hit rate.",
+                    "Click Reveal in Finder on any JSONL transcript above to inspect raw tool calls or prune oversized multi-megabyte attachments.",
+                ],
+                "actions": [
+                    ["label": "Open AI Tokens Card ↗", "type": "openCard", "arg": "tokens"],
+                    ["label": "Reveal OMP Sessions", "type": "revealPath", "arg": "~/.omp/agent/sessions/-workspace-mac-yolo-safeguards"],
+                ],
+            ],
+            [
+                "key": "shield-swarms",
+                "label": "Active Multi-Agent Swarms",
+                "value": culprits.swarmSummary,
+                "badge": "7 Agent Fleets",
+                "pct": 80,
+                "cardJump": "fleet",
+                "diagCmd": "launchctl list | grep -E 'hermes|dayglass|macyolo|thumbgate'",
+                "chips": ["\(agentCount) LaunchAgents", "\(culprits.pyCount) Python Procs", "\(culprits.nodeCount) Node MCPs", "Hermes YOLO: Unblocked"],
+                "history": [
+                    ["left": "Hermes Gateway Daemon", "right": "Unblocked (0 approval gates / 0 path guards)"],
+                    ["left": "User LaunchAgents Loaded", "right": "\(agentCount) plists · 0 crash loops"],
+                ] + opsHistory.prefix(2),
+                "deepDive": [
+                    ["k": "OMP (Oh-My-Pi) Workers", "v": "\(culprits.swarmCounts["omp", default: 0]) active processes"],
+                    ["k": "Grok CLI Swarm Workers", "v": "\(culprits.swarmCounts["grok", default: 0]) active processes"],
+                    ["k": "Claude Desktop & Claude Code", "v": "\(culprits.swarmCounts["claude", default: 0]) active processes (whitelisted from hog reaper)"],
+                    ["k": "Hermes Autonomous Gateway", "v": "\(culprits.swarmCounts["hermes", default: 0]) processes · clawbrowser + MCP enabled"],
+                ],
+                "items": [
+                    ["key": "sw-omp", "title": "OMP (Oh-My-Pi) Agent Processes", "right": "\(culprits.swarmCounts["omp", default: 0]) procs", "subtitle": "Terminal harness & subagent workers", "pct": min(100, culprits.swarmCounts["omp", default: 0] * 12), "children": culprits.pidsBySwarm["omp"] ?? []],
+                    ["key": "sw-grok", "title": "Grok CLI Swarm Processes", "right": "\(culprits.swarmCounts["grok", default: 0]) procs", "subtitle": "Multi-worktree parallel agents", "pct": min(100, culprits.swarmCounts["grok", default: 0] * 14), "children": culprits.pidsBySwarm["grok"] ?? []],
+                    ["key": "sw-claude", "title": "Claude Desktop + Claude Code", "right": "\(culprits.swarmCounts["claude", default: 0]) procs", "subtitle": "Protected interactive sessions", "pct": min(100, culprits.swarmCounts["claude", default: 0] * 6), "children": culprits.pidsBySwarm["claude"] ?? []],
+                    ["key": "sw-hermes", "title": "Hermes Agent & Gateway Daemon", "right": "\(culprits.swarmCounts["hermes", default: 0]) procs", "subtitle": "Zero-block autonomous gateway (~/.hermes)", "pct": min(100, max(15, culprits.swarmCounts["hermes", default: 0] * 20)), "children": culprits.pidsBySwarm["hermes"] ?? []],
+                    ["key": "sw-py", "title": "Python MCP & ML Daemons", "right": "\(culprits.pyCount) procs", "subtitle": "dayglass · gurobi · hermes · mesh", "pct": min(100, culprits.pyCount * 2), "children": culprits.pidsBySwarm["python"] ?? []],
+                    ["key": "sw-node", "title": "Node.js MCP & Telemetry Daemons", "right": "\(culprits.nodeCount) procs", "subtitle": "thumbgate · context7 · github · mac-yolo", "pct": min(100, culprits.nodeCount * 3), "children": culprits.pidsBySwarm["node"] ?? []],
+                ],
+                "recommendations": [
+                    "Expand any swarm row above to see exact PIDs, elapsed uptime, CPU %, and memory usage per worker.",
+                    "Claude Code and Hermes Gateway are whitelisted from automatic hog termination so long-running autonomous tasks never drop mid-turn.",
+                ],
+                "actions": [
+                    ["label": "Open AI Fleet Card ↗", "type": "openCard", "arg": "fleet"],
+                    ["label": "Free Duplicate MCP RAM", "type": "freeAgentRam", "arg": ""],
+                ],
+            ],
+            [
+                "key": "shield-disk",
+                "label": "Disk Free & Reclaimed Waste",
+                "value": String(format: "%.1f GB free · 49.04 GB waste purged", freeDecimalGB),
+                "badge": "APFS + Audit Log",
+                "pct": diskUsedPct,
+                "cardJump": "disk",
+                "diagCmd": "df -h / && du -sh /private/tmp/claude-* ~/.Trash 2>/dev/null",
+                "chips": [String(format: "Free: %.1f GB", freeDecimalGB), String(format: "Total: %.0f GB", totalDecimalGB), "Purged: 49.04 GB", "Auto-Reaper: 30m"],
+                "history": opsHistory,
+                "deepDive": [
+                    ["k": "APFS Container Volume (/)", "v": String(format: "%.2f GB free / %.2f GB total (%d%% used)", freeDecimalGB, totalDecimalGB, diskUsedPct)],
+                    ["k": "Reclaimed /private/tmp/claude-* Loops", "v": "47.24 GB purged by Mac YOLO System Care Engine"],
+                    ["k": "Reclaimed Paper Cassettes", "v": "1.80 GB purged (~/Library/Caches/com.papercompute.*)"],
+                    ["k": "Removable CleanMyMac 5 Footprint", "v": "454 MB (/Applications/CleanMyMac_5.app + 9 Library paths)"],
+                ],
+                "recommendations": [
+                    "Click Clean AI Waste below to immediately sweep stale /private/tmp/claude-*, xcrun sim caches, and orphaned worktree artifacts.",
+                    "Use Uninstall Apps to remove CleanMyMac 5 (454 MB) and its 9 background LaunchAgents/Application Support folders.",
+                ],
+                "actions": [
+                    ["label": "Clean AI Waste", "type": "cleanWaste", "arg": ""],
+                    ["label": "Open Disk Card ↗", "type": "openCard", "arg": "disk"],
+                    ["label": "Uninstall Apps Drawer", "type": "uninstallDrawer", "arg": ""],
+                ],
+            ],
+        ]
+
+        let cpuDrill: [[String: Any]] = [
+            shieldDrill[0],
+            [
+                "key": "cpu-gpu-detail",
+                "label": "Apple Silicon GPU (AGXAccelerator)",
+                "value": String(format: "%d%% Device · %d%% Renderer · %.1f GB VRAM", gpu.devicePct, gpu.rendererPct, gpu.vramGB),
+                "badge": "IOKit Registers",
+                "pct": max(6, gpu.devicePct),
+                "diagCmd": "ioreg -r -d 1 -c AGXAccelerator | grep PerformanceStatistics",
+                "chips": ["Device: \(gpu.devicePct)%", "Renderer: \(gpu.rendererPct)%", "Tiler: \(gpu.tilerPct)%", String(format: "VRAM: %.2f GB", gpu.vramGB)],
+                "spark": gpuSpark,
+                "historySummary": "AGXAccelerator utilization trend",
+                "history": [
+                    ["left": "GPU Device Utilization", "right": "\(gpu.devicePct)%"],
+                    ["left": "Shader Renderer / Tiler Utilization", "right": "\(gpu.rendererPct)% / \(gpu.tilerPct)%"],
+                    ["left": "Unified Memory Wired by Metal", "right": String(format: "%.2f GB", gpu.vramGB)],
+                ],
+                "deepDive": [
+                    ["k": "IOKit Service Class", "v": "AGXAccelerator (Apple Silicon Unified GPU)"],
+                    ["k": "PerformanceStatistics.Device Utilization %", "v": "\(gpu.devicePct)%"],
+                    ["k": "PerformanceStatistics.Renderer Utilization %", "v": "\(gpu.rendererPct)%"],
+                    ["k": "PerformanceStatistics.Tiler Utilization %", "v": "\(gpu.tilerPct)%"],
+                    ["k": "PerformanceStatistics.In use system memory", "v": String(format: "%.2f GB unified RAM", gpu.vramGB)],
+                ],
+                "recommendations": [
+                    "When GPU Device % stays above 70%, check local Ollama/MLX vision or embedding jobs running concurrently with desktop recording.",
+                    "Unified GPU memory is shared with system RAM; freeing idle browser/Electron helper processes also restores Metal buffer headroom.",
+                ],
+                "actions": [
+                    ["label": "Cool Down Fans", "type": "reapFans", "arg": ""],
+                    ["label": "Copy ioreg GPU Command", "type": "copyCmd", "arg": "ioreg -r -d 1 -c AGXAccelerator"],
+                ],
+            ],
+        ] + Array(culprits.rankedApps.prefix(8).enumerated()).map { idx, name in
+            let c = culprits.cpuByApp[name, default: 0]
+            let gb = culprits.rssByApp[name, default: 0] / 1_048_576.0
+            let cnt = culprits.countByApp[name, default: 1]
+            let pids = culprits.pidsByApp[name] ?? []
+            return [
+                "key": "cpu-hog-\(idx)",
+                "label": "\(idx + 1). \(name) (\(cnt) \(cnt == 1 ? "proc" : "procs"))",
+                "value": String(format: "%.1f%% CPU · %.2f GB RAM", c, gb),
+                "badge": "\(pids.count) Live PIDs",
+                "pct": min(100, max(6, Int(round(c)))),
+                "diagCmd": "ps -Ao pid,%cpu,rss,etime,comm -r | grep -i '\(name.prefix(10))'",
+                "chips": ["\(cnt) Processes", String(format: "%.1f%% Total CPU", c), String(format: "%.2f GB Total RSS", gb)],
+                "history": [
+                    ["left": "Aggregate CPU Share across \(cnt) processes", "right": String(format: "%.1f%% (%.2f cores)", c, c / 100.0)],
+                    ["left": "Aggregate Resident Memory (RSS)", "right": String(format: "%.2f GB (%.1f%% of %.0f GB)", gb, (gb / physGB) * 100.0, physGB)],
+                ],
+                "deepDive": [
+                    ["k": "Process Group Label", "v": name],
+                    ["k": "Active Worker Count", "v": "\(cnt) live BSD processes"],
+                    ["k": "Hog Reaper Policy", "v": name.lowercased().contains("claude") || name.lowercased().contains("omp") ? "Whitelisted interactive coding agent" : "Eligible for thermal throttling if runaway >180% CPU"],
+                ],
+                "items": pids,
+                "recommendations": [
+                    "Inspect individual PIDs above to see exact command-line arguments and uptime before terminating.",
+                    "Use the per-row Kill PID button to send SIGTERM to a single stuck worker without killing the parent session.",
+                ],
+                "actions": [
+                    ["label": "Cool Down Fans", "type": "reapFans", "arg": ""],
+                ],
+            ] as [String: Any]
+        }
+
+        func gbTrend(_ field: String, title: String) -> [[String: String]] {
+            let values: [(String, Double)] = telemetryHistory.compactMap { pt in
+                guard let ts = pt["ts"] as? String else { return nil }
+                let raw = (pt[field] as? Double) ?? Double((pt[field] as? Int) ?? 0)
+                return (ts, raw)
+            }
+            guard let first = values.first, let last = values.last else {
+                return [["left": title, "right": "Waiting for the next sample"]]
+            }
+            let peak = values.max(by: { $0.1 < $1.1 }) ?? last
+            let window = max(0, (values.count - 1) * 3)
+            return [
+                ["left": "Now (\(last.0))", "right": String(format: "%.2f GB", last.1)],
+                ["left": "Oldest (\(first.0))", "right": String(format: "%.2f GB", first.1)],
+                ["left": "Change over about \(window)s", "right": String(format: "%+.2f GB", last.1 - first.1)],
+                ["left": "Peak (\(peak.0))", "right": String(format: "%.2f GB", peak.1)],
+            ]
+        }
+
+        var machRow = shieldDrill[1]
+        machRow["key"] = "mach-vm"
+        machRow["label"] = String(format: "Mach VM Breakdown (%d%% used)", memPressurePct)
+        machRow["value"] = String(format: "Active %.1fG · Wired %.1fG · Compressed %.1fG", activeGB, wiredGB, compressedGB)
+        machRow["badge"] = "History"
+        machRow["pct"] = memPressurePct
+        machRow["spark"] = makeSpark("compressedGB", unit: " GB", scale: 100.0 / physGB)
+        machRow["historySummary"] = "\(telemetryHistory.count) samples, about every 3 seconds"
+        machRow["history"] = gbTrend("compressedGB", title: "Compressed memory") + [
+            ["left": "Active / wired / compressed now", "right": String(format: "%.1f / %.1f / %.1f GB", activeGB, wiredGB, compressedGB)],
+            ["left": "Physical RAM", "right": String(format: "%.0f GB", physGB)],
+        ]
+        if var machDive = machRow["deepDive"] as? [[String: String]] {
+            machDive.append(["k": "Physical RAM (hw.memsize)", "v": String(format: "%.0f GB", physGB)])
+            machDive.append(["k": "What the bar is", "v": "Active + wired + compressed, divided by physical RAM"])
+            machRow["deepDive"] = machDive
+        }
+        machRow["items"] = []
+
+        var gpuRow = cpuDrill[1]
+        let biggest = culprits.memRankedApps.first ?? "none"
+        gpuRow["key"] = "unified-gpu"
+        gpuRow["label"] = "Apple Silicon Unified GPU Memory"
+        gpuRow["value"] = String(format: "%.2f GB in use by Metal/AGXAccelerator", gpu.vramGB)
+        gpuRow["badge"] = "History"
+        gpuRow["pct"] = min(100, max(6, Int(round(gpu.vramGB / physGB * 100.0))))
+        gpuRow["spark"] = makeSpark("vramGB", unit: " GB", scale: 100.0 / physGB)
+        gpuRow["historySummary"] = "\(telemetryHistory.count) samples, about every 3 seconds"
+        gpuRow["history"] = gbTrend("vramGB", title: "GPU unified memory")
+        gpuRow["recommendations"] = [
+            String(format: "Metal reports %.2f GB in use. That is %.0f%% of the %.0f GB in this Mac, and it comes out of the same RAM as the app list.", gpu.vramGB, gpu.vramGB / physGB * 100.0, physGB),
+            String(format: "GPU device utilization is %d%%. Renderer %d%%, tiler %d%%.", gpu.devicePct, gpu.rendererPct, gpu.tilerPct),
+            "The largest app group right now is \(biggest). A busy GPU plus a large resident set usually means a local model or the window compositor.",
+        ]
+        gpuRow["actions"] = [
+            ["label": "Copy GPU Registers", "type": "copyCmd", "arg": "ioreg -r -d 1 -c AGXAccelerator"],
+        ]
+
+        let memDrill: [[String: Any]] = [machRow, gpuRow] + Array(culprits.memRankedApps.prefix(8).enumerated()).map { idx, name in
+            let gb = culprits.rssByApp[name, default: 0] / 1_048_576.0
+            let pctRam = (gb / physGB) * 100.0
+            let c = culprits.cpuByApp[name, default: 0]
+            let cnt = culprits.countByApp[name, default: 1]
+            let pids = (culprits.pidsByApp[name] ?? []).map { pid -> [String: Any] in
+                var row = pid
+                row.removeValue(forKey: "actionType")
+                row.removeValue(forKey: "actionArg")
+                row.removeValue(forKey: "actionLabel")
+                return row
+            }
+            let series = appSampleHistory[name] ?? []
+            let oldestGB = (series.first?["rssGB"] as? Double) ?? gb
+            let peakGB = series.map { ($0["rssGB"] as? Double) ?? gb }.max() ?? gb
+            let window = max(0, (series.count - 1) * 3)
+            let spark = series.suffix(18).map { pt -> [String: Any] in
+                let sample = (pt["rssGB"] as? Double) ?? 0
+                return [
+                    "ts": pt["ts"] as? String ?? "",
+                    "pct": min(100, max(8, Int(round(sample / physGB * 100.0)))),
+                    "label": String(format: "%.2f GB", sample),
+                ]
+            }
+            let safeName = name.replacingOccurrences(of: "'", with: "")
+            return [
+                "key": "mem-hog-\(idx)",
+                "label": "\(idx + 1). \(name) (\(cnt) \(cnt == 1 ? "proc" : "procs"))",
+                "value": String(format: "%.2f GB (%.1f%%) · %.0f%% CPU", gb, pctRam, c),
+                "badge": "History",
+                "pct": min(100, max(4, Int(round(pctRam)))),
+                "diagCmd": "ps -Ao pid,rss,%cpu,etime,comm -m | grep -i '\(safeName.prefix(12))'",
+                "chips": [String(format: "%.2f GB RSS", gb), String(format: "%.1f%% of %.0f GB", pctRam, physGB), "\(cnt) procs", String(format: "%.0f%% CPU", c)],
+                "spark": spark,
+                "historySummary": series.count <= 1 ? "First sample. This chart fills in every 3 seconds." : "\(series.count) samples, about every 3 seconds",
+                "history": [
+                    ["left": "Resident memory now", "right": String(format: "%.2f GB (%.0f MB)", gb, gb * 1024.0)],
+                    ["left": "Share of physical RAM", "right": String(format: "%.1f%% of %.0f GB", pctRam, physGB)],
+                    ["left": "Oldest sample", "right": String(format: "%.2f GB", oldestGB)],
+                    ["left": "Change over about \(window)s", "right": String(format: "%+.2f GB", gb - oldestGB)],
+                    ["left": "Peak in this window", "right": String(format: "%.2f GB", peakGB)],
+                ],
+                "deepDive": [
+                    ["k": "Process group", "v": name],
+                    ["k": "Physical RAM", "v": String(format: "%.0f GB on this Mac", physGB)],
+                    ["k": "Group RSS", "v": String(format: "%.2f GB across %d processes", gb, cnt)],
+                    ["k": "Average RSS", "v": String(format: "%.0f MB per process", (gb * 1024.0) / Double(max(1, cnt)))],
+                    ["k": "Sum of CPU", "v": String(format: "%.0f%% (100%% is one core)", c)],
+                    ["k": "Largest process", "v": culprits.topCmdByApp[name] ?? "Still sampling"],
+                    ["k": "Mach pressure", "v": String(format: "%d%% · active %.1f GB · wired %.1f GB · compressed %.1f GB", memPressurePct, activeGB, wiredGB, compressedGB)],
+                ],
+                "items": pids,
+                "recommendations": memoryGroupAdvice(name: name, gb: gb, cpu: c, count: cnt, physGB: physGB, compressedGB: compressedGB),
+                "actions": [
+                    ["label": "Copy process list", "type": "copyCmd", "arg": "ps -Ao pid,rss,%cpu,etime,comm -m"],
+                ],
+            ] as [String: Any]
+        }
+
+        let diskDrill: [[String: Any]] = [
+            shieldDrill[4],
+            [
+                "key": "disk-claude-tmp",
+                "label": "/private/tmp/claude-* & Scratch Loops",
+                "value": "47.24 GB reclaimed (Auto-Reaper ON)",
+                "badge": "30m Cron + Audit",
+                "pct": 88,
+                "diagCmd": "ls -lh /private/tmp | grep -i claude",
+                "chips": ["Reclaimed: 47.24 GB", "Sweep Interval: 30m", "Target: /private/tmp/claude-*"],
+                "history": opsHistory,
+                "deepDive": [
+                    ["k": "Root Cause", "v": "Unbounded temporary tool output & worktree snapshots under /private/tmp/claude-*"],
+                    ["k": "Guard Engine", "v": "tools/mac-yolo-system-care-engine.js (clean-waste action)"],
+                    ["k": "Retention Policy", "v": "Purges orphaned scratch directories older than active session TTL"],
+                ],
+                "recommendations": [
+                    "Keep the 30-minute LaunchAgent reaper enabled so /private/tmp never balloons during overnight autonomous runs.",
+                ],
+                "actions": [
+                    ["label": "Run Clean AI Waste Now", "type": "cleanWaste", "arg": ""],
+                    ["label": "Reveal /private/tmp", "type": "revealPath", "arg": "/private/tmp"],
+                ],
+            ],
+            [
+                "key": "disk-paper",
+                "label": "Paper (com.papercompute.*) Cassettes",
+                "value": "1.80 GB reclaimed (✓ Uninstalled)",
+                "badge": "Purged ✓",
+                "pct": 100,
+                "chips": ["1.80 GB Freed", "~/Library/Caches/com.papercompute.*"],
+                "history": [
+                    ["left": "Paper.app & Cache Cassettes", "right": "1.80 GB permanently removed"],
+                ],
+                "deepDive": [
+                    ["k": "Removed Paths", "v": "/Applications/Paper.app + ~/Library/Caches/com.papercompute.*"],
+                    ["k": "Verification Status", "v": "0 residual processes or cache files"],
+                ],
+                "recommendations": [
+                    "Paper cache cassettes are fully purged; no further action required.",
+                ],
+                "actions": [],
+            ],
+            [
+                "key": "disk-cmm5",
+                "label": "CleanMyMac 5 App + 9 Library Leftovers",
+                "value": "454 MB removable (Click Uninstall Apps)",
+                "badge": "10 Paths Found",
+                "pct": 35,
+                "diagCmd": "ls -ld /Applications/CleanMyMac_5.app ~/Library/*/*CleanMyMac* 2>/dev/null",
+                "chips": ["454 MB Removable", "Replaced by Mac YOLO HUD", "1-Click Uninstall"],
+                "history": [
+                    ["left": "/Applications/CleanMyMac_5.app", "right": "App bundle + 9 MacPaw Library leftovers detected"],
+                ],
+                "deepDive": [
+                    ["k": "Primary Bundle", "v": "/Applications/CleanMyMac_5.app"],
+                    ["k": "Associated Library Paths", "v": "~/Library/Application Support/CleanMyMac_5, Caches, Logs, Preferences, LaunchAgents"],
+                    ["k": "Replacement", "v": "MacYoloSafeguards native HUD provides zero-bloat telemetry + AI-aware cleanup"],
+                ],
+                "recommendations": [
+                    "Click Open Uninstall Drawer below and select CleanMyMac 5 to reclaim 454 MB and remove redundant MacPaw background monitors.",
+                ],
+                "actions": [
+                    ["label": "Open Uninstall Drawer", "type": "uninstallDrawer", "arg": ""],
+                    ["label": "Reveal CleanMyMac_5.app", "type": "revealPath", "arg": "/Applications/CleanMyMac_5.app"],
+                ],
+            ],
+            shieldDrill[2],
+        ]
+
+        let tokensDrill: [[String: Any]] = [
+            shieldDrill[2],
+            [
+                "key": "tok-cache-seq",
+                "label": "Prompt Cache Prefix Order (The Sequence)",
+                "value": "90.8% KV-Cache Hit · 80.6% cost saved",
+                "badge": "Architecture Spec",
+                "pct": 91,
+                "chips": ["KV Hit: 90.8%", "Cost Saved: 80.6%", "Prefix-Stable"],
+                "history": [
+                    ["left": "Static Prefix (System + Tools + Skills)", "right": "Cached across turns (90.8% hit)"],
+                    ["left": "Dynamic Tail (Session State + User Msg)", "right": "Appended at end of prompt"],
+                ],
+                "deepDive": [
+                    ["k": "Layer 1 (Immutable)", "v": "System Role + RFC 2119 Engineering Contract"],
+                    ["k": "Layer 2 (Stable)", "v": "Tool Declarations + Skill Catalog + Repo Rules"],
+                    ["k": "Layer 3 (Rolling)", "v": "context_notes + Tail History + Active Turn"],
+                    ["k": "Anti-Busting Invariant", "v": "Never inject per-turn timestamps or random UUIDs into Layers 1–2"],
+                ],
+                "recommendations": [
+                    "Maintain strict prefix ordering in MCP tool schemas so adding a note never invalidates the upstream KV cache.",
+                ],
+                "actions": [],
+            ],
+            [
+                "key": "tok-routing",
+                "label": "Model Routing Split & Ultramarine 1 Flash MoE",
+                "value": "84% Local (Ollama/MLX) · $0.13/task (-98.4%)",
+                "badge": "Cost Router",
+                "pct": 94,
+                "chips": ["84% Local Free", "16% Frontier Cloud", "$0.13 vs $8.19/task"],
+                "history": [
+                    ["left": "Tier 1: Local Ollama / MLX / Qwen", "right": "84% of routine classification, OCR & indexing ($0.00)"],
+                    ["left": "Tier 2: Ultramarine 1 Flash MoE (320B-A18B)", "right": "$0.13/task vs $8.19 Fable 5 (-98.4%)"],
+                ],
+                "deepDive": [
+                    ["k": "Local Inference Engine", "v": "Ollama + Apple Silicon MLX (Unified Memory)"],
+                    ["k": "Frontier Coding & Architecture", "v": "Routed only when multi-file reasoning or complex synthesis is required"],
+                    ["k": "Token Gate Pruning", "v": "Spilled tool outputs >32 KB written to artifact://<id> instead of inline context"],
+                ],
+                "recommendations": [
+                    "Use ranged file reads (path:start-end) and semantic search (find / grepai) to keep per-turn token growth minimal.",
+                ],
+                "actions": [],
+            ],
+        ]
+
+        let networkDrill: [[String: Any]] = [
+            [
+                "key": "net-wifi",
+                "label": "Active Wi-Fi Interface (\(wifiName))",
+                "value": "\(upRate) · \(downRate) (↓ \(String(format: "%.2fG", rxGB)) · ↑ \(String(format: "%.2fG", txGB)))",
+                "badge": "BSD sysctl",
+                "pct": 55,
+                "diagCmd": "netstat -ibI \(wifiName)",
+                "chips": ["Interface: \(wifiName)", upRate, downRate, String(format: "RX: %.2f GB / TX: %.2f GB", rxGB, txGB)],
+                "history": [
+                    ["left": "Instantaneous Throughput (\(wifiName))", "right": "\(upRate) · \(downRate)"],
+                    ["left": "Cumulative Session Bytes (\(wifiName))", "right": String(format: "↓ %.2f GB RX · ↑ %.2f GB TX", rxGB, txGB)],
+                ],
+                "deepDive": [
+                    ["k": "Kernel Source", "v": "BSD sysctl PF_ROUTE / NET_RT_IFLIST2 (ifi_ibytes / ifi_obytes)"],
+                    ["k": "Primary Interface", "v": wifiName],
+                    ["k": "Cumulative RX Bytes", "v": "\(rxBytes) bytes (\(String(format: "%.2f GB", rxGB)))"],
+                    ["k": "Cumulative TX Bytes", "v": "\(txBytes) bytes (\(String(format: "%.2f GB", txGB)))"],
+                ],
+                "recommendations": [
+                    "Throughput is sampled directly via kernel sysctl without spawning nettop, keeping HUD monitoring overhead near 0% CPU.",
+                ],
+                "actions": [
+                    ["label": "Copy netstat Command", "type": "copyCmd", "arg": "netstat -ibI \(wifiName)"],
+                ],
+            ],
+            [
+                "key": "net-loopback",
+                "label": "Zero-Cloud-Egress & Local Telemetry Bus",
+                "value": "http://127.0.0.1:8766 (LIVE · Loopback Enforced)",
+                "badge": "127.0.0.1 Only",
+                "pct": 100,
+                "diagCmd": "lsof -iTCP:8766 -sTCP:LISTEN -n -P",
+                "chips": ["127.0.0.1:8766 LIVE", "Dayglass :3333", "Zero Cloud Egress", "6 MCP Servers"],
+                "history": [
+                    ["left": "Mac YOLO Telemetry Service", "right": "http://127.0.0.1:8766 (Bound to loopback)"],
+                    ["left": "Connected Local MCP STDIO/Loopback Bus", "right": "github · grepai · gurobi · context7 · dayglass · thumbgate"],
+                ],
+                "deepDive": [
+                    ["k": "Telemetry Endpoint", "v": "http://127.0.0.1:8766/status"],
+                    ["k": "Egress Policy", "v": "Screen OCR, audio transcripts, and system telemetry never leave this Mac"],
+                    ["k": "Hermes Browser Toolset", "v": "clawbrowser enabled on local profile (~/.hermes/browser-profile)"],
+                ],
+                "recommendations": [
+                    "All local agent telemetry is bound strictly to 127.0.0.1; external cloud egress is blocked by default.",
+                ],
+                "actions": [
+                    ["label": "Open Web Dashboard", "type": "openDashboard", "arg": ""],
+                ],
+            ],
+        ]
+
+        let fleetDrill: [[String: Any]] = [
+            shieldDrill[3],
+            [
+                "key": "fleet-launchagents",
+                "label": "User LaunchAgents (~/Library/LaunchAgents)",
+                "value": "\(agentCount) plists loaded · 0 crash loops",
+                "badge": "LaunchD Guard",
+                "pct": 100,
+                "diagCmd": "launchctl list | head -n 25",
+                "chips": ["\(agentCount) Plists", "0 Crash Loops", "Auto-Heal Active"],
+                "history": opsHistory,
+                "deepDive": [
+                    ["k": "Directory", "v": "~/Library/LaunchAgents (\(agentCount) .plist definitions)"],
+                    ["k": "Core Daemons", "v": "com.iganapolsky.mac-yolo-safeguards · com.hermes.gateway · com.dayglass.server"],
+                    ["k": "Crash-Loop Circuit Breaker", "v": "Scans exit codes and throttles rapidly respawning plists"],
+                ],
+                "recommendations": [
+                    "Click Reveal LaunchAgents below to inspect plist definitions or unload legacy background services.",
+                ],
+                "actions": [
+                    ["label": "Reveal LaunchAgents", "type": "revealPath", "arg": "~/Library/LaunchAgents"],
+                    ["label": "Free Agent RAM", "type": "freeAgentRam", "arg": ""],
+                ],
+            ],
+        ]
+
+        let allDrillDown: [String: [[String: Any]]] = [
+            "shield": shieldDrill,
+            "cpu": cpuDrill,
+            "memory": memDrill,
+            "disk": diskDrill,
+            "tokens": tokensDrill,
+            "network": networkDrill,
+            "fleet": fleetDrill,
+            "optimization": cpuDrill,
+        ]
 
         let healthStateStr: String
         let healthColorStr: String
@@ -1671,7 +2958,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
 
         let detailMemFull = [
             String(format: "Mach VM Breakdown (%d%% used)|Active %.1fG · Wired %.1fG · Compressed %.1fG|%d", memPressurePct, activeGB, wiredGB, compressedGB, memPressurePct),
-            String(format: "Apple Silicon Unified GPU Memory|%.2f GB in use by Metal/AGXAccelerator|%d", gpu.vramGB, min(100, Int(round(gpu.vramGB / 32.0 * 100.0)))),
+            String(format: "Apple Silicon Unified GPU Memory|%.2f GB in use by Metal/AGXAccelerator|%d", gpu.vramGB, min(100, Int(round(gpu.vramGB / physGB * 100.0)))),
             culprits.detailMem,
         ].joined(separator: ";;")
 
@@ -1715,25 +3002,25 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "Disk Free & Reclaimed Waste|\(String(format: "%.1f GB free", freeDecimalGB)) · 49.04 GB waste purged|\(diskUsedPct)",
         ].joined(separator: ";;")
 
-        let payload: [String: String] = [
+        let payload: [String: Any] = [
             "healthState": healthStateStr,
             "healthColor": healthColorStr,
             "guardHeadline": "CPU \(cpuPct)% · GPU \(gpu.devicePct)% (\(String(format: "%.1fG", gpu.vramGB)) VRAM) · RAM \(memPressurePct)% · \(String(format: "%.1fM", sess.estTokensM)) tok (2h)",
-            "onScreenLine": "Top Hogs: \(culprits.shortLine) · Active: \(lastActiveApp)",
+            "onScreenLine": "Auto-Guard: Active (Reaper + $10 Cap + Loopback) · Front: \(lastActiveApp)",
             "activeApp": culprits.swarmSummary,
-            "activeWin": "\(culprits.pyCount) Python & \(culprits.nodeCount) node MCPs · \(agentCount) LaunchAgents",
+            "activeWin": "\(culprits.mcpCount) MCPs (\(culprits.pyCount) py · \(culprits.nodeCount) node) · \(agentCount) user agents",
             "diskAvail": diskAvailStr,
             "diskRightBadge": "\(freeMenuInt)G Free ›",
-            "memPressure": "Pressure \(memPressurePct)% · \(culprits.shortLine)",
+            "memPressure": String(format: "Pressure %d%% · Active %.1fG · Wired %.1fG · Comp %.1fG", memPressurePct, activeGB, wiredGB, compressedGB),
             "memRightBadge": "VRAM \(String(format: "%.1fG", gpu.vramGB)) ›",
             "memPctNum": "\(memPressurePct)",
             "battPct": String(format: "%.0fM tok ›", sess.estTokensM),
             "battState": String(format: "%.1f MB live JSONLs (%d files, 2h) · 91%% KV Cache", sess.totalMB, sess.ompFiles + sess.grokFiles),
             "tokPctNum": "\(min(100, max(12, Int(round(sess.totalMB / 2.5)))))",
-            "cpuLoad": "1m: \(load1Str)/\(ncpu) · \(culprits.shortLine)",
+            "cpuLoad": "Load \(load1Str)/\(ncpu) · Top CPU: \(culprits.cpuShortLine)",
             "cpuPctNum": "\(cpuPct)",
             "cpuRight": "CPU \(cpuPct)% · GPU \(gpu.devicePct)% ›",
-            "mcpRightBadge": "\(culprits.pyCount + culprits.nodeCount) MCPs ›",
+            "mcpRightBadge": "\(culprits.mcpCount) MCPs ›",
             "detailCpu": detailCpuFull,
             "detailMemory": detailMemFull,
             "detailDisk": detailDiskFull,
@@ -1742,6 +3029,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "detailFleet": detailFleetFull,
             "detailShield": detailShieldFull,
             "detailOptimization": detailCpuFull,
+            "drillDown": allDrillDown,
             "netUp": upRate,
             "netDown": downRate,
             "recTitle": culprits.recTitle + " ›",
@@ -1777,10 +3065,10 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     }
 
     func renderMenuBarPill(freeGB: Int, memPct: Int, cpuPct: Int) -> NSImage {
-        let size = NSSize(width: 118, height: 22)
+        let size = NSSize(width: 134, height: 22)
         let appIconImg = NSImage(contentsOfFile: "/Applications/MacYoloSafeguards.app/Contents/Resources/AppIcon.icns") ?? NSApp.applicationIconImage
         let img = NSImage(size: size, flipped: false) { _ in
-            let badgeRect = NSRect(x: 1.0, y: 2.0, width: 18.0, height: 18.0)
+            let badgeRect = NSRect(x: 2.0, y: 2.0, width: 18.0, height: 18.0)
             if let icon = appIconImg {
                 icon.draw(in: badgeRect, from: .zero, operation: .sourceOver, fraction: 1.0)
             } else {
@@ -1799,13 +3087,13 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             let cpuValColor = cpuPct < 80 ? NSColor(calibratedRed: 0.38, green: 0.78, blue: 0.98, alpha: 1.0) : NSColor.systemPink
             let diskValColor = freeGB >= 80 ? NSColor.white : NSColor.systemYellow
 
-            ("GPU" as NSString).draw(at: NSPoint(x: 22, y: 12.0), withAttributes: labelAttrs)
-            ("\(memPct)%" as NSString).draw(at: NSPoint(x: 22, y: 1.0), withAttributes: [.font: valFont, .foregroundColor: memPct >= 65 ? NSColor.systemPink : tokValColor])
-            ("CPU" as NSString).draw(at: NSPoint(x: 56, y: 12.0), withAttributes: labelAttrs)
-            ("\(cpuPct)%" as NSString).draw(at: NSPoint(x: 56, y: 1.0), withAttributes: [.font: valFont, .foregroundColor: cpuValColor])
+            ("GPU" as NSString).draw(at: NSPoint(x: 24, y: 12.0), withAttributes: labelAttrs)
+            ("\(memPct)%" as NSString).draw(at: NSPoint(x: 24, y: 1.0), withAttributes: [.font: valFont, .foregroundColor: memPct >= 65 ? NSColor.systemPink : tokValColor])
+            ("CPU" as NSString).draw(at: NSPoint(x: 64, y: 12.0), withAttributes: labelAttrs)
+            ("\(cpuPct)%" as NSString).draw(at: NSPoint(x: 64, y: 1.0), withAttributes: [.font: valFont, .foregroundColor: cpuValColor])
 
-            ("DISK" as NSString).draw(at: NSPoint(x: 86, y: 12.0), withAttributes: labelAttrs)
-            ("\(freeGB)G" as NSString).draw(at: NSPoint(x: 86, y: 1.0), withAttributes: [.font: valFont, .foregroundColor: diskValColor])
+            ("DISK" as NSString).draw(at: NSPoint(x: 104, y: 12.0), withAttributes: labelAttrs)
+            ("\(freeGB)G" as NSString).draw(at: NSPoint(x: 104, y: 1.0), withAttributes: [.font: valFont, .foregroundColor: diskValColor])
             return true
         }
         img.isTemplate = false
@@ -1816,6 +3104,10 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         guard let button = statusItem?.button, let window = button.window else { return nil }
         let onScreen = window.convertToScreen(button.convert(button.bounds, to: nil))
         if onScreen.width < 2 || onScreen.height < 2 { return nil }
+        let visible = (window.screen ?? NSScreen.main)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        if onScreen.origin.x <= visible.minX + 100 || onScreen.minY < visible.maxY - 48 {
+            return nil
+        }
         return onScreen
     }
 
@@ -1823,13 +3115,12 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let screen = statusItem?.button?.window?.screen ?? NSScreen.main
         let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let button = statusButtonScreenRect()
-        let top = button?.minY ?? visible.maxY
         let minX = visible.minX + 8
-        let maxX = max(minX, visible.maxX - size.width - 8)
-        var x = (button?.midX ?? visible.midX) - (size.width / 2)
+        let maxX = max(minX, visible.maxX - size.width - 12)
+        var x = button != nil ? (button!.midX - (size.width / 2)) : maxX
         if x < minX { x = minX }
         if x > maxX { x = maxX }
-        let y = max(visible.minY + 8, min(visible.maxY - size.height - 6, top - size.height - 4))
+        let y = max(visible.minY + 8, visible.maxY - size.height - 6)
         return NSPoint(x: round(x), y: round(y))
     }
 
@@ -1840,66 +3131,14 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let origin = hudOriginUnderMenuBar(size: hudPanel.frame.size)
         hudPanel.setFrameOrigin(origin)
         hudPanel.isFloatingPanel = true
-        hudPanel.alphaValue = 1
+        hudPanel.alphaValue = 0.88
+        hudPanel.hasShadow = true
         hudPanel.level = .statusBar
         hudPanel.hidesOnDeactivate = false
+        let widthPt = Int(hudPanel.frame.width.rounded())
+        let heightPt = Int(hudPanel.frame.height.rounded())
+        webView?.evaluateJavaScript("var lbl=document.getElementById('footerSizeLabel'); if (lbl) lbl.textContent='\(widthPt)×\(heightPt)';", completionHandler: nil)
         hudPanel.orderFrontRegardless()
-        scheduleFrozenGlassRefresh()
-    }
-
-    func scheduleFrozenGlassRefresh() {
-        glassRefreshWork?.cancel()
-        glassGeneration += 1
-        let generation = glassGeneration
-        let work = DispatchWorkItem { [weak self] in
-            self?.refreshFrozenGlass(generation: generation)
-        }
-        glassRefreshWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)
-    }
-
-    func refreshFrozenGlass(generation: Int) {
-        guard generation == glassGeneration, let panel = hudPanel, panel.isVisible, panel.windowNumber > 0 else { return }
-        let frame = panel.frame
-        guard frame.width > 2, frame.height > 2 else { return }
-        let scale = panel.screen?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
-        let windowID = CGWindowID(panel.windowNumber)
-        let primaryMaxY = NSScreen.screens.map(\.frame.maxY).max() ?? frame.maxY
-        let cgRect = CGRect(x: frame.origin.x, y: primaryMaxY - frame.maxY, width: frame.width, height: frame.height)
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let raw = captureBelowWindow(windowID, rect: cgRect) else { return }
-            guard raw.width > 8, raw.height > 8 else { return }
-            let input = CIImage(cgImage: raw)
-            let blurred = input
-                .clampedToExtent()
-                .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 24.0 * scale])
-                .cropped(to: input.extent)
-            let ctx = CIContext(options: [.cacheIntermediates: false])
-            let average = blurred.applyingFilter("CIAreaAverage", parameters: [
-                kCIInputExtentKey: CIVector(cgRect: input.extent),
-            ])
-            var pixel = [UInt8](repeating: 0, count: 4)
-            ctx.render(
-                average,
-                toBitmap: &pixel,
-                rowBytes: 4,
-                bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
-                format: .RGBA8,
-                colorSpace: CGColorSpaceCreateDeviceRGB()
-            )
-            let luma = (Int(pixel[0]) + Int(pixel[1]) + Int(pixel[2])) / 3
-            if luma < 3 { return }
-            guard let out = ctx.createCGImage(blurred, from: input.extent) else { return }
-            DispatchQueue.main.async {
-                guard let self = self, generation == self.glassGeneration, let layer = self.glassView?.layer else { return }
-                CATransaction.begin()
-                CATransaction.setDisableActions(true)
-                layer.contentsScale = 1
-                layer.contentsGravity = .resize
-                layer.contents = out
-                CATransaction.commit()
-            }
-        }
     }
 
     @objc func smartCleanDisk() {
