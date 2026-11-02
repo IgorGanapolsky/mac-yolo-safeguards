@@ -158,7 +158,10 @@ function main() {
   // The shim must log and then exec the real tool with the same arguments.
   const shim = shimScript('/usr/bin/pkill');
   assert.ok(shim.endsWith('exec /usr/bin/pkill "$@"\n'));
-  execFileSync('/bin/bash', ['-n', '-c', shim]);
+  const shimFile = path.join(os.tmpdir(), `guard-shim-${process.pid}.sh`);
+  fs.writeFileSync(shimFile, shim);
+  execFileSync('/bin/bash', ['-n', shimFile]);
+  fs.unlinkSync(shimFile);
 
   // A kill from outside an agent's tree may not reach the agent or what it launched.
   // 2026-11-01: another agent's `pkill -f "python.*dayglass-mcp"` killed the Claude app's server.
@@ -185,7 +188,8 @@ function main() {
   const fakePs = [...killTree.values()];
   assert.deepStrictEqual(killTargets('pkill', ['-9', '-f', 'x'], fakePs, (args) => args), ['-f', 'x'], 'pgrep gets pkill\'s args without the signal');
   assert.deepStrictEqual(killTargets('killall', ['-9', 'Claude'], fakePs, null), [100]);
-  assert.deepStrictEqual(killTargets('killall', ['-m', 'pool\\.'], fakePs, null), [200]);
+  const fakePgrep = (args) => ({ 'pool\\.': [200], 'Cl.*': [100, 200] }[args[1]] || []);
+  assert.deepStrictEqual(killTargets('killall', ['-m', 'pool\\.', 'Cl.*'], fakePs, fakePgrep), [200, 100]);
 
   // Live: read-only status and dry-run clean on this Mac, through the module, MCP and HTTP.
   const now = status();

@@ -541,10 +541,10 @@ function killTargets(tool, args, procs, pgrep) {
     else if (['-u', '-t', '-c', '-s'].includes(a)) i += 1;
     else if (!a.startsWith('-')) names.push(a);
   }
+  // killall -m patterns go to pgrep, which matches process names with the same regex rules; -a keeps ancestors, as killall does.
+  if (regex) return [...new Set(names.flatMap((n) => pgrep(['-a', n])))];
   const exe = (p) => path.basename(p.command.split(' ')[0]);
-  return procs
-    .filter((p) => names.some((n) => (regex ? new RegExp(n).test(exe(p)) : exe(p) === n)))
-    .map((p) => p.pid);
+  return procs.filter((p) => names.includes(exe(p))).map((p) => p.pid);
 }
 
 function runPgrep(args) {
