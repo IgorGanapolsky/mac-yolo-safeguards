@@ -15,9 +15,9 @@ private let HUD_HTML = #"""
   html, body {
     width: 100%;
     height: 100%;
-    background: rgba(12, 10, 24, 0.62);
-    backdrop-filter: blur(32px);
-    -webkit-backdrop-filter: blur(32px);
+    background: rgba(12, 10, 24, 0.94);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
     color: #ffffff;
     overflow: hidden;
@@ -41,14 +41,14 @@ private let HUD_HTML = #"""
     position: absolute;
     inset: 0;
     border-radius: 22px;
-    background: rgba(12, 8, 28, 0.32);
-    backdrop-filter: blur(28px) saturate(165%);
-    -webkit-backdrop-filter: blur(28px) saturate(165%);
+    background: rgba(12, 8, 28, 0.94);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
     pointer-events: none;
     z-index: 0;
   }
   #cardDetailDrawer {
-    background: rgba(13, 11, 28, 0.88);
+    background: rgba(13, 11, 28, 0.97);
     border: 1px solid rgba(255, 255, 255, 0.16);
     border-radius: 14px;
     padding: 8px 10px;
@@ -105,7 +105,7 @@ private let HUD_HTML = #"""
     filter: drop-shadow(0 4px 12px rgba(56, 189, 248, 0.45));
   }
   .card {
-    background: rgba(15, 11, 33, 0.22);
+    background: rgba(18, 14, 40, 0.96);
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
     border-radius: 14px;
@@ -176,7 +176,7 @@ private let HUD_HTML = #"""
   .tile {
     min-width: 0;
     overflow: hidden;
-    background: rgba(15, 11, 33, 0.22);
+    background: rgba(18, 14, 40, 0.96);
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
     border-radius: 13px;
@@ -190,7 +190,7 @@ private let HUD_HTML = #"""
   }
   .tile:hover, .card.clickable-card:hover {
     border-color: rgba(94, 234, 212, 0.52);
-    background: rgba(24, 18, 52, 0.36);
+    background: rgba(32, 24, 68, 0.98);
   }
   .clickable-card {
     cursor: pointer;
@@ -206,7 +206,7 @@ private let HUD_HTML = #"""
   }
   .drill-card-row {
     border: 1px solid rgba(255, 255, 255, 0.13);
-    background: rgba(20, 14, 44, 0.22);
+    background: rgba(22, 16, 48, 0.96);
     border-radius: 10px;
     padding: 7px 9px;
     margin-top: 4px;
@@ -214,7 +214,7 @@ private let HUD_HTML = #"""
   }
   .drill-card-row:hover {
     border-color: rgba(94, 234, 212, 0.52);
-    background: rgba(30, 22, 64, 0.34);
+    background: rgba(36, 26, 72, 0.98);
   }
   .drill-card-row.expanded {
     border-color: rgba(94, 234, 212, 0.62);
@@ -647,6 +647,43 @@ private let HUD_HTML = #"""
     text-underline-offset: 2px;
   }
   .hog-link:hover { color: #ffffff; }
+  .hog-row {
+    background: rgba(22, 16, 48, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 10px;
+    margin-top: 4px;
+  }
+  .hog-row.open { border-color: rgba(94, 234, 212, 0.7); }
+  .hog-row-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: 0;
+    color: #fff;
+    font: inherit;
+    text-align: left;
+    padding: 8px 10px;
+    cursor: pointer;
+  }
+  .hog-rank { width: 18px; color: #5eead4; font-weight: 700; flex-shrink: 0; }
+  .hog-name { font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hog-stat { color: #5eead4; font-weight: 650; font-variant-numeric: tabular-nums; flex-shrink: 0; font-size: 12px; }
+  .hog-pids { padding: 0 10px 8px 36px; display: flex; flex-direction: column; gap: 6px; }
+  .hog-pid-top { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .hog-pid-top span:first-child { flex: 1; font-weight: 650; min-width: 0; }
+  .hog-cmd {
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: 10.5px;
+    color: rgba(255, 255, 255, 0.78);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .hog-gpu { margin-top: 8px; font-size: 11.5px; color: rgba(255, 255, 255, 0.78); }
   .rec-desc {
     font-size: 11.5px;
     color: rgba(255, 255, 255, 0.74);
@@ -727,7 +764,7 @@ private let HUD_HTML = #"""
           </div>
           <div style="min-width:0;flex:1;">
             <div class="header-title">Mac YOLO Safeguards: <span id="healthState">Checking…</span></div>
-            <div class="header-sub" id="macModel">AI Tokens &amp; Waste · CPU/GPU &amp; Memory · Cleanup &amp; Fleet Guard</div>
+            <div class="header-sub" id="macModel">Disk, memory, and the processes using this Mac</div>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:8px;">
@@ -753,6 +790,21 @@ private let HUD_HTML = #"""
         </div>
         <div class="shield-main" id="guardHeadline">Scanning live AI token &amp; system telemetry…</div>
         <div class="shield-sub" id="onScreenNowLine">On screen now: Detecting active window…</div>
+      </div>
+
+      <div id="recSection">
+        <div class="rec-header">Top processes</div>
+        <div class="card rec-card clickable-card" onclick="openCardDetail('optimization')">
+          <div class="rec-top">
+            <div class="rec-badge">
+              <svg width="24" height="24" viewBox="0 0 32 32"><path d="M16 3L5 7.5v8.2C5 22.8 9.7 28.9 16 31c6.3-2.1 11-8.2 11-15.3V7.5L16 3z" fill="#ffffff"/><polygon points="17.5 8 10.5 17 15.5 17 14.2 24.5 21.5 15 16.5 15 17.5 8" fill="#14b8a6"/></svg>
+            </div>
+            <div style="min-width:0;flex:1;">
+              <div class="rec-title" id="recTitle">Top Hogs ›</div>
+              <div class="rec-desc" id="recDesc">Click a name to see its processes.</div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="bento">
@@ -801,7 +853,7 @@ private let HUD_HTML = #"""
           <button class="tile-action" onclick="event.stopPropagation();openCardDetail('tokens')">Inspect Sessions ›</button>
         </div>
 
-        <div class="tile tile-tall" onclick="openCardDetail('cpu')">
+        <div class="tile tile-tall" onclick="openCardDetail('optimization')">
           <div>
             <div class="tile-row">
               <div class="tile-head">
@@ -848,28 +900,6 @@ private let HUD_HTML = #"""
           <button class="tile-action" onclick="event.stopPropagation();openCardDetail('fleet')">Inspect Fleet ›</button>
         </div>
       </div>
-
-      <div id="recSection">
-        <div class="rec-header">AI YOLO Agent Optimization (Click any card for live drill-down)</div>
-        <div class="card rec-card clickable-card" onclick="openCardDetail('optimization')">
-          <div class="rec-top">
-            <div class="rec-badge">
-              <svg width="24" height="24" viewBox="0 0 32 32"><path d="M16 3L5 7.5v8.2C5 22.8 9.7 28.9 16 31c6.3-2.1 11-8.2 11-15.3V7.5L16 3z" fill="#ffffff"/><polygon points="17.5 8 10.5 17 15.5 17 14.2 24.5 21.5 15 16.5 15 17.5 8" fill="#14b8a6"/></svg>
-            </div>
-            <div style="min-width:0;flex:1;">
-              <div class="rec-title" id="recTitle">Live Fan &amp; CPU Culprits ›</div>
-              <div class="rec-desc" id="recDesc">Scanning top CPU &amp; fan culprits across active agent swarms and background daemons…</div>
-            </div>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap;">
-            <div style="display:flex;gap:6px;">
-              <button class="rec-btn" id="coolFansMainBtn" onclick="event.stopPropagation();triggerHudAction('coolDownFans', this, 'Cooling Fans…', 'Fans Cooled ✓')">Cool Down Fans</button>
-              <button class="tile-action" style="margin-top:0;padding:6px 10px;" onclick="event.stopPropagation();triggerHudAction('freeUpDisk', this, 'Purging…', 'Purged ✓')">Clean AI Waste</button>
-            </div>
-            <button class="tile-action" style="margin-top:0;padding:6px 10px;" onclick="event.stopPropagation();toggleSettingsDrawer(true)">Uninstall Apps</button>
-          </div>
-        </div>
-      </div>
       </div>
 
       <div class="card rec-card" id="cardDetailDrawer" style="display:none;padding:11px 13px;gap:6px;max-height:calc(100vh - 78px);overflow:hidden;">
@@ -880,11 +910,11 @@ private let HUD_HTML = #"""
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0;">
             <button class="tile-action" id="expandAllDrillBtn" style="margin-top:0;padding:4px 9px;" onclick="toggleExpandAllDrill()">Expand All ▾</button>
-            <button class="tile-action" style="margin-top:0;padding:4px 10px;" onclick="closeCardDetail()">← Back to All Cards</button>
+            <button class="tile-action" style="margin-top:0;padding:4px 10px;" onclick="closeCardDetail()">Back</button>
           </div>
         </div>
         <div id="detailRowsContainer" style="display:flex;flex-direction:column;gap:4px;margin-top:2px;overflow-y:auto;flex:1 1 auto;min-height:0;padding-right:3px;"></div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid rgba(255,255,255,0.14);margin-top:2px;flex-shrink:0;flex-wrap:wrap;gap:6px;">
+        <div id="detailFooter" style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid rgba(255,255,255,0.14);margin-top:2px;flex-shrink:0;flex-wrap:wrap;gap:6px;">
           <div style="display:flex;gap:6px;">
             <button class="rec-btn" onclick="triggerHudAction('coolDownFans', this, 'Cooling &amp; Reaping…', 'Fans Cooled ✓')">Cool Down Fans &amp; Reap Hogs</button>
             <button class="tile-action" style="margin-top:0;padding:6px 11px;" onclick="triggerHudAction('freeUpDisk', this, 'Purging…', 'Purged ✓')">Clean AI Waste</button>
@@ -1240,7 +1270,7 @@ private let HUD_HTML = #"""
     function revealDrillDown() {
       var scroller = document.querySelector('.shell > div');
       if (scroller) scroller.scrollTop = 0;
-      var row = document.querySelector('#detailRowsContainer .drill-card-row.expanded');
+      var row = document.querySelector('#detailRowsContainer .hog-row.open') || document.querySelector('#detailRowsContainer .drill-card-row.expanded');
       if (row && row.scrollIntoView) row.scrollIntoView({ block: 'nearest' });
     }
     var _recTitleRendered = '';
@@ -1278,6 +1308,63 @@ private let HUD_HTML = #"""
       }
       el.appendChild(document.createTextNode(' ›'));
     }
+    function isProcessCard(cardId) {
+      return cardId === 'cpu' || cardId === 'optimization' || cardId === 'memory';
+    }
+    function setProcessChrome(on) {
+      var expBtn = document.getElementById('expandAllDrillBtn');
+      var footer = document.getElementById('detailFooter');
+      if (expBtn) expBtn.style.display = on ? 'none' : '';
+      if (footer) footer.style.display = on ? 'none' : 'flex';
+    }
+    function renderProcessList(box, ddList) {
+      var titleEl = document.getElementById('detailTitle');
+      var subEl = document.getElementById('detailSub');
+      if (titleEl) titleEl.textContent = _activeDetailCard === 'memory' ? 'Memory hogs' : 'Top processes';
+      if (subEl) subEl.textContent = 'Each name is a program. The lines under it are the live processes.';
+      var html = '';
+      var rank = 0;
+      var rows = ddList || [];
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        var rKey = r.key || ('row-' + i);
+        if (rKey === 'cpu-gpu-detail' || rKey === 'unified-gpu') {
+          html += '<div class="hog-gpu">' + escHtml(r.label || 'GPU') + ' · ' + escHtml(r.value || '') + '</div>';
+          continue;
+        }
+        rank++;
+        var isOpen = !!_expandedDrillRows[rKey];
+        var items = r.items || [];
+        var name = hogNameFromLabel(r.label) || r.label || 'Process';
+        html += '<div class="hog-row' + (isOpen ? ' open' : '') + '">' +
+          '<button type="button" class="hog-row-btn" onclick="toggleDrillRow(\'' + escHtml(rKey) + '\')">' +
+            '<span class="hog-rank">' + rank + '</span>' +
+            '<span class="hog-name">' + escHtml(name) + '</span>' +
+            '<span class="hog-stat">' + escHtml(r.value || '') + '</span>' +
+          '</button>';
+        if (isOpen) {
+          html += '<div class="hog-pids">';
+          if (!items.length) html += '<div class="hog-cmd">No separate process in this group.</div>';
+          for (var j = 0; j < items.length; j++) {
+            var it = items[j];
+            html += '<div class="hog-pid"><div class="hog-pid-top"><span>' + escHtml(it.title || '') + '</span><span>' + escHtml(it.right || '') + '</span>';
+            if (it.actionType === 'killPid' && it.actionArg) {
+              html += '<button type="button" class="mini-act-btn danger" onmousedown="runInlineAction(\'killPid\',\'' + escHtml(it.actionArg) + '\',this,event)" onclick="runInlineAction(\'killPid\',\'' + escHtml(it.actionArg) + '\',this,event)">' + escHtml(it.actionLabel || 'Kill PID') + '</button>';
+            }
+            html += '</div>';
+            if (it.subtitle) html += '<div class="hog-cmd">' + escHtml(it.subtitle) + '</div>';
+            html += '</div>';
+          }
+          html += '</div>';
+        }
+        html += '</div>';
+      }
+      if (!html) html = '<div class="hog-cmd">No processes sampled yet.</div>';
+      if (box.innerHTML !== html) {
+        box.innerHTML = html;
+        box.scrollTop = 0;
+      }
+    }
     function openCardDetail(cardId, focusName) {
       _activeDetailCard = cardId;
       var ov = document.getElementById('overviewSection');
@@ -1293,9 +1380,15 @@ private let HUD_HTML = #"""
           if (hogNameFromLabel(dd[f].label) === focusName) { focusKey = dd[f].key; break; }
         }
       }
+      var processCard = isProcessCard(cardId);
       if (focusKey) {
         for (var c = 0; c < dd.length; c++) _expandedDrillRows[dd[c].key] = false;
         _expandedDrillRows[focusKey] = true;
+      } else if (processCard && dd.length > 0) {
+        for (var e = 0; e < dd.length; e++) {
+          var ek = dd[e].key || '';
+          _expandedDrillRows[ek] = (ek !== 'cpu-gpu-detail' && ek !== 'unified-gpu');
+        }
       } else if (dd.length > 0) {
         var hasAnyOpen = false;
         for (var i = 0; i < dd.length; i++) {
@@ -1307,7 +1400,9 @@ private let HUD_HTML = #"""
       }
       renderActiveCardDetail(_lastHudState);
       revealDrillDown();
-      resizeHud(window.innerWidth || 740, Math.max(window.innerHeight || 535, 760), false);
+      if (!processCard) {
+        resizeHud(window.innerWidth || 740, Math.max(window.innerHeight || 535, 760), false);
+      }
     }
     function closeCardDetail() {
       _activeDetailCard = null;
@@ -1354,6 +1449,12 @@ private let HUD_HTML = #"""
           };
         });
       }
+      if (isProcessCard(_activeDetailCard)) {
+        setProcessChrome(true);
+        renderProcessList(box, ddList || []);
+        return;
+      }
+      setProcessChrome(false);
       var html = '';
       if (ddList && ddList.length) {
         var allOpen = true;
