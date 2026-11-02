@@ -164,6 +164,29 @@ function findOrphanMcpServers(procs, { launchdPids = new Set(), minAgeSec = ORPH
   return orphans;
 }
 
+// One agent running several copies of the same MCP server: Codex starts a full set per
+// thread, so seven open threads hold seven copies of every server. Report only; these
+// belong to a live agent and are never signalled.
+const FANOUT_MIN_COPIES = 3;
+function findMcpFanOut(procs, minCopies = FANOUT_MIN_COPIES) {
+  const byPid = indexByPid(procs);
+  const groups = new Map();
+  for (const p of procs) {
+    if (p.kind !== 'mcp-server' && p.kind !== 'claude-mcp-serve') continue;
+    const agent = liveAgentAncestor(p, byPid, DEPENDENCY_HOPS);
+    if (!agent) continue;
+    const key = `${agent.pid}\0${p.command}`;
+    if (!groups.has(key)) groups.set(key, { agent, command: p.command, copies: 0, rssMB: 0 });
+    const g = groups.get(key);
+    g.copies += 1;
+    g.rssMB += p.rssMB;
+  }
+  return [...groups.values()]
+    .filter((g) => g.copies >= minCopies)
+    .map((g) => ({ agentPid: g.agent.pid, agent: g.agent.command.slice(0, 120), command: g.command.slice(0, 160), copies: g.copies, rssMB: g.rssMB }))
+    .sort((a, b) => b.rssMB - a.rssMB);
+}
+
 function launchdJobPids() {
   try {
     const out = execFileSync('/bin/launchctl', ['list'], { encoding: 'utf8' });
@@ -283,6 +306,7 @@ function status(procs = listProcesses()) {
     agents: summarizeAgents(procs),
     storms: findStorms(procs).map(({ pids, ...rest }) => rest),
     orphanMcpServers: findOrphanMcpServers(procs, { launchdPids: launchdJobPids() }).length,
+    mcpFanOut: findMcpFanOut(procs),
     memory,
     pressure: assessPressure(memory),
     tracer: { running: tracerRunning(), shimsInstalled: shimsInstalled() },
@@ -700,6 +724,7 @@ module.exports = {
   signalIfSame,
   decideKill,
   killTargets,
+  findMcpFanOut,
   killCheck,
   reaperHits,
   parsePs,
