@@ -831,7 +831,7 @@ private let HUD_HTML = #"""
         memory: ['Memory & Agent RAM — Top Live Consumers', 'Real-time Mach VM breakdown + top 8 RSS memory consumers by app/swarm', s.detailMemory],
         tokens: ['AI Tokens, Prompt Cache & Session Ledger', 'Live session JSONL transcripts on disk (~/.omp, ~/.grok, ~/.claude)', s.detailTokens],
         cpu: ['CPU, Apple Silicon GPU & Fan Culprits', 'Live ps %CPU + Apple Silicon AGXAccelerator GPU & thermal telemetry', s.detailCpu],
-        network: ['Network, Tailnet & Zero-Cloud-Egress', 'Live BSD kernel interface byte counters & local service bindings', s.detailNetwork],
+        network: ['Network, Wi-Fi & Zero-Cloud-Egress', 'Live BSD kernel interface byte counters & local service bindings', s.detailNetwork],
         fleet: ['AI Fleet, Active Swarms & MCP Bus', 'Live running coding agents, MCP servers & LaunchAgents on this Mac', s.detailFleet],
         optimization: ['AI YOLO Optimization & Culprit Matrix', 'Combined CPU, GPU, RAM & AI session waste breakdown', s.detailOptimization || s.detailCpu]
       }[_activeDetailCard] || ['Live Details', 'Real-time telemetry', s.detailCpu];
@@ -977,15 +977,20 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var lastActiveApp: String = "Claude"
     var lastActiveWin: String = "Claude"
     var wifiInterfaceName: String = ""
+    var wifiLookupRetryAt: Date = .distantPast
+    var statusSettingsSyncedAt: Date = .distantPast
     var netHistory: [(t: Date, inn: UInt64, out: UInt64)] = []
     var lastUpKB: Int = 0
     var lastDownKB: Int = 0
     func applicationDidFinishLaunching(_ notification: Notification) {
         let myPid = ProcessInfo.processInfo.processIdentifier
-        for app in NSWorkspace.shared.runningApplications {
-            if app.processIdentifier != myPid &&
-               (app.bundleIdentifier == "com.iganapolsky.macyolosafeguards" || app.localizedName == "MacYoloSafeguards" || app.localizedName == "Mac YOLO") {
-                app.terminate()
+        let isSelfTest = CommandLine.arguments.contains { $0.hasSuffix("-self-test") }
+        if !isSelfTest {
+            for app in NSWorkspace.shared.runningApplications {
+                if app.processIdentifier != myPid &&
+                   (app.bundleIdentifier == "com.iganapolsky.macyolosafeguards" || app.localizedName == "MacYoloSafeguards" || app.localizedName == "Mac YOLO") {
+                    app.terminate()
+                }
             }
         }
 
@@ -1110,6 +1115,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         } else {
             showStatusBarIcon = true
         }
+        statusSettingsSyncedAt = statusSettingsFileModifiedAt() ?? .distantPast
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.isVisible = showStatusBarIcon
         if let button = statusItem.button {
@@ -1283,7 +1289,31 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         webView?.evaluateJavaScript("if (window.toggleSettingsDrawer) window.toggleSettingsDrawer(true);", completionHandler: nil)
     }
 
+    var statusSettingsPath: String {
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".hermes/mac-yolo-settings.json").path
+    }
+
+    func statusSettingsFileModifiedAt() -> Date? {
+        (try? FileManager.default.attributesOfItem(atPath: statusSettingsPath))?[.modificationDate] as? Date
+    }
+
+    // CLI, MCP and HTTP toggles all go through the system care engine, which rewrites
+    // ~/.hermes/mac-yolo-settings.json. Adopt the value whenever that file changes.
+    func syncStatusBarIconFromSettingsFile() {
+        guard let mtime = statusSettingsFileModifiedAt(), mtime > statusSettingsSyncedAt else { return }
+        statusSettingsSyncedAt = mtime
+        guard let data = FileManager.default.contents(atPath: statusSettingsPath),
+              let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let show = obj["showStatusBarIcon"] as? Bool,
+              show != showStatusBarIcon else { return }
+        showStatusBarIcon = show
+        statusItem.isVisible = show
+        statusBarMenuItem?.state = show ? .on : .off
+        UserDefaults.standard.set(show, forKey: "MacYoloShowStatusBarIcon")
+    }
+
     @objc func toggleStatusBarIcon(_ sender: AnyObject?) {
+        statusSettingsSyncedAt = Date()
         showStatusBarIcon.toggle()
         statusItem.isVisible = showStatusBarIcon
         statusBarMenuItem?.state = showStatusBarIcon ? .on : .off
@@ -1333,16 +1363,19 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
 
     func resolvedWifiInterfaceName() -> String {
         if !wifiInterfaceName.isEmpty { return wifiInterfaceName }
+        if Date() < wifiLookupRetryAt { return "en0" }
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: "/usr/sbin/networksetup")
         proc.arguments = ["-listallhardwareports"]
         let pipe = Pipe()
         proc.standardOutput = pipe
-        proc.standardError = Pipe()
+        proc.standardError = FileHandle.nullDevice
         var found = "en0"
+        var resolved = false
         if (try? proc.run()) != nil {
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
             proc.waitUntilExit()
-            let text = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            let text = String(data: data, encoding: .utf8) ?? ""
             var pendingWifi = false
             for raw in text.split(separator: "\n") {
                 let line = String(raw)
@@ -1352,12 +1385,19 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                 }
                 if pendingWifi && line.contains("Device:") {
                     let parts = line.split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
-                    if parts.count == 2, !parts[1].isEmpty { found = parts[1] }
+                    if parts.count == 2, !parts[1].isEmpty {
+                        found = parts[1]
+                        resolved = true
+                    }
                     break
                 }
             }
         }
-        wifiInterfaceName = found
+        if resolved {
+            wifiInterfaceName = found
+        } else {
+            wifiLookupRetryAt = Date().addingTimeInterval(30)
+        }
         return found
     }
 
@@ -1388,7 +1428,10 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let now = Date()
         let wifi = resolvedWifiInterfaceName()
         guard let (totalIn, totalOut) = interfaceByteTotals(named: wifi) else {
-            return ("↑ \(lastUpKB) KB/sec", "↓ \(lastDownKB) KB/sec")
+            netHistory.removeAll()
+            lastUpKB = 0
+            lastDownKB = 0
+            return ("↑ 0 KB/sec", "↓ 0 KB/sec")
         }
         if let oldest = netHistory.first, totalIn < oldest.inn || totalOut < oldest.out {
             netHistory.removeAll()
@@ -1589,6 +1632,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     }
 
     func refreshLiveTelemetry() {
+        syncStatusBarIconFromSettingsFile()
         var load: [Double] = [0.0, 0.0, 0.0]
         getloadavg(&load, 3)
         let ncpu = max(1, ProcessInfo.processInfo.activeProcessorCount)
@@ -1728,7 +1772,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "memRightBadge": "VRAM \(String(format: "%.1fG", gpu.vramGB)) ›",
             "memPctNum": "\(memPressurePct)",
             "battPct": String(format: "%.0fM tok ›", sess.estTokensM),
-            "battState": String(format: "%.1f MB live JSONLs (%d files, 2h) · 91%% KV Cache", sess.totalMB, sess.ompFiles + sess.grokFiles),
+            "battState": String(format: "%.1f MB live JSONLs (%d files, 2h)", sess.totalMB, sess.ompFiles + sess.grokFiles),
             "tokPctNum": "\(min(100, max(12, Int(round(sess.totalMB / 2.5)))))",
             "cpuLoad": "1m: \(load1Str)/\(ncpu) · \(culprits.shortLine)",
             "cpuPctNum": "\(cpuPct)",

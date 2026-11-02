@@ -3,6 +3,8 @@
 
 const assert = require('assert');
 const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const {
   loadWhitelist,
   getTopProcessCulprits,
@@ -55,8 +57,21 @@ function main() {
   assert.strictEqual(appLeftovers.ok, true);
   if (fs.existsSync('/Applications')) assert.ok(appLeftovers.installedAppsCount > 0);
   // 6. My Activity Cumulative Ledger (5.4.0 steal)
-  const ledger = getActivityLedger();
-  assert.ok(ledger.totalSpaceReclaimedGiB >= 47.24);
+  const ledgerDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mac-yolo-ledger-'));
+  const missingLedger = getActivityLedger(path.join(ledgerDir, 'missing.json'));
+  assert.deepStrictEqual(missingLedger, {
+    totalSpaceReclaimedGiB: 0,
+    runawayLoopsStopped: 0,
+    estimatedHoursSaved: 0,
+    lastSmartCareAt: null,
+  });
+  const ledgerFile = path.join(ledgerDir, 'ledger.json');
+  fs.writeFileSync(ledgerFile, JSON.stringify({ totalSpaceReclaimedGiB: 12.5, lastSmartCareAt: '2026-11-01T00:00:00.000Z' }));
+  const recordedLedger = getActivityLedger(ledgerFile);
+  assert.strictEqual(recordedLedger.totalSpaceReclaimedGiB, 12.5);
+  assert.strictEqual(recordedLedger.runawayLoopsStopped, 0);
+  assert.strictEqual(recordedLedger.lastSmartCareAt, '2026-11-01T00:00:00.000Z');
+  fs.rmSync(ledgerDir, { recursive: true, force: true });
 
   // 7. Status Bar Icon visibility toggle (hide -> show roundtrip)
   const hidden = setStatusBarIconVisibility(false);

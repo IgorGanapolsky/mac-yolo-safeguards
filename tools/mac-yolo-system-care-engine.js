@@ -353,16 +353,16 @@ function uninstallAppWithLeftovers(appName, options = {}) {
 /**
  * 5. My Activity Cumulative Value Ledger (5.4.0 steal)
  */
-function getActivityLedger() {
+function getActivityLedger(ledgerPath = ACTIVITY_PATH) {
   const defaults = {
-    totalSpaceReclaimedGiB: 47.24,
-    runawayLoopsStopped: 4,
-    estimatedHoursSaved: 18.5,
-    lastSmartCareAt: new Date().toISOString(),
+    totalSpaceReclaimedGiB: 0,
+    runawayLoopsStopped: 0,
+    estimatedHoursSaved: 0,
+    lastSmartCareAt: null,
   };
   try {
-    if (fs.existsSync(ACTIVITY_PATH)) {
-      return { ...defaults, ...JSON.parse(fs.readFileSync(ACTIVITY_PATH, 'utf8')) };
+    if (fs.existsSync(ledgerPath)) {
+      return { ...defaults, ...JSON.parse(fs.readFileSync(ledgerPath, 'utf8')) };
     }
   } catch {
     /* ignore */

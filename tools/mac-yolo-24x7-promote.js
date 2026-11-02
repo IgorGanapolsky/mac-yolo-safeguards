@@ -317,7 +317,12 @@ function main() {
   const { runAllTailscaleSteals } = require('./tailscale-october-steals');
   const tailscaleSteals = runAllTailscaleSteals();
   const { runWabiSalesOperations } = require('./wabi-sales-operations-engine');
-  const wabiSalesOps = runWabiSalesOperations();
+  let wabiSalesOps;
+  try {
+    wabiSalesOps = runWabiSalesOperations();
+  } catch (e) {
+    wabiSalesOps = { ok: false, error: e.message };
+  }
   let thumbgateMakeMoney = { skipped: true };
   let dayglassMakeMoney = { skipped: true };
   if (!skipSiblings) {
@@ -387,8 +392,9 @@ function main() {
     },
     wabiSalesOpsSummary: {
       ok: wabiSalesOps.ok,
-      recommendedTier: wabiSalesOps.wabiPillars.collaborativeDealPlan.recommendedTier,
-      activeRecoveryWindowsCount: wabiSalesOps.wabiPillars.deadlineRecoveryScanner.activeWindowsCount,
+      error: wabiSalesOps.error || null,
+      recommendedTier: wabiSalesOps.wabiPillars?.collaborativeDealPlan?.recommendedTier ?? null,
+      activeRecoveryWindowsCount: wabiSalesOps.wabiPillars?.deadlineRecoveryScanner?.activeWindowsCount ?? 0,
     },
     siblingEngines: {
       thumbgateMakeMoney,

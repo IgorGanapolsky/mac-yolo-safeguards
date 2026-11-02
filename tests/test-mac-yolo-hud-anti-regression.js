@@ -8,10 +8,10 @@
  * Prevents recurrence of:
  *   1. Opaque black list regression ("Sizes appear after Scan.", "Status bar icon on", "Agent temp")
  *   2. Missing native macOS translucency (NSVisualEffectView .hudWindow .behindWindow + alphaValue = 0.88)
- *   3. Stacked glass-on-glass inner card blur (must use matte rgba(15, 11, 33, 0.58) inner cards)
+ *   3. Stacked glass-on-glass inner card blur (must use matte rgba(15, 11, 33, …) inner cards)
  *   4. Flat monochrome text status item instead of Retina renderMenuBarPill
  *   5. Unlabeled mystery emoji footer buttons (must have ⚙️ Settings, 🧹 Clean Junk, ⚡ Free RAM, ✕ Close)
- *   6. App-switch network rate jumps (must enforce dt < 1.2 guard and no 145/420 fallback)
+ *   6. App-switch network rate jumps (rates update only when dt >= 1.2 s; no 145/420 fallback)
  *   7. Clipped 610px height (must be 420x668)
  *   8. Third-party competitor trademarks in UI titles
  */
@@ -68,7 +68,7 @@ function main() {
   // 4. Dayglass-style drag-to-move, corner resize, top-right placement, and AI Agent Optimization card
   assert.ok(src.includes('case "moveHud":') && src.includes('case "resizeHud":'), 'Dayglass moveHud and resizeHud handlers required');
   assert.ok(src.includes('id="hudResizeGrip"') && src.includes('id="hudSizeBtnText"'), 'Dayglass corner resize grip and SVG Size/Expand button required');
-  assert.ok(src.includes('class="ico-badge ico-disk"') && src.includes('class="hdr-pill"'), 'Duotone SVG icon badges and specular pill buttons required');
+  assert.ok(src.includes('class="ico-badge ico-disk"><svg') && src.includes('class="hdr-pill"'), 'Duotone SVG icon badges and specular pill buttons required');
   assert.ok((src.includes('AI YOLO Agent Optimization') || src.includes('id="recSection"')) && src.includes('user agents'), 'AI Agent Optimization card and live user agents health strip required');
 
   // 5. Steady network rate sampling decoupled from app switching
@@ -82,12 +82,13 @@ function main() {
 
   // 7. On macOS host, verify /Applications binary matches canonical purple-bento binary
   if (process.platform === 'darwin') {
-    const canonicalBin = path.join(os.homedir(), '.hermes', 'bin', 'MacYoloSafeguards-purple-bento');
+    // Same canonical binary that tools/launch-mac-yolo-menubar.sh and tools/mac-yolo-service.js keep in sync.
+    const canonicalBin = path.join(os.homedir(), '.hermes', 'bin', 'MacYolo-Protected-V4');
     const appBin = '/Applications/MacYoloSafeguards.app/Contents/MacOS/MacYoloSafeguards';
     if (fs.existsSync(canonicalBin) && fs.existsSync(appBin)) {
       const cBuf = fs.readFileSync(canonicalBin);
       const aBuf = fs.readFileSync(appBin);
-      assert.strictEqual(cBuf.equals(aBuf), true, '/Applications binary must match ~/.hermes/bin/MacYoloSafeguards-purple-bento');
+      assert.strictEqual(cBuf.equals(aBuf), true, '/Applications binary must match ~/.hermes/bin/MacYolo-Protected-V4');
       assert.ok(!aBuf.includes(Buffer.from('Sizes appear after Scan')), 'Compiled binary must never contain black-box regression');
     }
   }

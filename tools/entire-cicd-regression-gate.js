@@ -8,7 +8,7 @@
  * for `mac-yolo-safeguards`.
  *
  * Implements:
- *   1. Entire CLI (`~/.local/bin/entire`) session & hook health check (on developer Macs)
+ *   1. Entire CLI (`$ENTIRE_BIN`, `PATH`, or `~/.local/bin/entire`) session & hook health check (on developer Macs)
  *   2. Entire Trails Pilot HUD (`stop_cop`: 'green' | 'red', `intent_drift_score`)
  *   3. Continuous Memory — `rejected_approaches_preserved`:
  *      Hard-blocks commits/PRs that re-introduce ANY previously rejected approach:
@@ -21,6 +21,7 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
@@ -28,7 +29,25 @@ const ROOT = path.resolve(__dirname, '..');
 const SWIFT_PATH = fs.existsSync(path.join(ROOT, 'macos', 'MacYoloTranslucentHud.swift'))
   ? path.join(ROOT, 'macos', 'MacYoloTranslucentHud.swift')
   : path.join(ROOT, 'macos', 'MacYoloSafeguardsApp.swift');
-const ENTIRE_BIN = '/Users/iganapolsky/.local/bin/entire';
+function resolveEntireBin(env = process.env) {
+  const candidates = [
+    env.ENTIRE_BIN,
+    ...String(env.PATH || '')
+      .split(path.delimiter)
+      .filter(Boolean)
+      .map((dir) => path.join(dir, 'entire')),
+    path.join(os.homedir(), '.local', 'bin', 'entire'),
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    try {
+      fs.accessSync(candidate, fs.constants.X_OK);
+      if (fs.statSync(candidate).isFile()) return candidate;
+    } catch {
+      /* try next candidate */
+    }
+  }
+  return null;
+}
 
 const REJECTED_APPROACHES = [
   {
@@ -78,15 +97,16 @@ const REQUIRED_BENTO_INVARIANTS = [
   { id: 'dayglass-header-drag-move', pattern: "case \"moveHud\":" },
   { id: 'dayglass-corner-resize', pattern: "case \"resizeHud\":" },
   { id: 'machine-health-live-strip', pattern: 'user agents' },
-  { id: 'duotone-vector-svg-badges', pattern: 'class="ico-badge ico-disk"' },
+  { id: 'duotone-vector-svg-badges', pattern: 'class="ico-badge ico-disk"><svg' },
   { id: 'specular-pill-buttons', pattern: 'class="hdr-pill"' },
 ];
 
 function checkEntireCliStatus() {
-  if (!fs.existsSync(ENTIRE_BIN)) {
-    return { installed: false, enabled: false, detail: 'entire CLI not installed on this runner (CI container)' };
+  const entireBin = resolveEntireBin();
+  if (!entireBin) {
+    return { installed: false, enabled: false, detail: 'entire CLI not found on PATH or in ~/.local/bin' };
   }
-  const r = spawnSync(ENTIRE_BIN, ['status'], {
+  const r = spawnSync(entireBin, ['status'], {
     cwd: ROOT,
     encoding: 'utf8',
     env: { ...process.env, ACCESSIBLE: '1' },
@@ -95,6 +115,7 @@ function checkEntireCliStatus() {
   const out = `${r.stdout || ''}\n${r.stderr || ''}`.trim();
   return {
     installed: true,
+    path: entireBin,
     enabled: out.includes('Enabled'),
     detail: out.split('\n').slice(0, 4).join(' | '),
   };
@@ -150,6 +171,7 @@ if (require.main === module) {
 module.exports = {
   REJECTED_APPROACHES,
   REQUIRED_BENTO_INVARIANTS,
+  resolveEntireBin,
   checkEntireCliStatus,
   evaluateEntireTrailHud,
 };

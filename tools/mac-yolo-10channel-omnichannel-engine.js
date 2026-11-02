@@ -20,7 +20,7 @@
  *
  * Hard Invariants:
  *   - $0.00 outbound cash spend (`outboundCashSpendUsd === 0`)
- *   - Every asset embeds verified HTTP 200 live links:
+ *   - Every asset embeds the configured checkout links below (this engine does not fetch them):
  *       * Free Download (GitHub Release v1.0.0): https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v1.0.0
  *       * Tier 1 ($9.99 Playbook):               https://iganapolsky.gumroad.com/l/odrkon
  *       * Tier 2 ($49.00 Corporate-Expense Kit): https://iganapolsky.gumroad.com/l/vcrho
@@ -38,7 +38,7 @@ const OUT_DIR = path.join(os.homedir(), '.hermes', 'omnichannel-20261029');
 const LINKS = {
   githubRelease: 'https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v1.0.0',
   tier1Playbook999: 'https://iganapolsky.gumroad.com/l/odrkon',
-  tier2TeamKit49: 'https://iganapolsky.gumroad.com/l/nllmvb',
+  tier2TeamKit49: 'https://iganapolsky.gumroad.com/l/vcrho',
   tier3Diagnostic499: 'https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k',
   tier4Sprint1500: 'https://buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38',
   tier5Pilot3000: 'https://buy.stripe.com/fZucN5bmI8HkbO98qf3sI3j',
@@ -73,7 +73,7 @@ const CHANNELS_10 = [
     platform: 'YouTube Shorts & Long-Form',
     format: '45s YouTube Short + Pinned Comment Ladder',
     hook: 'I Uninstalled CleanMyMac After Finding 47.24 GB of Hidden AI Agent Bloat on My Mac',
-    body: `Pinned Comment:\n1. Free Mac YOLO v1.0.0 App (.dmg): ${LINKS.githubRelease}\n2. $9.99 Self-Serve Agent Safeguards Playbook: ${LINKS.tier1Playbook999}\n3. $49 Corporate-Expense Reliability Kit (No manager approval needed under $50): ${LINKS.tier2TeamKit49}\n4. $499 48-Hour Fleet Diagnostic: ${LINKS.tier3Diagnostic499}`,
+    body: `Pinned Comment:\n1. Free Mac YOLO v1.0.0 App (.dmg): ${LINKS.githubRelease}\n2. $9.99 Self-Serve Agent Safeguards Playbook: ${LINKS.tier1Playbook999}\n3. $49 Corporate-Expense Reliability Kit: ${LINKS.tier2TeamKit49}\n4. $499 48-Hour Fleet Diagnostic: ${LINKS.tier3Diagnostic499}`,
     primaryCta: LINKS.tier2TeamKit49,
     secondaryCta: LINKS.tier3Diagnostic499,
   },
@@ -136,7 +136,7 @@ const CHANNELS_10 = [
     platform: 'LinkedIn',
     format: 'Executive / Engineering Manager Post + 7-Slide Carousel',
     hook: '4 out of 8 engineering buyers who started our $499 Stripe Checkout bounced on procurement approval — so we shipped a $49 corporate-expensable kit and a free native macOS app.',
-    body: `When an unattended coding agent spins up 20 worktrees, leaks 47.24 GiB into /private/tmp, or burns $300 in frontier tokens overnight, you don't want a 3-week procurement call.\n\nToday we released Mac YOLO v1.0.0 (Developer ID signed native macOS HUD + 11-tool MCP server):\n• Free v1.0.0 macOS App (.dmg): ${LINKS.githubRelease}\n• $9.99 Indie Playbook: ${LINKS.tier1Playbook999}\n• $49 Corporate-Expense Kit (expensable without manager sign-off): ${LINKS.tier2TeamKit49}\n• $499 48h Diagnostic: ${LINKS.tier3Diagnostic499}`,
+    body: `When an unattended coding agent spins up 20 worktrees, leaks 47.24 GiB into /private/tmp, or burns $300 in frontier tokens overnight, you don't want a 3-week procurement call.\n\nToday we released Mac YOLO v1.0.0 (Developer ID signed native macOS HUD + 11-tool MCP server):\n• Free v1.0.0 macOS App (.dmg): ${LINKS.githubRelease}\n• $9.99 Indie Playbook: ${LINKS.tier1Playbook999}\n• $49 Corporate-Expense Kit: ${LINKS.tier2TeamKit49}\n• $499 48h Diagnostic: ${LINKS.tier3Diagnostic499}`,
     primaryCta: LINKS.tier2TeamKit49,
     secondaryCta: LINKS.tier3Diagnostic499,
   },
@@ -146,7 +146,7 @@ function runOmnichannelEngine() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
   for (const ch of CHANNELS_10) {
     const file = path.join(OUT_DIR, `${ch.id}-post.md`);
-    const md = `# ${ch.platform} — ${ch.format}\n\n## Hook\n${ch.hook}\n\n## Copy / Script\n${ch.body}\n\n## Verified Checkout Links\n- Primary CTA: ${ch.primaryCta}\n- Secondary CTA: ${ch.secondaryCta}\n`;
+    const md = `# ${ch.platform} — ${ch.format}\n\n## Hook\n${ch.hook}\n\n## Copy / Script\n${ch.body}\n\n## Checkout Links\n- Primary CTA: ${ch.primaryCta}\n- Secondary CTA: ${ch.secondaryCta}\n`;
     fs.writeFileSync(file, md, 'utf8');
   }
 

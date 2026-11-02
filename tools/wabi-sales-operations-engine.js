@@ -181,41 +181,14 @@ function buildSharedDealCountdownWidget(deal = {}) {
  *    instant recovery actions.
  */
 function scanDealAndCheckoutDeadlines(input = {}) {
-  const checkoutStarts24h = Number(input.checkoutStarts24h ?? 8);
-  const cancelPageViews24h = Number(input.cancelPageViews24h ?? 4);
-  const rawLeads = Array.isArray(input.leads)
-    ? input.leads
-    : [
-        {
-          id: 'stripe-cancel-recovery-fast-lane',
-          source: 'stripe_cancel_page_telemetry',
-          windowType: 'abandoned_checkout_24h',
-          hoursLeft: 18,
-          pain: `${cancelPageViews24h}/${checkoutStarts24h} buyers hit Stripe Checkout then bounced on price/procurement friction`,
-          downsellOffer: MAC_YOLO_STRIPE_CATALOG[0], // $9.99 Playbook
-          corporateExpenseOffer: MAC_YOLO_STRIPE_CATALOG[1], // $49 Kit
-        },
-        {
-          id: 'competitor-cleanmymac-renewal-flip',
-          source: 'renewal_window_scanner',
-          windowType: 'competitor_subscription_renewal',
-          hoursLeft: 72,
-          pain: 'Developer teams paying $35-$89/yr per Mac for consumer cleaners that miss 47 GiB /private/tmp/claude-* agent bloat and LLM token caps',
-          downsellOffer: MAC_YOLO_STRIPE_CATALOG[0],
-          corporateExpenseOffer: MAC_YOLO_STRIPE_CATALOG[1],
-        },
-        {
-          id: 'team-diagnostic-fast-track',
-          source: 'github_pr_velocity_signal',
-          windowType: 'sprint_evaluation_window',
-          hoursLeft: 48,
-          pain: 'Multi-agent teams hitting CI/CodeQL failures and runaway iOS simulator loops',
-          downsellOffer: MAC_YOLO_STRIPE_CATALOG[2], // $499 Diagnostic
-          corporateExpenseOffer: MAC_YOLO_STRIPE_CATALOG[3], // $1,500 Sprint
-        },
-      ];
+  const checkoutStarts24h = Number(input.checkoutStarts24h ?? 0);
+  const cancelPageViews24h = Number(input.cancelPageViews24h ?? 0);
+  const rawLeads = Array.isArray(input.leads) ? input.leads : [];
 
-  const safeLeads = rawLeads.filter((l) => isAllowedProspectEmail(l.email || ''));
+  const safeLeads = rawLeads.filter((l) => {
+    const hoursLeft = Number(l.hoursLeft);
+    return isAllowedProspectEmail(l.email || '') && Number.isFinite(hoursLeft) && hoursLeft > 0;
+  });
   const recoveryWidgets = safeLeads.map((lead) => {
     const primary = lead.corporateExpenseOffer || MAC_YOLO_STRIPE_CATALOG[1];
     const downsell = lead.downsellOffer || MAC_YOLO_STRIPE_CATALOG[0];
@@ -255,7 +228,7 @@ function scanDealAndCheckoutDeadlines(input = {}) {
 function runWabiSalesOperations(options = {}) {
   const dealPlan = buildCollaborativeDealPlanWidget({
     company: options.company || 'AI Engineering Team',
-    teamMacs: options.teamMacs || 8,
+    teamMacs: options.teamMacs ?? 8,
   });
   const countdown = buildSharedDealCountdownWidget({
     hoursRemaining: 48,

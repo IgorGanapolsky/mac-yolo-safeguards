@@ -53,11 +53,29 @@ function main() {
   const scan = scanDealAndCheckoutDeadlines({ checkoutStarts24h: 8, cancelPageViews24h: 4 });
   assert.strictEqual(scan.ok, true);
   assert.strictEqual(scan.outboundCashSpendUsd, 0);
-  assert.strictEqual(scan.activeWindowsCount, 3);
+  assert.strictEqual(scan.activeWindowsCount, 0);
+
+  const leadScan = scanDealAndCheckoutDeadlines({
+    leads: [
+      { id: 'open-window', hoursLeft: 18 },
+      { id: 'expired-window', hoursLeft: 0 },
+      { id: 'past-window', hoursLeft: -3 },
+      { id: 'missing-hours' },
+      { id: 'non-numeric-hours', hoursLeft: 'soon' },
+      { id: 'eci-lead', hoursLeft: 24, email: 'buyer@ecisolutions.com' },
+    ],
+  });
+  assert.strictEqual(leadScan.activeWindowsCount, 1);
+  assert.deepStrictEqual(leadScan.recoveryWidgets.map((w) => w.id), ['open-window']);
 
   // 5. Full Engine + MCP + HTTP Service verification
   const full = runWabiSalesOperations({ company: 'WabiFleet', teamMacs: 8 });
   assert.strictEqual(full.ok, true);
+  assert.strictEqual(full.wabiPillars.deadlineRecoveryScanner.activeWindowsCount, 0);
+
+  const zeroMacs = runWabiSalesOperations({ company: 'ZeroFleet', teamMacs: 0 });
+  assert.strictEqual(zeroMacs.wabiPillars.collaborativeDealPlan.teamMacs, 1);
+  assert.strictEqual(zeroMacs.wabiPillars.collaborativeDealPlan.recommendedTier.priceUsd, 9.99);
 
   const mcpRes = callTool('yolo_wabi_sales_ops', { company: 'WabiFleet', teamMacs: 8 });
   assert.strictEqual(mcpRes.ok, true);
