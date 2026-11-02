@@ -113,7 +113,7 @@ function evaluateFlagsAndCheckoutAbTest(subjectIds = ['visitor-1', 'visitor-2', 
   const activeFlags = listFlags({ state: 'ACTIVE' });
   const experimentKey = 'exp_checkout_price_ladder_20261030';
   const variants = [
-    { id: 'variant_a_49_team_kit', weight: 40, priceUsd: 49.0, url: 'https://iganapolsky.gumroad.com/l/nllmvb' },
+    { id: 'variant_a_49_team_kit', weight: 40, priceUsd: 49.0, url: 'https://iganapolsky.gumroad.com/l/vcrho' },
     { id: 'variant_b_999_playbook', weight: 40, priceUsd: 9.99, url: 'https://iganapolsky.gumroad.com/l/odrkon' },
     { id: 'control_499_diagnostic', weight: 20, priceUsd: 499.0, url: 'https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k' },
   ];
@@ -135,7 +135,7 @@ function evaluateFlagsAndCheckoutAbTest(subjectIds = ['visitor-1', 'visitor-2', 
     abTesting: {
       ok: true,
       experimentKey,
-      hypothesis: 'Routing 80% of self-serve traffic to $49 Corporate-Expense Kit (nllmvb) and $9.99 Playbook (odrkon) eliminates the 50% (4/8) Stripe cancel-page bounce caused by $499 procurement friction.',
+      hypothesis: 'Routing 80% of self-serve traffic to $49 Corporate-Expense Kit (vcrho) and $9.99 Playbook (odrkon) eliminates the 50% (4/8) Stripe cancel-page bounce caused by $499 procurement friction.',
       trafficSplit: '40% $49 Team Kit | 40% $9.99 Playbook | 20% $499 Diagnostic',
       deterministicAssignments: assignments,
       guardrailAutoAbort: guardrail,
@@ -215,7 +215,6 @@ function auditRollbackHotfixAndCd(options = {}) {
       localLaunchAgentsActive: ['com.iganapolsky.mac-yolo-safeguards-menubar', 'com.iganapolsky.mac-yolo-safeguards-service', 'com.iganapolsky.mac-yolo-safeguards-24x7-promote'],
       githubReleaseLive: 'https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v1.0.0',
       gumroadStoreLive: [
-        'https://iganapolsky.gumroad.com/l/nllmvb ($49 Mac YOLO Pro Suite)',
         'https://iganapolsky.gumroad.com/l/vcrho ($49 Corporate-Expense Kit)',
         'https://iganapolsky.gumroad.com/l/odrkon ($9.99 Agent Safeguards Playbook)',
       ],
