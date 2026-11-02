@@ -63,6 +63,10 @@ function classify(command) {
   if (/(^|\/)claude(\.exe)?( |$)/.test(command)) return 'claude-cli';
   if (/(^|\/)codex( |$)/.test(command)) return 'codex';
   if (/cursor-agent|(^|\/)agent .*cursor/i.test(command)) return 'cursor-agent';
+  if (/(^|\/)grok(\.real)?( |$)/.test(command)) return 'grok';
+  if (/(^|\/)pool(\.real)?( |$)/.test(command)) return 'poolside';
+  if (/\/Gemini\.app\/Contents\/Helpers\/agy( |$)/.test(command)) return 'gemini-agent';
+  if (/(^|\/)omp( |$)/.test(command)) return 'omp';
   if (/(python[0-9.]*|node)( |$).*mcp/i.test(command) || /(^|\/)[^ ]*mcp[^ /]*( |$)/i.test(command)) return 'mcp-server';
   return null;
 }
@@ -76,6 +80,11 @@ function isLiveAgentProcess(command) {
     kind === 'claude-cli' ||
     kind === 'codex' ||
     kind === 'cursor-agent' ||
+    kind === 'grok' ||
+    kind === 'poolside' ||
+    kind === 'gemini-agent' ||
+    kind === 'omp' ||
+    /^\/Applications\/Claude\.app\/Contents\/MacOS\/Claude( |$)/.test(command) ||
     /\/Claude\.app\/Contents\/Helpers\/disclaimer /.test(command)
   );
 }

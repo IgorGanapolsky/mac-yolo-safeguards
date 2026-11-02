@@ -23,6 +23,24 @@ function main() {
   assert.strictEqual(classify('/Users/u/.local/bin/claude mcp serve'), 'claude-mcp-serve');
   assert.strictEqual(classify('/Users/u/.local/bin/claude --resume'), 'claude-cli');
   assert.strictEqual(classify('/usr/bin/skill-runner'), null);
+  // Grok, Poolside and Gemini's agent are live sessions too; their MCP servers are theirs.
+  assert.strictEqual(classify('/Users/u/.local/bin/grok.real --resume 01a18'), 'grok');
+  assert.strictEqual(classify('/Users/u/.local/bin/pool.real acp --sandbox disabled'), 'poolside');
+  assert.strictEqual(classify('/Applications/Gemini.app/Contents/Helpers/agy --hub --hub-port=51013'), 'gemini-agent');
+  assert.strictEqual(classify('/Users/u/.local/bin/grokker --resume'), null);
+  assert.strictEqual(classify('omp --resume=/Users/u/.omp/agent/sessions/x.jsonl'), 'omp');
+  assert.strictEqual(isLiveAgentProcess('/Applications/Claude.app/Contents/MacOS/Claude'), true, 'the desktop app owns its MCP servers');
+  const otherAgents = parsePs(ps([
+    [20, 1, 300000, '01:00:00', '??', '/Users/u/.local/bin/grok.real --resume 01a18'],
+    [21, 20, 40000, '01:00:00', '??', `${PY} /Users/u/.local/bin/dayglass-mcp-supervisor.py`],
+    [22, 1, 300000, '01:00:00', '??', '/Users/u/.local/bin/pool.real acp'],
+    [23, 22, 40000, '01:00:00', '??', '/Users/u/.local/bin/agent-mesh-mcp'],
+    [24, 1, 40000, '00:01', '??', '/bin/zsh -c pkill -f dayglass-mcp'],
+  ]));
+  const otherById = indexByPid(otherAgents);
+  assert.strictEqual(isAgentDependency(otherById.get(21), otherById), true, 'a Grok session\'s MCP server');
+  assert.strictEqual(isAgentDependency(otherById.get(23), otherById), true, 'a Poolside session\'s MCP server');
+  assert.strictEqual(decideKill([21], 24, otherById).refuse, true, 'a stray pkill may not kill Grok\'s server');
 
   const procs = parsePs(ps([
     [10, 1, 400000, '01-02:03:04', '??', SESSION],

@@ -10,7 +10,7 @@
 
 | Never signalled | Stopped (only with `--execute` / `execute=true`) |
 | --- | --- |
-| Live sessions: the Claude desktop session, the `claude`, `codex` and `cursor-agent` CLIs, and the Claude.app process-group wrapper | **Storms:** one command line running in 40 or more copies |
+| Live sessions: the Claude desktop app and its sessions, the `claude`, `codex`, `cursor-agent`, `grok`, `pool` (Poolside) and `omp` CLIs, Gemini's `agy` agent, and the Claude.app process-group wrapper | **Storms:** one command line running in 40 or more copies |
 | Anything a live session launched within three parent hops: MCP servers started through `npx`/`uvx`/a shell, and hooks | **Extra copies of an orphaned MCP server:** adopted by launchd (ppid 1), not a LaunchAgent job, older than 10 minutes, with the newest copy kept |
 | Apps under `/Applications` and `/System`, terminals, anything with a tty, local inference servers | |
 
