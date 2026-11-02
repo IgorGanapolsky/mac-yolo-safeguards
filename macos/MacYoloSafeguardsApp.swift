@@ -155,22 +155,23 @@ private let HUD_HTML = #"""
     line-height: 1.32;
     white-space: normal;
   }
-    .bento > div {
-        cursor: pointer;
-        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-    }
-    .bento > div:hover {
-        transform: translateY(-2px);
-        border-color: rgba(255, 255, 255, 0.3);
-        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
-    }
-    .bento > div:active {
-        transform: translateY(0px);
-    }
+  .bento {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 7px;
     margin-bottom: 6px;
+  }
+  .bento > div {
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  .bento > div:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  }
+  .bento > div:active {
+    transform: translateY(0px);
   }
   .tile {
     min-width: 0;
@@ -631,6 +632,21 @@ private let HUD_HTML = #"""
     white-space: normal;
     line-height: 1.3;
   }
+  .hog-link {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    color: #5eead4;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .hog-link:hover { color: #ffffff; }
   .rec-desc {
     font-size: 11.5px;
     color: rgba(255, 255, 255, 0.74);
@@ -1198,7 +1214,71 @@ private let HUD_HTML = #"""
         triggerHudAction(actType, btnEl, 'Running…', 'Done ✓');
       }
     }
-    function openCardDetail(cardId) {
+    function splitTopHogs(body) {
+      var parts = [];
+      var buf = '';
+      var depth = 0;
+      for (var i = 0; i < body.length; i++) {
+        var ch = body.charAt(i);
+        if (ch === '(') depth++;
+        else if (ch === ')' && depth > 0) depth--;
+        if (depth === 0 && body.substr(i, 3) === ' · ') {
+          if (buf) parts.push(buf);
+          buf = '';
+          i += 2;
+          continue;
+        }
+        buf += ch;
+      }
+      if (buf) parts.push(buf);
+      return parts;
+    }
+    function hogNameFromLabel(label) {
+      var m = String(label || '').match(/^\d+\.\s(.+?)\s\(\d+\sproc/);
+      return m ? m[1] : '';
+    }
+    function revealDrillDown() {
+      var scroller = document.querySelector('.shell > div');
+      if (scroller) scroller.scrollTop = 0;
+      var row = document.querySelector('#detailRowsContainer .drill-card-row.expanded');
+      if (row && row.scrollIntoView) row.scrollIntoView({ block: 'nearest' });
+    }
+    var _recTitleRendered = '';
+    function renderRecTitle(val) {
+      if (val === undefined || val === null) return;
+      var text = String(val);
+      if (text === _recTitleRendered) return;
+      var el = document.getElementById('recTitle');
+      if (!el) return;
+      _recTitleRendered = text;
+      var raw = text.replace(/\s*›\s*$/, '');
+      var prefix = 'Top Hogs: ';
+      if (raw.indexOf(prefix) !== 0) {
+        el.textContent = text;
+        return;
+      }
+      var parts = splitTopHogs(raw.slice(prefix.length));
+      el.textContent = '';
+      el.appendChild(document.createTextNode(prefix));
+      for (var i = 0; i < parts.length; i++) {
+        if (i) el.appendChild(document.createTextNode(' · '));
+        var part = parts[i];
+        var name = part.replace(/\s*\(.*$/, '').trim();
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'hog-link';
+        btn.textContent = part;
+        btn.setAttribute('data-hog', name);
+        btn.onmousedown = function(ev) { if (ev) ev.stopPropagation(); };
+        btn.onclick = function(ev) {
+          if (ev) ev.stopPropagation();
+          openCardDetail('optimization', this.getAttribute('data-hog') || '');
+        };
+        el.appendChild(btn);
+      }
+      el.appendChild(document.createTextNode(' ›'));
+    }
+    function openCardDetail(cardId, focusName) {
       _activeDetailCard = cardId;
       var ov = document.getElementById('overviewSection');
       var setEl = document.getElementById('settingsDrawer');
@@ -1207,7 +1287,16 @@ private let HUD_HTML = #"""
       if (setEl) setEl.style.display = 'none';
       if (det) det.style.display = 'flex';
       var dd = (_lastHudState && _lastHudState.drillDown && _lastHudState.drillDown[cardId]) || [];
-      if (dd.length > 0) {
+      var focusKey = '';
+      if (focusName && dd.length) {
+        for (var f = 0; f < dd.length; f++) {
+          if (hogNameFromLabel(dd[f].label) === focusName) { focusKey = dd[f].key; break; }
+        }
+      }
+      if (focusKey) {
+        for (var c = 0; c < dd.length; c++) _expandedDrillRows[dd[c].key] = false;
+        _expandedDrillRows[focusKey] = true;
+      } else if (dd.length > 0) {
         var hasAnyOpen = false;
         for (var i = 0; i < dd.length; i++) {
           if (_expandedDrillRows[dd[i].key]) { hasAnyOpen = true; break; }
@@ -1217,6 +1306,7 @@ private let HUD_HTML = #"""
         }
       }
       renderActiveCardDetail(_lastHudState);
+      revealDrillDown();
       resizeHud(window.innerWidth || 740, Math.max(window.innerHeight || 535, 760), false);
     }
     function closeCardDetail() {
@@ -1225,6 +1315,7 @@ private let HUD_HTML = #"""
       var det = document.getElementById('cardDetailDrawer');
       if (det) det.style.display = 'none';
       if (ov) ov.style.display = 'block';
+      revealDrillDown();
       resizeHud(window.innerWidth || 740, 535, false);
     }
     function renderActiveCardDetail(s) {
@@ -1520,7 +1611,7 @@ private let HUD_HTML = #"""
       setTextIfChanged('mcpRightBadge', state.mcpRightBadge);
       setTextIfChanged('netUp', state.netUp);
       setTextIfChanged('netDown', state.netDown);
-      setTextIfChanged('recTitle', state.recTitle);
+      renderRecTitle(state.recTitle);
       setTextIfChanged('recDesc', state.recDesc);
       if (state.memPctNum) {
         var mf = document.getElementById('memBarFill');
