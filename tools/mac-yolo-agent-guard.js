@@ -52,8 +52,9 @@ const STABLE_NODE = ['/opt/homebrew/bin/node', '/usr/local/bin/node'].find((p) =
 
 // Never signal Electron/Chromium helpers, installed apps, terminals, transports, or local
 // inference. Only apps under /Applications and /System count as apps: Homebrew's Python
-// also runs from a Python.app bundle, and the 2026-11-01 storm ran under it.
-const NEVER_RE = /^\/(Applications|System)\/.*?\.app\/Contents\/|Helper|Renderer|WindowServer|sshd|Tailscale|tailscaled|Terminal|ghostty|Finder|Dock|llama-server|ollama|Ollama|litellm/;
+// also runs from a Python.app bundle, and the 2026-11-01 storm ran under it. macOS's own
+// services under /System, /usr/libexec and /sbin run dozens of identical copies by design.
+const NEVER_RE = /^\/(System|usr\/libexec|usr\/sbin|sbin)\/|^\/Applications\/.*?\.app\/Contents\/|Helper|Renderer|WindowServer|sshd|Tailscale|tailscaled|Terminal|ghostty|Finder|Dock|llama-server|ollama|Ollama|litellm/;
 const KILLER_RE = /(^|[/ ])(pkill|killall|kill)( |$)|osascript.*\bquit\b|launchctl +(bootout|kickstart +-k|kill)/;
 
 function classify(command) {
@@ -410,7 +411,12 @@ function detectIncident(ring, current, { minVanished = MIN_VANISHED, now = Date.
   if (!prev) return null;
   const alive = new Set(current.map((p) => p.pid));
   const vanished = prev.filter((p) => isClaude(p.kind) && !alive.has(p.pid));
-  if (vanished.length < minVanished) return null;
+  // One session ending takes its wrapper and its children with it. Count only the
+  // processes whose parent did not vanish too, so a session that finished normally
+  // is one, and a kill that hits several sessions at once is several.
+  const gone = new Set(vanished.map((p) => p.pid));
+  const independent = vanished.filter((p) => !gone.has(p.ppid)).length;
+  if (independent < minVanished && !(independent && shimCalls.length)) return null;
 
   const seen = new Map();
   for (const snap of ring) for (const p of snap) seen.set(p.pid, p);

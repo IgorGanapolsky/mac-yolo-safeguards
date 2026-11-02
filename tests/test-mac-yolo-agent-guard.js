@@ -39,6 +39,10 @@ function main() {
   for (let i = 0; i < 60; i += 1) stormRows.push([2000 + i, 1, 50000, '02:00', '??', SESSION]);
   const storms = findStorms(parsePs(ps(stormRows)));
   assert.strictEqual(storms.length, 1, 'only the wrapper loop is a storm; live sessions never are');
+  const XPC = '/System/Library/PrivateFrameworks/CascadeSets.framework/Versions/A/XPCServices/SetStoreUpdateService.xpc/Contents/MacOS/SetStoreUpdateService';
+  const osRows = [];
+  for (let i = 0; i < 47; i += 1) osRows.push([5000 + i, 1, 4500, '01:00', '??', XPC]);
+  assert.strictEqual(findStorms(parsePs(ps(osRows))).length, 0, 'macOS services run many copies by design');
   assert.strictEqual(storms[0].copies, 120);
   assert.ok(storms[0].command.includes('x.js doctor'));
 
@@ -63,6 +67,13 @@ function main() {
   assert.ok(incident.recentlyStarted.some((p) => p.pid === 30));
   assert.deepStrictEqual(incident.shimCalls, ['x']);
   assert.strictEqual(detectIncident([before], parsePs(ps([[11, 1, 1, '10:00', '??', '/Users/u/.local/bin/claude mcp serve']]))), null, 'one exit is not an incident');
+  // One session finishing takes its process-group wrapper with it: that is one exit, not a kill.
+  const DISC = `/Applications/Claude.app/Contents/Helpers/disclaimer --pgroup -- ${SESSION}`;
+  const oneSession = parsePs(ps([[90, 1, 1, '17:00', '??', DISC], [91, 90, 1, '17:00', '??', SESSION]]));
+  assert.strictEqual(detectIncident([oneSession], []), null, 'a session and its wrapper ending together is a normal exit');
+  const twoSessions = parsePs(ps([[90, 1, 1, '17:00', '??', DISC], [91, 90, 1, '17:00', '??', SESSION], [92, 1, 1, '17:00', '??', DISC], [93, 92, 1, '17:00', '??', SESSION]]));
+  assert.strictEqual(detectIncident([twoSessions], []).vanished.length, 4, 'two sessions gone at once is an incident');
+  assert.ok(detectIncident([oneSession], [], { shimCalls: ['pkill -f claude'] }), 'one session gone right after a pkill is an incident');
 
   // Cool Down Fans once matched every desktop session by its install path. A live session,
   // or the wrapper that leads its process group, is never a runaway — whatever its args say.
