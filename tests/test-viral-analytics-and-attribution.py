@@ -10,9 +10,9 @@ import hashlib
 import hmac
 import importlib.util
 import json
+import tempfile
 import unittest
 from pathlib import Path
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ENGINE_PATH = REPO_ROOT / "tools" / "viral-analytics-engine.py"
 
@@ -90,7 +90,26 @@ class ViralAnalyticsAndAttributionTests(unittest.TestCase):
         self.assertGreaterEqual(large_n["leader_prob_to_be_best"], 0.95)
 
     def test_full_report_slos_and_hmac_receipt(self):
-        report = self.engine.build_viral_analytics_report()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            orig_scratch = self.engine.SCRATCH_DIR
+            orig_report = self.engine.OUT_ANALYTICS_JSON
+            orig_attr = self.engine.OUT_ATTRIBUTION_EVENTS_JSON
+            orig_content = self.engine.OUT_CONTENT_LOG_TSV
+            orig_obs = self.engine.OUT_RECEIPTS_JSONL
+            try:
+                self.engine.SCRATCH_DIR = tmp_path
+                self.engine.OUT_ANALYTICS_JSON = tmp_path / "viral_analytics_engine.json"
+                self.engine.OUT_ATTRIBUTION_EVENTS_JSON = tmp_path / "viral_attribution_events.json"
+                self.engine.OUT_CONTENT_LOG_TSV = tmp_path / "viral_content_log.tsv"
+                self.engine.OUT_RECEIPTS_JSONL = tmp_path / "viral_observability_receipts.jsonl"
+                report = self.engine.build_viral_analytics_report()
+            finally:
+                self.engine.SCRATCH_DIR = orig_scratch
+                self.engine.OUT_ANALYTICS_JSON = orig_report
+                self.engine.OUT_ATTRIBUTION_EVENTS_JSON = orig_attr
+                self.engine.OUT_CONTENT_LOG_TSV = orig_content
+                self.engine.OUT_RECEIPTS_JSONL = orig_obs
         self.assertEqual(report["observability_health_score"], 100.0)
         obs = report["pillars"]["5_observability"]
         self.assertEqual(obs["slos_passed"], obs["slos_total"])
@@ -108,6 +127,60 @@ class ViralAnalyticsAndAttributionTests(unittest.TestCase):
         ).hexdigest()
         self.assertEqual(sig, expected_sig)
 
+        radar = report["pillars"]["6_viral_discovery_radar"]
+        self.assertIn("show_hn_launch", radar)
+        self.assertIn("news.ycombinator.com/submitlink", radar["show_hn_launch"]["submit_url"])
+        self.assertGreaterEqual(len(radar["new_viral_venues"]), 5)
+        self.assertIn("hackernews", radar["new_viral_venues"])
+        self.assertIn("lobsters", radar["new_viral_venues"])
+        self.assertIn("reddit_dev", radar["new_viral_venues"])
+        self.assertIn("producthunt", radar["new_viral_venues"])
+
+        critique_pillar = report["pillars"]["7_critique_to_cash_flywheel"]
+        self.assertEqual(critique_pillar["critique_flywheel_status"], "ACTIVE")
+        self.assertGreaterEqual(len(critique_pillar["critique_to_spec_ledger"]), 4)
+        self.assertIn("8x2dR91M84r4cSd9uj3sI3f", critique_pillar["roast_my_stack_posts"]["instant_stripe_19_url"])
+        self.assertIn("roast-or-critique.yml", critique_pillar["roast_my_stack_posts"]["github_critique_bounty_url"])
+        self.assertGreaterEqual(len(critique_pillar["roast_my_stack_posts"]["external_github_pain_issues"]), 4)
+        self.assertIn("variant_d_roast_critique", report["pillars"]["3_ab_testing"]["variants"])
+
+    def test_yolo_roast_card_and_cli_feedback_capture(self):
+        from importlib.machinery import SourceFileLoader
+        import sys
+        roast_path = REPO_ROOT / "bin" / "yolo-roast"
+        loader = SourceFileLoader("yolo_roast", str(roast_path))
+        spec = importlib.util.spec_from_loader("yolo_roast", loader)
+        assert spec and spec.loader
+        roast_mod = importlib.util.module_from_spec(spec)
+        sys.modules["yolo_roast"] = roast_mod
+        spec.loader.exec_module(roast_mod)
+        sample_ps = "\n".join([
+            "40535     1 2477196   0.0 12:14:09 /Users/dev/.local/bin/claude",
+            "39993     1 1272934  24.5 04:11:22 node /usr/local/bin/ccusage",
+            "91002     1  215040   4.2 08:02:11 npx -y @modelcontextprotocol/server-filesystem",
+            "94110   500   64200   0.4 09:00:00 herdr server",
+        ])
+        scan = roast_mod.scan_mac_agent_stack(ps_override=sample_ps, swap_override_mb=3072.0)
+        self.assertLess(scan["hygiene_score"], 90)
+        self.assertEqual(scan["counts"]["orphaned_mcp_procs"], 1)
+        self.assertEqual(scan["counts"]["protected_mux_procs"], 1)
+        self.assertIn("roast-or-critique.yml", scan["links"]["one_click_critique_issue_url"])
+        card = roast_mod.format_ascii_roast_card(scan)
+        self.assertIn("MAC AGENT STACK ROAST CARD", card)
+        self.assertIn("8x2dR91M84r4cSd9uj3sI3f", card)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_log = Path(tmpdir) / "user-critiques.jsonl"
+            receipt = roast_mod.record_cli_feedback(
+                "Test critique: show per-PID memory delta",
+                log_path=test_log,
+            )
+            self.assertTrue(test_log.exists())
+        self.assertIn("WHEN an operator reports", receipt["ears_spec"])
+        self.assertIn("roast-or-critique.yml", receipt["github_prefill_url"])
+        # Verify word-boundary regex does NOT match AudioComponentRegistrar or MTLCompilerService
+        false_pos_ps = "1001 1 50000 0.0 01:00:00 /System/Library/Frameworks/AudioToolbox.framework/AudioComponentRegistrar"
+        fp_scan = roast_mod.scan_mac_agent_stack(ps_override=false_pos_ps, swap_override_mb=0.0)
+        self.assertEqual(fp_scan["counts"]["agent_cli_procs"], 0)
 
 if __name__ == "__main__":
     unittest.main()

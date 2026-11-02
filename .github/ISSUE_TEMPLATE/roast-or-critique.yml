@@ -1,0 +1,40 @@
+name: 🔥 1-Line Roast or Critique (5 Seconds)
+description: Brutal feedback on what broke, annoyed you, killed the wrong process, or felt cluttered. Only 1 field required.
+title: "[roast] "
+labels:
+  - feedback
+  - roast-to-spec
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **No forms, no legal checkboxes.** Tell us in 1 sentence what sucks, broke, or confused you. Every valid critique becomes a deterministic EARS spec and regression test.
+  - type: dropdown
+    id: category
+    attributes:
+      label: What are you roasting?
+      options:
+        - 🐗 Missed a Memory / CPU Hog (Claude Code, Cursor, MCP, Xcode)
+        - 🛡️ Killed the Wrong Process (e.g. herdr, tmux, active session)
+        - 🎨 HUD / CLI UX Clutter or Bug
+        - 💳 Pricing / Checkout Friction
+        - 🔥 General Architecture Critique
+      default: 0
+    validations:
+      required: false
+  - type: textarea
+    id: critique
+    attributes:
+      label: Your brutal 1-line critique
+      description: 1 sentence is enough. What happened vs. what should have happened?
+      placeholder: "Example: Your reaper killed my herdr multiplexer session when I ran a subagent swarm."
+    validations:
+      required: true
+  - type: textarea
+    id: roast_card
+    attributes:
+      label: Optional — paste `yolo-roast` or `yolo-health` output
+      description: Run `./bin/yolo-roast` and paste the ASCII card if relevant.
+      render: text
+    validations:
+      required: false

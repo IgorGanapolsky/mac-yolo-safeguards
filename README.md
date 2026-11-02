@@ -13,7 +13,17 @@
 
 > **TL;DR** — On 2026-05-26 my Mac hit load average **307** because an AI agent kept booting iOS Simulators in a loop. This repo is the four-piece kit that stopped it: a wrapper, a LaunchAgent, a plist, and a 12-point health check. MIT, telemetry off by default, symlinks-only install. Full incident write-up: [`CASE-STUDY.md`](./docs/CASE-STUDY.md).
 
-**Paid reliability help:** [Book 20-min triage](https://cal.com/igor-g-kvqxfo/30min) | [Partner Pilot](./docs/PARTNER-PILOT.md) | [Public-safe paid inquiry](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=paid-hardening-inquiry.yml)
+**Instant upgrades & brutal critique:** [⚡ 1-Click Stripe Pro ($19/mo)](https://buy.stripe.com/8x2dR91M84r4cSd9uj3sI3f) | [📦 Corporate-Expense Kit ($49)](https://iganapolsky.gumroad.com/l/vcrho) | [🩺 20-Min Triage ($499)](https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k) | [🔥 1-Line Roast / Critique (5-Sec Issue)](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=roast-or-critique.yml) | [💬 Live Roast Thread (#2251)](https://github.com/IgorGanapolsky/mac-yolo-safeguards/discussions/2251)
+
+**🔥 150ms Mac Agent Stack Roaster (`ccusage`-style Hygiene Card + Zero-Clone Gist):**
+```bash
+# Zero-clone 1-liner (inspect Gist first: https://gist.github.com/IgorGanapolsky/bdbf9a7dc37af73b1560d8cfcd0bd772)
+curl -fsSL https://gist.githubusercontent.com/IgorGanapolsky/bdbf9a7dc37af73b1560d8cfcd0bd772/raw/yolo-roast.py | python3 -
+
+# Or from a local checkout:
+./bin/yolo-roast                                         # Prints your Mac Agent Hygiene Grade (A+ to F), orphaned MCP RAM & top 5 hogs
+./bin/yolo-roast --feedback "your brutal 1-line critique" # Logs EARS spec + prints 1-click pre-filled GitHub Roast URL
+```
 
 <details>
 <summary><b>load average 307, in one picture</b> (a meme that's not wrong)</summary>
@@ -40,6 +50,7 @@ If you run agents for a team or clients and have a repeated failure that costs h
 
 | Path | Deliverables | Pricing |
 |---|---|---|
+| **[⚡ Pro Guard & PreToolUse Gate (1-Click Stripe)](https://buy.stripe.com/8x2dR91M84r4cSd9uj3sI3f)** | Direct Stripe checkout (Apple Pay / Link): PreToolUse destructive-command firewall, `$10/mo` token ceiling, and automated rule updates. | `$19/mo` |
 | **[Agent Safeguards Playbook](https://iganapolsky.gumroad.com/l/odrkon)** | Self-serve runbook: OS-level runaway-kill, timeout, and token-budget templates for Mac agent fleets. | `$9.99` |
 | **[Corporate-Expense Reliability Kit](https://iganapolsky.gumroad.com/l/vcrho)** | Drop-in team bundle: LaunchAgent templates, MCP server, pre-execution gates, and audit receipt harness. | `$49` |
 | **[Diagnostic Call](https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k)** | 20-min live review, root-cause triage readout, recommended prevention rules, no installation. | `$499` |
@@ -47,6 +58,8 @@ If you run agents for a team or clients and have a repeated failure that costs h
 | [Partner Pilot](./docs/PARTNER-PILOT.md) ([Stripe Checkout](https://buy.stripe.com/fZucN5bmI8HkbO98qf3sI3j)) | Agencies or consultants need a reusable client-facing reliability package. | `$3,000` |
 
 Private workflow details: [book a 20-minute triage](https://cal.com/igor-g-kvqxfo/30min) or email [iganapolsky@gmail.com](mailto:iganapolsky@gmail.com). Public-safe intake: [open a paid hardening inquiry](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=paid-hardening-inquiry.yml).
+
+> **🔥 Roast Our Architecture (Critique-to-Spec Loop):** Think our 474 KB Rust/Swift Mach `vm_statistics64` brake, `ppid=1` MCP orphan reaper, or `pkill -f` process-tree guard is flawed? **[Open a Brutal Critique Issue](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?labels=critique,roast&title=Critique%3A+)** or click **`💬 Critique`** in the HUD — every valid criticism is converted directly into an EARS spec and regression test.
 
 ## Background
 

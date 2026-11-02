@@ -2,6 +2,11 @@
 # Quick health check for the agy-yolo + simulator-guard safeguards.
 # Usage: yolo-health  (or:  sh ~/.local/bin/yolo-health)
 
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if [ "$1" = "--roast" ] || [ "$1" = "--feedback" ] || [ "$1" = "--critique" ]; then
+  [ "$1" = "--roast" ] && shift
+  exec /usr/bin/env python3 "$SCRIPT_DIR/bin/yolo-roast" "$@"
+fi
 # --- Detect antigravity-cli path dynamically ---
 AGY_CLI_DIR="$HOME/workspace/git/$USER/antigravity-hub/antigravity-cli"
 if [ ! -d "$AGY_CLI_DIR" ]; then
@@ -183,4 +188,9 @@ fi
 
 echo ""
 echo "=== Summary: $pass passed, $fail failed ==="
+echo "  🔥 Viral Mac Roast Card:               ./bin/yolo-roast  (or: ./yolo-health --roast)"
+echo "  💬 1-Command Terminal Critique:        ./bin/yolo-roast --feedback \"your 1-line critique\""
+echo "  🐙 1-Click GitHub Roast Issue:         https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=roast-or-critique.yml"
+echo "  ⚡ Upgrade (1-Click Stripe Pro \$19/mo): https://buy.stripe.com/8x2dR91M84r4cSd9uj3sI3f"
+echo "  📦 Corporate-Expense Kit (\$49):        https://iganapolsky.gumroad.com/l/vcrho"
 [ "$fail" -eq 0 ] && exit 0 || exit 1
