@@ -1,0 +1,24 @@
+# .graphifyignore — Keep AST knowledge graph focused on first-party code & configs
+node_modules/
+.graphify-venv/
+.graphify-venv*/
+graphify-out/
+Compiled-Vaults/
+parallel-research/
+artifacts/
+coverage/
+dist/
+build/
+.build/
+.expo/
+hermes-mobile/android/
+hermes-mobile/ios/
+hermes-mobile/node_modules/
+data/
+logs/
+tmp/
+*.min.js
+*.bundle.js
+package-lock.json
+yarn.lock
+pnpm-lock.yaml

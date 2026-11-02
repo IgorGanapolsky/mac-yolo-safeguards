@@ -68,7 +68,7 @@ DRY_RUN="${1:-}"
 AGENT_RE='GradleDaemon|org\.gradle|claude( |$)|codex|opencode|agy |hermes_cli|node .*(agent|mcp)'
 # never signal these: Electron/Chromium helpers (respawn/wedge), UI apps, transports,
 # and — critically — the fleet's own inference/gateway processes it depends on.
-NEVER_RE='Helper|Renderer|\.app/Contents/(Frameworks|MacOS)|WindowServer|screensharing|sshd|Tailscale|tailscaled|Terminal|ghostty|Finder|Dock|llama-server|ollama|Ollama|litellm|gateway run|grep -E'
+NEVER_RE='Helper|Renderer|\.app/Contents/(Frameworks|MacOS)|WindowServer|screensharing|sshd|Tailscale|tailscaled|Terminal|ghostty|Finder|Dock|llama-server|ollama|Ollama|litellm|gateway run|herdr|pool\.real|grok\.real|omp|grep -E'
 
 log() { echo "$("$DATE_BIN" '+%Y-%m-%d %H:%M:%S') $*" >> "$LOG"; }
 notify() {

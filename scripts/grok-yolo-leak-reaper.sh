@@ -35,12 +35,15 @@ max_secs=$(( MAX_HOURS * 3600 ))
 reaped=0; seen=0
 # read splits: pid, etime, then REST -> cmd (handles spaces in the command). -axww =
 # full argv, untruncated.
-while read -r pid etime cmd; do
+while read -r pid ppid tty etime cmd; do
   [ -n "${pid:-}" ] || continue
   case "$pid" in *[!0-9]*) continue;; esac   # skip a stray header/blank line
   echo "$cmd" | grep -qE "$PATTERN" || continue
-  # Never reap this reaper or the ps/grep pipeline itself.
-  echo "$cmd" | grep -qE "grok-yolo-leak-reaper" && continue
+  # Never reap this reaper, the ps/grep pipeline, or any terminal/herdr-attached session.
+  echo "$cmd" | grep -qE "grok-yolo-leak-reaper|herdr" && continue
+  [ "${tty:-??}" != "??" ] && continue
+  p_cmd=$(ps -o command= -p "${ppid:-0}" 2>/dev/null || true)
+  echo "$p_cmd" | grep -qE "herdr|-zsh|/bin/zsh" && continue
   seen=$((seen+1))
   secs=$(etime_to_secs "$etime")
   age_h=$(( secs / 3600 ))
@@ -57,7 +60,7 @@ while read -r pid etime cmd; do
   else
     echo "fresh  pid=$pid age=${age_h}h (<${MAX_HOURS}h, kept)"
   fi
-done < <(ps -ax -o pid=,etime=,command= 2>/dev/null)
+done < <(ps -ax -o pid=,ppid=,tty=,etime=,command= 2>/dev/null)
 
 echo "grok-reaper: grok procs seen=$seen reaped=$reaped threshold=${MAX_HOURS}h apply=$APPLY"
 [ "$APPLY" = 1 ] || echo "dry run — re-run with --apply"

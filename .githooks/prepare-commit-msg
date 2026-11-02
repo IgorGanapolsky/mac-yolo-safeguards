@@ -1,0 +1,3 @@
+#!/bin/sh
+# Entire CLI hooks
+if [ -x '/Users/iganapolsky/.local/bin/entire' ]; then '/Users/iganapolsky/.local/bin/entire' hooks git prepare-commit-msg "$1" "$2" 2>/dev/null || true; else :; fi

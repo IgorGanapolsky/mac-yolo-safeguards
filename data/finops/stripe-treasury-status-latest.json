@@ -1,0 +1,104 @@
+{
+  "schema": "mac-yolo-stripe-treasury-finops/v1",
+  "ok": true,
+  "timestamp": "2026-11-02T15:52:19.712Z",
+  "accountId": "acct_1RNcJ1GGBpd520QY",
+  "liveConnected": true,
+  "treasuryAdvantages": {
+    "financialAccountId": "fa_65VgiFTvKGdYJdlwLB116SX0GN9FSQ6GK2zYVP00RZIAOu",
+    "accountLast4": "8052",
+    "partnerBank": "SUN RISE BANKS, NATIONAL ASSOCIATION",
+    "payoutDestination": "financial_account_100_pct",
+    "autoSweepEnabled": true,
+    "payoutInterval": "daily",
+    "payoutDelayDays": 2,
+    "usBankAccountAchActive": true,
+    "transfersActive": true,
+    "linkPaymentsActive": true,
+    "issuing2PctCashbackReady": false,
+    "externalRoutingAccounts": [
+      {
+        "id": "ba_1TOQdFGGBpd520QY5oUkJkwz",
+        "bankName": "SUN RISE BANKS, NATIONAL ASSOCIATION",
+        "status": "new",
+        "currency": "usd",
+        "defaultForCurrency": true
+      }
+    ]
+  },
+  "balances": {
+    "availableUsd": 0,
+    "pendingUsd": 0,
+    "eligibleFor1PctFeeCredit": false,
+    "shortfallTo2kYieldThresholdUsd": 2000
+  },
+  "autoSweepMutation": {
+    "attempted": false
+  },
+  "economics": {
+    "fdicInsuredLimitUsd": 250000,
+    "monthlyFeeUsd": 0,
+    "minimumBalanceUsd": 0,
+    "feeCreditYieldThresholdUsd": 2000,
+    "feeCreditYieldRatePct": 1,
+    "issuingCardCashbackRatePct": 2,
+    "totalFeeSavedOneEachHighTicketUsd": 131.88,
+    "tiers": [
+      {
+        "offer": "Agent Safeguards Playbook",
+        "grossUsd": 9.99,
+        "paymentLinkUrl": "https://iganapolsky.gumroad.com/l/odrkon",
+        "cardFeeUsd": 0.59,
+        "achFeeUsd": 0.08,
+        "feeSavedPerCloseUsd": 0.51,
+        "netViaCardUsd": 9.4,
+        "netViaTreasuryAchUsd": 9.91,
+        "crosses2kYieldThreshold": false
+      },
+      {
+        "offer": "Corporate-Expense Reliability Kit",
+        "grossUsd": 49,
+        "paymentLinkUrl": "https://iganapolsky.gumroad.com/l/vcrho",
+        "cardFeeUsd": 1.72,
+        "achFeeUsd": 0.39,
+        "feeSavedPerCloseUsd": 1.33,
+        "netViaCardUsd": 47.28,
+        "netViaTreasuryAchUsd": 48.61,
+        "crosses2kYieldThreshold": false
+      },
+      {
+        "offer": "Agent Reliability Diagnostic",
+        "grossUsd": 499,
+        "paymentLinkUrl": "https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k",
+        "cardFeeUsd": 14.77,
+        "achFeeUsd": 3.99,
+        "feeSavedPerCloseUsd": 10.78,
+        "netViaCardUsd": 484.23,
+        "netViaTreasuryAchUsd": 495.01,
+        "crosses2kYieldThreshold": false
+      },
+      {
+        "offer": "AI Agent Hardening Sprint",
+        "grossUsd": 1500,
+        "paymentLinkUrl": "https://buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38",
+        "cardFeeUsd": 43.8,
+        "achFeeUsd": 5,
+        "feeSavedPerCloseUsd": 38.8,
+        "netViaCardUsd": 1456.2,
+        "netViaTreasuryAchUsd": 1495,
+        "crosses2kYieldThreshold": false
+      },
+      {
+        "offer": "Partner Pilot",
+        "grossUsd": 3000,
+        "paymentLinkUrl": "https://buy.stripe.com/fZucN5bmI8HkbO98qf3sI3j",
+        "cardFeeUsd": 87.3,
+        "achFeeUsd": 5,
+        "feeSavedPerCloseUsd": 82.3,
+        "netViaCardUsd": 2912.7,
+        "netViaTreasuryAchUsd": 2995,
+        "crosses2kYieldThreshold": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,2212 @@
+{
+  "$schema": "https://mac-yolo-safeguards.dev/schemas/coordination-v1",
+  "generatedAt": "2026-10-29T13:59:18.856Z",
+  "version": "1.0.0",
+  "sources": {
+    "planMd": "/Users/iganapolsky/workspace/mac-yolo-safeguards/plan.md",
+    "vault": "/Users/iganapolsky/Documents/AI-Agent-Sync",
+    "git": "exec",
+    "github": "gh CLI",
+    "skills": "/Users/iganapolsky/workspace/mac-yolo-safeguards/SKILLS.md",
+    "settings": "removed from deny list"
+  },
+  "tasks": {
+    "total": 109,
+    "inProgress": 21,
+    "released": 87,
+    "blocked": 1,
+    "stuck": [
+      {
+        "id": "T-AGENT-558-WEBMCP-READINESS-20260826",
+        "title": "Add a fail-closed Chrome WebMCP capability with deterministic manifest linting, ",
+        "status": "in_progress",
+        "agent": "codex-agent-558-webmcp",
+        "files": [
+          ".agents/skills/chrome-webmcp/**",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-HERMES-PHONE-MIDCYCLE-HUMAN-GUARD-20260825",
+        "title": "P0: prevent scheduled continuous E2E from taking over, aborting, or uninstalling",
+        "status": "in_progress",
+        "agent": "codex-hermes-phone-midcycle-guard",
+        "files": [
+          "hermes-mobile/scripts/run-continuous-e2e.sh",
+          "tests/test-hermes-phone-user-activity-guard.js",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-THUMBGATE-LANDING-INTEGRITY-20260825",
+        "title": "P0: repair the production StartSurfaces spacing collapse and prevent active Pro ",
+        "status": "in_progress",
+        "agent": "codex-thumbgate-landing-integrity",
+        "files": [
+          "apps/hermes-control-plane/app/start-surfaces.module.css",
+          "apps/hermes-control-plane/app/HostedCheckoutCta.tsx",
+          "apps/hermes-control-plane/app/LandingAuthChrome.tsx",
+          "apps/hermes-control-plane/app/useLandingAuth.ts",
+          "apps/hermes-control-plane/app/useLandingAuth.test.ts",
+          "apps/hermes-control-plane/tests/start-surfaces.test.mjs",
+          "apps/hermes-control-plane/tests/hosted-hermes-checkout-cta.test.mjs",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-LANDING-SIGNED-IN-NO-REPAY-20260825",
+        "title": "Signed-in trial/paid users must not see another Start hosted Hermes $10/mo check",
+        "status": "in_progress",
+        "agent": "grok-landing-signed-in-cta",
+        "files": [
+          "apps/hermes-control-plane/app/LandingAuthChrome.tsx",
+          "apps/hermes-control-plane/tests/landing-signed-in-cta.test.mjs",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-INFOQ-DEVICE-SUBMIT-SCHEMA-20260825",
+        "title": "Apply the newsletter's deterministic-schema pattern at ThumbGate's signed-device",
+        "status": "in_progress",
+        "agent": "codex-infoq-device-schema",
+        "files": [
+          "apps/hermes-control-plane/app/api/device/tasks/submit/route.ts",
+          "apps/hermes-control-plane/lib/hermes-schema-validator.js",
+          "apps/hermes-control-plane/lib/schema-validator.ts",
+          "apps/hermes-control-plane/lib/schema-validator.test.ts",
+          "apps/hermes-control-plane/tests/device-cloud-task-routes.test.mjs",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-AGENT-467-SOCIAL-CAMPAIGN-DATE-FIXTURE",
+        "title": "Repair the calendar-dated social campaign scoreboard fixture that started failin",
+        "status": "in_progress",
+        "agent": "codex-agent-467-pr-hygiene",
+        "files": [
+          "tests/test-social-campaign-ds.js",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-AGENT-476-INCIDENT",
+        "title": "Repair the live screenshot regressions discovered during AGENT-476: concatenated",
+        "status": "in_review",
+        "agent": "codex-agent-476-turn-statusline",
+        "files": [
+          "apps/hermes-control-plane/app/globals.css",
+          "apps/hermes-control-plane/lib/cloud-tool-policy.ts",
+          "apps/hermes-control-plane/lib/cloud-tool-policy.test.ts",
+          "apps/hermes-control-plane/app/api/runner/tasks/claim/route.ts",
+          "apps/hermes-control-plane/tests/execution-statusline-contract.test.mjs",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-COPILOT-AUTOFIX-GH-FLAG-20260821",
+        "title": "Repair main deploy blocker: Copilot security autofix passes an invalid second ar",
+        "status": "in_progress",
+        "agent": "codex-agent-449-copilot-autofix-gh",
+        "files": [
+          ".github/workflows/copilot-security-autofix.yml",
+          "tests/test-copilot-security-autofix-workflow.js",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-FUTURE-AGI-SELF-HEALING-PARTNERSHIP-20260821",
+        "title": "Implement Future AGI Self-Healing Agent Engine, Adversarial Persona Simulation &",
+        "status": "in_progress",
+        "agent": "antigravity",
+        "files": [
+          "tools/future-agi-self-healing-engine.js",
+          "tests/test-future-agi-self-healing-engine.js",
+          ".agents/skills/future-agi-self-healing-engine/**",
+          "SKILLS.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-CODEX-PLATFORM-LOCAL-FIRST-SYNC-20260820",
+        "title": "Implement OpenAI Codex App-Server Harness (Consent Ladder & Context Compaction) ",
+        "status": "in_progress",
+        "agent": "antigravity",
+        "files": [
+          "tools/codex-app-server-harness.js",
+          "tools/local-first-sync-engine.js",
+          "tests/test-codex-platform-and-sync-engine.js",
+          ".agents/skills/local-first-sync-engine/**",
+          "apps/hermes-control-plane/app/admin/AdminClient.tsx",
+          "apps/hermes-control-plane/app/dashboard/lessons/LessonsClient.tsx",
+          "SKILLS.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-NVIDIA-NEMO-SWITCHYARD-20260820",
+        "title": "Implement NVIDIA NeMo Switchyard Step Router, Nemotron 3.5 Lightning 250 TPS Exe",
+        "status": "in_progress",
+        "agent": "antigravity",
+        "files": [
+          "tools/nvidia-nemo-switchyard.js",
+          "tools/nvidia-skill-evaluator.js",
+          "tests/test-nvidia-agent-evaluator-and-switchyard.js",
+          ".agents/skills/nvidia-nemo-switchyard-engine/**",
+          "SKILLS.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-SOLAR-PRO-WARP-FACTORY-20260820",
+        "title": "Implement Upstage Solar Pro 4 Workhorse Router, Warp-Style Multi-Harness Softwar",
+        "status": "in_progress",
+        "agent": "antigravity",
+        "files": [
+          "tools/solar-pro-workhorse-router.js",
+          "tools/warp-software-factory-engine.js",
+          "tools/token-bleed-interdictor.js",
+          "tests/test-software-factory-and-workhorse-router.js",
+          ".agents/skills/solar-pro-workhorse-router/**",
+          "SKILLS.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-SHIFT-ZERO-PRODUCTION-ENGINEERING-20260820",
+        "title": "Implement Shift-Zero Security Guard, Intentional Multi-Tenant Retrieval Engine &",
+        "status": "in_progress",
+        "agent": "antigravity",
+        "files": [
+          "tools/shift-zero-security-guard.js",
+          "tools/intentional-retrieval-engine.js",
+          "tools/ai-tech-debt-register.js",
+          "tools/engineering-knowledge-agent.js",
+          "tests/test-shift-zero-production-engineering.js",
+          ".agents/skills/shift-zero-production-engineering/**",
+          "SKILLS.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-TEAMVIEWER-DEX-INSTRUCTION-ENGINE-20260820",
+        "title": "Implement TeamViewer DEX Instruction Runner, Dynamic Parameter Validator, Bounde",
+        "status": "in_progress",
+        "agent": "antigravity",
+        "files": [
+          "tools/teamviewer-dex-instruction-engine.js",
+          "tests/test-teamviewer-dex-instruction-engine.js",
+          ".agents/skills/teamviewer-dex-instruction-engine/**",
+          "SKILLS.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-PERPLEXITY-COMPUTER-STEAL-20260819",
+        "title": "Steal Perplexity Computer FORMAT (task-first jobs, Give/Works/Approve, put-to-wo",
+        "status": "in_progress",
+        "agent": "grok-perplexity-computer-steal-20260819",
+        "files": [
+          "apps/hermes-control-plane/app/GiveWorkLoop.tsx",
+          "apps/hermes-control-plane/app/give-work.module.css",
+          "apps/hermes-control-plane/app/page.tsx",
+          "apps/hermes-control-plane/app/FunnelSignals.tsx",
+          "apps/hermes-control-plane/app/api/analytics/event/route.ts",
+          "apps/hermes-control-plane/app/llms.txt/route.ts",
+          "apps/hermes-control-plane/tests/perplexity-computer-steal.test.mjs",
+          ".intent/contract.yaml",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-SCREENPIPE-ACTIVITY-20260820",
+        "title": "Screenpipe Activity steal: local Activity bands + recall + opt-in egress harness",
+        "status": "in_progress",
+        "agent": "grok-screenpipe-activity-20260820",
+        "files": [
+          "tools/hermes-screenpipe-activity.js",
+          "tools/hermes-activity-skill-distiller.js",
+          "tools/hermes-universal-harness-adapter.js",
+          "tests/test-hermes-screenpipe-activity.js",
+          "tests/test-hermes-activity-skill-distiller.js",
+          "tests/test-hermes-universal-harness-adapter.js",
+          ".agents/skills/screenpipe-activity-local/**",
+          "SKILLS.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-JCODE-YOLO-SOL-UNSTICK-20260815",
+        "title": "Stop jcode-yolo from pinning GPT-5.6 Sol: quarantine inherited JCODE_DEFAULT_PRO",
+        "status": "in_progress",
+        "agent": "grok-jcode-yolo-sol-unstick-20260815",
+        "files": [
+          "tools/jcode-yolo-wrapper.js",
+          "tests/test-jcode-intelligent-routing.js",
+          "tests/test-jcode-yolo-wrapper.js",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-RUBRIK-MYTHOS-ROI-20260815",
+        "title": "Implement and test high-ROI Rubrik Mythos lessons: file-hash checkpoints, trust-",
+        "status": "in_progress",
+        "agent": "grok-rubrik-mythos-roi-20260815",
+        "files": [
+          "tools/rubrik-mythos-triage-harness.js",
+          "tests/test-rubrik-mythos-triage.js",
+          "tests/fixtures/rubrik-mythos/",
+          "bin/rubrik-triage",
+          ".agents/skills/rubrik-mythos-triage/SKILL.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      }
+    ],
+    "blockers": [
+      {
+        "id": "T-AGENT-476",
+        "title": "Show a truthful turn statusline on the authenticated ThumbGate dashboard using p",
+        "status": "blocked",
+        "agent": "codex-agent-476-turn-statusline",
+        "files": [
+          "apps/hermes-control-plane/app/dashboard/DashboardClient.tsx",
+          "plan.md"
+        ],
+        "pr": 1986,
+        "released": false,
+        "blocked": true,
+        "inProgress": false
+      }
+    ],
+    "items": [
+      {
+        "id": "T-AGENTIC-PATTERN-RECEIPTS-20260826",
+        "title": "Add deterministic minimum-pattern selection receipts for agent tasks",
+        "status": "released",
+        "agent": "codex-agentic-pattern-receipts",
+        "files": [
+          "tools/agentic-pattern-selector.js",
+          "tests/test-agentic-pattern-selector.js",
+          "tools/agent-decision-stack.js",
+          "tests/test-agent-decision-stack.js",
+          ".agents/skills/agentic-pattern-selector/**",
+          "docs/AGENTIC-PATTERN-RECEIPTS.md",
+          "plan.md"
+        ],
+        "pr": 2147,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-AGENT-558-WEBMCP-READINESS-20260826",
+        "title": "Add a fail-closed Chrome WebMCP capability with deterministic manifest linting, ",
+        "status": "in_progress",
+        "agent": "codex-agent-558-webmcp",
+        "files": [
+          ".agents/skills/chrome-webmcp/**",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-HERMES-PHONE-MIDCYCLE-HUMAN-GUARD-20260825",
+        "title": "P0: prevent scheduled continuous E2E from taking over, aborting, or uninstalling",
+        "status": "in_progress",
+        "agent": "codex-hermes-phone-midcycle-guard",
+        "files": [
+          "hermes-mobile/scripts/run-continuous-e2e.sh",
+          "tests/test-hermes-phone-user-activity-guard.js",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-THUMBGATE-LANDING-INTEGRITY-20260825",
+        "title": "P0: repair the production StartSurfaces spacing collapse and prevent active Pro ",
+        "status": "in_progress",
+        "agent": "codex-thumbgate-landing-integrity",
+        "files": [
+          "apps/hermes-control-plane/app/start-surfaces.module.css",
+          "apps/hermes-control-plane/app/HostedCheckoutCta.tsx",
+          "apps/hermes-control-plane/app/LandingAuthChrome.tsx",
+          "apps/hermes-control-plane/app/useLandingAuth.ts",
+          "apps/hermes-control-plane/app/useLandingAuth.test.ts",
+          "apps/hermes-control-plane/tests/start-surfaces.test.mjs",
+          "apps/hermes-control-plane/tests/hosted-hermes-checkout-cta.test.mjs",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-LANDING-SIGNED-IN-NO-REPAY-20260825",
+        "title": "Signed-in trial/paid users must not see another Start hosted Hermes $10/mo check",
+        "status": "in_progress",
+        "agent": "grok-landing-signed-in-cta",
+        "files": [
+          "apps/hermes-control-plane/app/LandingAuthChrome.tsx",
+          "apps/hermes-control-plane/tests/landing-signed-in-cta.test.mjs",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-INFOQ-DEVICE-SUBMIT-SCHEMA-20260825",
+        "title": "Apply the newsletter's deterministic-schema pattern at ThumbGate's signed-device",
+        "status": "in_progress",
+        "agent": "codex-infoq-device-schema",
+        "files": [
+          "apps/hermes-control-plane/app/api/device/tasks/submit/route.ts",
+          "apps/hermes-control-plane/lib/hermes-schema-validator.js",
+          "apps/hermes-control-plane/lib/schema-validator.ts",
+          "apps/hermes-control-plane/lib/schema-validator.test.ts",
+          "apps/hermes-control-plane/tests/device-cloud-task-routes.test.mjs",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-DISCONNECTED-QUICK-STARTERS-20260825",
+        "title": "P0: remove Mac-dependent quick starters from the chat empty state whenever the s",
+        "status": "done",
+        "agent": "codex-disconnected-quick-starters",
+        "files": [],
+        "pr": 177,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-HERMES-CONTINUITY-PAID-ENTITLEMENT-20260824",
+        "title": "P0: remove every free Continuity activation path; require a verified store entit",
+        "status": "done",
+        "agent": "codex-continuity-paid",
+        "files": [
+          "hermes-mobile/src/components/ConnectMacGate.tsx",
+          "hermes-mobile/src/screens/ChatScreen.tsx",
+          "hermes-mobile/src/constants/monetization.ts",
+          "hermes-mobile/src/hooks/useHermesDeepLinks.ts",
+          "hermes-mobile/src/__tests__/ChatScreen.test.tsx",
+          "hermes-mobile/src/__tests__/ConnectMacGateComponent.test.tsx",
+          "hermes-mobile/src/__tests__/DeveloperLeashUnlockScreen.test.tsx",
+          "hermes-mobile/docs/THUMBGATE-ACCOUNT-CONTINUITY.md",
+          "hermes-mobile/src/__tests__/preventRecurrenceContract.test.ts",
+          "plan.md"
+        ],
+        "pr": 172,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-AGENT-467-SOCIAL-CAMPAIGN-DATE-FIXTURE",
+        "title": "Repair the calendar-dated social campaign scoreboard fixture that started failin",
+        "status": "in_progress",
+        "agent": "codex-agent-467-pr-hygiene",
+        "files": [
+          "tests/test-social-campaign-ds.js",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-STRIP-BOT-ROSTER-BANNER-20260823",
+        "title": "Strip clownish emoji bot roster banner from Thread Console header; simplify dash",
+        "status": "done",
+        "agent": "antigravity",
+        "files": [
+          "apps/hermes-control-plane/app/dashboard/DashboardClient.tsx",
+          "apps/hermes-control-plane/app/globals.css",
+          "apps/hermes-control-plane/tests/dashboard-chips-layout.test.mjs",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-AGENT-476",
+        "title": "Show a truthful turn statusline on the authenticated ThumbGate dashboard using p",
+        "status": "blocked",
+        "agent": "codex-agent-476-turn-statusline",
+        "files": [
+          "apps/hermes-control-plane/app/dashboard/DashboardClient.tsx",
+          "plan.md"
+        ],
+        "pr": 1986,
+        "released": false,
+        "blocked": true,
+        "inProgress": false
+      },
+      {
+        "id": "T-AGENT-476-INCIDENT",
+        "title": "Repair the live screenshot regressions discovered during AGENT-476: concatenated",
+        "status": "in_review",
+        "agent": "codex-agent-476-turn-statusline",
+        "files": [
+          "apps/hermes-control-plane/app/globals.css",
+          "apps/hermes-control-plane/lib/cloud-tool-policy.ts",
+          "apps/hermes-control-plane/lib/cloud-tool-policy.test.ts",
+          "apps/hermes-control-plane/app/api/runner/tasks/claim/route.ts",
+          "apps/hermes-control-plane/tests/execution-statusline-contract.test.mjs",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-THUMBGATE-DASHBOARD-UX-FIREWALL-FIX-20260822",
+        "title": "Fix continuation chips layout on Desktop, refine cloud-tool-policy for conversat",
+        "status": "done",
+        "agent": "antigravity",
+        "files": [
+          "apps/hermes-control-plane/app/dashboard/DashboardClient.tsx",
+          "apps/hermes-control-plane/app/globals.css",
+          "apps/hermes-control-plane/lib/cloud-tool-policy.ts",
+          "apps/hermes-control-plane/lib/cloud-tool-policy.test.ts",
+          "apps/hermes-control-plane/tests/dashboard-chips-layout.test.mjs",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-THUMBGATE-TURN-STATUSLINE-20260822",
+        "title": "Display Turn Statusline footer (Engine, TTFT, Cost) on all assistant outputs and",
+        "status": "done",
+        "agent": "antigravity",
+        "files": [
+          "apps/hermes-control-plane/app/dashboard/DashboardClient.tsx",
+          "apps/hermes-control-plane/app/globals.css",
+          "apps/hermes-control-plane/tests/turn-statusline.test.mjs",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-SWE-BENCH-PROMAX-STRUCTURAL-REFACTOR-20260822",
+        "title": "Implement SWE-Bench ProMax Structural Refactoring Engine, AST Dependency DAG, Co",
+        "status": "done",
+        "agent": "antigravity",
+        "files": [
+          "tools/structural-refactoring-engine.js",
+          "tests/test-structural-refactoring-engine.js",
+          "bin/structural-refactor",
+          ".agents/skills/structural-refactoring-engine/**",
+          "SKILLS.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-THUMBGATE-MOBILE-CHAT-VISIBILITY-20260821",
+        "title": "P0: restore visible chat/output on phone by preventing the auto-height Hermes sc",
+        "status": "in_review",
+        "agent": "codex-agent-454-mobile-chat-visibility",
+        "files": [
+          "apps/hermes-control-plane/app/globals.css",
+          "apps/hermes-control-plane/tests/dashboard-mobile-chat-visibility.test.mjs",
+          "apps/hermes-control-plane/tests/frictionless-onboarding.test.mjs",
+          "plan.md"
+        ],
+        "pr": 1966,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-CONTINUATION-LINEAGE-AGENT-455-20260821",
+        "title": "Adapt public two-word continuation prompts plus Hermes Bot Mode same-thread comp",
+        "status": "in_review",
+        "agent": "codex-agent-455-continuation-lineage",
+        "files": [
+          "config/continuation-prompts.json",
+          "apps/hermes-control-plane/lib/continuation-prompts.ts",
+          "apps/hermes-control-plane/lib/continuation-prompts.test.ts",
+          "apps/hermes-control-plane/lib/task-leases.ts",
+          "apps/hermes-control-plane/lib/task-leases.test.ts",
+          "tools/hermes-cloud-connector.js",
+          "tests/test-hermes-cloud-connector.js",
+          "plan.md"
+        ],
+        "pr": 1969,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-THUMBGATE-FULLWIDTH-DSML-20260821",
+        "title": "Sanitize the production provider's full-width Unicode DSML delimiters as well as",
+        "status": "done",
+        "agent": "released-after-pr-1962",
+        "files": [],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-THUMBGATE-APPROVAL-CLAIM-HONESTY-20260821",
+        "title": "Remove the dashboard's false implication that a live hosted-action approval inbo",
+        "status": "done",
+        "agent": "released-after-pr-1961",
+        "files": [],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-THUMBGATE-CHAT-OUTPUT-READABILITY-20260821",
+        "title": "Stop raw DSML/tool-call protocol from appearing as completed prose, prevent hori",
+        "status": "done",
+        "agent": "released-after-pr-1962",
+        "files": [],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-THUMBGATE-CHAT-OUTPUT-METADATA-20260821",
+        "title": "Show truthful completion state and timestamps on every thread-console message/ou",
+        "status": "done",
+        "agent": "released-after-pr-1961",
+        "files": [],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-COPILOT-AUTOFIX-GH-FLAG-20260821",
+        "title": "Repair main deploy blocker: Copilot security autofix passes an invalid second ar",
+        "status": "in_progress",
+        "agent": "codex-agent-449-copilot-autofix-gh",
+        "files": [
+          ".github/workflows/copilot-security-autofix.yml",
+          "tests/test-copilot-security-autofix-workflow.js",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-THUMBGATE-DASHBOARD-TRUST-UX-20260821",
+        "title": "Clean replacement for polluted draft #1951: bounded active-only refresh plus old",
+        "status": "in_review",
+        "agent": "codex-agent-448-dashboard-trust-ux",
+        "files": [
+          "apps/hermes-control-plane/app/dashboard/DashboardClient.tsx",
+          "apps/hermes-control-plane/lib/dashboard-refresh.ts",
+          "apps/hermes-control-plane/lib/dashboard-refresh.test.ts",
+          "apps/hermes-control-plane/lib/dashboard-task-order.ts",
+          "apps/hermes-control-plane/lib/dashboard-task-order.test.ts",
+          "apps/hermes-control-plane/tests/dashboard-poll-hygiene.test.mjs",
+          "apps/hermes-control-plane/tests/dashboard-task-order.test.mjs",
+          "plan.md"
+        ],
+        "pr": 1955,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-ZERO-CRASH-SELF-HEALING-20260821",
+        "title": "Implement Autonomous Zero-Crash Self-Healing, Self-Improving & Self-Learning Eng",
+        "status": "done",
+        "agent": "antigravity",
+        "files": [
+          "tools/thumbgate-self-healing-engine.js",
+          "tests/test-thumbgate-self-healing-engine.js",
+          "apps/hermes-control-plane/lib/self-healing-runtime.ts",
+          "apps/hermes-control-plane/tests/self-healing-runtime.test.mjs",
+          ".agents/skills/self-healing-engine/**",
+          "SKILLS.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-EXPLAINX-TRENDING-RAG-20260821",
+        "title": "Implement Autonomous ExplainX.ai Trending Ingestion, Data Science/ML TF-IDF Rank",
+        "status": "done",
+        "agent": "antigravity",
+        "files": [
+          "tools/explainx-trending-rag-engine.js",
+          "tests/test-explainx-trending-rag-engine.js",
+          ".agents/skills/explainx-trending-rag/**",
+          "SKILLS.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-OPENBOT-ACTION-GATEWAY-20260821",
+        "title": "Implement CopilotKit OpenBot AG-UI Action Gateway, Per-Agent Sandboxed Coworkers",
+        "status": "done",
+        "agent": "antigravity",
+        "files": [
+          "tools/openbot-action-gateway.js",
+          "tests/test-openbot-action-gateway.js",
+          ".agents/skills/openbot-action-gateway/**",
+          "SKILLS.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-FUTURE-AGI-SELF-HEALING-PARTNERSHIP-20260821",
+        "title": "Implement Future AGI Self-Healing Agent Engine, Adversarial Persona Simulation &",
+        "status": "in_progress",
+        "agent": "antigravity",
+        "files": [
+          "tools/future-agi-self-healing-engine.js",
+          "tests/test-future-agi-self-healing-engine.js",
+          ".agents/skills/future-agi-self-healing-engine/**",
+          "SKILLS.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-CODEX-PLATFORM-LOCAL-FIRST-SYNC-20260820",
+        "title": "Implement OpenAI Codex App-Server Harness (Consent Ladder & Context Compaction) ",
+        "status": "in_progress",
+        "agent": "antigravity",
+        "files": [
+          "tools/codex-app-server-harness.js",
+          "tools/local-first-sync-engine.js",
+          "tests/test-codex-platform-and-sync-engine.js",
+          ".agents/skills/local-first-sync-engine/**",
+          "apps/hermes-control-plane/app/admin/AdminClient.tsx",
+          "apps/hermes-control-plane/app/dashboard/lessons/LessonsClient.tsx",
+          "SKILLS.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-NVIDIA-NEMO-SWITCHYARD-20260820",
+        "title": "Implement NVIDIA NeMo Switchyard Step Router, Nemotron 3.5 Lightning 250 TPS Exe",
+        "status": "in_progress",
+        "agent": "antigravity",
+        "files": [
+          "tools/nvidia-nemo-switchyard.js",
+          "tools/nvidia-skill-evaluator.js",
+          "tests/test-nvidia-agent-evaluator-and-switchyard.js",
+          ".agents/skills/nvidia-nemo-switchyard-engine/**",
+          "SKILLS.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-SOLAR-PRO-WARP-FACTORY-20260820",
+        "title": "Implement Upstage Solar Pro 4 Workhorse Router, Warp-Style Multi-Harness Softwar",
+        "status": "in_progress",
+        "agent": "antigravity",
+        "files": [
+          "tools/solar-pro-workhorse-router.js",
+          "tools/warp-software-factory-engine.js",
+          "tools/token-bleed-interdictor.js",
+          "tests/test-software-factory-and-workhorse-router.js",
+          ".agents/skills/solar-pro-workhorse-router/**",
+          "SKILLS.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-SHIFT-ZERO-PRODUCTION-ENGINEERING-20260820",
+        "title": "Implement Shift-Zero Security Guard, Intentional Multi-Tenant Retrieval Engine &",
+        "status": "in_progress",
+        "agent": "antigravity",
+        "files": [
+          "tools/shift-zero-security-guard.js",
+          "tools/intentional-retrieval-engine.js",
+          "tools/ai-tech-debt-register.js",
+          "tools/engineering-knowledge-agent.js",
+          "tests/test-shift-zero-production-engineering.js",
+          ".agents/skills/shift-zero-production-engineering/**",
+          "SKILLS.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-TEAMVIEWER-DEX-INSTRUCTION-ENGINE-20260820",
+        "title": "Implement TeamViewer DEX Instruction Runner, Dynamic Parameter Validator, Bounde",
+        "status": "in_progress",
+        "agent": "antigravity",
+        "files": [
+          "tools/teamviewer-dex-instruction-engine.js",
+          "tests/test-teamviewer-dex-instruction-engine.js",
+          ".agents/skills/teamviewer-dex-instruction-engine/**",
+          "SKILLS.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-THUMBGATE-DASHBOARD-UI-POLISH-20260820",
+        "title": "UI/UX and Layout Audit Polish on ThumbGate Dashboard: fix message inline span CS",
+        "status": "done",
+        "agent": "antigravity",
+        "files": [
+          "apps/hermes-control-plane/app/globals.css",
+          "apps/hermes-control-plane/app/dashboard/DashboardClient.tsx",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-NETFLIX-OCI-CAUSAL-ENGINE-20260820",
+        "title": "Implement Netflix OCI (Observational Causal Inference) Actor-Critic Engine: Targ",
+        "status": "done",
+        "agent": "antigravity",
+        "files": [
+          "tools/netflix-oci-causal-engine.js",
+          "tests/test-netflix-oci-causal-engine.js",
+          ".agents/skills/netflix-oci-causal-engine/**",
+          "SKILLS.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-PERPLEXITY-COMPUTER-STEAL-20260819",
+        "title": "Steal Perplexity Computer FORMAT (task-first jobs, Give/Works/Approve, put-to-wo",
+        "status": "in_progress",
+        "agent": "grok-perplexity-computer-steal-20260819",
+        "files": [
+          "apps/hermes-control-plane/app/GiveWorkLoop.tsx",
+          "apps/hermes-control-plane/app/give-work.module.css",
+          "apps/hermes-control-plane/app/page.tsx",
+          "apps/hermes-control-plane/app/FunnelSignals.tsx",
+          "apps/hermes-control-plane/app/api/analytics/event/route.ts",
+          "apps/hermes-control-plane/app/llms.txt/route.ts",
+          "apps/hermes-control-plane/tests/perplexity-computer-steal.test.mjs",
+          ".intent/contract.yaml",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-SCREENPIPE-ACTIVITY-20260820",
+        "title": "Screenpipe Activity steal: local Activity bands + recall + opt-in egress harness",
+        "status": "in_progress",
+        "agent": "grok-screenpipe-activity-20260820",
+        "files": [
+          "tools/hermes-screenpipe-activity.js",
+          "tools/hermes-activity-skill-distiller.js",
+          "tools/hermes-universal-harness-adapter.js",
+          "tests/test-hermes-screenpipe-activity.js",
+          "tests/test-hermes-activity-skill-distiller.js",
+          "tests/test-hermes-universal-harness-adapter.js",
+          ".agents/skills/screenpipe-activity-local/**",
+          "SKILLS.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-JCODE-YOLO-SOL-UNSTICK-20260815",
+        "title": "Stop jcode-yolo from pinning GPT-5.6 Sol: quarantine inherited JCODE_DEFAULT_PRO",
+        "status": "in_progress",
+        "agent": "grok-jcode-yolo-sol-unstick-20260815",
+        "files": [
+          "tools/jcode-yolo-wrapper.js",
+          "tests/test-jcode-intelligent-routing.js",
+          "tests/test-jcode-yolo-wrapper.js",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-OPENAI-ULTRAFAST-POLICY-20260815",
+        "title": "Install a truthful fleet-wide GPT-5.6 Sol Ultrafast policy and CLI with access d",
+        "status": "done",
+        "agent": "codex-openai-ultrafast-policy-20260815",
+        "files": [
+          "tools/openai-ultrafast-policy.js",
+          "tests/test-openai-ultrafast-policy.js",
+          "bin/ultrafast-yolo",
+          ".agents/skills/openai-ultrafast-policy/**",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-SKILL-YAML-PREFLIGHT-20260815",
+        "title": "Repair the three startup-rejected skill manifests and make every `codex-yolo` la",
+        "status": "done",
+        "agent": "codex-openai-ultrafast-policy-20260815",
+        "files": [
+          ".agents/skills/local-ai-use-adapt/SKILL.md",
+          ".agents/skills/startup-application-helper/SKILL.md",
+          "tools/validate-agent-skills.js",
+          "tests/test-validate-agent-skills.js",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-RUBRIK-MYTHOS-ROI-20260815",
+        "title": "Implement and test high-ROI Rubrik Mythos lessons: file-hash checkpoints, trust-",
+        "status": "in_progress",
+        "agent": "grok-rubrik-mythos-roi-20260815",
+        "files": [
+          "tools/rubrik-mythos-triage-harness.js",
+          "tests/test-rubrik-mythos-triage.js",
+          "tests/fixtures/rubrik-mythos/",
+          "bin/rubrik-triage",
+          ".agents/skills/rubrik-mythos-triage/SKILL.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": false,
+        "blocked": false,
+        "inProgress": true
+      },
+      {
+        "id": "T-GIT-AT-SCALE-ROI-20260819",
+        "title": "Implement high-ROI items from Cursor \"Git at any scale\" blog (WAL-as-truth, CAS ",
+        "status": "done",
+        "agent": "claude-code",
+        "files": [
+          "tools/agent-claim-ledger.js",
+          "tests/test-agent-claim-ledger.js",
+          ".gitignore",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-OTEL-OBSERVABILITY-20260819",
+        "title": "Add OpenTelemetry distributed tracing to hermes-control-plane + OTel collector c",
+        "status": "done",
+        "agent": "claude-code",
+        "files": [
+          "apps/hermes-control-plane/lib/tracing.ts",
+          "apps/hermes-control-plane/lib/tracing.test.ts",
+          "apps/hermes-control-plane/app/api/health/route.ts",
+          "tools/otel-collector-config.yaml",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-AB-TESTING-DS-20260819",
+        "title": "Add minimal A/B testing framework (feature flags + experiment tracking) to herme",
+        "status": "done",
+        "agent": "claude-code",
+        "files": [
+          "apps/hermes-control-plane/db/schema.ts",
+          "apps/hermes-control-plane/drizzle/0006_ab_testing_framework.sql",
+          "apps/hermes-control-plane/lib/experiments.ts",
+          "apps/hermes-control-plane/lib/experiments.test.ts",
+          "apps/hermes-control-plane/app/api/admin/experiments/route.ts",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-RAG-EVAL-ML-20260819",
+        "title": "Add model evaluation harness for RAG/retrieval quality (recall@k, MRR@k, nDCG@k)",
+        "status": "done",
+        "agent": "claude-code",
+        "files": [
+          "tools/rag-eval-harness.js",
+          "tests/test-rag-eval-harness.js",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-AGENT-SKILLS-20260819",
+        "title": "Create repeatable agent skills for CI/PR monitoring, live dashboard verification",
+        "status": "done",
+        "agent": "claude-code",
+        "files": [
+          ".agents/skills/ci-pr-monitor/**",
+          ".agents/skills/live-dashboard-verify/**",
+          ".agents/skills/revenue-gap-tracker/**",
+          ".agents/skills/sources.yml",
+          "SKILLS.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-ZAI-GLM53-FLEET-20260815",
+        "title": "Wire GLM-5.3 across all harnesses on the Coding Plan ($0 marginal) with a hard $",
+        "status": "done",
+        "agent": "grok-glm53-fleet",
+        "files": [
+          "tools/zai-api-budget-guard.js",
+          "tools/zai-glm53-fleet.js",
+          "bin/zai-glm53",
+          "tests/test-zai-glm53-fleet.js",
+          ".agents/skills/zai-glm53-fleet/SKILL.md",
+          "docs/ZAI-GLM53-FLEET.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-SEED-YOLO-REAL-AGENT-20260811",
+        "title": "Replace contextless direct Seed chat facade with the zero-cost Hermes agent runt",
+        "status": "done",
+        "agent": "released (codex-seed-yolo-real-agent-20260811)",
+        "files": [],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-OSS-ENGAGE-LANCEDB-TINKER-20260811",
+        "title": "Scheduled OSS-engagement routine (Thinking Machines Lab / Poolside AI / LanceDB)",
+        "status": "done",
+        "agent": "released (claude-oss-engage-20260811)",
+        "files": [],
+        "pr": 1641,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-JCODE-ENGAGE-20260810",
+        "title": "Igor-directed jcode engagement: #869 fix verified (44/44 usage tests), git-am pa",
+        "status": "done",
+        "agent": "released (claude-scorecard-20260810)",
+        "files": [],
+        "pr": 1609,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-AGENT-RISK-SCORECARD-20260810",
+        "title": "Synaptiq-AIQ-style free self-assessment lead magnet: 12-question Agent Risk Scor",
+        "status": "done",
+        "agent": "released (claude-scorecard-20260810)",
+        "files": [],
+        "pr": 1600,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-ANTI-BABYSITTING-20260810",
+        "title": "Durable anti-babysitting directive per Igor's live order (2026-08-10): never end",
+        "status": "done",
+        "agent": "released (claude-scorecard-20260810)",
+        "files": [],
+        "pr": 1608,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-AGENT-RISK-SCORECARD-20260810",
+        "title": "Synaptiq-AIQ-style free self-assessment lead magnet: 12-question Agent Risk Scor",
+        "status": "done",
+        "agent": "claude-scorecard-20260810",
+        "files": [
+          "docs/AGENT-RISK-SCORECARD.md",
+          "docs/funnel/agent-risk-scorecard.html",
+          "tests/test-agent-risk-scorecard.js",
+          "tools/public-funnel-safety-scan.js",
+          ".github/workflows/auto-assign-reviewers.yml",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-SECURE-LOCKSCREEN-NOTIFICATIONS-141",
+        "title": "Secure lock-screen approvals by default (PRIVATE visibility, no DND bypass) (#14",
+        "status": "done",
+        "agent": "antigravity",
+        "files": [
+          "hermes-mobile/src/services/hermesNotifications.ts",
+          "hermes-mobile/src/__tests__/approvalNotificationsSecurity.test.ts",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-AGENT-50-POOLSIDE-SPEED-20260808",
+        "title": "Speed up `poolside-yolo` with August 2026 Poolside defaults and preserve tool co",
+        "status": "done",
+        "agent": "codex-agent-50",
+        "files": [
+          "poolside-yolo",
+          "tests/test-poolside-yolo.sh",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-AGENT-328-HERMES-YOLO-QUALITY-20260808",
+        "title": "Repair `hermes-yolo` latency, tool-access truth, direct human response quality, ",
+        "status": "done",
+        "agent": "released (codex-agent-328)",
+        "files": [],
+        "pr": 1582,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-REVERSIBLE-DEPLOYMENT-EXPAND-CONTRACT-20260806",
+        "title": "Reversible Deployment Engine, Expand-and-Contract DB Protocol & Connection Auth ",
+        "status": "done",
+        "agent": "antigravity",
+        "files": [
+          "tools/reversible-deployment-engine.js",
+          "tests/test-reversible-deployment.js",
+          "hermes-mobile/src/utils/gatewayConnection.ts",
+          "hermes-mobile/src/__tests__/connectionIdentityAuthInvariants.test.tsx",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-LOCAL-CI-DAGGER-ACT-20260806",
+        "title": "Local CI Stack, Dagger Portable Pipeline & `act` GitHub Runner Engine (`scripts/",
+        "status": "done",
+        "agent": "antigravity",
+        "files": [
+          "tools/local-ci-dagger-act-engine.js",
+          "scripts/verify.sh",
+          "tests/test-local-ci-stack.js",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-ROUTE-IDENTITY-TRANSPORT-MATCH-1449",
+        "title": "Guarantee displayed machine label matches exact transport & route",
+        "status": "done",
+        "agent": "antigravity",
+        "files": [
+          "hermes-mobile/src/__tests__/chatMachineHeader.test.ts",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-PAIRING-INTENT-RACE-1451",
+        "title": "Implement FIFO intent queue in useHermesDeepLinks to eliminate pairing intent pr",
+        "status": "done",
+        "agent": "antigravity",
+        "files": [
+          "hermes-mobile/src/hooks/useHermesDeepLinks.ts",
+          "hermes-mobile/src/__tests__/useHermesDeepLinks.test.ts",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-CI-E2E-GATE-SKIPPED-CANCELLED-1452",
+        "title": "Fail release gates on skipped, cancelled, or missing E2E proof",
+        "status": "done",
+        "agent": "antigravity",
+        "files": [
+          "hermes-mobile/src/__tests__/releaseSafetyContract.test.ts",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-PAIRING-INTENT-RACE-1451",
+        "title": "Implement FIFO intent queue in useHermesDeepLinks to eliminate pairing intent pr",
+        "status": "done",
+        "agent": "antigravity",
+        "files": [
+          "hermes-mobile/src/hooks/useHermesDeepLinks.ts",
+          "hermes-mobile/src/__tests__/useHermesDeepLinks.test.ts",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-PICKER-TAILSCALE-HOSTNAME-BACKFILL-1474",
+        "title": "Fix saved Tailscale profiles losing machine names on health probe",
+        "status": "done",
+        "agent": "antigravity",
+        "files": [
+          "hermes-mobile/src/services/gatewayProfiles.ts",
+          "hermes-mobile/src/__tests__/gatewayProfilePicker.test.ts",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-PICKER-TAILSCALE-HOSTNAME-BACKFILL-1474",
+        "title": "Fix saved Tailscale profiles losing machine names on health probe",
+        "status": "done",
+        "agent": "antigravity",
+        "files": [
+          "hermes-mobile/src/services/gatewayProfiles.ts",
+          "hermes-mobile/src/__tests__/gatewayProfiles.test.ts",
+          "plan.md"
+        ],
+        "pr": 1552,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-THUMBGATE-SATISFY-GATE-UNWEDGE-20260806",
+        "title": "P0: exempt satisfy_gate/approve_protected_action & git checkout/switch/commit fr",
+        "status": "done",
+        "agent": "antigravity",
+        "files": [
+          "hooks/thumbgate-spend-guard/pre-tool-use.js",
+          "tests/test-thumbgate-spend-guard.js",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-CI-REGRESSION-BARRIERS-MERGE-QUEUE-20260806",
+        "title": "4-Tier CI Regression Barriers & Monorepo Merge Queue Protection Engine",
+        "status": "done",
+        "agent": "antigravity",
+        "files": [
+          "tools/ci-regression-barriers-engine.js",
+          "tests/test-ci-regression-barriers.js",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-THUMBGATE-FACILITATE-ABSENT-20260802",
+        "title": "Herdr-style ThumbGate absence facilitation in Hermes Mobile",
+        "status": "done",
+        "agent": "grok-thumbgate-facilitate-20260802",
+        "files": [
+          "hermes-mobile/src/utils/thumbgateFacilitation.ts",
+          "hermes-mobile/src/utils/thumbgatePromoCopy.ts",
+          "hermes-mobile/src/components/ThumbGatePromoCard.tsx",
+          "hermes-mobile/src/__tests__/thumbgateFacilitation.test.ts",
+          "hermes-mobile/src/__tests__/ThumbGatePromoCard.test.tsx",
+          "hermes-mobile/src/__tests__/thumbgateContinuityUpsellContract.test.ts",
+          "hermes-mobile/.cursor/skills/hermes-mobile-connect/SKILL.md",
+          "skills/hermes-mobile-connect/SKILL.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-EMPTY-STREAM-CI-FIX-20260802",
+        "title": "Fix CI for empty-stream PR #1342 (tests + store assets)",
+        "status": "done",
+        "agent": "grok-ota-ship-20260802",
+        "files": [
+          "hermes-mobile/src/__tests__/ChatScreen.test.tsx",
+          "hermes-mobile/src/__tests__/SettingsScreen.test.tsx",
+          "hermes-mobile/src/__tests__/ManualComputerAddressForm.test.tsx",
+          "hermes-mobile/scripts/test-store-screenshot-assets.py",
+          "hermes-mobile/scripts/generate-store-screenshots.py",
+          "hermes-mobile/docs/store-assets/SCREENSHOT-STORYBOARD.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-GOOGLE-PLAY-DEVELOPER-VERIFICATION-20260806",
+        "title": "Add automated Google Play developer verification auditor & proof generator ahead",
+        "status": "done",
+        "agent": "antigravity",
+        "files": [
+          "tools/verify-google-play-developer-status.js",
+          "hermes-mobile/docs/proofs/google-play-developer-verification.json",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-GITHUB-ACTIONS-STORAGE-FRUGALITY-20260806",
+        "title": "Purge accumulated GitHub Actions artifacts and cap retention-days to 1-2 days to",
+        "status": "done",
+        "agent": "antigravity",
+        "files": [
+          ".github/workflows/ci.yml",
+          ".github/workflows/mobile-e2e.yml",
+          ".github/workflows/store-release.yml",
+          ".github/workflows/internal-distribution.yml",
+          ".github/workflows/mobile-ota.yml",
+          "tools/purge-github-actions-artifacts.js",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-P0-APOLLO-SPEND-GUARD-20260802",
+        "title": "P0: hard-block agent-initiated purchases, upgrades, credit buys, checkout submis",
+        "status": "done",
+        "agent": "codex-apollo-spend-guard",
+        "files": [
+          "hooks/thumbgate-spend-guard/pre-tool-use.js",
+          "scripts/install-thumbgate-spend-guard.js",
+          "tests/test-thumbgate-spend-guard.js",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-P0-APOLLO-SPEND-GUARD-CURL-20260802",
+        "title": "Close post-merge spend-guard bypass for curl data flags and stop treating arbitr",
+        "status": "done",
+        "agent": "codex-apollo-spend-guard-curl",
+        "files": [
+          "hooks/thumbgate-spend-guard/pre-tool-use.js",
+          "scripts/install-thumbgate-spend-guard.js",
+          "tests/test-thumbgate-spend-guard.js",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-TML-TINKER-ENGAGE-CRON-20260731",
+        "title": "24/7 LaunchAgent for thinking-machines-lab/tinker-cookbook engagement (capped, l",
+        "status": "done",
+        "agent": "grok-tml-engage",
+        "files": [
+          "tools/tml-tinker-engage-loop.js",
+          "com.igor.tml-tinker-engage.plist",
+          "tests/test-tml-tinker-engage-loop.js",
+          "scripts/install-agent-launchagents.sh",
+          "scripts/verify-agent-automations.sh",
+          "docs/AGENT-AUTOMATIONS.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-MOE-HEALTH-ROUTING-20260731",
+        "title": "Health-aware MoE: quarantine DEAD traffic experts, high-risk default budget, mem",
+        "status": "done",
+        "agent": "grok-moe-health",
+        "files": [
+          "tools/moe-expert-health.js",
+          "tools/hermes-economic-router.js",
+          "tests/test-moe-expert-health.js",
+          "tests/test-hermes-economic-router.js",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-HARNESS-WIRE-INFOQ-20260731",
+        "title": "Wire InfoQ microbatch into session-start + LaunchAgent; academic retrieve; durab",
+        "status": "done",
+        "agent": "grok-harness-wire",
+        "files": [
+          "tools/agent-session-start.js",
+          "tools/hermes-academic-research-retrieve.js",
+          "tools/index-microbatch.js",
+          "tools/retrieval-interface-contracts.js",
+          "scripts/install-index-microbatch.sh",
+          "scripts/com.igor.index-microbatch.plist",
+          "tests/test-hermes-academic-research-retrieve.js",
+          "docs/INFOQ-JULY-2026-HARNESS-APPLY.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-INFOQ-HARNESS-ROI-20260731",
+        "title": "Apply InfoQ July 2026 data-platform patterns to RAG/harness: interface contracts",
+        "status": "done",
+        "agent": "grok-infoq-roi",
+        "files": [
+          "tools/retrieval-interface-contracts.js",
+          "tools/index-microbatch.js",
+          "tools/durable-job-queue.js",
+          "tools/rag-stack-scorecard.js",
+          "tests/test-retrieval-interface-contracts.js",
+          "tests/test-index-microbatch.js",
+          "tests/test-durable-job-queue.js",
+          "docs/INFOQ-JULY-2026-HARNESS-APPLY.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-RAG-A-PLUS-20260731",
+        "title": "Drive production RAG/ingest to A+: export mem_* jsonl projection, grepae auto-wa",
+        "status": "done",
+        "agent": "grok-rag-a-plus",
+        "files": [
+          "tools/thumbgate-lessons-export-jsonl.js",
+          "tools/rag-stack-scorecard.js",
+          "tools/ensure-grepai-index.js",
+          "tools/ingestion-integrity.js",
+          "tools/hermes-retrieval-harness.js",
+          "tests/test-thumbgate-lessons-export-jsonl.js",
+          "tests/test-rag-stack-scorecard.js",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-RETRIEVAL-STACK-UPGRADE-20260730",
+        "title": "Improve retrieval stack: query rewrite, dual-path RRF, parent-child windows, les",
+        "status": "done",
+        "agent": "grok-retrieval-upgrade",
+        "files": [
+          "tools/retrieval-query-rewrite.js",
+          "tools/retrieval-dual-path.js",
+          "tools/thumbgate-lessons-repair.js",
+          "tools/thumbgate-lessons-doctor.js",
+          "tools/thumbgate-lessons-embed.js",
+          "tools/curate-eval-set.js",
+          "tools/hermes-retrieval-harness.js",
+          "tools/ensure-grepai-index.js",
+          "tools/grepai-index-canary.js",
+          "tests/test-retrieval-*.js",
+          "tests/test-thumbgate-lessons-repair.js",
+          "tests/test-thumbgate-lessons-embed.js",
+          "docs/RETRIEVAL-STACK-UPGRADE-20260730.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-CONTEXT-ENG-verify-20260805",
+        "title": "Verify full context-engineering automation layer: harness, agent-loop, session-t",
+        "status": "done",
+        "agent": "grok-context-en-g",
+        "files": [
+          "tools/context-engineering-harness.js",
+          "tests/test-context-engineering-harness.sh",
+          "tests/test-session-context.js",
+          "bin/agent-loop",
+          "tools/agent-decision-stack.js",
+          "tools/secret-store.js",
+          "tools/social-publish-gate.js",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-IPAD-FRESH-KEYCHAIN-RESET-20260731",
+        "title": "Make the required iPad fresh-user gate truly fresh after main run 30655263208 re",
+        "status": "done",
+        "agent": "released (codex-ipad-fresh-reset)",
+        "files": [],
+        "pr": 1322,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-MOBILE-FIX-EVERYTHING-20260731",
+        "title": "Consolidate every Hermes Mobile defect demonstrated by the CEO on Jul 30-31: fal",
+        "status": "done",
+        "agent": "released (codex-mobile-fix-everything)",
+        "files": [],
+        "pr": 1310,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-STORE-LISTING-WORLD-CLASS-PUBLISH-20260730",
+        "title": "Tighten the unclaimed paid-Play listing copy and publish the already-merged dete",
+        "status": "done",
+        "agent": "released (codex-store-listing-world-class)",
+        "files": [],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-IPAD-SDK-STATCACHE-RECOVERY-20260729",
+        "title": "Make exact-head hosted iPad builds immune to stale or missing Xcode SDK stat-cac",
+        "status": "done",
+        "agent": "codex-ipad-sdk-statcache",
+        "files": [
+          "hermes-mobile/scripts/run-simulator-e2e.sh",
+          "hermes-mobile/src/__tests__/simulatorE2eMetroContract.test.ts",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-ASC-LISTING-REVIEW-HARDEN-20260729",
+        "title": "Address all PR #1178 review findings: advertise only shipped controls, make rend",
+        "status": "done",
+        "agent": "codex-asc-listing-repair",
+        "files": [],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-ASC-LISTING-REPAIR-20260729",
+        "title": "Replace duplicate/debug-heavy App Store screenshots with a deterministic six-fra",
+        "status": "done",
+        "agent": "codex-asc-listing-repair",
+        "files": [],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-BUZZ-APPROVAL-PROTOCOL-20260729",
+        "title": "Buzz partnership POC: standards-conformant signed workflow approval contract for",
+        "status": "done",
+        "agent": "codex-buzz-approval-20260729",
+        "files": [],
+        "pr": 1170,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-DEPLOY-LOCK-OPS-20260728",
+        "title": "Production deploy path: create the D1 backup dir before predeploy, and keep the ",
+        "status": "done",
+        "agent": "claude-deploy-lock-ops",
+        "files": [
+          "scripts/deploy-cloudflare-with-lock.sh",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-WEB-MOBILE-SCROLL-MACHINE-SELECT-20260728",
+        "title": "Mobile Settings pane must scroll, and the shared Leash/Settings scrollport must ",
+        "status": "done",
+        "agent": "claude-mobile-scroll",
+        "files": [
+          "apps/hermes-control-plane/app/dashboard/DashboardClient.tsx",
+          "apps/hermes-control-plane/app/globals.css",
+          "apps/hermes-control-plane/tests/frictionless-onboarding.test.mjs",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-KIMI-ALLEGRETTO-39-20260728",
+        "title": "Kimi Code Allegretto $39/mo: native k3 @ 1M default + stop ensure_config clobber",
+        "status": "done",
+        "agent": "claude-kimi-allegretto",
+        "files": [
+          "kimi-yolo",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-ML-BEST-IN-CLASS-JULY-2026",
+        "title": "July 2026 best-in-class ML platform: core metrics, registry, serve, A/B gate, RA",
+        "status": "done",
+        "agent": "grok-ml-bic",
+        "files": [
+          "tools/ml-core.js",
+          "tools/ml-registry.js",
+          "tools/ml-serve.js",
+          "tools/ml-experiment.js",
+          "tools/ml-gate.js",
+          "tools/ml-propensity-train.js",
+          "tools/rag-retrieval-eval.js",
+          "tools/pipeline-data-science.js",
+          "tools/system-maturity-scorecard.js",
+          "tests/test-ml-best-in-class.js",
+          "docs/ML-BEST-IN-CLASS-JULY-2026.md",
+          "docs/ML-STACK-JULY-2026.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-ML-STACK-JULY-2026-BASELINE",
+        "title": "July 2026 ML baseline + RN 0.83.10 pin for Expo Doctor CI",
+        "status": "done",
+        "agent": "grok-ml-stack",
+        "files": [
+          "tools/ml-*.js",
+          "tools/agent-swarm-harness.js",
+          "tools/agent-decision-stack.js",
+          "tools/system-maturity-scorecard.js",
+          "tools/tinker-brain/export_tinker_brain_snapshot.py",
+          "tests/test-ml-stack.js",
+          "tests/fixtures/ml/**",
+          "tests/fixtures/rag-eval/cases.json",
+          "docs/ML-STACK-JULY-2026.md",
+          "hermes-mobile/package.json",
+          "hermes-mobile/package-lock.json",
+          "hermes-mobile/src/__tests__/releaseSafetyContract.test.ts",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-HARNESS-REMAINING-ROI-20260728",
+        "title": "Remaining high-ROI: context diet/doctor, eval abilities, SRE act-verify, revenue",
+        "status": "done",
+        "agent": "grok-harness-remaining-roi",
+        "files": [
+          "tools/agent-swarm-harness.js",
+          "tools/revenue-local-draft.js",
+          "tests/test-agent-swarm-harness.js",
+          "tests/test-revenue-local-draft.js",
+          "docs/AGENT-SWARM-HARNESS.md",
+          "docs/FRONTIER-MODEL-HARNESS.md",
+          "docs/agent-field-guide/index.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-IPAD-SIMULATOR-EDGE-CASES-20260728",
+        "title": "Reproduce and harden unowned iPad simulator UI edge cases on exact current main ",
+        "status": "done",
+        "agent": "codex-ipad-simulator-edge",
+        "files": [
+          "hermes-mobile/.maestro/ipad-simulator-edge-cases.yaml",
+          "hermes-mobile/src/__tests__/ipadSimulatorEdgeCases.test.tsx",
+          "hermes-mobile/scripts/run-ipad-simulator-e2e.sh",
+          ".github/workflows/ipad-simulator-e2e.yml",
+          ".github/workflows/mobile-continuous.yml",
+          "hermes-mobile/src/components/ChatInputBar.tsx",
+          "hermes-mobile/src/__tests__/ChatInputBar.test.tsx",
+          "plan.md",
+          "Hermes Mobile iPad simulator gate"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-TOOLBOX-POLICY-AUTH-20260727",
+        "title": "Foundry-style toolbox policy: auth on pack, where-is-auth, worker-toolbox thin p",
+        "status": "done",
+        "agent": "grok-toolbox-policy",
+        "files": [
+          "tools/agent-swarm-harness.js",
+          "tests/test-agent-swarm-harness.js",
+          "docs/AGENT-SWARM-HARNESS.md",
+          "docs/FRONTIER-MODEL-HARNESS.md",
+          "docs/agent-field-guide/index.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-STATE-LAYER-HARNESS-20260727",
+        "title": "Encode stateful/stateless state-layer policy + where-is-state session checks for",
+        "status": "done",
+        "agent": "grok-state-layer-harness",
+        "files": [
+          "tools/agent-swarm-harness.js",
+          "tests/test-agent-swarm-harness.js",
+          "docs/AGENT-SWARM-HARNESS.md",
+          "docs/FRONTIER-MODEL-HARNESS.md",
+          "docs/agent-field-guide/index.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-PAID-ANDROID-E2E-PACKAGE-20260726",
+        "title": "P1: Android Maestro gates must exercise the paid package instead of passing agai",
+        "status": "done",
+        "agent": "codex-device-proof",
+        "files": [
+          "hermes-mobile/scripts/run-maestro-for-app.sh",
+          "hermes-mobile/scripts/run-e2e.sh",
+          "hermes-mobile/scripts/run-device-e2e.sh",
+          "hermes-mobile/scripts/run-continuous-e2e.sh",
+          ".github/workflows/mobile-e2e.yml",
+          "tests/test-paid-android-e2e-package.js",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-PAID-STORE-RELEASE-RAIL-20260726",
+        "title": "P0: make Android store-release target the only public paid package, never the re",
+        "status": "done",
+        "agent": "codex-paid-store-release-rail-20260726",
+        "files": [
+          ".github/workflows/store-release.yml",
+          "tests/test-paid-store-release-rail.js",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-STORE-SEARCH-DISCOVERABILITY-20260726",
+        "title": "P0: repair paid Hermes Mobile search metadata after signed-out search miss",
+        "status": "done",
+        "agent": "codex-store-search-repair",
+        "files": [
+          "hermes-mobile/fastlane/metadata/android/en-US/title.txt",
+          "hermes-mobile/fastlane/metadata/android/en-US/paid_title.txt",
+          "hermes-mobile/fastlane/metadata/android/en-US/paid_short_description.txt",
+          "hermes-mobile/fastlane/metadata/android/en-US/paid_full_description.txt",
+          "hermes-mobile/fastlane/metadata/ios/en-US/name.txt",
+          "hermes-mobile/fastlane/metadata/ios/en-US/keywords.txt",
+          "hermes-mobile/docs/store-assets/csl-definitions-20260715.json",
+          "hermes-mobile/docs/store-assets/cpp-definitions-20260715.json",
+          "hermes-mobile/docs/store-assets/CSL-CPP-DEFINITIONS-JULY-2026.md",
+          "hermes-mobile/scripts/push-play-listing.py",
+          "hermes-mobile/src/__tests__/storeListingMetadataContract.test.ts",
+          "hermes-mobile/src/__tests__/storeGrowthSurfacesContract.test.ts",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-SOCIAL-CAMPAIGN-ANALYTICS-20260725",
+        "title": "UTM/cta_id funnel attribution + social campaign DS scoreboard",
+        "status": "done",
+        "agent": "grok-social-campaign-analytics-20260725",
+        "files": [
+          "apps/hermes-control-plane/db/schema.ts",
+          "apps/hermes-control-plane/drizzle/0005_funnel_attribution.sql",
+          "apps/hermes-control-plane/drizzle/meta/_journal.json",
+          "apps/hermes-control-plane/app/api/analytics/event/route.ts",
+          "apps/hermes-control-plane/app/FunnelSignals.tsx",
+          "apps/hermes-control-plane/lib/funnel-attribution.ts",
+          "apps/hermes-control-plane/lib/admin-metrics.ts",
+          "apps/hermes-control-plane/app/api/admin/detail/route.ts",
+          "tools/social-campaign-ds.js",
+          "tests/test-social-campaign-ds.js",
+          "docs/social/hermes-mobile-content-engine.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-SOCIAL-HARD-GATES-20260725",
+        "title": "Hard social publish gates (double-post/Hashnode/Zernio/LIVE proof)",
+        "status": "done",
+        "agent": "grok-social-hard-gates-20260725",
+        "files": [
+          "tools/social-publish-gate.js",
+          "tools/verify-public-post.js",
+          "tests/test-social-publish-gate.js",
+          "docs/social/hermes-mobile-content-engine.md",
+          "docs/social/hermes-mobile-content-log.tsv",
+          ".github/workflows/ci.yml",
+          "AGENTS.md",
+          "hermes-mobile/scripts/chrome-social-post.js",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-INFERENCE-GATEWAY-ROI-20260728",
+        "title": "TensorZero-inspired inference observability: trace/query/summary/cost/compare/he",
+        "status": "done",
+        "agent": "grok-inference-roi",
+        "files": [
+          "tools/hermes-inference-gateway.js",
+          "tools/hermes-economic-router.js",
+          "tools/agent-swarm-harness.js",
+          "tests/test-hermes-inference-gateway.js",
+          "docs/AGENT-SWARM-HARNESS.md",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-EMPTY-STREAM-HARD-STOP-LEASH-20260725",
+        "title": "P0: never leave Checking your Mac forever — hard-stop empty-stream poll + Open L",
+        "status": "done",
+        "agent": "cursor-empty-stream-hard-stop",
+        "files": [
+          "hermes-mobile/src/utils/emptyStreamReplyRecovery.ts",
+          "hermes-mobile/src/utils/emptyStreamRefreshCta.ts",
+          "hermes-mobile/src/utils/streamAssistantText.ts",
+          "hermes-mobile/src/components/EmptyStreamRefreshBanner.tsx",
+          "hermes-mobile/src/screens/ChatScreen.tsx",
+          "hermes-mobile/src/__tests__/emptyStreamReplyRecovery.test.ts",
+          "hermes-mobile/src/__tests__/emptyStreamRefreshCta.test.ts",
+          "hermes-mobile/src/__tests__/EmptyStreamRefreshBanner.test.tsx",
+          "hermes-mobile/src/__tests__/streamAssistantText.test.ts",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-HEADER-TS-HOSTNAME-20260724",
+        "title": "P0: Connected Tailscale header shows `Tailscale 100.94.135.78` instead of `Igors",
+        "status": "done",
+        "agent": "cursor-header-ts-hostname",
+        "files": [
+          "hermes-mobile/src/utils/chatMachineHeader.ts",
+          "hermes-mobile/src/__tests__/chatMachineHeader.test.ts",
+          "hermes-mobile/src/services/gatewayProfiles.ts",
+          "hermes-mobile/src/__tests__/gatewayProfiles.test.ts",
+          "hermes-mobile/src/context/GatewayContext.tsx",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-USB-WATCHDOG-MINI-PRIMARY-20260724",
+        "title": "Follow-up to PR #967: `hermes-usb-reverse-watchdog` LaunchAgent (15s) has no min",
+        "status": "done",
+        "agent": "cursor-usb-watchdog-mini-primary",
+        "files": [
+          "tools/hermes-usb-reverse-watchdog.js",
+          "tools/hermes-mobile-pair-lib.js",
+          "tools/hermes-mobile-pair.js",
+          "tests/test-hermes-usb-reverse-watchdog.js",
+          "tests/test-hermes-mobile-pair.sh",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-FLEET-REPO-INTEL-20260724",
+        "title": "Fleet-wide local repo intelligence (grepai + hermes-context) for all agents — Je",
+        "status": "done",
+        "agent": "grok-fleet-repo-intel",
+        "files": [],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-REVERSIBLE-DEPLOYMENT-EXPAND-CONTRACT-20260806",
+        "title": "Reversible Deployment Engine, Expand-and-Contract DB Protocol & Connection Auth ",
+        "status": "done",
+        "agent": "antigravity",
+        "files": [
+          "tools/reversible-deployment-engine.js",
+          "tests/test-reversible-deployment.js",
+          "hermes-mobile/src/utils/gatewayConnection.ts",
+          "hermes-mobile/src/__tests__/connectionIdentityAuthInvariants.test.tsx",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-PR891-REBASE-TEST-DRIFT-20260725",
+        "title": "Sixth rebase of PR #891 (`fix-mobile-stale-unreachable-reconnect-20260723`) onto",
+        "status": "done",
+        "agent": "claude-agent-pr891-rebase-fix",
+        "files": [
+          "hermes-mobile/src/__tests__/GatewayContext.test.tsx",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-1452-E2E-RELEASE-GATE-20260808",
+        "title": "P0d (#1452): E2E must be a real release gate — fail on skipped, cancelled or mis",
+        "status": "done",
+        "agent": "antigravity",
+        "files": [
+          ".github/workflows/ci.yml",
+          "plan.md"
+        ],
+        "pr": 1581,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-WIFI-LABEL-NEUTRAL-20260812",
+        "title": "Replace location-assuming `Home Wi-Fi` active-route copy with neutral `Wi-Fi` in",
+        "status": "done",
+        "agent": "codex-wifi-label-neutral-20260812",
+        "files": [
+          "hermes-mobile/src/utils/chatMachineHeader.ts",
+          "hermes-mobile/src/__tests__/chatMachineHeader.test.ts",
+          "hermes-mobile/src/components/ChatEmptyGreeting.tsx",
+          "hermes-mobile/src/__tests__/ChatEmptyGreeting.test.tsx",
+          "plan.md"
+        ],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      },
+      {
+        "id": "T-WIFI-LABEL-NEUTRAL-20260812",
+        "title": "Replace location-assuming `Home Wi-Fi` active-route copy with neutral `Wi-Fi` in",
+        "status": "done",
+        "agent": "codex-wifi-label-neutral-20260812",
+        "files": [],
+        "pr": null,
+        "released": true,
+        "blocked": false,
+        "inProgress": false
+      }
+    ]
+  },
+  "claims": {
+    "total": 0,
+    "conflicts": []
+  },
+  "git": {
+    "currentBranch": "main",
+    "branches": [
+      "expo-doctor-20261028",
+      "review-effort-20261029",
+      "shared-vault-memory-20261029",
+      "swarm-grade-20261029"
+    ],
+    "targetBranch": "main",
+    "hasUncommitted": false
+  },
+  "prs": {
+    "count": 30,
+    "byState": {
+      "OPEN": 11,
+      "MERGED": 7,
+      "CLOSED": 12
+    },
+    "behind": [],
+    "conflicting": []
+  },
+  "skills": {
+    "count": 95,
+    "sample": [
+      "| `structural-refactoring-engine` | SWE-Bench ProMax-style Structural AST Refactoring, Concurrency Invariant Sentinel & Zero-Entropy Atomic Rollback Engine | `.agents/skills/structural-refactoring-engine/SKILL.md` | local |",
+      "| `future-agi-self-healing-engine` | Future AGI Self-Healing Agent Engine, Adversarial Persona Simulation, OTel Span Tracing & Automated Guardrail Patch Synthesizer for all coding agents on Igor's Mac. | `.agents/skills/future-agi-self-healing-engine/SKILL.md` | local |",
+      "| `local-first-sync-engine` | Local-First Sync Engine & Reactive Collection Architecture (ElectricSQL / TanStack DB style, query-driven sync, optimistic mutations with transactional rollback) for all coding agents on Igor's Mac. | `.agents/skills/local-first-sync-engine/SKILL.md` | local |",
+      "| `nvidia-nemo-switchyard-engine` | NVIDIA Nemotron 3.5 Lightning & NeMo Switchyard Engine (30B MoE / 3B active parameters, step-level agentic routing, 77% cost reduction & 70% latency speedup) for all coding agents on Igor's Mac. | `.agents/skills/nvidia-nemo-switchyard-engine/SKILL.md` | local |",
+      "| `solar-pro-workhorse-router` | Upstage Solar Pro 4 Workhorse Reliability & Economic Agent Router. Implements 3-tier model routing (Frontier vs Workhorse vs Local), 90% token cost reduction for document/schema tasks, and tabular extraction integrity verification (71 AA-LCR). | `.agents/skills/solar-pro-workhorse-router/SKILL.md` | local |"
+    ]
+  },
+  "toolBoundaries": {
+    "deny": [
+      "~/.ssh/id_*",
+      "~/workspace/projects/Eci.*/**",
+      "~/workspace/projects/psn-*/**",
+      "~/workspace/projects/kha-scheduling-hub*/**",
+      "~/workspace/projects/covers/**",
+      "~/workspace/projects/lore/**",
+      "~/workspace/projects/Monitoring/**"
+    ],
+    "mode": "build",
+    "agentMode": "build",
+    "allowAll": true
+  },
+  "metadata": {
+    "repo": "mac-yolo-safeguards",
+    "root": "/Users/iganapolsky/workspace/mac-yolo-safeguards",
+    "schemaSize": 58633
+  }
+}

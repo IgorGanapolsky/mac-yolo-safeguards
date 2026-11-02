@@ -15,9 +15,9 @@ private let HUD_HTML = #"""
   html, body {
     width: 100%;
     height: 100%;
-    background: rgba(12, 10, 24, 0.55);
-    backdrop-filter: blur(28px);
-    -webkit-backdrop-filter: blur(28px);
+    background: rgba(12, 10, 24, 0.62);
+    backdrop-filter: blur(32px);
+    -webkit-backdrop-filter: blur(32px);
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
     color: #ffffff;
     overflow: hidden;
@@ -41,11 +41,17 @@ private let HUD_HTML = #"""
     position: absolute;
     inset: 0;
     border-radius: 22px;
-    background: rgba(12, 8, 28, 0.14);
-    backdrop-filter: blur(22px) saturate(160%);
-    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    background: rgba(12, 8, 28, 0.32);
+    backdrop-filter: blur(28px) saturate(165%);
+    -webkit-backdrop-filter: blur(28px) saturate(165%);
     pointer-events: none;
     z-index: 0;
+  }
+  #cardDetailDrawer {
+    background: rgba(13, 11, 28, 0.88);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 14px;
+    padding: 8px 10px;
   }
   .shell > * {
     position: relative;
@@ -267,10 +273,28 @@ private let HUD_HTML = #"""
     font-weight: 600;
     color: #e2e8f0;
     background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 6px;
-    padding: 2px 7px;
+    padding: 3px 8px;
     font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.14s ease;
+    user-select: none;
+  }
+  .drill-chip:hover {
+    color: #ffffff;
+    background: rgba(56, 189, 248, 0.22);
+    border-color: rgba(56, 189, 248, 0.55);
+    transform: translateY(-0.5px);
+  }
+  .drill-chip.active {
+    color: #5eead4;
+    background: rgba(20, 184, 166, 0.25);
+    border-color: rgba(94, 234, 212, 0.75);
+    box-shadow: 0 0 8px rgba(20, 184, 166, 0.25);
   }
   .drill-item {
     background: rgba(10, 7, 24, 0.24);
@@ -1057,8 +1081,52 @@ private let HUD_HTML = #"""
         box.textContent = (payload && payload.error) ? payload.error : 'Uninstall did not finish.';
       }
     }
-    var _expandedDrillRows = { 'shield-cpu-gpu': true, 'fleet-mcp-bus': true };
+    var _expandedDrillRows = { 'cpu-hog-0': true, 'mem-hog-0': true, 'shield-cpu-gpu': true, 'fleet-mcp-bus': true };
     var _expandedSubRows = {};
+    var _activeChipDrill = {};
+    function handleChipDrillDown(rKey, chipIdx, chipText, ev) {
+      if (ev) ev.stopPropagation();
+      if (!rKey) return;
+      _lastUserMouseDownAt = Date.now();
+      var prev = (_activeChipDrill[rKey] !== undefined) ? _activeChipDrill[rKey] : -1;
+      var nextIdx = (prev === chipIdx) ? -1 : chipIdx;
+      _activeChipDrill[rKey] = nextIdx;
+      var dd = (_lastHudState && _lastHudState.drillDown && _lastHudState.drillDown[_activeDetailCard]) || [];
+      var targetRow = null;
+      for (var i = 0; i < dd.length; i++) {
+        if ((dd[i].key || ('row-' + i)) === rKey) { targetRow = dd[i]; break; }
+      }
+      if (targetRow && targetRow.items && targetRow.items.length) {
+        var txt = String(chipText || '').toLowerCase();
+        if (nextIdx >= 0 && /live mcps|pids|procs|processes|agents|swarms|sessions/.test(txt)) {
+          for (var j = 0; j < targetRow.items.length; j++) {
+            var ik = targetRow.items[j].key || (rKey + '-item-' + j);
+            _expandedSubRows[ik] = true;
+          }
+        } else if (nextIdx >= 0 && /families|groups|categories/.test(txt)) {
+          for (var k = 0; k < targetRow.items.length; k++) {
+            var fk = targetRow.items[k].key || (rKey + '-item-' + k);
+            _expandedSubRows[fk] = false;
+          }
+        }
+      }
+      renderActiveCardDetail(_lastHudState);
+    }
+    function expandAllSubRowsForRow(rKey, expandState, ev) {
+      if (ev) ev.stopPropagation();
+      _lastUserMouseDownAt = Date.now();
+      var dd = (_lastHudState && _lastHudState.drillDown && _lastHudState.drillDown[_activeDetailCard]) || [];
+      for (var i = 0; i < dd.length; i++) {
+        var rk = dd[i].key || ('row-' + i);
+        if (rk === rKey && dd[i].items) {
+          for (var j = 0; j < dd[i].items.length; j++) {
+            var ik = dd[i].items[j].key || (rKey + '-item-' + j);
+            _expandedSubRows[ik] = !!expandState;
+          }
+        }
+      }
+      renderActiveCardDetail(_lastHudState);
+    }
     function escHtml(str) {
       return String(str === undefined || str === null ? '' : str)
         .replace(/&/g, '&amp;')
@@ -1144,7 +1212,7 @@ private let HUD_HTML = #"""
         for (var i = 0; i < dd.length; i++) {
           if (_expandedDrillRows[dd[i].key]) { hasAnyOpen = true; break; }
         }
-        if (!hasAnyOpen && cardId !== 'memory') {
+        if (!hasAnyOpen) {
           _expandedDrillRows[dd[0].key] = true;
         }
       }
@@ -1167,14 +1235,14 @@ private let HUD_HTML = #"""
       var expBtn = document.getElementById('expandAllDrillBtn');
       if (!box) return;
       var meta = {
-        shield: ['Protection by Mac YOLO Safeguards — Real-Time Guard', 'Click any row to drill into live processes, GPU, RAM, 2h JSONLs & swarms', s.detailShield],
-        disk: ['Disk & AI Waste Cleanup — Live Breakdown', 'Click any row to inspect paths, reveal in Finder, or purge waste', s.detailDisk],
-        memory: ['Memory & Agent RAM — Top Live Consumers', 'Click a row for its history, the technical breakdown, and what to do', s.detailMemory],
-        tokens: ['AI Tokens, Prompt Cache & Session Ledger', 'Click any row to inspect live 2h session JSONL files & token volume', s.detailTokens],
-        cpu: ['CPU, Apple Silicon GPU & Fan Culprits', 'Click any culprit to drill into individual PIDs, %CPU, uptime & kill controls', s.detailCpu],
-        network: ['Network, Tailnet & Zero-Cloud-Egress', 'Click any row to inspect BSD interface counters, local ports & MCP sockets', s.detailNetwork],
-        fleet: ['AI Fleet, Active Swarms & MCP Bus', 'Click any agent swarm or MCP family to inspect live PIDs & arguments', s.detailFleet],
-        optimization: ['AI YOLO Optimization & Culprit Matrix', 'Click any row to drill into CPU, GPU, RAM & session culprits', s.detailOptimization || s.detailCpu]
+        shield: ['Active Protection & Top Culprits', 'Live CPU/RAM hogs, AI sessions & protected swarms', s.detailShield],
+        disk: ['Disk & AI Waste Cleanup', 'Inspect paths, reveal in Finder, or clean stale AI caches', s.detailDisk],
+        memory: ['Top Memory Hogs & Agent RAM', 'Ranked by resident RAM — click any hog to inspect or kill PIDs', s.detailMemory],
+        tokens: ['AI Tokens, Prompt Cache & Sessions', 'Live 2h session JSONL files & local vs cloud routing', s.detailTokens],
+        cpu: ['Top CPU, GPU & Fan Hogs', 'Ranked by live CPU & RAM — #1 hog expanded below with PIDs', s.detailCpu],
+        network: ['Network, Loopback & Zero-Cloud-Egress', 'Active Wi-Fi throughput & 127.0.0.1 local endpoints', s.detailNetwork],
+        fleet: ['AI Fleet, Active Swarms & MCP Bus', 'Click any pill or MCP family below to drill into live PIDs', s.detailFleet],
+        optimization: ['Top CPU & Memory Hogs (Live Processes)', 'Ranked by live CPU + RAM impact — click any hog to inspect or kill PIDs', s.detailOptimization || s.detailCpu]
       }[_activeDetailCard] || ['Live Details', 'Click any row to drill down', s.detailCpu];
       if (titleEl) titleEl.textContent = meta[0];
       if (subEl) subEl.textContent = meta[1];
@@ -1229,10 +1297,15 @@ private let HUD_HTML = #"""
             (pct > 0 ? '<div style="width:100%;height:3px;background:rgba(255,255,255,0.10);border-radius:99px;margin-top:5px;overflow:hidden;"><div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,#34d399,#38bdf8,#a855f7);"></div></div>' : '');
           if (isOpen) {
             html += '<div class="drill-panel">';
+            var activeChipIdx = (_activeChipDrill[rKey] !== undefined) ? _activeChipDrill[rKey] : -1;
             if (chips.length || (r.cardJump && r.cardJump !== _activeDetailCard) || r.diagCmd) {
               html += '<div class="drill-chips">';
               for (var c = 0; c < chips.length; c++) {
-                html += '<span class="drill-chip">' + escHtml(chips[c]) + '</span>';
+                var isChipActive = (activeChipIdx === c);
+                html += '<button type="button" class="drill-chip' + (isChipActive ? ' active' : '') + '" onmousedown="handleChipDrillDown(\'' + escHtml(rKey) + '\',' + c + ',\'' + escHtml(chips[c]) + '\',event)" onclick="handleChipDrillDown(\'' + escHtml(rKey) + '\',' + c + ',\'' + escHtml(chips[c]) + '\',event)">' +
+                  '<span>' + escHtml(chips[c]) + '</span>' +
+                  '<span style="font-size:9px;opacity:0.85;">' + (isChipActive ? '▴' : '▾') + '</span>' +
+                '</button>';
               }
               if (r.diagCmd) {
                 html += '<button class="mini-act-btn" onmousedown="runInlineAction(\'copyCmd\',\'' + escHtml(r.diagCmd) + '\',this,event)" onclick="runInlineAction(\'copyCmd\',\'' + escHtml(r.diagCmd) + '\',this,event)">Copy CLI Cmd</button>';
@@ -1242,41 +1315,99 @@ private let HUD_HTML = #"""
               }
               html += '</div>';
             }
-            if (spark.length || history.length) {
-              html += '<div class="drill-sec-title"><span>📊 History &amp; Time-Series Trend</span><span>' + escHtml(r.historySummary || ('Last ' + (spark.length || history.length) + ' samples')) + '</span></div>';
-              html += '<div class="drill-box">';
-              if (spark.length) {
-                html += '<div class="spark-bars">';
-                for (var sp = 0; sp < spark.length; sp++) {
-                  var sv = Math.min(100, Math.max(8, Number(spark[sp].pct) || 10));
-                  html += '<div class="spark-bar" style="height:' + sv + '%;" title="' + escHtml((spark[sp].ts || '') + ': ' + (spark[sp].label || sv + '%')) + '"></div>';
+            if (activeChipIdx >= 0 && activeChipIdx < chips.length) {
+              var selChip = String(chips[activeChipIdx] || '');
+              var selLow = selChip.toLowerCase();
+              html += '<div class="drill-box" style="border-color:rgba(94,234,212,0.48);background:rgba(13,28,38,0.68);margin-bottom:4px;">';
+              html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid rgba(94,234,212,0.22);">' +
+                '<span style="color:#5eead4;font-weight:700;font-size:11px;">🔎 Drill-Down: ' + escHtml(selChip) + '</span>' +
+                '<button class="mini-act-btn" onmousedown="handleChipDrillDown(\'' + escHtml(rKey) + '\',' + activeChipIdx + ',\'\',event)" onclick="handleChipDrillDown(\'' + escHtml(rKey) + '\',' + activeChipIdx + ',\'\',event)">Hide ▴</button>' +
+              '</div>';
+              if (/live mcps|pids|procs|processes/.test(selLow) && items.length) {
+                var flatPids = [];
+                for (var fi = 0; fi < items.length; fi++) {
+                  var fam = items[fi];
+                  var fChildren = fam.children || [];
+                  for (var fc = 0; fc < fChildren.length; fc++) {
+                    flatPids.push({ famTitle: fam.title, child: fChildren[fc] });
+                  }
+                }
+                html += '<div style="font-size:10.5px;color:#cbd5e1;margin-bottom:5px;">Showing all <strong>' + (flatPids.length || items.length) + '</strong> live MCP server processes across <strong>' + items.length + '</strong> families (all family rows below are now expanded):</div>';
+                html += '<div style="display:flex;flex-direction:column;gap:3px;max-height:175px;overflow-y:auto;">';
+                for (var fp = 0; fp < flatPids.length; fp++) {
+                  var pEntry = flatPids[fp].child;
+                  html += '<div class="drill-pid-row" style="display:flex;flex-direction:column;gap:2px;">' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">' +
+                      '<span style="color:#f8fafc;font-weight:600;">' + escHtml(pEntry.title) + ' <span style="color:#94a3b8;font-weight:500;">(' + escHtml(flatPids[fp].famTitle) + ')</span></span>' +
+                      '<div style="display:flex;align-items:center;gap:5px;">' +
+                        '<span style="color:#5eead4;font-weight:600;">' + escHtml(pEntry.right) + '</span>' +
+                        (pEntry.actionType ? '<button class="mini-act-btn danger" onmousedown="runInlineAction(\'' + escHtml(pEntry.actionType) + '\',\'' + escHtml(pEntry.actionArg || '') + '\',this,event)" onclick="runInlineAction(\'' + escHtml(pEntry.actionType) + '\',\'' + escHtml(pEntry.actionArg || '') + '\',this,event)">' + escHtml(pEntry.actionLabel || 'Kill') + '</button>' : '') +
+                      '</div>' +
+                    '</div>' +
+                    (pEntry.subtitle ? '<div class="drill-cmd">' + escHtml(pEntry.subtitle) + '</div>' : '') +
+                  '</div>';
                 }
                 html += '</div>';
-              }
-              for (var h = 0; h < history.length; h++) {
-                html += '<div style="display:flex;justify-content:space-between;gap:8px;font-size:10.5px;padding:1.5px 0;border-top:' + (h > 0 || spark.length ? '1px solid rgba(255,255,255,0.07)' : 'none') + ';">' +
-                  '<span style="color:rgba(255,255,255,0.72);">' + escHtml(history[h].left) + '</span>' +
-                  '<span style="color:#a5f3fc;font-weight:600;font-variant-numeric:tabular-nums;">' + escHtml(history[h].right) + '</span>' +
+              } else if (/families|groups|categories/.test(selLow) && items.length) {
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">' +
+                  '<span style="font-size:10.5px;color:#cbd5e1;">Grouped by MCP Server Family (' + items.length + ' active families). Click any family row to inspect its PIDs:</span>' +
+                  '<div style="display:flex;gap:5px;">' +
+                    '<button class="mini-act-btn" onmousedown="expandAllSubRowsForRow(\'' + escHtml(rKey) + '\',true,event)" onclick="expandAllSubRowsForRow(\'' + escHtml(rKey) + '\',true,event)">Expand All PIDs ▾</button>' +
+                    '<button class="mini-act-btn" onmousedown="expandAllSubRowsForRow(\'' + escHtml(rKey) + '\',false,event)" onclick="expandAllSubRowsForRow(\'' + escHtml(rKey) + '\',false,event)">Collapse PIDs ▴</button>' +
+                  '</div>' +
                 '</div>';
-              }
-              html += '</div>';
-            }
-            if (deepDive.length) {
-              html += '<div class="drill-sec-title"><span>🔬 Technical Deep Dive</span><span>Kernel · Mach · IOKit</span></div>';
-              html += '<div class="drill-box">';
-              for (var d = 0; d < deepDive.length; d++) {
-                html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;font-size:10.5px;padding:2px 0;border-top:' + (d > 0 ? '1px solid rgba(255,255,255,0.07)' : 'none') + ';">' +
-                  '<span style="color:rgba(255,255,255,0.75);font-weight:550;">' + escHtml(deepDive[d].k) + '</span>' +
-                  '<span style="color:#f8fafc;font-family:\'SF Mono\',Menlo,monospace;font-size:10px;text-align:right;user-select:text;-webkit-user-select:text;">' + escHtml(deepDive[d].v) + '</span>' +
+                for (var mf = 0; mf < items.length; mf++) {
+                  var famItem = items[mf];
+                  var famKey = famItem.key || (rKey + '-item-' + mf);
+                  var famCnt = (famItem.children || []).length;
+                  html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 6px;border-radius:5px;background:rgba(255,255,255,0.04);margin-bottom:2px;cursor:pointer;" onclick="toggleSubDrillRow(\'' + escHtml(famKey) + '\',event)">' +
+                    '<span style="color:#f8fafc;font-weight:600;">' + escHtml(famItem.title) + '</span>' +
+                    '<span style="color:#38bdf8;font-weight:600;">' + escHtml(famItem.right) + (famCnt ? ' · ' + famCnt + ' PIDs ▾' : '') + '</span>' +
+                  '</div>';
+                }
+              } else if (/127\.0\.0\.1|stdio|sse|loopback/.test(selLow)) {
+                html += '<div style="display:flex;flex-direction:column;gap:4px;font-size:10.5px;">' +
+                  '<div style="display:flex;justify-content:space-between;"><span style="color:#94a3b8;">STDIO Child Pipes</span><span style="color:#5eead4;font-weight:600;">Spawned per-session (Claude · OMP · Poolside · Cursor · Herdr)</span></div>' +
+                  '<div style="display:flex;justify-content:space-between;"><span style="color:#94a3b8;">Mac YOLO Telemetry SSE/HTTP</span><span style="color:#38bdf8;font-family:monospace;">http://127.0.0.1:8766/status (Loopback Only)</span></div>' +
+                  '<div style="display:flex;justify-content:space-between;"><span style="color:#94a3b8;">Dayglass Local Server</span><span style="color:#38bdf8;font-family:monospace;">http://127.0.0.1:3333 (Zero Cloud Egress)</span></div>' +
+                  '<div style="margin-top:4px;display:flex;gap:6px;">' +
+                    '<button class="mini-act-btn" onmousedown="runInlineAction(\'openCard\',\'network\',this,event)" onclick="runInlineAction(\'openCard\',\'network\',this,event)">Open Network &amp; Loopback Card ↗</button>' +
+                    '<button class="mini-act-btn" onmousedown="runInlineAction(\'copyCmd\',\'lsof -iTCP -sTCP:LISTEN -n -P | grep 127.0.0.1\',this,event)" onclick="runInlineAction(\'copyCmd\',\'lsof -iTCP -sTCP:LISTEN -n -P | grep 127.0.0.1\',this,event)">Copy Loopback lsof Cmd</button>' +
+                  '</div>' +
                 '</div>';
-              }
-              if (r.diagCmd) {
-                html += '<div class="drill-cmd" style="margin-top:4px;padding-top:3px;border-top:1px dashed rgba(255,255,255,0.12);color:#93c5fd;">$ ' + escHtml(r.diagCmd) + '</div>';
+              } else if (/herdr|protected|whitelist|shield|guard/.test(selLow)) {
+                html += '<div style="display:flex;flex-direction:column;gap:4px;font-size:10.5px;">' +
+                  '<div style="display:flex;justify-content:space-between;"><span style="color:#94a3b8;">Whitelisted Session Trees</span><span style="color:#34d399;font-weight:600;">herdr · omp · claude · poolside · cursor · codex · windsurf</span></div>' +
+                  '<div style="display:flex;justify-content:space-between;"><span style="color:#94a3b8;">Kill-Check Guard Verification</span><span style="color:#5eead4;font-family:monospace;">kill-check pkill 1 -f herdr → EXIT 3 (REFUSED)</span></div>' +
+                  '<div style="display:flex;justify-content:space-between;"><span style="color:#94a3b8;">Orphan MCP Reaper Scope</span><span style="color:#e2e8f0;">Only reaps detached ppid=1 duplicate MCPs (&gt;10m old)</span></div>' +
+                  '<div style="margin-top:4px;display:flex;gap:6px;">' +
+                    '<button class="mini-act-btn" onmousedown="toggleDrillRow(\'fleet-swarms\')" onclick="toggleDrillRow(\'fleet-swarms\')">Inspect Active Coding Swarms ▾</button>' +
+                    '<button class="mini-act-btn" onmousedown="runInlineAction(\'openCard\',\'shield\',this,event)" onclick="runInlineAction(\'openCard\',\'shield\',this,event)">Open Shield Protection Card ↗</button>' +
+                  '</div>' +
+                '</div>';
+              } else {
+                for (var dh = 0; dh < deepDive.length; dh++) {
+                  html += '<div style="display:flex;justify-content:space-between;gap:8px;font-size:10.5px;padding:2px 0;">' +
+                    '<span style="color:#94a3b8;">' + escHtml(deepDive[dh].k) + '</span>' +
+                    '<span style="color:#f8fafc;font-family:monospace;">' + escHtml(deepDive[dh].v) + '</span>' +
+                  '</div>';
+                }
+                if (items.length) {
+                  html += '<div style="margin-top:4px;"><button class="mini-act-btn" onmousedown="expandAllSubRowsForRow(\'' + escHtml(rKey) + '\',true,event)" onclick="expandAllSubRowsForRow(\'' + escHtml(rKey) + '\',true,event)">Expand All ' + items.length + ' Breakdown Items ▾</button></div>';
+                }
               }
               html += '</div>';
             }
             if (items.length) {
-              html += '<div class="drill-sec-title"><span>⚙️ Live Breakdown &amp; Process Inspector (' + items.length + ')</span><span>Click item to expand PIDs</span></div>';
+              var hasNestedChildren = false;
+              for (var hc = 0; hc < items.length; hc++) {
+                if (items[hc].children && items[hc].children.length > 0) { hasNestedChildren = true; break; }
+              }
+              html += '<div class="drill-sec-title"><span>' + (hasNestedChildren ? ('⚙️ Live Groups (' + items.length + ') — Click any group to see PIDs') : ('⚡ Live Processes (' + items.length + ')')) + '</span>' +
+                (hasNestedChildren ? ('<span style="display:flex;align-items:center;gap:6px;">' +
+                  '<button class="mini-act-btn" style="padding:1px 6px;font-size:9.5px;" onmousedown="expandAllSubRowsForRow(\'' + escHtml(rKey) + '\',true,event)" onclick="expandAllSubRowsForRow(\'' + escHtml(rKey) + '\',true,event)">Expand All PIDs ▾</button>' +
+                  '<button class="mini-act-btn" style="padding:1px 6px;font-size:9.5px;" onmousedown="expandAllSubRowsForRow(\'' + escHtml(rKey) + '\',false,event)" onclick="expandAllSubRowsForRow(\'' + escHtml(rKey) + '\',false,event)">Collapse ▴</button>' +
+                '</span>') : '<span>Live PIDs</span>') + '</div>';
               for (var j = 0; j < items.length; j++) {
                 var it = items[j];
                 var itKey = it.key || (rKey + '-item-' + j);
@@ -1295,7 +1426,7 @@ private let HUD_HTML = #"""
                       '<span style="color:#f8fafc;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHtml(it.title) + '</span>' +
                     '</div>' +
                     '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">' +
-                      '<span style="color:#38bdf8;font-weight:650;font-variant-numeric:tabular-nums;">' + escHtml(it.right) + '</span>' +
+                      '<span style="color:#38bdf8;font-weight:600;font-variant-numeric:tabular-nums;">' + escHtml(it.right) + '</span>' +
                       (hasChildren ? '<span class="drill-badge" style="font-size:9.5px;padding:1px 6px;">' + children.length + ' PIDs ' + (subOpen ? '▴' : '▾') + '</span>' : '') +
                       (it.actionType ? '<button class="mini-act-btn' + (it.actionType === 'killPid' ? ' danger' : '') + '" onmousedown="runInlineAction(\'' + escHtml(it.actionType) + '\',\'' + escHtml(it.actionArg || '') + '\',this,event)" onclick="runInlineAction(\'' + escHtml(it.actionType) + '\',\'' + escHtml(it.actionArg || '') + '\',this,event)">' + escHtml(it.actionLabel || 'Action') + '</button>' : '') +
                     '</div>' +
@@ -1322,49 +1453,33 @@ private let HUD_HTML = #"""
                 html += '</div>';
               }
             }
-            if (recs.length || actions.length) {
-              var doneCount = 0;
-              var normRecs = [];
-              for (var rc = 0; rc < recs.length; rc++) {
-                var recItem = recs[rc];
-                var rText = recText(recItem);
-                var rAct = (recItem && typeof recItem === 'object') ? (recItem.actionType || '') : '';
-                var explicitDone = !!(recItem && typeof recItem === 'object' && recItem.done !== undefined);
-                var isDone = recIsDone(recItem);
-                if (!explicitDone && rAct && _completedRecActions[rAct]) isDone = true;
-                var rStat = explicitDone
-                  ? (isDone ? ('✓ ' + (recItem.status || 'Done')) : (recItem.status || 'Actionable'))
-                  : (isDone ? '✓ Auto-Managed' : 'Actionable');
-                if (isDone) doneCount++;
-                normRecs.push({ text: rText.replace(/^(✓|☑)\s*/, ''), done: isDone, status: rStat });
+            if (actions.length) {
+              html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">';
+              for (var ac = 0; ac < actions.length; ac++) {
+                var act = actions[ac];
+                html += '<button class="mini-act-btn' + (act.danger ? ' danger' : '') + '" onmousedown="runInlineAction(\'' + escHtml(act.type) + '\',\'' + escHtml(act.arg || '') + '\',this,event)" onclick="runInlineAction(\'' + escHtml(act.type) + '\',\'' + escHtml(act.arg || '') + '\',this,event)">' + escHtml(act.label) + '</button>';
               }
-              var allDone = normRecs.length > 0 && doneCount === normRecs.length;
-              var hdrRight = allDone
-                ? '<span style="color:#34d399;font-weight:700;">Up to date</span>'
-                : (doneCount > 0
-                  ? '<span style="color:#5eead4;font-weight:700;">' + doneCount + ' of ' + normRecs.length + ' done</span>'
-                  : '<span style="color:#fbbf24;font-weight:700;">Actionable</span>');
-              html += '<div class="drill-sec-title"><span>💡 Recommendations &amp; Remediation</span>' + hdrRight + '</div>';
-              html += '<div class="drill-box">';
-              for (var nr = 0; nr < normRecs.length; nr++) {
-                var itemR = normRecs[nr];
-                html += '<div class="rec-bullet' + (itemR.done ? ' done' : '') + '">' +
-                  '<div style="display:flex;align-items:flex-start;gap:7px;min-width:0;flex:1;">' +
-                    '<span class="rec-check' + (itemR.done ? ' done' : '') + '">' + (itemR.done ? '✓' : '!') + '</span>' +
-                    '<span style="line-height:1.35;">' + escHtml(itemR.text) + '</span>' +
-                  '</div>' +
-                  '<span class="rec-status-pill' + (itemR.done ? ' done' : '') + '">' + escHtml(itemR.status) + '</span>' +
-                '</div>';
-              }
-              if (actions.length) {
-                html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;padding-top:5px;border-top:1px solid rgba(255,255,255,0.08);">';
-                for (var ac = 0; ac < actions.length; ac++) {
-                  var act = actions[ac];
-                  html += '<button class="mini-act-btn' + (act.danger ? ' danger' : '') + '" onmousedown="runInlineAction(\'' + escHtml(act.type) + '\',\'' + escHtml(act.arg || '') + '\',this,event)" onclick="runInlineAction(\'' + escHtml(act.type) + '\',\'' + escHtml(act.arg || '') + '\',this,event)">' + escHtml(act.label) + '</button>';
+              html += '</div>';
+            }
+            if (deepDive.length || history.length || spark.length) {
+              html += '<details style="margin-top:4px;font-size:10.5px;color:#94a3b8;" onclick="event.stopPropagation()">' +
+                '<summary style="cursor:pointer;color:#64748b;font-weight:600;padding:2px 0;user-select:none;">More technical metrics &amp; history ▾</summary>' +
+                '<div class="drill-box" style="margin-top:4px;">';
+              if (spark.length) {
+                html += '<div class="spark-bars">';
+                for (var sp = 0; sp < spark.length; sp++) {
+                  var sv = Math.min(100, Math.max(8, Number(spark[sp].pct) || 10));
+                  html += '<div class="spark-bar" style="height:' + sv + '%;" title="' + escHtml((spark[sp].ts || '') + ': ' + (spark[sp].label || sv + '%')) + '"></div>';
                 }
                 html += '</div>';
               }
-              html += '</div>';
+              for (var d = 0; d < deepDive.length; d++) {
+                html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;font-size:10.5px;padding:2px 0;border-top:' + (d > 0 ? '1px solid rgba(255,255,255,0.07)' : 'none') + ';">' +
+                  '<span style="color:rgba(255,255,255,0.75);font-weight:550;">' + escHtml(deepDive[d].k) + '</span>' +
+                  '<span style="color:#f8fafc;font-family:\'SF Mono\',Menlo,monospace;font-size:10px;text-align:right;user-select:text;-webkit-user-select:text;">' + escHtml(deepDive[d].v) + '</span>' +
+                '</div>';
+              }
+              html += '</div></details>';
             }
             html += '</div>';
           }
@@ -2721,11 +2836,12 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                 let gb = culprits.rssByApp[name, default: 0] / 1_048_576.0
                 let cnt = culprits.countByApp[name, default: 1]
                 let pids = culprits.pidsByApp[name] ?? []
+                let topCmd = culprits.topCmdByApp[name] ?? "\(pids.count) live PIDs"
                 return [
                     "key": "\(prefixKey)-app-\(idx)",
                     "title": "\(idx + 1). \(name) (\(cnt) \(cnt == 1 ? "proc" : "procs"))",
                     "right": String(format: "%.1f%% CPU · %.2f GB RAM", c, gb),
-                    "subtitle": "Click to inspect \(pids.count) live PIDs with uptime, command args & 1-click SIGTERM",
+                    "subtitle": topCmd,
                     "pct": min(100, max(6, Int(round(c + gb * 12.0)))),
                     "children": pids,
                 ]
@@ -2926,40 +3042,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             ],
         ]
 
-        let cpuDrill: [[String: Any]] = [
-            shieldDrill[0],
-            [
-                "key": "cpu-gpu-detail",
-                "label": "Apple Silicon GPU (AGXAccelerator)",
-                "value": String(format: "%d%% Device · %d%% Renderer · %.1f GB VRAM", gpu.devicePct, gpu.rendererPct, gpu.vramGB),
-                "badge": "IOKit Registers",
-                "pct": max(6, gpu.devicePct),
-                "diagCmd": "ioreg -r -d 1 -c AGXAccelerator | grep PerformanceStatistics",
-                "chips": ["Device: \(gpu.devicePct)%", "Renderer: \(gpu.rendererPct)%", "Tiler: \(gpu.tilerPct)%", String(format: "VRAM: %.2f GB", gpu.vramGB)],
-                "spark": gpuSpark,
-                "historySummary": "AGXAccelerator utilization trend",
-                "history": [
-                    ["left": "GPU Device Utilization", "right": "\(gpu.devicePct)%"],
-                    ["left": "Shader Renderer / Tiler Utilization", "right": "\(gpu.rendererPct)% / \(gpu.tilerPct)%"],
-                    ["left": "Unified Memory Wired by Metal", "right": String(format: "%.2f GB", gpu.vramGB)],
-                ],
-                "deepDive": [
-                    ["k": "IOKit Service Class", "v": "AGXAccelerator (Apple Silicon Unified GPU)"],
-                    ["k": "PerformanceStatistics.Device Utilization %", "v": "\(gpu.devicePct)%"],
-                    ["k": "PerformanceStatistics.Renderer Utilization %", "v": "\(gpu.rendererPct)%"],
-                    ["k": "PerformanceStatistics.Tiler Utilization %", "v": "\(gpu.tilerPct)%"],
-                    ["k": "PerformanceStatistics.In use system memory", "v": String(format: "%.2f GB unified RAM", gpu.vramGB)],
-                ],
-                "recommendations": [
-                    "When GPU Device % stays above 70%, check local Ollama/MLX vision or embedding jobs running concurrently with desktop recording.",
-                    "Unified GPU memory is shared with system RAM; freeing idle browser/Electron helper processes also restores Metal buffer headroom.",
-                ],
-                "actions": [
-                    ["label": "Cool Down Fans", "type": "reapFans", "arg": ""],
-                    ["label": "Copy ioreg GPU Command", "type": "copyCmd", "arg": "ioreg -r -d 1 -c AGXAccelerator"],
-                ],
-            ],
-        ] + Array(culprits.rankedApps.prefix(8).enumerated()).map { idx, name in
+        let topHogRows: [[String: Any]] = Array(culprits.rankedApps.prefix(8).enumerated()).map { idx, name in
             let c = culprits.cpuByApp[name, default: 0]
             let gb = culprits.rssByApp[name, default: 0] / 1_048_576.0
             let cnt = culprits.countByApp[name, default: 1]
@@ -2968,29 +3051,41 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                 "key": "cpu-hog-\(idx)",
                 "label": "\(idx + 1). \(name) (\(cnt) \(cnt == 1 ? "proc" : "procs"))",
                 "value": String(format: "%.1f%% CPU · %.2f GB RAM", c, gb),
-                "badge": "\(pids.count) Live PIDs",
-                "pct": min(100, max(6, Int(round(c)))),
+                "badge": "\(pids.count) \(pids.count == 1 ? "PID" : "PIDs")",
+                "pct": min(100, max(6, Int(round(c + gb * 10.0)))),
                 "diagCmd": "ps -Ao pid,%cpu,rss,etime,comm -r | grep -i '\(name.prefix(10))'",
-                "chips": ["\(cnt) Processes", String(format: "%.1f%% Total CPU", c), String(format: "%.2f GB Total RSS", gb)],
-                "history": [
-                    ["left": "Aggregate CPU Share across \(cnt) processes", "right": String(format: "%.1f%% (%.2f cores)", c, c / 100.0)],
-                    ["left": "Aggregate Resident Memory (RSS)", "right": String(format: "%.2f GB (%.1f%% of %.0f GB)", gb, (gb / physGB) * 100.0, physGB)],
-                ],
+                "chips": ["\(cnt) Processes", String(format: "%.1f%% Total CPU", c), String(format: "%.2f GB RAM", gb)],
                 "deepDive": [
-                    ["k": "Process Group Label", "v": name],
-                    ["k": "Active Worker Count", "v": "\(cnt) live BSD processes"],
-                    ["k": "Hog Reaper Policy", "v": name.lowercased().contains("claude") || name.lowercased().contains("omp") ? "Whitelisted interactive coding agent" : "Eligible for thermal throttling if runaway >180% CPU"],
+                    ["k": "Process Group", "v": name],
+                    ["k": "Active Processes", "v": "\(cnt) live BSD processes"],
+                    ["k": "Largest Process", "v": culprits.topCmdByApp[name] ?? "Sampling"],
                 ],
                 "items": pids,
-                "recommendations": [
-                    "Inspect individual PIDs above to see exact command-line arguments and uptime before terminating.",
-                    "Use the per-row Kill PID button to send SIGTERM to a single stuck worker without killing the parent session.",
-                ],
                 "actions": [
                     ["label": "Cool Down Fans", "type": "reapFans", "arg": ""],
                 ],
             ] as [String: Any]
         }
+        let cpuDrill: [[String: Any]] = topHogRows + [
+            [
+                "key": "cpu-gpu-detail",
+                "label": "Apple Silicon GPU (AGXAccelerator)",
+                "value": String(format: "%d%% Device · %d%% Renderer · %.1f GB VRAM", gpu.devicePct, gpu.rendererPct, gpu.vramGB),
+                "badge": "GPU",
+                "pct": max(6, gpu.devicePct),
+                "diagCmd": "ioreg -r -d 1 -c AGXAccelerator | grep PerformanceStatistics",
+                "chips": ["Device: \(gpu.devicePct)%", "Renderer: \(gpu.rendererPct)%", "Tiler: \(gpu.tilerPct)%", String(format: "VRAM: %.2f GB", gpu.vramGB)],
+                "spark": gpuSpark,
+                "deepDive": [
+                    ["k": "IOKit Service Class", "v": "AGXAccelerator (Apple Silicon Unified GPU)"],
+                    ["k": "Device / Renderer / Tiler", "v": "\(gpu.devicePct)% / \(gpu.rendererPct)% / \(gpu.tilerPct)%"],
+                    ["k": "Unified VRAM In Use", "v": String(format: "%.2f GB", gpu.vramGB)],
+                ],
+                "actions": [
+                    ["label": "Cool Down Fans", "type": "reapFans", "arg": ""],
+                ],
+            ],
+        ]
 
         func gbTrend(_ field: String, title: String) -> [[String: String]] {
             let values: [(String, Double)] = telemetryHistory.compactMap { pt in
@@ -3030,7 +3125,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         }
         machRow["items"] = []
 
-        var gpuRow = cpuDrill[1]
+        var gpuRow = cpuDrill.last ?? [:]
         let biggest = culprits.memRankedApps.first ?? "none"
         gpuRow["key"] = "unified-gpu"
         gpuRow["label"] = "Apple Silicon Unified GPU Memory"
@@ -3049,22 +3144,13 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             ["label": "Copy GPU Registers", "type": "copyCmd", "arg": "ioreg -r -d 1 -c AGXAccelerator"],
         ]
 
-        let memDrill: [[String: Any]] = [machRow, gpuRow] + Array(culprits.memRankedApps.prefix(8).enumerated()).map { idx, name in
+        let memDrill: [[String: Any]] = Array(culprits.memRankedApps.prefix(8).enumerated()).map { idx, name in
             let gb = culprits.rssByApp[name, default: 0] / 1_048_576.0
             let pctRam = (gb / physGB) * 100.0
             let c = culprits.cpuByApp[name, default: 0]
             let cnt = culprits.countByApp[name, default: 1]
-            let pids = (culprits.pidsByApp[name] ?? []).map { pid -> [String: Any] in
-                var row = pid
-                row.removeValue(forKey: "actionType")
-                row.removeValue(forKey: "actionArg")
-                row.removeValue(forKey: "actionLabel")
-                return row
-            }
+            let pids = culprits.pidsByApp[name] ?? []
             let series = appSampleHistory[name] ?? []
-            let oldestGB = (series.first?["rssGB"] as? Double) ?? gb
-            let peakGB = series.map { ($0["rssGB"] as? Double) ?? gb }.max() ?? gb
-            let window = max(0, (series.count - 1) * 3)
             let spark = series.suffix(18).map { pt -> [String: Any] in
                 let sample = (pt["rssGB"] as? Double) ?? 0
                 return [
@@ -3078,35 +3164,22 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                 "key": "mem-hog-\(idx)",
                 "label": "\(idx + 1). \(name) (\(cnt) \(cnt == 1 ? "proc" : "procs"))",
                 "value": String(format: "%.2f GB (%.1f%%) · %.0f%% CPU", gb, pctRam, c),
-                "badge": "History",
+                "badge": "\(pids.count) \(pids.count == 1 ? "PID" : "PIDs")",
                 "pct": min(100, max(4, Int(round(pctRam)))),
                 "diagCmd": "ps -Ao pid,rss,%cpu,etime,comm -m | grep -i '\(safeName.prefix(12))'",
-                "chips": [String(format: "%.2f GB RSS", gb), String(format: "%.1f%% of %.0f GB", pctRam, physGB), "\(cnt) procs", String(format: "%.0f%% CPU", c)],
+                "chips": [String(format: "%.2f GB RAM", gb), String(format: "%.1f%% of %.0f GB", pctRam, physGB), "\(cnt) Processes", String(format: "%.0f%% CPU", c)],
                 "spark": spark,
-                "historySummary": series.count <= 1 ? "First sample. This chart fills in every 3 seconds." : "\(series.count) samples, about every 3 seconds",
-                "history": [
-                    ["left": "Resident memory now", "right": String(format: "%.2f GB (%.0f MB)", gb, gb * 1024.0)],
-                    ["left": "Share of physical RAM", "right": String(format: "%.1f%% of %.0f GB", pctRam, physGB)],
-                    ["left": "Oldest sample", "right": String(format: "%.2f GB", oldestGB)],
-                    ["left": "Change over about \(window)s", "right": String(format: "%+.2f GB", gb - oldestGB)],
-                    ["left": "Peak in this window", "right": String(format: "%.2f GB", peakGB)],
-                ],
                 "deepDive": [
-                    ["k": "Process group", "v": name],
-                    ["k": "Physical RAM", "v": String(format: "%.0f GB on this Mac", physGB)],
+                    ["k": "Process Group", "v": name],
                     ["k": "Group RSS", "v": String(format: "%.2f GB across %d processes", gb, cnt)],
-                    ["k": "Average RSS", "v": String(format: "%.0f MB per process", (gb * 1024.0) / Double(max(1, cnt)))],
-                    ["k": "Sum of CPU", "v": String(format: "%.0f%% (100%% is one core)", c)],
-                    ["k": "Largest process", "v": culprits.topCmdByApp[name] ?? "Still sampling"],
-                    ["k": "Mach pressure", "v": String(format: "%d%% · active %.1f GB · wired %.1f GB · compressed %.1f GB", memPressurePct, activeGB, wiredGB, compressedGB)],
+                    ["k": "Largest Process", "v": culprits.topCmdByApp[name] ?? "Sampling"],
                 ],
                 "items": pids,
-                "recommendations": memoryGroupAdvice(name: name, gb: gb, cpu: c, count: cnt, physGB: physGB, compressedGB: compressedGB),
                 "actions": [
-                    ["label": "Copy process list", "type": "copyCmd", "arg": "ps -Ao pid,rss,%cpu,etime,comm -m"],
+                    ["label": "Free Agent RAM", "type": "freeAgentRam", "arg": ""],
                 ],
             ] as [String: Any]
-        }
+        } + [machRow, gpuRow]
 
         let diskDrill: [[String: Any]] = [
             shieldDrill[4],
