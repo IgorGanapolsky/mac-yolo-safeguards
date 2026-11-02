@@ -6,7 +6,7 @@ const { execFileSync, spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { classify, isLiveAgentProcess, isAgentDependency, indexByPid, findOrphanMcpServers, assessPressure, relieve, signalIfSame, decideKill, killTargets, reaperHits, parsePs, findStorms, detectIncident, shimScript, status, clean } = require('../tools/mac-yolo-agent-guard');
+const { classify, isLiveAgentProcess, isAgentDependency, indexByPid, findOrphanMcpServers, assessPressure, relieve, signalIfSame, decideKill, killTargets, findMcpFanOut, reaperHits, parsePs, findStorms, detectIncident, shimScript, status, clean } = require('../tools/mac-yolo-agent-guard');
 const { isRunawayCommand, runawayPids } = require('../tools/mac-yolo-system-care-engine');
 const { callTool, getToolDefinitions } = require('../tools/mac-yolo-mcp-server');
 const { routeRequest, startSelfHeal } = require('../tools/mac-yolo-service');
@@ -114,6 +114,23 @@ function main() {
   const sessionsMcp = [[10, 1, 400000, '01:00:00', '??', SESSION]];
   for (let i = 0; i < 50; i += 1) sessionsMcp.push([3000 + i, 10, 50000, '10:00', '??', MCP]);
   assert.strictEqual(findStorms(parsePs(ps(sessionsMcp))).length, 0, 'fifty sessions sharing one MCP server is not a storm');
+  const CODEX = '/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex app-server';
+  const POSTMAN = 'npm exec @postman/postman-mcp-server@2.13.0 --full';
+  const fanOut = findMcpFanOut(parsePs(ps([
+    [700, 1, 1400000, '08:00:00', '??', CODEX],
+    [701, 700, 170000, '08:00:00', '??', POSTMAN],
+    [702, 700, 170000, '06:00:00', '??', POSTMAN],
+    [703, 700, 170000, '01:00:00', '??', POSTMAN],
+    [704, 700, 20000, '08:00:00', '??', '/Users/u/.local/bin/github-mcp-server stdio'],
+    [800, 1, 400000, '01:00:00', '??', SESSION],
+    [801, 800, 90000, '01:00:00', '??', '/Users/u/.local/bin/claude mcp serve'],
+    [802, 800, 90000, '01:00:00', '??', '/Users/u/.local/bin/claude mcp serve'],
+    [900, 1, 170000, '08:00:00', '??', POSTMAN],
+    [901, 1, 170000, '08:00:00', '??', POSTMAN],
+    [902, 1, 170000, '08:00:00', '??', POSTMAN],
+  ])));
+  assert.deepStrictEqual(fanOut.map((g) => [g.agentPid, g.copies]), [[700, 3]], 'three copies of one server under one agent; two copies, or orphans, are not fan-out');
+  assert.strictEqual(fanOut[0].rssMB, Math.round(170000 / 1024) * 3);
   const finds = parsePs(ps([
     [10, 1, 400000, '01:00:00', '??', SESSION],
     [70, 10, 4000, '00:05', '??', '/bin/zsh -c find /Users/u -name "*.md"'],

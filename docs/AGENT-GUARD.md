@@ -16,6 +16,8 @@
 
 Cool Down Fans in `tools/mac-yolo-system-care-engine.js` uses the same rules. It never reaps anything a live session started, at any depth, so a session's own `find` is left alone.
 
+`status` also lists `mcpFanOut`: any live agent running three or more copies of the same MCP server, with the copy count and memory. These copies belong to a live agent, so the guard only reports them. On 2026-11-01 it found the ChatGPT app's Codex server holding 98 copies of 14 servers (7 threads, 5.3 GB).
+
 Before each signal the guard re-reads the target's command line, so a reused pid is never hit. It sends SIGTERM only, never SIGKILL.
 
 ## Memory pressure
