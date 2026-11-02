@@ -9,6 +9,7 @@ import {
   markPublicCacheMiss,
   preparePublicResponseForCache,
 } from "./edge-policy";
+import { legacyCheckoutRedirectTarget } from "./legacy-checkout-redirect";
 
 const HOMEPAGE_BROWSER_CACHE_CONTROL =
   "public, max-age=0, s-maxage=60, stale-while-revalidate=600";
@@ -64,6 +65,9 @@ const worker = {
       dest.hash = url.hash;
       return Response.redirect(dest, 307);
     }
+    // These paths 404 on thumbgate.app. Checkout and the diagnostic live on thumbgate.ai.
+    const legacyCheckout = legacyCheckoutRedirectTarget(url);
+    if (legacyCheckout) return Response.redirect(legacyCheckout, 302);
 
     if (url.pathname === "/_vinext/image") {
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
