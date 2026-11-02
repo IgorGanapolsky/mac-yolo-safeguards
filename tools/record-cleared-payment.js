@@ -36,11 +36,41 @@ const ledgerHeaders = [
   'proof_note',
 ];
 
+function extractPaymentId(proofNote, explicitId = '') {
+  if (explicitId && String(explicitId).trim()) {
+    return String(explicitId).trim();
+  }
+  const match = String(proofNote || '').match(/\b((?:ch|pi|in|py)_[A-Za-z0-9_]{6,})\b/);
+  return match ? match[1] : null;
+}
+
+function isSyntheticOrOwnerTest(fields = {}) {
+  const combined = [
+    fields.prospect,
+    fields.buyer_label,
+    fields.buyerSegment,
+    fields.buyer_segment,
+    fields.source,
+    fields.proofNote,
+    fields.proof_note,
+    fields.paymentId,
+  ]
+    .map((v) => String(v || ''))
+    .join(' ');
+  return (
+    /\b(?:sk_test_|cs_test_|ch_test_|pi_test_|livemode\s*[:=]\s*false|owner_test|founder_test|internal_test|sandbox_test|synthetic_test)\b/i.test(
+      combined,
+    ) ||
+    /\b(?:iganapolsky@gmail\.com|igor\.ganapolsky@icloud\.com|dg-5655f0fa880b4)\b/i.test(combined)
+  );
+}
+
 function parseArgs(argv) {
   const args = {
     status: 'cleared',
     taxReservePct: 0.35,
     dryRun: false,
+    paymentId: '',
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -66,6 +96,8 @@ function parseArgs(argv) {
       args.status = argv[++i];
     } else if (arg === '--proof-note') {
       args.proofNote = argv[++i];
+    } else if (arg === '--payment-id') {
+      args.paymentId = argv[++i];
     } else if (arg === '--dry-run') {
       args.dryRun = true;
     } else if (arg === '--help' || arg === '-h') {
@@ -104,6 +136,9 @@ function requireArgs(args) {
   }
   if (/todo|placeholder|example only|not real/i.test(args.proofNote) || args.proofNote.trim().length < 20) {
     throw new Error('--proof-note must be concrete private payment/delivery evidence, not a TODO or placeholder');
+  }
+  if (isSyntheticOrOwnerTest(args)) {
+    throw new Error('Refusing to record synthetic, sandbox, or founder/owner test transaction as external customer revenue');
   }
 }
 
@@ -189,8 +224,14 @@ function printVerificationCommands(args) {
   }
 }
 
-function main() {
-  const args = parseArgs(process.argv.slice(2));
+function recordClearedPayment(rawArgs) {
+  const args = {
+    status: 'cleared',
+    taxReservePct: 0.35,
+    dryRun: false,
+    paymentId: '',
+    ...rawArgs,
+  };
   requireArgs(args);
 
   const pipeline = parseTsv(args.pipeline, pipelineHeaders);
@@ -201,11 +242,32 @@ function main() {
   const pipelineRow = matches[0];
   const offer = offerName(pipelineRow.route);
   const gross = money(pipelineRow.gross_potential_usd, `${args.prospect} gross_potential_usd`);
+  const stripeFee = Number(args.stripeFeeUsd);
+  const refund = Number(args.refundUsd);
+  if (refund > gross) {
+    throw new Error(`--refund-usd (${refund.toFixed(2)}) cannot exceed gross_potential_usd (${gross.toFixed(2)})`);
+  }
+  if (stripeFee > gross) {
+    throw new Error(`--stripe-fee-usd (${stripeFee.toFixed(2)}) cannot exceed gross_potential_usd (${gross.toFixed(2)})`);
+  }
+
   const ledger = parseTsv(args.ledger, ledgerHeaders);
+  const incomingPaymentId = extractPaymentId(args.proofNote, args.paymentId);
+  if (incomingPaymentId) {
+    const existingById = ledger.rows.find((row) => extractPaymentId(row.proof_note) === incomingPaymentId);
+    if (existingById) {
+      throw new Error(`Duplicate payment ID in ledger: ${incomingPaymentId}`);
+    }
+  }
   const duplicate = ledger.rows.find((row) => row.buyer_label === args.prospect && row.offer === offer && row.date_paid === args.datePaid);
   if (duplicate) {
     throw new Error(`Ledger already has ${args.prospect} / ${offer} / ${args.datePaid}`);
   }
+
+  const proofNoteFinal =
+    incomingPaymentId && !String(args.proofNote).includes(incomingPaymentId)
+      ? `${args.proofNote} [payment_id=${incomingPaymentId}]`
+      : args.proofNote;
 
   const ledgerRow = {
     date_paid: args.datePaid,
@@ -214,11 +276,11 @@ function main() {
     source: args.source,
     offer,
     gross_usd: gross.toFixed(2),
-    stripe_fee_usd: Number(args.stripeFeeUsd).toFixed(2),
-    refund_usd: Number(args.refundUsd).toFixed(2),
+    stripe_fee_usd: stripeFee.toFixed(2),
+    refund_usd: refund.toFixed(2),
     tax_reserve_pct: Number(args.taxReservePct).toFixed(2),
     status: args.status,
-    proof_note: args.proofNote,
+    proof_note: proofNoteFinal,
   };
 
   const previousStage = pipelineRow.stage;
@@ -228,34 +290,68 @@ function main() {
   pipelineRow.notes = appendNote(pipelineRow.notes, args.datePaid, 'cleared payment recorded in private revenue ledger');
 
   if (args.dryRun) {
-    console.log('Dry run: no files written.');
-    console.log('Ledger row:');
-    console.log(ledgerHeaders.map((header) => ledgerRow[header]).join('\t'));
-    console.log(`Pipeline stage: ${previousStage} -> paid`);
-    console.log(`Pipeline next action: verify_revenue_net`);
-    printVerificationCommands(args);
-    return;
+    return {
+      dryRun: true,
+      ledgerRow,
+      previousStage,
+      offer,
+      gross,
+      paymentId: incomingPaymentId,
+    };
   }
 
   ledger.rows.push(ledgerRow);
   writeTsv(args.ledger, ledger.headers, ledger.rows);
   writeTsv(args.pipeline, pipeline.headers, pipeline.rows);
+  return {
+    dryRun: false,
+    ledgerRow,
+    previousStage,
+    offer,
+    gross,
+    paymentId: incomingPaymentId,
+  };
+}
+
+function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const result = recordClearedPayment(args);
+
+  if (result.dryRun) {
+    console.log('Dry run: no files written.');
+    console.log('Ledger row:');
+    console.log(ledgerHeaders.map((header) => result.ledgerRow[header]).join('\t'));
+    console.log(`Pipeline stage: ${result.previousStage} -> paid`);
+    console.log(`Pipeline next action: verify_revenue_net`);
+    printVerificationCommands(args);
+    return;
+  }
 
   console.log(`Ledger updated: ${args.ledger}`);
   console.log(`Pipeline updated: ${args.pipeline}`);
   console.log(`Prospect: ${args.prospect}`);
-  console.log(`Offer: ${offer}`);
-  console.log(`Gross: $${gross.toFixed(2)}`);
-  console.log(`Pipeline stage: ${previousStage} -> paid`);
+  console.log(`Offer: ${result.offer}`);
+  console.log(`Gross: $${result.gross.toFixed(2)}`);
+  console.log(`Pipeline stage: ${result.previousStage} -> paid`);
   console.log('Revenue proof: recorded in private ledger; verify with tools/revenue-net.js.');
   printVerificationCommands(args);
 }
 
-try {
-  main();
-} catch (error) {
-  console.error(error.message);
-  console.error('');
-  console.error(usage);
-  process.exit(2);
+if (require.main === module) {
+  try {
+    main();
+  } catch (error) {
+    console.error(error.message);
+    console.error('');
+    console.error(usage);
+    process.exit(2);
+  }
 }
+
+module.exports = {
+  parseArgs,
+  requireArgs,
+  extractPaymentId,
+  isSyntheticOrOwnerTest,
+  recordClearedPayment,
+};

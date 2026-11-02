@@ -44,7 +44,7 @@ function parseTsv(filePath) {
 }
 
 function discoverFiles(pattern) {
-  return discoverPattern(pattern);
+  return discoverPattern(pattern).slice().sort().reverse();
 }
 
 function deriveOpenUrl(action) {
@@ -95,19 +95,24 @@ function main() {
     ...discoverFiles(/^send-queue.*\.tsv$/),
   ];
 
-  let readyProspects = [];
+  const readyProspects = [];
+  const seenProspects = new Set();
 
-  // Find all "ready" prospects
+  // Find all "ready" prospects from latest snapshot per prospect_label
   for (const filePath of pipelineFiles) {
     if (!fs.existsSync(filePath)) continue;
     const rows = parseTsv(filePath);
-    const fileReadyRows = rows.filter(r => r.stage.trim().toLowerCase() === 'ready');
-    for (const row of fileReadyRows) {
-      readyProspects.push({
-        row,
-        pipelineFile: path.basename(filePath),
-        pipelinePath: filePath,
-      });
+    for (const row of rows) {
+      const label = (row.prospect_label || '').trim();
+      if (!label || seenProspects.has(label)) continue;
+      seenProspects.add(label);
+      if ((row.stage || '').trim().toLowerCase() === 'ready') {
+        readyProspects.push({
+          row,
+          pipelineFile: path.basename(filePath),
+          pipelinePath: filePath,
+        });
+      }
     }
   }
 
@@ -174,7 +179,8 @@ function main() {
     }
 
     // Update pipeline only after the operator explicitly confirms send.
-    const updateCmd = `node "${path.join(__dirname, 'pipeline-update.js')}" --pipeline "${item.pipelinePath}" --prospect "${label}" --stage sent --date 2026-06-02 --next-action wait_for_reply --note "sent manually via send-next.js helper"`;
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const updateCmd = `node "${path.join(__dirname, 'pipeline-update.js')}" --pipeline "${item.pipelinePath}" --prospect "${label}" --stage sent --date ${todayIso} --next-action wait_for_reply --note "sent manually via send-next.js helper"`;
     log(`Updating pipeline: ${label} -> sent`);
     try {
       execSync(updateCmd, { stdio: 'inherit', cwd: path.join(__dirname, '..') });

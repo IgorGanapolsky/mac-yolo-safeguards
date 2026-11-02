@@ -162,8 +162,10 @@ function isTextFile(filePath) {
   return TEXT_EXTENSIONS.has(path.extname(filePath));
 }
 
-function shouldIgnoreDir(name) {
-  return DEFAULT_IGNORE_DIRS.has(name);
+function shouldIgnoreDir(name, fullPath = '') {
+  if (DEFAULT_IGNORE_DIRS.has(name) || name.startsWith('wt-')) return true;
+  if (fullPath && fs.existsSync(path.join(fullPath, '.git'))) return true;
+  return false;
 }
 
 function tokenize(value, options = {}) {
@@ -224,7 +226,7 @@ function walkFiles(repo, options = {}) {
       const fullPath = path.join(dir, entry.name);
       const relativePath = path.relative(root, fullPath);
       if (entry.isDirectory()) {
-        if (!shouldIgnoreDir(entry.name)) visit(fullPath);
+        if (!shouldIgnoreDir(entry.name, fullPath)) visit(fullPath);
       } else if (entry.isFile() && isTextFile(fullPath)) {
         if (seen.has(relativePath)) continue;
         seen.add(relativePath);
@@ -285,13 +287,12 @@ function pathQualityMultiplier(relativePath, queryTokens = []) {
   // app/api production routes (e.g. lessons) fall out of top-k (2026-08-03).
   if (/^tools\//i.test(p)) m *= 1.22;
   if (
-    /\/__tests__\/|\/tests\/|\/test\/|\.test\.|\.spec\.|\/mocks?\/|\/fixtures?\/|\/testdata\//i.test(
+    /(?:^|\/)(?:__tests__|tests|test|mocks?|fixtures?|testdata)\/|(?:^|\/)test[-_]|\.(?:test|spec)\./i.test(
       p,
     )
   ) {
     m *= 0.45;
   }
-  if (/\/generated\/|\.generated\.|\.gen\./i.test(p)) m *= 0.4;
   // Do NOT penalize docs/ — several golden queries require docs/HERMES-*.md
   // (cloud-failover, hardware-leash). Test noise is the real problem.
   if (/\/(src|lib|app)\//i.test(p)) m *= 1.15;
@@ -299,7 +300,7 @@ function pathQualityMultiplier(relativePath, queryTokens = []) {
   // query is clearly mobile client discovery (measured 2026-08-04: control-plane
   // /app/api/* flooded top-15 on "discovers computers on local network").
   if (/\/app\/api\//i.test(p)) m *= mobileDiscoveryQuery ? 0.85 : 1.45;
-  // Mobile product services only when the query is about LAN/host discovery —
+  if (/\/app\/dashboard\//i.test(p) && !mobileDiscoveryQuery) m *= 1.38;
   // unconditional services boost demoted dashboard/lessons below tools/* .
   if (mobileDiscoveryQuery) {
     if (/^hermes-mobile\/src\/services\//i.test(p)) m *= 1.55;
@@ -308,10 +309,10 @@ function pathQualityMultiplier(relativePath, queryTokens = []) {
   return m;
 }
 
-function scoreFile(queryTokens, relativePath, text) {
-  const pathTokens = tokenize(relativePath, { splitCamel: true });
-  const textTokens = tokenize(text, { splitCamel: true });
-  const textSet = new Set(textTokens);
+function scoreFile(queryTokens, relativePath, text, precomputed = null) {
+  const pathTokens = precomputed ? precomputed.pathTokens : tokenize(relativePath, { splitCamel: true });
+  const textTokens = precomputed ? precomputed.textTokens : tokenize(text, { splitCamel: true });
+  const textSet = precomputed ? precomputed.textSet : new Set(textTokens);
   let score = 0;
   const reasons = [];
 
@@ -349,7 +350,7 @@ function scoreFile(queryTokens, relativePath, text) {
   // (hardware+leash → hardware-leash, cloud+failover → CLOUD-FAILOVER).
   // This lifts canonical docs/tools over adjacent-but-generic hits without
   // special-casing product names. Measured 2026-07-29 on hardware-leash MRR.
-  const pathLower = String(relativePath || '').toLowerCase().replace(/\\/g, '/');
+  const pathLower = precomputed ? precomputed.pathLower : String(relativePath || '').toLowerCase().replace(/\\/g, '/');
   let compounds = 0;
   for (let i = 0; i < queryTokens.length - 1; i += 1) {
     const a = queryTokens[i];
@@ -382,10 +383,13 @@ function scoreFile(queryTokens, relativePath, text) {
   // Do NOT use tokensMatch here — hyphenated basenames like thumbgate-lessons-doctor
   // would substring-match "lessons" and inflate tools/* over dashboard/lessons.
   // Morphological discover↔discovery is handled by pathHits + intent lift below.
-  const segments = pathLower
-    .split('/')
-    .flatMap((seg) => tokenize(seg.replace(/\.[^.]+$/, ''), { splitCamel: true }));
-  const segmentSet = new Set(segments);
+  const segmentSet = precomputed
+    ? precomputed.segmentSet
+    : new Set(
+        pathLower
+          .split('/')
+          .flatMap((seg) => tokenize(seg.replace(/\.[^.]+$/, ''), { splitCamel: true })),
+      );
   let segmentHits = 0;
   for (const token of queryTokens) {
     if (segmentSet.has(token)) {
@@ -444,31 +448,69 @@ function firstSnippet(text, queryTokens) {
     .slice(0, 360);
 }
 
-function retrieve(query, options = {}) {
-  const repo = path.resolve(options.repo || DEFAULT_REPO);
-  const queryTokens = tokenize(query);
-  if (queryTokens.length === 0) throw new Error('retrieve requires a non-empty query');
+const CORPUS_CACHE = new Map();
+
+function getCachedCorpus(repo, options = {}) {
+  const maxFiles = options.maxFiles || 8000;
+  const maxBytes = options.maxBytes || 240000;
+  const key = `${repo}::${maxFiles}::${maxBytes}`;
+  if (CORPUS_CACHE.has(key)) return CORPUS_CACHE.get(key);
   const inventory = buildInventory(options);
-  const candidates = [];
+  const docs = [];
   for (const file of inventory.files) {
     const fullPath = path.join(repo, file.path);
     let text = '';
     try {
-      text = readTextSlice(fullPath, options.maxBytes || 240000);
+      text = readTextSlice(fullPath, maxBytes);
     } catch (error) {
       continue;
     }
-    const scored = scoreFile(queryTokens, file.path, text);
+    const pathTokens = tokenize(file.path, { splitCamel: true });
+    const textTokens = tokenize(text, { splitCamel: true });
+    const textSet = new Set(textTokens);
+    const pathLower = String(file.path || '').toLowerCase().replace(/\\/g, '/');
+    const segmentSet = new Set(
+      pathLower
+        .split('/')
+        .flatMap((seg) => tokenize(seg.replace(/\.[^.]+$/, ''), { splitCamel: true })),
+    );
+    docs.push({
+      path: file.path,
+      bytes: file.bytes,
+      text,
+      precomputed: { pathTokens, textTokens, textSet, pathLower, segmentSet },
+    });
+  }
+  const entry = { inventory, docs };
+  CORPUS_CACHE.set(key, entry);
+  return entry;
+}
+
+function retrieve(query, options = {}) {
+  const repo = path.resolve(options.repo || DEFAULT_REPO);
+  const queryTokens = tokenize(query);
+  if (queryTokens.length === 0) throw new Error('retrieve requires a non-empty query');
+  const { inventory, docs } = getCachedCorpus(repo, options);
+  const candidates = [];
+  for (const doc of docs) {
+    const scored = scoreFile(queryTokens, doc.path, doc.text, doc.precomputed);
     if (scored.score <= 0) continue;
     candidates.push({
-      path: file.path,
+      path: doc.path,
       score: scored.score,
-      bytes: file.bytes,
+      bytes: doc.bytes,
       reasons: scored.reasons,
-      snippet: firstSnippet(text, queryTokens),
+      _text: doc.text,
     });
   }
   candidates.sort((a, b) => b.score - a.score || a.path.localeCompare(b.path));
+  const topMatches = candidates.slice(0, options.limit || 8).map((c) => ({
+    path: c.path,
+    score: c.score,
+    bytes: c.bytes,
+    reasons: c.reasons,
+    snippet: firstSnippet(c._text, queryTokens),
+  }));
   const maxFiles = options.maxFiles || 8000;
   const capReached = inventory.fileCount >= maxFiles;
   const capNear = !capReached && inventory.fileCount >= Math.floor(maxFiles * 0.9);
@@ -488,7 +530,7 @@ function retrieve(query, options = {}) {
     maxFiles,
     capReached,
     capNear,
-    matches: candidates.slice(0, options.limit || 8),
+    matches: topMatches,
   };
 }
 

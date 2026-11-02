@@ -19,7 +19,8 @@
  *      - Categorizes reclaimable AI-agent & developer junk (`claude_tmp_runaways`,
  *        `swift_module_cache`, `node_compile_cache`, `playwright_cache`, `trash`)
  *   2. Safe 1-Click Smart Clean (`runDiskSmartClean`):
- *      - Purges runaway agent temp trees in `/private/tmp/claude-*` (>=100 MB),
+ *      - Purges Claude Code session folders in `/private/tmp/claude-*` idle for 24h+ (never the
+ *        root, live sessions, or bundled skills),
  *        `/private/tmp/swift-module-cache`, and `/private/tmp/node-compile-cache`
  *      - Never touches source code, user documents, SQLite databases, or active worktrees
  *   3. Real-Time Native macOS Notification (`sendDiskGuardNotification`):
@@ -70,8 +71,7 @@ function getDirSizeKiB(targetPath, timeoutMs = 4000) {
   return 0;
 }
 
-function findClaudeTmpDirs() {
-  const base = '/private/tmp';
+function findClaudeTmpDirs(base = '/private/tmp') {
   if (!fs.existsSync(base)) return [];
   try {
     return fs
@@ -83,25 +83,107 @@ function findClaudeTmpDirs() {
   }
 }
 
+const CLAUDE_IDLE_MS = 24 * 60 * 60 * 1000;
+
+// True when anything under p was modified within idleMs. Unreadable counts as active.
+function touchedWithin(p, idleMs, now) {
+  try {
+    const st = fs.statSync(p);
+    if (now - st.mtimeMs < idleMs) return true;
+    if (!st.isDirectory()) return false;
+    const r = spawnSync('find', [p, '-mmin', `-${Math.ceil(idleMs / 60000)}`], {
+      encoding: 'utf8',
+      timeout: 5000,
+    });
+    return r.status !== 0 || r.stdout.trim().length > 0;
+  } catch {
+    return true;
+  }
+}
+
+// /private/tmp/claude-<uid> holds live sessions' scratchpads and the skills the running app
+// unpacked. Deleting the root wiped files out from under running agents every 15 minutes.
+// Only a session folder (or a loose file) untouched for idleMs is stale; bundled-skills never is.
+function findStaleClaudeTmpEntries(base = '/private/tmp', { now = Date.now(), idleMs = CLAUDE_IDLE_MS } = {}) {
+  const stale = [];
+  const list = (dir) => {
+    try {
+      return fs.readdirSync(dir).map((name) => path.join(dir, name));
+    } catch {
+      return [];
+    }
+  };
+  for (const root of findClaudeTmpDirs(base)) {
+    for (const entry of list(root)) {
+      if (path.basename(entry) === 'bundled-skills') continue;
+      let isDir = false;
+      try {
+        isDir = fs.statSync(entry).isDirectory();
+      } catch {
+        continue;
+      }
+      const candidates = isDir ? list(entry) : [entry];
+      for (const c of candidates) {
+        if (!touchedWithin(c, idleMs, now)) stale.push(c);
+      }
+    }
+  }
+  return stale;
+}
+
 function runDiskSmartScan() {
   const disk = getRootDiskUsage();
-  const claudeDirs = findClaudeTmpDirs();
+  const claudeDirs = findStaleClaudeTmpEntries();
   let claudeKiB = 0;
   for (const d of claudeDirs) {
     claudeKiB += getDirSizeKiB(d, 6000);
   }
-  const swiftCacheKiB = getDirSizeKiB('/private/tmp/swift-module-cache', 3000);
-  const nodeCacheKiB = getDirSizeKiB('/private/tmp/node-compile-cache', 3000);
-  const playwrightKiB = getDirSizeKiB(path.join(HOME, 'Library/Caches/ms-playwright'), 4000);
-  const trashKiB = getDirSizeKiB(path.join(HOME, '.Trash'), 3000);
+  const swiftCacheKiB = getDirSizeKiB('/private/tmp/swift-module-cache', 2000);
+  const nodeCacheKiB = getDirSizeKiB('/private/tmp/node-compile-cache', 2000);
+  const npmCachePath = path.join(HOME, '.npm/_cacache');
+  const bunCachePath = path.join(HOME, '.bun/install/cache');
+  const pipCachePath = path.join(HOME, 'Library/Caches/pip');
+  const brewDlPath = path.join(HOME, 'Library/Caches/Homebrew/downloads');
+  const puppeteerCachePath = path.join(HOME, '.cache/puppeteer');
+  const clawbrowserCachePath = path.join(HOME, '.cache/clawbrowser');
+  const npmCacheKiB = getDirSizeKiB(npmCachePath, 2500);
+  const pipCacheKiB = getDirSizeKiB(pipCachePath, 1500);
+  const brewDlKiB = getDirSizeKiB(brewDlPath, 1500);
+  const puppeteerKiB = getDirSizeKiB(puppeteerCachePath, 2000) + getDirSizeKiB(clawbrowserCachePath, 2000);
+  const playwrightKiB = getDirSizeKiB(path.join(HOME, 'Library/Caches/ms-playwright'), 2500);
+  const trashKiB = getDirSizeKiB(path.join(HOME, '.Trash'), 2000);
 
   const categories = [
     {
       id: 'claude_tmp_runaways',
-      label: 'Claude Code Runaway /tmp Output Logs',
+      label: 'Claude Code /tmp sessions idle 24h+',
       paths: claudeDirs,
       sizeGiB: Number((claudeKiB / (1024 * 1024)).toFixed(2)),
       sizeMiB: Number((claudeKiB / 1024).toFixed(1)),
+      safeAutoClean: true,
+    },
+    {
+      id: 'npm_agent_cacache',
+      label: 'NPX / MCP Agent Package Tarball Cache (~/.npm/_cacache)',
+      paths: [npmCachePath, bunCachePath],
+      sizeGiB: Number((npmCacheKiB / (1024 * 1024)).toFixed(2)),
+      sizeMiB: Number((npmCacheKiB / 1024).toFixed(1)),
+      safeAutoClean: true,
+    },
+    {
+      id: 'headless_agent_browsers',
+      label: 'Headless Agent Browser Caches (Puppeteer / Clawbrowser)',
+      paths: [puppeteerCachePath, clawbrowserCachePath],
+      sizeGiB: Number((puppeteerKiB / (1024 * 1024)).toFixed(2)),
+      sizeMiB: Number((puppeteerKiB / 1024).toFixed(1)),
+      safeAutoClean: true,
+    },
+    {
+      id: 'pip_brew_pkg_cache',
+      label: 'Python Pip & Homebrew Download Cache',
+      paths: [pipCachePath, brewDlPath],
+      sizeGiB: Number(((pipCacheKiB + brewDlKiB) / (1024 * 1024)).toFixed(2)),
+      sizeMiB: Number(((pipCacheKiB + brewDlKiB) / 1024).toFixed(1)),
       safeAutoClean: true,
     },
     {
@@ -185,10 +267,19 @@ function runDiskSmartClean(options = {}) {
   const beforeScan = runDiskSmartScan();
   const cleanedPaths = [];
 
+  const allowedPrefixes = [
+    '/private/tmp/',
+    path.join(HOME, '.npm/_cacache'),
+    path.join(HOME, '.bun/install/cache'),
+    path.join(HOME, 'Library/Caches/pip'),
+    path.join(HOME, 'Library/Caches/Homebrew/downloads'),
+    path.join(HOME, '.cache/puppeteer'),
+    path.join(HOME, '.cache/clawbrowser'),
+  ];
   for (const cat of beforeScan.categories) {
     if (!cat.safeAutoClean) continue;
     for (const p of cat.paths) {
-      if (!p.startsWith('/private/tmp/')) continue;
+      if (!allowedPrefixes.some((prefix) => p === prefix || p.startsWith(prefix))) continue;
       if (fs.existsSync(p)) {
         try {
           fs.rmSync(p, { recursive: true, force: true });
@@ -198,6 +289,23 @@ function runDiskSmartClean(options = {}) {
         }
       }
     }
+  }
+  // Also prune orphaned uv wheel archives and stale uv .tmp* folders
+  try {
+    const uvCacheDir = path.join(HOME, '.cache/uv');
+    if (fs.existsSync(uvCacheDir)) {
+      for (const name of fs.readdirSync(uvCacheDir)) {
+        if (name.startsWith('.tmp')) {
+          const tp = path.join(uvCacheDir, name);
+          fs.rmSync(tp, { recursive: true, force: true });
+          cleanedPaths.push(tp);
+        }
+      }
+      spawnSync('uv', ['cache', 'prune'], { encoding: 'utf8', timeout: 15000 });
+      cleanedPaths.push(path.join(uvCacheDir, 'archive-v0 (pruned)'));
+    }
+  } catch {
+    /* ignore */
   }
 
   const afterDisk = getRootDiskUsage();
@@ -269,6 +377,7 @@ if (require.main === module) {
 
 module.exports = {
   getRootDiskUsage,
+  findStaleClaudeTmpEntries,
   runDiskSmartScan,
   runDiskSmartClean,
   sendDiskGuardNotification,

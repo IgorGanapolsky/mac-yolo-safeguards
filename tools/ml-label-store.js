@@ -20,6 +20,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { OPS_DIR } = require('./ops-paths');
 
 const REPO = path.resolve(__dirname, '..');
 const DEFAULT_ML_DIR = path.join(os.homedir(), '.hermes', 'ml');
@@ -63,7 +64,7 @@ function parseArgs(argv) {
     attributionFile: '',
     out: DEFAULT_LABELS,
     summaryOut: DEFAULT_SUMMARY,
-    businessOs: path.join(REPO, 'business_os', 'revenue'),
+    businessOs: OPS_DIR,
   };
   const rest = [...argv];
   if (rest[0] && !rest[0].startsWith('--')) {

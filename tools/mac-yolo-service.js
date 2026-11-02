@@ -87,6 +87,10 @@ function routeRequest(method, rawUrl, bodyObj = {}) {
     return { status: 200, body: callTool('yolo_system_care', { clean: false }) };
   }
 
+  if (method === 'POST' && pathname === '/api/system-care/auto-heal') {
+    const { coolDownFansAndReapRunaways } = require('./mac-yolo-system-care-engine');
+    return { status: 200, body: coolDownFansAndReapRunaways() };
+  }
   if (method === 'POST' && pathname === '/api/settings/status-icon') {
     return {
       status: 200,
@@ -214,7 +218,6 @@ if (require.main === module) {
   const portIdx = argv.indexOf('--port');
   const port = portIdx !== -1 && argv[portIdx + 1] ? Number(argv[portIdx + 1]) : DEFAULT_PORT;
   const server = createServiceServer();
-  // Do not run a periodic killall loop that flashes the HUD on screen
   server.listen(port, '127.0.0.1', () => {
     console.log(`[mac-yolo-service] listening on http://127.0.0.1:${port}`);
   });

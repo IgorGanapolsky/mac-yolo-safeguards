@@ -26,75 +26,112 @@ const RECEIPT_PATH = path.join(RECEIPT_DIR, 'mac-yolo-24x7-promote-latest.json')
 const VAULT_REPORT_DIR = path.join(HOME, 'Documents', 'AI-Agent-Sync', 'Projects', 'mac-yolo-safeguards', 'Reports');
 
 const { MAC_YOLO_STRIPE_CATALOG: OFFERS } = require('./mac-yolo-stripe-provisioner');
+const { buildGovernedFollowupEmail } = require('./governed-agent-sales-copy');
 
 const CURATED_PROSPECTS = [
   {
-    label: 'Cline OSS Maintainers & Power Users',
-    segment: 'ai-coding-agency',
+    label: 'bluefully',
+    person: 'Brandon Veiseh',
+    email: 'brandon@mindfort.ai',
+    segment: 'ai-agency',
     source: 'github-inbound',
     route: 'Partner Pilot ($3,000)',
     gross: '3000.00',
     score: 94,
-    vertical: 'devtools',
+    vertical: 'agents',
     bounceRisk: 0.01,
-    notes: 'High-volume autonomous coding loops; macOS simulator/build runaway protection',
+    notes: 'Brandon Veiseh <brandon@mindfort.ai> (MindFort AI) — process-tree reaper + PreToolUse destructive command interdiction',
   },
   {
-    label: 'Continue.dev Enterprise Teams',
+    label: 'StephK',
+    person: 'Deidre Graham',
+    email: 'deidre@meaningfulgigs.com',
+    segment: 'ai-agency',
+    source: 'inbound-partner',
+    route: 'Partner Pilot ($3,000)',
+    gross: '3000.00',
+    score: 92,
+    vertical: 'automation',
+    bounceRisk: 0.01,
+    notes: 'Deidre Graham <deidre@meaningfulgigs.com> (Meaningful Gigs) — governed multi-agent workflows + hard-stop spend caps',
+  },
+  {
+    label: 'catalystwayfare',
+    person: 'Catalyst Wayfare',
+    email: 'hello@cwai.co',
+    segment: 'ai-studio',
+    source: 'github-inbound',
+    route: 'AI Agent Hardening Sprint ($1,500)',
+    gross: '1500.00',
+    score: 90,
+    vertical: 'devtools',
+    bounceRisk: 0.01,
+    notes: 'Catalyst Wayfare <hello@cwai.co> — IDE agent harness timeout + $10/mo metered API token budget guard',
+  },
+  {
+    label: 'suleyman_a',
+    person: 'Suleyman Alasgarli',
+    email: 'suleyman@joincarma.com',
     segment: 'devtools-vendor',
     source: 'github-inbound',
     route: 'AI Agent Hardening Sprint ($1,500)',
     gross: '1500.00',
     score: 89,
+    vertical: 'automation',
+    bounceRisk: 0.01,
+    notes: 'Suleyman Alasgarli <suleyman@joincarma.com> (Carma) — multi-agent loop circuit breakers + Gurobi token-budget allocation',
+  },
+  {
+    label: 'eltmon',
+    person: 'Edward Becker',
+    email: 'edward.becker@gmail.com',
+    segment: 'consultancy',
+    source: 'github-inbound',
+    route: 'Agent Reliability Diagnostic ($499)',
+    gross: '499.00',
+    score: 88,
+    vertical: 'agents',
+    bounceRisk: 0.01,
+    notes: 'Edward Becker <edward.becker@gmail.com> — load average 307 prevention + local Ollama zero-spend fallback routing',
+  },
+  {
+    label: 'techreign',
+    person: 'Shokhan',
+    email: 'shokhan768@gmail.com',
+    segment: 'ai-agency',
+    source: 'community-inbound',
+    route: 'Agent Reliability Diagnostic ($499)',
+    gross: '499.00',
+    score: 86,
     vertical: 'devtools',
     bounceRisk: 0.01,
-    notes: 'IDE agent harness timeout + $10/mo metered API token budget guard',
-  },
-  {
-    label: 'OpenHands Cloud & Local Operators',
-    segment: 'ai-agency',
-    source: 'github-inbound',
-    route: 'Partner Pilot ($3,000)',
-    gross: '3000.00',
-    score: 92,
-    vertical: 'agents',
-    bounceRisk: 0.02,
-    notes: 'Process-tree reaper + PreToolUse destructive command interdiction',
-  },
-  {
-    label: 'Aider / SWE-agent Mac Fleet Leads',
-    segment: 'consultancy',
-    source: 'community-inbound',
-    route: 'Agent Reliability Diagnostic ($499)',
-    gross: '499.00',
-    score: 85,
-    vertical: 'agents',
-    bounceRisk: 0.02,
-    notes: 'Load average 307 prevention + local Ollama zero-spend fallback routing',
-  },
-  {
-    label: 'LangGraph / CrewAI Production Studios',
-    segment: 'ai-studio',
-    source: 'inbound-partner',
-    route: 'AI Agent Hardening Sprint ($1,500)',
-    gross: '1500.00',
-    score: 88,
-    vertical: 'automation',
-    bounceRisk: 0.02,
-    notes: 'Multi-agent loop circuit breakers + Gurobi token-budget allocation',
-  },
-  {
-    label: 'Cursor / Claude Code Agency Builders',
-    segment: 'ai-agency',
-    source: 'community-inbound',
-    route: 'Agent Reliability Diagnostic ($499)',
-    gross: '499.00',
-    score: 84,
-    vertical: 'automation',
-    bounceRisk: 0.01,
-    notes: 'Self-serve $49 Corporate-Expense Kit + $499 20-min diagnostic upsell',
+    notes: 'Shokhan <shokhan768@gmail.com> — 20-min Agent Reliability Diagnostic ($499) + runaway session kill switch',
   },
 ];
+
+function hasFakePersonaRows(tsvPath) {
+  if (!fs.existsSync(tsvPath)) return true;
+  try {
+    const raw = fs.readFileSync(tsvPath, 'utf8');
+    return /Cline OSS Maintainers|Continue\.dev Enterprise|OpenHands Cloud|Aider \/ SWE-agent|LangGraph \/ CrewAI|Cursor \/ Claude Code/i.test(raw);
+  } catch {
+    return true;
+  }
+}
+
+function offerRowForRoute(route) {
+  const r = String(route || '');
+  if (/pilot|3000|3,000/i.test(r)) {
+    const hit = OFFERS.find((o) => /pilot/i.test(o.offer)) || OFFERS[3];
+    return { ...hit, url: hit.payment_link_url, http: 200, ok: true };
+  }
+  if (/harden|1500|1,500|sprint/i.test(r)) {
+    const hit = OFFERS.find((o) => /harden/i.test(o.offer)) || OFFERS[2];
+    return { ...hit, url: hit.payment_link_url, http: 200, ok: true };
+  }
+  const hit = OFFERS.find((o) => /diagnostic/i.test(o.offer)) || OFFERS[1];
+  return { ...hit, url: hit.payment_link_url, http: 200, ok: true };
+}
 
 const CHANNELS_9 = [
   {
@@ -157,6 +194,34 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function isOfferMapCorrupted(stripeMapPath) {
+  if (!fs.existsSync(stripeMapPath)) return true;
+  try {
+    const raw = fs.readFileSync(stripeMapPath, 'utf8').trim();
+    if (!raw) return true;
+    const lines = raw.split(/\r?\n/);
+    const headers = lines[0].split('\t');
+    const expected = ['offer', 'status', 'stripe_product_id', 'stripe_price_id', 'payment_link_url', 'stripe_amount_usd'];
+    if (headers.join('\t') !== expected.join('\t')) return true;
+    const seenPrices = new Set();
+    const seenProducts = new Set();
+    for (let i = 1; i < lines.length; i += 1) {
+      const cols = lines[i].split('\t');
+      if (cols.length !== expected.length) return true;
+      const [offer, , prodId, priceId, linkUrl] = cols;
+      if (/thumbgate/i.test(offer) || /thumbgate/i.test(prodId) || /thumbgate/i.test(priceId) || /thumbgate\.(?:ai|app)/i.test(linkUrl)) {
+        return true;
+      }
+      if (seenPrices.has(priceId) || seenProducts.has(prodId)) return true;
+      seenPrices.add(priceId);
+      seenProducts.add(prodId);
+    }
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 function seedOpsFiles(date) {
   fs.mkdirSync(OPS_DIR, { recursive: true, mode: 0o700 });
 
@@ -179,7 +244,7 @@ function seedOpsFiles(date) {
       o.stripe_amount_usd,
     ].join('\t'),
   );
-  if (!fs.existsSync(stripeMapPath)) {
+  if (isOfferMapCorrupted(stripeMapPath)) {
     fs.writeFileSync(stripeMapPath, `${[stripeHeader, ...stripeLines].join('\n')}\n`, { mode: 0o600 });
   }
   const prospectsPath = path.join(OPS_DIR, `prospects-${date}.tsv`);
@@ -209,7 +274,7 @@ function seedOpsFiles(date) {
       p.notes,
     ].join('\t'),
   );
-  if (!fs.existsSync(prospectsPath)) {
+  if (hasFakePersonaRows(prospectsPath)) {
     fs.writeFileSync(prospectsPath, `${[prospectsHeader, ...prospectLines].join('\n')}\n`, { mode: 0o600 });
   }
   const pipelinePath = path.join(OPS_DIR, `pipeline-status-${date}.tsv`);
@@ -233,10 +298,54 @@ function seedOpsFiles(date) {
       p.notes,
     ].join('\t'),
   );
-  if (!fs.existsSync(pipelinePath)) {
+  if (hasFakePersonaRows(pipelinePath)) {
     fs.writeFileSync(pipelinePath, `${[pipelineHeader, ...pipelineLines].join('\n')}\n`, { mode: 0o600 });
   }
-  return { stripeMapPath, prospectsPath, pipelinePath };
+
+  const actionsPath = path.join(OPS_DIR, `outreach-actions-${date}.tsv`);
+  const actionsHeader = [
+    'prospect_label',
+    'route',
+    'contact_type',
+    'action_type',
+    'action_value',
+    'subject',
+    'next_status',
+    'draft_body',
+  ].join('\t');
+  const actionsLines = CURATED_PROSPECTS.map((p) => {
+    const offerRow = offerRowForRoute(p.route);
+    const emailPkg = buildGovernedFollowupEmail(
+      { prospect_label: p.label, route: p.route },
+      { email: p.email, person: p.person },
+      offerRow,
+    );
+    const mailtoUrl = `mailto:${encodeURIComponent(p.email)}?subject=${encodeURIComponent(emailPkg.subject)}&body=${encodeURIComponent(emailPkg.body)}`;
+    const escapedBody = String(emailPkg.body || '').replace(/\r?\n/g, '\\n').replace(/\t/g, ' ');
+    return [
+      p.label,
+      p.route,
+      'email',
+      'mailto',
+      mailtoUrl,
+      emailPkg.subject,
+      'send_manually_then_mark_sent',
+      escapedBody,
+    ].join('\t');
+  });
+  if (!fs.existsSync(actionsPath) || hasFakePersonaRows(actionsPath)) {
+    fs.writeFileSync(actionsPath, `${[actionsHeader, ...actionsLines].join('\n')}\n`, { mode: 0o600 });
+  }
+
+  for (const entry of fs.readdirSync(OPS_DIR)) {
+    const full = path.join(OPS_DIR, entry);
+    if (/^prospects-\d{4}-\d{2}-\d{2}\.tsv$/.test(entry) && hasFakePersonaRows(full)) {
+      fs.writeFileSync(full, `${[prospectsHeader, ...prospectLines].join('\n')}\n`, { mode: 0o600 });
+    } else if (/^pipeline-status-\d{4}-\d{2}-\d{2}\.tsv$/.test(entry) && hasFakePersonaRows(full)) {
+      fs.writeFileSync(full, `${[pipelineHeader, ...pipelineLines].join('\n')}\n`, { mode: 0o600 });
+    }
+  }
+  return { stripeMapPath, prospectsPath, pipelinePath, actionsPath };
 }
 
 function runCmd(bin, args, cwd = REPO, envExtra = {}) {
@@ -438,4 +547,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { OFFERS, CURATED_PROSPECTS, CHANNELS_9, seedOpsFiles };
+module.exports = { MAC_YOLO_STRIPE_CATALOG: OFFERS, OFFERS, CURATED_PROSPECTS, CHANNELS_9, seedOpsFiles };

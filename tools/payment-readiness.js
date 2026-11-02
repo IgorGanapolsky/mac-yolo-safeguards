@@ -115,8 +115,54 @@ function currency(value) {
   return `$${value.toFixed(2)}`;
 }
 
+function detectCatalogAnomalies(offerRows = []) {
+  const priceToOffers = new Map();
+  const productToOffers = new Map();
+  const crossTenantOffers = new Set();
+
+  for (const row of offerRows) {
+    if (!row || !row.offer) continue;
+    const priceId = String(row.stripe_price_id || '').trim();
+    const prodId = String(row.stripe_product_id || '').trim();
+    const linkUrl = String(row.payment_link_url || '').trim();
+    if (priceId) {
+      const list = priceToOffers.get(priceId) || [];
+      list.push(row.offer);
+      priceToOffers.set(priceId, list);
+    }
+    if (prodId) {
+      const list = productToOffers.get(prodId) || [];
+      list.push(row.offer);
+      productToOffers.set(prodId, list);
+    }
+    if (
+      /thumbgate/i.test(row.offer) ||
+      /thumbgate/i.test(prodId) ||
+      /thumbgate/i.test(priceId) ||
+      /thumbgate\.(?:ai|app)/i.test(linkUrl)
+    ) {
+      crossTenantOffers.add(row.offer);
+    }
+  }
+
+  const duplicatePriceIds = new Set(
+    [...priceToOffers.entries()].filter(([, list]) => new Set(list).size > 1).map(([id]) => id),
+  );
+  const duplicateProductIds = new Set(
+    [...productToOffers.entries()].filter(([, list]) => new Set(list).size > 1).map(([id]) => id),
+  );
+
+  return {
+    duplicatePriceIds,
+    duplicateProductIds,
+    crossTenantOffers,
+  };
+}
+
 function buildSummary(args) {
-  const offers = new Map(parseTsv(args.stripeOfferMap).map((offer) => [offer.offer, offer]));
+  const offerRows = parseTsv(args.stripeOfferMap);
+  const anomalies = detectCatalogAnomalies(offerRows);
+  const offers = new Map(offerRows.map((offer) => [offer.offer, offer]));
   const rows = args.pipelines.flatMap((path) => parseTsv(path));
   const openRows = rows.filter((row) => openStages.has(row.stage));
   const byOffer = new Map();
@@ -138,7 +184,7 @@ function buildSummary(args) {
     const offer = offerName(row.route);
     const gross = money(row.gross_potential_usd, `${row.prospect_label} gross_potential_usd`);
     const stripeOffer = offers.get(offer);
-    const readiness = stripeReadiness(stripeOffer);
+    const readiness = stripeReadiness(stripeOffer, { anomalies, expectedGrossUsd: gross });
     if (readiness.priceReady) {
       priceReadyGross += gross;
       if (readiness.linkReady) {
@@ -175,7 +221,7 @@ function buildSummary(args) {
     });
   }
 
-  return { rows, openRows, byOffer, lines, priceReadyGross, linkReadyGross, missingGross, paidGross };
+  return { rows, openRows, byOffer, lines, priceReadyGross, linkReadyGross, missingGross, paidGross, anomalies };
 }
 
 function realStripeProductId(value) {
@@ -187,10 +233,11 @@ function realStripePriceId(value) {
 }
 
 function realPaymentLink(value) {
-  return /^https:\/\/buy\.stripe\.com\/[A-Za-z0-9]/.test(String(value || ''));
+  const s = String(value || '');
+  return /^https:\/\/buy\.stripe\.com\/[A-Za-z0-9]/.test(s) || /^https:\/\/iganapolsky\.gumroad\.com\/l\/[A-Za-z0-9]/.test(s);
 }
 
-function stripeReadiness(stripeOffer) {
+function stripeReadiness(stripeOffer, context = {}) {
   if (!stripeOffer) {
     return {
       priceReady: false,
@@ -199,14 +246,49 @@ function stripeReadiness(stripeOffer) {
       linkStatus: 'missing_offer',
     };
   }
+  const anomalies = context.anomalies || {
+    duplicatePriceIds: new Set(),
+    duplicateProductIds: new Set(),
+    crossTenantOffers: new Set(),
+  };
   const statusReady = stripeOffer.status === 'ready';
   const productReady = realStripeProductId(stripeOffer.stripe_product_id);
-  const priceReady = statusReady && productReady && realStripePriceId(stripeOffer.stripe_price_id);
+  const priceSyntaxReady = realStripePriceId(stripeOffer.stripe_price_id);
+  const isDuplicatePrice = anomalies.duplicatePriceIds && anomalies.duplicatePriceIds.has(stripeOffer.stripe_price_id);
+  const isDuplicateProduct = anomalies.duplicateProductIds && anomalies.duplicateProductIds.has(stripeOffer.stripe_product_id);
+  const isCrossTenant =
+    (anomalies.crossTenantOffers && anomalies.crossTenantOffers.has(stripeOffer.offer)) ||
+    /thumbgate/i.test(String(stripeOffer.offer || '')) ||
+    /thumbgate/i.test(String(stripeOffer.stripe_product_id || '')) ||
+    /thumbgate/i.test(String(stripeOffer.stripe_price_id || '')) ||
+    /thumbgate\.(?:ai|app)/i.test(String(stripeOffer.payment_link_url || ''));
+  const offerAmount = stripeOffer.stripe_amount_usd !== undefined && stripeOffer.stripe_amount_usd !== ''
+    ? Number(stripeOffer.stripe_amount_usd)
+    : null;
+  const amountMismatch =
+    Number.isFinite(offerAmount) &&
+    Number.isFinite(context.expectedGrossUsd) &&
+    Math.abs(offerAmount - context.expectedGrossUsd) > 0.01;
+
+  let priceStatus = 'missing_or_invalid';
+  if (isCrossTenant) {
+    priceStatus = 'cross_tenant_offer';
+  } else if (isDuplicatePrice) {
+    priceStatus = 'duplicate_price_id';
+  } else if (isDuplicateProduct) {
+    priceStatus = 'duplicate_product_id';
+  } else if (amountMismatch) {
+    priceStatus = 'amount_mismatch';
+  } else if (statusReady && productReady && priceSyntaxReady) {
+    priceStatus = 'ready';
+  }
+
+  const priceReady = priceStatus === 'ready';
   const linkReady = priceReady && realPaymentLink(stripeOffer.payment_link_url);
   return {
     priceReady,
     linkReady,
-    priceStatus: priceReady ? 'ready' : 'missing_or_invalid',
+    priceStatus,
     linkStatus: linkReady ? 'ready' : 'missing_or_invalid',
   };
 }
@@ -294,11 +376,23 @@ function main() {
   }
 }
 
-try {
-  main();
-} catch (error) {
-  console.error(error.message);
-  console.error('');
-  console.error(usage);
-  process.exit(2);
+if (require.main === module) {
+  try {
+    main();
+  } catch (error) {
+    console.error(error.message);
+    console.error('');
+    console.error(usage);
+    process.exit(2);
+  }
 }
+
+module.exports = {
+  buildSummary,
+  stripeReadiness,
+  detectCatalogAnomalies,
+  parseTsv,
+  realStripeProductId,
+  realStripePriceId,
+  realPaymentLink,
+};

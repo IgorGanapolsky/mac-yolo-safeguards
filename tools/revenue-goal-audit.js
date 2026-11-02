@@ -2,10 +2,15 @@
 'use strict';
 
 const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const { discoverLedgers } = require('./ops-paths');
+const { extractPaymentId, isSyntheticOrOwnerTest } = require('./record-cleared-payment');
 
+const DEFAULT_RECEIPT_PATH = path.join(os.homedir(), '.hermes', 'logs', 'revenue-receipt.json');
+const TINKER_BRAIN_RECEIPT_PATH = path.join(os.homedir(), '.hermes', 'receipts', 'tinker-brain', 'revenue-receipt.json');
 const usage = `Usage:
-  node tools/revenue-goal-audit.js [--date YYYY-MM-DD] [--ledger revenue-ledger-YYYY-MM.tsv ...] [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--days N] [--target-daily-net N] [--out revenue-goal-audit.md]
+  node tools/revenue-goal-audit.js [--date YYYY-MM-DD] [--ledger revenue-ledger-YYYY-MM.tsv ...] [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--days N] [--target-daily-net N] [--out revenue-goal-audit.md] [--write-receipt [path]]
 
 Audits whether real private cleared revenue proves the $300/day after-tax goal.
 Example ledgers are excluded. This tool is read-only and does not create Stripe
@@ -49,6 +54,13 @@ function parseArgs(argv) {
       args.targetDailyNet = Number(argv[++i]);
     } else if (arg === '--out') {
       args.out = argv[++i];
+    } else if (arg === '--write-receipt') {
+      const next = argv[i + 1];
+      if (next && !next.startsWith('--')) {
+        args.writeReceipt = argv[++i];
+      } else {
+        args.writeReceipt = DEFAULT_RECEIPT_PATH;
+      }
     } else if (arg === '--help' || arg === '-h') {
       args.help = true;
     } else {
@@ -124,7 +136,12 @@ function parseLedger(path) {
     if (row.taxReservePct < 0 || row.taxReservePct > 1) {
       throw new Error(`${path} line ${lineNumber}: tax_reserve_pct must be between 0 and 1`);
     }
+    if (row.stripeFee + row.refund > row.gross + 1e-6) {
+      throw new Error(`${path} line ${lineNumber}: stripe_fee_usd + refund_usd cannot exceed gross_usd`);
+    }
     row.statusNormalized = row.status.toLowerCase();
+    row.paymentId = extractPaymentId(row.proof_note);
+    row.isOwnerOrTest = isSyntheticOrOwnerTest(row);
     if (['paid', 'cleared'].includes(row.statusNormalized) && weakProofNote(row.proof_note)) {
       throw new Error(`${path} line ${lineNumber}: proof_note for paid/cleared revenue must include concrete private payment and delivery evidence`);
     }
@@ -138,8 +155,15 @@ function currency(value) {
 
 function summarize(rows, from, to) {
   const includedStatuses = new Set(['paid', 'cleared']);
+  const seenPaymentIds = new Set();
+  let duplicateRowsSkipped = 0;
+  let ownerOrTestRowsSkipped = 0;
   const counted = rows.filter((row) => {
     if (!includedStatuses.has(row.statusNormalized)) {
+      return false;
+    }
+    if (row.isOwnerOrTest) {
+      ownerOrTestRowsSkipped += 1;
       return false;
     }
     if (from && row.date < from) {
@@ -148,10 +172,17 @@ function summarize(rows, from, to) {
     if (to && row.date > to) {
       return false;
     }
+    if (row.paymentId) {
+      if (seenPaymentIds.has(row.paymentId)) {
+        duplicateRowsSkipped += 1;
+        return false;
+      }
+      seenPaymentIds.add(row.paymentId);
+    }
     return true;
   });
   return counted.reduce((acc, row) => {
-    const preTax = row.gross - row.stripeFee - row.refund;
+    const preTax = Math.max(0, row.gross - row.stripeFee - row.refund);
     const taxReserve = preTax * row.taxReservePct;
     const netAfterReserve = preTax - taxReserve;
     acc.gross += row.gross;
@@ -163,12 +194,65 @@ function summarize(rows, from, to) {
     return acc;
   }, {
     countedRows: 0,
+    duplicateRowsSkipped,
+    ownerOrTestRowsSkipped,
     gross: 0,
     stripeFees: 0,
     refunds: 0,
     taxReserve: 0,
     netAfterReserve: 0,
   });
+}
+
+function computeRollingWindows(rows, anchorDateStr) {
+  const anchor = parseDate(anchorDateStr, 'anchorDate');
+  const windows = {};
+  for (const days of [7, 30, 90]) {
+    const start = new Date(anchor.getTime() - (days - 1) * 86400000);
+    const s = summarize(rows, start, anchor);
+    windows[`${days}d`] = {
+      days,
+      from: start.toISOString().slice(0, 10),
+      to: anchorDateStr,
+      countedRows: s.countedRows,
+      grossUsd: Number(s.gross.toFixed(2)),
+      stripeFeesUsd: Number(s.stripeFees.toFixed(2)),
+      refundsUsd: Number(s.refunds.toFixed(2)),
+      taxReserveUsd: Number(s.taxReserve.toFixed(2)),
+      netAfterReserveUsd: Number(s.netAfterReserve.toFixed(2)),
+    };
+  }
+  return windows;
+}
+
+function buildReceiptPayload({ date, ledgers, allRows, summary, windows }) {
+  const w7 = windows['7d'] || { grossUsd: 0, netAfterReserveUsd: 0 };
+  const w30 = windows['30d'] || { grossUsd: 0, netAfterReserveUsd: 0 };
+  const w90 = windows['90d'] || { grossUsd: 0, netAfterReserveUsd: 0 };
+  return {
+    schema: 'mac-yolo-revenue-receipt/v2',
+    ts: new Date().toISOString(),
+    audit_date: date,
+    verified: true,
+    ledgers_discovered: ledgers.length,
+    ledger_rows_scanned: allRows.length,
+    counted_cleared_rows: summary.countedRows,
+    duplicate_rows_skipped: summary.duplicateRowsSkipped || 0,
+    owner_or_test_rows_skipped: summary.ownerOrTestRowsSkipped || 0,
+    external_net_cents: Math.round(w30.netAfterReserveUsd * 100),
+    external_gross_cents: Math.round(w30.grossUsd * 100),
+    stripe_7d_usd: w7.grossUsd,
+    stripe_30d_usd: w30.grossUsd,
+    stripe_90d_usd: w90.grossUsd,
+    net_after_reserve_7d_usd: w7.netAfterReserveUsd,
+    net_after_reserve_30d_usd: w30.netAfterReserveUsd,
+    net_after_reserve_90d_usd: w90.netAfterReserveUsd,
+    gumroad_7d_usd: 0,
+    total_7d_usd: w7.grossUsd,
+    total_30d_usd: w30.grossUsd,
+    total_90d_usd: w90.grossUsd,
+    windows,
+  };
 }
 
 function render(args, ledgers, allRows, summary) {
@@ -227,6 +311,7 @@ function main() {
   const realLedgers = ledgers.filter((ledger) => !ledger.includes('.example.'));
   const allRows = realLedgers.flatMap((ledger) => parseLedger(ledger));
   const summary = summarize(allRows, from, to);
+  const windows = computeRollingWindows(allRows, args.date);
   const report = render(args, realLedgers, allRows, summary);
 
   console.log(`Ledgers discovered: ${realLedgers.length}`);
@@ -238,13 +323,39 @@ function main() {
     fs.writeFileSync(args.out, `${report}\n`);
     console.log(`Revenue goal audit written: ${args.out}`);
   }
+  if (args.writeReceipt) {
+    const receipt = buildReceiptPayload({
+      date: args.date,
+      ledgers: realLedgers,
+      allRows,
+      summary,
+      windows,
+    });
+    const targets = args.writeReceipt === DEFAULT_RECEIPT_PATH
+      ? [DEFAULT_RECEIPT_PATH, TINKER_BRAIN_RECEIPT_PATH]
+      : [args.writeReceipt];
+    for (const target of targets) {
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, `${JSON.stringify(receipt, null, 2)}\n`);
+      console.log(`Revenue receipt written: ${target}`);
+    }
+  }
 }
 
-try {
-  main();
-} catch (error) {
-  console.error(error.message);
-  console.error('');
-  console.error(usage);
-  process.exit(2);
+if (require.main === module) {
+  try {
+    main();
+  } catch (error) {
+    console.error(error.message);
+    console.error('');
+    console.error(usage);
+    process.exit(2);
+  }
 }
+
+module.exports = {
+  parseLedger,
+  summarize,
+  computeRollingWindows,
+  buildReceiptPayload,
+};

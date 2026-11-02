@@ -286,7 +286,7 @@ function latestFile(dir, prefix, suffix) {
     .readdirSync(dir)
     .filter((f) => f.startsWith(prefix) && f.endsWith(suffix))
     .map((f) => ({ f, t: fs.statSync(path.join(dir, f)).mtimeMs }))
-    .sort((a, b) => b.t - a.t);
+    .sort((a, b) => b.f.localeCompare(a.f) || b.t - a.t);
   return files[0] ? path.join(dir, files[0].f) : null;
 }
 
@@ -435,8 +435,8 @@ function contactForProspect(contacts, row) {
   const label = row.prospect_label || '';
   const values = Object.values(contacts);
   return (
-    values.find((c) => c.prospect === label) ||
     values.find((c) => c.email && row.notes && row.notes.includes(c.email)) ||
+    values.find((c) => c.prospect === label) ||
     values.find((c) => c.prospect && label && c.prospect.toLowerCase() === label.toLowerCase()) ||
     null
   );
@@ -895,9 +895,14 @@ async function run(args) {
     actions.push('apollo=skipped');
   }
 
-  // Skip expensive gmail live probe when nothing due and not auto-sending
+  const readyRows = pipeline.rows
+    .filter((r) => r.stage === 'ready' && contactForProspect(contacts, r))
+    .map((r) => ({ ...r, hours_since: hoursSince(r.last_touch) }));
+  const actionableRows = [...dueRows, ...readyRows];
+
+  // Skip expensive gmail live probe when nothing actionable and not auto-sending
   let gmail = { ready: false, reason: 'skipped_no_due' };
-  if (args.autoSend || dueRows.length > 0) {
+  if (args.autoSend || actionableRows.length > 0) {
     gmail = googleApiReady();
     actions.push(`gmail_api=${gmail.ready ? 'ready' : `not_ready:${gmail.reason}`}`);
   } else {
@@ -1039,12 +1044,19 @@ async function run(args) {
   }
   if (args.autoSend && !unattendedSendAllowed) {
     actions.push('auto_send=blocked_by_safety_gate');
-    for (const row of dueRows) {
+    for (const row of actionableRows) {
       const contact = contactForProspect(contacts, row);
+      const offerRow = offerLinkFromMap(offerMap.rows, row.route);
+      const offerHealth = offerRow ? linkByOffer[offerRow.offer] : null;
+      const email = contact ? buildFollowupEmail(row, contact, offerHealth) : null;
       pendingSends.push({
         prospect: row.prospect_label,
+        stage: row.stage,
         reason: 'blocked_by_safety_gate',
         to: contact?.email,
+        subject: email?.subject,
+        offer: email?.offer,
+        link: email?.link,
         needs: 'REVENUE_UNATTENDED_SEND_APPROVED=1 and --allow-unattended-send',
       });
     }
@@ -1052,7 +1064,7 @@ async function run(args) {
 
   if (unattendedSendAllowed) {
     // Someone who replied gets a human answer, never another cold follow-up.
-    const sendable = dueRows.filter((row) => {
+    const sendable = actionableRows.filter((row) => {
       const c = contactForProspect(contacts, row);
       const email = String(c?.email || '').toLowerCase();
       if (email && repliedEmails.has(email)) {
@@ -1094,7 +1106,7 @@ async function run(args) {
                 '--prospect',
                 row.prospect_label,
                 '--stage',
-                row.stage,
+                row.stage === 'ready' ? 'sent' : row.stage,
                 '--date',
                 today(),
                 '--next-action',
@@ -1178,7 +1190,7 @@ async function run(args) {
             '--prospect',
             row.prospect_label,
             '--stage',
-            row.stage,
+            row.stage === 'ready' ? 'sent' : row.stage,
             '--date',
             today(),
             '--next-action',
@@ -1204,6 +1216,22 @@ async function run(args) {
     actions.push(`auto_send_attempts=${attempts} emailable_due=${ranked.filter((r) => contactForProspect(contacts, r)).length}`);
   } else if (!args.autoSend) {
     actions.push('auto_send=off (pass --auto-send or REVENUE_AUTO_SEND=1)');
+    for (const row of actionableRows) {
+      const contact = contactForProspect(contacts, row);
+      if (!contact || !contact.email) continue;
+      const offerRow = offerLinkFromMap(offerMap.rows, row.route);
+      const offerHealth = offerRow ? linkByOffer[offerRow.offer] : null;
+      const email = buildFollowupEmail(row, contact, offerHealth);
+      pendingSends.push({
+        prospect: row.prospect_label,
+        stage: row.stage,
+        reason: row.stage === 'ready' ? 'ready_first_touch_queued' : 'due_followup_queued',
+        to: contact.email,
+        subject: email.subject,
+        offer: email.offer,
+        link: email.link,
+      });
+    }
   }
 
   // Always write pending queue for agent MCP pickup

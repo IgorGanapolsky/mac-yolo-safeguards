@@ -1261,7 +1261,7 @@ class ToolRuntime:
         timeout = max(1, min(int(arguments.get("timeout_seconds", 120)), 600))
         started = time.monotonic()
         process = subprocess.Popen(
-            ["/bin/zsh", "-c", command],
+            ["/bin/zsh", "-f", "-c", command],
             cwd=str(cwd),
             env=clean_child_environment(),
             stdout=subprocess.PIPE,

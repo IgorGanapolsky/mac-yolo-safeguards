@@ -24,6 +24,7 @@ const REPO = path.resolve(__dirname, '..');
 const DEFAULT_FIXTURE = path.join(REPO, 'tests/fixtures/rag-eval/cases.json');
 const RETRIEVE = path.join(REPO, 'tools/hermes-retrieval-harness.js');
 const DUAL = path.join(REPO, 'tools/retrieval-dual-path.js');
+const { retrieve: retrieveInProcess } = require('./hermes-retrieval-harness');
 
 function parseArgs(argv) {
   const args = {
@@ -55,37 +56,23 @@ function precisionAtK(rankedPaths, relevantSubstrings, k) {
 }
 
 function runRetrieveHarness(query, limit) {
-  const result = spawnSync(
-    process.execPath,
-    [
-      RETRIEVE,
-      'retrieve',
-      '--query',
-      query,
-      '--limit',
-      String(limit),
-      '--max-files',
-      '12000',
-      '--json',
-    ],
-    { cwd: REPO, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, timeout: 180000 },
-  );
-  if (result.status !== 0) {
-    return {
-      ok: false,
-      error: (result.stderr || result.stdout || `exit ${result.status}`).trim(),
-      paths: [],
-    };
-  }
   try {
-    const body = JSON.parse(result.stdout);
+    const body = retrieveInProcess(query, {
+      repo: REPO,
+      limit,
+      maxFiles: 12000,
+    });
     const hits = body.matches || body.results || body.hits || body.files || [];
     const paths = hits
       .map((hit) => hit.path || hit.relativePath || hit.file || '')
       .filter(Boolean);
     return { ok: true, paths, raw: body };
   } catch (error) {
-    return { ok: false, error: `invalid JSON: ${error.message}`, paths: [] };
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+      paths: [],
+    };
   }
 }
 

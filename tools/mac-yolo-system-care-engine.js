@@ -31,6 +31,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { execFileSync, spawnSync } = require('child_process');
+const { runAiAmOperationalChecks } = require('./ai-am-arena-production-guard');
 const { runDiskSmartScan, runDiskSmartClean } = require('./mac-yolo-disk-guard');
 
 const HOME = os.homedir();
@@ -135,11 +136,14 @@ function auditBrowserCare() {
       }
     }
 
+    const neoTomlExists = fs.existsSync(path.join(HOME, '.browserclaw', 'neo.toml'));
+    const auditRetentionExists = fs.existsSync(path.join(HOME, '.browserclaw', 'audit-retention.json'));
     return {
       ok: true,
       chromeRendererCount: chromeRenderers,
       chromeRendererMemoryMiB: Number(chromeMemMiB.toFixed(1)),
       browserOsMemoryMiB: Number(browserOsMemMiB.toFixed(1)),
+      browserOsConfigTuned: neoTomlExists && auditRetentionExists,
       orphanHeadlessCount: orphanHeadlessPids.length,
       orphanHeadlessPids,
     };
@@ -324,14 +328,20 @@ function uninstallAppWithLeftovers(appName, options = {}) {
   }
   const removedPaths = [];
   if (!dryRun) {
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '');
+    const trashDir = path.join(HOME, '.Trash', `mac-yolo-uninstalled-${stamp}`);
+    fs.mkdirSync(trashDir, { recursive: true });
     for (const p of matchedPaths) {
       try {
         if (p.endsWith('.plist') && p.includes('/LaunchAgents/') && process.platform === 'darwin') {
           const lbl = path.basename(p, '.plist');
           spawnSync('launchctl', ['bootout', `gui/${process.getuid()}/${lbl}`]);
         }
-        fs.rmSync(p, { recursive: true, force: true });
-        removedPaths.push(p);
+        const base = path.basename(p);
+        let dest = path.join(trashDir, base);
+        if (fs.existsSync(dest)) dest = path.join(trashDir, `${Date.now()}-${base}`);
+        fs.renameSync(p, dest);
+        removedPaths.push(dest);
       } catch {
         /* ignore */
       }
@@ -401,8 +411,142 @@ function setStatusBarIconVisibility(visible) {
 /**
  * 7. Unified 5-Tile Smart Care Scan (Cleanup, Protection, Performance, Applications, My Clutter)
  */
+/**
+ * 6b. Automatic Session Checkpoint & Tool-Blob Compaction (`~/.grok/sessions` & `~/.omp/agent/sessions`)
+ * Prunes superseded `compaction_checkpoints/*.json` (retaining only the newest checkpoint per session),
+ * removes stale `web_fetch/*.md` cache files in inactive sessions (>2h old), and trims oversized (>32 KB)
+ * tool output blobs in inactive (>2h old) session JSONL transcripts so KV-cache & disk stay clean automatically.
+ */
+function autoCompactSessionTranscripts(options = {}) {
+  const maxAgeMs = (options.inactiveMinutes ?? 120) * 60 * 1000;
+  const now = Date.now();
+  const sessionRoots = [
+    path.join(HOME, '.grok', 'sessions'),
+    path.join(HOME, '.omp', 'agent', 'sessions'),
+  ];
+  let checkpointsRemoved = 0;
+  let webFetchRemoved = 0;
+  let transcriptsCompacted = 0;
+  let bytesReclaimed = 0;
+
+  function walkSessionDirs(dir, depth = 0) {
+    if (depth > 4 || !fs.existsSync(dir)) return;
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const ent of entries) {
+      const full = path.join(dir, ent.name);
+      if (ent.isDirectory()) {
+        if (ent.name === 'compaction_checkpoints') {
+          try {
+            const files = fs.readdirSync(full)
+              .filter((f) => f.endsWith('.json'))
+              .map((f) => {
+                const fp = path.join(full, f);
+                const st = fs.statSync(fp);
+                return { fp, mtimeMs: st.mtimeMs, size: st.size };
+              })
+              .sort((a, b) => b.mtimeMs - a.mtimeMs);
+            // Keep only the single newest checkpoint if active; if >2h old, keep 1 compact or remove superseded
+            for (let i = 1; i < files.length; i++) {
+              try {
+                fs.unlinkSync(files[i].fp);
+                checkpointsRemoved++;
+                bytesReclaimed += files[i].size;
+              } catch {
+                /* ignore */
+              }
+            }
+          } catch {
+            /* ignore */
+          }
+        } else if (ent.name === 'web_fetch') {
+          try {
+            const files = fs.readdirSync(full);
+            for (const f of files) {
+              const fp = path.join(full, f);
+              const st = fs.statSync(fp);
+              if (now - st.mtimeMs > maxAgeMs) {
+                fs.unlinkSync(fp);
+                webFetchRemoved++;
+                bytesReclaimed += st.size;
+              }
+            }
+          } catch {
+            /* ignore */
+          }
+        } else {
+          walkSessionDirs(full, depth + 1);
+        }
+      } else if (ent.isFile() && ent.name === 'chat_history.jsonl') {
+        try {
+          const st = fs.statSync(full);
+          // Only compact inactive (>2h old) transcripts larger than 1.5 MiB
+          if (now - st.mtimeMs > maxAgeMs && st.size > 1.5 * 1024 * 1024) {
+            const raw = fs.readFileSync(full, 'utf8');
+            const lines = raw.split('\n');
+            let changed = false;
+            const compacted = lines.map((line) => {
+              if (line.length <= 32768) return line;
+              try {
+                const obj = JSON.parse(line);
+                const str = JSON.stringify(obj);
+                if (str.length > 32768 && (obj.role === 'tool' || obj.type === 'tool_result')) {
+                  changed = true;
+                  return JSON.stringify({
+                    ...obj,
+                    content: typeof obj.content === 'string'
+                      ? obj.content.slice(0, 4096) + `\n...[auto-compacted ${obj.content.length - 4096} chars by Mac YOLO System Care]...`
+                      : '[auto-compacted >32KB tool payload]',
+                  });
+                }
+              } catch {
+                /* keep line */
+              }
+              return line;
+            });
+            if (changed) {
+              const nextRaw = compacted.join('\n');
+              const saved = Buffer.byteLength(raw, 'utf8') - Buffer.byteLength(nextRaw, 'utf8');
+              if (saved > 0) {
+                fs.writeFileSync(full, nextRaw, 'utf8');
+                transcriptsCompacted++;
+                bytesReclaimed += saved;
+              }
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }
+
+  for (const root of sessionRoots) {
+    walkSessionDirs(root, 0);
+  }
+  return {
+    ok: true,
+    checkpointsRemoved,
+    webFetchRemoved,
+    transcriptsCompacted,
+    reclaimedMiB: Number((bytesReclaimed / (1024 * 1024)).toFixed(2)),
+  };
+}
+
 function runFivePillarSmartCare(options = {}) {
+  const sessionCompaction = autoCompactSessionTranscripts();
   const diskScan = options.clean ? runDiskSmartClean({ notify: false }) : runDiskSmartScan();
+  if (options.clean) {
+    try {
+      spawnSync(process.execPath, [path.join(__dirname, 'browseros-auto-optimizer.js'), '--optimize', '--json'], { timeout: 15000 });
+    } catch {
+      /* ignore */
+    }
+  }
   const browserCare = auditBrowserCare();
   const launchAgents = auditLaunchAgentsHealth();
   const clutter = scanDownloadsInstallersAndClutter();
@@ -412,6 +556,7 @@ function runFivePillarSmartCare(options = {}) {
   const activity = getActivityLedger();
   const whitelist = loadWhitelist();
   const settings = getStatusBarSettings();
+  const arenaAndDisposableGuard = runAiAmOperationalChecks();
   appendOperationLog({
     action: options.clean ? 'smart_care_clean' : 'smart_care_scan',
     freeGiB: diskScan.disk ? diskScan.disk.freeGiB : diskScan.afterDisk?.freeGiB,
@@ -435,6 +580,14 @@ function runFivePillarSmartCare(options = {}) {
         runawaySimGuardActive: true,
         tokenBudgetCapUsd: 10.0,
         preProdConfusionGateActive: true,
+        aiAmArenaAndDisposableGuard: {
+          sessionsAudited: arenaAndDisposableGuard.production_trace_audit.sessions_audited,
+          unverifiedPast20Turns: arenaAndDisposableGuard.production_trace_audit.unverified_past_20_turns,
+          deceptiveCompletionClaims: arenaAndDisposableGuard.production_trace_audit.deceptive_completion_claims_detected,
+          coldCacheGuardActive: arenaAndDisposableGuard.cold_cache_trivial_turn_guard.intercepted,
+          savingsMeasured: false,
+          pipesMeetingsIntoCode: false,
+        },
       },
       performance: {
         status: launchAgents.ok ? 'healthy' : 'needs_attention',
@@ -454,40 +607,101 @@ function runFivePillarSmartCare(options = {}) {
         status: 'ok',
         duplicateCandidatesInDownloads: clutter.duplicateCandidatesCount,
         aiSpaceLens: aiSpaceLens.buckets,
+        sessionCompaction,
       },
     },
     activityLedger: activity,
   };
 }
 
+function parseEtimeSeconds(etimeStr) {
+  const s = String(etimeStr || '').trim();
+  if (!s) return 0;
+  let days = 0;
+  let rest = s;
+  if (s.includes('-')) {
+    const parts = s.split('-');
+    days = Number(parts[0]) || 0;
+    rest = parts[1] || '0:00';
+  }
+  const segs = rest.split(':').map((n) => Number(n) || 0);
+  if (segs.length === 3) {
+    return days * 86400 + segs[0] * 3600 + segs[1] * 60 + segs[2];
+  }
+  if (segs.length === 2) {
+    return days * 86400 + segs[0] * 60 + segs[1];
+  }
+  return days * 86400 + (segs[0] || 0);
+}
+
+// Cool Down Fans used to SIGTERM live agent tools whenever the menu bar app
+// decided the machine was busy. Disk free under 80 GB was enough. Claude,
+// Dayglass, Teams, and ThumbGate servers died together at 18:27 UTC on
+// 2026-11-01 (92 processes). Only stuck maintenance scripts are eligible.
+function stuckMaintenanceScript(cmd, etimeSec) {
+  if (!cmd) return false;
+  if (/claude|mcp|dayglass|thumbgate|agent-mesh|MacYolo|ollama|WindowServer|BrowserOS|Ghostty|find \/Users\//i.test(cmd)) {
+    return false;
+  }
+  return (
+    cmd.includes('mac-autonomy-self-heal.sh') ||
+    cmd.includes('sync-agent-skills.sh --check') ||
+    (cmd.includes('telemetry_hook_bundle.js') && etimeSec > 15) ||
+    (cmd.includes('chief_guard.py') && etimeSec > 15) ||
+    (cmd.includes('context-grade.py') && etimeSec > 300)
+  );
+}
+
 function coolDownFansAndReapRunaways() {
   const reapedPids = [];
+  const reapedFamilies = {};
   try {
-    const out = execFileSync('/bin/ps', ['-Ao', 'pid,ppid,command'], { encoding: 'utf8', timeout: 4000 });
+    const out = execFileSync('/bin/ps', ['-Ao', 'pid,etime,command'], { encoding: 'utf8', timeout: 4000 });
     for (const line of out.trim().split('\n').slice(1)) {
-      const m = line.trim().match(/^(\d+)\s+(\d+)\s+(.+)$/);
+      const m = line.trim().match(/^(\d+)\s+(\S+)\s+(.+)$/);
       if (!m) continue;
       const pid = Number(m[1]);
+      if (pid === process.pid || pid === process.ppid) continue;
+      const etimeSec = parseEtimeSeconds(m[2]);
       const cmd = m[3];
-      if (
-        cmd.includes('claude-code/2.1.309') ||
-        cmd.includes('mac-autonomy-self-heal.sh') ||
-        cmd.includes('sync-agent-skills.sh --check') ||
-        (cmd.includes('find /Users/') && cmd.includes('-name'))
-      ) {
-        try {
-          process.kill(pid, 'SIGTERM');
-          reapedPids.push(pid);
-        } catch {
-          /* ignore */
-        }
+      if (!stuckMaintenanceScript(cmd, etimeSec)) continue;
+      try {
+        process.kill(pid, 'SIGTERM');
+        reapedPids.push(pid);
+        reapedFamilies.stuck_script = (reapedFamilies.stuck_script || 0) + 1;
+      } catch {
+        /* ignore */
       }
     }
   } catch {
     /* ignore */
   }
-  appendOperationLog({ action: 'cool_down_fans', reapedCount: reapedPids.length, reapedPids });
-  return { ok: true, reapedCount: reapedPids.length, reapedPids };
+  let browserOsOptimization = null;
+  try {
+    const bOut = spawnSync(
+      process.execPath,
+      [path.join(__dirname, 'browseros-auto-optimizer.js'), '--optimize', '--json'],
+      { encoding: 'utf8', timeout: 15000 }
+    );
+    if (bOut.status === 0 && bOut.stdout) {
+      const parsed = JSON.parse(bOut.stdout);
+      browserOsOptimization = {
+        closedTabs: parsed?.cdpSweep?.closedCount || 0,
+        reapedUpdaters: (parsed?.reapedUpdaterPids || []).length,
+        reclaimedMiB: parsed?.reclaimed?.totalMiB || 0,
+      };
+    }
+  } catch {
+    /* ignore */
+  }
+  appendOperationLog({
+    action: 'cool_down_fans',
+    reapedCount: reapedPids.length,
+    reapedFamilies,
+    reapedPids,
+    browserOsOptimization,
+  });
+  return { ok: true, reapedCount: reapedPids.length, reapedFamilies, reapedPids, browserOsOptimization };
 }
 
 if (require.main === module) {
@@ -512,6 +726,10 @@ if (require.main === module) {
     process.exit(0);
   }
 
+  if (argv.includes('--compact-sessions')) {
+    console.log(JSON.stringify(autoCompactSessionTranscripts(), null, 2));
+    process.exit(0);
+  }
   if (argv.includes('--cool-down-fans')) {
     console.log(JSON.stringify(coolDownFansAndReapRunaways(), null, 2));
     process.exit(0);
@@ -543,6 +761,8 @@ module.exports = {
   getActivityLedger,
   getStatusBarSettings,
   setStatusBarIconVisibility,
+  stuckMaintenanceScript,
   coolDownFansAndReapRunaways,
+  autoCompactSessionTranscripts,
   runFivePillarSmartCare,
 };
