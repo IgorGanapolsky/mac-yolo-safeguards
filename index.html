@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mac YOLO Safeguards — Roast Your Mac Agent Stack & Stop 120GB Claude Code / MCP Freezes</title>
+<meta name="description" content="Paste your macOS ps output or run ./bin/yolo-roast in 150ms. Catch runaway Claude Code RSS (#11315), zombie MCP server swarms, and swap thrash without killing herdr or tmux.">
+<style>
+  :root {
+    --bg: #070b14;
+    --card: #0f172a;
+    --border: #1e293b;
+    --text: #f8fafc;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --green: #10b981;
+    --amber: #f59e0b;
+    --red: #f43f5e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif;
+    background: radial-gradient(circle at 50% 0%, #0f1f38 0%, var(--bg) 65%);
+    color: var(--text);
+    line-height: 1.55;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 36px 20px 72px; }
+  .badge {
+    display: inline-block;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    background: rgba(244,63,94,0.14);
+    border: 1px solid rgba(244,63,94,0.4);
+    color: #fda4af;
+    margin-bottom: 14px;
+  }
+  h1 { font-size: clamp(28px, 4.5vw, 44px); line-height: 1.12; margin: 0 0 14px; letter-spacing: -0.02em; }
+  .sub { font-size: 18px; color: var(--muted); max-width: 780px; margin: 0 0 24px; }
+  .cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 28px; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 14px;
+    text-decoration: none;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: transform 0.12s ease, opacity 0.12s ease;
+  }
+  .btn:hover { transform: translateY(-1px); opacity: 0.95; }
+  .btn-green { background: linear-gradient(135deg, #10b981, #059669); color: #04130d; }
+  .btn-amber { background: rgba(245,158,11,0.16); border-color: rgba(245,158,11,0.5); color: #fcd34d; }
+  .btn-outline { background: rgba(30,41,59,0.7); border-color: #334155; color: var(--text); }
+  .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; margin-bottom: 24px; }
+  .card {
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 14px 34px rgba(0,0,0,0.45);
+  }
+  .card h2, .card h3 { margin-top: 0; }
+  pre, textarea, input, select {
+    width: 100%;
+    font-family: "SF Mono", ui-monospace, Menlo, monospace;
+    font-size: 12.5px;
+    background: #060a12;
+    color: #e2e8f0;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 12px;
+  }
+  pre { overflow-x: auto; margin: 10px 0; }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 14px; }
+  .chip {
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #cbd5e1;
+    cursor: pointer;
+  }
+  .chip.active, .chip:hover { border-color: var(--amber); color: #fde68a; background: rgba(245,158,11,0.15); }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 10px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #1e293b; }
+  th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .pill-ok { color: #34d399; font-weight: 700; }
+  .pill-warn { color: #fbbf24; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="badge">🔥 VIRAL MAC AGENT STACK ROASTER + RUNTIME CIRCUIT BREAKER</span>
+  <h1>Stop Claude Code, Cursor &amp; Zombie MCP Servers From Freezing Your Mac.</h1>
+  <p class="sub">
+    Public GitHub issues document Claude Code hitting <strong>129 GB RAM (#11315)</strong>, <strong>500 MB/min idle RSS leaks (#67433)</strong>, and <strong>169+ orphaned stdio MCP processes</strong>. Run our 150ms Roaster below or install the native Liquid Glass HUD + Reaper (with hard-coded <code>herdr</code> / <code>tmux</code> session protection).
+  </p>
+
+  <div class="cta-row">
+    <a class="btn btn-green" href="https://buy.stripe.com/8x2dR91M84r4cSd9uj3sI3f">⚡ Instant Pro Guard — $19/mo (1-Click Stripe)</a>
+    <a class="btn btn-outline" href="https://iganapolsky.gumroad.com/l/vcrho">📦 Corporate-Expense Guard Kit — $49</a>
+    <a class="btn btn-amber" href="#critique-box">💬 Roast Our Stack (5-Sec Critique)</a>
+    <a class="btn btn-outline" href="https://github.com/IgorGanapolsky/mac-yolo-safeguards">🐙 GitHub Repo &amp; Free CLI</a>
+  </div>
+
+  <div class="card" style="margin-bottom:24px;border-color:rgba(56,189,248,0.4);">
+    <h2>🧪 Try the Zero-Install Mac Agent Stack Roaster (In-Browser or Terminal)</h2>
+    <p style="color:var(--muted);margin-top:0;font-size:14px;">
+      Run in terminal: <code>git clone https://github.com/IgorGanapolsky/mac-yolo-safeguards &amp;&amp; ./mac-yolo-safeguards/bin/yolo-roast</code> — or paste your <code>ps -axo pid,ppid,rss,%cpu,etime,command | head -n 40</code> output below to compute your Mac Agent Hygiene Grade locally in your browser (zero data leaves your Mac):
+    </p>
+    <textarea id="ps-input" rows="6" placeholder="Paste output of: ps -axo pid,ppid,rss,%cpu,etime,command | head -n 40">40535     1 3477196   0.0 12:14:09 /Users/dev/.local/bin/pool.real
+39993     1 1272934  24.5 04:11:22 node /usr/local/bin/ccusage
+37820     1  722534  70.6 03:50:10 node /usr/local/bin/ccusage
+14561   812  449740 117.5 01:19:44 /Users/dev/.local/bin/agy
+91002     1  215040   4.2 08:02:11 npx -y @modelcontextprotocol/server-filesystem
+94110   500   64200   0.4 09:00:00 herdr server</textarea>
+    <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
+      <button class="btn btn-green" type="button" onclick="runBrowserRoast()">🔥 Roast My Process Tree</button>
+      <button class="btn btn-outline" type="button" onclick="copyRoastResult()">📋 Copy Share Card</button>
+      <a id="roast-gh-link" class="btn btn-amber" href="https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=roast-or-critique.yml" target="_blank" rel="noopener">🐙 Post Score + Critique on GitHub</a>
+    </div>
+    <pre id="roast-output" style="margin-top:14px;"></pre>
+  </div>
+
+  <div id="critique-box" class="card" style="margin-bottom:24px;border-color:rgba(245,158,11,0.45);">
+    <h2>💬 Brutal 1-Line Critique (Turns Directly Into an EARS Spec &amp; Regression Test)</h2>
+    <p style="color:var(--muted);margin-top:0;font-size:14px;">
+      When our reaper killed an operator's active <code>herdr</code> session or buried <code>Top Hogs</code> in the HUD, we shipped deterministic fixes the same day. Pick a category, type 1 sentence, and submit in 1 click (zero legal checkboxes):
+    </p>
+    <div class="chip-row" id="critique-chips">
+      <button type="button" class="chip active" onclick="selectChip(this, 'Missed a Memory / CPU Hog')">🐗 Missed a Memory/CPU Hog</button>
+      <button type="button" class="chip" onclick="selectChip(this, 'Killed Wrong Process (herdr/tmux)')">🛡️ Killed Wrong Process</button>
+      <button type="button" class="chip" onclick="selectChip(this, 'HUD / CLI UX Clutter')">🎨 HUD / CLI UX Clutter</button>
+      <button type="button" class="chip" onclick="selectChip(this, 'Pricing / Checkout Friction')">💳 Pricing / Checkout Friction</button>
+      <button type="button" class="chip" onclick="selectChip(this, 'Architecture Roast')">🔥 Architecture Roast</button>
+    </div>
+    <input id="critique-text" type="text" placeholder="Example: Your reaper killed my herdr session / Your HUD should show per-PID memory delta..." style="margin-bottom:10px;">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn-amber" type="button" onclick="submitOneClickCritique()">🐙 Submit 1-Line Critique on GitHub (Pre-Filled)</button>
+      <button class="btn btn-outline" type="button" onclick="copyCliCritique()">💻 Copy 1-Command Terminal Critique</button>
+    </div>
+    <div id="critique-status" style="margin-top:8px;font-size:12.5px;color:#34d399;"></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>Real Public Failure Modes We Intercept</h3>
+      <table>
+        <thead><tr><th>Public Bug</th><th>Unprotected Mac</th><th>With Mac YOLO Safeguards</th></tr></thead>
+        <tbody>
+          <tr><td><code>claude-code#11315</code> (129GB RAM)</td><td class="pill-warn">System freeze / hard reboot</td><td class="pill-ok">Auto-throttled &amp; reaped at threshold</td></tr>
+          <tr><td><code>claude-code#67433</code> (500MB/m idle)</td><td class="pill-warn">Silent multi-GB swap burn</td><td class="pill-ok">Idle leak reaped; active session safe</td></tr>
+          <tr><td>Orphaned <code>PPID=1</code> MCP servers</td><td class="pill-warn">150+ zombie node/uvx procs</td><td class="pill-ok">Orphan sweep reclaims RAM in &lt;1s</td></tr>
+          <tr><td><code>herdr</code> / <code>tmux</code> sessions</td><td class="pill-warn">Killed by naive OOM scripts</td><td class="pill-ok">Hard-whitelisted (exit code 3 protected)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3>Self-Serve &amp; Team Tiers (Verified Live Checkout)</h3>
+      <table>
+        <thead><tr><th>Tier</th><th>Price</th><th>Best For</th></tr></thead>
+        <tbody>
+          <tr><td><a href="https://iganapolsky.gumroad.com/l/odrkon" style="color:var(--accent);">Self-Serve Playbook</a></td><td><strong>$9.99</strong></td><td>Solo dev threshold tuning &amp; scripts</td></tr>
+          <tr><td><a href="https://buy.stripe.com/8x2dR91M84r4cSd9uj3sI3f" style="color:var(--green);"><strong>Mac YOLO Pro Guard</strong></a></td><td><strong>$19/mo</strong></td><td><strong>1-Click Stripe: HUD + Reaper + MCP Guard</strong></td></tr>
+          <tr><td><a href="https://iganapolsky.gumroad.com/l/vcrho" style="color:var(--accent);">Corporate-Expense Kit</a></td><td><strong>$49</strong></td><td>One-time team LaunchAgents &amp; receipts</td></tr>
+          <tr><td><a href="https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k" style="color:var(--accent);">Reliability Diagnostic</a></td><td><strong>$499</strong></td><td>48h root-cause trace + custom guardrails</td></tr>
+          <tr><td><a href="https://buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38" style="color:var(--accent);">Hardening Sprint</a></td><td><strong>$1,500</strong></td><td>7-day fleet rollout + CI/MCP circuit breakers</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+let selectedCategory = 'Missed a Memory / CPU Hog';
+function selectChip(btn, cat) {
+  selectedCategory = cat;
+  document.querySelectorAll('#critique-chips .chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+}
+function runBrowserRoast() {
+  const raw = document.getElementById('ps-input').value || '';
+  const lines = raw.trim().split('\n');
+  let procs = [];
+  for (const line of lines) {
+    const parts = line.trim().split(/\s+/);
+    if (parts.length < 6) continue;
+    const pid = parseInt(parts[0], 10);
+    const ppid = parseInt(parts[1], 10);
+    const rssKb = parseInt(parts[2], 10);
+    const cpu = parseFloat(parts[3]);
+    if (isNaN(pid) || isNaN(rssKb)) continue;
+    const cmd = parts.slice(5).join(' ');
+    procs.push({ pid, ppid, rssMb: Math.round((rssKb / 1024) * 10) / 10, cpu, cmd });
+  }
+  procs.sort((a, b) => b.rssMb - a.rssMb);
+  const mcp = procs.filter(p => /mcp|context7|grepai|playwright|uvx|npx/i.test(p.cmd));
+  const orphans = mcp.filter(p => p.ppid === 1);
+  const agents = procs.filter(p => /claude|codex|opencode|agy|antigravity|ccusage|pool/i.test(p.cmd));
+  const mux = procs.filter(p => /\b(herdr|tmux|zellij|screen)\b/i.test(p.cmd));
+  const totalMb = Math.round(procs.reduce((s, p) => s + p.rssMb, 0));
+  const reclaimMb = Math.round(orphans.reduce((s, p) => s + p.rssMb, 0) + agents.reduce((s, p) => s + Math.max(0, p.rssMb - 1000), 0));
+  let score = 100;
+  if (orphans.length > 0) score -= Math.min(25, orphans.length * 8);
+  if (totalMb > 3000) score -= 18;
+  if (agents.some(a => a.rssMb > 1200)) score -= 20;
+  score = Math.max(20, score);
+  const grade = score >= 90 ? 'A' : score >= 78 ? 'B' : score >= 65 ? 'C' : score >= 50 ? 'D' : 'F';
+  const topLines = procs.slice(0, 5).map(p => `  PID ${String(p.pid).padEnd(6)} | ${String(p.rssMb + ' MB').padStart(9)} | ${String(p.cpu + '% CPU').padStart(9)} | ${p.cmd.slice(0, 42)}`).join('\n');
+  const card = [
+    `🔥 MAC AGENT STACK ROAST CARD — GRADE: ${grade} (${score}/100)`,
+    `Total Sampled RAM : ${(totalMb / 1024).toFixed(2)} GB (${totalMb} MB) | Reclaimable Zombie RAM: ~${reclaimMb} MB`,
+    `Detected          : ${agents.length} Agent/CLI procs · ${mcp.length} MCP procs (${orphans.length} orphaned PPID=1) · ${mux.length} Protected Mux (herdr/tmux)`,
+    `Top Hogs:`,
+    topLines || '  (paste ps output above)',
+    `Fix in 1 click    : https://github.com/IgorGanapolsky/mac-yolo-safeguards`
+  ].join('\n');
+  document.getElementById('roast-output').textContent = card;
+  const ghUrl = 'https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=roast-or-critique.yml&title=' +
+    encodeURIComponent(`[roast] Grade ${grade} (${score}/100) — Mac Agent Stack Roast`) +
+    '&critique=' + encodeURIComponent(`My Mac scored ${grade} (${score}/100) with ${orphans.length} orphaned procs (~${reclaimMb} MB reclaimable). Feedback: `);
+  document.getElementById('roast-gh-link').href = ghUrl;
+}
+function copyRoastResult() {
+  const text = document.getElementById('roast-output').textContent;
+  navigator.clipboard.writeText(text);
+}
+function submitOneClickCritique() {
+  const text = (document.getElementById('critique-text').value || '').trim() || `Critique on ${selectedCategory}`;
+  const url = 'https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=roast-or-critique.yml&title=' +
+    encodeURIComponent(`[roast] ${selectedCategory}: ${text.slice(0, 56)}`) +
+    '&critique=' + encodeURIComponent(`[${selectedCategory}] ${text}`);
+  window.open(url, '_blank', 'noopener');
+}
+function copyCliCritique() {
+  const text = (document.getElementById('critique-text').value || 'Make Top Hogs PID expandable').replace(/"/g, '\\"');
+  const cmd = `./bin/yolo-roast --feedback "[${selectedCategory}] ${text}"`;
+  navigator.clipboard.writeText(cmd);
+  document.getElementById('critique-status').textContent = '✅ Copied: ' + cmd;
+}
+runBrowserRoast();
+</script>
+</body>
+</html>
