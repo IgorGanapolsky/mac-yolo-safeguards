@@ -51,16 +51,25 @@ URLS = {
 }
 
 
-def utm(base_url: str, source: str, content: str = "viral_launch") -> str:
+def utm(
+    base_url: str,
+    source: str,
+    content: str = "viral_launch",
+    ab_variant: str = "variant_a_incident_307",
+) -> str:
     sep = "&" if "?" in base_url else "?"
-    params = urllib.parse.urlencode(
-        {
-            "utm_source": source,
-            "utm_medium": "viral_social",
-            "utm_campaign": CAMPAIGN_ID,
-            "utm_content": content,
-        }
-    )
+    cta_id = f"{CAMPAIGN_ID}_{ab_variant}_{source}_{content}"
+    query: dict[str, str] = {
+        "utm_source": source,
+        "utm_medium": "viral_social",
+        "utm_campaign": CAMPAIGN_ID,
+        "utm_content": content,
+        "ab_variant": ab_variant,
+        "cta_id": cta_id,
+    }
+    if "buy.stripe.com" in base_url:
+        query["client_reference_id"] = f"{CAMPAIGN_ID}__{ab_variant}__{source}"
+    params = urllib.parse.urlencode(query)
     return f"{base_url}{sep}{params}"
 
 
@@ -166,8 +175,10 @@ def render_slide(
     font_sub = load_font(31)
     font_stat_val = load_font(56, bold=True)
     font_stat_lbl = load_font(23)
-    font_code = load_font(25, mono=True)
-    font_footer = load_font(26, bold=True)
+    font_code = load_font(21, mono=True)
+    font_footer = load_font(25, bold=True)
+    clipped_lines = 0
+    max_text_w = width - 2 * pad - 32
 
     # 1. Badge pill
     badge_box = (pad, y_cursor, width - pad, y_cursor + 56)
@@ -181,6 +192,8 @@ def render_slide(
     h1_height = len(h1_lines) * 82
     h1_box = (pad, y_cursor, width - pad, y_cursor + h1_height)
     for idx, line in enumerate(h1_lines):
+        if draw.textlength(line, font=font_h1) > (width - 2 * pad):
+            clipped_lines += 1
         draw.text((pad, y_cursor + idx * 82), line, font=font_h1, fill=(248, 250, 252))
     bboxes.append(("headline", h1_box))
     y_cursor = h1_box[3] + 28
@@ -240,7 +253,9 @@ def render_slide(
     # 5. Terminal command bar
     term_box = (pad, y_cursor, width - pad, y_cursor + 96)
     draw.rounded_rectangle(term_box, radius=16, fill=(7, 10, 18), outline=(51, 65, 85), width=2)
-    draw.text((pad + 24, y_cursor + 32), spec["code_line"], font=font_code, fill=(167, 243, 208))
+    if draw.textlength(spec["code_line"], font=font_code) > max_text_w:
+        clipped_lines += 1
+    draw.text((pad + 20, y_cursor + 34), spec["code_line"], font=font_code, fill=(167, 243, 208))
     bboxes.append(("terminal_bar", term_box))
     y_cursor = term_box[3] + 40
 
@@ -267,6 +282,7 @@ def render_slide(
         "height": height,
         "bytes": out_path.stat().st_size,
         "overlappingElementsCount": overlaps,
+        "clippedTextCount": clipped_lines,
         "statBoxesCount": 2,
     }
 
@@ -278,16 +294,21 @@ def render_social_card_1200x630(out_path: Path) -> dict[str, Any]:
     draw = ImageDraw.Draw(img)
     draw.rectangle((0, 0, w, 10), fill=(16, 185, 129))
 
-    font_tag = load_font(22, mono=True, bold=True)
-    font_h1 = load_font(48, bold=True)
-    font_stat = load_font(42, bold=True)
-    font_lbl = load_font(20)
-    font_mono = load_font(22, mono=True)
+    font_tag = load_font(20, mono=True, bold=True)
+    font_h1 = load_font(38, bold=True)
+    font_stat = load_font(40, bold=True)
+    font_lbl = load_font(19)
+    font_mono = load_font(17, mono=True)
 
+    clipped_lines = 0
+    max_card_w = w - 112
+    h1_text = "Stop Unattended AI Coding Agents From Freezing Your Mac"
+    if draw.textlength(h1_text, font=font_h1) > max_card_w:
+        clipped_lines += 1
     draw.text((56, 38), "MAC-YOLO-SAFEGUARDS // NATIVE RUST + OS GUARD KIT", font=font_tag, fill=(52, 211, 153))
     draw.text(
-        (56, 82),
-        "Stop Unattended AI Coding Agents From Freezing Your Mac",
+        (56, 84),
+        h1_text,
         font=font_h1,
         fill=(248, 250, 252),
     )
@@ -311,10 +332,12 @@ def render_social_card_1200x630(out_path: Path) -> dict[str, Any]:
         "$ bin/mac-yolo-rust-core hud-disk-recs   # 163.14ms (Node baseline: 1846.33ms)",
         "$ bin/mac-yolo-rust-core telemetry       # 1,177 live processes audited in 288ms",
         "$ brew install --cask igorganapolsky/tap/mac-yolo-safeguards",
-        "MIT Open Source + $49 No-Approval Expense Kit • github.com/IgorGanapolsky/mac-yolo-safeguards",
+        "MIT Open Source + $49 Expense Kit (<$50) • github.com/IgorGanapolsky/mac-yolo-safeguards",
     ]
     for idx, tl in enumerate(term_lines):
-        draw.text((80, 402 + idx * 36), tl, font=font_mono, fill=(167, 243, 208) if idx < 3 else (148, 163, 184))
+        if draw.textlength(tl, font=font_mono) > (w - 140):
+            clipped_lines += 1
+        draw.text((76, 404 + idx * 36), tl, font=font_mono, fill=(167, 243, 208) if idx < 3 else (148, 163, 184))
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     img.save(out_path, format="PNG", optimize=True)
@@ -323,6 +346,7 @@ def render_social_card_1200x630(out_path: Path) -> dict[str, Any]:
         "width": w,
         "height": h,
         "bytes": out_path.stat().st_size,
+        "clippedTextCount": clipped_lines,
     }
 
 
@@ -444,8 +468,16 @@ def generate_viral_campaign() -> dict[str, Any]:
 
     card_meta = render_social_card_1200x630(ASSETS_DIR / "social_card_1200x630.png")
     video_meta = render_mp4_short(story_paths, ASSETS_DIR / "mac_yolo_viral_short_1080x1920.mp4")
+    tiktok_mp4_path = ASSETS_DIR / "tiktok_viral_short_1080x1920.mp4"
+    if video_meta.get("ok") and Path(video_meta["path"]).exists():
+        shutil.copy2(video_meta["path"], tiktok_mp4_path)
+    tiktok_video_meta = {**video_meta, "path": str(tiktok_mp4_path)}
 
     # Per-platform attributed URLs
+    tt_playbook = utm(URLS["playbook_9_99"], "tiktok", "top3_playbook")
+    tt_kit = utm(URLS["kit_49"], "tiktok", "bio_expense_kit")
+    tt_diag = utm(URLS["diagnostic_499"], "tiktok", "pinned_diagnostic")
+    tt_sprint = utm(URLS["sprint_1500"], "tiktok", "sprint_1500")
     ig_kit = utm(URLS["kit_49"], "instagram", "carousel_5slide")
     ig_diag = utm(URLS["diagnostic_499"], "instagram", "reel_bio")
     x_repo = utm(URLS["github"], "x", "thread_hook")
@@ -465,6 +497,21 @@ def generate_viral_campaign() -> dict[str, Any]:
     dev_kit = utm(URLS["kit_49"], "devto", "deep_dive_cta")
     hn_repo = utm(URLS["github"], "hackernews", "show_hn")
     sk_kit = utm(URLS["kit_49"], "skool", "builder_drop")
+
+    # 0. TikTok (9:16 20s Vertical Video + 5-Slide Photo Mode Carousel)
+    tt_hook = "Stop letting AI coding agents hit Load Average 307 and cook your MacBook. Here is the 474 KB Rust + OS brake that stopped it."
+    tt_caption = (
+        f"1-Click $9.99 Agent Cost Playbook: {tt_playbook}\n"
+        f"1-Time $49 Corporate-Expense Kit (<$50 No Approval): {tt_kit}\n"
+        f"20-Min Live Agent Diagnostic ($499): {tt_diag}\n\n"
+        f"{tt_hook}\n\n"
+        "00:00 — Unattended Claude Code & Cursor loop hits Load Avg 307 (256 orphan procs)\n"
+        "00:04 — Step 01: OS Process-Group (PGID) Timeout Reaper (protects Herdr & live agent trees)\n"
+        "00:08 — Step 02: 474 KB Native Rust HUD (163.14ms vs 1,846.33ms = 11.32x speedup)\n"
+        "00:12 — Step 03: Gurobi $10/mo Token Gate -> $0.00 local Ollama overflow\n"
+        "00:16 — Step 04: 60s Homebrew install + $49 No-Approval Production Kit\n\n"
+        "#ClaudeCode #CursorAI #TechTok #MacOS #RustLang #AIEngineering #FinOps #CodingTok"
+    )
 
     # 1. Instagram (Carousel + Reel + Stories)
     ig_hook = "Your AI coding agent hit Load Average 307. Here is the 474 KB Rust + macOS brake that stopped it."
@@ -603,8 +650,9 @@ def generate_viral_campaign() -> dict[str, Any]:
         f"Grab the $49 Corporate-Expensable Production Kit (<$50 zero manager approval): {sk_kit}"
     )
 
-    # Run social-publish-gate.js across all 9 platforms
+    # Run social-publish-gate.js across all 10 platforms (including TikTok)
     gates = {
+        "tiktok": run_social_publish_gate("tiktok", tt_hook, tt_caption, title=tt_hook),
         "instagram": run_social_publish_gate("instagram", ig_hook, ig_caption),
         "x_com": run_social_publish_gate("x", x_hook, "\n\n".join(x_thread)),
         "threads": run_social_publish_gate("threads", th_hook, th_post),
@@ -616,38 +664,79 @@ def generate_viral_campaign() -> dict[str, Any]:
         "skool": run_social_publish_gate("skool", sk_title, sk_body, title=sk_title),
     }
 
-    probe_res = subprocess.run(
-        ["bash", str(REPO_ROOT / "tools" / "publish-capability-probe.sh")],
-        cwd=str(REPO_ROOT),
-        capture_output=True,
-        text=True,
-        timeout=15,
-    )
-    try:
-        capability_probe = json.loads(probe_res.stdout)
-    except Exception:
-        capability_probe = {"raw": probe_res.stdout}
+    capability_probe = {
+        "TIKTOK_ACCESS_TOKEN": bool(os.environ.get("TIKTOK_ACCESS_TOKEN")),
+        "BLOTATO_API_KEY": bool(os.environ.get("BLOTATO_API_KEY")),
+        "DEVTO_API_KEY": bool(os.environ.get("DEVTO_API_KEY")),
+        "BLUESKY_APP_PASSWORD": bool(os.environ.get("BLUESKY_APP_PASSWORD")),
+        "X_OAUTH2_USER_TOKEN": bool(os.environ.get("X_OAUTH2_USER_TOKEN")),
+    }
 
     campaign = {
-        "schema": "mac-yolo-safeguards/viral-campaign/v2",
+        "schema": "mac-yolo-safeguards/viral-campaign/v3",
         "timestamp": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "campaign_id": CAMPAIGN_ID,
-        "campaign_name": "Mac YOLO Safeguards v1.0 — Native Rust HUD & OS Runaway Reaper Viral Launch",
+        "campaign_name": "Mac YOLO Safeguards v1.0 — TikTok & 10-Platform Native Rust HUD + OS Runaway Reaper Viral Launch",
         "outbound_spend_usd": 0.0,
         "assets": {
             "assets_dir": str(ASSETS_DIR),
+            "tiktok_short_mp4_1080x1920": tiktok_video_meta,
+            "tiktok_photo_mode_slides_1080x1920": story_qa,
             "instagram_threads_linkedin_carousel_1080x1350": carousel_qa,
             "instagram_youtube_stories_1080x1920": story_qa,
             "x_bluesky_linkedin_card_1200x630": card_meta,
             "youtube_shorts_ig_reels_mp4_1080x1920": video_meta,
             "visual_self_qa": {
                 "all_slides_zero_overlap": all(s["overlappingElementsCount"] == 0 for s in carousel_qa + story_qa),
+                "all_slides_zero_clipped_text": (
+                    all(s.get("clippedTextCount", 0) == 0 for s in carousel_qa + story_qa)
+                    and card_meta.get("clippedTextCount", 0) == 0
+                ),
                 "total_carousel_slides": len(carousel_qa),
                 "total_story_slides": len(story_qa),
                 "mp4_video_ready": bool(video_meta.get("ok")),
+                "tiktok_mp4_ready": bool(tiktok_video_meta.get("ok")),
+            },
+        },
+        "ab_testing_variants": {
+            "variant_a_incident_307": {
+                "id": "variant_a_incident_307",
+                "angle": "Incident Shock — Load Average 307 & 256 Orphan Procs",
+                "hook": "Why did our M-series MacBook Pro hit Load Average 307 while running unattended Claude Code, Cursor & Hermes agent loops?",
+                "cta_kit_url": utm(URLS["kit_49"], "multi_platform", "ab_variant_a_kit", "variant_a_incident_307"),
+                "cta_diag_url": utm(URLS["diagnostic_499"], "multi_platform", "ab_variant_a_diag", "variant_a_incident_307"),
+            },
+            "variant_b_rust_11x": {
+                "id": "variant_b_rust_11x",
+                "angle": "Systems Performance — 474 KB Native Rust 11.32x Speedup (163ms vs 1.85s)",
+                "hook": "We replaced slow Node/Python agent guard loops with a 474 KB native arm64 Rust Mach-O binary: 11.32x faster (163ms vs 1.85s) + 40 live MCP servers in the HUD.",
+                "cta_kit_url": utm(URLS["kit_49"], "multi_platform", "ab_variant_b_kit", "variant_b_rust_11x"),
+                "cta_diag_url": utm(URLS["diagnostic_499"], "multi_platform", "ab_variant_b_diag", "variant_b_rust_11x"),
+            },
+            "variant_c_finops_10usd": {
+                "id": "variant_c_finops_10usd",
+                "angle": "FinOps Hard Ceiling — Gurobi-Certified $10/mo Token Gate vs $400 Overnight Bills",
+                "hook": "Stop $400 overnight Claude Code & Cursor API bills: our Gurobi-certified $10/mo MIP token gate automatically routes overflow to local Ollama at $0.00.",
+                "cta_kit_url": utm(URLS["kit_49"], "multi_platform", "ab_variant_c_kit", "variant_c_finops_10usd"),
+                "cta_diag_url": utm(URLS["diagnostic_499"], "multi_platform", "ab_variant_c_diag", "variant_c_finops_10usd"),
             },
         },
         "platforms": {
+            "tiktok": {
+                "handle": "@igorganapolsky",
+                "format": "TikTok 9:16 20s Vertical Video MP4 + 5-Slide 1080x1920 Photo-Mode Carousel",
+                "hook": tt_hook,
+                "caption": tt_caption,
+                "video_mp4": tiktok_video_meta.get("path"),
+                "photo_mode_files": [s["path"] for s in story_qa],
+                "cta_url": tt_kit,
+                "playbook_url": tt_playbook,
+                "diagnostic_url": tt_diag,
+                "sprint_url": tt_sprint,
+                "compose_url": "https://www.tiktok.com/tiktokstudio/upload",
+                "api_endpoint": "https://open.tiktokapis.com/v2/post/publish/video/init/",
+                "gate": gates["tiktok"],
+            },
             "instagram": {
                 "handle": "@igorganapolsky",
                 "format": "5-Slide 1080x1350 Carousel + 1080x1920 Reel MP4 + 3-Slide Story",

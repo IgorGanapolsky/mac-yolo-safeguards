@@ -419,10 +419,27 @@ function main() {
     process.exit(0);
   }
 
-  const contentRows = parseContentLog(args.log);
+  let contentRows = parseContentLog(args.log);
+  const scratchLog = '/Users/iganapolsky/.hermes/cache/scratch/viral_content_log.tsv';
+  if (args.log === DEFAULT_LOG && fs.existsSync(scratchLog)) {
+    const extra = parseContentLog(scratchLog);
+    const seen = new Set(contentRows.map((r) => `${r.campaign}:${r.platform}`));
+    for (const r of extra) {
+      const key = `${r.campaign}:${r.platform}`;
+      if (!seen.has(key)) {
+        contentRows.push(r);
+        seen.add(key);
+      }
+    }
+  }
   let attributionRows = [];
+  const defaultScratchAttr = '/Users/iganapolsky/.hermes/cache/scratch/viral_attribution_events.json';
   try {
-    attributionRows = loadAttribution(args.attributionFile);
+    if (args.attributionFile) {
+      attributionRows = loadAttribution(args.attributionFile);
+    } else if (fs.existsSync(defaultScratchAttr)) {
+      attributionRows = loadAttribution(defaultScratchAttr);
+    }
   } catch (err) {
     console.error(err.message);
     process.exit(2);
@@ -434,6 +451,18 @@ function main() {
     lookbackDays: args.lookbackDays,
     minEvents: args.minEvents,
   });
+  const viralEngineJson = '/Users/iganapolsky/.hermes/cache/scratch/viral_analytics_engine.json';
+  if (!args.attributionFile && fs.existsSync(viralEngineJson)) {
+    try {
+      const ve = JSON.parse(fs.readFileSync(viralEngineJson, 'utf8'));
+      report.observabilityHealthScore = ve.observability_health_score;
+      report.wShapedAttribution = ve.pillars && ve.pillars['2_attribution'];
+      report.bayesianBandit = ve.pillars && ve.pillars['3_ab_testing'] && ve.pillars['3_ab_testing'].bandit;
+      report.liveFunnelMetrics14d = ve.pillars && ve.pillars['4_metrics'];
+    } catch (_) {
+      // ignore optional enrichment errors
+    }
+  }
 
   if (args.json) {
     console.log(JSON.stringify(report, null, 2));

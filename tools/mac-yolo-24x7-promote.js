@@ -135,6 +135,24 @@ function offerRowForRoute(route) {
 
 const CHANNELS_9 = [
   {
+    channel: 'tiktok',
+    title: 'Watch an AI coding agent hit Load Average 307 on macOS (and the 474 KB Rust + OS brake that stopped it)',
+    cta: 'https://iganapolsky.gumroad.com/l/odrkon',
+    paidCta: 'https://iganapolsky.gumroad.com/l/vcrho',
+  },
+  {
+    channel: 'instagram',
+    title: '5-Slide Carousel + Reel: How we cut macOS HUD scans by 11.32x in Rust & capped agent API spend at $10/mo',
+    cta: 'https://iganapolsky.gumroad.com/l/vcrho',
+    paidCta: 'https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k',
+  },
+  {
+    channel: 'youtube',
+    title: 'How an AI Agent Hit Load Average 307 on My Mac (And the 474 KB Rust Fix) #Shorts',
+    cta: 'https://iganapolsky.gumroad.com/l/vcrho',
+    paidCta: 'https://buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38',
+  },
+  {
     channel: 'hackernews',
     title: 'Show HN: mac-yolo-safeguards – OS-level runaway kill & $10/mo token cap for Mac coding agents',
     cta: 'https://github.com/IgorGanapolsky/mac-yolo-safeguards',
@@ -189,7 +207,6 @@ const CHANNELS_9 = [
     paidCta: 'https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k',
   },
 ];
-
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }

@@ -683,7 +683,7 @@ function parseEtimeSeconds(etimeStr) {
 // 2026-11-01 (92 processes). Only stuck maintenance scripts are eligible.
 function stuckMaintenanceScript(cmd, etimeSec) {
   if (!cmd) return false;
-  if (/claude|mcp|dayglass|thumbgate|agent-mesh|MacYolo|ollama|WindowServer|BrowserOS|Ghostty|find \/Users\//i.test(cmd)) {
+  if (/herdr|pool\.real|grok\.real|omp|claude|mcp|dayglass|thumbgate|agent-mesh|MacYolo|ollama|WindowServer|BrowserOS|Ghostty|find \/Users\//i.test(cmd)) {
     return false;
   }
   return (
