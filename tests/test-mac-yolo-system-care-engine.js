@@ -2,6 +2,7 @@
 'use strict';
 
 const assert = require('assert');
+const fs = require('fs');
 const {
   loadWhitelist,
   getTopProcessCulprits,
@@ -52,7 +53,7 @@ function main() {
   assert.strictEqual(aiLens.buckets.length, 4);
   const appLeftovers = scanOrphanedAppLeftovers();
   assert.strictEqual(appLeftovers.ok, true);
-  assert.ok(appLeftovers.installedAppsCount > 0);
+  if (fs.existsSync('/Applications')) assert.ok(appLeftovers.installedAppsCount > 0);
   // 6. My Activity Cumulative Ledger (5.4.0 steal)
   const ledger = getActivityLedger();
   assert.ok(ledger.totalSpaceReclaimedGiB >= 47.24);

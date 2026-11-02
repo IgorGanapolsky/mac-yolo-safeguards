@@ -1721,7 +1721,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "guardHeadline": "CPU \(cpuPct)% · GPU \(gpu.devicePct)% (\(String(format: "%.1fG", gpu.vramGB)) VRAM) · RAM \(memPressurePct)% · \(String(format: "%.1fM", sess.estTokensM)) tok (2h)",
             "onScreenLine": "Top Hogs: \(culprits.shortLine) · Active: \(lastActiveApp)",
             "activeApp": culprits.swarmSummary,
-            "activeWin": "\(culprits.pyCount) Python & \(culprits.nodeCount) node MCPs · \(agentCount) LaunchAgents",
+            "activeWin": "\(culprits.pyCount) Python & \(culprits.nodeCount) node MCPs · \(agentCount) user agents",
             "diskAvail": diskAvailStr,
             "diskRightBadge": "\(freeMenuInt)G Free ›",
             "memPressure": "Pressure \(memPressurePct)% · \(culprits.shortLine)",
