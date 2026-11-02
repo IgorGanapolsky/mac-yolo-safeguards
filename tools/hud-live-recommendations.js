@@ -275,14 +275,33 @@ function buildDiskRecommendations(snapshot) {
   };
 }
 
+const RUST_CORE_BIN = path.join(__dirname, '..', 'bin', 'mac-yolo-rust-core');
+
 function sampleDiskRecommendations(options = {}) {
+  if (
+    (!options || Object.keys(options).length === 0) &&
+    process.env.MAC_YOLO_DISABLE_RUST_CORE !== '1' &&
+    fs.existsSync(RUST_CORE_BIN)
+  ) {
+    const r = spawnSync(RUST_CORE_BIN, ['hud-disk-recs'], {
+      encoding: 'utf8',
+      timeout: 900,
+    });
+    if (r.status === 0 && r.stdout) {
+      try {
+        const parsed = JSON.parse(r.stdout.trim());
+        if (parsed && parsed.ok) return parsed;
+      } catch {
+        // Fall through to JS implementation
+      }
+    }
+  }
   const now = options.now || Date.now();
   const idleMs = options.idleMs || IDLE_MS;
   const tmpBase = options.tmpBase || '/private/tmp';
   const home = options.home || HOME;
   const repo = options.repo || path.join(HOME, 'workspace/mac-yolo-safeguards');
   const simCache = options.simCache || path.join(home, 'Library/Developer/CoreSimulator/Caches');
-
   const stale = options.stalePaths
     ? { paths: options.stalePaths, known: options.staleKnown !== false }
     : measureStaleTemp(tmpBase, now, idleMs);

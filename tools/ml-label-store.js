@@ -148,9 +148,13 @@ function listMatching(dir, prefix) {
 }
 
 function labelsFromPipeline(businessOsDir) {
-  const prospectFiles = listMatching(businessOsDir, 'prospects');
-  const statusFiles = listMatching(businessOsDir, 'pipeline-status');
-  const statusMap = new Map();
+  const homeRev = path.join(os.homedir(), '.hermes', 'business_os', 'revenue');
+  let prospectFiles = listMatching(businessOsDir, 'prospects');
+  let statusFiles = listMatching(businessOsDir, 'pipeline-status');
+  if (prospectFiles.length === 0 && businessOsDir !== homeRev && fs.existsSync(homeRev)) {
+    prospectFiles = listMatching(homeRev, 'prospects');
+    statusFiles = listMatching(homeRev, 'pipeline-status');
+  }
   for (const file of statusFiles) {
     for (const row of parseTsv(file)) {
       if (!row.prospect_label) continue;

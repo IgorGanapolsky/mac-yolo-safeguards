@@ -26,7 +26,7 @@ def safeguard_loop():
                 if len(parts) >= 3:
                     pid, cpu, comm = parts[0], parts[1], parts[2]
                     # Protect core macOS system services and safeguard app
-                    if any(sys_proc in comm for sys_proc in ["WindowServer", "kernel_task", "MacYoloSafeguards", "launchd", "systemd"]):
+                    if any(sys_proc in comm.lower() for sys_proc in ["windowserver", "kernel_task", "macyolosafeguards", "launchd", "systemd", "herdr", "pool", "ollama"]):
                         continue
                     print(f"[!] Autonomous Safeguard: Terminating rogue CPU hog PID {pid} ({comm}) at {cpu}% CPU.")
                     subprocess.run(f"kill -9 {pid}", shell=True)

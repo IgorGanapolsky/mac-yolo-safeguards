@@ -71,10 +71,46 @@ function appendOperationLog(entry) {
   }
 }
 
+const RUST_CORE_BIN = path.join(__dirname, '..', 'bin', 'mac-yolo-rust-core');
+let _rustTelemetryCache = { ts: 0, data: null };
+
+function sampleRustTelemetryCached(maxAgeMs = 1500) {
+  const now = Date.now();
+  if (_rustTelemetryCache.data && now - _rustTelemetryCache.ts < maxAgeMs) {
+    return _rustTelemetryCache.data;
+  }
+  if (process.env.MAC_YOLO_DISABLE_RUST_CORE === '1' || !fs.existsSync(RUST_CORE_BIN)) {
+    return null;
+  }
+  try {
+    const r = spawnSync(RUST_CORE_BIN, ['telemetry'], { encoding: 'utf8', timeout: 2500 });
+    if (r.status === 0 && r.stdout) {
+      const parsed = JSON.parse(r.stdout.trim());
+      if (parsed && parsed.ok) {
+        _rustTelemetryCache = { ts: now, data: parsed };
+        return parsed;
+      }
+    }
+  } catch {
+    // fall back to ps
+  }
+  return null;
+}
+
 /**
  * 1. Top CPU & RAM Process Culprit Sniper (iStat Menus 7 / Mole status steal)
  */
 function getTopProcessCulprits(limit = 5) {
+  const rust = sampleRustTelemetryCached();
+  if (rust && rust.culprits && rust.culprits.ok) {
+    return {
+      ok: true,
+      engine: 'rust-native',
+      telemetryLatencyMs: rust.telemetry_latency_ms,
+      topCpu: (rust.culprits.topCpu || []).slice(0, limit),
+      topMemory: (rust.culprits.topMemory || []).slice(0, limit),
+    };
+  }
   try {
     const out = execFileSync('ps', ['-Ao', 'pid,pcpu,rss,comm'], {
       encoding: 'utf8',
@@ -109,12 +145,19 @@ function getTopProcessCulprits(limit = 5) {
  *    Audits browser memory/CPU footprint and detects orphaned headless automation browsers.
  */
 function auditBrowserCare() {
+  const rust = sampleRustTelemetryCached();
+  if (rust && rust.browserCare && rust.browserCare.ok) {
+    return {
+      ...rust.browserCare,
+      engine: 'rust-native',
+      telemetryLatencyMs: rust.telemetry_latency_ms,
+    };
+  }
   try {
     const out = execFileSync('ps', ['-Ao', 'pid,pcpu,rss,args'], {
       encoding: 'utf8',
       timeout: 4000,
     });
-    let chromeRenderers = 0;
     let chromeMemMiB = 0;
     let browserOsMemMiB = 0;
     const orphanHeadlessPids = [];

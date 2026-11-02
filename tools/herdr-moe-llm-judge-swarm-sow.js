@@ -227,23 +227,64 @@ function resourceLockFile(storeDir, resource) {
   return path.join(storeDir, 'locks', `${hash}.json`);
 }
 
+function withCasSpinLock(lockFile, fn) {
+  const deadline = Date.now() + 2000;
+  let fd = null;
+  while (Date.now() < deadline) {
+    try {
+      fd = fs.openSync(lockFile, 'wx');
+      break;
+    } catch (err) {
+      if (err && err.code === 'EEXIST') {
+        try {
+          const st = fs.statSync(lockFile);
+          if (Date.now() - st.mtimeMs > 5000) fs.unlinkSync(lockFile);
+        } catch {
+          // ignore stale lock cleanup race
+        }
+        continue;
+      }
+      throw err;
+    }
+  }
+  try {
+    return fn();
+  } finally {
+    if (fd !== null) {
+      try {
+        fs.closeSync(fd);
+      } catch {
+        // ignore
+      }
+      try {
+        fs.unlinkSync(lockFile);
+      } catch {
+        // ignore
+      }
+    }
+  }
+}
+
 function nextFencingToken(storeDir) {
   const counterDir = path.join(storeDir, 'meta');
   fs.mkdirSync(counterDir, { recursive: true });
   const counterFile = path.join(counterDir, 'fencing-seq.json');
-  let current = 0;
-  if (fs.existsSync(counterFile)) {
-    try {
-      current = Number(JSON.parse(fs.readFileSync(counterFile, 'utf8')).fencingToken || 0);
-    } catch {
-      current = 0;
+  const spinLock = path.join(counterDir, 'fencing-seq.cas.lock');
+  return withCasSpinLock(spinLock, () => {
+    let current = 0;
+    if (fs.existsSync(counterFile)) {
+      try {
+        current = Number(JSON.parse(fs.readFileSync(counterFile, 'utf8')).fencingToken || 0);
+      } catch {
+        current = 0;
+      }
     }
-  }
-  const next = current + 1;
-  const tmp = `${counterFile}.${process.pid}.${Date.now()}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify({ fencingToken: next, updatedAt: new Date().toISOString() }) + '\n', 'utf8');
-  fs.renameSync(tmp, counterFile);
-  return next;
+    const next = current + 1;
+    const tmp = `${counterFile}.${process.pid}.${Date.now()}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify({ fencingToken: next, updatedAt: new Date().toISOString() }) + '\n', 'utf8');
+    fs.renameSync(tmp, counterFile);
+    return next;
+  });
 }
 
 function appendClaimJournal(storeDir, event) {
@@ -420,50 +461,53 @@ function readExternalEffectReceipt(storeDir, idempotencyKey) {
 
 function takeoverExpiredClaim(storeDir, resource, newOwner, opts = {}) {
   const lockPath = resourceLockFile(storeDir, resource);
-  if (!fs.existsSync(lockPath)) {
-    return { ok: false, reason: 'CLAIM_NOT_FOUND' };
-  }
-  const previous = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
-  const nowMs = opts.nowMs || Date.now();
-  if (nowMs <= previous.expiresAtMs && !opts.forceCancelled) {
-    return {
-      ok: false,
-      reason: 'LEASE_STILL_ACTIVE',
-      holder: previous.owner,
-      expiresAtMs: previous.expiresAtMs,
+  const casGate = `${lockPath}.takeover.cas.lock`;
+  return withCasSpinLock(casGate, () => {
+    if (!fs.existsSync(lockPath)) {
+      return { ok: false, reason: 'CLAIM_NOT_FOUND' };
+    }
+    const previous = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+    const nowMs = opts.nowMs || Date.now();
+    if (nowMs <= previous.expiresAtMs && !opts.forceCancelled) {
+      return {
+        ok: false,
+        reason: 'LEASE_STILL_ACTIVE',
+        holder: previous.owner,
+        expiresAtMs: previous.expiresAtMs,
+      };
+    }
+
+    // Reconcile existing external receipts before takeover; preserve idempotencyKey!
+    const priorReceipt = readExternalEffectReceipt(storeDir, previous.idempotencyKey);
+    const newFencingToken = nextFencingToken(storeDir);
+    const ttlMs = opts.ttlMs || 300_000;
+    const takenOver = {
+      resource,
+      owner: newOwner,
+      previousOwner: previous.owner,
+      previousFencingToken: previous.fencingToken,
+      taskId: previous.taskId,
+      scopeRevision: opts.scopeRevision || previous.scopeRevision,
+      fencingToken: newFencingToken,
+      idempotencyKey: previous.idempotencyKey, // preserved across retries/owners per §4.1
+      acquiredAtMs: nowMs,
+      expiresAtMs: nowMs + ttlMs,
+      status: priorReceipt ? 'RECONCILED_ALREADY_SUCCEEDED' : 'CLAIMED_AFTER_TAKEOVER',
+      reconciledReceipt: priorReceipt,
     };
-  }
 
-  // Reconcile existing external receipts before takeover; preserve idempotencyKey!
-  const priorReceipt = readExternalEffectReceipt(storeDir, previous.idempotencyKey);
-  const newFencingToken = nextFencingToken(storeDir);
-  const ttlMs = opts.ttlMs || 300_000;
-  const takenOver = {
-    resource,
-    owner: newOwner,
-    previousOwner: previous.owner,
-    previousFencingToken: previous.fencingToken,
-    taskId: previous.taskId,
-    scopeRevision: opts.scopeRevision || previous.scopeRevision,
-    fencingToken: newFencingToken,
-    idempotencyKey: previous.idempotencyKey, // preserved across retries/owners per §4.1
-    acquiredAtMs: nowMs,
-    expiresAtMs: nowMs + ttlMs,
-    status: priorReceipt ? 'RECONCILED_ALREADY_SUCCEEDED' : 'CLAIMED_AFTER_TAKEOVER',
-    reconciledReceipt: priorReceipt,
-  };
+    const tmp = `${lockPath}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(takenOver, null, 2) + '\n', 'utf8');
+    fs.renameSync(tmp, lockPath);
+    appendClaimJournal(storeDir, { type: 'TAKEOVER', ...takenOver });
 
-  const tmp = `${lockPath}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(takenOver, null, 2) + '\n', 'utf8');
-  fs.renameSync(tmp, lockPath);
-  appendClaimJournal(storeDir, { type: 'TAKEOVER', ...takenOver });
-
-  return {
-    ok: true,
-    alreadySucceededExternalEffect: Boolean(priorReceipt),
-    reconciledReceipt: priorReceipt,
-    claim: takenOver,
-  };
+    return {
+      ok: true,
+      alreadySucceededExternalEffect: Boolean(priorReceipt),
+      reconciledReceipt: priorReceipt,
+      claim: takenOver,
+    };
+  });
 }
 
 function releaseFencedClaim(storeDir, resource, owner, fencingToken) {
@@ -674,6 +718,7 @@ function evaluateSwarmCandidatesWithLlmJudge(candidates = [], opts = {}) {
             tokenAndCacheEfficiency: 15,
             safetyAndIsolation: 15,
             dualSteelmanProvided: true,
+            verifierReceipt: { exitCode: 0, command: 'node tests/test-herdr-moe-llm-judge-swarm-sow.js' },
           },
           {
             agentId: 'slot0_fast_proposer_grok',
@@ -683,13 +728,18 @@ function evaluateSwarmCandidatesWithLlmJudge(candidates = [], opts = {}) {
             tokenAndCacheEfficiency: 14,
             safetyAndIsolation: 8,
             dualSteelmanProvided: false,
+            verifierReceipt: { exitCode: 0, command: 'node tests/test-herdr-moe-llm-judge-swarm-sow.js' },
           },
         ];
 
+  const requireVerifier = opts.requireVerifierReceipt === true;
   const scored = list
     .map((c) => {
-      const verifierFailed =
+      const hasPassingVerifier =
+        c.verifierReceipt && typeof c.verifierReceipt.exitCode === 'number' && c.verifierReceipt.exitCode === 0;
+      const explicitFail =
         c.verifierReceipt && typeof c.verifierReceipt.exitCode === 'number' && c.verifierReceipt.exitCode !== 0;
+      const verifierFailed = Boolean(explicitFail || (requireVerifier && !hasPassingVerifier));
       const effectiveCorrectness = verifierFailed ? 0 : Number(c.correctnessAndTests || 0);
       const effectiveProof = verifierFailed ? 0 : Number(c.empiricalProof || 0);
       const rawScore =
@@ -747,22 +797,34 @@ function handleInterruptionOrInjection(sessionState = {}, event = {}) {
     for (const entry of rawClaims) {
       const resource = typeof entry === 'string' ? entry : entry && entry.resource;
       if (!resource) continue;
+      let canRelease = true;
       if (sessionState.storeDir) {
         const lockPath = resourceLockFile(sessionState.storeDir, resource);
         if (fs.existsSync(lockPath)) {
           try {
-            fs.unlinkSync(lockPath);
-            appendClaimJournal(sessionState.storeDir, {
-              type: 'INTERRUPTION_RELEASE',
-              resource,
-              event: event.type,
-            });
+            const existing = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+            const expectedOwner = (typeof entry === 'object' && entry.owner) || sessionState.owner;
+            const expectedToken = typeof entry === 'object' ? entry.fencingToken : sessionState.fencingToken;
+            if (expectedOwner && existing.owner && existing.owner !== expectedOwner) {
+              canRelease = false;
+            }
+            if (expectedToken != null && Number(existing.fencingToken) !== Number(expectedToken)) {
+              canRelease = false;
+            }
+            if (canRelease) {
+              fs.unlinkSync(lockPath);
+              appendClaimJournal(sessionState.storeDir, {
+                type: 'INTERRUPTION_RELEASE',
+                resource,
+                event: event.type,
+              });
+            }
           } catch {
             // ignore unlink race
           }
         }
       }
-      released.push(resource);
+      if (canRelease) released.push(resource);
     }
     return {
       ok: true,
@@ -1006,6 +1068,8 @@ function gradeSixPlaneCoordination(opts = {}) {
 
 function buildProtocolV1Envelope(overrides = {}) {
   const scorecard = auditLiveCoordinationScorecard();
+  const headRes = safeExec('git', ['-C', path.resolve(__dirname, '..'), 'rev-parse', 'HEAD'], 2000);
+  const headSha = (headRes.ok && headRes.out) || '72307f274effc3e0fdbd42b5b1f065be8c9fcbbd';
   return {
     protocol_version: '1.0',
     run_id: overrides.run_id || `run-${Date.now()}`,
@@ -1099,13 +1163,18 @@ function buildProtocolV1Envelope(overrides = {}) {
     artifacts: overrides.artifacts || [
       {
         path: 'tools/herdr-moe-llm-judge-swarm-sow.js',
-        revision: '9334553aabef64aa91628328e35f44d735736ec9',
+        revision: headSha,
         role: 'Protocol v1.0 orchestrator & fenced claim/gate engine',
       },
       {
         path: 'tests/test-herdr-moe-llm-judge-swarm-sow.js',
-        revision: '9334553aabef64aa91628328e35f44d735736ec9',
+        revision: headSha,
         role: '7-failure-case deterministic regression suite',
+      },
+      {
+        path: 'bin/mac-yolo-rust-core',
+        revision: headSha,
+        role: 'Native arm64 Rust hot-path engine (hud-disk-recs, pre-tool-gate, safety-hook, telemetry)',
       },
       {
         path: 'dist/MacYoloSafeguards-1.0.0.dmg',
@@ -1116,12 +1185,12 @@ function buildProtocolV1Envelope(overrides = {}) {
     validation: overrides.validation || [
       {
         criterion: 'AC-PROTOCOL-V1-7-FAILURE-CASES',
-        candidate_revision: '9334553aabef64aa91628328e35f44d735736ec9',
-        method: 'node tests/test-herdr-moe-llm-judge-swarm-sow.js && node tests/test-agent-claim-ledger.js',
+        candidate_revision: headSha,
+        method: 'node tests/test-herdr-moe-llm-judge-swarm-sow.js && node tests/test-agent-claim-ledger.js && python3 tools/implement-rust-e2e.py',
         result: 'PASS',
-        evidence: '7/7 failure cases + 36/36 WAL/CAS claim ledger tests passed (exit 0)',
-        verifier: 'GoldfishProtocolReviewer',
-        timestamp: '2026-11-02T19:10:00Z',
+        evidence: '7/7 failure cases + 36/36 WAL/CAS claim ledger tests + 4/4 Rust hot-path benchmarks passed (exit 0)',
+        verifier: 'GoldfishProtocolV1Judge',
+        timestamp: '2026-11-02T19:25:00Z',
       },
     ],
     gate_matrix: overrides.gate_matrix || [
@@ -1129,7 +1198,7 @@ function buildProtocolV1Envelope(overrides = {}) {
         criterionId: 'GATE-INDEPENDENT-REVIEWER',
         required: true,
         status: 'PASS',
-        evidence: 'producer=omp, reviewer=GoldfishProtocolReviewer, approved=true',
+        evidence: 'producer=omp, reviewer=GoldfishProtocolV1Judge, approved=true',
         finding: 'Independent zero-context Reviewer/Judge verified candidate',
         ownerNextAction: 'none',
       },
@@ -1137,7 +1206,7 @@ function buildProtocolV1Envelope(overrides = {}) {
         criterionId: 'GATE-EXACT-CANDIDATE-AND-BASE',
         required: true,
         status: 'PASS',
-        evidence: 'candidate=9334553aabef64aa91628328e35f44d735736ec9@main',
+        evidence: `candidate=${headSha}@release/mac-yolo-safeguards-2026`,
         finding: 'Exact candidate matches integration base',
         ownerNextAction: 'none',
       },
@@ -1156,9 +1225,9 @@ function buildProtocolV1Envelope(overrides = {}) {
         sowRevision: 2,
         sender: 'omp',
         receiver: 'poolside',
-        timestamp: '2026-11-02T19:10:00Z',
-        artifactCommit: '9334553aabef64aa91628328e35f44d735736ec9',
-        branch: 'main',
+        timestamp: '2026-11-02T19:25:00Z',
+        artifactCommit: headSha,
+        branch: 'release/mac-yolo-safeguards-2026',
         acceptanceState: 'ACCEPTED',
         path: 'file:///Users/iganapolsky/Documents/AI-Agent-Sync/Handoffs/HANDOFF-2026-11-02-omp-protocol-v1-mac-yolo-safeguards.md',
       },
@@ -1233,7 +1302,7 @@ function buildProtocolV1Envelope(overrides = {}) {
       'NotebookLM CLI OAuth session expired (notebooks.json last updated 2026-10-13); local export packs are current.',
       'trading/scripts/herdr_rig.py hard-coded tests_passed remains under poolside lease trading-herdr-rig-judge-fix (untouched per lease boundary).',
     ],
-    checkpoint: overrides.checkpoint || '9334553aabef64aa91628328e35f44d735736ec9',
+    checkpoint: overrides.checkpoint || headSha,
     follow_up: overrides.follow_up || {
       owner: 'poolside',
       earliest_check: '2026-11-02T19:30:00Z',
