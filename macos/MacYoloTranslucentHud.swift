@@ -149,7 +149,18 @@ private let HUD_HTML = #"""
     line-height: 1.32;
     white-space: normal;
   }
-  .bento {
+    .bento > div {
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .bento > div:hover {
+        transform: translateY(-2px);
+        border-color: rgba(255, 255, 255, 0.3);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+    }
+    .bento > div:active {
+        transform: translateY(0px);
+    }
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 7px;
@@ -1046,7 +1057,7 @@ private let HUD_HTML = #"""
         box.textContent = (payload && payload.error) ? payload.error : 'Uninstall did not finish.';
       }
     }
-    var _expandedDrillRows = { 'shield-cpu-gpu': true };
+    var _expandedDrillRows = { 'shield-cpu-gpu': true, 'fleet-mcp-bus': true };
     var _expandedSubRows = {};
     function escHtml(str) {
       return String(str === undefined || str === null ? '' : str)
@@ -1499,7 +1510,13 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var cachedDiskRecs: [String: Any] = [:]
     var cachedDiskRecsAt: Date = .distantPast
     var forceDiskRecheck: Bool = false
+    let diskProbeLock = NSLock()
+    var diskProbeInFlight: Bool = false
+    let diskProbeQueue = DispatchQueue(label: "com.iganapolsky.macyolo.diskprobe", qos: .utility)
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if CommandLine.arguments.contains("--disk-probe-self-test") {
+            runDiskProbeSelfTest()
+        }
         let myPid = ProcessInfo.processInfo.processIdentifier
         for app in NSWorkspace.shared.runningApplications {
             if app.processIdentifier != myPid &&
@@ -1823,7 +1840,17 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             toggleStatusBarIcon(nil)
         case "killPid":
             if let pid = (body["pid"] as? NSNumber)?.int32Value, pid > 1, pid != ProcessInfo.processInfo.processIdentifier {
-                kill(pid, SIGTERM)
+                let chk = Process()
+                let chkPipe = Pipe()
+                chk.executableURL = URL(fileURLWithPath: "/bin/ps")
+                chk.arguments = ["-o", "command=", "-p", "\(pid)"]
+                chk.standardOutput = chkPipe
+                try? chk.run()
+                chk.waitUntilExit()
+                let cmdStr = (String(data: chkPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? "").lowercased()
+                if !cmdStr.contains("herdr") {
+                    kill(pid, SIGTERM)
+                }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
                     self?.refreshLiveTelemetry()
                 }
@@ -2118,23 +2145,114 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         return fallback
     }
 
+    func runDiskProbeSelfTest() -> Never {
+        let t0 = Date()
+        let first = diskRecommendationProbe()
+        let ms = Date().timeIntervalSince(t0) * 1000.0
+        print(String(format: "MAC_YOLO_DISK_PROBE_RETURN_MS=%.2f", ms))
+        let blocked = ms >= 250.0 ? 1 : 0
+        print("MAC_YOLO_DISK_PROBE_BLOCKED=\(blocked)")
+        fflush(stdout)
+        if blocked != 0 {
+            exit(1)
+        }
+        if ProcessInfo.processInfo.environment["MAC_YOLO_DISK_PROBE_EXPECT_DELIVERY"] != "1" {
+            if let stamp = ProcessInfo.processInfo.environment["MAC_YOLO_DISK_PROBE_STAMP"], !stamp.isEmpty {
+                let stampDeadline = Date().addingTimeInterval(1.5)
+                var started = FileManager.default.fileExists(atPath: stamp)
+                while !started && Date() < stampDeadline {
+                    Thread.sleep(forTimeInterval: 0.02)
+                    started = FileManager.default.fileExists(atPath: stamp)
+                }
+                print("MAC_YOLO_DISK_PROBE_CHILD_STARTED=\(started ? 1 : 0)")
+                fflush(stdout)
+                exit(started ? 0 : 1)
+            }
+            exit(0)
+        }
+        let deadline = Date().addingTimeInterval(2.0)
+        var delivered = jsonBool(first["ok"])
+        while !delivered && Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.05)
+            diskProbeLock.lock()
+            let snap = cachedDiskRecs
+            diskProbeLock.unlock()
+            delivered = jsonBool(snap["ok"])
+        }
+        print("MAC_YOLO_DISK_PROBE_DELIVERED=\(delivered ? 1 : 0)")
+        fflush(stdout)
+        exit(delivered ? 0 : 1)
+    }
+
     func diskRecommendationProbe() -> [String: Any] {
+        diskProbeLock.lock()
         let forced = forceDiskRecheck
         if forced { forceDiskRecheck = false }
-        if !forced, Date().timeIntervalSince(cachedDiskRecsAt) < 3, jsonBool(cachedDiskRecs["ok"]) {
-            return cachedDiskRecs
+        let age = Date().timeIntervalSince(cachedDiskRecsAt)
+        let cachedOk = jsonBool(cachedDiskRecs["ok"])
+        let snapshot = cachedDiskRecs
+        diskProbeLock.unlock()
+        if !forced, age < 3, cachedOk {
+            return snapshot
+        }
+        let started = scheduleDiskRecommendationRefresh()
+        if !started && forced {
+            diskProbeLock.lock()
+            forceDiskRecheck = true
+            diskProbeLock.unlock()
+        }
+        return cachedOk ? snapshot : ["ok": false]
+    }
+
+    func scheduleDiskRecommendationRefresh() -> Bool {
+        diskProbeLock.lock()
+        if diskProbeInFlight {
+            diskProbeLock.unlock()
+            return false
+        }
+        diskProbeInFlight = true
+        diskProbeLock.unlock()
+        diskProbeQueue.async {
+            let result = self.runDiskRecommendationProcess()
+            self.diskProbeLock.lock()
+            if self.jsonBool(result["ok"]) {
+                self.cachedDiskRecs = result
+                self.cachedDiskRecsAt = Date()
+            }
+            self.diskProbeInFlight = false
+            self.diskProbeLock.unlock()
+        }
+        return true
+    }
+
+    func diskProbeLaunch() -> (url: URL, args: [String])? {
+        let envBin = ProcessInfo.processInfo.environment["MAC_YOLO_DISK_PROBE_BIN"] ?? ""
+        if !envBin.isEmpty {
+            guard FileManager.default.isExecutableFile(atPath: envBin) else { return nil }
+            return (URL(fileURLWithPath: envBin), [])
         }
         let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let rustBin = "\(home)/workspace/mac-yolo-safeguards/bin/mac-yolo-rust-core"
         let script = "\(home)/workspace/mac-yolo-safeguards/tools/hud-live-recommendations.js"
         let node = "/opt/homebrew/bin/node"
-        let stale: [String: Any] = jsonBool(cachedDiskRecs["ok"]) ? cachedDiskRecs : ["ok": false]
-        guard FileManager.default.fileExists(atPath: script),
-              FileManager.default.isExecutableFile(atPath: node) else {
-            return stale
+        if FileManager.default.isExecutableFile(atPath: rustBin) {
+            return (URL(fileURLWithPath: rustBin), ["hud-disk-recs"])
         }
+        if FileManager.default.fileExists(atPath: script),
+           FileManager.default.isExecutableFile(atPath: node) {
+            return (URL(fileURLWithPath: node), [script])
+        }
+        return nil
+    }
+
+    func runDiskRecommendationProcess() -> [String: Any] {
+        diskProbeLock.lock()
+        let stale: [String: Any] = jsonBool(cachedDiskRecs["ok"]) ? cachedDiskRecs : ["ok": false]
+        diskProbeLock.unlock()
+        guard let launch = diskProbeLaunch() else { return stale }
         let proc = Process()
-        proc.executableURL = URL(fileURLWithPath: node)
-        proc.arguments = [script]
+        proc.executableURL = launch.url
+        proc.arguments = launch.args
         let out = Pipe()
         let err = Pipe()
         proc.standardOutput = out
@@ -2158,8 +2276,6 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
               jsonBool(obj["ok"]) else {
             return stale
         }
-        cachedDiskRecs = obj
-        cachedDiskRecsAt = Date()
         return obj
     }
 
@@ -2265,7 +2381,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         return lines
     }
 
-    func sampleTopCpuCulprits() -> (shortLine: String, cpuShortLine: String, recTitle: String, recDesc: String, detailCpu: String, detailMem: String, detailFleet: String, topCpu: Double, totalProcs: Int, pyCount: Int, nodeCount: Int, mcpCount: Int, swarmSummary: String, pidsByApp: [String: [[String: Any]]], pidsBySwarm: [String: [[String: Any]]], cpuByApp: [String: Double], rssByApp: [String: Double], countByApp: [String: Int], rankedApps: [String], memRankedApps: [String], swarmCounts: [String: Int], topCmdByApp: [String: String]) {
+    func sampleTopCpuCulprits() -> (shortLine: String, cpuShortLine: String, recTitle: String, recDesc: String, detailCpu: String, detailMem: String, detailFleet: String, topCpu: Double, totalProcs: Int, pyCount: Int, nodeCount: Int, mcpCount: Int, swarmSummary: String, pidsByApp: [String: [[String: Any]]], pidsBySwarm: [String: [[String: Any]]], cpuByApp: [String: Double], rssByApp: [String: Double], countByApp: [String: Int], rankedApps: [String], memRankedApps: [String], swarmCounts: [String: Int], topCmdByApp: [String: String], mcpFamilyItems: [[String: Any]]) {
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: "/bin/ps")
         proc.arguments = ["-Ao", "pid,%cpu,rss,etime,command", "-r"]
@@ -2277,10 +2393,15 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         var countByApp: [String: Int] = [:]
         var pidsByApp: [String: [[String: Any]]] = [:]
         var pidsBySwarm: [String: [[String: Any]]] = [:]
+        var mcpCountByFam: [String: Int] = [:]
+        var mcpRssByFam: [String: Double] = [:]
+        var mcpCpuByFam: [String: Double] = [:]
+        var mcpPidsByFam: [String: [[String: Any]]] = [:]
         var totalProcs = 0
         var pyCount = 0
         var nodeCount = 0
         var mcpCount = 0
+        var herdrCount = 0
         var ompCount = 0
         var claudeCount = 0
         var grokCount = 0
@@ -2318,6 +2439,36 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                 let isMcp = lower.contains("mcp") || lower.contains("thumbgate serve") || lower.contains("context7")
                 if isMcp {
                     mcpCount += 1
+                    let mcpFam: String
+                    if lower.contains("dayglass") {
+                        mcpFam = "Dayglass MCP (dayglass-mcp)"
+                    } else if lower.contains("thumbgate") {
+                        mcpFam = "ThumbGate MCP (thumbgate serve)"
+                    } else if lower.contains("agent_mesh") || lower.contains("agent-mesh") {
+                        mcpFam = "Agent Mesh MCP (agent_mesh_mcp)"
+                    } else if lower.contains("claude mcp serve") {
+                        mcpFam = "Claude MCP Serve (claude mcp serve)"
+                    } else if lower.contains("but mcp") || lower.contains("gitbutler") {
+                        mcpFam = "GitButler MCP (but mcp)"
+                    } else if lower.contains("grepai") {
+                        mcpFam = "GrepAI Semantic MCP (grepai mcp)"
+                    } else if lower.contains("gurobi") {
+                        mcpFam = "Gurobi Optimizer MCP (gurobi-mcp)"
+                    } else if lower.contains("github") {
+                        mcpFam = "GitHub MCP (github-mcp-server)"
+                    } else if lower.contains("context7") {
+                        mcpFam = "Context7 Docs MCP (context7)"
+                    } else if lower.contains("clawctl") || lower.contains("browser") {
+                        mcpFam = "Clawctl / Browser MCP"
+                    } else {
+                        mcpFam = "Local STDIO MCP Servers"
+                    }
+                    mcpCountByFam[mcpFam, default: 0] += 1
+                    mcpRssByFam[mcpFam, default: 0.0] += rssMB
+                    mcpCpuByFam[mcpFam, default: 0.0] += cpu
+                    if (mcpPidsByFam[mcpFam]?.count ?? 0) < 16 {
+                        mcpPidsByFam[mcpFam, default: []].append(pidEntry)
+                    }
                 }
                 if base.lowercased().contains("python") {
                     pyCount += 1
@@ -2326,6 +2477,13 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                 if base == "node" {
                     nodeCount += 1
                     if (pidsBySwarm["node"]?.count ?? 0) < 8 { pidsBySwarm["node", default: []].append(pidEntry) }
+                }
+                if base == "herdr" || lower.contains("/herdr ") {
+                    herdrCount += 1
+                    var herdrEntry = pidEntry
+                    herdrEntry["actionType"] = ""
+                    herdrEntry["actionLabel"] = "Protected"
+                    if (pidsBySwarm["herdr"]?.count ?? 0) < 8 { pidsBySwarm["herdr", default: []].append(herdrEntry) }
                 }
                 if base == "omp" {
                     ompCount += 1
@@ -2398,8 +2556,10 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             let bar = min(100, max(4, Int(round(pctRam))))
             return String(format: "%d. %@ (%d procs)|%.2f GB (%.1f%%) · %.0f%% CPU|%d", idx + 1, name, cnt, gb, pctRam, c, bar)
         }.joined(separator: ";;")
-        let swarmStr = "OMP×\(ompCount) · Grok×\(grokCount) · Claude×\(claudeCount) · Pool×\(poolCount) · Cursor×\(cursorCount)"
+        let swarmStr = "Herdr×\(herdrCount) · OMP×\(ompCount) · Claude×\(claudeCount) · Pool×\(poolCount) · Grok×\(grokCount)"
         let fleetRows = [
+            "Live MCP STDIO/HTTP Servers|\(mcpCount) live procs|\(min(100, mcpCount * 2))",
+            "Herdr Session Multiplexer (Protected)|\(herdrCount) live procs|\(min(100, herdrCount * 15))",
             "OMP (Oh-My-Pi) Agent Processes|\(ompCount) live procs|\(min(100, ompCount * 8))",
             "Grok CLI Swarm Processes|\(grokCount) live procs|\(min(100, grokCount * 12))",
             "Claude Desktop + Claude Code|\(claudeCount) live procs|\(min(100, claudeCount * 4))",
@@ -2409,10 +2569,29 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "Node.js Processes (MCPs + Services)|\(nodeCount) live procs|\(min(100, nodeCount * 2))",
         ].joined(separator: ";;")
         let swarmCounts: [String: Int] = [
-            "omp": ompCount, "grok": grokCount, "claude": claudeCount, "pool": poolCount,
+            "herdr": herdrCount, "omp": ompCount, "grok": grokCount, "claude": claudeCount, "pool": poolCount,
             "cursor": cursorCount, "python": pyCount, "node": nodeCount, "hermes": hermesCount,
         ]
-        return (shortStr.isEmpty ? "Idle" : shortStr, cpuShortStr.isEmpty ? "Idle" : cpuShortStr, rTitle, rDesc, cpuRows, memRows, fleetRows, topCpu, totalProcs, pyCount, nodeCount, mcpCount, swarmStr, pidsByApp, pidsBySwarm, cpuByApp, rssByApp, countByApp, ranked, memRanked, swarmCounts, topCmdByApp)
+        let mcpFamilyItems: [[String: Any]] = mcpCountByFam.keys.sorted {
+            if mcpCountByFam[$0, default: 0] != mcpCountByFam[$1, default: 0] {
+                return mcpCountByFam[$0, default: 0] > mcpCountByFam[$1, default: 0]
+            }
+            return mcpRssByFam[$0, default: 0] > mcpRssByFam[$1, default: 0]
+        }.enumerated().map { idx, fam in
+            let cnt = mcpCountByFam[fam, default: 0]
+            let mb = mcpRssByFam[fam, default: 0.0]
+            let c = mcpCpuByFam[fam, default: 0.0]
+            let kids = mcpPidsByFam[fam] ?? []
+            return [
+                "key": "mcp-fam-\(idx)",
+                "title": "\(idx + 1). \(fam) (\(cnt) \(cnt == 1 ? "proc" : "procs"))",
+                "right": String(format: "%.0f MB RAM · %.1f%% CPU", mb, c),
+                "subtitle": "Click to inspect \(kids.count) live MCP PIDs, uptime & command args",
+                "pct": min(100, max(8, cnt * 8)),
+                "children": kids,
+            ]
+        }
+        return (shortStr.isEmpty ? "Idle" : shortStr, cpuShortStr.isEmpty ? "Idle" : cpuShortStr, rTitle, rDesc, cpuRows, memRows, fleetRows, topCpu, totalProcs, pyCount, nodeCount, mcpCount, swarmStr, pidsByApp, pidsBySwarm, cpuByApp, rssByApp, countByApp, ranked, memRanked, swarmCounts, topCmdByApp, mcpFamilyItems)
     }
 
     func refreshLiveTelemetry() {
@@ -2700,6 +2879,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                     ["k": "Hermes Autonomous Gateway", "v": "\(culprits.swarmCounts["hermes", default: 0]) processes · clawbrowser + MCP enabled"],
                 ],
                 "items": [
+                    ["key": "sw-herdr", "title": "Herdr Persistent Sessions (Protected)", "right": "\(culprits.swarmCounts["herdr", default: 0]) procs", "subtitle": "Whitelisted from all reapers & pkill/killall shims", "pct": min(100, max(20, culprits.swarmCounts["herdr", default: 0] * 20)), "children": culprits.pidsBySwarm["herdr"] ?? []],
                     ["key": "sw-omp", "title": "OMP (Oh-My-Pi) Agent Processes", "right": "\(culprits.swarmCounts["omp", default: 0]) procs", "subtitle": "Terminal harness & subagent workers", "pct": min(100, culprits.swarmCounts["omp", default: 0] * 12), "children": culprits.pidsBySwarm["omp"] ?? []],
                     ["key": "sw-grok", "title": "Grok CLI Swarm Processes", "right": "\(culprits.swarmCounts["grok", default: 0]) procs", "subtitle": "Multi-worktree parallel agents", "pct": min(100, culprits.swarmCounts["grok", default: 0] * 14), "children": culprits.pidsBySwarm["grok"] ?? []],
                     ["key": "sw-claude", "title": "Claude Desktop + Claude Code", "right": "\(culprits.swarmCounts["claude", default: 0]) procs", "subtitle": "Protected interactive sessions", "pct": min(100, culprits.swarmCounts["claude", default: 0] * 6), "children": culprits.pidsBySwarm["claude"] ?? []],
@@ -3098,6 +3278,31 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         ]
 
         let fleetDrill: [[String: Any]] = [
+            [
+                "key": "fleet-mcp-bus",
+                "label": "Live MCP Servers & STDIO Bus (\(culprits.mcpCount) MCPs)",
+                "value": "\(culprits.mcpCount) live MCP procs across \(culprits.mcpFamilyItems.count) server families",
+                "badge": "\(culprits.mcpCount) MCPs · \(culprits.mcpFamilyItems.count) Families",
+                "pct": min(100, max(15, culprits.mcpCount * 2)),
+                "diagCmd": "ps -Ao pid,rss,etime,command | grep -iE 'mcp|thumbgate serve|context7' | grep -v grep",
+                "chips": ["\(culprits.mcpCount) Live MCPs", "\(culprits.mcpFamilyItems.count) Server Families", "127.0.0.1 STDIO/SSE", "Herdr & Agent Trees Protected"],
+                "history": [
+                    ["left": "Active MCP Server Families", "right": "\(culprits.mcpFamilyItems.count) families (\(culprits.mcpCount) total STDIO/HTTP processes)"],
+                    ["left": "Session Tree Protection", "right": "Herdr (\(culprits.swarmCounts["herdr", default: 0]) procs) + OMP + Claude + Poolside whitelisted"],
+                ] + opsHistory.prefix(2),
+                "deepDive": [
+                    ["k": "Where MCPs Run", "v": "Each agent session (Claude, OMP, Poolside, Cursor, Grok) spawns STDIO MCP children"],
+                    ["k": "Active MCP Count", "v": "\(culprits.mcpCount) live MCP processes across \(culprits.mcpFamilyItems.count) server families"],
+                    ["k": "Orphan Reaper Rule", "v": "Only reaps ppid=1 duplicate MCPs (>10m old); never touches Herdr or live agent trees"],
+                ],
+                "items": culprits.mcpFamilyItems,
+                "recommendations": [
+                    ["id": "mcp-bus-inspect", "done": true, "status": "✓ \(culprits.mcpCount) Live MCPs", "text": "Click any MCP family row above (Dayglass, ThumbGate, Agent Mesh, Claude MCP Serve, GitButler, GrepAI, Gurobi) to expand its individual PIDs, RAM footprint, uptime, and command line."],
+                ],
+                "actions": [
+                    ["label": "Free Orphan MCP RAM", "type": "freeAgentRam", "arg": ""],
+                ],
+            ],
             shieldDrill[3],
             [
                 "key": "fleet-launchagents",
@@ -3345,17 +3550,25 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         proc.arguments = ["\(home)/workspace/mac-yolo-safeguards/tools/mac-yolo-disk-guard.js", "--clean", "--json"]
         proc.terminationHandler = { [weak self] _ in
             DispatchQueue.main.async {
-                self?.lastSessionScanAt = .distantPast
-                self?.forceDiskRecheck = true
-                self?.refreshLiveTelemetry()
+                guard let self else { return }
+                self.lastSessionScanAt = .distantPast
+                self.diskProbeLock.lock()
+                self.forceDiskRecheck = true
+                self.diskProbeLock.unlock()
+                self.refreshLiveTelemetry()
             }
         }
         try? proc.run()
         lastSessionScanAt = .distantPast
+        diskProbeLock.lock()
         forceDiskRecheck = true
+        diskProbeLock.unlock()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
-            self?.forceDiskRecheck = true
-            self?.refreshLiveTelemetry()
+            guard let self else { return }
+            self.diskProbeLock.lock()
+            self.forceDiskRecheck = true
+            self.diskProbeLock.unlock()
+            self.refreshLiveTelemetry()
         }
     }
 
@@ -3391,4 +3604,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
 let app = NSApplication.shared
 let delegate = MacYoloAppDelegate()
 app.delegate = delegate
+if CommandLine.arguments.contains("--disk-probe-self-test") {
+    app.setActivationPolicy(.prohibited)
+}
 app.run()
