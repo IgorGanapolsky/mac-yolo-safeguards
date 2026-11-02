@@ -2,7 +2,7 @@
 
 The Partner Pilot is a paid reliability package for agencies, consultants, and AI implementation teams that already ship agentic workflows for clients.
 
-Price: `$3,000`
+Price: `$3,000` once. Pay at [Stripe Checkout](https://buy.stripe.com/9B6eVdcqM7DgcSdayn3sJ0Z).
 
 The goal is not to install a shell script and leave. The goal is to turn one repeated AI-agent failure pattern into a repeatable client-facing reliability motion: diagnose it, harden it, prove the guardrail works, and package the proof so you can use it in your own delivery.
 
