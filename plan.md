@@ -4244,3 +4244,12 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 
 - `tools/lib/work-first-yield.js`, `tools/work-first-yield.js`, `tests/test-work-first-yield.js`, `plan.md` (append only) → **grok-work-first-yield** (T-WORK-FIRST-YIELD-20261103). New files. No Swift HUD files. (2026-11-03T15:51:46Z)
 - 2026-11-03 grok-work-first-yield: RELEASED those three files. `node tests/test-work-first-yield.js` passed 13 in the worktree. Exit 75 defers pytest when Google Chrome is in front and load is at the threshold. Exit 0 admits pytest when the foreground is unknown, admits ghostty on a hot machine, and admits cargo when load is 1. No signal path in the two tool files.
+
+## 1. Task Board — append 2026-11-03T15:58:53Z — grok-reply-block
+
+| T-REPLY-BLOCK-20261103 | Messages wait during a declared offline window; the Mac app listing check still runs; a blank override declares no window | done | grok-reply-block | `tools/lib/reply-block.js`, `tools/reply-block.js`, `tests/test-reply-block.js`, `plan.md` (append only) | No declared window admits every action. A declared window defers replies and unknown work, and still admits an outage and the Mac app listing check. The first three hours are the block. An email illustration is not a measurement. |
+
+## 2. File Ownership Map — append 2026-11-03T15:58:53Z — grok-reply-block
+
+- `tools/lib/reply-block.js`, `tools/reply-block.js`, `tests/test-reply-block.js`, `plan.md` (append only) → **grok-reply-block** (T-REPLY-BLOCK-20261103). New files. (2026-11-03T15:58:53Z)
+- 2026-11-03 grok-reply-block: RELEASED those three files. `node tests/test-reply-block.js` passed 6. A blank override admits email. Override 16:00-21:00 at 17:00 defers email (exit 75) and admits the Mac app listing check (exit 0). At 19:00 the same email is admitted. An illustration claim is refused.
