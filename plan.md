@@ -4271,3 +4271,12 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 
 - `tools/lib/defect-loop.js`, `tools/defect-loop.js`, `tests/test-defect-loop.js`, `plan.md` (append only) → **grok-defect-loop** (T-DEFECT-LOOP-20261103). New files. (2026-11-03T16:12:00Z)
 - 2026-11-03 grok-defect-loop: RELEASED those three files. `node tests/test-defect-loop.js` passed 6. A report with no mention reproduces (exit 0). The same report at seen 1 stops (exit 77). A reproduced result waits for a person (exit 75). A bare fix claim is refused (exit 77).
+
+## 1. Task Board — append 2026-11-03T16:36:00Z — grok-owned-offer
+
+| T-OWNED-OFFER-20261103 | Sell the measured Mac app first; write the custom build quote only after that purchase is paid | done | grok-owned-offer | `tools/lib/owned-offer.js`, `tools/owned-offer.js`, `tests/test-owned-offer.js`, `plan.md` (append only) | A free pilot, a call list, and a rented stack stay blocked and do not change the price. A hire figure is not a measured price. The check never sends mail. |
+
+## 2. File Ownership Map — append 2026-11-03T16:36:00Z — grok-owned-offer
+
+- `tools/lib/owned-offer.js`, `tools/owned-offer.js`, `tests/test-owned-offer.js`, `plan.md` (append only) → **grok-owned-offer** (T-OWNED-OFFER-20261103). New files. (2026-11-03T16:36:00Z)
+- 2026-11-03 grok-owned-offer: RELEASED those three files. `node tests/test-owned-offer.js` passed 5. A request that asks for a free pilot, fifty calls, and a rented stack still sells the Mac app (exit 0) and leaves the custom build waiting. The same sheet with the purchase marked paid prints the two-payment quote (exit 0). A hire flag refuses (exit 77).
