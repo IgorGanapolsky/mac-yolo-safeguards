@@ -4220,8 +4220,9 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 
 ## 1. Task Board — append 2026-11-03 — grok-hud-hog-rows
 
-| T-HUD-HOG-ROWS-20261103 | Top Hogs click shows the named hogs as separate rows, not a bunched process wall | in_progress | grok-hud-hog-rows | `macos/MacYoloTranslucentHud.swift`, `macos/MacYoloSafeguardsApp.swift`, `tests/test-hud-top-hog-rows.js`, `plan.md` | Opening Top Hogs lists the same programs named on the chip, collapsed and spaced. A name click opens only that program. Both Swift copies stay identical. The running menu-bar binary contains the new subtitle. |
+| T-HUD-HOG-ROWS-20261103 | Top Hogs click shows the named hogs as separate rows, not a bunched process wall | done | grok-hud-hog-rows | `macos/MacYoloTranslucentHud.swift`, `macos/MacYoloSafeguardsApp.swift`, `tests/test-hud-top-hog-rows.js`, `plan.md` | Opening Top Hogs lists the same programs named on the chip, collapsed and spaced. A name click opens only that program. Both Swift copies stay identical. The running menu-bar binary contains the new subtitle. |
 
 ## 2. File Ownership Map — append 2026-11-03T15:10:00Z — grok-hud-hog-rows
 
 - `macos/MacYoloTranslucentHud.swift`, `macos/MacYoloSafeguardsApp.swift`, `tests/test-hud-top-hog-rows.js`, `plan.md` (append only) → **grok-hud-hog-rows** (T-HUD-HOG-ROWS-20261103). The 2026-10-29 omp-supabase-ibm-steals inventory lists these Swift files after that steal was already implemented, and later HUD work merged on the release branch. This claim is the live lock for the hog-row fix. (2026-11-03T15:10:00Z)
+- 2026-11-03 grok-hud-hog-rows: RELEASED `macos/MacYoloTranslucentHud.swift`, `macos/MacYoloSafeguardsApp.swift`, `tests/test-hud-top-hog-rows.js`. node tests/test-hud-top-hog-rows.js PASS. node tests/test-mac-yolo-hud-anti-regression.js PASS. Installed /Applications/MacYoloSafeguards.app pid 463 contains "These are the top hogs. Tap one to see its processes." and matches ~/.hermes/bin/MacYoloSafeguards-purple-bento.
