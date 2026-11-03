@@ -4324,3 +4324,12 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 
 - `tools/lib/confidence-offer-gate.js`, `tools/confidence-offer-gate.js`, `tests/test-confidence-offer-gate.js`, `skills/confidence-offer-gate/SKILL.md`, `plan.md` (append only) → **grok-confidence-offer** (T-CONFIDENCE-OFFER-20261103). New files. (2026-11-03T17:18:41Z)
 - 2026-11-03 grok-confidence-offer: RELEASED those four files. `node tests/test-confidence-offer-gate.js` passed 7. One buyer URL is admitted and not launched (exit 0). A price change is refused (exit 77). Demo data is held and is not a sale (exit 75). A remote call is refused (exit 77). Two buyer URLs with no payment stay open (exit 75).
+
+## 1. Task Board — append 2026-11-03T17:23:44Z — grok-velodb-personalize
+
+| T-VELODB-PERSONALIZE-20261103 | A personalize choice is a label. No trial, no second database, no vendor figure. | done | grok-velodb-personalize | `tools/lib/velodb-personalize-gate.js`, `tools/velodb-personalize-gate.js`, `tests/test-velodb-personalize-gate.js`, `skills/velodb-personalize-gate/SKILL.md`, `plan.md` (append only) | The check never calls VeloDB and never presses Continue. |
+
+## 2. File Ownership Map — append 2026-11-03T17:23:44Z — grok-velodb-personalize
+
+- `tools/lib/velodb-personalize-gate.js`, `tools/velodb-personalize-gate.js`, `tests/test-velodb-personalize-gate.js`, `skills/velodb-personalize-gate/SKILL.md`, `plan.md` (append only) → **grok-velodb-personalize** (T-VELODB-PERSONALIZE-20261103). New files. (2026-11-03T17:23:44Z)
+- 2026-11-03 grok-velodb-personalize: RELEASED those four files. `node tests/test-velodb-personalize-gate.js` passed 5. A menu label is admitted and provisions nothing (exit 0). A trial, Continue, and a warehouse are refused (exit 77). A relevance figure is refused and is not printed (exit 77).
