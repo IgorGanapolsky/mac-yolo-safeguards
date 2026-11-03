@@ -10,7 +10,6 @@ Implements Navveen Balani's 6-Step Disposable Agent Architecture:
 6. Retire: Revoke authority and destroy ephemeral compute resources.
 """
 import json
-import os
 import time
 from pathlib import Path
 

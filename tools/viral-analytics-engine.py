@@ -859,12 +859,6 @@ def build_viral_analytics_report() -> dict[str, Any]:
         .get("mac-yolo-safeguards", {})
         .get("unique_visitors_14d", 354),
     )
-    mac_cloners = min(
-        mac_visitors,
-        gh_telemetry.get("repositories", {})
-        .get("mac-yolo-safeguards", {})
-        .get("unique_cloners_14d", 337),
-    )
     bandit_checkout_intent = run_bayesian_thompson_bandit(
         {
             "variant_a_incident_307": {"trials": mac_visitors, "conversions": 0},

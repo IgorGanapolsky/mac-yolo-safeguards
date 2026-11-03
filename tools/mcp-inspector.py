@@ -6,20 +6,11 @@ to answer where the 198 MCPs can be inspected and verified.
 """
 import json
 import os
-import subprocess
 from pathlib import Path
 
 def audit_mcps():
     print("[*] Auditing Active MCP Registrations & Tool Surfaces...")
-    
-    # Check config files and tooling directories for MCP registrations
-    config_paths = [
-        Path.home() / ".hermes/config.yaml",
-        Path.home() / ".config/claude/settings.json",
-        Path.home() / ".cursor/mcp.json",
-        Path.cwd() / "mcp.json" if Path("mcp.json").exists() else None
-    ]
-    
+
     registered_mcps = [
         "agent-mesh",
         "dayglass",

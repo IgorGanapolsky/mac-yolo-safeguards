@@ -6,7 +6,6 @@ Implements Rig's type-safe construction and compilation-checked tool/schema prin
 2. Compiled-Contract Enforcement: Rejects malformed agent payloads prior to inference.
 """
 import json
-import os
 from pathlib import Path
 
 class TypeSafeAgentContract:

@@ -4,11 +4,8 @@ Autonomous Background Safeguard Daemon (mac-yolo-safeguards)
 Runs continuously in the background (zero manual babysitting) to automatically
 purge rogue high-CPU/RAM processes, free memory, and protect system stability.
 """
-import json
-import os
 import subprocess
 import time
-from pathlib import Path
 
 def safeguard_loop():
     print("[*] Starting Autonomous Background Safeguard Daemon...")

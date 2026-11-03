@@ -4,7 +4,6 @@ Autonomous Codebase Hygiene & Cleanup Engine (mac-yolo-safeguards)
 Scans for temporary cache files, old logs, dangling build artifacts, and stale test outputs,
 automatically cleaning and organizing them to keep the repository production-ready.
 """
-import os
 import shutil
 from pathlib import Path
 

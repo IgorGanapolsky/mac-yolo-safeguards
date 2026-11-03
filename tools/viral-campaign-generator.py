@@ -485,7 +485,6 @@ def generate_viral_campaign() -> dict[str, Any]:
     x_diag = utm(URLS["diagnostic_499"], "x", "thread_diag")
     th_repo = utm(URLS["github"], "threads", "carousel_post")
     th_kit = utm(URLS["kit_49"], "threads", "carousel_cta")
-    bs_repo = utm(URLS["github"], "bluesky", "atproto_card")
     bs_kit = utm(URLS["playbook_9_99"], "bluesky", "atproto_cta")
     yt_repo = utm(URLS["github"], "youtube", "shorts_desc")
     yt_kit = utm(URLS["kit_49"], "youtube", "shorts_pinned")

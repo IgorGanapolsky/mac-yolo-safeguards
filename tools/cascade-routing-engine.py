@@ -7,7 +7,6 @@ Implements GitHub COO Kyle Daigle's strategic routing principles:
 3. Automated Verification Gate: Secure code verification before merge.
 """
 import json
-import os
 from pathlib import Path
 
 class CascadeRoutingEngine:
@@ -23,10 +22,10 @@ class CascadeRoutingEngine:
         draft_success = True if self.complexity == "standard" else False
         
         if draft_success:
-            print(f"[Cascade Router] Task successfully completed on low-tier model (Saved ~75% token cost).")
+            print("[Cascade Router] Task successfully completed on low-tier model (Saved ~75% token cost).")
             return {"tier": "Standard", "status": "passed", "cost_saved_pct": 75}
         else:
-            print(f"[Cascade Router] Low-tier failed/insufficient. Escalating to Fusion Max (Frontier).")
+            print("[Cascade Router] Low-tier failed/insufficient. Escalating to Fusion Max (Frontier).")
             return {"tier": "Max", "status": "passed", "cost_saved_pct": 0}
 
 if __name__ == "__main__":

@@ -6,7 +6,6 @@ and revenue pipeline execution to close the revenue gap.
 """
 import json
 import os
-import subprocess
 from pathlib import Path
 
 def execute_revenue_loop():

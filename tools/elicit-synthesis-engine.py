@@ -7,7 +7,6 @@ Implements Elicit's rigorous research synthesis principles:
 3. PRISMA-Auditable Synthesis: Generates structured verification reports and audit trails.
 """
 import json
-import os
 from pathlib import Path
 
 class ElicitSynthesisEngine:

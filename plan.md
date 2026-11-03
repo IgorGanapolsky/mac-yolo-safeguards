@@ -4333,3 +4333,12 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 
 - `tools/lib/velodb-personalize-gate.js`, `tools/velodb-personalize-gate.js`, `tests/test-velodb-personalize-gate.js`, `skills/velodb-personalize-gate/SKILL.md`, `plan.md` (append only) → **grok-velodb-personalize** (T-VELODB-PERSONALIZE-20261103). New files. (2026-11-03T17:23:44Z)
 - 2026-11-03 grok-velodb-personalize: RELEASED those four files. `node tests/test-velodb-personalize-gate.js` passed 5. A menu label is admitted and provisions nothing (exit 0). A trial, Continue, and a warehouse are refused (exit 77). A relevance figure is refused and is not printed (exit 77).
+
+## 1. Task Board — append 2026-11-03T17:32:58Z — grok-release-checks
+
+| T-RELEASE-RED-CHECKS-20261103 | The two red checks on release tip 4484e4a2 pass again | done | grok-release-checks | `README.md`, `.github/ISSUE_TEMPLATE/config.yml`, the eighteen Python files named below, `plan.md` (append only) | Public conversion exits 0. Ruff 0.15.20 with F and E722 reports no findings. Stripe and Gumroad links stay. No mail is sent. |
+
+## 2. File Ownership Map — append 2026-11-03T17:32:58Z — grok-release-checks
+
+- `README.md`, `.github/ISSUE_TEMPLATE/config.yml`, `tools/adaptive-knowledge-engine.py`, `tools/background-safeguard-daemon.py`, `tools/cascade-routing-engine.py`, `tools/codebase-hygiene-cleanup.py`, `tools/disposable-agent-lifecycle.py`, `tools/elicit-synthesis-engine.py`, `tools/execute-revenue-loop.py`, `tools/goose-interactive-loop.py`, `tools/hackernews-auto-submit.py`, `tools/mcp-inspector.py`, `tools/open-weight-router.py`, `tools/package-distribution.py`, `tools/reflection-combiner-engine.py`, `tools/researchrabbit-monetize.py`, `tools/rig-type-contract.py`, `tools/ship-release.py`, `tools/single-job-swarm-manager.py`, `tools/social-promotion-audit.py`, `tools/viral-analytics-engine.py`, `tools/viral-campaign-generator.py`, `plan.md` (append only) → **grok-release-checks** (T-RELEASE-RED-CHECKS-20261103). The 2026-10-29 README inventory is not the live lock: later release commits already rewrote the README. No open pull request owned these files. (2026-11-03T17:32:58Z)
+- 2026-11-03 grok-release-checks: RELEASED those files. `node tools/public-conversion-check.js` PASS. `ruff 0.15.20 check --select F,E722` on tracked Python files: All checks passed. The paid line is back before Background. The issue form names Paid triage call and Private email. The $19 Stripe link and the $49 Gumroad link are unchanged.

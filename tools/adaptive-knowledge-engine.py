@@ -7,7 +7,6 @@ Implements Interact Software's AI-native intranet & Cue/Conductor principles:
 3. Permission-Aware Guardrails: Ensures agents never surface unauthorized information or restricted tools.
 """
 import json
-import os
 from pathlib import Path
 
 class AdaptiveIntranetContextEngine:

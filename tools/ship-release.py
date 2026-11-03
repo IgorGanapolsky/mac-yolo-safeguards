@@ -3,7 +3,6 @@
 Final Shipping & Git Commit/Push Automation Engine (mac-yolo-safeguards)
 Automates staging, committing, and pushing packaged release work to origin/main.
 """
-import os
 import subprocess
 
 def run_cmd(cmd):
