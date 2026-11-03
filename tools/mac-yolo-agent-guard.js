@@ -271,7 +271,8 @@ function pagingRates(prev, cur) {
   if (!prev || !cur || prev.swapins === null || cur.swapins === null) return null;
   const seconds = (cur.at - prev.at) / 1000;
   if (seconds <= 0) return null;
-  const perSec = (key) => Math.max(0, Math.round((cur[key] - prev[key]) / seconds));
+  // Floor, so 255.5 pages a second stays under the 256 warn line.
+  const perSec = (key) => Math.max(0, Math.floor((cur[key] - prev[key]) / seconds));
   const swapInsPerSec = perSec('swapins');
   return {
     seconds: Math.round(seconds),
@@ -472,11 +473,14 @@ const STRANDABLE = new Set(['omp', 'grok', 'poolside', 'codex', 'claude-cli', 'c
 
 // Pure. A terminal agent nobody can reach: its terminal is gone (launchd adopted it, no tty),
 // no LaunchAgent runs it, and it has used no CPU for 30 minutes. No person can be driving it.
-// Claude desktop sessions are never in this list; the Claude app owns them.
+// Claude desktop sessions are never in this list; the Claude app owns them. A process
+// younger than the idle window reused an old pid, and an agent serving a socket
+// (`codex app-server --listen ...`) still has clients even when its CPU is flat.
 function findStrandedAgents(procs, idle, { now = Date.now(), launchdPids = new Set(), minIdleSec = STRANDED_MIN_IDLE_SEC } = {}) {
   return procs.filter((p) => {
     const since = idle.get(p.pid);
-    return STRANDABLE.has(p.kind) && p.ppid === 1 && p.tty === '??' && !launchdPids.has(p.pid) && since && now - since.since >= minIdleSec * 1000;
+    return STRANDABLE.has(p.kind) && p.ppid === 1 && p.tty === '??' && !launchdPids.has(p.pid) && p.ageSec >= minIdleSec &&
+      !/(^|\s)(app-server|--listen)(\s|=|$)/.test(p.command) && since && now - since.since >= minIdleSec * 1000;
   });
 }
 
@@ -568,15 +572,24 @@ function relieve({ execute = false, memory = memorySnapshot(), procs = listProce
   const result = clean({ execute, procs, stranded });
   const owners = blame(procs, footprints, 5).owners;
   const entry = { at: new Date().toISOString(), pressure, memory, execute, ...result, owners, idleSessions };
-  if (execute) {
-    try {
-      fs.mkdirSync(LOG_DIR, { recursive: true });
-      fs.appendFileSync(PRESSURE_LOG, `${JSON.stringify(entry)}\n`);
-    } catch {
-      // logging is best effort
-    }
-  }
+  if (execute) logPressure(entry);
   return { ...entry, acted: true };
+}
+
+function logPressure(entry) {
+  try {
+    fs.mkdirSync(LOG_DIR, { recursive: true });
+    fs.appendFileSync(PRESSURE_LOG, `${JSON.stringify(entry)}\n`);
+  } catch {
+    // logging is best effort
+  }
+}
+
+// Pure. What one pressure check does. Acting runs on every non-normal check, so the second
+// critical in a row stops storms at once; only the notification waits out the cooldown.
+function pressureActions({ level, criticalChecks, now, lastNotice, stopStranded = false }) {
+  if (level === 'normal') return { act: false, stopStorms: false, stopStranded: false, notify: false };
+  return { act: true, stopStorms: criticalChecks >= 2, stopStranded, notify: now - lastNotice >= RELIEVE_COOLDOWN_MS };
 }
 
 // Our own reapers log the pids they signal. If a vanished pid is in one of those
@@ -678,7 +691,7 @@ function watch({ intervalMs = WATCH_INTERVAL_MS, minVanished = MIN_VANISHED } = 
       shimCalls: recentShimCalls(now - intervalMs * WATCH_RING_TICKS),
     });
     if (incident) {
-      const memory = memorySnapshot({ paging: null });
+      const memory = memorySnapshot({ paging: pagingRates(lastCounters, readVmCounters()) });
       // Reapers log after they finish signalling, so read their logs a moment later.
       setTimeout(() => {
         incident.reaperHits = reaperHits(incident.vanished.map((p) => p.pid));
@@ -698,26 +711,32 @@ function watch({ intervalMs = WATCH_INTERVAL_MS, minVanished = MIN_VANISHED } = 
     const pressure = assessPressure(memory);
     // The level is bursty: act on critical only when two checks in a row agree.
     criticalChecks = pressure.level === 'critical' ? criticalChecks + 1 : 0;
-    if (pressure.level === 'normal' || now - lastRelief < RELIEVE_COOLDOWN_MS) return;
-    lastRelief = now;
+    const actions = pressureActions({ level: pressure.level, criticalChecks, now, lastNotice, stopStranded: stopsStranded() });
+    if (!actions.act) return;
     const launchdPids = launchdJobPids();
-    const footprints = readFootprints();
+    // Footprints cost a full `top` run, so take them only when a notification will name owners.
+    const footprints = actions.notify ? readFootprints() : new Map();
     // Stranded agents have no terminal and no CPU use for half an hour, but an idle agent may
     // still be waiting on the network, so they are only named unless the person opted in.
     // Storms and orphan copies wait for two criticals.
     const stranded = findStrandedAgents(current, idle, { now, launchdPids });
     const idleSessions = findIdleSessions(current, idle, { now, footprints });
-    const result = relieve({ execute: criticalChecks >= 2, memory, procs: current, idleSessions, footprints });
-    const strandedResult = clean({ execute: stopsStranded(), procs: [], launchdPids, stranded });
+    const result = relieve({ execute: actions.stopStorms, memory, procs: current, idleSessions, footprints });
+    const strandedResult = clean({ execute: actions.stopStranded, procs: [], launchdPids, stranded });
+    if (strandedResult.stoppedStranded && strandedResult.stoppedStranded.length) {
+      logPressure({ at: new Date(now).toISOString(), pressure, stoppedStranded: strandedResult.stoppedStranded });
+    }
     const stopped = (result.stopped || []).reduce((s, x) => s + x.signalled, 0) + (result.stoppedOrphans || []).length + (strandedResult.stoppedStranded || []).length;
     const holders = result.owners.slice(0, 3).map((o) => `${o.owner} ${(o.memoryMB / 1024).toFixed(1)} GB (${o.sharePct}%)`).join(', ');
     const strandedNote = strandedResult.wouldStopStranded && strandedResult.wouldStopStranded.length ? ` ${strandedResult.wouldStopStranded.length} terminal agents look stranded (no terminal, idle 30 min): PIDs ${strandedResult.wouldStopStranded.map((x) => x.pid).join(', ')}.` : '';
     const idleNote = idleSessions.length ? ` ${idleSessions.length} Claude sessions idle 2h+ (${(idleSessions.reduce((s, x) => s + x.memoryMB, 0) / 1024).toFixed(1)} GB): archive them in Claude.` : '';
+    if (!actions.notify && !stopped) return;
+    lastNotice = now;
     notify('Mac YOLO: memory ' + pressure.level, `${pressure.reasons.join('; ')}. Most memory: ${holders}.${strandedNote}${idleNote}${stopped ? ` Stopped ${stopped} runaway or stranded processes.` : ''}`);
     console.log(`${new Date(now).toISOString()} memory ${pressure.level}: ${pressure.reasons.join('; ')}; holders ${holders}; idle sessions ${idleSessions.length}; stopped ${stopped}`);
   };
   let ticks = 0;
-  let lastRelief = 0;
+  let lastNotice = 0;
   let criticalChecks = 0;
   let lastCounters = readVmCounters();
   let idle = new Map();
@@ -940,6 +959,7 @@ module.exports = {
   trackIdle,
   findStrandedAgents,
   stopsStranded,
+  pressureActions,
   plist,
   findIdleSessions,
   relieve,

@@ -6,7 +6,7 @@ const { execFileSync, spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { classify, isLiveAgentProcess, isAgentDependency, indexByPid, findOrphanMcpServers, assessPressure, parseVmStat, pagingRates, parseTopFootprints, blame, trackIdle, findStrandedAgents, stopsStranded, plist, findIdleSessions, relieve, signalIfSame, decideKill, killTargets, findMcpFanOut, reaperHits, parsePs, findStorms, detectIncident, shimScript, status, clean } = require('../tools/mac-yolo-agent-guard');
+const { classify, isLiveAgentProcess, isAgentDependency, indexByPid, findOrphanMcpServers, assessPressure, parseVmStat, pagingRates, parseTopFootprints, blame, trackIdle, findStrandedAgents, stopsStranded, pressureActions, plist, findIdleSessions, relieve, signalIfSame, decideKill, killTargets, findMcpFanOut, reaperHits, parsePs, findStorms, detectIncident, shimScript, status, clean } = require('../tools/mac-yolo-agent-guard');
 const { isRunawayCommand, runawayPids } = require('../tools/mac-yolo-system-care-engine');
 const { callTool, getToolDefinitions } = require('../tools/mac-yolo-mcp-server');
 const { routeRequest, startSelfHeal } = require('../tools/mac-yolo-service');
@@ -181,6 +181,9 @@ function main() {
   assert.match(thrash.reasons[0], /6\.4 MB\/s back from swap/);
   assert.strictEqual(assessPressure({ pressureLevel: 1, freeMemoryPct: 71, swapUsedMB: 0, ramMB: 49152, paging: { ...rates, swapInsPerSec: 1500 } }).level, 'critical');
   assert.strictEqual(assessPressure({ pressureLevel: 1, freeMemoryPct: 71, swapUsedMB: 13358, ramMB: 49152, paging: { ...rates, swapInsPerSec: 20 } }).level, 'normal', 'a full swap that is not being read back is not pressure');
+  const atRate = (swapInsPerSec) => assessPressure({ pressureLevel: 1, freeMemoryPct: 71, swapUsedMB: 0, ramMB: 49152, paging: { ...rates, swapInsPerSec } }).level;
+  assert.deepStrictEqual([atRate(255), atRate(256), atRate(1023), atRate(1024)], ['normal', 'warn', 'warn', 'critical'], 'both thresholds are inclusive');
+  assert.strictEqual(pagingRates({ ...vmA, swapins: 0 }, { ...vmB, swapins: 2559 }).swapInsPerSec, 255, '255.9 pages a second stays under the warn line');
 
   // Blame by owner and footprint: MCP servers count toward their agent, renderers toward
   // their browser, terminal-agent panes toward the agent, bare panes toward the multiplexer.
@@ -223,6 +226,17 @@ function main() {
   const stranded = findStrandedAgents(strandProcs, idle, { now: t0 + 31 * 60000, launchdPids: new Set([804]) });
   assert.deepStrictEqual(stranded.map((p) => p.pid), [800, 805]);
   assert.deepStrictEqual(findStrandedAgents(strandProcs, idle, { now: t0 + 20 * 60000 }), [], 'twenty idle minutes is not stranded');
+  const reused = parsePs(ps([
+    [800, 1, 300000, '05:00', '??', 'omp --resume=/Users/u/.omp/agent/sessions/new.jsonl'],
+    [806, 1, 300000, '20:00:00', '??', 'codex app-server --listen unix:///tmp/codex.sock'],
+  ]));
+  const idleReused = trackIdle(trackIdle(new Map(), new Map([[800, 10], [806, 2]]), t0), new Map([[800, 10], [806, 2]]), t0 + 31 * 60000);
+  assert.deepStrictEqual(findStrandedAgents(reused, idleReused, { now: t0 + 31 * 60000 }), [], 'a five-minute-old process on a reused pid and a codex serving a socket are not stranded');
+  const calm = { criticalChecks: 0, now: 2 * 3600000, lastNotice: 0 };
+  assert.deepStrictEqual(pressureActions({ ...calm, level: 'normal' }), { act: false, stopStorms: false, stopStranded: false, notify: false });
+  assert.deepStrictEqual(pressureActions({ ...calm, level: 'warn', criticalChecks: 0 }), { act: true, stopStorms: false, stopStranded: false, notify: true }, 'warn notifies and names stranded agents without stopping them');
+  assert.deepStrictEqual(pressureActions({ level: 'critical', criticalChecks: 2, now: calm.now, lastNotice: calm.now - 60000 }), { act: true, stopStorms: true, stopStranded: false, notify: false }, 'the second critical in a row stops storms even inside the notification cooldown');
+  assert.strictEqual(pressureActions({ ...calm, level: 'warn', stopStranded: true }).stopStranded, true, 'stranded agents are stopped only when opted in');
   assert.strictEqual(stopsStranded({}), false, 'stranded agents are only named unless the person opts in');
   assert.strictEqual(stopsStranded({ MAC_YOLO_STOP_STRANDED: '1' }), true, 'MAC_YOLO_STOP_STRANDED=1 opts in');
   const savedOptIn = process.env.MAC_YOLO_STOP_STRANDED;
