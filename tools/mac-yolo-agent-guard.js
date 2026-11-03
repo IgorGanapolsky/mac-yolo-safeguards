@@ -14,8 +14,10 @@
  *   status     agent processes by kind, process storms, recent kill incidents
  *   clean      stop process storms and extra copies of orphaned MCP servers (dry run unless
  *              --execute); live sessions and the MCP servers and hooks they launched are never touched
- *   pressure   memory pressure verdict; when not normal, the same cleanup (dry run unless --execute).
- *              The watch loop runs it every minute and cleans up on its own only at critical.
+ *   blame      memory by owner (agent or app), measured as physical footprint, biggest first
+ *   pressure   memory pressure verdict, swap read-back rate included; when not normal, the
+ *              same cleanup (dry run unless --execute). The watch loop checks every minute,
+ *              stops stranded agents at warn, and stops storms only after two criticals.
  *   watch      tracer: when 2+ Claude processes vanish in one tick, save what was running,
  *              what had just started, and any pkill/killall calls the shims logged
  *   incidents  list saved kill incidents
@@ -47,6 +49,13 @@ const ORPHAN_MIN_AGE_SEC = 600;
 const PRESSURE_CHECK_TICKS = 60;
 const RELIEVE_COOLDOWN_MS = 10 * 60 * 1000;
 const PRESSURE_LOG = path.join(LOG_DIR, 'pressure.jsonl');
+// 2026-11-03: the Mac froze with the kernel level normal and 71% free, while it read
+// 155-400 pages a second back from swap (load average 46 on 18 cores, CPU 77% idle).
+// A freeze is the read-back rate, not how much sits in swap.
+const SWAPIN_WARN_PER_SEC = 256;
+const SWAPIN_CRITICAL_PER_SEC = 1024;
+const STRANDED_MIN_IDLE_SEC = 30 * 60;
+const IDLE_SESSION_MIN_SEC = 2 * 3600;
 // process.execPath points into a versioned Homebrew Cellar folder that an upgrade deletes.
 const STABLE_NODE = ['/opt/homebrew/bin/node', '/usr/local/bin/node'].find((p) => fs.existsSync(p)) || process.execPath;
 
@@ -239,7 +248,53 @@ function summarizeAgents(procs) {
   return byKind;
 }
 
-function memorySnapshot() {
+// Cumulative paging counters from vm_stat. Two readings give a rate.
+function parseVmStat(text, at = Date.now()) {
+  const num = (label) => {
+    const m = text.match(new RegExp(`^${label}:\\s+(\\d+)`, 'm'));
+    return m ? Number(m[1]) : null;
+  };
+  const size = text.match(/page size of (\d+) bytes/);
+  return { at, pageSize: size ? Number(size[1]) : 16384, swapins: num('Swapins'), swapouts: num('Swapouts'), decompressions: num('Decompressions') };
+}
+
+function readVmCounters() {
+  try {
+    return parseVmStat(execFileSync('/usr/bin/vm_stat', { encoding: 'utf8', timeout: 5000 }));
+  } catch {
+    return null;
+  }
+}
+
+// Pure. Per-second paging between two vm_stat readings.
+function pagingRates(prev, cur) {
+  if (!prev || !cur || prev.swapins === null || cur.swapins === null) return null;
+  const seconds = (cur.at - prev.at) / 1000;
+  if (seconds <= 0) return null;
+  // Floor, so 255.5 pages a second stays under the 256 warn line.
+  const perSec = (key) => Math.max(0, Math.floor((cur[key] - prev[key]) / seconds));
+  const swapInsPerSec = perSec('swapins');
+  return {
+    seconds: Math.round(seconds),
+    swapInsPerSec,
+    swapInMBps: Number(((swapInsPerSec * cur.pageSize) / 1048576).toFixed(1)),
+    swapOutsPerSec: perSec('swapouts'),
+    decompressionsPerSec: perSec('decompressions'),
+  };
+}
+
+function sleepMs(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+// paging: rates the caller already measured (the watch loop's last minute). Without
+// them, take two vm_stat readings sampleMs apart.
+function memorySnapshot({ paging, sampleMs = 2000 } = {}) {
+  if (paging === undefined) {
+    const first = readVmCounters();
+    sleepMs(sampleMs);
+    paging = pagingRates(first, readVmCounters());
+  }
   const read = (key) => {
     try {
       return execFileSync('/usr/sbin/sysctl', ['-n', key], { encoding: 'utf8' }).trim();
@@ -264,12 +319,14 @@ function memorySnapshot() {
     swapUsedPct: swap ? Math.round((Number(swap[2]) * 100) / Number(swap[1])) : null,
     ramMB: Math.round(os.totalmem() / 1048576),
     freeMemoryPct,
+    paging,
   };
 }
 
-// Pure. The kernel's own verdict leads (1 normal, 2 warn, 4 critical). macOS adds swap
-// files as it needs them and leaves cold pages there, so swap alone is never pressure;
-// it is named as a reason, and only the kernel level or a low free figure raise the level.
+// Pure. The kernel's level (1 normal, 2 warn, 4 critical) and a low free figure raise the
+// level, and so does reading pages back from swap fast: that is what freezes apps, and the
+// kernel can report normal while it happens. Swap size alone is never pressure, because
+// macOS adds swap files as it needs them and leaves cold pages there.
 function assessPressure(memory) {
   const reasons = [];
   let level = 'normal';
@@ -281,6 +338,12 @@ function assessPressure(memory) {
   else if (memory.pressureLevel === 2) raise('warn', 'kernel reports memory pressure warning');
   if (memory.freeMemoryPct !== null && memory.freeMemoryPct < 10) raise('critical', `only ${memory.freeMemoryPct}% memory free`);
   else if (memory.freeMemoryPct !== null && memory.freeMemoryPct < 20) raise('warn', `only ${memory.freeMemoryPct}% memory free`);
+  const paging = memory.paging;
+  if (paging) {
+    const swapping = `reading ${paging.swapInMBps} MB/s back from swap (${paging.swapInsPerSec} pages/s over ${paging.seconds}s)`;
+    if (paging.swapInsPerSec >= SWAPIN_CRITICAL_PER_SEC) raise('critical', swapping);
+    else if (paging.swapInsPerSec >= SWAPIN_WARN_PER_SEC) raise('warn', swapping);
+  }
   if (memory.swapUsedMB !== null && memory.ramMB && memory.swapUsedMB > memory.ramMB * 0.75) {
     reasons.push(`${memory.swapUsedMB} MB in swap on ${memory.ramMB} MB of RAM`);
   }
@@ -308,11 +371,133 @@ function listIncidents(limit = 10) {
   });
 }
 
+const AGENT_NAMES = {
+  'claude-session': 'Claude',
+  'claude-cli': 'Claude',
+  codex: 'Codex',
+  'cursor-agent': 'Cursor',
+  grok: 'Grok',
+  poolside: 'Poolside',
+  'gemini-agent': 'Gemini',
+  omp: 'omp',
+};
+
+function ownerName(proc) {
+  const app = proc.command.match(/^\/(?:System\/)?Applications\/(?:[^/]+\/)*?([^/]+)\.app\//);
+  if (AGENT_NAMES[proc.kind]) return AGENT_NAMES[proc.kind];
+  if (app) return app[1];
+  return path.basename(proc.command.split(' ')[0]);
+}
+
+// Who a process's memory belongs to: the nearest live agent or installed app at or above
+// it, else the process launchd started. MCP servers count toward the agent that launched
+// them, renderers toward their browser, panes toward their terminal multiplexer.
+function ownerOf(proc, byPid) {
+  let cur = proc;
+  for (let hops = 0; hops < 64; hops += 1) {
+    if (AGENT_NAMES[cur.kind] || /^\/(System\/)?Applications\/.*?\.app\//.test(cur.command) || /\/Claude\.app\/Contents\//.test(cur.command)) return ownerName(cur);
+    const parent = byPid.get(cur.ppid);
+    if (!parent || parent.pid <= 1) return ownerName(cur);
+    cur = parent;
+  }
+  return ownerName(proc);
+}
+
+// Physical footprint per pid, as Activity Monitor's Memory column shows it. RSS leaves out
+// compressed and swapped pages, which on 2026-11-03 hid half of omp's and the browsers' memory.
+function readFootprints() {
+  try {
+    const out = execFileSync('/usr/bin/top', ['-l', '1', '-o', 'mem', '-n', '5000', '-stats', 'pid,mem'], { encoding: 'utf8', timeout: 20000, maxBuffer: 16 * 1024 * 1024 });
+    return parseTopFootprints(out);
+  } catch {
+    return new Map();
+  }
+}
+
+function parseTopFootprints(text) {
+  const units = { B: 1 / 1048576, K: 1 / 1024, M: 1, G: 1024 };
+  const out = new Map();
+  for (const line of text.split('\n')) {
+    const m = line.match(/^\s*(\d+)\s+([\d.]+)([BKMG])[+-]?\s*$/);
+    if (m) out.set(Number(m[1]), Number(m[2]) * units[m[3]]);
+  }
+  return out;
+}
+
+// Pure. Memory by owner, biggest first, so the one to blame is named by share, not by
+// which single process looks largest.
+function blame(procs, footprints = new Map(), top = 8) {
+  const byPid = indexByPid(procs);
+  const owners = new Map();
+  let totalMB = 0;
+  for (const p of procs) {
+    const mb = footprints.has(p.pid) ? footprints.get(p.pid) : p.rssMB;
+    const name = ownerOf(p, byPid);
+    const o = owners.get(name) || { owner: name, processes: 0, memoryMB: 0 };
+    o.processes += 1;
+    o.memoryMB += mb;
+    owners.set(name, o);
+    totalMB += mb;
+  }
+  const ranked = [...owners.values()]
+    .map((o) => ({ ...o, memoryMB: Math.round(o.memoryMB), sharePct: totalMB ? Math.round((o.memoryMB * 100) / totalMB) : 0 }))
+    .sort((a, b) => b.memoryMB - a.memoryMB);
+  return { totalMB: Math.round(totalMB), measuredBy: footprints.size ? 'footprint' : 'rss', owners: ranked.slice(0, top) };
+}
+
+function readCpuTimes() {
+  const out = new Map();
+  try {
+    const text = execFileSync('/bin/ps', ['-axo', 'pid=,time='], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
+    for (const line of text.split('\n')) {
+      const m = line.match(/^\s*(\d+)\s+([\d:-]+)(?:\.(\d+))?/);
+      if (m) out.set(Number(m[1]), etimeToSeconds(m[2]) + Number(`0.${m[3] || 0}`));
+    }
+  } catch {
+    // leave empty: nothing counts as idle without a reading
+  }
+  return out;
+}
+
+// Pure. For each pid, since when its CPU time has not moved. history is the previous result.
+function trackIdle(history, cpuTimes, now = Date.now()) {
+  const next = new Map();
+  for (const [pid, cpu] of cpuTimes) {
+    const prev = history.get(pid);
+    next.set(pid, prev && prev.cpu === cpu ? prev : { cpu, since: now });
+  }
+  return next;
+}
+
+const STRANDABLE = new Set(['omp', 'grok', 'poolside', 'codex', 'claude-cli', 'cursor-agent']);
+
+// Pure. A terminal agent nobody can reach: its terminal is gone (launchd adopted it, no tty),
+// no LaunchAgent runs it, and it has used no CPU for 30 minutes. No person can be driving it.
+// Claude desktop sessions are never in this list; the Claude app owns them. A process
+// younger than the idle window reused an old pid, and an agent serving a socket
+// (`codex app-server --listen ...`) still has clients even when its CPU is flat.
+function findStrandedAgents(procs, idle, { now = Date.now(), launchdPids = new Set(), minIdleSec = STRANDED_MIN_IDLE_SEC } = {}) {
+  return procs.filter((p) => {
+    const since = idle.get(p.pid);
+    return STRANDABLE.has(p.kind) && p.ppid === 1 && p.tty === '??' && !launchdPids.has(p.pid) && p.ageSec >= minIdleSec &&
+      !/(^|\s)(app-server|--listen)(\s|=|$)/.test(p.command) && since && now - since.since >= minIdleSec * 1000;
+  });
+}
+
+// Pure. Claude desktop sessions whose CPU time has not moved for two hours. Reported so the
+// person can archive them in the Claude app; never signalled.
+function findIdleSessions(procs, idle, { now = Date.now(), minIdleSec = IDLE_SESSION_MIN_SEC, footprints = new Map() } = {}) {
+  return procs
+    .filter((p) => p.kind === 'claude-session' && idle.get(p.pid) && now - idle.get(p.pid).since >= minIdleSec * 1000)
+    .map((p) => ({ pid: p.pid, idleMin: Math.round((now - idle.get(p.pid).since) / 60000), memoryMB: Math.round(footprints.get(p.pid) || p.rssMB), session: (p.command.match(/--resume[= ]([0-9a-f-]{36})/) || [])[1] || null }));
+}
+
 function status(procs = listProcesses()) {
   const memory = memorySnapshot();
   return {
     ok: true,
     agents: summarizeAgents(procs),
+    blame: blame(procs, readFootprints()),
     storms: findStorms(procs).map(({ pids, ...rest }) => rest),
     orphanMcpServers: findOrphanMcpServers(procs, { launchdPids: launchdJobPids() }).length,
     mcpFanOut: findMcpFanOut(procs),
@@ -347,14 +532,17 @@ function signal(pid, sig) {
   }
 }
 
-// Stops storms and extra copies of orphaned MCP servers. Never apps, terminals, live
-// sessions, or anything a live session launched.
-function clean({ execute = false, minCopies = STORM_MIN_COPIES, procs = listProcesses(), launchdPids = launchdJobPids() } = {}) {
+// Stops storms, extra copies of orphaned MCP servers, and stranded agents (only the watch
+// loop can name those, because it needs half an hour of CPU readings). Never apps,
+// terminals, live sessions someone can reach, or anything a live session launched.
+function clean({ execute = false, minCopies = STORM_MIN_COPIES, procs = listProcesses(), launchdPids = launchdJobPids(), stranded = [] } = {}) {
   const storms = findStorms(procs, minCopies);
   const orphans = findOrphanMcpServers(procs, { launchdPids });
-  const orphanSummary = orphans.map((p) => ({ pid: p.pid, rssMB: p.rssMB, ageSec: p.ageSec, command: p.command.slice(0, 160) }));
+  const summary = (p) => ({ pid: p.pid, rssMB: p.rssMB, ageSec: p.ageSec, command: p.command.slice(0, 160) });
+  const orphanSummary = orphans.map(summary);
+  const strandedSummary = stranded.map(summary);
   if (!execute) {
-    return { ok: true, dryRun: true, wouldStop: storms.map(({ pids, ...rest }) => rest), wouldStopOrphans: orphanSummary };
+    return { ok: true, dryRun: true, wouldStop: storms.map(({ pids, ...rest }) => rest), wouldStopOrphans: orphanSummary, wouldStopStranded: strandedSummary };
   }
   const stopped = storms.map((s) => ({
     command: s.command,
@@ -363,7 +551,8 @@ function clean({ execute = false, minCopies = STORM_MIN_COPIES, procs = listProc
     signalled: s.pids.filter((pid) => signalIfSame(pid, s.command)).length,
   }));
   const stoppedOrphans = orphanSummary.filter((o) => signalIfSame(o.pid, o.command));
-  return { ok: true, dryRun: false, stopped, stoppedOrphans };
+  const stoppedStranded = strandedSummary.filter((o) => signalIfSame(o.pid, o.command));
+  return { ok: true, dryRun: false, stopped, stoppedOrphans, stoppedStranded };
 }
 
 function notify(title, message) {
@@ -374,27 +563,33 @@ function notify(title, message) {
   }
 }
 
-// What to do under memory pressure: say so, and stop storms and orphaned MCP copies.
-// Apps and live sessions are the person's call, so they are only named, never closed.
-function relieve({ execute = false, memory = memorySnapshot(), procs = listProcesses() } = {}) {
+// What to do under memory pressure: say so, name who holds the memory, and stop storms,
+// orphaned MCP copies and stranded agents. Apps and reachable sessions are the person's
+// call, so they are only named, never closed.
+function relieve({ execute = false, memory = memorySnapshot(), procs = listProcesses(), stranded = [], idleSessions = [], footprints = readFootprints() } = {}) {
   const pressure = assessPressure(memory);
   if (pressure.level === 'normal') return { ok: true, pressure, acted: false };
-  const result = clean({ execute, procs });
-  const biggest = procs
-    .filter((p) => !p.kind && p.tty === '??')
-    .sort((a, b) => b.rssMB - a.rssMB)
-    .slice(0, 3)
-    .map((p) => ({ pid: p.pid, rssMB: p.rssMB, command: p.command.slice(0, 120) }));
-  const entry = { at: new Date().toISOString(), pressure, memory, execute, ...result, biggest };
-  if (execute) {
-    try {
-      fs.mkdirSync(LOG_DIR, { recursive: true });
-      fs.appendFileSync(PRESSURE_LOG, `${JSON.stringify(entry)}\n`);
-    } catch {
-      // logging is best effort
-    }
-  }
+  const result = clean({ execute, procs, stranded });
+  const owners = blame(procs, footprints, 5).owners;
+  const entry = { at: new Date().toISOString(), pressure, memory, execute, ...result, owners, idleSessions };
+  if (execute) logPressure(entry);
   return { ...entry, acted: true };
+}
+
+function logPressure(entry) {
+  try {
+    fs.mkdirSync(LOG_DIR, { recursive: true });
+    fs.appendFileSync(PRESSURE_LOG, `${JSON.stringify(entry)}\n`);
+  } catch {
+    // logging is best effort
+  }
+}
+
+// Pure. What one pressure check does. Acting runs on every non-normal check, so the second
+// critical in a row stops storms at once; only the notification waits out the cooldown.
+function pressureActions({ level, criticalChecks, now, lastNotice, stopStranded = false }) {
+  if (level === 'normal') return { act: false, stopStorms: false, stopStranded: false, notify: false };
+  return { act: true, stopStorms: criticalChecks >= 2, stopStranded, notify: now - lastNotice >= RELIEVE_COOLDOWN_MS };
 }
 
 // Our own reapers log the pids they signal. If a vanished pid is in one of those
@@ -496,7 +691,7 @@ function watch({ intervalMs = WATCH_INTERVAL_MS, minVanished = MIN_VANISHED } = 
       shimCalls: recentShimCalls(now - intervalMs * WATCH_RING_TICKS),
     });
     if (incident) {
-      const memory = memorySnapshot();
+      const memory = memorySnapshot({ paging: pagingRates(lastCounters, readVmCounters()) });
       // Reapers log after they finish signalling, so read their logs a moment later.
       setTimeout(() => {
         incident.reaperHits = reaperHits(incident.vanished.map((p) => p.pid));
@@ -507,25 +702,52 @@ function watch({ intervalMs = WATCH_INTERVAL_MS, minVanished = MIN_VANISHED } = 
     ring.push(current);
     if (ring.length > WATCH_RING_TICKS) ring.shift();
     ticks += 1;
-    if (ticks % PRESSURE_CHECK_TICKS === 0 && now - lastRelief >= RELIEVE_COOLDOWN_MS) {
-      const memory = memorySnapshot();
-      const pressure = assessPressure(memory);
-      // The level is bursty: act on critical only when two checks in a row agree.
-      criticalChecks = pressure.level === 'critical' ? criticalChecks + 1 : 0;
-      if (pressure.level !== 'normal') {
-        lastRelief = now;
-        const result = relieve({ execute: criticalChecks >= 2, memory, procs: current });
-        const stopped = (result.stopped || []).reduce((s, x) => s + x.signalled, 0) + (result.stoppedOrphans || []).length;
-        notify('Mac YOLO: memory ' + pressure.level, `${pressure.reasons.join('; ')}${stopped ? `. Stopped ${stopped} runaway processes.` : ''}`);
-        console.log(`${new Date(now).toISOString()} memory ${pressure.level}: ${pressure.reasons.join('; ')}; stopped ${stopped}`);
-      }
+    if (ticks % PRESSURE_CHECK_TICKS !== 0) return;
+    // Every minute: paging rate over that minute, and which processes have stopped using CPU.
+    const counters = readVmCounters();
+    const memory = memorySnapshot({ paging: pagingRates(lastCounters, counters) });
+    lastCounters = counters;
+    idle = trackIdle(idle, readCpuTimes(), now);
+    const pressure = assessPressure(memory);
+    // The level is bursty: act on critical only when two checks in a row agree.
+    criticalChecks = pressure.level === 'critical' ? criticalChecks + 1 : 0;
+    const actions = pressureActions({ level: pressure.level, criticalChecks, now, lastNotice, stopStranded: stopsStranded() });
+    if (!actions.act) return;
+    const launchdPids = launchdJobPids();
+    // Footprints cost a full `top` run, so take them only when a notification will name owners.
+    const footprints = actions.notify ? readFootprints() : new Map();
+    // Stranded agents have no terminal and no CPU use for half an hour, but an idle agent may
+    // still be waiting on the network, so they are only named unless the person opted in.
+    // Storms and orphan copies wait for two criticals.
+    const stranded = findStrandedAgents(current, idle, { now, launchdPids });
+    const idleSessions = findIdleSessions(current, idle, { now, footprints });
+    const result = relieve({ execute: actions.stopStorms, memory, procs: current, idleSessions, footprints });
+    const strandedResult = clean({ execute: actions.stopStranded, procs: [], launchdPids, stranded });
+    if (strandedResult.stoppedStranded && strandedResult.stoppedStranded.length) {
+      logPressure({ at: new Date(now).toISOString(), pressure, stoppedStranded: strandedResult.stoppedStranded });
     }
+    const stopped = (result.stopped || []).reduce((s, x) => s + x.signalled, 0) + (result.stoppedOrphans || []).length + (strandedResult.stoppedStranded || []).length;
+    const holders = result.owners.slice(0, 3).map((o) => `${o.owner} ${(o.memoryMB / 1024).toFixed(1)} GB (${o.sharePct}%)`).join(', ');
+    const strandedNote = strandedResult.wouldStopStranded && strandedResult.wouldStopStranded.length ? ` ${strandedResult.wouldStopStranded.length} terminal agents look stranded (no terminal, idle 30 min): PIDs ${strandedResult.wouldStopStranded.map((x) => x.pid).join(', ')}.` : '';
+    const idleNote = idleSessions.length ? ` ${idleSessions.length} Claude sessions idle 2h+ (${(idleSessions.reduce((s, x) => s + x.memoryMB, 0) / 1024).toFixed(1)} GB): archive them in Claude.` : '';
+    if (!actions.notify && !stopped) return;
+    lastNotice = now;
+    notify('Mac YOLO: memory ' + pressure.level, `${pressure.reasons.join('; ')}. Most memory: ${holders}.${strandedNote}${idleNote}${stopped ? ` Stopped ${stopped} runaway or stranded processes.` : ''}`);
+    console.log(`${new Date(now).toISOString()} memory ${pressure.level}: ${pressure.reasons.join('; ')}; holders ${holders}; idle sessions ${idleSessions.length}; stopped ${stopped}`);
   };
   let ticks = 0;
-  let lastRelief = 0;
+  let lastNotice = 0;
   let criticalChecks = 0;
+  let lastCounters = readVmCounters();
+  let idle = new Map();
   tick();
   setInterval(tick, intervalMs);
+}
+
+// Stopping stranded agents is opt-in (AGENTS.md: killing processes the person didn't name
+// needs consent). `MAC_YOLO_STOP_STRANDED=1 ... install` writes that consent into the plist.
+function stopsStranded(env = process.env) {
+  return env.MAC_YOLO_STOP_STRANDED === '1';
 }
 
 // The live agent, or the Claude app, that owns this process: the nearest one at or above it.
@@ -660,7 +882,7 @@ function plist(scriptPath) {
     <string>${scriptPath}</string>
     <string>watch</string>
   </array>
-  <key>RunAtLoad</key><true/>
+${stopsStranded() ? '  <key>EnvironmentVariables</key>\n  <dict><key>MAC_YOLO_STOP_STRANDED</key><string>1</string></dict>\n' : ''}  <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>ProcessType</key><string>Background</string>
   <key>Nice</key><integer>10</integer>
@@ -706,6 +928,7 @@ if (require.main === module) {
   else if (cmd === 'clean') print(clean({ execute: rest.includes('--execute') }));
   else if (cmd === 'pressure') print(relieve({ execute: rest.includes('--execute') }));
   else if (cmd === 'incidents') print({ ok: true, incidents: listIncidents(20) });
+  else if (cmd === 'blame') print({ ok: true, ...blame(listProcesses(), readFootprints(), 12) });
   else if (cmd === 'kill-check') {
     const [tool, callerPid, ...args] = rest;
     const verdict = killCheck(tool, Number(callerPid), args);
@@ -716,7 +939,7 @@ if (require.main === module) {
   } else if (cmd === 'watch') watch();
   else if (cmd === 'install') print(install());
   else {
-    console.error('usage: mac-yolo-agent-guard [status|clean [--execute]|pressure [--execute]|incidents|watch|install]');
+    console.error('usage: mac-yolo-agent-guard [status|blame|clean [--execute]|pressure [--execute]|incidents|watch|install]');
     process.exit(2);
   }
 }
@@ -729,6 +952,16 @@ module.exports = {
   indexByPid,
   findOrphanMcpServers,
   assessPressure,
+  parseVmStat,
+  pagingRates,
+  parseTopFootprints,
+  blame,
+  trackIdle,
+  findStrandedAgents,
+  stopsStranded,
+  pressureActions,
+  plist,
+  findIdleSessions,
   relieve,
   signalIfSame,
   decideKill,
