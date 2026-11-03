@@ -1,0 +1,123 @@
+{
+  "schema_version": "1.0",
+  "run_id": "2026-11-02T21:07:19Z-thumbgate-acct_1RNcJ1GGBpd520QY",
+  "as_of": "2026-11-02T21:07:19.424593+00:00",
+  "scope": ["ThumbGate", "mac-yolo-safeguards", "thumbgate.app", "thumbgate.ai"],
+  "timezone": "UTC",
+  "currency": "usd",
+  "accounting_basis": "cash at capture for charges; payouts reported separately as settlement and not as a second sale",
+  "source_coverage": [
+    {
+      "id": "stripe-live-acct_1RNcJ1GGBpd520QY",
+      "coverage": "COMPLETE",
+      "window": "charge list 2025-05-11T17:32:30Z through 2026-10-23T19:09:11Z; balance transactions through 2026-10-30T19:51:15Z; queried 2026-11-02T21:07:19Z",
+      "limits": "37 charges, 52 balance transactions, 6 payouts, 10 refunds, 0 disputes, has_more false on each list. Founder and probe emails excluded from customer revenue. Second account acct_1UQZ2gHEuQ6vb1hK returned account_invalid."
+    },
+    {
+      "id": "gumroad-app-store-bank",
+      "coverage": "UNAVAILABLE",
+      "limits": "Not queried this run. A zero on the ThumbGate Stripe account is not company-wide zero."
+    },
+    {
+      "id": "hosting-inference",
+      "coverage": "UNAVAILABLE",
+      "limits": "Railway, inference, and other operating costs were not read. Contribution after Stripe fees is not operating profit or net profit."
+    }
+  ],
+  "metric_definitions": [
+    {
+      "name": "net_customer_collections",
+      "formula": "succeeded charge amount where the payer is not a founder or probe address, minus amount_refunded on those charges",
+      "basis": "capture"
+    }
+  ],
+  "financial_windows": [
+    {"window": "7d", "start": "2026-10-26T21:07:19Z", "end": "2026-11-02T21:07:19Z", "customer_captured_cents": 0, "customer_refunded_cents": 0, "founder_captured_cents": 0, "failed_charges": 0},
+    {"window": "30d", "start": "2026-10-03T21:07:19Z", "end": "2026-11-02T21:07:19Z", "customer_captured_cents": 0, "customer_refunded_cents": 0, "founder_captured_cents": 1000, "founder_count": 1, "failed_charges": 3},
+    {"window": "90d", "start": "2026-08-04T21:07:19Z", "end": "2026-11-02T21:07:19Z", "customer_captured_cents": 0, "customer_refunded_cents": 0, "founder_captured_cents": 4000, "founder_count": 4, "failed_charges": 18},
+    {"window": "all_listed", "customer_captured_cents": 0, "founder_captured_cents": 30900, "founder_amount_refunded_cents": 9000, "failed_charges": 20}
+  ],
+  "reconciliation": [
+    {
+      "id": "90d-gross-capture",
+      "charge_cents": 4000,
+      "balance_transaction_charge_plus_payment_cents": 4000,
+      "residual_cents": 0
+    },
+    {
+      "id": "all-time-gross-capture",
+      "charge_cents": 30900,
+      "balance_transaction_charge_plus_payment_cents": 30900,
+      "residual_cents": 0
+    },
+    {
+      "id": "all-time-refunds",
+      "refund_objects_cents": 10000,
+      "refund_failure_reversal_cents": 1000,
+      "charge_amount_refunded_cents": 9000,
+      "residual_cents": 0
+    }
+  ],
+  "failure_matrix": [
+    {
+      "path": "thumbgate.app/diagnostic /go/pro /go/pro-direct",
+      "attempts": "3 HEAD requests",
+      "failure_rate": 1,
+      "latency_bottleneck": "404 before a checkout page",
+      "customer_effect": "A request to those URLs does not reach a page. The live homepage does not link them.",
+      "profit_impact": "UNKNOWN",
+      "evidence": "HEAD 2026-11-02 after 21:06:41Z"
+    }
+  ],
+  "maturity_scores": [],
+  "measured_outcomes": [
+    {
+      "name": "customer_collections_90d_cents",
+      "value": 0,
+      "label": "VERIFIED"
+    }
+  ],
+  "run_cost": {"currency": "usd", "api_spend": 0, "note": "Stripe CLI reads and public HEAD requests only. No new model or ad spend."},
+  "unresolved_gaps": [
+    "Cloudflare deploy of the worker redirect is not done. Production still 404s until that deploy.",
+    "Admin funnel counters returned 401.",
+    "Gumroad, App Store, bank, hosting, and inference costs were not read."
+  ],
+  "evidence": [
+    "stripe balance retrieve --live",
+    "stripe charges list --live paginated",
+    "stripe balance_transactions list --live paginated",
+    "stripe payouts list --live",
+    "stripe refunds list --live",
+    "stripe disputes list --live",
+    "HEAD thumbgate.app and thumbgate.ai checkout paths"
+  ],
+  "actions": [
+    {
+      "id": "checkout-404-redirect",
+      "priority": 1,
+      "type": "revenue/conversion",
+      "title": "302 the three dead thumbgate.app checkout paths to thumbgate.ai",
+      "owner": "grok-checkout-404-redirect",
+      "status": "VALIDATED",
+      "evidence_ids": ["HEAD 404 on app", "HEAD 200/302 on ai"],
+      "dependencies": ["Cloudflare worker deploy"],
+      "expected_30d_profit_change": {"low": null, "high": null, "currency": "usd", "confidence": "UNKNOWN", "assumptions": ["No access log of how many people hit the 404s. The current homepage does not link these paths."]},
+      "authorization": "Code change and PR are in scope. Production wrangler deploy was not run.",
+      "artifacts": [
+        "apps/hermes-control-plane/worker/legacy-checkout-redirect.ts",
+        "apps/hermes-control-plane/worker/index.ts",
+        "apps/hermes-control-plane/tests/legacy-checkout-redirect.test.mjs"
+      ],
+      "validation": ["node --experimental-strip-types --test tests/legacy-checkout-redirect.test.mjs pass 2 fail 0"],
+      "success_metric": "After deploy, HEAD /diagnostic, /go/pro, and /go/pro-direct on thumbgate.app return 302 to the matching thumbgate.ai URL.",
+      "guardrails": ["Homepage and lookalike paths are not redirected.", "Destination host is a fixed map."],
+      "rollback": "Remove the worker call to legacyCheckoutRedirectTarget and redeploy the previous Cloudflare version. wrangler rollback exists as rollback:cloudflare.",
+      "commands": [],
+      "next_action": "Open the PR. Deploy only with the existing Cloudflare lock, then re-HEAD the three paths.",
+      "measure_after": "first production deploy"
+    }
+  ],
+  "checkpoint": "stripe lists complete at 2026-11-02T21:07:19Z; redirect code validated locally; production URLs unchanged",
+  "follow_up": "Unscheduled. No new LaunchAgent or cron was created."
+}
