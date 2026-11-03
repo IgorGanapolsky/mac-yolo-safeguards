@@ -53,7 +53,7 @@ check('the control plane journal matches its sql files', () => {
   assert.deepEqual(result.missingJournal, []);
   assert.deepEqual(result.missingCreates, []);
   assert.deepEqual(result.paperclips, []);
-  assert.deepEqual(result.schemaBehindMigrations, ['organizations.store_entitlement_expires_at']);
+  assert.deepEqual(result.schemaBehindMigrations, []);
   assert.equal(result.shape.tables.some((table) => table.name === 'llm_calls'), true);
   const organizations = result.shape.tables.find((table) => table.name === 'organizations');
   assert.equal(organizations.columns.includes('store_entitlement_expires_at'), true);

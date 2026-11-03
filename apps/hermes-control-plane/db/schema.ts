@@ -16,6 +16,7 @@ export const organizations = sqliteTable("organizations", {
   name: text("name").notNull(),
   plan: text("plan", { enum: ["trial", "pro", "team", "suspended"] }).notNull().default("trial"),
   trialEndsAt: integer("trial_ends_at"),
+  storeEntitlementExpiresAt: integer("store_entitlement_expires_at"),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
 });

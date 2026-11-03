@@ -44,7 +44,7 @@ const OFFER_DEFAULTS = {
     amount: 3000,
     url:
       process.env.STRIPE_PILOT_URL ||
-      'https://buy.stripe.com/fZucN5bmI8HkbO98qf3sI3j',
+      'https://buy.stripe.com/9B6eVdcqM7DgcSdayn3sJ0Z',
   },
 };
 
