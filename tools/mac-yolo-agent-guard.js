@@ -702,16 +702,18 @@ function watch({ intervalMs = WATCH_INTERVAL_MS, minVanished = MIN_VANISHED } = 
     lastRelief = now;
     const launchdPids = launchdJobPids();
     const footprints = readFootprints();
-    // Stranded agents have no terminal and no CPU use for half an hour, so nobody can be
-    // driving them: stop them at warn. Storms and orphan copies wait for two criticals.
+    // Stranded agents have no terminal and no CPU use for half an hour, but an idle agent may
+    // still be waiting on the network, so they are only named unless the person opted in.
+    // Storms and orphan copies wait for two criticals.
     const stranded = findStrandedAgents(current, idle, { now, launchdPids });
     const idleSessions = findIdleSessions(current, idle, { now, footprints });
     const result = relieve({ execute: criticalChecks >= 2, memory, procs: current, idleSessions, footprints });
-    const strandedResult = clean({ execute: true, procs: [], launchdPids, stranded });
-    const stopped = (result.stopped || []).reduce((s, x) => s + x.signalled, 0) + (result.stoppedOrphans || []).length + strandedResult.stoppedStranded.length;
+    const strandedResult = clean({ execute: stopsStranded(), procs: [], launchdPids, stranded });
+    const stopped = (result.stopped || []).reduce((s, x) => s + x.signalled, 0) + (result.stoppedOrphans || []).length + (strandedResult.stoppedStranded || []).length;
     const holders = result.owners.slice(0, 3).map((o) => `${o.owner} ${(o.memoryMB / 1024).toFixed(1)} GB (${o.sharePct}%)`).join(', ');
+    const strandedNote = strandedResult.wouldStopStranded && strandedResult.wouldStopStranded.length ? ` ${strandedResult.wouldStopStranded.length} terminal agents look stranded (no terminal, idle 30 min): PIDs ${strandedResult.wouldStopStranded.map((x) => x.pid).join(', ')}.` : '';
     const idleNote = idleSessions.length ? ` ${idleSessions.length} Claude sessions idle 2h+ (${(idleSessions.reduce((s, x) => s + x.memoryMB, 0) / 1024).toFixed(1)} GB): archive them in Claude.` : '';
-    notify('Mac YOLO: memory ' + pressure.level, `${pressure.reasons.join('; ')}. Most memory: ${holders}.${idleNote}${stopped ? ` Stopped ${stopped} runaway or stranded processes.` : ''}`);
+    notify('Mac YOLO: memory ' + pressure.level, `${pressure.reasons.join('; ')}. Most memory: ${holders}.${strandedNote}${idleNote}${stopped ? ` Stopped ${stopped} runaway or stranded processes.` : ''}`);
     console.log(`${new Date(now).toISOString()} memory ${pressure.level}: ${pressure.reasons.join('; ')}; holders ${holders}; idle sessions ${idleSessions.length}; stopped ${stopped}`);
   };
   let ticks = 0;
@@ -721,6 +723,12 @@ function watch({ intervalMs = WATCH_INTERVAL_MS, minVanished = MIN_VANISHED } = 
   let idle = new Map();
   tick();
   setInterval(tick, intervalMs);
+}
+
+// Stopping stranded agents is opt-in (AGENTS.md: killing processes the person didn't name
+// needs consent). `MAC_YOLO_STOP_STRANDED=1 ... install` writes that consent into the plist.
+function stopsStranded(env = process.env) {
+  return env.MAC_YOLO_STOP_STRANDED === '1';
 }
 
 // The live agent, or the Claude app, that owns this process: the nearest one at or above it.
@@ -855,7 +863,7 @@ function plist(scriptPath) {
     <string>${scriptPath}</string>
     <string>watch</string>
   </array>
-  <key>RunAtLoad</key><true/>
+${stopsStranded() ? '  <key>EnvironmentVariables</key>\n  <dict><key>MAC_YOLO_STOP_STRANDED</key><string>1</string></dict>\n' : ''}  <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>ProcessType</key><string>Background</string>
   <key>Nice</key><integer>10</integer>
@@ -931,6 +939,8 @@ module.exports = {
   blame,
   trackIdle,
   findStrandedAgents,
+  stopsStranded,
+  plist,
   findIdleSessions,
   relieve,
   signalIfSame,

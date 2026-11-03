@@ -12,7 +12,7 @@
 | --- | --- |
 | Live sessions: the Claude desktop app and its sessions, the `claude`, `codex`, `cursor-agent`, `grok`, `pool` (Poolside) and `omp` CLIs, Gemini's `agy` agent, and the Claude.app process-group wrapper | **Storms:** one command line running in 40 or more copies |
 | Anything a live session launched within three parent hops: MCP servers started through `npx`/`uvx`/a shell, and hooks | **Extra copies of an orphaned MCP server:** adopted by launchd (ppid 1), not a LaunchAgent job, older than 10 minutes, with the newest copy kept |
-| Agents in a terminal pane, even a detached herdr or tmux pane: someone can still type into them | **Stranded terminal agents:** an `omp`, `grok`, Poolside, Codex, Cursor or `claude` CLI that launchd adopted (its terminal is gone), with no tty, not a LaunchAgent job, and no CPU used for 30 minutes. Only the watch loop finds these, at warn or worse |
+| Agents in a terminal pane, even a detached herdr or tmux pane: someone can still type into them | **Stranded terminal agents:** an `omp`, `grok`, Poolside, Codex, Cursor or `claude` CLI that launchd adopted (its terminal is gone), with no tty, not a LaunchAgent job, and no CPU used for 30 minutes. Only the watch loop finds these, at warn or worse, and it only names them unless the guard was installed with `MAC_YOLO_STOP_STRANDED=1`: an idle agent may still be waiting on the network |
 | Claude desktop sessions, however long idle: the Claude app owns them. Idle ones (2+ hours without CPU) are named in the notification so the person can archive them | |
 | Apps under `/Applications` and `/System`, terminals, anything with a tty, local inference servers | |
 
@@ -34,7 +34,7 @@ The swap rate is what freezes the Mac. On 2026-11-03 the kernel said normal and 
 
 How much sits in swap is reported but never raises the level, because macOS adds swap files as it needs them and leaves cold pages there.
 
-The `watch` LaunchAgent checks every minute, with the swap rate taken over that minute. Whenever pressure isn't normal it posts a notification, at most once every 10 minutes, naming the top three memory owners and any Claude sessions idle two hours or more. At warn it stops stranded agents. It stops storms and orphan copies only when two checks in a row say critical. Apps are only named; they are never closed.
+The `watch` LaunchAgent checks every minute, with the swap rate taken over that minute. Whenever pressure isn't normal it posts a notification, at most once every 10 minutes, naming the top three memory owners and any Claude sessions idle two hours or more. At warn it names stranded agents, and stops them only if the guard was installed with `MAC_YOLO_STOP_STRANDED=1`. It stops storms and orphan copies only when two checks in a row say critical. Apps are only named; they are never closed.
 
 ## Who holds the memory
 
