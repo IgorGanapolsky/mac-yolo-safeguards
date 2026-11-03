@@ -4262,3 +4262,12 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 
 - `tools/lib/account-gate.js`, `tools/account-gate.js`, `tests/test-account-gate.js`, `plan.md` (append only) → **grok-account-gate** (T-ACCOUNT-GATE-20261103). New files. (2026-11-03T16:06:36Z)
 - 2026-11-03 grok-account-gate: RELEASED those three files. `node tests/test-account-gate.js` passed 6. A write as iganapolsky against owner IgorGanapolsky exits 77. The same write as IgorGanapolsky exits 0. A copied connection exits 77. A handoff scoped to send exits 77. An audit event before enablement, and an event carrying a price, exit 77.
+
+## 1. Task Board — append 2026-11-03T16:12:00Z — grok-defect-loop
+
+| T-DEFECT-LOOP-20261103 | A defect report is reproduced once even with no mention; the same report stops until a new fact arrives; a person accepts it only after reproduction | done | grok-defect-loop | `tools/lib/defect-loop.js`, `tools/defect-loop.js`, `tests/test-defect-loop.js`, `plan.md` (append only) | A mention by itself starts nothing. A bare fix claim is refused. A percent or a price is refused. The check never scans a process. |
+
+## 2. File Ownership Map — append 2026-11-03T16:12:00Z — grok-defect-loop
+
+- `tools/lib/defect-loop.js`, `tools/defect-loop.js`, `tests/test-defect-loop.js`, `plan.md` (append only) → **grok-defect-loop** (T-DEFECT-LOOP-20261103). New files. (2026-11-03T16:12:00Z)
+- 2026-11-03 grok-defect-loop: RELEASED those three files. `node tests/test-defect-loop.js` passed 6. A report with no mention reproduces (exit 0). The same report at seen 1 stops (exit 77). A reproduced result waits for a person (exit 75). A bare fix claim is refused (exit 77).
