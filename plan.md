@@ -4253,3 +4253,12 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 
 - `tools/lib/reply-block.js`, `tools/reply-block.js`, `tests/test-reply-block.js`, `plan.md` (append only) → **grok-reply-block** (T-REPLY-BLOCK-20261103). New files. (2026-11-03T15:58:53Z)
 - 2026-11-03 grok-reply-block: RELEASED those three files. `node tests/test-reply-block.js` passed 6. A blank override admits email. Override 16:00-21:00 at 17:00 defers email (exit 75) and admits the Mac app listing check (exit 0). At 19:00 the same email is admitted. An illustration claim is refused.
+
+## 1. Task Board — append 2026-11-03T16:06:36Z — grok-account-gate
+
+| T-ACCOUNT-GATE-20261103 | A write proceeds only as the repo owner; a handoff admits read, edit, or test until it expires; an audit event before enablement is refused | done | grok-account-gate | `tools/lib/account-gate.js`, `tools/account-gate.js`, `tests/test-account-gate.js`, `plan.md` (append only) | The other signed-in account may read. Copying a connection is blocked. A price is not a measurement. The check never prints an account name. |
+
+## 2. File Ownership Map — append 2026-11-03T16:06:36Z — grok-account-gate
+
+- `tools/lib/account-gate.js`, `tools/account-gate.js`, `tests/test-account-gate.js`, `plan.md` (append only) → **grok-account-gate** (T-ACCOUNT-GATE-20261103). New files. (2026-11-03T16:06:36Z)
+- 2026-11-03 grok-account-gate: RELEASED those three files. `node tests/test-account-gate.js` passed 6. A write as iganapolsky against owner IgorGanapolsky exits 77. The same write as IgorGanapolsky exits 0. A copied connection exits 77. A handoff scoped to send exits 77. An audit event before enablement, and an event carrying a price, exit 77.
