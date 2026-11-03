@@ -637,7 +637,10 @@ private let HUD_HTML = #"""
     -webkit-appearance: none;
     background: transparent;
     border: 0;
-    padding: 0;
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 0 0;
     margin: 0;
     color: #5eead4;
     font: inherit;
@@ -651,7 +654,7 @@ private let HUD_HTML = #"""
     background: rgba(22, 16, 48, 0.96);
     border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 10px;
-    margin-top: 4px;
+    margin-top: 14px;
   }
   .hog-row.open { border-color: rgba(94, 234, 212, 0.7); }
   .hog-row-btn {
@@ -660,19 +663,20 @@ private let HUD_HTML = #"""
     width: 100%;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     background: transparent;
     border: 0;
     color: #fff;
     font: inherit;
     text-align: left;
-    padding: 8px 10px;
+    padding: 14px 14px;
     cursor: pointer;
   }
   .hog-rank { width: 18px; color: #5eead4; font-weight: 700; flex-shrink: 0; }
   .hog-name { font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .hog-stat { color: #5eead4; font-weight: 650; font-variant-numeric: tabular-nums; flex-shrink: 0; font-size: 12px; }
-  .hog-pids { padding: 0 10px 8px 36px; display: flex; flex-direction: column; gap: 6px; }
+  .hog-pids { padding: 0 12px 14px 14px; display: flex; flex-direction: column; gap: 14px; }
+  .hog-pid { padding: 10px 12px; border-radius: 8px; background: rgba(255, 255, 255, 0.05); }
   .hog-pid-top { display: flex; align-items: center; gap: 8px; font-size: 12px; }
   .hog-pid-top span:first-child { flex: 1; font-weight: 650; min-width: 0; }
   .hog-cmd {
@@ -1289,9 +1293,10 @@ private let HUD_HTML = #"""
       }
       var parts = splitTopHogs(raw.slice(prefix.length));
       el.textContent = '';
-      el.appendChild(document.createTextNode(prefix));
+      var label = document.createElement('div');
+      label.textContent = 'Top hogs';
+      el.appendChild(label);
       for (var i = 0; i < parts.length; i++) {
-        if (i) el.appendChild(document.createTextNode(' · '));
         var part = parts[i];
         var name = part.replace(/\s*\(.*$/, '').trim();
         var btn = document.createElement('button');
@@ -1306,7 +1311,41 @@ private let HUD_HTML = #"""
         };
         el.appendChild(btn);
       }
-      el.appendChild(document.createTextNode(' ›'));
+    }
+    function chipHogNames() {
+      var text = String(_recTitleRendered || '');
+      var raw = text.replace(/\s*›\s*$/, '');
+      var hogPrefix = 'Top Hogs: ';
+      if (raw.indexOf(hogPrefix) !== 0) return [];
+      var parts = splitTopHogs(raw.slice(hogPrefix.length));
+      var names = [];
+      for (var i = 0; i < parts.length; i++) {
+        var name = parts[i].replace(/\s*\(.*$/, '').trim();
+        if (name) names.push(name);
+      }
+      return names;
+    }
+    function rowsForNamedHogs(rows, names) {
+      var list = rows || [];
+      if (!names.length) {
+        var top = [];
+        for (var i = 0; i < list.length && top.length < 3; i++) {
+          var key = list[i].key || '';
+          if (key === 'cpu-gpu-detail' || key === 'unified-gpu') continue;
+          top.push(list[i]);
+        }
+        return top;
+      }
+      var byName = {};
+      for (var j = 0; j < list.length; j++) {
+        var n = hogNameFromLabel(list[j].label);
+        if (n && !byName[n]) byName[n] = list[j];
+      }
+      var out = [];
+      for (var k = 0; k < names.length; k++) {
+        if (byName[names[k]]) out.push(byName[names[k]]);
+      }
+      return out.length ? out : rowsForNamedHogs(list, []);
     }
     function isProcessCard(cardId) {
       return cardId === 'cpu' || cardId === 'optimization' || cardId === 'memory';
@@ -1320,11 +1359,18 @@ private let HUD_HTML = #"""
     function renderProcessList(box, ddList) {
       var titleEl = document.getElementById('detailTitle');
       var subEl = document.getElementById('detailSub');
-      if (titleEl) titleEl.textContent = _activeDetailCard === 'memory' ? 'Memory hogs' : 'Top processes';
-      if (subEl) subEl.textContent = 'Each name is a program. The lines under it are the live processes.';
+      var rows = ddList || [];
+      if (_activeDetailCard === 'optimization') {
+        var names = chipHogNames();
+        rows = rowsForNamedHogs(rows, names);
+        if (titleEl) titleEl.textContent = names.length ? names.join(' · ') : 'Top hogs';
+        if (subEl) subEl.textContent = 'These are the top hogs. Tap one to see its processes.';
+      } else {
+        if (titleEl) titleEl.textContent = _activeDetailCard === 'memory' ? 'Memory hogs' : 'Top processes';
+        if (subEl) subEl.textContent = 'Each name is a program. The lines under it are the live processes.';
+      }
       var html = '';
       var rank = 0;
-      var rows = ddList || [];
       for (var i = 0; i < rows.length; i++) {
         var r = rows[i];
         var rKey = r.key || ('row-' + i);
@@ -1384,9 +1430,11 @@ private let HUD_HTML = #"""
       if (focusKey) {
         for (var c = 0; c < dd.length; c++) _expandedDrillRows[dd[c].key] = false;
         _expandedDrillRows[focusKey] = true;
+      } else if (cardId === 'optimization') {
+        for (var e = 0; e < dd.length; e++) _expandedDrillRows[dd[e].key || ''] = false;
       } else if (processCard && dd.length > 0) {
-        for (var e = 0; e < dd.length; e++) {
-          var ek = dd[e].key || '';
+        for (var e2 = 0; e2 < dd.length; e2++) {
+          var ek = dd[e2].key || '';
           _expandedDrillRows[ek] = (ek !== 'cpu-gpu-detail' && ek !== 'unified-gpu');
         }
       } else if (dd.length > 0) {
