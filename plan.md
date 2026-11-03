@@ -4280,3 +4280,12 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 
 - `tools/lib/owned-offer.js`, `tools/owned-offer.js`, `tests/test-owned-offer.js`, `plan.md` (append only) → **grok-owned-offer** (T-OWNED-OFFER-20261103). New files. (2026-11-03T16:36:00Z)
 - 2026-11-03 grok-owned-offer: RELEASED those three files. `node tests/test-owned-offer.js` passed 5. A request that asks for a free pilot, fifty calls, and a rented stack still sells the Mac app (exit 0) and leaves the custom build waiting. The same sheet with the purchase marked paid prints the two-payment quote (exit 0). A hire flag refuses (exit 77).
+
+## 1. Task Board — append 2026-11-03T16:50:00Z — grok-local-decision
+
+| T-LOCAL-DECISION-20261103 | A local decision puts probability 1 on one gate and 0 on the others; a score and any other option list abstain | done | grok-local-decision | `tools/lib/local-decision.js`, `tools/local-decision.js`, `tests/test-local-decision.js`, `plan.md` (append only) | The check never downloads a model file and never generates text. A rank or a price is refused. |
+
+## 2. File Ownership Map — append 2026-11-03T16:50:00Z — grok-local-decision
+
+- `tools/lib/local-decision.js`, `tools/local-decision.js`, `tests/test-local-decision.js`, `plan.md` (append only) → **grok-local-decision** (T-LOCAL-DECISION-20261103). New files. (2026-11-03T16:50:00Z)
+- 2026-11-03 grok-local-decision: RELEASED those three files. `node tests/test-local-decision.js` passed 5. Gate ask on allow, ask, and block answers ask=1 (exit 0). A foreign option abstains (exit 75). A rank flag refuses (exit 77).
