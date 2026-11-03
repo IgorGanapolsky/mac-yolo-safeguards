@@ -6,12 +6,13 @@ const { execFileSync, spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { classify, isLiveAgentProcess, isAgentDependency, indexByPid, findOrphanMcpServers, assessPressure, relieve, signalIfSame, decideKill, killTargets, findMcpFanOut, reaperHits, parsePs, findStorms, detectIncident, shimScript, status, clean } = require('../tools/mac-yolo-agent-guard');
+const { classify, isLiveAgentProcess, isAgentDependency, indexByPid, findOrphanMcpServers, assessPressure, parseVmStat, pagingRates, parseTopFootprints, blame, trackIdle, findStrandedAgents, findIdleSessions, relieve, signalIfSame, decideKill, killTargets, findMcpFanOut, reaperHits, parsePs, findStorms, detectIncident, shimScript, status, clean } = require('../tools/mac-yolo-agent-guard');
 const { isRunawayCommand, runawayPids } = require('../tools/mac-yolo-system-care-engine');
 const { callTool, getToolDefinitions } = require('../tools/mac-yolo-mcp-server');
 const { routeRequest, startSelfHeal } = require('../tools/mac-yolo-service');
 
 const PY = '/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/Resources/Python.app/Contents/MacOS/Python';
+const APP_PATH = '/Applications/Claude.app/Contents/MacOS/Claude';
 const SESSION = '/Users/u/Library/Application Support/Claude/claude-code/2.1.309/5af865b9901c/claude.app/Contents/MacOS/claude --output-format stream-json';
 
 function ps(rows) {
@@ -168,6 +169,64 @@ function main() {
   const relief = relieve({ memory: { pressureLevel: 4, freeMemoryPct: 5, swapUsedMB: 0, ramMB: 16384 }, procs: parsePs(ps(stormRows)) });
   assert.strictEqual(relief.dryRun, true);
   assert.strictEqual(relief.wouldStop[0].copies, 120);
+
+  // 2026-11-03 freeze: kernel level normal, 71% free, yet 155-400 pages/s read back from swap.
+  const vmA = parseVmStat('Mach Virtual Memory Statistics: (page size of 16384 bytes)\nDecompressions:  1363243131.\nSwapins:  22351773.\nSwapouts:  27503745.\n', 0);
+  const vmB = parseVmStat('Mach Virtual Memory Statistics: (page size of 16384 bytes)\nDecompressions:  1363255704.\nSwapins:  22355843.\nSwapouts:  27503745.\n', 10000);
+  const rates = pagingRates(vmA, vmB);
+  assert.deepStrictEqual(rates, { seconds: 10, swapInsPerSec: 407, swapInMBps: 6.4, swapOutsPerSec: 0, decompressionsPerSec: 1257 });
+  assert.strictEqual(pagingRates(null, vmB), null);
+  const thrash = assessPressure({ pressureLevel: 1, freeMemoryPct: 71, swapUsedMB: 13358, ramMB: 49152, paging: rates });
+  assert.strictEqual(thrash.level, 'warn', 'swap read-back freezes apps while the kernel still says normal');
+  assert.match(thrash.reasons[0], /6\.4 MB\/s back from swap/);
+  assert.strictEqual(assessPressure({ pressureLevel: 1, freeMemoryPct: 71, swapUsedMB: 0, ramMB: 49152, paging: { ...rates, swapInsPerSec: 1500 } }).level, 'critical');
+  assert.strictEqual(assessPressure({ pressureLevel: 1, freeMemoryPct: 71, swapUsedMB: 13358, ramMB: 49152, paging: { ...rates, swapInsPerSec: 20 } }).level, 'normal', 'a full swap that is not being read back is not pressure');
+
+  // Blame by owner and footprint: MCP servers count toward their agent, renderers toward
+  // their browser, terminal-agent panes toward the agent, bare panes toward the multiplexer.
+  assert.deepStrictEqual([...parseTopFootprints('PID    MEM\n430    1836M+\n75229  994M-\n12     512K\n9  1G\n').entries()], [[430, 1836], [75229, 994], [12, 0.5], [9, 1024]]);
+  const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+  const owned = parsePs(ps([
+    [500, 1, 10000, '01:00:00', '??', APP_PATH],
+    [501, 500, 10000, '01:00:00', '??', `/Applications/Claude.app/Contents/Helpers/disclaimer --pgroup -- ${SESSION}`],
+    [502, 501, 10000, '01:00:00', '??', SESSION],
+    [503, 502, 10000, '01:00:00', '??', 'node /Users/u/mcp/server.js'],
+    [600, 1, 10000, '01:00:00', '??', CHROME],
+    [601, 600, 10000, '01:00:00', '??', '/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Helpers/Google Chrome Helper (Renderer).app/Contents/MacOS/Google Chrome Helper (Renderer) --type=renderer'],
+    [700, 1, 10000, '01:00:00', '??', '/Users/u/.local/bin/herdr server'],
+    [701, 700, 10000, '01:00:00', 'ttys034', '-zsh'],
+    [702, 701, 10000, '01:00:00', 'ttys034', 'omp --resume=/Users/u/.omp/agent/sessions/x.jsonl'],
+    [703, 702, 10000, '01:00:00', 'ttys034', 'node /Users/u/.omp/mcp/dayglass-mcp.js'],
+  ]));
+  const fp = new Map([[500, 800], [501, 1], [502, 300], [503, 100], [600, 400], [601, 1600], [700, 30], [701, 5], [702, 900], [703, 100]]);
+  const b = blame(owned, fp);
+  assert.strictEqual(b.measuredBy, 'footprint');
+  assert.deepStrictEqual(b.owners.map((o) => [o.owner, o.processes, o.memoryMB]), [['Google Chrome', 2, 2000], ['Claude', 4, 1201], ['omp', 2, 1000], ['herdr', 2, 35]]);
+  assert.strictEqual(b.owners[0].sharePct, 47);
+  assert.strictEqual(blame(owned).measuredBy, 'rss', 'without footprints it says it fell back to RSS');
+
+  // Stranded agents: no terminal, adopted by launchd, idle 30 minutes. Never a desktop session,
+  // never one in a terminal pane, never one a LaunchAgent runs, never one that used CPU recently.
+  const t0 = 1_000_000_000;
+  const strandProcs = parsePs(ps([
+    [800, 1, 300000, '20:00:00', '??', 'omp --resume=/Users/u/.omp/agent/sessions/old.jsonl'],
+    [801, 1, 300000, '20:00:00', 'ttys034', 'omp --resume=/Users/u/.omp/agent/sessions/pane.jsonl'],
+    [802, 1, 300000, '20:00:00', '??', SESSION],
+    [803, 1, 300000, '20:00:00', '??', '/Users/u/.local/bin/grok.real --resume 01a1'],
+    [804, 1, 300000, '20:00:00', '??', '/Users/u/.local/bin/claude -p nightly'],
+    [805, 1, 300000, '20:00:00', '??', '/Users/u/.local/bin/pool.real acp'],
+  ]));
+  let idle = trackIdle(new Map(), new Map([[800, 10], [801, 10], [802, 240], [803, 5], [804, 3], [805, 7]]), t0);
+  idle = trackIdle(idle, new Map([[800, 10], [801, 10], [802, 240], [803, 5.5], [804, 3], [805, 7]]), t0 + 31 * 60000);
+  assert.strictEqual(idle.get(800).since, t0, 'unchanged CPU keeps the first idle time');
+  assert.strictEqual(idle.get(803).since, t0 + 31 * 60000, 'CPU use resets it');
+  const stranded = findStrandedAgents(strandProcs, idle, { now: t0 + 31 * 60000, launchdPids: new Set([804]) });
+  assert.deepStrictEqual(stranded.map((p) => p.pid), [800, 805]);
+  assert.deepStrictEqual(findStrandedAgents(strandProcs, idle, { now: t0 + 20 * 60000 }), [], 'twenty idle minutes is not stranded');
+  const strandedDry = clean({ procs: [], launchdPids: new Set(), stranded });
+  assert.deepStrictEqual(strandedDry.wouldStopStranded.map((p) => p.pid), [800, 805]);
+  const idleSessions = findIdleSessions(strandProcs, idle, { now: t0 + 3 * 3600000, footprints: new Map([[802, 412]]) });
+  assert.deepStrictEqual(idleSessions, [{ pid: 802, idleMin: 180, memoryMB: 412, session: null }]);
 
   // The login service runs no kill loop unless asked, and a request without "execute" is a dry run.
   assert.strictEqual(startSelfHeal({ env: {} }), null);
