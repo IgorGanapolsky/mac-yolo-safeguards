@@ -4289,3 +4289,12 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 
 - `tools/lib/local-decision.js`, `tools/local-decision.js`, `tests/test-local-decision.js`, `plan.md` (append only) → **grok-local-decision** (T-LOCAL-DECISION-20261103). New files. (2026-11-03T16:50:00Z)
 - 2026-11-03 grok-local-decision: RELEASED those three files. `node tests/test-local-decision.js` passed 5. Gate ask on allow, ask, and block answers ask=1 (exit 0). A foreign option abstains (exit 75). A rank flag refuses (exit 77).
+
+## 1. Task Board — append 2026-11-03T16:45:00Z — grok-one-branch
+
+| T-ONE-BRANCH-20261103 | A push may move one branch; a listing may name the trunk | done | grok-one-branch | `tools/lib/one-branch.js`, `tools/one-branch.js`, `tests/test-one-branch.js`, `plan.md` (append only) | A push of every ref is blocked. A speed figure is refused. The check never pushes. |
+
+## 2. File Ownership Map — append 2026-11-03T16:45:00Z — grok-one-branch
+
+- `tools/lib/one-branch.js`, `tools/one-branch.js`, `tests/test-one-branch.js`, `plan.md` (append only) → **grok-one-branch** (T-ONE-BRANCH-20261103). New files. (2026-11-03T16:45:00Z)
+- 2026-11-03 grok-one-branch: RELEASED those three files. `node tests/test-one-branch.js` passed 5. One refspec is allowed (exit 0). A matching push, `--all`, a wildcard, and two refspecs are blocked (exit 77). A trunk listing is allowed (exit 0). A speed flag is refused (exit 77).
