@@ -4307,3 +4307,11 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 
 - `tools/typesafe-jev-hook.js`, `tests/test-typesafe-jev-hook.js`, `skills/typesafe-jev-hook-steal/SKILL.md`, `plan.md` (append only) → **grok-jev-hook** (T-JEV-HOOK-20261103). New files. (2026-11-03T17:10:00Z)
 - 2026-11-03 grok-jev-hook: RELEASED those three files. `node tests/test-typesafe-jev-hook.js` passed. Self-test 6/6. A Noul of 0.1 stays no when confidence is 0.99. A missing Noul asks. `npx skills add typesafe-ai/skills` and a POST to api.typesafe.ai are denied, and calledTypeSafe stays false.
+## 1. Task Board — append 2026-11-03T16:51:00Z — grok-covered-spend
+
+| T-COVERED-SPEND-20261103 | A compute quote is held until collected cash covers it, and even then nothing is bought; an idle meter is parked; the sheet sells the Mac app | done | grok-covered-spend | `tools/lib/covered-spend.js`, `tools/covered-spend.js`, `tests/test-covered-spend.js`, `plan.md` (append only) | A rate figure is refused. The check never starts a machine and never sends a charge. |
+
+## 2. File Ownership Map — append 2026-11-03T16:51:00Z — grok-covered-spend
+
+- `tools/lib/covered-spend.js`, `tools/covered-spend.js`, `tests/test-covered-spend.js`, `plan.md` (append only) → **grok-covered-spend** (T-COVERED-SPEND-20261103). New files. (2026-11-03T16:51:00Z)
+- 2026-11-03 grok-covered-spend: RELEASED those three files. `node tests/test-covered-spend.js` passed 5. An uncovered top-up is refused (exit 77). A covered quote is held and not bought (exit 75). Park bills nothing (exit 0). A measured Mac app listing sells with purchased=false (exit 0). A rate flag is refused (exit 77).
