@@ -4298,3 +4298,12 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 
 - `tools/lib/one-branch.js`, `tools/one-branch.js`, `tests/test-one-branch.js`, `plan.md` (append only) → **grok-one-branch** (T-ONE-BRANCH-20261103). New files. (2026-11-03T16:45:00Z)
 - 2026-11-03 grok-one-branch: RELEASED those three files. `node tests/test-one-branch.js` passed 5. One refspec is allowed (exit 0). A matching push, `--all`, a wildcard, and two refspecs are blocked (exit 77). A trunk listing is allowed (exit 0). A speed flag is refused (exit 77).
+
+## 1. Task Board — append 2026-11-03T16:51:00Z — grok-covered-spend
+
+| T-COVERED-SPEND-20261103 | A compute quote is held until collected cash covers it, and even then nothing is bought; an idle meter is parked; the sheet sells the Mac app | done | grok-covered-spend | `tools/lib/covered-spend.js`, `tools/covered-spend.js`, `tests/test-covered-spend.js`, `plan.md` (append only) | A rate figure is refused. The check never starts a machine and never sends a charge. |
+
+## 2. File Ownership Map — append 2026-11-03T16:51:00Z — grok-covered-spend
+
+- `tools/lib/covered-spend.js`, `tools/covered-spend.js`, `tests/test-covered-spend.js`, `plan.md` (append only) → **grok-covered-spend** (T-COVERED-SPEND-20261103). New files. (2026-11-03T16:51:00Z)
+- 2026-11-03 grok-covered-spend: RELEASED those three files. `node tests/test-covered-spend.js` passed 5. An uncovered top-up is refused (exit 77). A covered quote is held and not bought (exit 75). Park bills nothing (exit 0). A measured Mac app listing sells with purchased=false (exit 0). A rate flag is refused (exit 77).
