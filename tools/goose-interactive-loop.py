@@ -7,7 +7,6 @@ Implements Block Goose's architectural principles:
 3. Robust Error Capture: Captures invalid JSON/tool errors and feeds them back to the model for self-correction.
 """
 import json
-import os
 from pathlib import Path
 
 class GooseStyleLoopBridge:

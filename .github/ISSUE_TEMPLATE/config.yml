@@ -9,6 +9,9 @@ contact_links:
   - name: 📦 Corporate-Expense Guard Kit ($49 One-Time)
     url: https://iganapolsky.gumroad.com/l/vcrho
     about: Self-serve LaunchAgent plist templates, threshold configs, and receipt generator.
-  - name: 🩺 Paid Triage Call ($499–$3,000)
+  - name: Paid triage call
     url: https://cal.com/igor-g-kvqxfo/30min
-    about: Book a private 20-minute triage for team-wide hardening sprint or partner pilot fit.
+    about: Book a private 20-minute triage for team-wide hardening sprint or partner pilot fit. Range $499–$3,000.
+  - name: Private email
+    url: mailto:iganapolsky@gmail.com
+    about: Use email for private workflow details, client names, logs, or payment questions.

@@ -57,7 +57,7 @@ If you run agents for a team or clients and have a repeated failure that costs h
 | **[AI Agent Hardening Sprint](./docs/AI-AGENT-HARDENING.md)** ([Stripe Checkout](https://buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38)) | Fixed-scope hardening for one high-cost agent workflow plus regression gate. | `$1,500` |
 | [Partner Pilot](./docs/PARTNER-PILOT.md) ([Stripe Checkout](https://buy.stripe.com/fZucN5bmI8HkbO98qf3sI3j)) | Agencies or consultants need a reusable client-facing reliability package. | `$3,000` |
 
-Private workflow details: [book a 20-minute triage](https://cal.com/igor-g-kvqxfo/30min) or email [iganapolsky@gmail.com](mailto:iganapolsky@gmail.com). Public-safe intake: [open a paid hardening inquiry](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=paid-hardening-inquiry.yml).
+**Paid reliability help:** [book a 20-minute triage](https://cal.com/igor-g-kvqxfo/30min) or email [iganapolsky@gmail.com](mailto:iganapolsky@gmail.com). Public-safe intake: [open a paid hardening inquiry](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=paid-hardening-inquiry.yml).
 
 > **🔥 Roast Our Architecture (Critique-to-Spec Loop):** Think our 474 KB Rust/Swift Mach `vm_statistics64` brake, `ppid=1` MCP orphan reaper, or `pkill -f` process-tree guard is flawed? **[Open a Brutal Critique Issue](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?labels=critique,roast&title=Critique%3A+)** or click **`💬 Critique`** in the HUD — every valid criticism is converted directly into an EARS spec and regression test.
 

@@ -6,7 +6,6 @@ Implements Reflection AI architectural concepts:
 2. Reflection-Driven Control: First-class reflection loop across planning, execution, and verification with evidence-guided repair.
 """
 import json
-import os
 from pathlib import Path
 
 class ReflectionCombinerEngine:
@@ -31,7 +30,7 @@ class ReflectionCombinerEngine:
         return f"Synthesized execution plan for: {self.objective} based on verified local state."
 
     def reflect_and_verify(self, draft_output: str):
-        print(f"[Reflector] Evaluating draft output against safety and correctness criteria...")
+        print("[Reflector] Evaluating draft output against safety and correctness criteria...")
         self.refinement_rounds += 1
         # Reflection check: require evidence and correct formatting
         if len(draft_output) > 10 and "Verified" in draft_output:

@@ -6,7 +6,6 @@ Implements Reflection CEO Misha Laskin's principles:
 2. Jevons Paradox Compute Scaling: Throw high volumes of low-cost open inference at complex verification loops.
 """
 import json
-import os
 import time
 from pathlib import Path
 
@@ -16,7 +15,7 @@ class OpenWeightIntelligenceRouter:
         self.fallback_active = True
 
     def route_inference(self, prompt: str, max_tokens: int = 250):
-        print(f"[Router] Routing inference query through open-weight optimized harness...")
+        print("[Router] Routing inference query through open-weight optimized harness...")
         # Simulate local open-weight Jevons compute scaling
         start_time = time.time()
         

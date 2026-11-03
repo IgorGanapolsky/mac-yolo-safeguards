@@ -6,8 +6,6 @@ without asking the operator to perform manual work.
 """
 import json
 import os
-import urllib.request
-import urllib.parse
 from pathlib import Path
 
 def submit_to_hackernews():

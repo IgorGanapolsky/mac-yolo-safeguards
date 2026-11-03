@@ -8,7 +8,6 @@ Audits social publishing compliance and active promotion status:
 """
 import json
 import os
-import subprocess
 from pathlib import Path
 
 def audit_social_promotion():

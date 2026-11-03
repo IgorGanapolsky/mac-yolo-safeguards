@@ -6,7 +6,6 @@ Monetization strategy utilizing academic literature mapping:
 2. Literature-Backed IP Valuation: Identifies emerging white spaces for patenting and high-ticket B2B advisory.
 """
 import json
-import os
 from pathlib import Path
 
 def scout_grant_opportunities():

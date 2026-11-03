@@ -5,7 +5,6 @@ Automates the end-to-end packaging, plist configuration, build verification,
 and distribution readiness for Mac YOLO Safeguards.
 """
 import json
-import os
 import subprocess
 from pathlib import Path
 
