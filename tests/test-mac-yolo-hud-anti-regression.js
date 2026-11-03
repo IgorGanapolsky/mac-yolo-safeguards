@@ -67,6 +67,8 @@ function main() {
 
   // 4. Dayglass-style drag-to-move, corner resize, top-right placement, and AI Agent Optimization card
   assert.ok(src.includes('case "moveHud":') && src.includes('case "resizeHud":'), 'Dayglass moveHud and resizeHud handlers required');
+  assert.ok(src.includes('func maximumHudSize()') && src.includes('MacYoloHudUserResized'), 'an untouched window opens at the largest size that fits the screen');
+  assert.ok(!src.includes('let panelH: CGFloat = 535') && !src.includes('Math.min(880,'), 'the window must not be stuck at 880×535');
   assert.ok(src.includes('id="hudResizeGrip"') && src.includes('id="hudSizeBtnText"'), 'Dayglass corner resize grip and SVG Size/Expand button required');
   assert.ok(src.includes('class="ico-badge ico-disk"') && src.includes('class="hdr-pill"'), 'Duotone SVG icon badges and specular pill buttons required');
   assert.ok((src.includes('AI YOLO Agent Optimization') || src.includes('id="recSection"')) && src.includes('user agents'), 'AI Agent Optimization card and live user agents health strip required');

@@ -954,6 +954,7 @@ private let HUD_HTML = #"""
 
   <script>
     var HUD_PRESETS = [
+      { label: 'Max', width: 0, height: 0 },
       { label: '740×535', width: 740, height: 535 },
       { label: '760×760', width: 760, height: 760 },
       { label: '840×860', width: 840, height: 860 }
@@ -997,8 +998,12 @@ private let HUD_HTML = #"""
       }, 650);
     }
     function resizeHud(w, h, persist) {
-      var cw = Math.max(640, Math.min(880, Math.round(w)));
-      var ch = Math.max(480, Math.min(920, Math.round(h)));
+      if (!(w > 0) || !(h > 0)) {
+        sendAction('resizeHud', { width: 0, height: 0, persist: !!persist, max: true });
+        return;
+      }
+      var cw = Math.max(640, Math.round(w));
+      var ch = Math.max(480, Math.round(h));
       var lbl = document.getElementById('footerSizeLabel');
       if (lbl) lbl.textContent = cw + '×' + ch;
       sendAction('resizeHud', { width: cw, height: ch, persist: !!persist });
@@ -1078,12 +1083,7 @@ private let HUD_HTML = #"""
       if (show) { _activeDetailCard = null; if (det) det.style.display = 'none'; }
       el.style.display = show ? 'flex' : 'none';
       if (ov) ov.style.display = show ? 'none' : 'block';
-      if (show) {
-        sendAction('listUninstallApps');
-        resizeHud(window.innerWidth || 740, 560, false);
-      } else {
-        resizeHud(window.innerWidth || 740, 535, false);
-      }
+      if (show) sendAction('listUninstallApps');
     }
     function fmtBytes(n) {
       n = Number(n) || 0;
@@ -1459,7 +1459,6 @@ private let HUD_HTML = #"""
       if (det) det.style.display = 'none';
       if (ov) ov.style.display = 'block';
       revealDrillDown();
-      resizeHud(window.innerWidth || 740, 535, false);
     }
     function renderActiveCardDetail(s) {
       if (!_activeDetailCard || !s) return;
@@ -2029,15 +2028,10 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         gearMenu.addItem(settingsItem)
         gearMenu.addItem(NSMenuItem.separator())
         gearMenu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
-        let savedW = UserDefaults.standard.double(forKey: "MacYoloHudW")
-        let savedH = UserDefaults.standard.double(forKey: "MacYoloHudH")
-        let panelW: CGFloat = min(880, max(720, savedW >= 720 ? CGFloat(savedW) : 740))
-        let panelH: CGFloat = 535
-        if abs(savedW - Double(panelW)) > 0.5 || abs(savedH - Double(panelH)) > 0.5 {
-            UserDefaults.standard.set(Double(panelW), forKey: "MacYoloHudW")
-            UserDefaults.standard.set(Double(panelH), forKey: "MacYoloHudH")
-        }
-        let panelOrigin = hudOriginUnderMenuBar(size: NSSize(width: panelW, height: panelH))
+        let panelSize = resolvedHudSize()
+        let panelW: CGFloat = panelSize.width
+        let panelH: CGFloat = panelSize.height
+        let panelOrigin = hudOriginUnderMenuBar(size: panelSize)
         hudPanel = MacYoloHudPanel(
             contentRect: NSRect(origin: panelOrigin, size: NSSize(width: panelW, height: panelH)),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -2170,20 +2164,14 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                 UserDefaults.standard.set(Double(f.origin.y), forKey: "MacYoloHudY")
             }
         case "resizeHud":
-            if let w = (body["width"] as? NSNumber)?.doubleValue,
-               let h = (body["height"] as? NSNumber)?.doubleValue {
-                let persist = (body["persist"] as? Bool) ?? false
-                let newW = CGFloat(max(640.0, min(880.0, w)))
-                let newH = CGFloat(max(480.0, min(920.0, h)))
-                var f = hudPanel.frame
-                f.origin.y += (f.height - newH)
-                f.size.width = newW
-                f.size.height = newH
-                hudPanel.setFrame(f, display: true, animate: false)
-                if persist {
-                    UserDefaults.standard.set(Double(newW), forKey: "MacYoloHudW")
-                    UserDefaults.standard.set(Double(newH), forKey: "MacYoloHudH")
-                }
+            let wantMax = (body["max"] as? Bool) == true
+            let persist = (body["persist"] as? Bool) ?? false
+            if wantMax {
+                if persist { UserDefaults.standard.set(false, forKey: "MacYoloHudUserResized") }
+                applyHudFrame(maximumHudSize(), remember: false, pinUnderMenuBar: true)
+            } else if let w = (body["width"] as? NSNumber)?.doubleValue,
+                      let h = (body["height"] as? NSNumber)?.doubleValue {
+                applyHudFrame(clampHudSize(width: CGFloat(w), height: CGFloat(h)), remember: persist, pinUnderMenuBar: false)
             }
         case "openGearMenu":
             statusBarMenuItem?.state = showStatusBarIcon ? .on : .off
@@ -3826,6 +3814,52 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         return onScreen
     }
 
+    func maximumHudSize() -> NSSize {
+        let visible = (statusItem?.button?.window?.screen ?? NSScreen.main)?.visibleFrame
+            ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        return NSSize(width: floor(max(640, visible.width - 20)), height: floor(max(480, visible.height - 14)))
+    }
+
+    func clampHudSize(width: CGFloat, height: CGFloat) -> NSSize {
+        let maxSize = maximumHudSize()
+        return NSSize(width: min(maxSize.width, max(640, width)), height: min(maxSize.height, max(480, height)))
+    }
+
+    func resolvedHudSize() -> NSSize {
+        guard UserDefaults.standard.bool(forKey: "MacYoloHudUserResized") else { return maximumHudSize() }
+        let savedW = UserDefaults.standard.double(forKey: "MacYoloHudW")
+        let savedH = UserDefaults.standard.double(forKey: "MacYoloHudH")
+        guard savedW >= 640, savedH >= 480 else { return maximumHudSize() }
+        return clampHudSize(width: CGFloat(savedW), height: CGFloat(savedH))
+    }
+
+    func applyHudFrame(_ size: NSSize, remember: Bool, pinUnderMenuBar: Bool) {
+        let clamped = clampHudSize(width: size.width, height: size.height)
+        var frame = hudPanel.frame
+        if pinUnderMenuBar {
+            frame.size = clamped
+            frame.origin = hudOriginUnderMenuBar(size: clamped)
+        } else {
+            frame.origin.y += frame.height - clamped.height
+            frame.size = clamped
+            let visible = (statusItem?.button?.window?.screen ?? NSScreen.main)?.visibleFrame
+                ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+            if frame.maxX > visible.maxX - 8 { frame.origin.x = visible.maxX - 8 - frame.width }
+            if frame.minX < visible.minX + 8 { frame.origin.x = visible.minX + 8 }
+            if frame.minY < visible.minY + 8 { frame.origin.y = visible.minY + 8 }
+            if frame.maxY > visible.maxY - 6 { frame.origin.y = visible.maxY - 6 - frame.height }
+        }
+        hudPanel.setFrame(frame, display: true, animate: false)
+        if remember {
+            UserDefaults.standard.set(true, forKey: "MacYoloHudUserResized")
+            UserDefaults.standard.set(Double(clamped.width), forKey: "MacYoloHudW")
+            UserDefaults.standard.set(Double(clamped.height), forKey: "MacYoloHudH")
+        }
+        let widthPt = Int(clamped.width.rounded())
+        let heightPt = Int(clamped.height.rounded())
+        webView?.evaluateJavaScript("var lbl=document.getElementById('footerSizeLabel'); if (lbl) lbl.textContent='\(widthPt)×\(heightPt)';", completionHandler: nil)
+    }
+
     func hudOriginUnderMenuBar(size: NSSize) -> NSPoint {
         let screen = statusItem?.button?.window?.screen ?? NSScreen.main
         let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
@@ -3843,16 +3877,12 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         lastShownAt = Date()
         hasCustomOrigin = false
         refreshLiveTelemetry()
-        let origin = hudOriginUnderMenuBar(size: hudPanel.frame.size)
-        hudPanel.setFrameOrigin(origin)
+        applyHudFrame(resolvedHudSize(), remember: false, pinUnderMenuBar: true)
         hudPanel.isFloatingPanel = true
         hudPanel.alphaValue = 0.88
         hudPanel.hasShadow = true
         hudPanel.level = .statusBar
         hudPanel.hidesOnDeactivate = false
-        let widthPt = Int(hudPanel.frame.width.rounded())
-        let heightPt = Int(hudPanel.frame.height.rounded())
-        webView?.evaluateJavaScript("var lbl=document.getElementById('footerSizeLabel'); if (lbl) lbl.textContent='\(widthPt)×\(heightPt)';", completionHandler: nil)
         hudPanel.orderFrontRegardless()
     }
 

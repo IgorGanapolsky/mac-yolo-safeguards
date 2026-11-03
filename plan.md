@@ -4226,3 +4226,12 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 
 - `macos/MacYoloTranslucentHud.swift`, `macos/MacYoloSafeguardsApp.swift`, `tests/test-hud-top-hog-rows.js`, `plan.md` (append only) → **grok-hud-hog-rows** (T-HUD-HOG-ROWS-20261103). The 2026-10-29 omp-supabase-ibm-steals inventory lists these Swift files after that steal was already implemented, and later HUD work merged on the release branch. This claim is the live lock for the hog-row fix. (2026-11-03T15:10:00Z)
 - 2026-11-03 grok-hud-hog-rows: RELEASED `macos/MacYoloTranslucentHud.swift`, `macos/MacYoloSafeguardsApp.swift`, `tests/test-hud-top-hog-rows.js`. node tests/test-hud-top-hog-rows.js PASS. node tests/test-mac-yolo-hud-anti-regression.js PASS. Installed /Applications/MacYoloSafeguards.app pid 463 contains "These are the top hogs. Tap one to see its processes." and matches ~/.hermes/bin/MacYoloSafeguards-purple-bento.
+
+## 1. Task Board — append 2026-11-03 — grok-hud-open-max
+
+| T-HUD-OPEN-MAX-20261103 | An untouched Mac YOLO Safeguards panel opens at the largest size the visible screen allows | done | grok-hud-open-max | `macos/MacYoloTranslucentHud.swift`, `macos/MacYoloSafeguardsApp.swift`, `tests/test-mac-yolo-hud-anti-regression.js` | A drag or a numbered size is remembered. Otherwise every open uses the visible screen minus the existing insets. The old 880×535 cap is not a user size. |
+
+## 2. File Ownership Map — append 2026-11-03T15:40:00Z — grok-hud-open-max
+
+- `macos/MacYoloTranslucentHud.swift`, `macos/MacYoloSafeguardsApp.swift`, `tests/test-mac-yolo-hud-anti-regression.js` → **grok-hud-open-max** (T-HUD-OPEN-MAX-20261103). Hog-row claim was released on this branch. This claim is only the open-at-max size change. (2026-11-03T15:40:00Z)
+- 2026-11-03 grok-hud-open-max: RELEASED those three files. `node tests/test-mac-yolo-hud-anti-regression.js` PASS in the worktree. Both Swift copies are identical. The installed app binary contains MacYoloHudUserResized and matches ~/.hermes/bin/MacYoloSafeguards-purple-bento.
