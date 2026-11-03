@@ -4315,3 +4315,12 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 
 - `tools/lib/covered-spend.js`, `tools/covered-spend.js`, `tests/test-covered-spend.js`, `plan.md` (append only) → **grok-covered-spend** (T-COVERED-SPEND-20261103). New files. (2026-11-03T16:51:00Z)
 - 2026-11-03 grok-covered-spend: RELEASED those three files. `node tests/test-covered-spend.js` passed 5. An uncovered top-up is refused (exit 77). A covered quote is held and not bought (exit 75). Park bills nothing (exit 0). A measured Mac app listing sells with purchased=false (exit 0). A rate flag is refused (exit 77).
+
+## 1. Task Board — append 2026-11-03T17:18:41Z — grok-confidence-offer
+
+| T-CONFIDENCE-OFFER-20261103 | One buyer URL is not an experiment. The Mac app listing stays. A demo Ship row is not a sale. | done | grok-confidence-offer | `tools/lib/confidence-offer-gate.js`, `tools/confidence-offer-gate.js`, `tests/test-confidence-offer-gate.js`, `skills/confidence-offer-gate/SKILL.md`, `plan.md` (append only) | The check never calls Confidence and never rewrites the listing. |
+
+## 2. File Ownership Map — append 2026-11-03T17:18:41Z — grok-confidence-offer
+
+- `tools/lib/confidence-offer-gate.js`, `tools/confidence-offer-gate.js`, `tests/test-confidence-offer-gate.js`, `skills/confidence-offer-gate/SKILL.md`, `plan.md` (append only) → **grok-confidence-offer** (T-CONFIDENCE-OFFER-20261103). New files. (2026-11-03T17:18:41Z)
+- 2026-11-03 grok-confidence-offer: RELEASED those four files. `node tests/test-confidence-offer-gate.js` passed 7. One buyer URL is admitted and not launched (exit 0). A price change is refused (exit 77). Demo data is held and is not a sale (exit 75). A remote call is refused (exit 77). Two buyer URLs with no payment stay open (exit 75).
