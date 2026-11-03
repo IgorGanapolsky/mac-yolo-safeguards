@@ -4235,3 +4235,12 @@ Implemented declarative schema state (`schemas/hermes-control-plane.declarative.
 
 - `macos/MacYoloTranslucentHud.swift`, `macos/MacYoloSafeguardsApp.swift`, `tests/test-mac-yolo-hud-anti-regression.js` → **grok-hud-open-max** (T-HUD-OPEN-MAX-20261103). Hog-row claim was released on this branch. This claim is only the open-at-max size change. (2026-11-03T15:40:00Z)
 - 2026-11-03 grok-hud-open-max: RELEASED those three files. `node tests/test-mac-yolo-hud-anti-regression.js` PASS in the worktree. Both Swift copies are identical. The installed app binary contains MacYoloHudUserResized and matches ~/.hermes/bin/MacYoloSafeguards-purple-bento.
+
+## 1. Task Board — append 2026-11-03T15:51:46Z — grok-work-first-yield
+
+| T-WORK-FIRST-YIELD-20261103 | The person's foreground work keeps the Mac; an agent build waits only when that work is in front and the machine is hot | done | grok-work-first-yield | `tools/lib/work-first-yield.js`, `tools/work-first-yield.js`, `tests/test-work-first-yield.js`, `plan.md` (append only) | Unknown foreground, unreadable load, a quiet machine, and any command that is not an agent build stay untouched. Ghostty, Herdr, the agent process, Xcode's compiler, and Dayglass are never the thing that waits. The check never signals a process. |
+
+## 2. File Ownership Map — append 2026-11-03T15:51:46Z — grok-work-first-yield
+
+- `tools/lib/work-first-yield.js`, `tools/work-first-yield.js`, `tests/test-work-first-yield.js`, `plan.md` (append only) → **grok-work-first-yield** (T-WORK-FIRST-YIELD-20261103). New files. No Swift HUD files. (2026-11-03T15:51:46Z)
+- 2026-11-03 grok-work-first-yield: RELEASED those three files. `node tests/test-work-first-yield.js` passed 13 in the worktree. Exit 75 defers pytest when Google Chrome is in front and load is at the threshold. Exit 0 admits pytest when the foreground is unknown, admits ghostty on a hot machine, and admits cargo when load is 1. No signal path in the two tool files.
