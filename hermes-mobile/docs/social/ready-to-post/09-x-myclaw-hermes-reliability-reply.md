@@ -13,7 +13,7 @@ Still true: always-on ≠ hard stop. Runaway tool loops, sim freezes, token burn
 
 We open-source the Mac freeze guard (mac-yolo-safeguards) and sell scoped diagnostics for teams putting Hermes on real work.
 
-Diagnostic ($499) when ready: https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y
+Diagnostic ($499) when ready: https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k
 Public intake: https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=paid-hardening-inquiry.yml
 ```
 
@@ -34,7 +34,7 @@ Public intake: https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?
     "amount": "1500.00"
   },
   "Agent Reliability Diagnostic": {
-    "url": "https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y",
+    "url": "https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k",
     "http": 200,
     "ok": true,
     "amount": "499.00"
