@@ -30,7 +30,7 @@ const html = fs.readFileSync(HTML, "utf8");
 
 // The live links this funnel converts through. Same constants revenue-local-draft.js uses.
 const LIVE_LINKS = [
-  "https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k", // $499 diagnostic
+  "https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y", // $499 diagnostic
   "https://buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38", // $1,500 hardening sprint
   "https://cal.com/igor-g-kvqxfo/30min",
 ];

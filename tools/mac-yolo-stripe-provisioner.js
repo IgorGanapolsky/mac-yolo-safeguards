@@ -56,7 +56,7 @@ const MAC_YOLO_STRIPE_CATALOG = [
     stripe_product_name: 'Mac YOLO Safeguards — 20-Min Agent Reliability Diagnostic',
     stripe_product_id: 'prod_MacYoloDiag499',
     stripe_price_id: 'price_MacYoloDiag499',
-    payment_link_url: 'https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k',
+    payment_link_url: 'https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y',
     stripe_amount_usd: '499.00',
     amountCents: 49900,
   },

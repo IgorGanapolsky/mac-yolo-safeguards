@@ -149,7 +149,7 @@ const CHANNELS_9 = [
     channel: 'zyvop',
     title: 'mac-yolo-safeguards: OS-level runaway protection, MCP server & native macOS menu bar guard for autonomous coding agents',
     cta: 'https://github.com/IgorGanapolsky/mac-yolo-safeguards',
-    paidCta: 'https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k',
+    paidCta: 'https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y',
   },
 ];
 

@@ -115,7 +115,7 @@ function evaluateFlagsAndCheckoutAbTest(subjectIds = ['visitor-1', 'visitor-2', 
   const variants = [
     { id: 'variant_a_49_team_kit', weight: 40, priceUsd: 49.0, url: 'https://iganapolsky.gumroad.com/l/vcrho' },
     { id: 'variant_b_999_playbook', weight: 40, priceUsd: 9.99, url: 'https://iganapolsky.gumroad.com/l/odrkon' },
-    { id: 'control_499_diagnostic', weight: 20, priceUsd: 499.0, url: 'https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k' },
+    { id: 'control_499_diagnostic', weight: 20, priceUsd: 499.0, url: 'https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y' },
   ];
 
   const assignments = subjectIds.map((sid) => {
@@ -219,7 +219,7 @@ function auditRollbackHotfixAndCd(options = {}) {
         'https://iganapolsky.gumroad.com/l/odrkon ($9.99 Agent Safeguards Playbook)',
       ],
       stripeLiveLinks: [
-        'https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k ($499 Diagnostic)',
+        'https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y ($499 Diagnostic)',
         'https://buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38 ($1,500 Sprint)',
         'https://buy.stripe.com/fZucN5bmI8HkbO98qf3sI3j ($3,000 Partner Pilot)',
       ],

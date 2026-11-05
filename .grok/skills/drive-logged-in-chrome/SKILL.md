@@ -47,9 +47,9 @@ Need auth-walled site?
 
 Known good product names on Dashboard (as of 2026-07-14):
 
-- **$499** → "AI Agent Reliability Audit" (map as Agent Reliability Diagnostic)
-- **$1,500** → "AI Performance Marketing Audit (1hr Report)" (map as Hardening Sprint — amount match)
-- **$3,000** → "Partner Pilot (Full)"
+- **$499** → "Mac YOLO — Agent Reliability Diagnostic" (map as Agent Reliability Diagnostic)
+- **$1,500** → "AI Agent Hardening Sprint (Fixed Scope)" (map as Hardening Sprint — amount match)
+- **$3,000** → "Partner Pilot"
 
 ## AppleScript snippets
 
