@@ -126,8 +126,9 @@
     <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
       <button class="btn btn-green" type="button" onclick="runBrowserRoast()">🔥 Roast My Process Tree</button>
       <button class="btn btn-outline" type="button" onclick="copyRoastResult()">📋 Copy Share Card</button>
-      <a id="roast-gh-link" class="btn btn-amber" href="https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=roast-or-critique.yml" target="_blank" rel="noopener">🐙 Post Score + Critique on GitHub</a>
+      <a id="roast-gh-link" class="btn btn-amber" href="https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=free-incident-report.yml" target="_blank" rel="noopener">🐙 Post Score + Critique on GitHub</a>
     </div>
+    <div id="roast-status" style="margin-top:8px;font-size:12.5px;color:#34d399;min-height:1em;"></div>
     <pre id="roast-output" style="margin-top:14px;"></pre>
   </div>
 
@@ -224,21 +225,37 @@ function runBrowserRoast() {
     topLines || '  (paste ps output above)',
     `Fix in 1 click    : https://github.com/IgorGanapolsky/mac-yolo-safeguards`
   ].join('\n');
-  document.getElementById('roast-output').textContent = card;
-  const ghUrl = 'https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=roast-or-critique.yml&title=' +
+  const out = document.getElementById('roast-output');
+  out.textContent = card;
+  const ghUrl = 'https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=free-incident-report.yml&agent_stack=Other&title=' +
     encodeURIComponent(`[roast] Grade ${grade} (${score}/100) — Mac Agent Stack Roast`) +
-    '&critique=' + encodeURIComponent(`My Mac scored ${grade} (${score}/100) with ${orphans.length} orphaned procs (~${reclaimMb} MB reclaimable). Feedback: `);
+    '&public_summary=' + encodeURIComponent(`My Mac scored ${grade} (${score}/100) with ${orphans.length} orphaned procs (~${reclaimMb} MB reclaimable).\n\n` + card + `\n\nFeedback: `);
   document.getElementById('roast-gh-link').href = ghUrl;
+  const st = document.getElementById('roast-status');
+  st.textContent = `🔥 Roasted ${procs.length} procs at ${new Date().toLocaleTimeString()} — Grade ${grade} (${score}/100)`;
+  out.style.outline = '2px solid #34d399';
+  setTimeout(() => { out.style.outline = 'none'; }, 600);
 }
-function copyRoastResult() {
+async function copyRoastResult() {
   const text = document.getElementById('roast-output').textContent;
-  navigator.clipboard.writeText(text);
+  const st = document.getElementById('roast-status');
+  if (!text.trim()) { st.textContent = '⚠️ Nothing to copy yet — run the roast first.'; return; }
+  try {
+    await navigator.clipboard.writeText(text);
+    st.textContent = '✅ Share card copied to clipboard (' + text.length + ' chars).';
+  } catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); st.textContent = '✅ Share card copied to clipboard (' + text.length + ' chars).'; }
+    catch (e2) { st.textContent = '⚠️ Copy blocked by this browser — select the card text and copy it manually.'; }
+    ta.remove();
+  }
 }
 function submitOneClickCritique() {
   const text = (document.getElementById('critique-text').value || '').trim() || `Critique on ${selectedCategory}`;
-  const url = 'https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=roast-or-critique.yml&title=' +
+  const url = 'https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=free-incident-report.yml&agent_stack=Other&title=' +
     encodeURIComponent(`[roast] ${selectedCategory}: ${text.slice(0, 56)}`) +
-    '&critique=' + encodeURIComponent(`[${selectedCategory}] ${text}`);
+    '&public_summary=' + encodeURIComponent(`[${selectedCategory}] ${text}`);
   window.open(url, '_blank', 'noopener');
 }
 function copyCliCritique() {
