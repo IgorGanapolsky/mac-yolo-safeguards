@@ -203,6 +203,13 @@ function runBrowserRoast() {
     const cmd = parts.slice(5).join(' ');
     procs.push({ pid, ppid, rssMb: Math.round((rssKb / 1024) * 10) / 10, cpu, cmd });
   }
+  if (procs.length === 0) {
+    const out0 = document.getElementById('roast-output');
+    out0.textContent = '';
+    document.getElementById('roast-gh-link').href = 'https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=free-incident-report.yml';
+    document.getElementById('roast-status').textContent = '⚠️ No valid process lines found - paste ps -axo pid,ppid,rss,%cpu,etime,command output (each line: PID PPID RSS %CPU ETIME COMMAND).';
+    return;
+  }
   procs.sort((a, b) => b.rssMb - a.rssMb);
   const mcp = procs.filter(p => /mcp|context7|grepai|playwright|uvx|npx/i.test(p.cmd));
   const orphans = mcp.filter(p => p.ppid === 1);
@@ -236,20 +243,36 @@ function runBrowserRoast() {
   out.style.outline = '2px solid #34d399';
   setTimeout(() => { out.style.outline = 'none'; }, 600);
 }
-async function copyRoastResult() {
-  const text = document.getElementById('roast-output').textContent;
-  const st = document.getElementById('roast-status');
-  if (!text.trim()) { st.textContent = '⚠️ Nothing to copy yet — run the roast first.'; return; }
-  try {
-    await navigator.clipboard.writeText(text);
-    st.textContent = '✅ Share card copied to clipboard (' + text.length + ' chars).';
-  } catch (e) {
-    const ta = document.createElement('textarea');
-    ta.value = text; document.body.appendChild(ta); ta.select();
-    try { document.execCommand('copy'); st.textContent = '✅ Share card copied to clipboard (' + text.length + ' chars).'; }
-    catch (e2) { st.textContent = '⚠️ Copy blocked by this browser — select the card text and copy it manually.'; }
-    ta.remove();
+async function copyTextWithFeedback(text, opts) {
+  const st = opts.statusEl;
+  if (!text.trim()) { st.textContent = opts.emptyMsg; return false; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try { await navigator.clipboard.writeText(text); st.textContent = opts.okMsg; return true; } catch (e) {}
   }
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  try { if (ta.setSelectionRange) ta.setSelectionRange(0, ta.value.length); } catch (e) {}
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  ta.remove();
+  if (ok) { st.textContent = opts.okMsg; return true; }
+  st.textContent = opts.failMsg;
+  if (opts.revealEl) {
+    const range = document.createRange(); range.selectNodeContents(opts.revealEl);
+    const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+  }
+  return false;
+}
+function copyRoastResult() {
+  const out = document.getElementById('roast-output');
+  copyTextWithFeedback(out.textContent, {
+    statusEl: document.getElementById('roast-status'),
+    okMsg: '✅ Share card copied to clipboard (' + out.textContent.length + ' chars).',
+    emptyMsg: '⚠️ Nothing to copy yet - run the roast first.',
+    failMsg: '⚠️ Copy blocked by this browser - the share card below is selected; copy it manually.',
+    revealEl: out
+  });
 }
 function submitOneClickCritique() {
   const text = (document.getElementById('critique-text').value || '').trim() || `Critique on ${selectedCategory}`;
@@ -258,11 +281,16 @@ function submitOneClickCritique() {
     '&public_summary=' + encodeURIComponent(`[${selectedCategory}] ${text}`);
   window.open(url, '_blank', 'noopener');
 }
+function shQuote(s) { return "'" + String(s).replace(/'/g, "'\\''") + "'"; }
 function copyCliCritique() {
-  const text = (document.getElementById('critique-text').value || 'Make Top Hogs PID expandable').replace(/"/g, '\\"');
-  const cmd = `./bin/yolo-roast --feedback "[${selectedCategory}] ${text}"`;
-  navigator.clipboard.writeText(cmd);
-  document.getElementById('critique-status').textContent = '✅ Copied: ' + cmd;
+  const text = (document.getElementById('critique-text').value || 'Make Top Hogs PID expandable');
+  const cmd = `./bin/yolo-roast --feedback ${shQuote(`[${selectedCategory}] ${text}`)}`;
+  copyTextWithFeedback(cmd, {
+    statusEl: document.getElementById('critique-status'),
+    okMsg: '✅ Copied: ' + cmd,
+    emptyMsg: '⚠️ Nothing to copy.',
+    failMsg: '⚠️ Copy blocked by this browser - copy this command manually: ' + cmd
+  });
 }
 runBrowserRoast();
 </script>
