@@ -24,7 +24,7 @@
  *       * Free Download (GitHub Release v1.0.0): https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v1.0.0
  *       * Tier 1 ($9.99 Playbook):               https://iganapolsky.gumroad.com/l/odrkon
  *       * Tier 2 ($49.00 Corporate-Expense Kit): https://iganapolsky.gumroad.com/l/vcrho
- *       * Tier 3 ($499.00 Diagnostic):           https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k
+ *       * Tier 3 ($499.00 Diagnostic):           https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y
  *       * Tier 4 ($1,500.00 Hardening Sprint):   https://buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38
  *       * Tier 5 ($3,000.00 Partner Pilot):      https://buy.stripe.com/fZucN5bmI8HkbO98qf3sI3j
  */
@@ -39,7 +39,7 @@ const LINKS = {
   githubRelease: 'https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v1.0.0',
   tier1Playbook999: 'https://iganapolsky.gumroad.com/l/odrkon',
   tier2TeamKit49: 'https://iganapolsky.gumroad.com/l/vcrho',
-  tier3Diagnostic499: 'https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k',
+  tier3Diagnostic499: 'https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y',
   tier4Sprint1500: 'https://buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38',
   tier5Pilot3000: 'https://buy.stripe.com/fZucN5bmI8HkbO98qf3sI3j',
 };

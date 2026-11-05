@@ -13,7 +13,7 @@ Still true on real fleets: multi-agent + parallel tools expand the unfinished-an
 
 OSS freeze guard + paid reliability diagnostics for teams that already pay for agent failures.
 
-Diagnostic ($499) when ready: https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k
+Diagnostic ($499) when ready: https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y
 Public intake: https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=paid-hardening-inquiry.yml
 ```
 
@@ -30,7 +30,7 @@ Gap we keep hitting on non-mainframe fleets: orchestration coordinates work; it 
 
 We ship the OSS Mac safeguards kit and paid diagnostics / Partner Pilot for one repeated failure pattern.
 
-Diagnostic ($499) when ready: https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k
+Diagnostic ($499) when ready: https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y
 
 If not relevant, reply "not now".
 

@@ -30,7 +30,7 @@ const OFFER_DEFAULTS = {
     amount: 499,
     url:
       process.env.STRIPE_DIAGNOSTIC_URL ||
-      'https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k',
+      'https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y',
   },
   hardening: {
     name: 'AI Agent Hardening Sprint',
