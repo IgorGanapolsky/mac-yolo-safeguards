@@ -77,9 +77,9 @@ Known ThumbGate live links (re-verify; do not trust forever without curl):
 
 | Offer | Amount | Check Dashboard name |
 |-------|--------|----------------------|
-| Agent Reliability Diagnostic | $499 | AI Agent Reliability Audit |
-| Hardening Sprint | $1,500 | AI Performance Marketing Audit (1hr Report) — amount match |
-| Partner Pilot | $3,000 | Partner Pilot (Full) |
+| Agent Reliability Diagnostic | $499 | Mac YOLO — Agent Reliability Diagnostic |
+| Hardening Sprint | $1,500 | AI Agent Hardening Sprint (Fixed Scope) |
+| Partner Pilot | $3,000 | Partner Pilot |
 
 **Never send** payment URLs that return HTTP 403.
 

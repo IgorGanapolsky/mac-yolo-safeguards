@@ -54,7 +54,7 @@ a runaway freezes you today, spend leaks bleed you weekly, gating failures are r
 ## Next steps (matched to score, not upsold)
 
 - **Free, right now:** the guards in this repo — runaway-kill, timeouts, resource limits, spend gates. [Start at the README](../README.md). If your failures cost less than $1,500, use the free kit and keep your money.
-- **$499 Diagnostic Call** — 20-min live review of your lowest-scoring category, root-cause triage readout, recommended prevention rules, no installation. [Book via Stripe](https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k) or [pick a slot first](https://cal.com/igor-g-kvqxfo/30min).
+- **$499 Diagnostic Call** — 20-min live review of your lowest-scoring category, root-cause triage readout, recommended prevention rules, no installation. [Book via Stripe](https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y) or [pick a slot first](https://cal.com/igor-g-kvqxfo/30min).
 - **$1,500 AI Agent Hardening Sprint** — one recurring failure pattern, root-caused, guardrails installed, smoke test + before/after evidence at the end. [Details](./AI-AGENT-HARDENING.md) · [Stripe](https://buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38).
 - **Public-safe intake:** [open a paid hardening inquiry](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=paid-hardening-inquiry.yml) or email [iganapolsky@gmail.com](mailto:iganapolsky@gmail.com).
 
