@@ -1,0 +1,23 @@
+# Keep media, lockfiles and build output out of Cursor's index and context.
+# Same idea as Eci.Psn.StockService/.cursorignore. Cursor already skips .gitignore'd paths.
+
+# Media
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.mp4
+*.mov
+*.icns
+*.pdf
+*.zip
+*.tar.gz
+*.pkg
+
+# Lockfiles and build output
+**/package-lock.json
+**/node_modules/
+**/dist/
+**/__pycache__/
+*.pyc
+*.log
