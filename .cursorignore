@@ -1,7 +1,7 @@
 # Keep media, lockfiles and build output out of Cursor's index and context.
 # Same idea as Eci.Psn.StockService/.cursorignore. Cursor already skips .gitignore'd paths.
 
-# Media and store assets
+# Media
 *.png
 *.jpg
 *.jpeg
@@ -13,10 +13,6 @@
 *.zip
 *.tar.gz
 *.pkg
-hermes-mobile/fastlane/screenshots/
-hermes-mobile/fastlane/store-capture/
-hermes-mobile/fastlane/app_previews/
-hermes-mobile/docs/store-assets/
 
 # Lockfiles and build output
 **/package-lock.json
