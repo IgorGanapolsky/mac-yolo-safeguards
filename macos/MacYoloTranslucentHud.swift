@@ -985,6 +985,19 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     func applicationDidFinishLaunching(_ notification: Notification) {
         let myPid = ProcessInfo.processInfo.processIdentifier
         let isSelfTest = CommandLine.arguments.contains { $0.hasSuffix("-self-test") }
+
+        // User-initiated Quit is authoritative for the rest of this boot.
+        // A relaunch (launchd KeepAlive, kickstart, or self-heal) must exit
+        // immediately instead of resurrecting the HUD. A marker from an
+        // earlier boot is stale: clear it and run normally. Self-test modes
+        // skip the marker so CI can always run the binary.
+        if !isSelfTest {
+            if CommandLine.arguments.contains("--clear-quit-marker") {
+                clearUserQuitMarker()
+            } else if userQuitMarkerMatchesThisBoot() {
+                exit(0)
+            }
+        }
         if !isSelfTest {
             for app in NSWorkspace.shared.runningApplications {
                 if app.processIdentifier != myPid &&
@@ -1282,6 +1295,46 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showFloatingHudNotification()
         return true
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        recordUserQuitMarker()
+        return .terminateNow
+    }
+
+    private let userQuitMarkerPath = NSHomeDirectory() + "/.hermes/mac-yolo-user-quit.json"
+
+    private func currentBootUuid() -> String {
+        var size = 0
+        sysctlbyname("kern.bootuuid", nil, &size, nil, 0)
+        guard size > 0 else { return "" }
+        var buf = [CChar](repeating: 0, count: size)
+        sysctlbyname("kern.bootuuid", &buf, &size, nil, 0)
+        return String(cString: buf)
+    }
+
+    private func userQuitMarkerMatchesThisBoot() -> Bool {
+        guard let data = FileManager.default.contents(atPath: userQuitMarkerPath),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let boot = obj["bootUuid"] as? String, !boot.isEmpty else { return false }
+        return boot == currentBootUuid()
+    }
+
+    private func recordUserQuitMarker() {
+        let marker: [String: Any] = [
+            "schema": "mac-yolo-safeguards/user-quit/v1",
+            "bootUuid": currentBootUuid(),
+            "quitAt": ISO8601DateFormatter().string(from: Date()),
+            "pid": ProcessInfo.processInfo.processIdentifier,
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: marker) else { return }
+        let dir = NSHomeDirectory() + "/.hermes"
+        try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        FileManager.default.createFile(atPath: userQuitMarkerPath, contents: data)
+    }
+
+    private func clearUserQuitMarker() {
+        try? FileManager.default.removeItem(atPath: userQuitMarkerPath)
     }
 
     @objc func openSettingsDrawer(_ sender: AnyObject?) {
