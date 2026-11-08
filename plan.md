@@ -4404,3 +4404,19 @@ A coordination task that includes an issue number stays blocked, including when 
 - `tests/test-herdr-swarm-coordination-gate.js`
 - `docs/HERDR-SWARM-COORDINATION-SOW.md`
 - `plan.md` (this append)
+
+## Confidence Agent offer gate & Gmail vendor filter (append 2026-11-08) — `antigravity-confidence-agent-offer-gate`
+
+The 2026-11-08 email (`~/Downloads/confidence.pdf`, `Meet the Confidence Agent, wherever you work`, from `jsoderholm@confidence.spotify.com`, Reply-To `experimentation-cs@spotify.com`, To `igor@igorganapolsky.com`) pitches the Confidence Agent across Confidence Projects, Slack (`Add to Slack`), MCP (`https://mcp.confidence.dev/mcp/flags`), and connected GitHub, and states three best practices: give it a clear outcome (`"Summarise the checkout test and flag any guardrail regressions."`), share in a product/launch channel, and review before you act (`"Treat it like a sharp teammate, not autopilot."`). This check keeps the Mac YOLO Safeguards listing (`https://iganapolsky.gumroad.com/l/nllmvb`) at its price until a third-party paid order is measured, answers the checkout summary and project context locally, enforces `reviewBeforeAct=true` (`autopilot=false`), refuses adding the remote Confidence MCP, Slack bot, or GitHub connection, and filters vendor onboarding / no-reply emails out of `gmail-outreach-reply-scan.js`.
+
+### File claims
+- `tools/lib/confidence-offer-gate.js`
+- `tools/confidence-offer-gate.js`
+- `tests/test-confidence-offer-gate.js`
+- `skills/confidence-offer-gate/SKILL.md`
+- `.agents/skills/confidence-offer-gate/SKILL.md`
+- `.agents/skills/confidence-offer-gate/skill-card.md`
+- `tools/gmail-outreach-reply-scan.js`
+- `tests/test-gmail-outreach-reply-scan.js`
+- `plan.md` (this append)
+

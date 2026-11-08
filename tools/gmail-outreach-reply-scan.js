@@ -172,8 +172,31 @@ function extractFromHint(rowText) {
   return { email: '', label: '' };
 }
 
+function isAutomatedOrVendorSender(rowText) {
+  const t = String(rowText || '');
+  const { email } = extractFromHint(t);
+  if (email) {
+    if (/^(?:no-?reply|donotreply|mailer-daemon|postmaster|notifications?)@/i.test(email)) {
+      return true;
+    }
+    if (/@(?:notify\.cloudflare\.com|confidence\.spotify\.com)$/i.test(email)) {
+      return true;
+    }
+    if (email === 'experimentation-cs@spotify.com') {
+      return true;
+    }
+  }
+  if (/You['’]re receiving this because you signed up for Confidence/i.test(t)) {
+    return true;
+  }
+  return false;
+}
+
 function isLikelyOutreachReply(rowText) {
   const t = String(rowText || '');
+  if (isAutomatedOrVendorSender(t)) {
+    return false;
+  }
   // Must look like our outreach subject family
   if (!OUTREACH_SUBJECT_RE.test(t) && !/Re:.*(?:close-loop|Governed|Diagnostic)/i.test(t)) {
     return false;
