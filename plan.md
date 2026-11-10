@@ -19,6 +19,8 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 ## 1. Task Board
 
+| T-MACYOLO-FUNNEL-FIXES-20261110 | Fix macyolosafeguards.io conversion blockers: one name per offer, one main hero offer, consistent $499 offer, free vs Pro table, policy drafts, corrected llms.txt | in_progress | claude-macyolo-funnel-fixes | `docs/landing/**`, `docs/legal/**`, `README.md` (offer table rows only), `plan.md` (append only) | Landing source is not in any reachable repo, so the live-page edits ship as an apply-ready change list. Docs and README only. No pricing, Stripe or Gumroad changes. |
+
 | T-CHECKOUT-404-REDIRECT-20261102 | Send thumbgate.app /diagnostic, /go/pro, and /go/pro-direct to the live thumbgate.ai pages | in_progress | grok-checkout-404-redirect | `apps/hermes-control-plane/worker/legacy-checkout-redirect.ts`, `apps/hermes-control-plane/worker/index.ts`, `apps/hermes-control-plane/tests/legacy-checkout-redirect.test.mjs`, `docs/finops/2026-11-02-thumbgate-profit-run.json`, `plan.md` (append only) | Live HEAD on 2026-11-02 returned 404 for those three app paths and 200 or 302 for the matching thumbgate.ai paths. Temporary 302 only. Not deployed. |
 
 | T-AGENTIC-PATTERN-RECEIPTS-20260826 | Add deterministic minimum-pattern selection receipts for agent tasks | released | codex-agentic-pattern-receipts | `tools/agentic-pattern-selector.js`, `tests/test-agentic-pattern-selector.js`, `tools/agent-decision-stack.js` (pattern receipt integration only), `tests/test-agent-decision-stack.js` (pattern receipt cases only), `.agents/skills/agentic-pattern-selector/**`, `docs/AGENTIC-PATTERN-RECEIPTS.md`, `plan.md` (append only) | GitHub #2143 / merged PR #2147 / Linear AGENT-561; merge `99c680017`; all GitHub checks green and three review threads resolved; root CI-parity 319 pass / 0 fail / 2 documented exclusions; independent review APPROVE; credential-shaped values rejected, valid hashes canonicalized, malformed bytes raw-hashed, invalid UTF-8 rejected, bounded depth/content-free errors/side-effect early stop verified |
@@ -2044,6 +2046,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `tools/mcp-connector-gate.js`, `tests/test-mcp-connector-gate.js`, `plan.md` → **claude-code** (T-MCP-CONNECTOR-GOVERNANCE-20260819: MCP connector governance checker with server risk assessment + prompt injection scanner, based on NewStack Mistral migration article) (2026-08-19T14:00:00-04:00)
 
 - `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx`, `apps/hermes-control-plane/lib/conversation-send-visibility.ts, apps/hermes-control-plane/lib/conversation-send-visibility.test.ts, apps/hermes-control-plane/tests/dashboard-sent-message-visible.test.mjs, apps/hermes-control-plane/tests/conversation-send-visibility.test.mjs`, `plan.md` → **grok-dashboard-sent-msg-invisible-20260820** (T-DASHBOARD-SENT-MSG-INVISIBLE-20260820: after Enter/send, show the user prompt in conversation-history immediately and scroll it into view; do not leave the bubble only in the task-list card) (2026-08-20T02:01:26Z)
+
+- `docs/landing/**`, `docs/legal/**`, `README.md` (offer table rows only), `plan.md` → **claude-macyolo-funnel-fixes** (T-MACYOLO-FUNNEL-FIXES-20261110: macyolosafeguards.io funnel fixes as docs plus README offer names; no code or pricing changes) (2026-11-10T23:00:00Z)
 
 ## 3. Decisions Log
 

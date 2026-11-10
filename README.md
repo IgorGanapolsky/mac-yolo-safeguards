@@ -40,9 +40,10 @@ If you run agents for a team or clients and have a repeated failure that costs h
 
 | Path | Deliverables | Pricing |
 |---|---|---|
+| **[Mac YOLO Pro Guard](https://buy.stripe.com/cNi6oH1M81eSg4pdKz3sJ10)** | Everything in the free app, plus MCP Guard: automatic shutdown of stuck MCP servers. Cancel any time. | `$19/month` |
 | **[Agent Safeguards Playbook](https://iganapolsky.gumroad.com/l/odrkon)** | Self-serve runbook: OS-level runaway-kill, timeout, and token-budget templates for Mac agent fleets. | `$9.99` |
 | **[Corporate-Expense Reliability Kit](https://iganapolsky.gumroad.com/l/vcrho)** | Drop-in team bundle: LaunchAgent templates, MCP server, pre-execution gates, and audit receipt harness. | `$49` |
-| **[Diagnostic Call](https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y)** | 20-min live review, root-cause triage readout, recommended prevention rules, no installation. | `$499` |
+| **[Agent Reliability Diagnostic](https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y)** | A 20-minute live call about one failure, then a written root-cause readout with prevention rules within 48 hours. No installation. | `$499` |
 | **[AI Agent Hardening Sprint](./docs/AI-AGENT-HARDENING.md)** ([Stripe Checkout](https://buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38)) | Fixed-scope hardening for one high-cost agent workflow plus regression gate. | `$1,500` |
 | [Partner Pilot](./docs/PARTNER-PILOT.md) ([Stripe Checkout](https://buy.stripe.com/9B6eVdcqM7DgcSdayn3sJ0Z)) | Agencies or consultants need a reusable client-facing reliability package. | `$3,000` |
 
@@ -343,7 +344,7 @@ Best fit: founders and teams running Claude Code, Cursor, Codex, or Antigravity 
 
 **Start here:** email **[iganapolsky@gmail.com](mailto:iganapolsky@gmail.com)** or book a 20-min triage via **[Cal.com](https://cal.com/igor-g-kvqxfo/30min)** with: the agent stack, the repeated failure, and what one incident cost you. Full scope: [AI Agent Reliability Hardening](./docs/AI-AGENT-HARDENING.md).
 
-*Also available:* a [$499 diagnostic](https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y) (root-cause readout only, no install) for smaller pain, and a $3,000 [Partner Pilot](./docs/PARTNER-PILOT.md) ([pay once](https://buy.stripe.com/9B6eVdcqM7DgcSdayn3sJ0Z)) for agencies reselling reliability. Operator playbook: [Sales Close Kit](./docs/SALES-CLOSE-KIT.md).
+*Also available:* the [$499 Agent Reliability Diagnostic](https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y) (20-minute call plus a written root-cause readout, no install) for smaller pain, and a $3,000 [Partner Pilot](./docs/PARTNER-PILOT.md) ([pay once](https://buy.stripe.com/9B6eVdcqM7DgcSdayn3sJ0Z)) for agencies reselling reliability. Operator playbook: [Sales Close Kit](./docs/SALES-CLOSE-KIT.md).
 
 Public GitHub issues must stay public-safe. Do not post secrets, customer names, private repository details, payment data, or proprietary logs. Use the paid triage links above for private workflow details.
 
