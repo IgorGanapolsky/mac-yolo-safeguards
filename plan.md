@@ -4451,6 +4451,21 @@ Operationalizes McKinsey's *"What the Top Companies Do Differently With AI Codin
 - `SKILLS.md` (append only)
 - `plan.md` (this append)
 
+## MoA router + GraphRAG renice guard + cask + Partner Pilot link (append 2026-11-11T18:05:00Z) — `poolside`
+
+CPU hit 100% because `mediaanalysisd` was saturating cores. System care now renices heavy background workers to +15. Every renice target is first checked by `verifyActionAgainstGround`. Reserved ports (3333 Dayglass, 9111 CDP), protected daemons and live agent processes are refused. The stale deactivated Partner Pilot link `fZucN…` is replaced by the active `9B6e…` link everywhere. A Homebrew cask for v1.1.1 is added. `brew style` and `brew audit --cask --online` both pass.
+
+### File claims
+- `tools/dual-model-moa-router.js`
+- `tools/agentic-graphrag-safeguard.js`
+- `tests/test-dual-model-moa-router.js`
+- `tests/test-agentic-graphrag-safeguard.js`
+- `tools/mac-yolo-system-care-engine.js`
+- `tools/mac-yolo-stripe-provisioner.js`
+- `tools/mac-yolo-release-cd-engine.js`
+- `tools/mac-yolo-10channel-omnichannel-engine.js`
+- `dist/homebrew/Casks/mac-yolo-safeguards.rb`
+- `docs/PRODUCTHUNT-LAUNCH-PACK.md`
 ## Fix 24/7 Promote Day-Rollover Pipeline Carryforward & Real Stripe IDs (append 2026-11-11) — `antigravity-promote-pipeline-carryforward`
 
 Fix `seedOpsFiles` in `tools/mac-yolo-24x7-promote.js` so day rollover carries forward prior real `sent` / `replied` / `proposed` rows from the latest `pipeline-status-*.tsv`, `prospects-*.tsv`, and `stripe-offer-map-*.tsv` before appending missing `CURATED_PROSPECTS` / `OFFERS` defaults (preventing new calendar days from dropping active `sent` prospects). Update `MAC_YOLO_STRIPE_CATALOG` in `tools/mac-yolo-stripe-provisioner.js` to use the live Stripe Product and Price IDs (`prod_VXQknQJDB6Vcjk` / `price_1UWLtAGGBpd520QYY4YLw7qG`, `prod_Uor7uKfiDqiKbZ` / `price_1TpDO4GGBpd520QY5xJsc1xI`, `prod_UqI6dgjzkH2x1Y` / `price_1UX2fNGGBpd520QYOES3xcnE`), and allow verified Gumroad checkout links (`https://iganapolsky.gumroad.com/l/...`) in `realPaymentLink` (`tools/payment-readiness.js`, `tools/revenue-action-board.js`).
