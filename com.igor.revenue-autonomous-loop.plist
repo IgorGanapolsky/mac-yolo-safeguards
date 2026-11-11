@@ -9,7 +9,8 @@
         <string>{{NODE}}</string>
         <string>{{REPO}}/tools/revenue-autonomous-loop.js</string>
         <string>--json</string>
-        <string>--fast</string>
+        <string>--no-apollo</string>
+        <string>--no-chrome</string>
     </array>
     <key>WorkingDirectory</key>
     <string>{{REPO}}</string>
