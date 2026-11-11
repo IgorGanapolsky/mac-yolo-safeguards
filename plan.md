@@ -4460,5 +4460,6 @@ Fix `seedOpsFiles` in `tools/mac-yolo-24x7-promote.js` so day rollover carries f
 - `tools/mac-yolo-stripe-provisioner.js`
 - `tools/payment-readiness.js`
 - `tools/revenue-action-board.js`
+- `tools/revenue-autonomous-loop.js`
 - `tests/test-mac-yolo-24x7-promote-carryforward.js`
 - `plan.md` (this append)

@@ -119,6 +119,22 @@ function main() {
       readinessRun.stdout.includes('Payment-link-ready open gross: $15998.00'),
       readinessRun.stdout,
     );
+
+    // 4. Verify in-place healing if today's file was previously written with only curated rows
+    fs.writeFileSync(
+      seeded.pipelinePath,
+      [
+        'prospect_label\tstage\troute\tgross_potential_usd\tlast_touch\tnext_action\tnotes',
+        ...CURATED_PROSPECTS.map((p) =>
+          [p.label, 'ready', p.route, p.gross, '2026-11-11', 'send_governed_intro_or_partner_offer', p.notes].join('\t'),
+        ),
+      ].join('\n') + '\n',
+    );
+    seedOpsFiles('2026-11-11', tmpDir);
+    const healedLines = fs.readFileSync(seeded.pipelinePath, 'utf8').trim().split(/\r?\n/);
+    assert.strictEqual(healedLines.length, 1 + 2 + CURATED_PROSPECTS.length);
+    assert.ok(healedLines[1].startsWith('bluefully\tsent\t'));
+    assert.ok(healedLines[2].startsWith('StephK\tsent\t'));
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
