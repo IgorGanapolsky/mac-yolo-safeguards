@@ -219,6 +219,19 @@ function getToolDefinitions() {
       },
     },
     {
+      name: 'yolo_local_models',
+      title: 'Local Model Memory Check',
+      description: 'Local LLMs loaded right now (Ollama, llama.cpp, MLX, LM Studio), how much RAM they hold, model folders on disk, and when a smaller quantization (Q4_K_M) would free memory for coding agents. Read-only: never stops or deletes a model.',
+      annotations: {
+        title: 'Local Model Memory Check',
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      inputSchema: { type: 'object', properties: {} },
+    },
+    {
       name: 'yolo_system_care',
       title: '5-Pillar macOS Smart Care Scan',
       description: '5-Pillar Smart Care Scan (Cleanup, Protection, Performance/Browser Care/LaunchAgents, Applications/Installers, My Clutter) + Status Bar Icon toggle',
@@ -417,6 +430,9 @@ function callTool(name, args = {}) {
       return runDiskSmartClean({ notify: args.notify !== false });
     }
     return runDiskSmartScan();
+  }
+  if (name === 'yolo_local_models') {
+    return require('./mac-yolo-local-models').scan();
   }
   if (name === 'yolo_system_care') {
     const {
