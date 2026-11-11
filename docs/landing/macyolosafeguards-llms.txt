@@ -4,7 +4,7 @@
 
 Site: https://macyolosafeguards.io/
 Source: https://github.com/IgorGanapolsky/mac-yolo-safeguards
-Install: brew tap igorganapolsky/tap && brew trust --cask igorganapolsky/tap/mac-yolo-safeguards && brew install --cask mac-yolo-safeguards
+Install: brew install --cask igorganapolsky/tap/mac-yolo-safeguards
 
 ## Offers
 
