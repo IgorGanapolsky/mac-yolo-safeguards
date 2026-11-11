@@ -6,6 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const {
+  adobeVideoAppRunning,
   getRootDiskUsage,
   findStaleClaudeTmpEntries,
   runDiskSmartScan,
@@ -23,6 +24,17 @@ function main() {
   assert.strictEqual(scan.ok, true);
   assert.ok(Array.isArray(scan.categories));
   assert.ok(scan.categories.some((c) => c.id === 'claude_tmp_runaways'));
+
+  // Adobe media cache is listed, and only auto-cleaned while no Adobe video app is open.
+  const adobe = scan.categories.find((c) => c.id === 'adobe_media_cache');
+  assert.ok(adobe && adobe.paths.every((p) => p.includes('/Adobe/Common/')));
+  assert.strictEqual(adobe.safeAutoClean, !adobeVideoAppRunning());
+  assert.strictEqual(
+    adobeVideoAppRunning('/Applications/Adobe Premiere Pro 2027/Adobe Premiere Pro 2027.app/Contents/MacOS/Adobe Premiere Pro 2027'),
+    'Adobe Premiere Pro',
+  );
+  assert.strictEqual(adobeVideoAppRunning('/usr/bin/vim notes\n/Applications/Adobe Photoshop 2027/x'), null);
+  assert.strictEqual(adobeVideoAppRunning('/bin/zsh -c echo Adobe Premiere Pro'), null);
 
   // Only idle Claude session folders are stale; the root, live sessions and bundled skills stay.
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'disk-guard-'));
