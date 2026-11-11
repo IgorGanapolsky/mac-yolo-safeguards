@@ -13,8 +13,8 @@ description: Operationalizes Meta FAIR e-means clustering (arXiv:2611.09501, 10x
 2. **`@shinboson` Codebook Quantization Evaluator (`evaluateCodebookQuantizationTier`)**:
    - Models `e-means` codebook generation compressing `Qwen3.5-4B` from `8.41 GB` to `1.23 GB` (`6.84x` compression, `~2.46 bpw`) while retaining `91.9%` quality so consumer Apple Silicon decode is no longer memory-bandwidth bound or prone to `WindowServer` swap freezes.
 3. **WhatsApp Instinct Copilot Driver (`tools/whatsapp-instinct-driver.js`)**:
-   - Hard-locked exclusively to Instinct (`+1 (650) 870-2892` / `23949492670633@lid` / `ZCHATSESSION = 3`).
-   - Refuses any non-Instinct WhatsApp contact (`ERR_WHATSAPP_NON_INSTINCT_TARGET_FORBIDDEN`) and refuses any external outreach instruction (`ERR_EXTERNAL_OUTREACH_FORBIDDEN`).
+   - Hard-locked exclusively to the `INSTINCT_PHONE` / `INSTINCT_JID` (`ZCHATSESSION = 3`) session constants and `PRODUCT_ID = 'mac-yolo-safeguards'`.
+   - Refuses any non-Instinct WhatsApp contact (`ERR_WHATSAPP_NON_INSTINCT_TARGET_FORBIDDEN`), refuses cross-product mixing (`ERR_CROSS_PRODUCT_MIX_FORBIDDEN`), and refuses any external outreach instruction (`ERR_EXTERNAL_OUTREACH_FORBIDDEN`).
 
 ## Verification
 
