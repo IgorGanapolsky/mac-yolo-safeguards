@@ -4495,3 +4495,18 @@ Shin’s 2026-11-11 post (https://x.com/shinboson/status/2120499242342985821) sw
 | .agents/skills/quant-codebook-claim-gate/** | grok-quant-codebook-claim | 2026-11-11T14:00:00-0500 |
 | SKILLS.md (one row) | grok-quant-codebook-claim | 2026-11-11T14:00:00-0500 |
 | plan.md (this append) | grok-quant-codebook-claim | 2026-11-11T14:00:00-0500 |
+
+## Background agent hold gate (append 2026-11-11T15:57:30-0500) — `grok-background-agent-hold`
+
+The 10 Nov 2026 announcement at https://news.adobe.com/news/2026/11/adobe-powers-new-era-of-creativity describes agents that keep working after a person steps away, and agents that change a native project file in place. This gate refuses both on this Mac. It does not install a creative suite, call a model, or record their detail claims as a local result. Cleaning a media cache while a video app is closed stays a separate check.
+
+| T-BACKGROUND-AGENT-HOLD-20261111 | Fail closed on a background agent left running after someone steps away, and on an unattended write into a design project file | in_progress | grok-background-agent-hold | `tools/background-agent-hold-gate.js`, `tests/test-background-agent-hold-gate.js`, `.agents/skills/background-agent-hold-gate/**`, `SKILLS.md` (one row), `plan.md` (this append) | `node tests/test-background-agent-hold-gate.js` exits 0. No suite is installed and no project file is written. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/background-agent-hold-gate.js | grok-background-agent-hold | 2026-11-11T15:57:30-0500 |
+| tests/test-background-agent-hold-gate.js | grok-background-agent-hold | 2026-11-11T15:57:30-0500 |
+| .agents/skills/background-agent-hold-gate/** | grok-background-agent-hold | 2026-11-11T15:57:30-0500 |
+| SKILLS.md (one row) | grok-background-agent-hold | 2026-11-11T15:57:30-0500 |
+| plan.md (this append) | grok-background-agent-hold | 2026-11-11T15:57:30-0500 |
