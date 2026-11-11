@@ -3,7 +3,7 @@
 // Mac app checks offline. Keys last 40 days and renew while the subscription is active.
 
 export const PRO_PAYMENT_LINK = "plink_1UXnxHGGBpd520QYd2IwFajC";
-export const LICENSE_PUBLIC_KEY = "qWlq4jZqN5ueg5pYc6/CauaqQ7ldvWj9bJU8Dv6xHEQ=";
+export const LICENSE_PUBLIC_KEY = "ZDCWvx/TkO8J5WGNsXC/SpBpjqvUDLBIQa/MnAscPf0=";
 export const LICENSE_DAYS = 40;
 const ACTIVE_SUB = new Set(["active", "trialing", "past_due"]);
 

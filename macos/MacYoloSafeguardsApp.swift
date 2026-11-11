@@ -1153,7 +1153,7 @@ func receiptJSON(action: String, title: String, items: [String], spared: String)
 }
 
 // Pro license: a signed key from macyolosafeguards.io/activate, checked offline.
-let proLicensePublicKey = "qWlq4jZqN5ueg5pYc6/CauaqQ7ldvWj9bJU8Dv6xHEQ="
+let proLicensePublicKey = "ZDCWvx/TkO8J5WGNsXC/SpBpjqvUDLBIQa/MnAscPf0="
 let proCheckoutURL = "https://macyolosafeguards.io/go/pro"
 
 struct ProLicense {
