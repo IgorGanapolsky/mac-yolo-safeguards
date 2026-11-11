@@ -38,7 +38,7 @@ private let HUD_HTML = #"""
     position: absolute;
     inset: 0;
     border-radius: 22px;
-    background: rgba(8, 6, 20, 0.22);
+    background: radial-gradient(circle at 82% 10%, rgba(126, 58, 242, 0.44) 0%, rgba(46, 21, 99, 0.56) 48%, rgba(21, 11, 48, 0.62) 100%);
     border: 1px solid rgba(255, 255, 255, 0.38);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
     pointer-events: none;
@@ -927,20 +927,10 @@ class MacYoloWebView: WKWebView {
     }
 }
 
-private func captureBelowWindow(_ windowID: CGWindowID, rect: CGRect) -> CGImage? {
-    typealias CaptureFn = @convention(c) (CGRect, CGWindowListOption, CGWindowID, CGWindowImageOption) -> Unmanaged<CGImage>?
-    guard let sym = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGWindowListCreateImage") else { return nil }
-    let capture = unsafeBitCast(sym, to: CaptureFn.self)
-    return capture(rect, .optionOnScreenBelowWindow, windowID, [.bestResolution, .boundsIgnoreFraming])?.takeRetainedValue()
-}
-
 private func forceTransparentWebView(_ webView: WKWebView) {
     webView.setValue(false, forKey: "drawsBackground")
     webView.underPageBackgroundColor = .clear
     webView.setValue(NSColor.clear, forKey: "backgroundColor")
-    webView.wantsLayer = true
-    webView.layer?.isOpaque = false
-    webView.layer?.backgroundColor = NSColor.clear.cgColor
 }
 
 private func hudRoundedMask(radius: CGFloat) -> NSImage {
@@ -967,12 +957,10 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var globalMouseMonitor: Any?
     var localKeyMonitor: Any?
     var globalKeyMonitor: Any?
+    var visualEffectView: NSVisualEffectView!
     var lastShownAt: Date = .distantPast
     var hasCustomOrigin: Bool = false
     var lastHudJson: String = ""
-    var glassView: NSView?
-    var glassRefreshWork: DispatchWorkItem?
-    var glassGeneration: Int = 0
     var lastPillKey: String = ""
     var lastActiveApp: String = "Claude"
     var lastActiveWin: String = "Claude"
@@ -1156,38 +1144,29 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         hudPanel.level = .statusBar
         hudPanel.isOpaque = false
         hudPanel.backgroundColor = .clear
-        hudPanel.alphaValue = 1
-        // A shadow on this clear panel paints a rectangle behind the glass on every telemetry tick.
-        hudPanel.hasShadow = false
+        hudPanel.alphaValue = 0.88
+        hudPanel.hasShadow = true
         hudPanel.isMovableByWindowBackground = true
         hudPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         hudPanel.isReleasedWhenClosed = false
 
+        visualEffectView = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: panelW, height: panelH))
+        visualEffectView.material = .hudWindow
+        visualEffectView.blendingMode = .behindWindow
+        visualEffectView.state = .active
+        visualEffectView.wantsLayer = true
+        visualEffectView.maskImage = hudRoundedMask(radius: 22)
+        visualEffectView.autoresizingMask = [.width, .height]
+
         let wkConfig = WKWebViewConfiguration()
         wkConfig.setValue(false, forKey: "drawsBackground")
         wkConfig.userContentController.add(self, name: "yoloHud")
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: panelW, height: panelH))
-        container.autoresizingMask = [.width, .height]
-        container.wantsLayer = true
-        container.layer?.backgroundColor = NSColor.clear.cgColor
-        container.layer?.cornerRadius = 22
-        container.layer?.masksToBounds = true
-        // A live vibrancy view re-samples the desktop on every repaint and strobes through the glass.
-        // This layer holds one blurred picture, replaced only when the panel opens or moves.
-        let glass = NSView(frame: container.bounds)
-        glass.autoresizingMask = [.width, .height]
-        glass.wantsLayer = true
-        glass.layer?.backgroundColor = NSColor.clear.cgColor
-        glass.layer?.contentsGravity = .resize
-        glass.layer?.actions = ["contents": NSNull()]
-        container.addSubview(glass)
-        glassView = glass
-        webView = MacYoloWebView(frame: container.bounds, configuration: wkConfig)
+        webView = MacYoloWebView(frame: NSRect(x: 0, y: 0, width: panelW, height: panelH), configuration: wkConfig)
         webView.autoresizingMask = [.width, .height]
         forceTransparentWebView(webView)
         webView.loadHTMLString(HUD_HTML, baseURL: nil)
-        container.addSubview(webView)
-        hudPanel.contentView = container
+        visualEffectView.addSubview(webView)
+        hudPanel.contentView = visualEffectView
     }
 
     func runAppUninstaller(args: [String], done: @escaping (String) -> Void) {
@@ -1245,7 +1224,6 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                 hasCustomOrigin = true
                 UserDefaults.standard.set(Double(f.origin.x), forKey: "MacYoloHudX")
                 UserDefaults.standard.set(Double(f.origin.y), forKey: "MacYoloHudY")
-                scheduleFrozenGlassRefresh()
             }
         case "resizeHud":
             if let w = (body["width"] as? NSNumber)?.doubleValue,
@@ -1258,7 +1236,6 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                 f.size.width = newW
                 f.size.height = newH
                 hudPanel.setFrame(f, display: true, animate: false)
-                scheduleFrozenGlassRefresh()
                 if persist {
                     UserDefaults.standard.set(Double(newW), forKey: "MacYoloHudW")
                     UserDefaults.standard.set(Double(newH), forKey: "MacYoloHudH")
@@ -1765,7 +1742,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "guardHeadline": "CPU \(cpuPct)% · GPU \(gpu.devicePct)% (\(String(format: "%.1fG", gpu.vramGB)) VRAM) · RAM \(memPressurePct)% · \(String(format: "%.1fM", sess.estTokensM)) tok (2h)",
             "onScreenLine": "Top Hogs: \(culprits.shortLine) · Active: \(lastActiveApp)",
             "activeApp": culprits.swarmSummary,
-            "activeWin": "\(culprits.pyCount) Python & \(culprits.nodeCount) node MCPs · \(agentCount) LaunchAgents",
+            "activeWin": "\(culprits.pyCount) Python & \(culprits.nodeCount) node MCPs · \(agentCount) user agents",
             "diskAvail": diskAvailStr,
             "diskRightBadge": "\(freeMenuInt)G Free ›",
             "memPressure": "Pressure \(memPressurePct)% · \(culprits.shortLine)",
@@ -1884,66 +1861,10 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let origin = hudOriginUnderMenuBar(size: hudPanel.frame.size)
         hudPanel.setFrameOrigin(origin)
         hudPanel.isFloatingPanel = true
-        hudPanel.alphaValue = 1
+        hudPanel.alphaValue = 0.88
         hudPanel.level = .statusBar
         hudPanel.hidesOnDeactivate = false
         hudPanel.orderFrontRegardless()
-        scheduleFrozenGlassRefresh()
-    }
-
-    func scheduleFrozenGlassRefresh() {
-        glassRefreshWork?.cancel()
-        glassGeneration += 1
-        let generation = glassGeneration
-        let work = DispatchWorkItem { [weak self] in
-            self?.refreshFrozenGlass(generation: generation)
-        }
-        glassRefreshWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)
-    }
-
-    func refreshFrozenGlass(generation: Int) {
-        guard generation == glassGeneration, let panel = hudPanel, panel.isVisible, panel.windowNumber > 0 else { return }
-        let frame = panel.frame
-        guard frame.width > 2, frame.height > 2 else { return }
-        let scale = panel.screen?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
-        let windowID = CGWindowID(panel.windowNumber)
-        let primaryMaxY = NSScreen.screens.map(\.frame.maxY).max() ?? frame.maxY
-        let cgRect = CGRect(x: frame.origin.x, y: primaryMaxY - frame.maxY, width: frame.width, height: frame.height)
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let raw = captureBelowWindow(windowID, rect: cgRect) else { return }
-            guard raw.width > 8, raw.height > 8 else { return }
-            let input = CIImage(cgImage: raw)
-            let blurred = input
-                .clampedToExtent()
-                .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: 24.0 * scale])
-                .cropped(to: input.extent)
-            let ctx = CIContext(options: [.cacheIntermediates: false])
-            let average = blurred.applyingFilter("CIAreaAverage", parameters: [
-                kCIInputExtentKey: CIVector(cgRect: input.extent),
-            ])
-            var pixel = [UInt8](repeating: 0, count: 4)
-            ctx.render(
-                average,
-                toBitmap: &pixel,
-                rowBytes: 4,
-                bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
-                format: .RGBA8,
-                colorSpace: CGColorSpaceCreateDeviceRGB()
-            )
-            let luma = (Int(pixel[0]) + Int(pixel[1]) + Int(pixel[2])) / 3
-            if luma < 3 { return }
-            guard let out = ctx.createCGImage(blurred, from: input.extent) else { return }
-            DispatchQueue.main.async {
-                guard let self = self, generation == self.glassGeneration, let layer = self.glassView?.layer else { return }
-                CATransaction.begin()
-                CATransaction.setDisableActions(true)
-                layer.contentsScale = 1
-                layer.contentsGravity = .resize
-                layer.contents = out
-                CATransaction.commit()
-            }
-        }
     }
 
     @objc func smartCleanDisk() {
