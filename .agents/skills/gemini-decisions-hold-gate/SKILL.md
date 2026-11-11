@@ -16,6 +16,7 @@ Google's Decisions API post (11 Nov 2026) describes a closed set of answers, a c
 - A request to diagnose what is wrong holds the Agent Reliability Diagnostic at `/go/diagnostic`.
 - A team or several Macs holds the AI Agent Hardening Sprint at `/go/sprint`.
 - A complaint that asks for two of those, or names the partner pilot, waits for a person. No offer is attached.
+- Broward sales, tax deeds, foreclosures, and other real-estate work are blocked with `other_business`. They are not a Mac YOLO offer.
 - `call`, or a note that names `generativelanguage.googleapis.com`, `gemini-decision-1`, or `GEMINI_API_KEY`, is blocked with `remote_call`.
 - `send`, `charge`, `checkout`, or a note that sends mail or opens a checkout, is blocked with `send_or_charge`.
 - Recording 150–250 ms, $0.10, 5x cheaper, or 40% lower latency is blocked with `vendor_figure_as_local` unless the note attributes those figures to Google.

@@ -71,6 +71,16 @@ function main() {
   assert.strictEqual(ambiguous.offer, null);
   assertHeldShape(ambiguous);
 
+  const broward = reviewDecisionHold({
+    action: 'hold',
+    signal: 'Check upcoming Broward sales against court and property records',
+  });
+  assert.strictEqual(broward.ok, false);
+  assert.strictEqual(broward.status, 'blocked');
+  assert.ok(ids(broward).includes('other_business'));
+  assert.strictEqual(broward.offer, null);
+  assertHeldShape(broward);
+
   const pilot = reviewDecisionHold({
     action: 'hold',
     signal: 'Cursor froze our Mac. We want the partner pilot.',

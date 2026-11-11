@@ -41,6 +41,7 @@ const MAC = /\b(macs?|macos|apple silicon)\b/i;
 const DIAGNOSE = /\b(diagnos\w*|audit|what(?:'s| is) wrong)\b/i;
 const SPRINT = /\b(team|several macs|our macs|sprint|fleet)\b/i;
 const PILOT = /\bpartner pilot\b/i;
+const OTHER_BUSINESS = /\b(broward|miami-dade|palm beach|tax-deed|tax deed|foreclosure|real estate)\b/i;
 const ATTRIBUTED = /\bgoogle(?:'s)?\b/i;
 
 function finding(id) {
@@ -76,6 +77,7 @@ function reviewDecisionHold(input = {}) {
   if (remote) findings.push(finding('remote_call'));
   if (send) findings.push(finding('send_or_charge'));
   if (figures && !attributed) findings.push(finding('vendor_figure_as_local'));
+  if (OTHER_BUSINESS.test(blob)) findings.push(finding('other_business'));
 
   const seen = new Set();
   const unique = findings.filter((item) => {
