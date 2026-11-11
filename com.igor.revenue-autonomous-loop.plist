@@ -9,8 +9,6 @@
         <string>{{NODE}}</string>
         <string>{{REPO}}/tools/revenue-autonomous-loop.js</string>
         <string>--json</string>
-        <string>--no-apollo</string>
-        <string>--no-chrome</string>
     </array>
     <key>WorkingDirectory</key>
     <string>{{REPO}}</string>
@@ -35,9 +33,7 @@
         <key>REVENUE_NTFY_QUIET_NOOP</key>
         <string>1</string>
         <key>REVENUE_DIR</key>
-        <string>{{HOME}}/.hermes/business_os/revenue</string>
-        <key>MAC_YOLO_OPS_DIR</key>
-        <string>{{HOME}}/.hermes/business_os/revenue</string>
+        <string>{{HOME}}/workspace/git/igor/mac-yolo-safeguards/business_os/revenue</string>
         <key>HOME</key>
         <string>{{HOME}}</string>
     </dict>
