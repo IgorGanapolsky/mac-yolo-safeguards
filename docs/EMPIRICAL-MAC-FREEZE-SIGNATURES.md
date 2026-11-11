@@ -34,15 +34,15 @@ console.log(callTool("yolo_empirical_freeze_classifier", {
 
 Autonomous coding agents frequently attempt high-blast-radius commands (`git reset --hard`, `git push --force`, `launchctl bootout`, or unapproved outbound scripts) before a human can intervene (`anthropics/claude-code#105342`, `openai/codex#55916`).
 
-Traditional autoregressive LLM-as-a-judge hooks add `2–5 seconds` of token-by-token latency and output-token charges on every tool call. `mac-yolo-safeguards` operationalizes the **Google DeepMind Gemini Decisions API (`gemini-decision-1`)** ([`tools/gemini-decisions-engine.js`](../tools/gemini-decisions-engine.js)) to score all 5 pre-action safety, freeze-risk, routing, and blast-radius questions in a **single forward pass (`150–250 ms`, `$0.10 / 1M` input tokens, `$0.00` output tokens)**:
+Traditional autoregressive LLM-as-a-judge hooks add `2–5 seconds` of token-by-token latency and output-token charges on every tool call. `mac-yolo-safeguards` implements a local deterministic decision gate ([`tools/gemini-decisions-engine.js`](../tools/gemini-decisions-engine.js)) modeled on the **Google DeepMind Gemini Decisions API (`gemini-decision-1`)** `noul`/`choice`/`score` schema (without sending an external Gemini Decisions API network request) to evaluate all 5 pre-action safety, freeze-risk, routing, and blast-radius questions in a single local pass:
 
 1. `is_destructive_or_irreversible` (`noul`): Binary probability + confidence that the command mutates shared history, deletes data, or triggers external outreach.
-2. `triggers_mac_freeze_signature` (`noul`): Binary probability + confidence that the command triggers one of the 5 macOS freeze signatures above.
+2. `triggers_mac_freeze_signature` (`noul`): Binary probability + confidence derived from `orphanedGitCount`, `swapUsedGb`, and runaway command patterns (while `yolo_empirical_freeze_classifier` evaluates all 5 macOS freeze signatures above).
 3. `interdiction_action` (`choice`): Selects across `{ allow_local_silent, allow_with_lease_guard, require_thumbgate_phone_approval, hard_block_fail_closed }`.
 4. `execution_model_lane` (`choice`): Selects the lowest-cost safe execution tier (`local_apple_silicon_emeans_vq`, `gemini_decision_control_plane`, `workhorse_flash_lite`, `frontier_deep_reasoning`).
 5. `blast_radius_severity` (`score`): Continuous weighted score across an ordered `0..3` rubric.
 
-**Calibrated Confidence Escalation**: Any tool call whose `interdiction_action` confidence falls below `confidenceThreshold` (default `0.75`) automatically escalates to `require_thumbgate_phone_approval` on [ThumbGate](https://thumbgate.app) rather than executing silently.
+**Calibrated Confidence Escalation**: When a tool call's `interdiction_action` confidence falls below `confidenceThreshold` (default `0.75`), the gate returns `require_thumbgate_phone_approval` unless the selected action is `hard_block_fail_closed`. The evaluation gate itself is read-only and does not stop execution or send an approval request; callers must enforce the returned decision and obtain approval separately via [ThumbGate](https://thumbgate.app).
 
 ---
 
@@ -50,7 +50,7 @@ Traditional autoregressive LLM-as-a-judge hooks add `2–5 seconds` of token-by-
 
 Using Meta FAIR's **Exponential Moving Average (`e-means`)** clustering (`arXiv:2611.09501`) and `@shinboson`'s quantization compiler codebook regime ([`tools/emeans-quant-router.js`](../tools/emeans-quant-router.js)):
 - Compresses `Qwen3.5-4B` from `8.41 GB` (`bf16`) to an estimated **`1.23 GB`** (`6.84x` compression, `~2.46` effective bits/weight) while retaining an estimated **`91.9%`** benchmark quality.
-- Keeps local coding-agent helper inference inside Apple Silicon unified memory headroom without triggering `windowserver_swap_cliff`.
+- Compares the estimated model size with supplied or default unified memory values. It does not measure live memory usage or swap, or guarantee prevention of `windowserver_swap_cliff`.
 
 ---
 

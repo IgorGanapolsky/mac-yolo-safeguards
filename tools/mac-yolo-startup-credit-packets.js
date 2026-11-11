@@ -29,7 +29,7 @@ const PRODUCT_ID = 'mac-yolo-safeguards';
 const UNATTENDED_SUBMISSION_ALLOWED = false;
 
 const FORBIDDEN_UNVERIFIED_CLAIM_RE =
-  /\b(?:\$\d+\s*[mk]\s*arr|\d+,\d+\s+paying\s+customers|backed\s+by\s+y\s+combinator|series\s+[abc]\s+funded|foreclosure|tax-deed|miami-dade|broward)\b/i;
+  /(?:(?:^|[\s"'`([]|-)\$\d+(?:\.\d+)?\s*[mkb]?\s*(?:arr|mrr|revenue)\b|\b(?:\d+,\d+\s+paying\s+customers|backed\s+by\s+y\s+combinator|series\s+[abc]\s+funded|foreclosure|tax-deed|miami-dade|broward)\b)/i;
 
 const STARTUP_CREDIT_PROGRAMS = Object.freeze([
   {
@@ -134,6 +134,38 @@ const STARTUP_CREDIT_PROGRAMS = Object.freeze([
   },
 ]);
 
+function isCanonicalProductWebsiteUrl(rawUrl) {
+  if (typeof rawUrl !== 'string' || !rawUrl.trim()) return false;
+  try {
+    const parsed = new URL(rawUrl);
+    return (
+      parsed.protocol === 'https:' &&
+      (parsed.hostname === 'thumbgate.app' || parsed.hostname === 'macyolosafeguards.io')
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isCanonicalProductRepoRef(rawRepo) {
+  if (typeof rawRepo !== 'string' || !rawRepo.trim()) return false;
+  const trimmed = rawRepo.trim();
+  if (trimmed === 'mac-yolo-safeguards' || trimmed === 'IgorGanapolsky/mac-yolo-safeguards') {
+    return true;
+  }
+  try {
+    const parsed = new URL(trimmed);
+    const cleanPath = parsed.pathname.replace(/\/+$/, '');
+    return (
+      parsed.protocol === 'https:' &&
+      parsed.hostname === 'github.com' &&
+      cleanPath === '/IgorGanapolsky/mac-yolo-safeguards'
+    );
+  } catch {
+    return false;
+  }
+}
+
 function validateTruthGuardrails(packet) {
   if (!packet || typeof packet !== 'object') {
     throw new Error('ERR_INVALID_CREDIT_PACKET: Packet object required');
@@ -146,9 +178,14 @@ function validateTruthGuardrails(packet) {
     err.code = 'ERR_FABRICATED_CLAIM_FORBIDDEN';
     throw err;
   }
-  if (!serialized.includes('https://thumbgate.app') || !serialized.includes('mac-yolo-safeguards')) {
+  const fields = packet.applicationFields && typeof packet.applicationFields === 'object'
+    ? packet.applicationFields
+    : packet;
+  const websiteCandidate = fields.websiteUrl || packet.websiteUrl;
+  const repoCandidate = fields.repositoryUrl || fields.repo || packet.repositoryUrl || packet.repo;
+  if (!isCanonicalProductWebsiteUrl(websiteCandidate) || !isCanonicalProductRepoRef(repoCandidate)) {
     const err = new Error(
-      `ERR_PRODUCT_SCOPE_MISSING: Packet "${packet.id || 'unknown'}" must reference thumbgate.app and mac-yolo-safeguards.`,
+      `ERR_PRODUCT_SCOPE_MISSING: Packet "${packet.id || 'unknown'}" must have canonical websiteUrl (thumbgate.app or macyolosafeguards.io) and repositoryUrl (mac-yolo-safeguards).`,
     );
     err.code = 'ERR_PRODUCT_SCOPE_MISSING';
     throw err;

@@ -272,7 +272,7 @@ function getToolDefinitions() {
     {
       name: 'yolo_gemini_decisions_gate',
       title: 'Gemini Decisions API Pre-Action & Batch Control Plane',
-      description: 'Evaluate coding-agent tool calls or commercial opportunity batches in a single forward pass using the Gemini Decisions API (gemini-decision-1 noul/choice/score primitives, $0.10/1M input tokens, $0 output tokens, and calibrated confidence escalation to mobile approval)',
+      description: 'Evaluate coding-agent tool calls or commercial opportunity batches locally using deterministic rules modeled on the Gemini Decisions API schema (noul/choice/score primitives and calibrated confidence escalation to mobile approval)',
       annotations: {
         title: 'Gemini Decisions API Pre-Action & Batch Control Plane',
         readOnlyHint: true,
@@ -523,8 +523,8 @@ function callTool(name, args = {}) {
       evaluatePreActionDecisionPack,
       evaluateCommercialOpportunityBatch,
     } = require('./gemini-decisions-engine');
-    if (args.mode === 'commercial_batch' && Array.isArray(args.items) && args.items.length > 0) {
-      return evaluateCommercialOpportunityBatch(args.items);
+    if (args.mode === 'commercial_batch') {
+      return evaluateCommercialOpportunityBatch(Array.isArray(args.items) ? args.items : []);
     }
     return evaluatePreActionDecisionPack(args, {
       confidenceThreshold: args.confidenceThreshold,
@@ -535,10 +535,16 @@ function callTool(name, args = {}) {
       deriveEmeansScalingLaws,
       evaluateCodebookQuantizationTier,
     } = require('./emeans-quant-router');
+    const normalizedArgs = {
+      ...args,
+      n: args.n ?? 1000000,
+      k: args.k ?? 16384,
+      epochs: args.epochs ?? 5,
+    };
     return {
       ok: true,
-      scalingLaw: deriveEmeansScalingLaws(args),
-      quantizationTier: evaluateCodebookQuantizationTier(args),
+      scalingLaw: deriveEmeansScalingLaws(normalizedArgs),
+      quantizationTier: evaluateCodebookQuantizationTier(normalizedArgs),
     };
   }
   if (name === 'yolo_empirical_freeze_classifier') {

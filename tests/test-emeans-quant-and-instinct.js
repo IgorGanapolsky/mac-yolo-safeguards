@@ -329,6 +329,20 @@ test('mac-yolo-mcp-server exposes yolo_gemini_decisions_gate, yolo_emeans_quant_
   });
   assert.equal(freezeRes.ok, true);
   assert.equal(freezeRes.freezeRisk, 'critical');
+
+  assert.throws(
+    () =>
+      callTool('yolo_gemini_decisions_gate', {
+        mode: 'commercial_batch',
+        items: [],
+      }),
+    /requires a non-empty array of items/,
+  );
+
+  const defaultQuantRes = callTool('yolo_emeans_quant_router', {});
+  assert.equal(defaultQuantRes.ok, true);
+  assert.equal(defaultQuantRes.scalingLaw.n, 1000000);
+  assert.equal(defaultQuantRes.scalingLaw.k, 16384);
 });
 
 test('mac-yolo-startup-credit-packets enforces Truth Guardrails and zero unattended submission across all 5 programs', () => {
@@ -349,12 +363,32 @@ test('mac-yolo-startup-credit-packets enforces Truth Guardrails and zero unatten
   assert.throws(
     () =>
       validateTruthGuardrails({
-        id: 'fake-packet',
+        id: 'fake-arr-only',
         websiteUrl: 'https://thumbgate.app',
         repo: 'mac-yolo-safeguards',
-        claim: 'We have $5M ARR and 10,000 paying customers',
+        claim: 'We have $5M ARR',
       }),
     /ERR_FABRICATED_CLAIM_FORBIDDEN/,
   );
-});
 
+  assert.throws(
+    () =>
+      validateTruthGuardrails({
+        id: 'fake-packet',
+        websiteUrl: 'https://thumbgate.app',
+        repo: 'mac-yolo-safeguards',
+        claim: 'We have 10,000 paying customers',
+      }),
+    /ERR_FABRICATED_CLAIM_FORBIDDEN/,
+  );
+
+  assert.throws(
+    () =>
+      validateTruthGuardrails({
+        id: 'spoofed-host',
+        websiteUrl: 'https://thumbgate.app.attacker.example',
+        repo: 'mac-yolo-safeguards',
+      }),
+    /ERR_PRODUCT_SCOPE_MISSING/,
+  );
+});
