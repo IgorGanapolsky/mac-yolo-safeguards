@@ -1,0 +1,8 @@
+# Custom domains (macyolosafeguards.io, www) are attached in the Cloudflare dashboard; deploy leaves them as they are.
+name = "macyolosafeguards"
+main = "src/worker.js"
+compatibility_date = "2026-11-01"
+
+[assets]
+directory = "public"
+binding = "ASSETS"

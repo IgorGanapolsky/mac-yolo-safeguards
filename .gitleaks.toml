@@ -103,3 +103,8 @@ paths = [
   '''tools/hermes-loop-state\.js$''',
   '''tests/test-hermes-loop-state\.js$''',
 ]
+
+[[allowlists]]
+description = "Cloudflare Web Analytics beacon token: public by design, served in every page's HTML."
+regexTarget = "line"
+regexes = ['''static\.cloudflareinsights\.com/beacon\.min\.js.*data-cf-beacon''']
