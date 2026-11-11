@@ -4,11 +4,15 @@ Version 1, 2026-11-11. Covers Mac YOLO Safeguards only. ThumbGate and Dayglass h
 
 ## Product and offer
 
-- Free: native macOS menu bar app (CPU, memory, swap and disk HUD; orphaned agent process cleanup; AI and dev cache cleaner). Download at https://macyolosafeguards.io/go/dmg.
-- Pro Guard, $19/month, Stripe payment link https://buy.stripe.com/cNi6oH1M81eSg4pdKz3sJ10.
-- Corporate-Expense Guard Kit, $49 one-time, Gumroad https://iganapolsky.gumroad.com/l/vcrho.
-- Self-Serve Playbook, $9.99, Gumroad https://iganapolsky.gumroad.com/l/odrkon.
-- Reliability Diagnostic ($499) and Hardening Sprint ($1,500), Stripe payment links on the site.
+Names follow the canonical table in `docs/landing/MACYOLOSAFEGUARDS-FUNNEL-FIXES.md`.
+
+- Mac YOLO Safeguards (free): native macOS menu bar app (CPU, memory, swap and disk HUD; orphaned agent process cleanup; AI and dev cache cleaner). Download at https://macyolosafeguards.io/go/dmg.
+- Mac YOLO Pro Guard, $19/month, Stripe https://buy.stripe.com/cNi6oH1M81eSg4pdKz3sJ10.
+- Agent Safeguards Playbook, $9.99 once, Gumroad https://iganapolsky.gumroad.com/l/odrkon.
+- Corporate-Expense Reliability Kit, $49 once, Gumroad https://iganapolsky.gumroad.com/l/vcrho.
+- Agent Reliability Diagnostic, $499 once, Stripe https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y.
+- AI Agent Hardening Sprint, $1,500 once, Stripe https://buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38.
+- Partner Pilot, $3,000 once, Stripe https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k (reached through https://macyolosafeguards.io/go/pilot, not shown on the landing page).
 
 ## Customer
 
@@ -18,7 +22,7 @@ Developers who run Claude Code, Cursor, Codex or similar agents for hours on App
 
 - Cash: Stripe account acct_1RNcJ1GGBpd520QY (filter to Mac YOLO products) and Gumroad. Nothing else counts as revenue.
 - Downloads: GitHub release asset download counts.
-- Traffic: GitHub traffic API. No site analytics key is available locally.
+- Traffic: GitHub traffic API, and Cloudflare Web Analytics for macyolosafeguards.io (beacon added to the site on 2026-11-11).
 - `yolo_revenue_observability` reports receipt files only and does not measure cash.
 
 ## Baseline, measured 2026-11-11 12:00 PM ET
@@ -35,12 +39,15 @@ Source coverage: PARTIAL. Stripe and Gumroad were read through the dashboard, no
 
 ## Targets and budget
 
-Not set. Owner decision: first paying-customer target, monthly spend ceiling for acquisition, and model spend allocated to this product.
+Set by the owner on 2026-11-11:
+
+- 3 paying Mac YOLO Pro Guard customers (outside buyers, not the owner) by 2026-12-15.
+- $0 paid acquisition until at least one outside visitor completes a paid order. Launch promotion is unpaid: Product Hunt, Show HN, r/ClaudeAI.
 
 ## Current priorities
 
 1. Product Hunt launch, Sat 2026-11-14 12:01 AM PT (scheduled, page producthunt.com/products/mac-yolo-safeguards).
-2. Find out why visitors do not pay: no outside visitor has ever completed checkout.
+2. Find out why visitors do not pay: no outside visitor has ever completed a paid order.
 3. Keep every public download passing Gatekeeper before any announcement.
 
 ## Lessons
