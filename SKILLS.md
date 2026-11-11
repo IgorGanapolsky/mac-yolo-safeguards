@@ -4,6 +4,7 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 
 | Skill | Description | Definition | Source |
 | :--- | :--- | :--- | :--- |
+| `quant-codebook-claim-gate` | Refuse an unmeasured e-means, LookAtMyQuant, Qwen3.5, or bonsai 2 clerk route, and refuse that post's size and speed figures as local results. | `.agents/skills/quant-codebook-claim-gate/SKILL.md` | local |
 | `android-dev-summit-26-gate` | Review an agent diff before commit. Block an emulator boot for a UI preview, keep an experimental build off the production app, and refuse vendor speed figures as our results. | `.agents/skills/android-dev-summit-26-gate/SKILL.md` | local |
 | `structural-refactoring-engine` | SWE-Bench ProMax-style Structural AST Refactoring, Concurrency Invariant Sentinel & Zero-Entropy Atomic Rollback Engine | `.agents/skills/structural-refactoring-engine/SKILL.md` | local |
 | `future-agi-self-healing-engine` | Future AGI Self-Healing Agent Engine, Adversarial Persona Simulation, OTel Span Tracing & Automated Guardrail Patch Synthesizer for all coding agents on Igor's Mac. | `.agents/skills/future-agi-self-healing-engine/SKILL.md` | local |

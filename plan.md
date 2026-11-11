@@ -4478,3 +4478,20 @@ Fix `seedOpsFiles` in `tools/mac-yolo-24x7-promote.js` so day rollover carries f
 - `tools/revenue-autonomous-loop.js`
 - `tests/test-mac-yolo-24x7-promote-carryforward.js`
 - `plan.md` (this append)
+
+## Quant codebook claim gate (append 2026-11-11T14:00:00-0500) — `grok-quant-codebook-claim`
+
+Shin’s 2026-11-11 post (https://x.com/shinboson/status/2120499242342985821) swaps k-means for e-means in a quant compiler. The size, retention, and decode figures in that post stay the author’s. This gate refuses serving that route on the live clerk and refuses recording those figures as a local measurement. No weight download, FAISS install, Colab, or GPU spend.
+
+| T-QUANT-CODEBOOK-CLAIM-20261111 | Fail closed on an unmeasured e-means / Qwen3.5 / bonsai-2 clerk route | in_progress | grok-quant-codebook-claim | `tools/quant-codebook-claim-gate.js`, `tests/test-quant-codebook-claim-gate.js`, `tools/vllm-inference-router.js` (pin refusal only), `tests/test-vllm-inference-router.js` (pin cases only), `.agents/skills/quant-codebook-claim-gate/**`, `SKILLS.md` (one row), `plan.md` (this append) | Live clerk stays mlx-community/Llama-3.2-1B-Instruct-4bit. qwen2.5 planner profile ids stay allowed. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/quant-codebook-claim-gate.js | grok-quant-codebook-claim | 2026-11-11T14:00:00-0500 |
+| tests/test-quant-codebook-claim-gate.js | grok-quant-codebook-claim | 2026-11-11T14:00:00-0500 |
+| tools/vllm-inference-router.js (pinLiveClerkRequest only) | grok-quant-codebook-claim | 2026-11-11T14:00:00-0500 |
+| tests/test-vllm-inference-router.js (pin cases only) | grok-quant-codebook-claim | 2026-11-11T14:00:00-0500 |
+| .agents/skills/quant-codebook-claim-gate/** | grok-quant-codebook-claim | 2026-11-11T14:00:00-0500 |
+| SKILLS.md (one row) | grok-quant-codebook-claim | 2026-11-11T14:00:00-0500 |
+| plan.md (this append) | grok-quant-codebook-claim | 2026-11-11T14:00:00-0500 |
