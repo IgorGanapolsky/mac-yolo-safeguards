@@ -54,7 +54,21 @@ Using Meta FAIR's **Exponential Moving Average (`e-means`)** clustering (`arXiv:
 
 ---
 
-## 4. Upgrade to Mac YOLO Safeguards Pro & ThumbGate
+## 4. NVIDIA OpenShell Formal Policy Prover & Two-Layer Control Plane (`yolo_openshell_policy_prover`)
+
+While `yolo_gemini_decisions_gate` evaluates the **semantic risk** of a specific tool call, [`tools/openshell-policy-prover.js`](../tools/openshell-policy-prover.js) adapts the **NVIDIA OpenShell (`crates/openshell-prover`)** formal policy verification engine to prove **reachability and capability containment** before any sandbox policy change or credentialed egress is approved:
+
+- **4 Formal Policy-Prover Queries (`provePolicyDelta`)**:
+  1. `link_local_reach` (*unconditional*): Flags any policy rule granting reach to IPv4 link-local (`169.254.0.0/16` / cloud metadata `169.254.169.254`) or IPv6 link-local (`fe80::/10`).
+  2. `l7_bypass_credentialed` (*unconditional*): Flags any binary or rule that bypasses L7 HTTP inspection (`bypassesL7: true`, e.g., `ssh`, `nc`, or `protocol: 'tcp'`) reaching a host where a credential is in scope.
+  3. `credential_reach_expansion` (*delta*): Flags any candidate policy change that lets an exfiltration-capable binary reach a new `(host, port)` with a credential in scope.
+  4. `capability_expansion` (*delta*): Flags newly added HTTP methods (`POST`, `PUT`, `DELETE`, `PATCH`) on an already-reached credentialed `(binary, host, port)` — with **Gateway Delta Category Suppression** so brand-new credentialed hosts report once under `credential_reach_expansion` rather than duplicating per method.
+- **Filesystem & Process Boundary Containment (`proveBoundaryContainment`)**: Verifies candidate `read_only` / `read_write` lexical path prefixes, `include_workdir` semantics, and non-root execution against an operator boundary policy.
+- **Endpoint-Bound Credential Provider Proxy (`evaluateEndpointCredentialInjection`)**: Agents never receive raw secrets in environment variables; opaque provider credentials are injected only on L7-inspected HTTPS requests matching approved `(host, port, method)` endpoints.
+
+---
+
+## 5. Upgrade to Mac YOLO Safeguards Pro & ThumbGate
 
 - **Open-Source Guard Kit & MCP Server**: Free in [`IgorGanapolsky/mac-yolo-safeguards`](https://github.com/IgorGanapolsky/mac-yolo-safeguards) (`claude mcp add mac-yolo-safeguards -- node tools/mac-yolo-mcp-server.js`).
 - **Mac YOLO Safeguards Pro (`$19/mo`)**: Native macOS Translucent Menu Bar HUD (`MacYoloSafeguards.app` running at `< 0.5%` CPU), 60-second autonomous runaway simulator & orphaned-git reaper, and pre-action safety gates — **[Instant Stripe Checkout](https://buy.stripe.com/cNi6oH1M81eSg4pdKz3sJ10)**.

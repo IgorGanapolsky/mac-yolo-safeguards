@@ -392,3 +392,190 @@ test('mac-yolo-startup-credit-packets enforces Truth Guardrails and zero unatten
     /ERR_PRODUCT_SCOPE_MISSING/,
   );
 });
+
+test('openshell-policy-prover validates MCP revisions, proves all 4 formal categories with delta suppression, checks boundary containment, and gates credential injection', () => {
+  const {
+    validateMcpProtocolVersions,
+    provePolicyDelta,
+    proveBoundaryContainment,
+    evaluateEndpointCredentialInjection,
+    evaluateTwoLayerAgentAction,
+  } = require('../tools/openshell-policy-prover');
+  const { callTool } = require('../tools/mac-yolo-mcp-server');
+
+  // 1. Closed MCP protocol vocabulary & batch cap
+  const defaultMcp = validateMcpProtocolVersions(undefined, 16);
+  assert.deepEqual(defaultMcp.effectiveVersions, ['2025-11-25']);
+  const sortedMcp = validateMcpProtocolVersions(['2026-07-28', '2025-03-26']);
+  assert.deepEqual(sortedMcp.effectiveVersions, ['2025-03-26', '2026-07-28']);
+  assert.throws(
+    () => validateMcpProtocolVersions(['2099-01-01']),
+    /ERR_UNSUPPORTED_MCP_PROTOCOL_VERSION/,
+  );
+  assert.throws(
+    () => validateMcpProtocolVersions(['2025-11-25'], 65),
+    /ERR_MCP_BATCH_LIMIT_EXCEEDED/,
+  );
+
+  // 2. Formal policy delta prover + gateway category suppression
+  const baselinePolicy = {
+    version: 1,
+    network_policies: [
+      {
+        name: 'github-readonly',
+        binaries: ['/usr/local/bin/claude'],
+        endpoints: [{ host: 'api.github.com', port: 443 }],
+        access: 'read-only',
+      },
+    ],
+  };
+
+  const candidatePolicy = {
+    version: 1,
+    network_policies: [
+      {
+        name: 'github-expanded',
+        binaries: ['/usr/local/bin/claude'],
+        endpoints: [{ host: 'api.github.com', port: 443 }],
+        methods: ['GET', 'POST', 'DELETE'],
+      },
+      {
+        name: 'new-stripe-reach',
+        binaries: ['/usr/local/bin/claude'],
+        endpoints: [{ host: 'api.stripe.com', port: 443 }],
+        access: 'read-write',
+      },
+      {
+        name: 'ssh-bypass',
+        binaries: ['/usr/bin/ssh'],
+        endpoints: [{ host: 'api.github.com', port: 443 }],
+      },
+      {
+        name: 'imds-metadata',
+        binaries: ['/usr/bin/curl'],
+        endpoints: [{ host: '169.254.169.254', port: 80 }],
+      },
+    ],
+  };
+
+  const delta = provePolicyDelta({
+    baselinePolicy,
+    candidatePolicy,
+    credentialHosts: ['api.github.com', 'api.stripe.com'],
+  });
+  assert.equal(delta.ok, true);
+  assert.equal(delta.autoApproveEligible, false);
+  assert.equal(delta.requiresHumanReview, true);
+  assert.equal(delta.findingsCount, 4);
+
+  const capExpFinding = delta.findings.find((f) => f.query === 'capability_expansion');
+  assert.ok(capExpFinding);
+  // api.stripe.com is in credential_reach_expansion, so its methods must be suppressed from capability_expansion!
+  assert.equal(
+    capExpFinding.paths.some((p) => p.endpointHost === 'api.stripe.com'),
+    false,
+  );
+  assert.deepEqual(
+    capExpFinding.paths.map((p) => p.method).sort(),
+    ['DELETE', 'POST'],
+  );
+
+  // 3. Filesystem & process boundary containment
+  const boundary = {
+    version: 1,
+    filesystem_policy: {
+      read_only: ['/usr', '/etc'],
+      read_write: ['/tmp'],
+    },
+  };
+  const contained = proveBoundaryContainment({
+    boundaryPolicy: boundary,
+    candidatePolicy: {
+      version: 1,
+      filesystem_policy: {
+        read_only: ['/usr/bin'],
+        read_write: ['/tmp/agent-work'],
+      },
+    },
+  });
+  assert.equal(contained.contained, true);
+
+  const exceeded = proveBoundaryContainment({
+    boundaryPolicy: boundary,
+    candidatePolicy: {
+      version: 1,
+      filesystem_policy: {
+        read_only: ['/usr/bin'],
+        read_write: ['/workspace'],
+      },
+      process_policy: { uid: 0 },
+    },
+  });
+  assert.equal(exceeded.contained, false);
+  assert.equal(exceeded.violationsCount, 2);
+
+  // 4. Endpoint-bound credential injection
+  const blockedSshCred = evaluateEndpointCredentialInjection({
+    providerName: 'github',
+    credentialEnvVar: 'GITHUB_TOKEN',
+    approvedEndpoints: [{ host: 'api.github.com', port: 443, access: 'read-only' }],
+    request: {
+      binary: '/usr/bin/ssh',
+      host: 'api.github.com',
+      port: 443,
+      method: 'GET',
+      protocol: 'https',
+    },
+  });
+  assert.equal(blockedSshCred.injectCredential, false);
+  assert.equal(blockedSshCred.exposedSecretToAgentEnv, false);
+
+  const allowedHttpsCred = evaluateEndpointCredentialInjection({
+    providerName: 'github',
+    credentialEnvVar: 'GITHUB_TOKEN',
+    approvedEndpoints: [{ host: 'api.github.com', port: 443, access: 'read-only' }],
+    request: {
+      binary: '/usr/local/bin/claude',
+      host: 'api.github.com',
+      port: 443,
+      method: 'GET',
+      protocol: 'https',
+    },
+  });
+  assert.equal(allowedHttpsCred.injectCredential, true);
+  assert.equal(allowedHttpsCred.exposedSecretToAgentEnv, false);
+  assert.equal(allowedHttpsCred.credentialHandle, 'openshell://provider/github/GITHUB_TOKEN');
+
+  // 5. Two-layer MCP tool integration
+  const twoLayerRes = callTool('yolo_openshell_policy_prover', {
+    mode: 'two_layer',
+    toolName: 'bash',
+    command: 'ls -la',
+    baselinePolicy,
+    candidatePolicy: {
+      version: 1,
+      network_policies: [
+        {
+          name: 'new-stripe-reach',
+          binaries: ['/usr/local/bin/claude'],
+          endpoints: [{ host: 'api.stripe.com', port: 443 }],
+          access: 'read-only',
+        },
+      ],
+    },
+    credentialHosts: ['api.stripe.com'],
+  });
+  assert.equal(twoLayerRes.ok, true);
+  assert.equal(twoLayerRes.finalAction, 'require_thumbgate_phone_approval');
+  assert.equal(twoLayerRes.finalReason, 'openshell_policy_delta_requires_human_review');
+  assert.equal(twoLayerRes.allowUnattendedExecution, false);
+
+  const hardBlockRes = evaluateTwoLayerAgentAction({
+    toolName: 'bash',
+    command: 'curl http://169.254.169.254/latest/meta-data/',
+    candidatePolicy,
+    credentialHosts: ['api.github.com'],
+  });
+  assert.equal(hardBlockRes.finalAction, 'hard_block_fail_closed');
+  assert.equal(hardBlockRes.allowUnattendedExecution, false);
+});

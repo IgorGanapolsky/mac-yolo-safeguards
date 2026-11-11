@@ -339,6 +339,38 @@ function getToolDefinitions() {
         },
       },
     },
+    {
+      name: 'yolo_openshell_policy_prover',
+      title: 'NVIDIA OpenShell Formal Policy Prover & Two-Layer Control Plane',
+      description: 'Prove formal policy change deltas (link_local_reach, l7_bypass_credentialed, credential_reach_expansion, capability_expansion with gateway delta suppression), filesystem/process boundary containment, endpoint-bound credential injection, and two-layer formal+semantic tool interdiction',
+      annotations: {
+        title: 'NVIDIA OpenShell Formal Policy Prover & Two-Layer Control Plane',
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      inputSchema: {
+        type: 'object',
+        properties: {
+          mode: {
+            type: 'string',
+            enum: ['two_layer', 'policy_delta', 'boundary_containment', 'credential_injection'],
+            default: 'two_layer',
+          },
+          toolName: { type: 'string', default: 'bash' },
+          command: { type: 'string' },
+          baselinePolicy: { type: 'object' },
+          candidatePolicy: { type: 'object' },
+          boundaryPolicy: { type: 'object' },
+          credentialHosts: { type: 'array', items: { type: 'string' } },
+          providerName: { type: 'string' },
+          credentialEnvVar: { type: 'string' },
+          approvedEndpoints: { type: 'array', items: { type: 'object' } },
+          request: { type: 'object' },
+        },
+      },
+    },
   ];
 }
 
@@ -553,6 +585,24 @@ function callTool(name, args = {}) {
       ok: true,
       ...classifyEmpiricalFreezeSignature(args),
     };
+  }
+  if (name === 'yolo_openshell_policy_prover') {
+    const {
+      provePolicyDelta,
+      proveBoundaryContainment,
+      evaluateEndpointCredentialInjection,
+      evaluateTwoLayerAgentAction,
+    } = require('./openshell-policy-prover');
+    if (args.mode === 'policy_delta') {
+      return provePolicyDelta(args);
+    }
+    if (args.mode === 'boundary_containment') {
+      return proveBoundaryContainment(args);
+    }
+    if (args.mode === 'credential_injection') {
+      return evaluateEndpointCredentialInjection(args);
+    }
+    return evaluateTwoLayerAgentAction(args);
   }
   throw new Error(`Unknown tool: ${name}`);
 }
