@@ -41,7 +41,7 @@ function runTests() {
     assert.strictEqual(gate.decision, 'ALLOW');
     const commentUrls = (candidate.firstComment.match(/https?:\/\/[^\s)\]"'<>]+/g) || []).map((u) => {
       const parsed = new URL(u);
-      return `${parsed.origin}${parsed.pathname}`;
+      return `${parsed.origin}${parsed.pathname}`.replace(/\/$/, '');
     });
     assert.ok(commentUrls.includes(MONETIZATION_OFFERS.soloGumroadUrl));
     assert.ok(commentUrls.includes(MONETIZATION_OFFERS.proStripeUrl));
