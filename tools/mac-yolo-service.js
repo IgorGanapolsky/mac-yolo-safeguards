@@ -203,7 +203,7 @@ function routeRequest(method, rawUrl, bodyObj = {}) {
 
   if (method === 'GET' && pathname === '/api/graphrag') {
     const { runAgenticSearchTier, runSelfTest: runGraphRagSelfTest } = require('./agentic-graphrag-hypergraph-engine');
-    const q = parsedUrl.searchParams.get('q');
+    const q = parsed.searchParams.get('q');
     return {
       status: 200,
       body: q ? runAgenticSearchTier(q) : runGraphRagSelfTest(),
