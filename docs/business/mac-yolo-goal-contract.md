@@ -8,11 +8,9 @@ Names follow the canonical table in `docs/landing/MACYOLOSAFEGUARDS-FUNNEL-FIXES
 
 - Mac YOLO Safeguards (free): native macOS menu bar app (CPU, memory, swap and disk HUD; orphaned agent process cleanup; AI and dev cache cleaner). Download at https://macyolosafeguards.io/go/dmg.
 - Mac YOLO Pro Guard, $19/month, Stripe https://buy.stripe.com/cNi6oH1M81eSg4pdKz3sJ10.
-- Agent Safeguards Playbook, $9.99 once, Gumroad https://iganapolsky.gumroad.com/l/odrkon.
-- Corporate-Expense Reliability Kit, $49 once, Gumroad https://iganapolsky.gumroad.com/l/vcrho.
 - Agent Reliability Diagnostic, $499 once, Stripe https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y.
 - AI Agent Hardening Sprint, $1,500 once, Stripe https://buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38.
-- Partner Pilot, $3,000 once, Stripe https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k (reached through https://macyolosafeguards.io/go/pilot, not shown on the landing page).
+- Partner Pilot, $3,000 once, Stripe https://buy.stripe.com/9B6eVdcqM7DgcSdayn3sJ0Z (reached through https://macyolosafeguards.io/go/pilot, not shown on the landing page).
 
 ## Customer
 

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mac YOLO Safeguards</title>
+<meta name="description" content="A free menu bar app for Apple Silicon Macs that keeps AI coding agents like Claude Code, Cursor and Codex from freezing your machine. Shows CPU, memory, swap and disk, cleans up orphaned agent processes, and clears agent caches.">
+<link rel="canonical" href="https://macyolosafeguards.io/">
+<link rel="alternate" type="text/markdown" href="/llms.txt">
+<link rel="stylesheet" href="/style.css">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Mac YOLO Safeguards">
+<meta property="og:description" content="A free menu bar app that keeps AI coding agents from freezing your Mac.">
+<meta property="og:url" content="https://macyolosafeguards.io/">
+<meta name="twitter:card" content="summary">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Mac YOLO Safeguards","operatingSystem":"macOS 14 or later, Apple Silicon","applicationCategory":"DeveloperApplication","url":"https://macyolosafeguards.io/","downloadUrl":"https://macyolosafeguards.io/go/dmg","softwareVersion":"1.1.2","author":{"@type":"Person","name":"Igor Ganapolsky","url":"https://github.com/IgorGanapolsky"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+</head>
+<body>
+<header>
+  <a class="brand" href="/">Mac YOLO Safeguards</a>
+  <nav><a href="#pricing">Pricing</a><a href="https://github.com/IgorGanapolsky/mac-yolo-safeguards">GitHub</a></nav>
+</header>
+<main>
+<h1>Keep AI coding agents from freezing your Mac.</h1>
+<p class="lead">If you run Claude Code, Cursor or Codex for hours, you've probably watched your Mac slow to a crawl: memory fills up, swap grows, the disk runs out, and leftover agent processes keep running after the session ends. Mac YOLO Safeguards is a small, free menu bar app that shows you what's happening and cleans it up.</p>
+<a class="btn" href="/go/dmg">Download for Mac (free)</a>
+<a class="btn alt" href="#pricing">Pricing</a>
+<p class="small">Version 1.1.2. macOS 14 or later on Apple Silicon. Signed with an Apple Developer ID and notarized by Apple, so it opens without warnings. Also available as a <a href="/go/pkg">.pkg installer</a> or with Homebrew:</p>
+<pre>brew install --cask igorganapolsky/tap/mac-yolo-safeguards</pre>
+<p class="small">Using the full name adds the tap and, on newer Homebrew, trusts just this app, so no separate trust step is needed.</p>
+
+<h2>What it does</h2>
+<ul>
+  <li><strong>Shows the real load.</strong> CPU, memory, swap and disk in the menu bar, plus which app is using the most, so you can tell an agent problem from Spotlight indexing.</li>
+  <li><strong>Cleans up leftover agent processes.</strong> MCP servers and helper processes that outlive their agent session get stopped. Your terminal sessions (tmux, herdr) and the apps you're using are never touched.</li>
+  <li><strong>Frees disk space.</strong> One click clears agent logs in <code>/private/tmp</code>, old simulator runtimes and stale developer caches.</li>
+  <li><strong>Works with your agents.</strong> Includes an MCP server, so Claude Code or Cursor can check your Mac's health before starting heavy work.</li>
+</ul>
+
+<h2 id="pricing">Pricing</h2>
+<p>The app is free and complete. The paid options are for people who want help or want to support the work.</p>
+<table>
+<tr><th>Option</th><th>Price</th><th>What you get</th></tr>
+<tr><td>Mac YOLO Safeguards</td><td>Free</td><td>Everything above. <a href="/go/dmg">Download</a></td></tr>
+<tr><td>Mac YOLO Pro Guard</td><td>$19 a month</td><td>Supports development. Your bug reports and feature requests go to the front of the line. Cancel any time. <a href="/go/pro">Subscribe</a></td></tr>
+<tr><td>Agent Reliability Diagnostic</td><td>$499 once</td><td>A 20-minute live call about one failure, then a written root-cause readout with prevention rules within 48 hours. No installation. <a href="/go/diagnostic">Book</a></td></tr>
+<tr><td>AI Agent Hardening Sprint</td><td>$1,500 once</td><td>A week of rollout across a team's Macs and build machines. <a href="/go/sprint">Book</a></td></tr>
+</table>
+<p class="small">Payments go through Stripe. See the <a href="/refunds/">refund policy</a>.</p>
+
+<h2>Who made it</h2>
+<p>I'm <a href="https://github.com/IgorGanapolsky">Igor Ganapolsky</a>. I run several AI coding agents on one Mac every day and built this after my machine froze one too many times. The code is on <a href="https://github.com/IgorGanapolsky/mac-yolo-safeguards">GitHub</a>; bug reports and questions go in <a href="https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues">GitHub issues</a>.</p>
+</main>
+<footer class="small">
+  <a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/refunds/">Refunds</a><a href="/llms.txt">llms.txt</a>
+</footer>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dddfcca78b6d467596b61d8d38d9b37e"}'></script>
+</body>
+</html>
