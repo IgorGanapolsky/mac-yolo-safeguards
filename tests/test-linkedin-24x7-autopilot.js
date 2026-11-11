@@ -39,9 +39,13 @@ function runTests() {
     const gate = validateDailyPostCandidate(candidate, { logPath: contentLogPath });
     assert.strictEqual(gate.allow, true, `Expected ALLOW for ${candidate.id}: ${JSON.stringify(gate.blocks)}`);
     assert.strictEqual(gate.decision, 'ALLOW');
-    assert.ok(candidate.firstComment.includes(MONETIZATION_OFFERS.soloGumroadUrl));
-    assert.ok(candidate.firstComment.includes(MONETIZATION_OFFERS.proStripeUrl));
-    assert.ok(candidate.firstComment.includes(MONETIZATION_OFFERS.thumbgateHostedUrl));
+    const commentUrls = (candidate.firstComment.match(/https?:\/\/[^\s)\]"'<>]+/g) || []).map((u) => {
+      const parsed = new URL(u);
+      return `${parsed.origin}${parsed.pathname}`;
+    });
+    assert.ok(commentUrls.includes(MONETIZATION_OFFERS.soloGumroadUrl));
+    assert.ok(commentUrls.includes(MONETIZATION_OFFERS.proStripeUrl));
+    assert.ok(commentUrls.includes(MONETIZATION_OFFERS.thumbgateHostedUrl));
   }
   console.log('ok 1 all daily LinkedIn posts pass social-publish-gate and include first-comment monetization ladder');
 

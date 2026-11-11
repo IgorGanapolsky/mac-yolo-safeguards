@@ -52,7 +52,7 @@ describe('bluesky-flowstate-monetizer', () => {
     });
     assert.equal(autoflow.action, 'reply');
     assert.equal(autoflow.category, 'ttl_override_audit');
-    assert.ok(autoflow.draftReply.includes('https://thumbgate.app'));
+    assert.equal(autoflow.facets[0].features[0].uri, 'https://thumbgate.app');
 
     const sasame = classifyBlueskyInboundReply({
       authorHandle: 'sasame-mcp.bsky.social',
@@ -103,7 +103,7 @@ describe('bluesky-flowstate-monetizer', () => {
     assert.equal(disqualified.qualified, false);
     assert.equal(disqualified.route, '/not-a-fit');
     assert.equal(disqualified.conversionBeaconAllowed, false);
-    assert.ok(disqualified.primaryCheckoutUrl.includes('utm_source=bluesky'));
+    assert.equal(new URL(disqualified.primaryCheckoutUrl).searchParams.get('utm_source'), 'bluesky');
 
     const qualified = qualifyFlowstateLead(
       { firstName: 'Alex', agentStack: 'claude-code', incidentCost: '5000-plus', failureMode: 'unsafe-mutation' },
@@ -112,8 +112,12 @@ describe('bluesky-flowstate-monetizer', () => {
     assert.equal(qualified.qualified, true);
     assert.equal(qualified.route, '/intensive-qualified');
     assert.equal(qualified.conversionBeaconAllowed, true);
-    assert.ok(qualified.primaryCheckoutUrl.includes('buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y'));
-    assert.ok(qualified.secondaryCheckoutUrl.includes('buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38'));
+    const primaryUrl = new URL(qualified.primaryCheckoutUrl);
+    const secondaryUrl = new URL(qualified.secondaryCheckoutUrl);
+    assert.equal(primaryUrl.hostname, 'buy.stripe.com');
+    assert.equal(primaryUrl.pathname, '/dRmeVd9eA4r4aK5gWL3sJ0Y');
+    assert.equal(secondaryUrl.hostname, 'buy.stripe.com');
+    assert.equal(secondaryUrl.pathname, '/4gM28r1M8g9M3hD0XN3sI38');
   });
 
   it('runs end-to-end autopilot and blocks corporate airgap leakage', () => {
