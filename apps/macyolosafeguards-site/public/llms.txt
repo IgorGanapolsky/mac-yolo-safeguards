@@ -1,0 +1,33 @@
+# Mac YOLO Safeguards
+
+> A free menu bar app for Apple Silicon Macs (macOS 14 or later) that keeps AI coding agents such as Claude Code, Cursor and Codex from freezing the machine during long sessions.
+
+Site: https://macyolosafeguards.io/
+Source (MIT): https://github.com/IgorGanapolsky/mac-yolo-safeguards
+Latest release: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v1.1.2
+Author: Igor Ganapolsky
+
+## What it does
+
+- Shows CPU, memory, swap and disk in the menu bar, with the process behind each, read from the kernel's CPU counters.
+- Stops MCP servers and helper processes whose agent session has ended. It only targets agent and MCP processes, so terminals, tmux and running apps are left alone.
+- One click clears agent logs in /private/tmp, old simulator runtimes and stale developer caches.
+- Includes an MCP server (bin/mac-yolo-mcp) so an agent can check the Mac's health before heavy work.
+
+## Install
+
+- DMG: https://macyolosafeguards.io/go/dmg (MacYoloSafeguards-1.1.2.dmg, SHA256 40ea9bf4d70f12d628a4c93bfd4502b24ff725799e19de17bf1ea9aa50f9b4ff)
+- PKG: https://macyolosafeguards.io/go/pkg
+- Homebrew: `brew install --cask igorganapolsky/tap/mac-yolo-safeguards` (the fully qualified name trusts just this cask, so no separate `brew trust` step)
+
+All downloads are signed with an Apple Developer ID and notarized.
+
+## Pricing
+
+The app is free and complete. Paid options:
+
+- Mac YOLO Pro Guard, $19 a month (supports development; bug reports and feature requests get priority): https://macyolosafeguards.io/go/pro
+- Agent Reliability Diagnostic, $499 once: https://macyolosafeguards.io/go/diagnostic
+- AI Agent Hardening Sprint, $1,500 once: https://macyolosafeguards.io/go/sprint
+
+Policies: https://macyolosafeguards.io/privacy/ · https://macyolosafeguards.io/terms/ · https://macyolosafeguards.io/refunds/
