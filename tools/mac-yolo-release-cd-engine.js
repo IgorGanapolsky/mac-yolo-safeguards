@@ -207,7 +207,7 @@ function auditRollbackHotfixAndCd(options = {}) {
       stripeLiveLinks: [
         'https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y ($499 Diagnostic)',
         'https://buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38 ($1,500 Sprint)',
-        'https://buy.stripe.com/fZucN5bmI8HkbO98qf3sI3j ($3,000 Partner Pilot)',
+        'https://buy.stripe.com/9B6eVdcqM7DgcSdayn3sJ0Z ($3,000 Partner Pilot)',
       ],
     },
   };

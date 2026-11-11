@@ -29,6 +29,7 @@
 
 const fs = require('fs');
 const { isLiveAgentProcess, liveAgentAncestor, indexByPid, parsePs } = require('./mac-yolo-agent-guard');
+const { verifyActionAgainstGround, buildHubGraphSnapshot } = require('./agentic-graphrag-safeguard');
 const path = require('path');
 const os = require('os');
 const { execFileSync, spawnSync } = require('child_process');
@@ -484,13 +485,23 @@ function runawayPids(procs) {
 
 function coolDownFansAndReapRunaways() {
   const reapedPids = [];
+  const renicedPids = [];
+  let sweptFilesCount = 0;
+
   try {
     const out = execFileSync('/bin/ps', ['-axo', 'pid=,ppid=,rss=,etime=,tty=,command='], {
       encoding: 'utf8',
       timeout: 4000,
       maxBuffer: 32 * 1024 * 1024,
     });
-    for (const pid of runawayPids(parsePs(out))) {
+    const parsed = parsePs(out);
+    const byPid = indexByPid(parsed);
+    const graphSnapshot = buildHubGraphSnapshot();
+
+    // 1. Terminate verified runaway commands
+    for (const pid of runawayPids(parsed)) {
+      const check = verifyActionAgainstGround('kill', pid, graphSnapshot);
+      if (!check.allowed) continue;
       try {
         process.kill(pid, 'SIGTERM');
         reapedPids.push(pid);
@@ -498,11 +509,67 @@ function coolDownFansAndReapRunaways() {
         /* ignore */
       }
     }
+
+    // 2. Renice background non-GUI indexers/heavy user workers to low scheduling priority (+15)
+    for (const p of parsed) {
+      if (p.pid <= 1 || isLiveAgentProcess(p.command) || liveAgentAncestor(p, byPid)) continue;
+      if (p.command.includes('semgrep') || p.command.includes('CodeQL') || p.command.includes('mdworker')) {
+        const check = verifyActionAgainstGround('renice', p.pid, graphSnapshot);
+        if (!check.allowed) continue;
+        try {
+          execFileSync('/usr/bin/renice', ['15', '-p', String(p.pid)], { stdio: 'ignore' });
+          renicedPids.push(p.pid);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+
+    // 3. Clean stale temp scratch dirs in /private/tmp older than 2 hours
+    const tmpDir = '/private/tmp';
+    try {
+      const now = Date.now();
+      for (const ent of fs.readdirSync(tmpDir)) {
+        if (ent.startsWith('claude-') || ent.startsWith('yolo-scratch-')) {
+          const full = path.join(tmpDir, ent);
+          const st = fs.statSync(full);
+          if (now - st.mtimeMs > 2 * 3600 * 1000) {
+            fs.rmSync(full, { recursive: true, force: true });
+            sweptFilesCount += 1;
+          }
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+
+    // 4. Cleanly shut down idle iOS simulators
+    try {
+      execFileSync('/usr/bin/xcrun', ['simctl', 'shutdown', 'all'], { stdio: 'ignore', timeout: 3000 });
+    } catch {
+      /* ignore */
+    }
   } catch {
     /* ignore */
   }
-  appendOperationLog({ action: 'cool_down_fans', reapedCount: reapedPids.length, reapedPids });
-  return { ok: true, reapedCount: reapedPids.length, reapedPids };
+
+  appendOperationLog({
+    action: 'cool_down_fans',
+    reapedCount: reapedPids.length,
+    reapedPids,
+    renicedCount: renicedPids.length,
+    renicedPids,
+    sweptFilesCount,
+  });
+
+  return {
+    ok: true,
+    reapedCount: reapedPids.length,
+    reapedPids,
+    renicedCount: renicedPids.length,
+    renicedPids,
+    sweptFilesCount,
+  };
 }
 
 if (require.main === module) {
