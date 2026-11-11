@@ -785,7 +785,7 @@ private let HUD_HTML = #"""
         sparedEl.textContent = '🛡 Spared: ' + (sparedParts.slice(0, 2).join(' · ') || 'Active sessions untouched');
         _lastCleanDetailRows = detailRows.join(';;');
         if (_activeDetailCard === 'disk') renderActiveCardDetail(_lastHudState);
-      } else if (res.action === 'freeUpMemory' || res.action === 'coolDownFans') {
+      } else {
         titleEl.textContent = res.title || '✓ Optimization Complete';
         var list = res.items || [];
         var out = '';
@@ -897,6 +897,10 @@ private let HUD_HTML = #"""
       if (!box) return;
       var apps = (payload && payload.apps) || [];
       box.innerHTML = '';
+      if (payload && payload.ok === false) {
+        box.textContent = payload.error || 'App uninstalling is not available.';
+        return;
+      }
       if (!apps.length) {
         box.textContent = 'No extra apps to remove.';
         return;
@@ -1073,6 +1077,77 @@ private func hudRoundedMask(radius: CGFloat) -> NSImage {
     img.capInsets = NSEdgeInsets(top: radius, left: radius, bottom: radius, right: radius)
     img.resizingMode = .stretch
     return img
+}
+
+// The cleanup actions are Node.js scripts shipped inside the app (Contents/Resources/tools).
+// A source checkout at ~/workspace/mac-yolo-safeguards is used only when the bundle has none.
+struct ToolRun {
+    let ran: Bool
+    let output: String
+    let problem: String?
+}
+
+func findNodeBinary() -> String? {
+    let home = FileManager.default.homeDirectoryForCurrentUser.path
+    let candidates = ["/opt/homebrew/bin/node", "/usr/local/bin/node", "\(home)/.volta/bin/node", "\(home)/.local/bin/node", "/usr/bin/node"]
+    if let hit = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) { return hit }
+    let probe = Process()
+    probe.executableURL = URL(fileURLWithPath: "/bin/zsh")
+    probe.arguments = ["-lc", "command -v node"]
+    let pipe = Pipe()
+    probe.standardOutput = pipe
+    probe.standardError = FileHandle.nullDevice
+    guard (try? probe.run()) != nil else { return nil }
+    probe.waitUntilExit()
+    let path = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+        .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    return FileManager.default.isExecutableFile(atPath: path) ? path : nil
+}
+
+func findToolScript(_ name: String) -> String? {
+    if let bundled = Bundle.main.resourceURL?.appendingPathComponent("tools/\(name)").path,
+       FileManager.default.fileExists(atPath: bundled) { return bundled }
+    let home = FileManager.default.homeDirectoryForCurrentUser.path
+    let dev = "\(home)/workspace/mac-yolo-safeguards/tools/\(name)"
+    return FileManager.default.fileExists(atPath: dev) ? dev : nil
+}
+
+func runTool(_ name: String, _ args: [String]) -> ToolRun {
+    guard let node = findNodeBinary() else {
+        return ToolRun(ran: false, output: "", problem: "This action needs Node.js. Install it with: brew install node")
+    }
+    guard let script = findToolScript(name) else {
+        return ToolRun(ran: false, output: "", problem: "This action isn't included in this version of the app.")
+    }
+    let proc = Process()
+    proc.executableURL = URL(fileURLWithPath: node)
+    proc.arguments = [script] + args
+    let pipe = Pipe()
+    proc.standardOutput = pipe
+    proc.standardError = FileHandle.nullDevice
+    do { try proc.run() } catch {
+        return ToolRun(ran: false, output: "", problem: "Could not start Node.js at \(node).")
+    }
+    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+    proc.waitUntilExit()
+    let text = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    if proc.terminationStatus != 0 || !text.hasPrefix("{") {
+        return ToolRun(ran: false, output: text, problem: "The cleanup tool stopped with an error (exit \(proc.terminationStatus)).")
+    }
+    return ToolRun(ran: true, output: text, problem: nil)
+}
+
+func jsonObject(_ text: String) -> [String: Any] {
+    guard let data = text.data(using: .utf8),
+          let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [:] }
+    return obj
+}
+
+func receiptJSON(action: String, title: String, items: [String], spared: String) -> String {
+    let obj: [String: Any] = ["ok": true, "action": action, "title": title, "items": items, "spared": spared]
+    guard let data = try? JSONSerialization.data(withJSONObject: obj),
+          let text = String(data: data, encoding: .utf8) else { return "{}" }
+    return text
 }
 
 class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
@@ -1317,23 +1392,15 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
 
     func runAppUninstaller(args: [String], done: @escaping (String) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
-            let proc = Process()
-            proc.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/node")
-            let home = FileManager.default.homeDirectoryForCurrentUser.path
-            proc.arguments = ["\(home)/workspace/mac-yolo-safeguards/tools/mac-yolo-app-uninstaller.js"] + args
-            let out = Pipe()
-            proc.standardOutput = out
-            proc.standardError = Pipe()
-            do {
-                try proc.run()
-                proc.waitUntilExit()
-            } catch {
-                DispatchQueue.main.async { done("{\"ok\":false,\"error\":\"Could not measure apps.\"}") }
-                return
+            let run = runTool("mac-yolo-app-uninstaller.js", args)
+            let json: String
+            if run.ran {
+                json = run.output
+            } else {
+                let err = (try? JSONSerialization.data(withJSONObject: ["ok": false, "error": run.problem ?? "No reply from the uninstaller."]))
+                    .flatMap { String(data: $0, encoding: .utf8) } ?? "{\"ok\":false}"
+                json = err
             }
-            let data = out.fileHandleForReading.readDataToEndOfFile()
-            let text = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let json = text.isEmpty ? "{\"ok\":false,\"error\":\"No reply from the uninstaller.\"}" : text
             DispatchQueue.main.async { done(json) }
         }
     }
@@ -1441,11 +1508,8 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         statusItem.isVisible = showStatusBarIcon
         statusBarMenuItem?.state = showStatusBarIcon ? .on : .off
         UserDefaults.standard.set(showStatusBarIcon, forKey: "MacYoloShowStatusBarIcon")
-        let proc = Process()
-        proc.launchPath = "/opt/homebrew/bin/node"
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        proc.arguments = ["\(home)/workspace/mac-yolo-safeguards/tools/mac-yolo-system-care-engine.js", "--status-icon", showStatusBarIcon ? "show" : "hide"]
-        try? proc.run()
+        let iconArg = showStatusBarIcon ? "show" : "hide"
+        DispatchQueue.global(qos: .utility).async { _ = runTool("mac-yolo-system-care-engine.js", ["--status-icon", iconArg]) }
         refreshLiveTelemetry()
     }
 
@@ -1661,8 +1725,11 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             }
             return (files, bytes / 1_048_576.0)
         }
-        let (of, omb) = scanDir(".omp/agent/sessions/-workspace-mac-yolo-safeguards")
-        let (gf, gmb) = scanDir(".grok/sessions/%2FUsers%2Figanapolsky%2Fworkspace%2Fmac-yolo-safeguards")
+        // Recent transcripts from Claude Code and OMP (first slot) and Grok CLI (second slot), any project.
+        let (cf, cmb) = scanDir(".claude/projects")
+        let (pf, pmb) = scanDir(".omp/agent/sessions")
+        let (of, omb) = (cf + pf, cmb + pmb)
+        let (gf, gmb) = scanDir(".grok/sessions")
         let totMB = omb + gmb
         let estM = (totMB * 1_048_576.0 / 4.0) / 1_000_000.0
         return (of, omb, gf, gmb, totMB, estM)
@@ -1895,32 +1962,22 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
 
         let detailDiskFull = [
             String(format: "APFS Volume (Macintosh HD)|%.1f GB free of %.0f GB (%d%% used)|%d", freeDecimalGB, totalDecimalGB, diskUsedPct, diskUsedPct),
-            "Cumulative AI & App Waste Reclaimed|49.04 GB total purged|92",
-            "/private/tmp/claude-* & Scratch Loops|47.24 GB reclaimed (Auto-Reaper ON)|88",
-            "Paper (com.papercompute.*) Cassettes|1.80 GB reclaimed (✓ Uninstalled)|100",
-            "CleanMyMac 5 App + 9 Library Leftovers|454 MB removable (Click Uninstall Apps)|35",
             String(format: "Active 2h Agent Session Logs on Disk|%.1f MB (%d JSONL files)|25", sess.totalMB, sess.ompFiles + sess.grokFiles),
         ].joined(separator: ";;")
 
         let detailTokensFull = [
             String(format: "Active 2h Session Transcripts (Disk)|%.1f MB (~%.1fM context tokens)|78", sess.totalMB, sess.estTokensM),
-            String(format: "OMP (mac-yolo-safeguards 2h)|%d JSONL files · %.2f MB|%d", sess.ompFiles, sess.ompMB, min(100, max(10, Int(sess.ompMB * 3)))),
-            String(format: "Grok CLI (mac-yolo-safeguards 2h)|%d JSONL files · %.1f MB|%d", sess.grokFiles, sess.grokMB, min(100, max(15, Int(sess.grokMB / 2)))),
-            "Prompt Cache Prefix Order (The Sequence)|90.8% KV-Cache Hit · 80.6% cost saved|91",
-            "Model Routing Split (Local vs Cloud)|84% Local (Ollama/MLX) · 16% Cloud|84",
-            "Ultramarine 1 Flash MoE Route (320B-A18B)|$0.13/task vs $8.19 Fable 5 (-98.4%)|98",
+            String(format: "Claude Code & OMP sessions (2h)|%d JSONL files · %.2f MB|%d", sess.ompFiles, sess.ompMB, min(100, max(10, Int(sess.ompMB * 3)))),
+            String(format: "Grok CLI sessions (2h)|%d JSONL files · %.1f MB|%d", sess.grokFiles, sess.grokMB, min(100, max(15, Int(sess.grokMB / 2)))),
         ].joined(separator: ";;")
 
         let detailNetworkFull = [
             "Active Wi-Fi Interface (\(wifiName))|\(upRate) · \(downRate)|45",
             String(format: "Cumulative Interface Traffic (\(wifiName))|↓ %.2f GB RX · ↑ %.2f GB TX|60", rxGB, txGB),
-            "Zero-Cloud-Egress Privacy Guard|ON (127.0.0.1 loopback enforced)|100",
-            "Mac YOLO Telemetry Service|http://127.0.0.1:8766 (LIVE)|100",
-            "Connected MCP Servers|github · grepai · gurobi · context7 · dayglass · thumbgate|100",
         ].joined(separator: ";;")
 
         let detailFleetFull = [
-            "User LaunchAgents (~/Library/LaunchAgents)|\(agentCount) plists loaded · 0 crash loops|100",
+            "User LaunchAgents (~/Library/LaunchAgents)|\(agentCount) plists loaded|100",
             "Total Live OS Processes|\(culprits.totalProcs) active processes|\(min(100, culprits.totalProcs / 15))",
             culprits.detailFleet,
         ].joined(separator: ";;")
@@ -1930,7 +1987,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             String(format: "Real-Time Memory Pressure|%d%% used (Active %.1fG · Wired %.1fG · Comp %.1fG)|%d", memPressurePct, activeGB, wiredGB, compressedGB, memPressurePct),
             String(format: "Live 2h AI Session Volume|%.1f MB (%d JSONL files · ~%.1fM tokens)|72", sess.totalMB, sess.ompFiles + sess.grokFiles, sess.estTokensM),
             "Active Multi-Agent Swarms|\(culprits.swarmSummary)|80",
-            "Disk Free & Reclaimed Waste|\(String(format: "%.1f GB free", freeDecimalGB)) · 49.04 GB waste purged|\(diskUsedPct)",
+            "Disk Free|\(String(format: "%.1f GB free", freeDecimalGB))|\(diskUsedPct)",
         ].joined(separator: ";;")
 
         let payload: [String: String] = [
@@ -2240,44 +2297,53 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         hudPanel.orderFrontRegardless()
     }
 
+    func showReceipt(_ json: String) {
+        webView?.evaluateJavaScript("if (window.renderActionReceipt) window.renderActionReceipt(\(json));", completionHandler: nil)
+    }
+
+    func showProblem(action: String, title: String, problem: String) {
+        showReceipt(receiptJSON(action: action, title: title, items: [problem], spared: "Nothing was changed."))
+    }
+
     @objc func smartCleanDisk() {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let proc = Process()
-            proc.launchPath = "/opt/homebrew/bin/node"
-            proc.arguments = ["\(home)/workspace/mac-yolo-safeguards/tools/mac-yolo-disk-guard.js", "--clean", "--json"]
-            let pipe = Pipe()
-            proc.standardOutput = pipe
-            proc.standardError = FileHandle.nullDevice
-            try? proc.run()
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            proc.waitUntilExit()
-            let jsonOut = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let run = runTool("mac-yolo-disk-guard.js", ["--clean", "--json"])
             DispatchQueue.main.async {
-                if !jsonOut.isEmpty && jsonOut.hasPrefix("{") {
-                    self?.webView?.evaluateJavaScript("if (window.renderActionReceipt) window.renderActionReceipt(\(jsonOut));", completionHandler: nil)
+                if run.ran {
+                    self?.showReceipt(run.output)
+                } else {
+                    self?.showProblem(action: "toolProblem", title: "Couldn't clean disk waste", problem: run.problem ?? "Unknown error.")
                 }
                 self?.refreshLiveTelemetry()
             }
         }
     }
 
-    // Shuts down simulators and stops process storms (one command running in 40+ copies).
-    // Live agent sessions are never touched.
+    // Stops process storms (one command running in 40+ copies), orphaned MCP servers and
+    // stranded agent helpers, then shuts down simulators. Live agent sessions are never touched.
     @objc func freeAgentRam() {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let proc = Process()
-            proc.launchPath = "/opt/homebrew/bin/node"
-            proc.arguments = ["\(home)/workspace/mac-yolo-safeguards/tools/mac-yolo-agent-guard.js", "clean", "--execute"]
-            proc.standardOutput = FileHandle.nullDevice
-            proc.standardError = FileHandle.nullDevice
-            try? proc.run()
-            proc.waitUntilExit()
+            let run = runTool("mac-yolo-agent-guard.js", ["clean", "--execute"])
             DispatchQueue.main.async {
-                self?.reapSimulators()
-                let receiptJson = #"{"ok":true,"action":"freeUpMemory","title":"✓ Agent RAM & Idle Simulators Reaped","items":["Idle iOS/tvOS Simulators: Shut down cleanly (xcrun simctl)","Duplicate Process Storms (40+ copies): Checked & reaped","Inactive VM Page Compression: Triggered"],"spared":"🛡 Spared active coding sessions: Claude Code, Cursor, Gemini & Antigravity untouched"}"#
-                self?.webView?.evaluateJavaScript("if (window.renderActionReceipt) window.renderActionReceipt(\(receiptJson));", completionHandler: nil)
+                guard let self = self else { return }
+                self.reapSimulators()
+                guard run.ran else {
+                    self.showProblem(action: "toolProblem", title: "Couldn't free agent memory", problem: run.problem ?? "Unknown error.")
+                    return
+                }
+                let res = jsonObject(run.output)
+                let storms = (res["stopped"] as? [[String: Any]]) ?? []
+                let stormCopies = storms.reduce(0) { $0 + (($1["signalled"] as? Int) ?? 0) }
+                let orphans = ((res["stoppedOrphans"] as? [Any]) ?? []).count
+                let stranded = ((res["stoppedStranded"] as? [Any]) ?? []).count
+                var items: [String] = []
+                if orphans > 0 { items.append("Stopped \(orphans) orphaned MCP server\(orphans == 1 ? "" : "s")") }
+                if stormCopies > 0 { items.append("Stopped \(stormCopies) duplicate cop\(stormCopies == 1 ? "y" : "ies") of runaway commands") }
+                if stranded > 0 { items.append("Stopped \(stranded) stranded agent helper\(stranded == 1 ? "" : "s")") }
+                items.append("Asked running simulators to shut down")
+                let total = orphans + stormCopies + stranded
+                let title = total > 0 ? "✓ Stopped \(total) leftover agent process\(total == 1 ? "" : "es")" : "✓ No leftover agent processes found"
+                self.showReceipt(receiptJSON(action: "freeUpMemory", title: title, items: items, spared: "🛡 Live agent sessions, terminals and apps were left alone."))
             }
         }
     }
@@ -2294,20 +2360,21 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
 
 
     @objc func coolDownFans() {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let proc = Process()
-            proc.launchPath = "/opt/homebrew/bin/node"
-            proc.arguments = ["\(home)/workspace/mac-yolo-safeguards/tools/mac-yolo-system-care-engine.js", "--cool-down-fans"]
-            proc.standardOutput = FileHandle.nullDevice
-            proc.standardError = FileHandle.nullDevice
-            try? proc.run()
-            proc.waitUntilExit()
+            let run = runTool("mac-yolo-system-care-engine.js", ["--cool-down-fans"])
             DispatchQueue.main.async {
-                self?.reapSimulators()
-                let receiptJson = #"{"ok":true,"action":"coolDownFans","title":"✓ Fans Cooled & Background Indexers De-prioritized","items":["Background Build & Indexer Daemons: Reniced to low thermal priority","Idle iOS/tvOS Simulators: Shut down cleanly (xcrun simctl)","Stale /private/tmp & Build Caches: Swept"],"spared":"🛡 Spared foreground apps & active coding agent sessions at full performance"}"#
-                self?.webView?.evaluateJavaScript("if (window.renderActionReceipt) window.renderActionReceipt(\(receiptJson));", completionHandler: nil)
-                self?.refreshLiveTelemetry()
+                guard let self = self else { return }
+                self.reapSimulators()
+                guard run.ran else {
+                    self.showProblem(action: "toolProblem", title: "Couldn't cool down", problem: run.problem ?? "Unknown error.")
+                    return
+                }
+                let reaped = (jsonObject(run.output)["reapedCount"] as? Int) ?? 0
+                let title = reaped > 0 ? "✓ Stopped \(reaped) runaway process\(reaped == 1 ? "" : "es")" : "✓ No runaway processes found"
+                let items = [reaped > 0 ? "Stopped \(reaped) process\(reaped == 1 ? "" : "es") burning CPU with no live session" : "Nothing was burning CPU without a live session",
+                             "Asked running simulators to shut down"]
+                self.showReceipt(receiptJSON(action: "coolDownFans", title: title, items: items, spared: "🛡 Foreground apps and live agent sessions were left alone."))
+                self.refreshLiveTelemetry()
             }
         }
     }

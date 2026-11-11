@@ -20,6 +20,7 @@ node tests/test-agent-memory-before-gen.js
 node tests/test-retrieval-query-rewrite.js
 node tests/test-prolo-android-podcasts-only.js
 node tests/test-mac-yolo-hud-anti-regression.js
+node tests/test-mac-yolo-app-portable.js
 node tools/entire-cicd-regression-gate.js
 node tests/test-ultramarine-and-android-summit-26-steals.js
 node tests/test-prompt-caching-and-judgment-calls-steal.js
