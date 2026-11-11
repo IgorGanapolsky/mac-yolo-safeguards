@@ -556,6 +556,7 @@ function clean({ execute = false, minCopies = STORM_MIN_COPIES, procs = listProc
 }
 
 function notify(title, message) {
+  if (process.env.MAC_YOLO_ENABLE_OSASCRIPT_NOTIFICATIONS !== '1') return;
   try {
     execFileSync('/usr/bin/osascript', ['-e', `display notification ${JSON.stringify(message)} with title ${JSON.stringify(title)}`], { stdio: 'ignore', timeout: 5000 });
   } catch {

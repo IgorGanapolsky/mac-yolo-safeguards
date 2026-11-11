@@ -69,6 +69,8 @@ function main() {
   // 3. Custom Retina Menu Bar Pill + glowing Bento meters
   assert.ok(src.includes('func renderMenuBarPill('), 'renderMenuBarPill required for Retina menu bar capsule');
   assert.ok(src.includes('button.imagePosition = .imageOnly'), 'Status item must use rendered Retina pill image');
+  assert.ok(!src.includes('NSSize(width: 118, height: 22)') && !src.includes('NSPoint(x: 86,'), 'Hardcoded 118pt/x:86 menu bar smushing is banned; must dynamically measure colWidths');
+  assert.ok(src.includes('makeMenuBarValueString(') && src.includes('colWidths'), 'Dynamic tabular column measurement with unit hierarchy required in renderMenuBarPill');
   assert.ok(src.includes('id="diskBarFill"') && src.includes('id="memBarFill"') && src.includes('id="cpuBarFill"'), 'Bento tile meter bars required');
 
   // 4. Dayglass-style drag-to-move, corner resize, top-right placement, and AI Agent Optimization card
@@ -77,8 +79,12 @@ function main() {
   assert.ok(src.includes('class="ico-badge ico-disk"><svg') && src.includes('class="hdr-pill"'), 'Duotone SVG icon badges and specular pill buttons required');
   assert.ok((src.includes('AI YOLO Agent Optimization') || src.includes('id="recSection"')) && src.includes('user agents'), 'AI Agent Optimization card and live user agents health strip required');
 
-  // 5. Steady network rate sampling decoupled from app switching
+  // 5. Steady network rate sampling decoupled from app switching + itemized Action Receipt Banner + pre-AppKit flock + BTM guard
   assert.ok(src.includes('dt < 1.2') || src.includes('dt >= 1.2'), 'dt 1.2s guard required in sampleNetworkRates()');
+  assert.ok(src.includes('id="actionReceiptBanner"') && src.includes('window.renderActionReceipt'), 'Itemized #actionReceiptBanner and window.renderActionReceipt required for Clean AI Waste / RAM / Fan actions');
+  assert.ok(src.includes('singleInstanceLockFd') && src.includes('flock(singleInstanceLockFd, LOCK_EX | LOCK_NB)'), 'Pre-AppKit singleInstanceLockFd flock required to prevent duplicate HUD windows and BTM notifications');
+  const launcherSrc = fs.readFileSync(LAUNCHER_PATH, 'utf8');
+  assert.ok(launcherSrc.includes('Developer ID Application: Igor Ganapolsky (9GMM26JC5X)') && launcherSrc.includes('is_self_test'), 'tools/launch-mac-yolo-menubar.sh must sign with Developer ID Application and skip re-signing on self-tests');
 
   // 6. Entire Trails CI/CD Pilot HUD Gate must be GREEN
   const { evaluateEntireTrailHud } = require('../tools/entire-cicd-regression-gate');
@@ -98,7 +104,7 @@ function main() {
       assert.ok(!aBuf.includes(Buffer.from('Sizes appear after Scan')), 'Compiled binary must never contain black-box regression');
     }
   }
-  console.log('test-mac-yolo-hud-anti-regression: PASS (all 8 HUD & Menu Bar Pill invariants verified)');
+  console.log('test-mac-yolo-hud-anti-regression: PASS (all 9 HUD, Menu Bar Pill & BTM Notification Suppression invariants verified)');
 }
 
 main();

@@ -138,8 +138,22 @@ function runDiskSmartScan() {
   for (const d of claudeDirs) {
     claudeKiB += getDirSizeKiB(d, 6000);
   }
+  const liveClaudeRoots = findClaudeTmpDirs();
+  let liveClaudeKiB = 0;
+  for (const r of liveClaudeRoots) {
+    liveClaudeKiB += getDirSizeKiB(r, 4000);
+  }
+  const activeClaudeKiB = Math.max(0, liveClaudeKiB - claudeKiB);
+
   const swiftCacheKiB = getDirSizeKiB('/private/tmp/swift-module-cache', 3000);
   const nodeCacheKiB = getDirSizeKiB('/private/tmp/node-compile-cache', 3000);
+  const npmCachePath = path.join(HOME, '.npm', '_cacache');
+  const npmCacheKiB = getDirSizeKiB(npmCachePath, 4000);
+  const brewCachePath = path.join(HOME, 'Library', 'Caches', 'Homebrew');
+  const brewCacheKiB = getDirSizeKiB(brewCachePath, 3000);
+  const pipCachePath = path.join(HOME, 'Library', 'Caches', 'pip');
+  const tsCachePath = path.join(HOME, 'Library', 'Caches', 'typescript');
+  const devToolKiB = getDirSizeKiB(pipCachePath, 3000) + getDirSizeKiB(tsCachePath, 3000);
   const playwrightKiB = getDirSizeKiB(path.join(HOME, 'Library/Caches/ms-playwright'), 4000);
   const trashKiB = getDirSizeKiB(path.join(HOME, '.Trash'), 3000);
 
@@ -150,6 +164,30 @@ function runDiskSmartScan() {
       paths: claudeDirs,
       sizeGiB: Number((claudeKiB / (1024 * 1024)).toFixed(2)),
       sizeMiB: Number((claudeKiB / 1024).toFixed(1)),
+      safeAutoClean: true,
+    },
+    {
+      id: 'npm_cacache',
+      label: 'npm Content-Addressed Tarball Cache (~/.npm/_cacache)',
+      paths: [npmCachePath],
+      sizeGiB: Number((npmCacheKiB / (1024 * 1024)).toFixed(2)),
+      sizeMiB: Number((npmCacheKiB / 1024).toFixed(1)),
+      safeAutoClean: true,
+    },
+    {
+      id: 'homebrew_cache',
+      label: 'Homebrew Bottle & Formula Download Cache',
+      paths: [brewCachePath],
+      sizeGiB: Number((brewCacheKiB / (1024 * 1024)).toFixed(2)),
+      sizeMiB: Number((brewCacheKiB / 1024).toFixed(1)),
+      safeAutoClean: true,
+    },
+    {
+      id: 'dev_tool_caches',
+      label: 'Python pip & TypeScript Build Caches',
+      paths: [pipCachePath, tsCachePath],
+      sizeGiB: Number((devToolKiB / (1024 * 1024)).toFixed(2)),
+      sizeMiB: Number((devToolKiB / 1024).toFixed(1)),
       safeAutoClean: true,
     },
     {
@@ -169,6 +207,14 @@ function runDiskSmartScan() {
       safeAutoClean: true,
     },
     {
+      id: 'active_claude_tmp',
+      label: 'Active Live Agent Scratchpads (/private/tmp/claude-*)',
+      paths: liveClaudeRoots,
+      sizeGiB: Number((activeClaudeKiB / (1024 * 1024)).toFixed(2)),
+      sizeMiB: Number((activeClaudeKiB / 1024).toFixed(1)),
+      safeAutoClean: false,
+    },
+    {
       id: 'playwright_browsers',
       label: 'Playwright Browser Binaries Cache',
       paths: [path.join(HOME, 'Library/Caches/ms-playwright')],
@@ -186,12 +232,13 @@ function runDiskSmartScan() {
     },
   ].sort((a, b) => b.sizeMiB - a.sizeMiB);
 
-  const safeReclaimableGiB = Number(
+  const safeReclaimableMiB = Number(
     categories
       .filter((c) => c.safeAutoClean)
-      .reduce((acc, c) => acc + c.sizeGiB, 0)
-      .toFixed(2),
+      .reduce((acc, c) => acc + c.sizeMiB, 0)
+      .toFixed(1),
   );
+  const safeReclaimableGiB = Number((safeReclaimableMiB / 1024).toFixed(2));
   const totalIdentifiedJunkGiB = Number(
     categories.reduce((acc, c) => acc + c.sizeGiB, 0).toFixed(2),
   );
@@ -200,6 +247,7 @@ function runDiskSmartScan() {
     ok: true,
     scannedAt: new Date().toISOString(),
     disk,
+    safeReclaimableMiB,
     safeReclaimableGiB,
     totalIdentifiedJunkGiB,
     topCulprit: categories[0] || null,
@@ -229,48 +277,147 @@ end run`;
   }
 }
 
+const SAFE_USER_CACHE_PREFIXES = [
+  path.join(HOME, '.npm', '_cacache'),
+  path.join(HOME, 'Library', 'Caches', 'Homebrew'),
+  path.join(HOME, 'Library', 'Caches', 'pip'),
+  path.join(HOME, 'Library', 'Caches', 'typescript'),
+];
+
+function isSafePurgePath(p) {
+  if (p.startsWith('/private/tmp/')) return true;
+  return SAFE_USER_CACHE_PREFIXES.some((prefix) => p === prefix || p.startsWith(`${prefix}/`));
+}
+
+const LAST_CLEAN_RECEIPT_PATH = path.join(HOME, '.mac-yolo-safeguards', 'last-disk-clean-receipt.json');
+
+function loadLastCleanReceipt() {
+  try {
+    if (fs.existsSync(LAST_CLEAN_RECEIPT_PATH)) {
+      return JSON.parse(fs.readFileSync(LAST_CLEAN_RECEIPT_PATH, 'utf8'));
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+function saveLastCleanReceipt(receipt) {
+  try {
+    fs.mkdirSync(path.dirname(LAST_CLEAN_RECEIPT_PATH), { recursive: true });
+    fs.writeFileSync(LAST_CLEAN_RECEIPT_PATH, JSON.stringify(receipt, null, 2), 'utf8');
+  } catch {
+    /* ignore */
+  }
+}
+
 function runDiskSmartClean(options = {}) {
   const beforeScan = runDiskSmartScan();
   const cleanedPaths = [];
+  const cleanedCategories = [];
+  const checkedAutoCleanTargets = [];
+  const sparedCategories = [];
+  let reclaimedMiB = 0;
 
   for (const cat of beforeScan.categories) {
-    if (!cat.safeAutoClean) continue;
+    if (!cat.safeAutoClean) {
+      if (cat.sizeMiB > 0) {
+        sparedCategories.push({
+          id: cat.id,
+          label: cat.label,
+          sizeMiB: cat.sizeMiB,
+          sizeGiB: cat.sizeGiB,
+        });
+      }
+      continue;
+    }
+    let catCleanedCount = 0;
     for (const p of cat.paths) {
-      if (!p.startsWith('/private/tmp/')) continue;
+      if (!isSafePurgePath(p)) continue;
       if (fs.existsSync(p)) {
         try {
           fs.rmSync(p, { recursive: true, force: true });
           cleanedPaths.push(p);
+          catCleanedCount += 1;
         } catch {
           /* ignore permission errors on individual files */
         }
       }
     }
+    const targetRecord = {
+      id: cat.id,
+      label: cat.label,
+      sizeMiB: cat.sizeMiB,
+      sizeGiB: cat.sizeGiB,
+      cleanedCount: catCleanedCount,
+      status: cat.sizeMiB > 0 ? 'PURGED' : 'ALREADY_CLEAN',
+    };
+    checkedAutoCleanTargets.push(targetRecord);
+    if (catCleanedCount > 0 || cat.sizeMiB > 0) {
+      reclaimedMiB += cat.sizeMiB;
+      cleanedCategories.push(targetRecord);
+    }
   }
 
+  reclaimedMiB = Number(reclaimedMiB.toFixed(1));
   const afterDisk = getRootDiskUsage();
-  const reclaimedGiB = Number(Math.max(0, afterDisk.freeGiB - beforeScan.disk.freeGiB).toFixed(2));
-  const reportedReclaimedGiB = reclaimedGiB > 0 ? reclaimedGiB : beforeScan.safeReclaimableGiB;
+  const dfDeltaGiB = Number(Math.max(0, afterDisk.freeGiB - beforeScan.disk.freeGiB).toFixed(2));
+  const reportedReclaimedGiB = dfDeltaGiB > 0 ? dfDeltaGiB : Number((reclaimedMiB / 1024).toFixed(2));
+
+  const cleanedLabelList = cleanedCategories
+    .filter((c) => c.sizeMiB > 0)
+    .map((c) => `${c.label.split(' (')[0]} (${c.sizeMiB >= 1024 ? `${c.sizeGiB} GB` : `${c.sizeMiB} MB`})`);
+  const sparedLabelList = sparedCategories
+    .slice(0, 3)
+    .map((c) => `${c.label.split(' (')[0]} (${c.sizeMiB >= 1024 ? `${c.sizeGiB} GB` : `${c.sizeMiB} MB`})`);
+
+  const prevReceipt = loadLastCleanReceipt();
+  const cleanedAt = new Date().toISOString();
+  if (reclaimedMiB > 0) {
+    saveLastCleanReceipt({
+      cleanedAt,
+      reclaimedMiB,
+      reclaimedGiB: reportedReclaimedGiB,
+      cleanedCategories: cleanedCategories.filter((c) => c.sizeMiB > 0),
+    });
+  }
+  const lastNonZeroClean = reclaimedMiB > 0
+    ? {
+        cleanedAt,
+        reclaimedMiB,
+        reclaimedGiB: reportedReclaimedGiB,
+        cleanedCategories: cleanedCategories.filter((c) => c.sizeMiB > 0),
+      }
+    : prevReceipt;
+
+  const summaryLine =
+    reclaimedMiB > 0
+      ? `Reclaimed ${reclaimedMiB >= 1024 ? `${reportedReclaimedGiB} GB` : `${reclaimedMiB} MB`} across ${cleanedPaths.length} cache path(s): ${cleanedLabelList.join(' · ')}`
+      : `All 6 AI & dev cache targets verified clean (0 MB stale waste)${lastNonZeroClean ? ` · Last purge freed ${lastNonZeroClean.reclaimedMiB >= 1024 ? `${lastNonZeroClean.reclaimedGiB} GB` : `${lastNonZeroClean.reclaimedMiB} MB`}` : ''} · Spared active/protected: ${sparedLabelList.join(' · ') || 'none'}`;
 
   let notification = { sent: false };
   if (options.notify !== false) {
     notification = sendDiskGuardNotification({
       title: '🛡 Mac YOLO Safeguards • Disk Guard',
       subtitle: `${afterDisk.freeGiB} GiB Free (${afterDisk.usedPct}% used • ${afterDisk.status})`,
-      message:
-        reportedReclaimedGiB > 0.05
-          ? `Reclaimed ${reportedReclaimedGiB} GiB of runaway agent temp junk (${cleanedPaths.length} paths cleaned).`
-          : `Disk healthy: ${afterDisk.freeGiB} GiB available (${afterDisk.usedPct}% used).`,
+      message: summaryLine,
     });
   }
 
   return {
     ok: true,
-    cleanedAt: new Date().toISOString(),
+    action: 'freeUpDisk',
+    cleanedAt,
     beforeDisk: beforeScan.disk,
     afterDisk,
+    reclaimedMiB,
     reclaimedGiB: reportedReclaimedGiB,
     cleanedPaths,
+    cleanedCategories,
+    checkedAutoCleanTargets,
+    sparedCategories,
+    lastNonZeroClean,
+    summaryLine,
     notification,
   };
 }
@@ -282,7 +429,7 @@ if (require.main === module) {
   const doNotify = argv.includes('--notify');
 
   if (doClean) {
-    const res = runDiskSmartClean({ notify: true });
+    const res = runDiskSmartClean({ notify: doNotify });
     if (jsonMode) console.log(JSON.stringify(res, null, 2));
     else {
       console.log(`=== Mac YOLO Disk Smart Clean: Reclaimed ${res.reclaimedGiB} GiB ===`);
@@ -295,7 +442,7 @@ if (require.main === module) {
 
   const scan = runDiskSmartScan();
   let notification = { sent: false };
-  if (doNotify || scan.disk.status !== 'HEALTHY' || scan.safeReclaimableGiB >= 1.0) {
+  if (doNotify) {
     notification = sendDiskGuardNotification({
       title: `🛡 Mac YOLO Disk Guard [${scan.disk.status}]`,
       subtitle: `${scan.disk.freeGiB} GiB Free (${scan.disk.usedPct}% used)`,
