@@ -4450,3 +4450,16 @@ Operationalizes McKinsey's *"What the Top Companies Do Differently With AI Codin
 - `.agents/skills/mckinsey-ai-coding-steal/skill-card.md`
 - `SKILLS.md` (append only)
 - `plan.md` (this append)
+
+## Fix 24/7 Promote Day-Rollover Pipeline Carryforward & Real Stripe IDs (append 2026-11-11) — `antigravity-promote-pipeline-carryforward`
+
+Fix `seedOpsFiles` in `tools/mac-yolo-24x7-promote.js` so day rollover carries forward prior real `sent` / `replied` / `proposed` rows from the latest `pipeline-status-*.tsv`, `prospects-*.tsv`, and `stripe-offer-map-*.tsv` before appending missing `CURATED_PROSPECTS` / `OFFERS` defaults (preventing new calendar days from dropping active `sent` prospects). Update `MAC_YOLO_STRIPE_CATALOG` in `tools/mac-yolo-stripe-provisioner.js` to use the live Stripe Product and Price IDs (`prod_VXQknQJDB6Vcjk` / `price_1UWLtAGGBpd520QYY4YLw7qG`, `prod_Uor7uKfiDqiKbZ` / `price_1TpDO4GGBpd520QY5xJsc1xI`, `prod_UqI6dgjzkH2x1Y` / `price_1UX2fNGGBpd520QYOES3xcnE`), and allow verified Gumroad checkout links (`https://iganapolsky.gumroad.com/l/...`) in `realPaymentLink` (`tools/payment-readiness.js`, `tools/revenue-action-board.js`).
+
+### File claims
+- `tools/mac-yolo-24x7-promote.js`
+- `tools/mac-yolo-stripe-provisioner.js`
+- `tools/payment-readiness.js`
+- `tools/revenue-action-board.js`
+- `tools/revenue-autonomous-loop.js`
+- `tests/test-mac-yolo-24x7-promote-carryforward.js`
+- `plan.md` (this append)

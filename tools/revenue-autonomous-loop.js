@@ -416,14 +416,15 @@ function loadContacts() {
     { email: 'edward.becker@gmail.com', prospect: 'eltmon', person: 'Edward Becker' },
     { email: 'founders@mindfort.ai', prospect: 'bluefully', person: 'MindFort founders' },
     { email: 'brandon@mindfort.ai', prospect: 'bluefully', person: 'Brandon Veiseh' },
-    { email: 'akul@mindfort.ai', prospect: 'bluefully', person: 'Akul Gupta' },
+    { email: 'akul@mindfort.ai', prospect: 'akul_mindfort', person: 'Akul Gupta' },
     { email: 'hello@cwai.co', prospect: 'catalystwayfare', person: 'Catalyst Wayfare' },
     { email: 'shokhan768@gmail.com', prospect: 'techreign', person: 'techreign' },
     { email: 'xiao75981@gmail.com', prospect: 'xiaotian283829691-dotcom', person: 'xiaotian' },
     { email: 'suleyman@joincarma.com', prospect: 'suleyman_a', person: 'Suleyman Alasgarli' },
-    { email: 'muhammad@joincarma.com', prospect: 'suleyman_a', person: 'Muhammad Alasgarli' },
+    { email: 'muhammad@joincarma.com', prospect: 'muhammad_carma', person: 'Muhammad Alasgarli' },
     { email: 'support@joincarma.com', prospect: 'suleyman_a', person: 'Carma support' },
     { email: 'deidre@meaningfulgigs.com', prospect: 'StephK', person: 'Deidre Graham' },
+    { email: 'femi@zerotrusted.ai', prospect: 'zerotrusted_ai', person: 'Femi' },
   ];
   for (const s of seeds) {
     map[s.email] = { ...s, ...(map[s.email] || {}), prospect: s.prospect };
