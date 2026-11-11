@@ -7,6 +7,9 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { routeRequest } = require('../tools/mac-yolo-service');
+const { getToolDefinitions } = require('../tools/mac-yolo-mcp-server');
+
+const TOOL_COUNT = getToolDefinitions().length;
 const {
   SAAS_PRODUCTS,
   MARKETPLACE_PLATFORMS,
@@ -19,10 +22,10 @@ const {
 } = require('../tools/ai-connectors-marketplace-publisher');
 
 describe('ai-connectors-marketplace-publisher', () => {
-  it('validates Anthropic Claude Connectors title and safety annotations on all 12 MCP tools', () => {
+  it('validates Anthropic Claude Connectors title and safety annotations on every MCP tool', () => {
     const res = validateMcpToolAnnotations();
     assert.equal(res.ok, true);
-    assert.equal(res.toolsCount, 12);
+    assert.equal(res.toolsCount, TOOL_COUNT);
     assert.equal(res.allToolsHaveTitleAndSafetyHints, true);
     assert.deepEqual(res.issues, []);
   });
@@ -45,7 +48,7 @@ describe('ai-connectors-marketplace-publisher', () => {
     const getMcp = routeRequest('GET', '/mcp');
     assert.equal(getMcp.status, 200);
     assert.equal(getMcp.body.transport, 'streamable-http');
-    assert.equal(getMcp.body.toolsCount, 12);
+    assert.equal(getMcp.body.toolsCount, TOOL_COUNT);
 
     const postMcpInit = routeRequest('POST', '/mcp', {
       jsonrpc: '2.0',
@@ -62,7 +65,7 @@ describe('ai-connectors-marketplace-publisher', () => {
       method: 'tools/list',
     });
     assert.equal(postMcpTools.status, 200);
-    assert.equal(postMcpTools.body.result.tools.length, 12);
+    assert.equal(postMcpTools.body.result.tools.length, TOOL_COUNT);
     assert.equal(typeof postMcpTools.body.result.tools[0].title, 'string');
     assert.equal(typeof postMcpTools.body.result.tools[0].annotations.readOnlyHint, 'boolean');
 

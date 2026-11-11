@@ -239,19 +239,35 @@ function summarizeNetworkPipeline(revenueDir = path.join(os.homedir(), '.hermes'
   return {
     ok: true,
     day,
+    allowUnattendedOutreach: false,
     networkLeadsCount,
     networkSentCount,
     networkGrossUsd,
   };
 }
 
+const ALLOW_UNATTENDED_OUTREACH = false;
+
+function assertNoUnattendedOutreach(action = 'outreach') {
+  const err = new Error(
+    `ERR_UNATTENDED_NETWORK_OUTREACH_FORBIDDEN: Happenstance/Bridge contacts are personal/calendar relationships. Automated ${action} is permanently disabled.`,
+  );
+  err.code = 'ERR_UNATTENDED_NETWORK_OUTREACH_FORBIDDEN';
+  throw err;
+}
+
 if (require.main === module) {
+  if (process.argv.includes('--send') || process.argv.includes('--auto-send')) {
+    assertNoUnattendedOutreach('CLI send');
+  }
   const summary = summarizeNetworkPipeline();
   process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
 }
 
 module.exports = {
   CORP_AIRGAP_RE,
+  ALLOW_UNATTENDED_OUTREACH,
+  assertNoUnattendedOutreach,
   isBlockedEmail,
   decompressBridgePayload,
   crossJoinHappenstanceAndBridge,
