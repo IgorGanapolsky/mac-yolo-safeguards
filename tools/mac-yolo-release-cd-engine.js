@@ -8,7 +8,7 @@
  * and Continuous Deployment (CD) Engine for `Mac YOLO` (`mac-yolo-safeguards`).
  *
  * Covers all 10 pillars:
- *   1. Observability  — Honest revenue ledger ($0today / $149 historical Stripe / $38 test) + Mac & MCP health
+ *   1. Observability  — points at the revenue systems of record; measures no cash itself
  *   2. Analytics      — Full-funnel telemetry (11,462 visitors, 13 checkout starts 24h, 4 cancel-page bounces)
  *   3. Versioning     — Semantic version sync across package.json, Info.plist (1.0.0 build 3), and MCP server
  *   4. Feature Flags  — Spotify Confidence ACTIVE flag lifecycle + typed schema validation
@@ -52,32 +52,18 @@ function sha256File(filePath) {
  * 1 & 2. Observability & Analytics Pillars (Honest Revenue + Funnel Telemetry)
  */
 function getObservabilityAndAnalytics() {
+  // Cash and traffic are not measured here. The figures that used to sit in this
+  // function were typed by hand and got quoted as live. Read the systems of record.
   return {
     observability: {
       ok: true,
-      clearedExternalStrangerCashTodayUsd: 0.0,
-      clearedExternalStrangerCash30dUsd: 0.0,
-      historicalReconciledStripeLifetimeUsd: 149.0,
-      founderTestChargesExcludedUsd: 38.0,
-      stagedB2bPipelineUsd: 9998.0,
-      mcpServersHealthy: '5/5',
-      launchAgentsHealthy: '120/120 (0 broken)',
+      cashMeasured: false,
+      cashSources: ['Stripe acct_1RNcJ1GGBpd520QY (Mac YOLO products)', 'Gumroad sales'],
     },
     analytics: {
       ok: true,
-      visitorsToday: 361,
-      visitors30d: 3972,
-      visitorsLifetime: 11462,
-      ctaClicksToday: 7,
-      ctaClicks30d: 114,
-      trueStripeCheckoutStartsToday: 8,
-      trueStripeCheckoutStarts24h: 13,
-      checkoutCancelPageViewsToday: 4,
-      checkoutCancelPageViews30d: 17,
-      npmDownloads30d: 1474,
-      gitClones14d: 427,
-      dmgDownloads: 20,
-      primaryBottleneck: 'checkout_start_to_paid_drop (8 checkout starts -> 4 cancel-page bounces on $499 tier)',
+      trafficMeasured: false,
+      trafficSources: ['Cloudflare Web Analytics (macyolosafeguards.io)', 'GitHub traffic API', 'GitHub release download counts'],
     },
   };
 }
@@ -265,8 +251,8 @@ if (require.main === module) {
     console.log(JSON.stringify(out, null, 2));
   } else {
     console.log(`=== Mac YOLO 10-Pillar Production & Revenue Engine: ${out.ok ? 'PASS (10/10 PILLARS VERIFIED)' : 'FAIL'} ===`);
-    console.log(`  1. Observability:     $${out.pillars.observability.clearedExternalStrangerCashTodayUsd.toFixed(2)} cleared today | $${out.pillars.observability.historicalReconciledStripeLifetimeUsd.toFixed(2)} historical Stripe | $${out.pillars.observability.stagedB2bPipelineUsd.toFixed(2)} pipeline`);
-    console.log(`  2. Analytics:         ${out.pillars.analytics.visitorsToday} visitors today (${out.pillars.analytics.visitorsLifetime} lifetime) -> ${out.pillars.analytics.trueStripeCheckoutStarts24h} Stripe checkout starts (24h) -> ${out.pillars.analytics.checkoutCancelPageViewsToday} cancel bounces`);
+    console.log(`  1. Observability:     cash not measured here; read ${out.pillars.observability.cashSources.join(' and ')}`);
+    console.log(`  2. Analytics:         traffic not measured here; read ${out.pillars.analytics.trafficSources.join(', ')}`);
     console.log(`  3. Versioning:        v${out.pillars.versioning.semver} (build ${out.pillars.versioning.macAppBuildNumber}, ASC ID ${out.pillars.versioning.ascBundleRecordId})`);
     console.log(`  4. Feature Flags:     ${out.pillars.featureFlags.activeCount} ACTIVE flags verified`);
     console.log(`  5. A/B Testing:       ${out.pillars.abTesting.experimentKey} (${out.pillars.abTesting.trafficSplit})`);
