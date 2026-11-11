@@ -2,24 +2,27 @@
 'use strict';
 
 /**
- * whatsapp-instinct-driver.js — Safe, Single-Target WhatsApp Instinct Copilot Driver
+ * whatsapp-instinct-driver.js — Safe, Product-Scoped WhatsApp Instinct Copilot Driver
  *
- * Drives the Instinct AI assistant inside WhatsApp Desktop on macOS to perform
- * public market research, buyer-intent discovery, and grant/directory scouting
- * for ThumbGate (https://thumbgate.app) and Florida distressed real estate.
+ * Drives the Instinct AI assistant inside WhatsApp Desktop on macOS strictly for
+ * the `mac-yolo-safeguards` product (https://github.com/IgorGanapolsky/mac-yolo-safeguards
+ * and https://thumbgate.app).
  *
- * HARD SAFETY INVARIANTS (NON-NEGOTIABLE):
+ * Because Instinct is shared across multiple products/agents simultaneously in the
+ * same WhatsApp thread (`ZCHATSESSION = 3`), this driver enforces strict product
+ * isolation (`MONEY v6.0 §2`):
  *   1. Locked strictly to Instinct's WhatsApp session:
  *      - Phone: `16508702892` (+1 650-870-2892)
  *      - JID:   `23949492670633@lid`
- *      - Any attempt to target any other phone number, JID, or contact throws
- *        `ERR_WHATSAPP_NON_INSTINCT_TARGET_FORBIDDEN`.
- *   2. Zero External Outreach:
- *      - Any prompt instructing Instinct to send emails, messages, texts, or invites
- *        to external contacts or calendar entries throws `ERR_EXTERNAL_OUTREACH_FORBIDDEN`.
- *   3. Read-Only SQLite Inspection:
- *      - Reads `~/Library/Group Containers/group.net.whatsapp.WhatsApp.shared/ChatStorage.sqlite`
- *        via `sqlite3 -readonly` scoped exclusively to `ZCHATSESSION = 3` (`23949492670633@lid`).
+ *      - Throws `ERR_WHATSAPP_NON_INSTINCT_TARGET_FORBIDDEN` on any other contact.
+ *   2. Product-Boundary Isolation (`PRODUCT_ID = 'mac-yolo-safeguards'`):
+ *      - Rejects prompts mentioning unrelated products (`ERR_CROSS_PRODUCT_MIX_FORBIDDEN`).
+ *      - Filters shared Instinct thread replies strictly to `mac-yolo-safeguards` /
+ *        `thumbgate.app` / macOS coding-agent safeguard topics, ignoring concurrent
+ *        threads from other products.
+ *   3. Zero External Outreach:
+ *      - Throws `ERR_EXTERNAL_OUTREACH_FORBIDDEN` if a prompt requests outbound
+ *        emails, texts, or invites to external people.
  */
 
 const fs = require('fs');
@@ -27,6 +30,7 @@ const path = require('path');
 const os = require('os');
 const { execFileSync } = require('child_process');
 
+const PRODUCT_ID = 'mac-yolo-safeguards';
 const INSTINCT_PHONE = '16508702892';
 const INSTINCT_JID = '23949492670633@lid';
 const INSTINCT_SESSION_PK = 3;
@@ -41,6 +45,12 @@ const DEFAULT_DB_PATH = path.join(
 
 const OUTREACH_FORBIDDEN_RE =
   /\b(?:send\s+(?:an?\s+)?(?:email|text|message|invite|dm)\s+to|email\s+my\s+contacts|message\s+my\s+calendar|blast\s+contacts)\b/i;
+
+const UNRELATED_PRODUCT_RE =
+  /\b(?:foreclosure|tax-deed|tax\s+deed|tax-lien|probate|miami-dade|broward|palm\s+beach|distressed-property|somelco|monceau|prop-hunters|labros)\b/i;
+
+const MAC_YOLO_RELEVANT_RE =
+  /\b(?:mac-yolo-safeguards|thumbgate|claude-code|cursor|codex|windowserver|mac\s+freeze|orphaned\s+git|runaway-process|devhunt|show\s+hn|aws\s+activate|pre-action|tool\s+calls|subprocess)\b/i;
 
 function assertInstinctTargetOnly(target = {}) {
   const phone = String(target.phone || INSTINCT_PHONE).replace(/[^\d]/g, '');
@@ -64,7 +74,13 @@ function validateInstinctPrompt(promptText) {
     err.code = 'ERR_EMPTY_INSTINCT_PROMPT';
     throw err;
   }
-  // Allow explicit negation ("Never send emails, texts, or invites"), block affirmative outreach requests
+  if (UNRELATED_PRODUCT_RE.test(text)) {
+    const err = new Error(
+      'ERR_CROSS_PRODUCT_MIX_FORBIDDEN: Prompts from mac-yolo-safeguards must focus exclusively on mac-yolo-safeguards / thumbgate.app and never mix unrelated products.',
+    );
+    err.code = 'ERR_CROSS_PRODUCT_MIX_FORBIDDEN';
+    throw err;
+  }
   const withoutNegations = text.replace(
     /\b(?:never|do\s+not|don't|no)\s+(?:send|email|message|invite)[^.\n]*/gi,
     '',
@@ -76,15 +92,29 @@ function validateInstinctPrompt(promptText) {
     err.code = 'ERR_EXTERNAL_OUTREACH_FORBIDDEN';
     throw err;
   }
-  return text;
+  return text.startsWith(`[PRODUCT: ${PRODUCT_ID}]`) ? text : `[PRODUCT: ${PRODUCT_ID}] ${text}`;
+}
+
+function isMacYoloSafeguardsMessage(text) {
+  const clean = String(text || '');
+  if (!clean) return false;
+  if (UNRELATED_PRODUCT_RE.test(clean) && !clean.includes('mac-yolo-safeguards')) {
+    return false;
+  }
+  return MAC_YOLO_RELEVANT_RE.test(clean);
 }
 
 function extractStructuredIntelFromMessages(messages = []) {
   const urls = new Set();
   const assistantReplies = [];
+  let ignoredOtherProductCount = 0;
 
   for (const m of messages) {
     if (!m || typeof m.text !== 'string') continue;
+    if (!isMacYoloSafeguardsMessage(m.text)) {
+      if (!m.isFromMe) ignoredOtherProductCount++;
+      continue;
+    }
     if (!m.isFromMe) {
       assistantReplies.push({
         pk: m.pk,
@@ -100,7 +130,9 @@ function extractStructuredIntelFromMessages(messages = []) {
   }
 
   return {
+    productId: PRODUCT_ID,
     assistantReplyCount: assistantReplies.length,
+    ignoredOtherProductCount,
     latestAssistantReply: assistantReplies.length > 0 ? assistantReplies[assistantReplies.length - 1] : null,
     extractedUrls: Array.from(urls),
     assistantReplies,
@@ -110,11 +142,12 @@ function extractStructuredIntelFromMessages(messages = []) {
 function readInstinctThread(options = {}) {
   assertInstinctTargetOnly(options);
   const dbPath = options.dbPath || DEFAULT_DB_PATH;
-  const limit = Math.max(1, Math.min(50, Number(options.limit) || 15));
+  const limit = Math.max(1, Math.min(50, Number(options.limit) || 25));
 
   if (!fs.existsSync(dbPath)) {
     return {
       ok: false,
+      productId: PRODUCT_ID,
       reason: 'whatsapp_db_not_found',
       dbPath,
       messages: [],
@@ -140,7 +173,6 @@ LIMIT ${limit};`;
     .map((line) => {
       try {
         const parsed = JSON.parse(line);
-        // CoreData timestamp epoch is 2001-01-01T00:00:00Z (+978307200s from Unix epoch)
         const unixMs = parsed.ts ? Math.round((Number(parsed.ts) + 978307200) * 1000) : null;
         return {
           pk: parsed.pk,
@@ -158,20 +190,20 @@ LIMIT ${limit};`;
   const intel = extractStructuredIntelFromMessages(rows);
   return {
     ok: true,
+    productId: PRODUCT_ID,
     target: {
       name: 'Instinct',
       phone: INSTINCT_PHONE,
       jid: INSTINCT_JID,
       sessionPk: INSTINCT_SESSION_PK,
     },
-    messageCount: rows.length,
-    messages: rows,
+    totalThreadMessagesScanned: rows.length,
     intel,
   };
 }
 
 if (require.main === module) {
-  const status = readInstinctThread({ limit: 12 });
+  const status = readInstinctThread({ limit: 30 });
   const outDir = path.join(os.homedir(), '.hermes', 'business_os', 'revenue');
   try {
     if (fs.existsSync(outDir)) {
@@ -188,11 +220,13 @@ if (require.main === module) {
 }
 
 module.exports = {
+  PRODUCT_ID,
   INSTINCT_PHONE,
   INSTINCT_JID,
   INSTINCT_SESSION_PK,
   assertInstinctTargetOnly,
   validateInstinctPrompt,
+  isMacYoloSafeguardsMessage,
   extractStructuredIntelFromMessages,
   readInstinctThread,
 };

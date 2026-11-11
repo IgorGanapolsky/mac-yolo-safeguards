@@ -11,11 +11,13 @@ const {
 } = require('../tools/emeans-quant-router');
 
 const {
+  PRODUCT_ID,
   INSTINCT_PHONE,
   INSTINCT_JID,
   INSTINCT_SESSION_PK,
   assertInstinctTargetOnly,
   validateInstinctPrompt,
+  isMacYoloSafeguardsMessage,
   extractStructuredIntelFromMessages,
 } = require('../tools/whatsapp-instinct-driver');
 
@@ -52,7 +54,6 @@ test('emeansCluster converges accurately on synthetic blobs and eliminates dead 
   ];
   const vectors = [];
   for (let c = 0; c < centers.length; c++) {
-    // Intentionally imbalanced cluster sizes (120, 40, 40, 20)
     const count = c === 0 ? 120 : c === 3 ? 20 : 40;
     for (let i = 0; i < count; i++) {
       const offset = ((i % 7) - 3) * 0.1;
@@ -103,32 +104,53 @@ test('whatsapp-instinct-driver strictly locks to Instinct JID/phone and blocks a
   );
 });
 
-test('whatsapp-instinct-driver blocks external outreach instructions while allowing safe research prompts', () => {
+test('whatsapp-instinct-driver enforces mac-yolo-safeguards product boundary and blocks outreach or cross-product mixing', () => {
   const validPrompt = validateInstinctPrompt(
-    'Never send emails, texts, or invites. Find 5 public Reddit/HN discussions on AI agent safety.',
+    'Never send emails, texts, or invites. Find 5 public GitHub issues where Claude Code or Cursor freezes macOS.',
   );
-  assert.ok(validPrompt.includes('Find 5 public'));
+  assert.ok(validPrompt.startsWith(`[PRODUCT: ${PRODUCT_ID}]`));
 
   assert.throws(
     () => validateInstinctPrompt('Please send an email to my contacts about ThumbGate'),
     /ERR_EXTERNAL_OUTREACH_FORBIDDEN/,
   );
+
+  assert.throws(
+    () => validateInstinctPrompt('Find foreclosure and tax-deed buyers in Miami-Dade and Broward'),
+    /ERR_CROSS_PRODUCT_MIX_FORBIDDEN/,
+  );
 });
 
-test('extractStructuredIntelFromMessages parses assistant replies and URLs cleanly', () => {
+test('extractStructuredIntelFromMessages keeps mac-yolo-safeguards replies and ignores concurrent products in Instinct thread', () => {
+  assert.equal(isMacYoloSafeguardsMessage('Mac freeze from 309 orphaned git processes in claude-code'), true);
+  assert.equal(isMacYoloSafeguardsMessage('Foreclosure and tax-deed auction properties in Broward'), false);
+
   const intel = extractStructuredIntelFromMessages([
-    { pk: 170, isFromMe: true, timestamp: '2026-11-11T18:56:43Z', text: 'Check https://thumbgate.app' },
+    {
+      pk: 170,
+      isFromMe: true,
+      timestamp: '2026-11-11T18:56:43Z',
+      text: '[PRODUCT: mac-yolo-safeguards] Check https://thumbgate.app',
+    },
     {
       pk: 171,
       isFromMe: false,
       timestamp: '2026-11-11T18:56:53Z',
-      text: 'Found thread: https://news.ycombinator.com/item?id=12345.',
+      text: 'Claude Code issue for mac-yolo-safeguards: https://github.com/anthropics/claude-code/issues/108551.',
+    },
+    {
+      pk: 196,
+      isFromMe: false,
+      timestamp: '2026-11-11T19:02:16Z',
+      text: 'Foreclosure and tax-deed auction properties in Miami-Dade and Broward: https://monceaurealty.com/',
     },
   ]);
+  assert.equal(intel.productId, 'mac-yolo-safeguards');
   assert.equal(intel.assistantReplyCount, 1);
+  assert.equal(intel.ignoredOtherProductCount, 1);
   assert.deepEqual(intel.extractedUrls, [
     'https://thumbgate.app',
-    'https://news.ycombinator.com/item?id=12345',
+    'https://github.com/anthropics/claude-code/issues/108551',
   ]);
 });
 
