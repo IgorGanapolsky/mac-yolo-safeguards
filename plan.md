@@ -4420,3 +4420,17 @@ The 2026-11-08 email (`~/Downloads/confidence.pdf`, `Meet the Confidence Agent, 
 - `tests/test-gmail-outreach-reply-scan.js`
 - `plan.md` (this append)
 
+## 24/7 LinkedIn + Bluesky daily post, reply, engagement & Flowstate.com conversion autopilot (append 2026-11-11) — `antigravity-linkedin-24x7-autopilot`
+
+Wire a deterministic, gate-enforced 24/7 LinkedIn (`tools/linkedin-24x7-autopilot.js`) and Bluesky + Flowstate.com conversion engine (`tools/bluesky-flowstate-monetizer.js`, `docs/funnel/flowstate-intake-monetizer.html`) into `tools/mac-yolo-24x7-promote.js`, and fix `tools/verify-public-post.js` to extract Bluesky's `<p id="bsky_post_text">` SSR payload before `<noscript>` stripping. Enforces `social-publish-gate.js` (`--platform linkedin|bluesky --require-buy-links`), word-boundary hostile/bot detection (`\bbot\b` so words like `"both"` are never dropped), thread-aware AT Protocol reply deduplication, Flowstate.com 2-step micro-commitment intake + hard disqualification routing (`conversionBeaconAllowed: false` on `/not-a-fit`), persistent first-touch `localStorage` UTM attribution, `<link rel="preconnect">` checkout warmups, and vendor-neutral OpenTelemetry (`otel`) span emission.
+
+### File claims
+- `tools/linkedin-24x7-autopilot.js`
+- `tests/test-linkedin-24x7-autopilot.js`
+- `tools/bluesky-flowstate-monetizer.js`
+- `tests/test-bluesky-flowstate-monetizer.js`
+- `docs/funnel/flowstate-intake-monetizer.html`
+- `tools/verify-public-post.js`
+- `tools/mac-yolo-24x7-promote.js`
+- `plan.md` (this append)
+

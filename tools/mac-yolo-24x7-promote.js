@@ -323,6 +323,20 @@ function main() {
   } catch (e) {
     wabiSalesOps = { ok: false, error: e.message };
   }
+  const { runLinkedIn24x7Autopilot } = require('./linkedin-24x7-autopilot');
+  let linkedinAutopilot;
+  try {
+    linkedinAutopilot = runLinkedIn24x7Autopilot({ date });
+  } catch (e) {
+    linkedinAutopilot = { ok: false, error: e.message };
+  }
+  const { runBlueskyFlowstateMonetizer } = require('./bluesky-flowstate-monetizer');
+  let blueskyFlowstate;
+  try {
+    blueskyFlowstate = runBlueskyFlowstateMonetizer({ date });
+  } catch (e) {
+    blueskyFlowstate = { ok: false, error: e.message };
+  }
   let thumbgateMakeMoney = { skipped: true };
   let dayglassMakeMoney = { skipped: true };
   if (!skipSiblings) {
@@ -354,7 +368,9 @@ function main() {
       Boolean(gurobiBatch.ok) &&
       Boolean(supabaseIbm.ok) &&
       Boolean(tailscaleSteals.ok) &&
-      Boolean(wabiSalesOps.ok),
+      Boolean(wabiSalesOps.ok) &&
+      Boolean(linkedinAutopilot.ok) &&
+      Boolean(blueskyFlowstate.ok),
     startedAt,
     completedAt: new Date().toISOString(),
     date,
@@ -374,6 +390,8 @@ function main() {
       declarativeSchemaAndConfusionGate: Boolean(supabaseIbm.ok),
       tailscaleOctoberStealsGate: Boolean(tailscaleSteals.ok),
       wabiSalesOperationsGate: Boolean(wabiSalesOps.ok),
+      linkedin24x7AutopilotGate: Boolean(linkedinAutopilot.ok),
+      blueskyFlowstateGate: Boolean(blueskyFlowstate.ok),
     },
     gurobiProof: gurobiBatch.proof || null,
     supabaseIbmSummary: {
@@ -395,6 +413,20 @@ function main() {
       error: wabiSalesOps.error || null,
       recommendedTier: wabiSalesOps.wabiPillars?.collaborativeDealPlan?.recommendedTier ?? null,
       activeRecoveryWindowsCount: wabiSalesOps.wabiPillars?.deadlineRecoveryScanner?.activeWindowsCount ?? 0,
+    },
+    linkedin24x7Summary: {
+      ok: Boolean(linkedinAutopilot.ok),
+      campaign: linkedinAutopilot.dailyPostCandidate?.campaign ?? null,
+      gateDecision: linkedinAutopilot.dailyPostCandidate?.gateDecision ?? null,
+      alreadyPostedToday: Boolean(linkedinAutopilot.crossRepoState?.alreadyPostedToday),
+      proactiveFeedReadyCount: linkedinAutopilot.proactiveFeedEngagementReadyCount ?? 0,
+    },
+    blueskyFlowstateSummary: {
+      ok: Boolean(blueskyFlowstate.ok),
+      campaign: blueskyFlowstate.gate?.campaign ?? null,
+      gateDecision: blueskyFlowstate.gate?.decision ?? null,
+      alreadyPostedToday: Boolean(blueskyFlowstate.alreadyPostedToday),
+      funnelHtmlPresent: Boolean(blueskyFlowstate.flowstateFunnel?.funnelHtmlPresent),
     },
     siblingEngines: {
       thumbgateMakeMoney,
