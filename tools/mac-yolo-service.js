@@ -201,6 +201,15 @@ function routeRequest(method, rawUrl, bodyObj = {}) {
     return { status: 200, body: buildMarketplaceCatalogReport() };
   }
 
+  if (method === 'GET' && pathname === '/api/graphrag') {
+    const { runAgenticSearchTier, runSelfTest: runGraphRagSelfTest } = require('./agentic-graphrag-hypergraph-engine');
+    const q = parsedUrl.searchParams.get('q');
+    return {
+      status: 200,
+      body: q ? runAgenticSearchTier(q) : runGraphRagSelfTest(),
+    };
+  }
+
   return { status: 404, body: { ok: false, error: `Not found: ${method} ${pathname}` } };
 }
 
@@ -235,6 +244,7 @@ function runSelfTest() {
   const flagsRes = routeRequest('GET', '/api/flags?state=ACTIVE');
   const guardrailsRes = routeRequest('GET', '/api/guardrails');
   const businessRes = routeRequest('GET', '/api/business');
+  const graphRagRes = routeRequest('GET', '/api/graphrag');
   const resolveRes = routeRequest('POST', '/api/flags/resolve', {
     flagKey: 'yolo-sim-runaway-reaper',
     subjectId: 'self-test',
@@ -249,12 +259,14 @@ function runSelfTest() {
     guardrailsRes.body.ok === true &&
     businessRes.status === 200 &&
     businessRes.body.tiers.length === 5 &&
+    graphRagRes.status === 200 &&
+    graphRagRes.body.ok === true &&
     resolveRes.status === 200 &&
     resolveRes.body.ok === true;
 
   return {
     ok,
-    endpointsVerified: ['/api/status', '/api/flags?state=ACTIVE', '/api/guardrails', '/api/business', '/api/sdlc-prompts', '/api/observability/revenue', '/api/disk', '/api/agents', '/api/agents/pressure', '/api/system-care', '/api/sales/wabi', '/api/flags/resolve'],
+    endpointsVerified: ['/api/status', '/api/flags?state=ACTIVE', '/api/guardrails', '/api/business', '/api/sdlc-prompts', '/api/observability/revenue', '/api/disk', '/api/agents', '/api/agents/pressure', '/api/system-care', '/api/sales/wabi', '/api/graphrag', '/api/flags/resolve'],
     activeFlagsCount: flagsRes.body.returnedCount,
     guardrailsOk: guardrailsRes.body.ok,
     businessTiersCount: businessRes.body.tiers.length,

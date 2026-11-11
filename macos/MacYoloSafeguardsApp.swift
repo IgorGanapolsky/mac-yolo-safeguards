@@ -1097,6 +1097,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var wifiLookupRetryAt: Date = .distantPast
     var statusSettingsSyncedAt: Date = .distantPast
     var netHistory: [(t: Date, inn: UInt64, out: UInt64)] = []
+    var lastCpuTicks: [UInt32]? = nil
     var lastUpKB: Int = 0
     var lastDownKB: Int = 0
     var cachedMenuBarIcon: NSImage?
@@ -1577,7 +1578,8 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         if lower.contains("opendirectoryd") { return "Directory Services" }
         if lower.contains("jamf") { return "Jamf Protect" }
         if lower.contains("llama-server") || base == "ollama" { return "Ollama" }
-        if base == "mds" || base.hasPrefix("mds_") { return "Spotlight" }
+        if base == "mds" || base.hasPrefix("mds_") || base == "mdworker_shared" { return "Spotlight" }
+        if base == "mediaanalysisd" || base == "photoanalysisd" { return "Photos Analysis" }
         if base == "WindowServer" { return "WindowServer" }
         if lower.contains("claude") { return "Claude" }
         if lower.contains("cursor") { return "Cursor" }
@@ -1747,7 +1749,10 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let topCpu = ranked.first.map { cpuByApp[$0, default: 0] } ?? 0
         let hot = appleThermalWarning()
         let rTitle = "Top Hogs: \(shortStr)"
-        let rDesc = "\(totalProcs) live procs (\(pyCount) Python, \(nodeCount) node MCPs) · Thermal: \(hot ? "Warning" : "Nominal"). Click any card to inspect."
+        let systemIndexers: Set<String> = ["Spotlight", "Photos Analysis"]
+        let topByCpu = cpuByApp.max { $0.value < $1.value }?.key
+        let indexerNote = topByCpu.map { systemIndexers.contains($0) ? "\($0) is a protected macOS service (busy after a restart or large file changes). Safeguards cannot throttle it; it settles on its own. " : "" } ?? ""
+        let rDesc = indexerNote + "\(totalProcs) live procs (\(pyCount) Python, \(nodeCount) node MCPs) · Thermal: \(hot ? "Warning" : "Nominal"). Click any card to inspect."
         let cpuRows = ranked.prefix(6).enumerated().map { idx, name in
             let c = cpuByApp[name, default: 0]
             let gb = rssByApp[name, default: 0] / 1_048_576.0
@@ -1778,11 +1783,33 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         return (shortStr.isEmpty ? "Idle" : shortStr, rTitle, rDesc, cpuRows, memRows, fleetRows, topCpu, totalProcs, pyCount, nodeCount, swarmStr, realCpuPct)
     }
 
+    func sampleCpuBusyPct() -> Int? {
+        var info = host_cpu_load_info()
+        var count = mach_msg_type_number_t(MemoryLayout<host_cpu_load_info_data_t>.stride / MemoryLayout<integer_t>.stride)
+        let host = mach_host_self()
+        defer { mach_port_deallocate(mach_task_self_, host) }
+        let kr = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                host_statistics(host, HOST_CPU_LOAD_INFO, $0, &count)
+            }
+        }
+        guard kr == KERN_SUCCESS else { return nil }
+        let ticks = [info.cpu_ticks.0, info.cpu_ticks.1, info.cpu_ticks.2, info.cpu_ticks.3]
+        defer { lastCpuTicks = ticks }
+        guard let prev = lastCpuTicks else { return nil }
+        let delta = zip(ticks, prev).map { UInt64($0 &- $1) }
+        let total = delta.reduce(0, +)
+        guard total > 0 else { return nil }
+        let busy = total - delta[Int(CPU_STATE_IDLE)]
+        return Int((Double(busy) / Double(total) * 100.0).rounded())
+    }
+
     func refreshLiveTelemetry() {
         syncStatusBarIconFromSettingsFile()
         var load: [Double] = [0.0, 0.0, 0.0]
         getloadavg(&load, 3)
         let ncpu = max(1, ProcessInfo.processInfo.activeProcessorCount)
+        let loadPct = Int(round((load[0] / Double(ncpu)) * 100.0))
         let load1Str = String(format: "%.1f", load[0])
         let load5Str = String(format: "%.1f", load[1])
         let load15Str = String(format: "%.1f", load[2])
@@ -1837,7 +1864,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let agentDir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/LaunchAgents").path
         let agentCount = (try? FileManager.default.contentsOfDirectory(atPath: agentDir).filter { $0.hasSuffix(".plist") }.count) ?? 88
         let culprits = sampleTopCpuCulprits()
-        let cpuPct = culprits.totalCpuPct
+        let cpuPct = min(100, max(3, sampleCpuBusyPct() ?? culprits.totalCpuPct))
         let gpu = sampleAppleSiliconGpu()
         let sess = sampleLiveSessionFiles()
 
@@ -1855,7 +1882,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         }
 
         let detailCpuFull = [
-            "1m / 5m / 15m Kernel Load Avg|\(load1Str) / \(load5Str) / \(load15Str) (\(ncpu) cores)|\(cpuPct)",
+            "1m / 5m / 15m Kernel Load Avg|\(load1Str) / \(load5Str) / \(load15Str) (\(ncpu) cores)|\(min(100, max(3, loadPct)))",
             String(format: "Apple Silicon GPU (AGXAccelerator)|%d%% Device · %d%% Renderer · %.1f GB VRAM|%d", gpu.devicePct, gpu.rendererPct, gpu.vramGB, gpu.devicePct),
             culprits.detailCpu,
         ].joined(separator: ";;")
