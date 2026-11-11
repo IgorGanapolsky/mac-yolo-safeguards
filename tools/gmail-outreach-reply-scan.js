@@ -400,7 +400,7 @@ function gmailApiCollectRows() {
     rows,
     title: `Gmail API: ${rows.length} matching message(s)`,
     href: `https://mail.google.com/mail/u/0/#search/${encodeURIComponent(query)}`,
-    diag: null,
+    diag: rows.length === 0 ? { emptyStateVisible: true } : null,
   };
 }
 
