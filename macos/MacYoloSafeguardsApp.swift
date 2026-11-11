@@ -1581,7 +1581,8 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let hot = appleThermalWarning()
         let rTitle = "Top Hogs: \(shortStr)"
         let systemIndexers: Set<String> = ["Spotlight", "Photos Analysis"]
-        let indexerNote = ranked.first.map { systemIndexers.contains($0) ? "\($0) is a protected macOS service (busy after a restart or large file changes). Safeguards cannot throttle it; it settles on its own. " : "" } ?? ""
+        let topByCpu = cpuByApp.max { $0.value < $1.value }?.key
+        let indexerNote = topByCpu.map { systemIndexers.contains($0) ? "\($0) is a protected macOS service (busy after a restart or large file changes). Safeguards cannot throttle it; it settles on its own. " : "" } ?? ""
         let rDesc = indexerNote + "\(totalProcs) live procs (\(pyCount) Python, \(nodeCount) node MCPs) · Thermal: \(hot ? "Warning" : "Nominal"). Click any card to inspect."
         let cpuRows = ranked.prefix(8).enumerated().map { idx, name in
             let c = cpuByApp[name, default: 0]
@@ -1618,9 +1619,11 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     func sampleCpuBusyPct() -> Int? {
         var info = host_cpu_load_info()
         var count = mach_msg_type_number_t(MemoryLayout<host_cpu_load_info_data_t>.stride / MemoryLayout<integer_t>.stride)
+        let host = mach_host_self()
+        defer { mach_port_deallocate(mach_task_self_, host) }
         let kr = withUnsafeMutablePointer(to: &info) {
             $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
-                host_statistics(mach_host_self(), HOST_CPU_LOAD_INFO, $0, &count)
+                host_statistics(host, HOST_CPU_LOAD_INFO, $0, &count)
             }
         }
         guard kr == KERN_SUCCESS else { return nil }
@@ -1712,7 +1715,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         }
 
         let detailCpuFull = [
-            "1m / 5m / 15m Kernel Load Avg|\(load1Str) / \(load5Str) / \(load15Str) (\(ncpu) cores)|\(cpuPct)",
+            "1m / 5m / 15m Kernel Load Avg|\(load1Str) / \(load5Str) / \(load15Str) (\(ncpu) cores)|\(min(100, max(3, loadPct)))",
             String(format: "Apple Silicon GPU (AGXAccelerator)|%d%% Device · %d%% Renderer · %.1f GB VRAM|%d", gpu.devicePct, gpu.rendererPct, gpu.vramGB, gpu.devicePct),
             culprits.detailCpu,
         ].joined(separator: ";;")
