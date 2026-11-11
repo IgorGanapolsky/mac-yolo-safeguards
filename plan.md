@@ -4438,3 +4438,15 @@ Wire a deterministic, gate-enforced 24/7 LinkedIn (`tools/linkedin-24x7-autopilo
 - `tools/mac-yolo-24x7-promote.js`
 - `plan.md` (this append)
 
+## McKinsey AI Coding Operating System 5-Pillar Engine (append 2026-11-11) — `antigravity-mckinsey-ai-coding-steal`
+
+Operationalizes McKinsey's *"What the Top Companies Do Differently With AI Coding"* (`https://www.youtube.com/watch?v=21tuT-e4NVo` — Martin Harrysson, Prakhar Dixit, Shilpa): (1) 1–2 day Kanban & Night-Shift loops (`buildNightShiftKanbanPlan`), strict standardized PRD input validator (`validateStandardPrd`), and progressive autonomy pullback (`evaluateProgressiveAutonomy`); (2) 2–4 agent mini-pod sizing, role collapse (`Definer` + `Builder` + `Reviewer`), and review-first validation parity (`evaluateMiniPodStructure`); (3) Tribal Knowledge semantic layer, curated Golden Examples (not codebase averages), and vetted skill allowlist (`getGoldenExamplesAndTribalKnowledge`); (4) Baked-in "Sideways" Enterprise Guardrails (`runSidewaysGuardrailsGate` enforcing WCAG AA contrast $\ge 4.5:1$, colorblind safety, $\ge 44\text{px}$ tap targets, `:focus-visible`, `$10/mo` cap, and `CORP_AIRGAP_RE`/secret DLP); and (5) Token ROI AIOps scoring (`scoreTaskTokenRoi`) with OpenTelemetry (`otel`) span emission.
+
+### File claims
+- `config/mckinsey-ai-coding-system.json`
+- `tools/mckinsey-ai-coding-steal.js`
+- `tests/test-mckinsey-ai-coding-steal.js`
+- `.agents/skills/mckinsey-ai-coding-steal/SKILL.md`
+- `.agents/skills/mckinsey-ai-coding-steal/skill-card.md`
+- `SKILLS.md` (append only)
+- `plan.md` (this append)
