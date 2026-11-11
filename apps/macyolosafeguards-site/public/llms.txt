@@ -18,7 +18,7 @@ Author: Igor Ganapolsky
 
 - DMG: https://macyolosafeguards.io/go/dmg (MacYoloSafeguards-1.1.1.dmg, SHA256 cdde221a2a4d9448ab83373694240dda80b0300eb3322497b4b4b48aade17ad7)
 - PKG: https://macyolosafeguards.io/go/pkg
-- Homebrew: `brew install --cask igorganapolsky/tap/mac-yolo-safeguards`
+- Homebrew: `brew tap igorganapolsky/tap && brew trust --cask igorganapolsky/tap/mac-yolo-safeguards && brew install --cask mac-yolo-safeguards` (Homebrew 7 requires the trust step for third-party taps)
 
 All downloads are signed with an Apple Developer ID and notarized.
 
