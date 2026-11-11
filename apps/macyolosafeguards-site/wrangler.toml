@@ -8,3 +8,5 @@ preview_urls = false
 [assets]
 directory = "public"
 binding = "ASSETS"
+# Let the Worker see "/" first so Accept: text/markdown negotiation runs before the static index.html.
+run_worker_first = ["/", "/index.html"]
