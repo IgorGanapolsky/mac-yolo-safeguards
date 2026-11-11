@@ -1,7 +1,25 @@
 {
   "name": "mac-yolo-safeguards-skills",
-  "description": "Cursor plugin skill registry",
+  "description": "Cursor plugin skill registry & PreToolUse MCP guardrails for Mac YOLO Safeguards, ThumbGate, and Dayglass",
   "version": "1.0.0",
+  "author": {
+    "name": "Igor Ganapolsky",
+    "email": "ig5973700@gmail.com",
+    "url": "https://thumbgate.app"
+  },
+  "homepage": "https://github.com/IgorGanapolsky/mac-yolo-safeguards",
+  "repository": "https://github.com/IgorGanapolsky/mac-yolo-safeguards",
+  "license": "MIT",
+  "mcpServers": {
+    "mac-yolo-safeguards": {
+      "command": "node",
+      "args": ["tools/mac-yolo-mcp-server.js"]
+    },
+    "thumbgate": {
+      "command": "npx",
+      "args": ["--yes", "--package", "thumbgate", "thumbgate", "serve"]
+    }
+  },
   "skills": [
     {
       "name": "agent-session-start",

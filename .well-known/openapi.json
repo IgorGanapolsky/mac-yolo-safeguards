@@ -1,0 +1,80 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Mac YOLO Safeguards, ThumbGate & Dayglass AI Connector API",
+    "description": "OpenAPI 3.1.0 connector specification for ChatGPT Actions, Perplexity Connectors, xAI Grok Plugins, Claude Connectors, Cursor, and Google Gemini Extensions.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Igor Ganapolsky",
+      "email": "ig5973700@gmail.com",
+      "url": "https://thumbgate.app"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://thumbgate.app",
+      "description": "Hosted ThumbGate & Mac YOLO Safeguards Connector Gateway"
+    },
+    {
+      "url": "http://127.0.0.1:8766",
+      "description": "Local macOS Control-Plane & Streamable HTTP MCP Service"
+    }
+  ],
+  "paths": {
+    "/api/status": {
+      "get": {
+        "operationId": "getMacYoloHealthStatus",
+        "summary": "Get live macOS load average, runaway simulator count, memory headroom, and $10/mo token budget status",
+        "responses": {
+          "200": {
+            "description": "Live health status and token budget pacing"
+          }
+        }
+      }
+    },
+    "/api/guardrails": {
+      "get": {
+        "operationId": "getUnifiedGuardrailsAudit",
+        "summary": "Run unified PreToolUse, Supabase Declarative Schema, Anti-Paperclipping, and Tailscale security audit",
+        "responses": {
+          "200": {
+            "description": "Guardrail audit results"
+          }
+        }
+      }
+    },
+    "/api/business": {
+      "get": {
+        "operationId": "getCommercialProductCatalog",
+        "summary": "Return packaged Mac YOLO Safeguards, ThumbGate, and Dayglass product catalog and pricing tiers",
+        "responses": {
+          "200": {
+            "description": "Commercial product suite and checkout tiers"
+          }
+        }
+      }
+    },
+    "/api/marketplace/connectors": {
+      "get": {
+        "operationId": "getMarketplaceConnectorsDirectory",
+        "summary": "List install links, manifests, and status across Claude Connectors, Cursor, Gemini, ChatGPT, Grok, and Perplexity marketplaces",
+        "responses": {
+          "200": {
+            "description": "Multi-platform AI Connector directory manifest"
+          }
+        }
+      }
+    },
+    "/mcp": {
+      "post": {
+        "operationId": "postStreamableHttpMcpRpc",
+        "summary": "Streamable HTTP JSON-RPC 2.0 Model Context Protocol endpoint (initialize, tools/list, tools/call)",
+        "responses": {
+          "200": {
+            "description": "JSON-RPC 2.0 MCP response"
+          }
+        }
+      }
+    }
+  }
+}

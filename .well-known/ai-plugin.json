@@ -1,0 +1,18 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "Mac YOLO Safeguards & ThumbGate",
+  "name_for_model": "mac_yolo_safeguards",
+  "description_for_human": "macOS freeze guard, PreToolUse AI agent reliability firewall, 60s simulator reaper, and $10/mo token budget gate.",
+  "description_for_model": "Inspect macOS system load, runaway iOS Simulators, AI agent process storms, $10/mo API token budget pacing, PreToolUse security guardrails (ThumbGate), and local-first screen/meeting memory (Dayglass).",
+  "auth": {
+    "type": "none"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://thumbgate.app/openapi.json",
+    "is_user_authenticated": false
+  },
+  "logo_url": "https://thumbgate.app/icon.png",
+  "contact_email": "ig5973700@gmail.com",
+  "legal_info_url": "https://thumbgate-production.up.railway.app/privacy"
+}

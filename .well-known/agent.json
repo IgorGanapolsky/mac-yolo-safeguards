@@ -1,0 +1,42 @@
+{
+  "name": "Mac YOLO Safeguards & ThumbGate Agent",
+  "description": "Autonomous macOS freeze guard, PreToolUse AI agent reliability firewall (ThumbGate), and local-first screen/meeting memory (Dayglass) for Google Gemini, Claude Connectors, Cursor, ChatGPT, Grok, and Perplexity.",
+  "url": "https://thumbgate.app",
+  "version": "1.0.0",
+  "provider": {
+    "organization": "Igor Ganapolsky SaaS Fleet",
+    "url": "https://github.com/IgorGanapolsky/mac-yolo-safeguards"
+  },
+  "capabilities": {
+    "streaming": true,
+    "pushNotifications": false,
+    "stateTransitionHistory": true
+  },
+  "authentication": {
+    "schemes": ["None", "Bearer"]
+  },
+  "defaultInputModes": ["application/json", "text/plain"],
+  "defaultOutputModes": ["application/json", "text/plain"],
+  "skills": [
+    {
+      "id": "yolo_health_status",
+      "name": "macOS Health & Safeguard Status",
+      "description": "Inspect live macOS load average, iOS Simulator process count, memory pressure, and $10/mo API token budget gate."
+    },
+    {
+      "id": "yolo_guardrails_audit",
+      "name": "PreToolUse & Security Guardrails Audit",
+      "description": "Audit PreToolUse hooks, declarative DB schemas, anti-paperclipping gates, and Tailscale policy integrity."
+    },
+    {
+      "id": "thumbgate_pretooluse_firewall",
+      "name": "ThumbGate PreToolUse Firewall",
+      "description": "Sub-0.5ms PreToolUse firewall that compiles thumbs-down agent mistakes into enforceable prevention rules (https://thumbgate.app)."
+    },
+    {
+      "id": "dayglass_meeting_memory",
+      "name": "Dayglass Screen & Meeting Memory",
+      "description": "Local-first macOS screen & meeting memory with MCP context recall (https://dayglass.io)."
+    }
+  ]
+}

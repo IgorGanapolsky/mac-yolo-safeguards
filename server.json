@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.IgorGanapolsky/mac-yolo-safeguards",
+  "title": "Mac YOLO Safeguards — Runaway Reaper & Token Budget MCP",
+  "description": "macOS process-tree reaper, simulator runaway guard, and $10/mo token cap for AI coding agents.",
+  "websiteUrl": "https://macyolosafeguards.io",
+  "repository": {
+    "source": "github",
+    "url": "https://github.com/IgorGanapolsky/mac-yolo-safeguards"
+  },
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://macyolosafeguards.io/mcp"
+    },
+    {
+      "type": "streamable-http",
+      "url": "https://thumbgate.app/mcp"
+    }
+  ]
+}

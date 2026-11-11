@@ -337,6 +337,13 @@ function main() {
   } catch (e) {
     blueskyFlowstate = { ok: false, error: e.message };
   }
+  const { runMarketplacePublisher } = require('./ai-connectors-marketplace-publisher');
+  let aiConnectorsMarketplace;
+  try {
+    aiConnectorsMarketplace = runMarketplacePublisher({ packZip: true });
+  } catch (e) {
+    aiConnectorsMarketplace = { ok: false, error: e.message };
+  }
   let thumbgateMakeMoney = { skipped: true };
   let dayglassMakeMoney = { skipped: true };
   if (!skipSiblings) {
@@ -370,7 +377,8 @@ function main() {
       Boolean(tailscaleSteals.ok) &&
       Boolean(wabiSalesOps.ok) &&
       Boolean(linkedinAutopilot.ok) &&
-      Boolean(blueskyFlowstate.ok),
+      Boolean(blueskyFlowstate.ok) &&
+      Boolean(aiConnectorsMarketplace.ok),
     startedAt,
     completedAt: new Date().toISOString(),
     date,
@@ -392,6 +400,7 @@ function main() {
       wabiSalesOperationsGate: Boolean(wabiSalesOps.ok),
       linkedin24x7AutopilotGate: Boolean(linkedinAutopilot.ok),
       blueskyFlowstateGate: Boolean(blueskyFlowstate.ok),
+      aiConnectorsMarketplaceGate: Boolean(aiConnectorsMarketplace.ok),
     },
     gurobiProof: gurobiBatch.proof || null,
     supabaseIbmSummary: {
@@ -427,6 +436,14 @@ function main() {
       gateDecision: blueskyFlowstate.gate?.decision ?? null,
       alreadyPostedToday: Boolean(blueskyFlowstate.alreadyPostedToday),
       funnelHtmlPresent: Boolean(blueskyFlowstate.flowstateFunnel?.funnelHtmlPresent),
+    },
+    aiConnectorsMarketplaceSummary: {
+      ok: Boolean(aiConnectorsMarketplace.ok),
+      platformsCount: aiConnectorsMarketplace.marketplaceValidation?.platformsCount ?? 0,
+      toolsCount: aiConnectorsMarketplace.mcpToolValidation?.toolsCount ?? 0,
+      allToolsHaveTitleAndSafetyHints: Boolean(aiConnectorsMarketplace.mcpToolValidation?.allToolsHaveTitleAndSafetyHints),
+      bundleZipPath: aiConnectorsMarketplace.bundle?.zipPath ?? null,
+      bundleSha256: aiConnectorsMarketplace.bundle?.sha256 ?? null,
     },
     siblingEngines: {
       thumbgateMakeMoney,

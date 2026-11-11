@@ -44,7 +44,7 @@ const MAX_BLUESKY_GRAPHEMES = 300;
 const CORP_AIRGAP_RE = /\b(ecinexus|eciplatform|spruce|rocksolid|thermgrid|stockservice|10\.10\.20\.81|pr-85\d\d|dist03-\d+|itapp01-\d+)\b/i;
 
 const MONETIZATION_LINKS = Object.freeze({
-  soloGumroad: 'https://iganapolsky.gumroad.com/l/qbljcm',
+  soloGumroad: 'https://iganapolsky.gumroad.com/l/vcrho',
   proStripe: 'https://buy.stripe.com/28o5nac2eb1E9C1aFa',
   teamStripe: 'https://buy.stripe.com/8wM3f2feqfdM9C14gN',
   diagnostic499: 'https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y',
@@ -61,7 +61,7 @@ const DAILY_BLUESKY_POST_TEMPLATES = Object.freeze([
     body: [
       'Mac freeze & runaway token loops happen when Claude Code, Cursor & Ollama spawn unbounded subagents.',
       'Mac YOLO Safeguards caps RAM/swap, reaps orphan simulators every 60s & routes hosted Hermes to https://thumbgate.app ($10/mo).',
-      '$9 Solo / $49 Pro: https://iganapolsky.gumroad.com/l/qbljcm',
+      '$9 Solo / $49 Pro: https://iganapolsky.gumroad.com/l/vcrho',
     ].join('\n\n'),
   },
   {
@@ -71,7 +71,7 @@ const DAILY_BLUESKY_POST_TEMPLATES = Object.freeze([
     body: [
       'Prompts are advice; PreToolUse hooks with SHA-256 replay receipts are enforceable infrastructure.',
       'Every blocked tool call becomes a regression fixture before secret egress or unapproved writes fire.',
-      'Hosted ($10/mo): https://thumbgate.app | $49 Pro: https://iganapolsky.gumroad.com/l/qbljcm',
+      'Hosted ($10/mo): https://thumbgate.app | $49 Pro: https://iganapolsky.gumroad.com/l/vcrho',
     ].join('\n\n'),
   },
   {
@@ -80,7 +80,7 @@ const DAILY_BLUESKY_POST_TEMPLATES = Object.freeze([
     hook: 'One runaway coding-agent loop or bad prod mutation costs more than a year of deterministic guardrails.',
     body: [
       'One runaway coding-agent loop or bad prod mutation costs more than a year of deterministic guardrails.',
-      'Solo: $9 Guard Kit (https://iganapolsky.gumroad.com/l/qbljcm) or $10/mo Hosted Hermes (https://thumbgate.app).',
+      'Solo: $9 Guard Kit (https://iganapolsky.gumroad.com/l/vcrho) or $10/mo Hosted Hermes (https://thumbgate.app).',
       'Teams ($499 Diagnostic): https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y',
     ].join('\n\n'),
   },
@@ -177,7 +177,7 @@ function classifyBlueskyInboundReply(reply = {}) {
   } else if (lower.includes('rollback') || lower.includes('recovery') || lower.includes('replay')) {
     category = 'rollback_replay_receipt';
     draftReply =
-      'A deterministic replay receipt: SHA-256 of the tool-call fixture + rule state before/after, proving the bad call gets DENY under the new gate and reverts cleanly on rollback. We ship those fixtures in https://thumbgate.app and https://iganapolsky.gumroad.com/l/qbljcm';
+      'A deterministic replay receipt: SHA-256 of the tool-call fixture + rule state before/after, proving the bad call gets DENY under the new gate and reverts cleanly on rollback. We ship those fixtures in https://thumbgate.app and https://iganapolsky.gumroad.com/l/vcrho';
   } else if (lower.includes('heartbeat') || lower.includes('proof-of-work') || lower.includes('200 with no proof') || lower.includes('status + latency')) {
     category = 'proof_of_work_reads';
     draftReply =
@@ -185,7 +185,7 @@ function classifyBlueskyInboundReply(reply = {}) {
   } else if (lower.includes('freeze') || lower.includes('oom') || lower.includes('swap') || lower.includes('simulator')) {
     category = 'mac_freeze_oom';
     draftReply =
-      'Unbounded subagent spawns + orphan Xcode/Android simulators thrash unified memory long before CPU pegs. Mac YOLO Safeguards enforces a 60s simulator reaper + hard RAM caps ($9 Solo / $49 Pro: https://iganapolsky.gumroad.com/l/qbljcm).';
+      'Unbounded subagent spawns + orphan Xcode/Android simulators thrash unified memory long before CPU pegs. Mac YOLO Safeguards enforces a 60s simulator reaper + hard RAM caps ($9 Solo / $49 Pro: https://iganapolsky.gumroad.com/l/vcrho).';
   } else {
     draftReply =
       'Prompts are advice; PreToolUse hooks are law. Capturing the failure once and compiling it into a local pre-action gate stops the repeat before execution: https://thumbgate.app';

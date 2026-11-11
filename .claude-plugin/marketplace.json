@@ -1,0 +1,98 @@
+{
+  "name": "mac-yolo-safeguards-marketplace",
+  "version": "1.0.0",
+  "owner": {
+    "name": "Igor Ganapolsky",
+    "email": "ig5973700@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "mac-yolo-safeguards",
+      "description": "macOS freeze guard, PreToolUse AI agent reliability firewall, 60s iOS Simulator reaper, and $10/mo token budget gate for Claude Code, Cursor, Gemini, ChatGPT, Grok, and Perplexity.",
+      "longDescription": "Mac YOLO Safeguards prevents runaway coding-agent sessions from freezing Apple Silicon Macs or burning through API token budgets. Includes 12 MCP tools with full Anthropic safety annotations (readOnlyHint / destructiveHint), a 60-second runaway iOS Simulator reaper, a 5-pillar macOS Smart Care scanner, process-storm protection that never kills active sessions, and cross-product integrations with ThumbGate (https://thumbgate.app) and Dayglass (https://dayglass.io).",
+      "source": {
+        "source": "github",
+        "repo": "IgorGanapolsky/mac-yolo-safeguards"
+      },
+      "version": "1.0.0",
+      "author": {
+        "name": "Igor Ganapolsky",
+        "email": "ig5973700@gmail.com",
+        "url": "https://thumbgate.app"
+      },
+      "homepage": "https://github.com/IgorGanapolsky/mac-yolo-safeguards",
+      "repository": "https://github.com/IgorGanapolsky/mac-yolo-safeguards",
+      "license": "MIT",
+      "category": "developer-tools",
+      "tags": [
+        "macos",
+        "guardrails",
+        "pretooluse",
+        "agent-safety",
+        "mcp",
+        "claude-connectors",
+        "cursor",
+        "gemini"
+      ],
+      "keywords": [
+        "macos",
+        "guardrails",
+        "pretooluse",
+        "agent-safety",
+        "claude-connectors",
+        "claude-desktop",
+        "cursor",
+        "gemini",
+        "chatgpt",
+        "grok",
+        "perplexity",
+        "mcp",
+        "thumbgate",
+        "dayglass"
+      ],
+      "capabilities": {
+        "skills": 92,
+        "mcpServer": "node tools/mac-yolo-mcp-server.js"
+      },
+      "installCommand": "/plugin marketplace add IgorGanapolsky/mac-yolo-safeguards"
+    },
+    {
+      "name": "thumbgate",
+      "description": "Sub-0.5ms PreToolUse firewall & failure-to-spec compiler for Claude Code, Cursor, Gemini, ChatGPT, Grok, and Perplexity.",
+      "source": {
+        "source": "npm",
+        "package": "thumbgate"
+      },
+      "version": "1.39.0",
+      "author": {
+        "name": "Igor Ganapolsky",
+        "email": "ig5973700@gmail.com",
+        "url": "https://thumbgate.app"
+      },
+      "homepage": "https://thumbgate.app",
+      "repository": "https://github.com/IgorGanapolsky/ThumbGate",
+      "license": "MIT",
+      "category": "developer-tools",
+      "installCommand": "claude mcp add thumbgate -- npx -y thumbgate serve"
+    },
+    {
+      "name": "dayglass",
+      "description": "Local-first macOS screen & meeting memory with MCP context recall for Claude, Cursor, Gemini, ChatGPT, Grok, and Perplexity.",
+      "source": {
+        "source": "github",
+        "repo": "IgorGanapolsky/dayglass"
+      },
+      "version": "0.1.33",
+      "author": {
+        "name": "Igor Ganapolsky",
+        "email": "ig5973700@gmail.com",
+        "url": "https://dayglass.io"
+      },
+      "homepage": "https://dayglass.io",
+      "repository": "https://github.com/IgorGanapolsky/dayglass",
+      "license": "MIT",
+      "category": "productivity",
+      "installCommand": "brew install --cask igorganapolsky/tap/dayglass"
+    }
+  ]
+}
