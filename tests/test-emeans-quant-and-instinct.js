@@ -19,6 +19,7 @@ const {
   validateInstinctPrompt,
   isMacYoloSafeguardsMessage,
   extractStructuredIntelFromMessages,
+  classifyEmpiricalFreezeSignature,
 } = require('../tools/whatsapp-instinct-driver');
 
 const {
@@ -158,3 +159,21 @@ test('happenstance-bridge-network-engine permanently forbids unattended outreach
   assert.equal(ALLOW_UNATTENDED_OUTREACH, false);
   assert.throws(() => assertNoUnattendedOutreach('auto-send'), /ERR_UNATTENDED_NETWORK_OUTREACH_FORBIDDEN/);
 });
+
+test('classifyEmpiricalFreezeSignature detects all 5 real-world macOS coding-agent freeze modes', () => {
+  const nominal = classifyEmpiricalFreezeSignature({ orphanedGitCount: 2, swapUsedGb: 1.5 });
+  assert.equal(nominal.freezeRisk, 'nominal');
+  assert.equal(nominal.matchedCount, 0);
+
+  const storm = classifyEmpiricalFreezeSignature({
+    orphanedGitCount: 309,
+    nodeReplOrHelperCount: 85,
+    maxIdleCliRssGb: 8.7,
+    maxIdleCliCpuPct: 95,
+    swapUsedGb: 16.0,
+    claudeVmDiskGb: 100.0,
+  });
+  assert.equal(storm.freezeRisk, 'critical');
+  assert.equal(storm.matchedCount, 5);
+});
+

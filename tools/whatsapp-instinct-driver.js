@@ -202,6 +202,74 @@ LIMIT ${limit};`;
   };
 }
 
+/**
+ * Deterministically classify real-world macOS coding-agent freeze signatures
+ * distilled from the 20 empirical incident reports harvested via Instinct
+ * (anthropics/claude-code#108551, #107755, #107354, #97862; openai/codex#53664, #54461, #54416).
+ */
+function classifyEmpiricalFreezeSignature(snapshot = {}) {
+  const orphanedGitCount = Number(snapshot.orphanedGitCount) || 0;
+  const nodeReplOrHelperCount = Number(snapshot.nodeReplOrHelperCount) || 0;
+  const maxIdleCliRssGb = Number(snapshot.maxIdleCliRssGb) || 0;
+  const maxIdleCliCpuPct = Number(snapshot.maxIdleCliCpuPct) || 0;
+  const swapUsedGb = Number(snapshot.swapUsedGb) || 0;
+  const mlxOrSwiftChildRssGb = Number(snapshot.mlxOrSwiftChildRssGb) || 0;
+  const claudeVmDiskGb = Number(snapshot.claudeVmDiskGb) || 0;
+
+  const matches = [];
+
+  if (orphanedGitCount >= 25) {
+    matches.push({
+      signature: 'orphaned_git_storm',
+      severity: orphanedGitCount >= 100 ? 'critical' : 'high',
+      referenceIssue: 'anthropics/claude-code#108551',
+      remediation: 'Reap PPID=1 orphaned git process tree spawned by timed-out Bash tool calls',
+    });
+  }
+  if (nodeReplOrHelperCount >= 20) {
+    matches.push({
+      signature: 'codex_node_repl_or_helper_leak',
+      severity: nodeReplOrHelperCount >= 50 ? 'critical' : 'high',
+      referenceIssue: 'openai/codex#53664, openai/codex#54461',
+      remediation: 'Terminate leaked node_repl and idle Codex helper / per-thread MCP stdio servers',
+    });
+  }
+  if (maxIdleCliRssGb >= 6.0 || (maxIdleCliRssGb >= 3.0 && maxIdleCliCpuPct >= 85)) {
+    matches.push({
+      signature: 'sleep_wake_zombie_cli_spin',
+      severity: maxIdleCliRssGb >= 12.0 ? 'critical' : 'high',
+      referenceIssue: 'anthropics/claude-code#107354, anthropics/claude-code#97862',
+      remediation: 'SIGKILL detached post-sleep CLI/MCP processes ignoring SIGTERM',
+    });
+  }
+  if (swapUsedGb >= 12.0 || mlxOrSwiftChildRssGb >= 8.0) {
+    matches.push({
+      signature: 'windowserver_swap_cliff',
+      severity: 'critical',
+      referenceIssue: 'openai/codex#54416, anthropics/claude-code#107755',
+      remediation: 'Throttle/reap runaway MLX/Swift child jobs before WindowServer swap reset',
+    });
+  }
+  if (claudeVmDiskGb >= 25.0) {
+    matches.push({
+      signature: 'claude_vm_storage_bloat',
+      severity: 'medium',
+      referenceIssue: 'claude-code-vm-cache-bloat',
+      remediation: 'Prune stale claude-code-vm and update cache blobs',
+    });
+  }
+
+  return {
+    freezeRisk: matches.some((m) => m.severity === 'critical')
+      ? 'critical'
+      : matches.length > 0
+        ? 'elevated'
+        : 'nominal',
+    matchedCount: matches.length,
+    matches,
+  };
+}
+
 if (require.main === module) {
   const status = readInstinctThread({ limit: 30 });
   const outDir = path.join(os.homedir(), '.hermes', 'business_os', 'revenue');
@@ -228,5 +296,6 @@ module.exports = {
   validateInstinctPrompt,
   isMacYoloSafeguardsMessage,
   extractStructuredIntelFromMessages,
+  classifyEmpiricalFreezeSignature,
   readInstinctThread,
 };
