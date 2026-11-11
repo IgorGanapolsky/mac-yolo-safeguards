@@ -124,5 +124,5 @@ Replace the live `/llms.txt` with `docs/landing/macyolosafeguards-llms.txt`. It 
 
 ## Context
 
-- Repo telemetry in `tools/mac-yolo-release-cd-engine.js` records 11,462 visitors, 13 checkout starts in 24 hours, and 4 of 8 people who started the $499 checkout leaving from the Stripe cancel page.
+- The visitor and checkout numbers once listed in `tools/mac-yolo-release-cd-engine.js` (11,462 visitors, 13 checkout starts in 24 hours) were typed by hand, not measured, and were removed on 2026-11-11. Use Stripe, Gumroad and Cloudflare Web Analytics instead.
 - PR #2149 ("WebMCP landing tools") was a spec for the thumbgate.app landing page only. Nothing WebMCP-related shipped to macyolosafeguards.io.

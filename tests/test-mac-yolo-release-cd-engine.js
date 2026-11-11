@@ -14,10 +14,10 @@ const {
 function main() {
   const oa = getObservabilityAndAnalytics();
   assert.strictEqual(oa.observability.ok, true);
-  assert.strictEqual(oa.observability.clearedExternalStrangerCashTodayUsd, 0.0);
-  assert.strictEqual(oa.observability.historicalReconciledStripeLifetimeUsd, 149.0);
+  assert.strictEqual(oa.observability.cashMeasured, false);
+  assert.ok(!/\d/.test(JSON.stringify(oa).replace(/acct_\w+/g, '')), 'no hand-typed numbers');
   assert.strictEqual(oa.analytics.ok, true);
-  assert.ok(oa.analytics.trueStripeCheckoutStarts24h >= 8);
+  assert.strictEqual(oa.analytics.trafficMeasured, false);
 
   const ver = getVersioningState();
   assert.strictEqual(ver.ok, true);
