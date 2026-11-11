@@ -179,7 +179,7 @@ function validateMcpToolAnnotations() {
     method: 'tools/list',
   });
   return {
-    ok: issues.length === 0 && Boolean(rpcInit?.result?.serverInfo?.name) && rpcList?.result?.tools?.length === 12,
+    ok: issues.length === 0 && Boolean(rpcInit?.result?.serverInfo?.name) && rpcList?.result?.tools?.length === tools.length,
     toolsCount: tools.length,
     allToolsHaveTitleAndSafetyHints: issues.length === 0,
     issues,
