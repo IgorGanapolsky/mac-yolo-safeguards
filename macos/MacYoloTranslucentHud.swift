@@ -1703,7 +1703,11 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         return (devPct, renPct, tilPct, vramBytes / 1_000_000_000.0)
     }
 
-    func sampleLiveSessionFiles() -> (ompFiles: Int, ompMB: Double, grokFiles: Int, grokMB: Double, totalMB: Double, estTokensM: Double) {
+    private var cachedSessionSample: (ompFiles: Int, ompMB: Double, grokFiles: Int, grokMB: Double, totalMB: Double, estTokensM: Double) = (0, 0, 0, 0, 0, 0)
+    private var lastSessionSampleAt: Date = .distantPast
+    private var sessionSampleInFlight: Bool = false
+
+    private static func computeLiveSessionFilesSnapshot() -> (ompFiles: Int, ompMB: Double, grokFiles: Int, grokMB: Double, totalMB: Double, estTokensM: Double) {
         let fm = FileManager.default
         let home = fm.homeDirectoryForCurrentUser.path
         let cutoff = Date().addingTimeInterval(-7200)
@@ -1712,7 +1716,14 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             guard let en = fm.enumerator(atPath: root) else { return (0, 0) }
             var files = 0
             var bytes: Double = 0
+            var visited = 0
             while let item = en.nextObject() as? String {
+                visited += 1
+                if visited > 4000 { break }
+                if item.contains("/node_modules/") || item.contains("/.git/") || item.contains("/tool-results/") {
+                    en.skipDescendants()
+                    continue
+                }
                 if !item.hasSuffix(".jsonl") && !item.hasSuffix(".json") { continue }
                 let full = "\(root)/\(item)"
                 if let attrs = try? fm.attributesOfItem(atPath: full),
@@ -1725,7 +1736,6 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             }
             return (files, bytes / 1_048_576.0)
         }
-        // Recent transcripts from Claude Code and OMP (first slot) and Grok CLI (second slot), any project.
         let (cf, cmb) = scanDir(".claude/projects")
         let (pf, pmb) = scanDir(".omp/agent/sessions")
         let (of, omb) = (cf + pf, cmb + pmb)
@@ -1733,6 +1743,28 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let totMB = omb + gmb
         let estM = (totMB * 1_048_576.0 / 4.0) / 1_000_000.0
         return (of, omb, gf, gmb, totMB, estM)
+    }
+
+    func sampleLiveSessionFiles() -> (ompFiles: Int, ompMB: Double, grokFiles: Int, grokMB: Double, totalMB: Double, estTokensM: Double) {
+        let now = Date()
+        if lastSessionSampleAt == .distantPast {
+            lastSessionSampleAt = now
+            cachedSessionSample = Self.computeLiveSessionFilesSnapshot()
+            return cachedSessionSample
+        }
+        if now.timeIntervalSince(lastSessionSampleAt) >= 45.0 && !sessionSampleInFlight {
+            sessionSampleInFlight = true
+            DispatchQueue.global(qos: .utility).async { [weak self] in
+                let snap = Self.computeLiveSessionFilesSnapshot()
+                DispatchQueue.main.async {
+                    guard let self = self else { return }
+                    self.cachedSessionSample = snap
+                    self.lastSessionSampleAt = Date()
+                    self.sessionSampleInFlight = false
+                }
+            }
+        }
+        return cachedSessionSample
     }
 
     func sampleTopCpuCulprits() -> (shortLine: String, recTitle: String, recDesc: String, detailCpu: String, detailMem: String, detailFleet: String, topCpu: Double, totalProcs: Int, pyCount: Int, nodeCount: Int, swarmSummary: String, totalCpuPct: Int) {
@@ -1903,6 +1935,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         var vmStats = vm_statistics64()
         var count = mach_msg_type_number_t(MemoryLayout<vm_statistics64>.size / MemoryLayout<integer_t>.size)
         let hostPort = mach_host_self()
+        defer { mach_port_deallocate(mach_task_self_, hostPort) }
         let kernRes = withUnsafeMutablePointer(to: &vmStats) {
             $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
                 host_statistics64(hostPort, HOST_VM_INFO64, $0, &count)
