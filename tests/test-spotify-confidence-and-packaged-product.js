@@ -9,7 +9,7 @@ const {
   resolveFlagWithExposure,
   synthesizeWhatIsWorthBuilding,
 } = require('../tools/spotify-confidence-flags-steal');
-const { handleRpcRequest, callTool } = require('../tools/mac-yolo-mcp-server');
+const { handleRpcRequest, callTool, getToolDefinitions } = require('../tools/mac-yolo-mcp-server');
 const { runSelfTest } = require('../tools/mac-yolo-service');
 
 const REPO = path.resolve(__dirname, '..');
@@ -68,7 +68,8 @@ function main() {
   assert.strictEqual(initResp.result.serverInfo.name, 'mac-yolo-safeguards');
 
   const toolsResp = handleRpcRequest({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
-  assert.strictEqual(toolsResp.result.tools.length, 12);
+  assert.strictEqual(toolsResp.result.tools.length, getToolDefinitions().length);
+  assert.ok(toolsResp.result.tools.some((t) => t.name === 'yolo_local_models'));
 
   const callResp = handleRpcRequest({
     jsonrpc: '2.0',
