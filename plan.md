@@ -4450,3 +4450,20 @@ Operationalizes McKinsey's *"What the Top Companies Do Differently With AI Codin
 - `.agents/skills/mckinsey-ai-coding-steal/skill-card.md`
 - `SKILLS.md` (append only)
 - `plan.md` (this append)
+
+## MoA router + GraphRAG renice guard + cask + Partner Pilot link (append 2026-11-11T18:05:00Z) — `poolside`
+
+CPU hit 100% because `mediaanalysisd` was saturating cores. System care now renices heavy background workers to +15. Every renice target is first checked by `verifyActionAgainstGround`. Reserved ports (3333 Dayglass, 9111 CDP), protected daemons and live agent processes are refused. The stale deactivated Partner Pilot link `fZucN…` is replaced by the active `9B6e…` link everywhere. A Homebrew cask for v1.1.1 is added. `brew style` and `brew audit --cask --online` both pass.
+
+### File claims
+- `tools/dual-model-moa-router.js`
+- `tools/agentic-graphrag-safeguard.js`
+- `tests/test-dual-model-moa-router.js`
+- `tests/test-agentic-graphrag-safeguard.js`
+- `tools/mac-yolo-system-care-engine.js`
+- `tools/mac-yolo-stripe-provisioner.js`
+- `tools/mac-yolo-release-cd-engine.js`
+- `tools/mac-yolo-10channel-omnichannel-engine.js`
+- `dist/homebrew/Casks/mac-yolo-safeguards.rb`
+- `docs/PRODUCTHUNT-LAUNCH-PACK.md`
+- `plan.md` (this append)

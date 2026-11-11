@@ -78,7 +78,7 @@ const MAC_YOLO_STRIPE_CATALOG = [
     stripe_product_name: 'Mac YOLO Safeguards — Agency & Enterprise Partner Pilot',
     stripe_product_id: 'prod_MacYoloPilot3000',
     stripe_price_id: 'price_MacYoloPilot3000',
-    payment_link_url: 'https://buy.stripe.com/fZucN5bmI8HkbO98qf3sI3j',
+    payment_link_url: 'https://buy.stripe.com/9B6eVdcqM7DgcSdayn3sJ0Z',
     stripe_amount_usd: '3000.00',
     amountCents: 300000,
   },
