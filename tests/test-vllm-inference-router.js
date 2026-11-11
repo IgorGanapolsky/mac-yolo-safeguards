@@ -68,6 +68,12 @@ function main() {
   assert.strictEqual(clerkModelAllowed('mlx-community/Some-30B-4bit'), false);
   const refused = pinLiveClerkRequest(req2, 'mlx-community/Some-30B-4bit');
   assert.strictEqual(refused.applied, false);
+  assert.strictEqual(refused.reason, 'model_refused_too_large_for_this_mac');
+  const quantRefused = pinLiveClerkRequest(req2, 'lookatmyquant/Qwen3.5-4B-e-means');
+  assert.strictEqual(quantRefused.applied, false);
+  assert.strictEqual(quantRefused.reason, 'unmeasured_quant_route');
+  const plannerPin = pinLiveClerkRequest(req2, 'qwen2.5-coder:latest');
+  assert.strictEqual(plannerPin.applied, true);
   const pinned = pinLiveClerkRequest(req2, 'mlx-community/Llama-3.2-1B-Instruct-4bit');
   assert.strictEqual(pinned.applied, true);
   assert.strictEqual(pinned.request_payload.model, 'mlx-community/Llama-3.2-1B-Instruct-4bit');

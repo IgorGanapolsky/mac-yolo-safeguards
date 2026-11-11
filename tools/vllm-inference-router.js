@@ -16,6 +16,7 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { unmeasuredQuantRoute } = require('./quant-codebook-claim-gate');
 
 const HOME = os.homedir();
 const BLOCK_SIZE_TOKENS = 16;
@@ -236,6 +237,13 @@ function buildVllmGuidedRequest({
 }
 
 function pinLiveClerkRequest(request, liveModelId) {
+  if (unmeasuredQuantRoute(liveModelId)) {
+    return {
+      applied: false,
+      reason: 'unmeasured_quant_route',
+      model_id: liveModelId || null,
+    };
+  }
   if (!clerkModelAllowed(liveModelId)) {
     return {
       applied: false,
