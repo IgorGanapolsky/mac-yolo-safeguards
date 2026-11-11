@@ -157,10 +157,76 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function seedOpsFiles(date) {
-  fs.mkdirSync(OPS_DIR, { recursive: true, mode: 0o700 });
+function findLatestPriorTsv(opsDir, prefix, date) {
+  if (!fs.existsSync(opsDir)) return null;
+  const re = new RegExp(`^${prefix}-(\\d{4}-\\d{2}-\\d{2})\\.tsv$`);
+  const candidates = fs
+    .readdirSync(opsDir)
+    .map((name) => {
+      const m = name.match(re);
+      return m && m[1] < date ? { date: m[1], fullPath: path.join(opsDir, name) } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  return candidates.length > 0 ? candidates[candidates.length - 1].fullPath : null;
+}
 
-  const stripeMapPath = path.join(OPS_DIR, `stripe-offer-map-${date}.tsv`);
+function readBodyLines(tsvPath) {
+  if (!tsvPath || !fs.existsSync(tsvPath)) return [];
+  const raw = fs.readFileSync(tsvPath, 'utf8').trim();
+  return raw ? raw.split(/\r?\n/).slice(1).filter((l) => l.trim()) : [];
+}
+
+function mergeTsvCarryForward(headerLine, defaultLines, priorTsvPath, currentTsvPath = null, { preferDefaultsForKeys = null } = {}) {
+  const defaultByKey = new Map();
+  for (const line of defaultLines) {
+    const key = line.split('\t')[0];
+    if (key) defaultByKey.set(key, line);
+  }
+  const currentByKey = new Map();
+  for (const line of readBodyLines(currentTsvPath)) {
+    const key = line.split('\t')[0];
+    if (key) currentByKey.set(key, line);
+  }
+
+  const seenKeys = new Set();
+  const merged = [];
+  const pushRow = (key, line) => {
+    if (!key || seenKeys.has(key)) return;
+    seenKeys.add(key);
+    if (preferDefaultsForKeys && preferDefaultsForKeys.has(key) && defaultByKey.has(key)) {
+      merged.push(defaultByKey.get(key));
+    } else if (currentByKey.has(key)) {
+      merged.push(currentByKey.get(key));
+    } else {
+      merged.push(line);
+    }
+  };
+
+  for (const line of readBodyLines(priorTsvPath)) {
+    pushRow(line.split('\t')[0], line);
+  }
+  for (const [key, line] of currentByKey.entries()) {
+    pushRow(key, line);
+  }
+  for (const [key, line] of defaultByKey.entries()) {
+    pushRow(key, line);
+  }
+  return `${[headerLine, ...merged].join('\n')}\n`;
+}
+
+function writeIfChanged(filePath, content) {
+  if (fs.existsSync(filePath)) {
+    const existing = fs.readFileSync(filePath, 'utf8');
+    if (existing === content) return;
+  }
+  fs.writeFileSync(filePath, content, { mode: 0o600 });
+}
+
+function seedOpsFiles(date, opsDir = OPS_DIR) {
+  fs.mkdirSync(opsDir, { recursive: true, mode: 0o700 });
+
+  const stripeMapPath = path.join(opsDir, `stripe-offer-map-${date}.tsv`);
   const stripeHeader = [
     'offer',
     'status',
@@ -179,10 +245,16 @@ function seedOpsFiles(date) {
       o.stripe_amount_usd,
     ].join('\t'),
   );
-  if (!fs.existsSync(stripeMapPath)) {
-    fs.writeFileSync(stripeMapPath, `${[stripeHeader, ...stripeLines].join('\n')}\n`, { mode: 0o600 });
-  }
-  const prospectsPath = path.join(OPS_DIR, `prospects-${date}.tsv`);
+  const priorStripe = findLatestPriorTsv(opsDir, 'stripe-offer-map', date);
+  const offerKeys = new Set(OFFERS.map((o) => o.offer));
+  writeIfChanged(
+    stripeMapPath,
+    mergeTsvCarryForward(stripeHeader, stripeLines, priorStripe, stripeMapPath, {
+      preferDefaultsForKeys: offerKeys,
+    }),
+  );
+
+  const prospectsPath = path.join(opsDir, `prospects-${date}.tsv`);
   const prospectsHeader = [
     'prospect_label',
     'segment',
@@ -209,10 +281,13 @@ function seedOpsFiles(date) {
       p.notes,
     ].join('\t'),
   );
-  if (!fs.existsSync(prospectsPath)) {
-    fs.writeFileSync(prospectsPath, `${[prospectsHeader, ...prospectLines].join('\n')}\n`, { mode: 0o600 });
-  }
-  const pipelinePath = path.join(OPS_DIR, `pipeline-status-${date}.tsv`);
+  const priorProspects = findLatestPriorTsv(opsDir, 'prospects', date);
+  writeIfChanged(
+    prospectsPath,
+    mergeTsvCarryForward(prospectsHeader, prospectLines, priorProspects, prospectsPath),
+  );
+
+  const pipelinePath = path.join(opsDir, `pipeline-status-${date}.tsv`);
   const pipelineHeader = [
     'prospect_label',
     'stage',
@@ -233,9 +308,11 @@ function seedOpsFiles(date) {
       p.notes,
     ].join('\t'),
   );
-  if (!fs.existsSync(pipelinePath)) {
-    fs.writeFileSync(pipelinePath, `${[pipelineHeader, ...pipelineLines].join('\n')}\n`, { mode: 0o600 });
-  }
+  const priorPipeline = findLatestPriorTsv(opsDir, 'pipeline-status', date);
+  writeIfChanged(
+    pipelinePath,
+    mergeTsvCarryForward(pipelineHeader, pipelineLines, priorPipeline, pipelinePath),
+  );
   return { stripeMapPath, prospectsPath, pipelinePath };
 }
 
@@ -359,7 +436,17 @@ function main() {
     }
   }
 
-  const totalPipelineGrossUsd = CURATED_PROSPECTS.reduce((acc, p) => acc + Number(p.gross), 0);
+  const mergedPipelineRows = readBodyLines(seeded.pipelinePath).map((line) => {
+    const cols = line.split('\t');
+    return { stage: cols[1] || 'ready', gross: Number(cols[3] || 0) || 0 };
+  });
+  const openPipelineRows = mergedPipelineRows.filter(
+    (r) => !['paid', 'lost'].includes(r.stage),
+  );
+  const totalPipelineGrossUsd =
+    openPipelineRows.length > 0
+      ? openPipelineRows.reduce((acc, r) => acc + r.gross, 0)
+      : CURATED_PROSPECTS.reduce((acc, p) => acc + Number(p.gross), 0);
   const priceReadyOk =
     readiness.ok &&
     readiness.stdout.includes('Missing/invalid-price open gross: $0.00') &&
@@ -384,7 +471,7 @@ function main() {
     date,
     outboundCashSpendUsd: 0,
     offersCount: OFFERS.length,
-    curatedProspectsCount: CURATED_PROSPECTS.length,
+    curatedProspectsCount: openPipelineRows.length || CURATED_PROSPECTS.length,
     openPipelineGrossUsd: totalPipelineGrossUsd,
     channelsStagedCount: CHANNELS_9.length,
     channels: CHANNELS_9,
@@ -493,4 +580,11 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { OFFERS, CURATED_PROSPECTS, CHANNELS_9, seedOpsFiles };
+module.exports = {
+  OFFERS,
+  CURATED_PROSPECTS,
+  CHANNELS_9,
+  seedOpsFiles,
+  findLatestPriorTsv,
+  mergeTsvCarryForward,
+};

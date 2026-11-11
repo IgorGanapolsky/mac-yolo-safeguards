@@ -187,7 +187,9 @@ function realStripePriceId(value) {
 }
 
 function realPaymentLink(value) {
-  return /^https:\/\/buy\.stripe\.com\/[A-Za-z0-9]/.test(String(value || ''));
+  return /^https:\/\/(?:buy\.stripe\.com\/[A-Za-z0-9]|iganapolsky\.gumroad\.com\/l\/[A-Za-z0-9]+)/.test(
+    String(value || ''),
+  );
 }
 
 function stripeReadiness(stripeOffer) {
