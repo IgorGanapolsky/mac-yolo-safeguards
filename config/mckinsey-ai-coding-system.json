@@ -1,0 +1,260 @@
+{
+  "schemaVersion": "2026-11-11.mckinsey-ai-coding.v1",
+  "source": {
+    "title": "What the Top Companies Do Differently With AI Coding",
+    "url": "https://www.youtube.com/watch?v=21tuT-e4NVo",
+    "authors": [
+      "Martin Harrysson (McKinsey)",
+      "Prakhar Dixit (McKinsey)",
+      "Shilpa (McKinsey)"
+    ],
+    "benchmarkTarget": "2x end-to-end delivery throughput with zero defect-rate regression"
+  },
+  "operatingModel": {
+    "deliveryCadence": "1-2 day Kanban & Night-Shift loops (no 2-week sprints)",
+    "cycleTimeTargetHours": {
+      "min": 24,
+      "max": 48
+    },
+    "nightShiftWindowLocal": {
+      "startHour": 22,
+      "endHour": 7,
+      "timezone": "America/New_York"
+    },
+    "prdTemplateRequiredFields": [
+      "id",
+      "title",
+      "problemStatement",
+      "targetUser",
+      "businessValue",
+      "acceptanceCriteria",
+      "verificationCommand",
+      "rollbackPlan"
+    ],
+    "progressiveAutonomyLadder": [
+      {
+        "tier": "tier0_unproven",
+        "minConsecutiveGreenRuns": 0,
+        "maxDefectRate": 1.0,
+        "humanSignOffRequired": true,
+        "allowedActionClasses": [
+          "read",
+          "research",
+          "draft_spec",
+          "local_test"
+        ]
+      },
+      {
+        "tier": "tier1_validated",
+        "minConsecutiveGreenRuns": 3,
+        "maxDefectRate": 0.05,
+        "humanSignOffRequired": false,
+        "allowedActionClasses": [
+          "read",
+          "research",
+          "draft_spec",
+          "local_test",
+          "edit_isolated_worktree",
+          "open_pr"
+        ]
+      },
+      {
+        "tier": "tier2_trusted_night_shift",
+        "minConsecutiveGreenRuns": 10,
+        "maxDefectRate": 0.02,
+        "humanSignOffRequired": false,
+        "allowedActionClasses": [
+          "read",
+          "research",
+          "draft_spec",
+          "local_test",
+          "edit_isolated_worktree",
+          "open_pr",
+          "auto_merge_when_required_checks_green",
+          "social_publish_with_gate_allow"
+        ]
+      }
+    ],
+    "irreversibleAlwaysGate": [
+      "spend_money_or_upgrade_plan",
+      "force_push_or_history_rewrite",
+      "delete_production_data",
+      "unscrupped_tcpa_dnc_outbound_call",
+      "bypass_corp_airgap_diode"
+    ]
+  },
+  "teamStructure": {
+    "podSizeBounds": {
+      "min": 2,
+      "max": 4
+    },
+    "maxConcurrentAgentsPerRepo": 3,
+    "collapsedRoles": {
+      "definer": {
+        "replaces": [
+          "Product Manager",
+          "Business Analyst",
+          "Spec Writer"
+        ],
+        "responsibilities": [
+          "Author standardized PRD/Spec artifact with explicit acceptance criteria",
+          "Score business impact and token ROI before scheduling work",
+          "Bind product intent contract (.intent/contract.yaml) to verifiable commands"
+        ]
+      },
+      "builder": {
+        "replaces": [
+          "Software Engineer",
+          "QA Automation Engineer",
+          "SDET"
+        ],
+        "responsibilities": [
+          "Implement minimal change in an isolated git worktree off origin/main",
+          "Write behavioral unit + E2E tests asserting literal user-visible outputs",
+          "Execute sideways enterprise guardrails before opening PR"
+        ]
+      },
+      "reviewer": {
+        "replaces": [
+          "Staff Code Reviewer",
+          "Security/Compliance Sign-off",
+          "Release Manager"
+        ],
+        "responsibilities": [
+          "Verify diff against golden examples and blast-radius invariants",
+          "Audit per-PR defect/regression signals before merge",
+          "Require live post-merge/deploy receipt (SHA, HTTP 200, OTel span)"
+        ]
+      }
+    },
+    "reviewToGenerationRatioMin": 1.0
+  },
+  "contextAndSkills": {
+    "tribalKnowledgeSemanticLayer": [
+      {
+        "id": "TK-FINOPS-10USD-CAP",
+        "domain": "finops",
+        "rule": "Enforce a hard $10/month ceiling on metered LLM APIs; prefer $0 local Apple Silicon (Ollama/Lemonade) or flat-rate coding plans first.",
+        "verification": "node tools/zai-glm53-fleet.js --doctor"
+      },
+      {
+        "id": "TK-CORP-AIRGAP-DIODE",
+        "domain": "security",
+        "rule": "Fail closed on any corporate hostname or identifier matching CORP_AIRGAP_RE before writing telemetry, public docs, or RAG memories.",
+        "verification": "node tests/test-mckinsey-ai-coding-steal.js"
+      },
+      {
+        "id": "TK-SOCIAL-PUBLISH-GATE",
+        "domain": "growth",
+        "rule": "Every LinkedIn, Bluesky, X, or Reddit post must pass tools/social-publish-gate.js before publish and tools/verify-public-post.js after publish.",
+        "verification": "node tools/social-publish-gate.js --help"
+      },
+      {
+        "id": "TK-ISOLATED-WORKTREE-SINGLE-WRITER",
+        "domain": "coordination",
+        "rule": "Never edit a file claimed by another agent in plan.md; always branch off origin/main in an isolated worktree and use merge=union on append-only logs.",
+        "verification": "node tools/plan-coordination-snapshot.js --json"
+      },
+      {
+        "id": "TK-LIVE-CHECKOUT-SLUGS",
+        "domain": "monetization",
+        "rule": "Only link verified HTTP 200 checkout slugs (Gumroad /l/vcrho $49 Pro, /l/odrkon $9.99 Playbook, /l/nllmvb $9 Solo; ThumbGate https://thumbgate.app; Dayglass https://dayglass.io).",
+        "verification": "node tools/public-funnel-safety-scan.js"
+      }
+    ],
+    "goldenExamples": {
+      "prd_spec": {
+        "id": "PRD-GOLDEN-001",
+        "title": "Add Streamable HTTP MCP Discovery & Claude Connector Annotations",
+        "problemStatement": "Enterprise AI marketplaces (Claude Connectors, Cursor, Gemini, ChatGPT, Grok, Perplexity) reject MCP servers that lack readOnlyHint/destructiveHint annotations or /.well-known/mcp/server-card.json.",
+        "targetUser": "Developers & CTOs installing Mac YOLO Safeguards, ThumbGate, and Dayglass connectors.",
+        "businessValue": "Unlocks direct SaaS distribution across 7 AI connector marketplaces ($9-$499 self-serve funnel).",
+        "acceptanceCriteria": [
+          "All 12 MCP tools include title and annotations (readOnlyHint, destructiveHint, idempotentHint, openWorldHint).",
+          "GET /.well-known/mcp/server-card.json returns HTTP 200 with valid server schema."
+        ],
+        "verificationCommand": "node --test tests/test-ai-connectors-marketplace-publisher.js",
+        "rollbackPlan": "git revert <merge-sha> && redeploy service"
+      },
+      "mcp_tool": {
+        "name": "mac_yolo_status",
+        "title": "Check Mac Freeze & Process Guard Status",
+        "description": "Inspect live macOS memory pressure, runaway simulator daemons, and active guard leases without mutating system state.",
+        "annotations": {
+          "title": "Check Mac Freeze & Process Guard Status",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "fail_closed_gate": {
+        "pattern": " concentrator boundary guard",
+        "snippet": "if (CORP_AIRGAP_RE.test(payload) || SECRET_TOKEN_RE.test(payload)) { return { status: 'BLOCK', reason: 'dlp_or_airgap_violation', failClosed: true }; }"
+      },
+      "behavior_test": {
+        "pattern": "Call the real module entrypoint and assert literal user-observable output",
+        "snippet": "const res = validateStandardPrd(goldenPrd); assert.strictEqual(res.status, 'PASS'); assert.deepStrictEqual(res.missingFields, []);"
+      }
+    },
+    "coreVettedSkillsAllowlist": [
+      "anti-babysitting-mandate",
+      "intent-contract",
+      "ci-first-fail",
+      "ci-pr-monitor",
+      "live-dashboard-verify",
+      "revenue-gap-tracker",
+      "agentic-pattern-selector",
+      "ai-native-sdlc",
+      "context-six-block",
+      "output-quality-loop",
+      "mckinsey-ai-coding-steal"
+    ]
+  },
+  "bottleneckElimination": {
+    "upstreamContextSources": [
+      {
+        "id": "imap_customer_and_partner_inbox",
+        "surface": "iganapolsky@gmail.com IMAP",
+        "cadence": "continuous"
+      },
+      {
+        "id": "herdr_cloud_to_mac_dispatch_sheet",
+        "surface": "Google Sheet 11uX17x6dpCu5dJdHRBG_HxIZe7Xe6J9vO0gpx2txE08",
+        "cadence": "60s launchd sync"
+      },
+      {
+        "id": "github_public_issues_and_prs",
+        "surface": "IgorGanapolsky/mac-yolo-safeguards, ThumbGate, dayglass-mac, RealEstate",
+        "cadence": "per-turn"
+      }
+    ],
+    "downstreamReleaseChecklist": [
+      "unit_and_behavior_tests_green",
+      "context_layer_tests_green",
+      "sideways_enterprise_guardrails_pass",
+      "codeql_zero_open_alerts",
+      "otel_span_emitted"
+    ],
+    "sidewaysGuardrails": {
+      "wcagContrastMinNormal": 4.5,
+      "wcagContrastMinLarge": 3.0,
+      "minTapTargetPx": 44,
+      "forbidRedGreenOnlyDistinction": true,
+      "requireFocusVisibleWhenOutlineNone": true,
+      "maxMonthlyMeteredBudgetUsd": 10.0
+    }
+  },
+  "tokenRoiAiOps": {
+    "monthlyTokenBudgetUsd": 10.0,
+    "minRoiMultiplierToSchedule": 3.0,
+    "categoryMultipliers": {
+      "direct_revenue": 5.0,
+      "customer_retention": 4.0,
+      "security_compliance": 4.0,
+      "ci_reliability": 3.5,
+      "internal_hygiene": 2.0,
+      "speculative_refactor": 0.4
+    }
+  }
+}
