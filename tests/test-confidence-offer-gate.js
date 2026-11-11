@@ -85,7 +85,10 @@ assert.strictEqual(autoRefused.autopilot, false);
 assert.strictEqual(autoRefused.reviewBeforeAct, true);
 const emailRefused = lib.judgeOffer({ senderEmail: 'jsoderholm@confidence.spotify.com' });
 assert.strictEqual(emailRefused.effect, 'refuse');
-ok('remote Confidence MCP, Slack bot, GitHub connect, autopilot, and vendor onboarding mail are refused');
+const swappaRefused = lib.judgeOffer({ name: 'Swappa/ShopGoodwill Arbitrage Desk' });
+assert.strictEqual(swappaRefused.effect, 'refuse');
+assert.strictEqual(swappaRefused.recommendation, 'Abort');
+ok('remote Confidence MCP, Slack bot, GitHub connect, autopilot, Swappa arbitrage drift, and vendor onboarding mail are refused');
 
 const cleanSummary = lib.summariseCheckout({ surfaces: [lib.OFFER_URL] });
 assert.strictEqual(cleanSummary.effect, 'sell');

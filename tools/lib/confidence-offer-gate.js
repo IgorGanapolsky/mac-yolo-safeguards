@@ -184,6 +184,14 @@ function judgeOffer(request) {
   if (request.onboardingReply || vendorOnboardingEmail(request.senderEmail)) {
     return blank('The Confidence Agent email is vendor onboarding, not a buyer lead.', 'refuse', 'Abort');
   }
+  const projectOrName = `${request.name || ''} ${request.project || ''} ${request.topic || ''}`;
+  if (/swappa|shopgoodwill|arbitrage\s+desk/i.test(projectOrName)) {
+    return blank(
+      'Swappa/ShopGoodwill arbitrage was an unused onboarding artifact, not our business.',
+      'refuse',
+      'Abort',
+    );
+  }
   if (request.callConfidence || request.upgradePlan || /confidence\.spotify\.com/i.test(remote)) {
     return blank('This check does not call Confidence. The plan stays Free.', 'refuse', 'Abort');
   }

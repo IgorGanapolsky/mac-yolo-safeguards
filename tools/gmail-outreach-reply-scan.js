@@ -179,7 +179,7 @@ function isAutomatedOrVendorSender(rowText) {
     if (/^(?:no-?reply|donotreply|mailer-daemon|postmaster|notifications?)@/i.test(email)) {
       return true;
     }
-    if (/@(?:notify\.cloudflare\.com|confidence\.spotify\.com)$/i.test(email)) {
+    if (/@(?:notify\.cloudflare\.com|confidence\.spotify\.com|(?:email\.)?hyperagent\.com)$/i.test(email)) {
       return true;
     }
     if (email === 'experimentation-cs@spotify.com') {
@@ -187,6 +187,9 @@ function isAutomatedOrVendorSender(rowText) {
     }
   }
   if (/You['’]re receiving this because you signed up for Confidence/i.test(t)) {
+    return true;
+  }
+  if (/Your Autowiki is ready|Swappa\/ShopGoodwill Arbitrage Desk|Arbitrage Desk Risk Policy/i.test(t)) {
     return true;
   }
   return false;
