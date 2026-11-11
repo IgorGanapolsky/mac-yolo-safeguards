@@ -1,0 +1,36 @@
+{
+  "name": "mac-yolo-safeguards",
+  "version": "1.0.0",
+  "description": "macOS freeze guard, PreToolUse AI agent reliability firewall, 60s iOS Simulator reaper, and $10/mo token budget gate for Claude Connectors, Cursor, Gemini, ChatGPT, Grok, and Perplexity.",
+  "homepage": "https://github.com/IgorGanapolsky/mac-yolo-safeguards",
+  "categories": [
+    "security",
+    "observability",
+    "agent-governance",
+    "developer-tools",
+    "macos"
+  ],
+  "keywords": [
+    "macos",
+    "claude-connectors",
+    "cursor",
+    "gemini",
+    "chatgpt",
+    "grok",
+    "perplexity",
+    "pretooluse",
+    "guardrails",
+    "thumbgate",
+    "dayglass",
+    "mcp"
+  ],
+  "transport": "stdio",
+  "remoteTransport": "streamable-http",
+  "remoteEndpoint": "https://thumbgate.app/mcp",
+  "discovery": {
+    "manifestUrl": "https://thumbgate.app/.well-known/mcp.json",
+    "serverCardUrl": "https://thumbgate.app/.well-known/mcp/server-card.json",
+    "openApiUrl": "https://thumbgate.app/openapi.json",
+    "agentCardUrl": "https://thumbgate.app/.well-known/agent.json"
+  }
+}

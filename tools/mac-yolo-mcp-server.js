@@ -59,12 +59,28 @@ function getToolDefinitions() {
   return [
     {
       name: 'yolo_health_status',
+      title: 'macOS Health & Safeguard Status',
       description: 'Get live macOS load average, iOS Simulator process count, memory headroom, and safeguard status',
+      annotations: {
+        title: 'macOS Health & Safeguard Status',
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
       inputSchema: { type: 'object', properties: {} },
     },
     {
       name: 'yolo_confidence_flags',
+      title: 'Spotify Confidence Feature Flags & Guardrails',
       description: 'List Spotify Confidence feature flags (state=ACTIVE), resolve a typed flag with exposure logging, or synthesize what is worth building',
+      annotations: {
+        title: 'Spotify Confidence Feature Flags & Guardrails',
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
       inputSchema: {
         type: 'object',
         properties: {
@@ -77,17 +93,41 @@ function getToolDefinitions() {
     },
     {
       name: 'yolo_guardrails_audit',
+      title: 'Unified Agent Guardrails & Security Audit',
       description: 'Run unified Supabase Declarative Schema + Anti-Paperclipping DB + IBM 3-Axis Pre-Production Confusion + Tailscale (scurgery, MagicRoute, Tailworm) audit',
+      annotations: {
+        title: 'Unified Agent Guardrails & Security Audit',
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
       inputSchema: { type: 'object', properties: {} },
     },
     {
       name: 'yolo_token_budget_gate',
+      title: 'Metered API Token Budget Gate',
       description: 'Check the $10/mo metered API token budget ceiling and zero-spend fallback route',
+      annotations: {
+        title: 'Metered API Token Budget Gate',
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
       inputSchema: { type: 'object', properties: {} },
     },
     {
       name: 'yolo_reap_simulators',
+      title: 'Safe iOS Simulator Runaway Reaper',
       description: 'Safely inspect or reap runaway iOS Simulator processes exceeding threshold without touching foreground GUI apps',
+      annotations: {
+        title: 'Safe iOS Simulator Runaway Reaper',
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
       inputSchema: {
         type: 'object',
         properties: {
@@ -97,12 +137,28 @@ function getToolDefinitions() {
     },
     {
       name: 'yolo_business_catalog',
+      title: 'Commercial Product & Pricing Catalog',
       description: 'Return the packaged mac-yolo-safeguards product suite (MCP Server, Native Mac Menu Bar App, HTTP Service) and 5-tier commercial pricing ladder',
+      annotations: {
+        title: 'Commercial Product & Pricing Catalog',
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
       inputSchema: { type: 'object', properties: {} },
     },
     {
       name: 'yolo_sdlc_10_prompts',
+      title: 'SDLC AI Prompts & Non-Coding Executors',
       description: 'GitLab 10 SDLC AI Prompts & 80% non-coding SDLC executors (breaking-change detector, doc-drift detector, release-notes compiler, pipeline RCA)',
+      annotations: {
+        title: 'SDLC AI Prompts & Non-Coding Executors',
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
       inputSchema: {
         type: 'object',
         properties: {
@@ -113,12 +169,28 @@ function getToolDefinitions() {
     },
     {
       name: 'yolo_revenue_observability',
+      title: 'Cross-Fleet Revenue & Funnel Observability',
       description: 'Honest cross-fleet revenue, traffic, checkout funnel, and observability gap report (separates $0 cleared external cash from owner test charges and staged pipeline)',
+      annotations: {
+        title: 'Cross-Fleet Revenue & Funnel Observability',
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
       inputSchema: { type: 'object', properties: {} },
     },
     {
       name: 'yolo_disk_smart_scan',
+      title: 'Disk Space Lens & Smart Temp Cache Scan',
       description: 'Disk Space Lens, Smart Scan, safe 1-click agent temp cache purge, and native macOS notification',
+      annotations: {
+        title: 'Disk Space Lens & Smart Temp Cache Scan',
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
       inputSchema: {
         type: 'object',
         properties: {
@@ -129,7 +201,15 @@ function getToolDefinitions() {
     },
     {
       name: 'yolo_agent_guard',
+      title: 'AI Agent Process Storm & Memory Guard',
       description: 'AI agent processes by kind, process storms (one command in 40+ copies), memory pressure, and saved incidents where several Claude Code processes were killed at once. action=clean stops storms and extra copies of orphaned MCP servers; action=pressure gives the memory pressure verdict and, when not normal, the same cleanup. Both are dry runs unless execute=true and never touch live sessions or the MCP servers and hooks they launched.',
+      annotations: {
+        title: 'AI Agent Process Storm & Memory Guard',
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
       inputSchema: {
         type: 'object',
         properties: {
@@ -140,7 +220,15 @@ function getToolDefinitions() {
     },
     {
       name: 'yolo_system_care',
+      title: '5-Pillar macOS Smart Care Scan',
       description: '5-Pillar Smart Care Scan (Cleanup, Protection, Performance/Browser Care/LaunchAgents, Applications/Installers, My Clutter) + Status Bar Icon toggle',
+      annotations: {
+        title: '5-Pillar macOS Smart Care Scan',
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
       inputSchema: {
         type: 'object',
         properties: {
@@ -151,7 +239,15 @@ function getToolDefinitions() {
     },
     {
       name: 'yolo_wabi_sales_ops',
+      title: 'Collaborative Deal Plan & Checkout Recovery',
       description: 'Wabi-driven collaborative sales operations: Shared Fleet Plan & ROI Mini-App, Shared 48h Deal Countdown Widget, and Email/Checkout Deadline Recovery Scanner',
+      annotations: {
+        title: 'Collaborative Deal Plan & Checkout Recovery',
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
       inputSchema: {
         type: 'object',
         properties: {

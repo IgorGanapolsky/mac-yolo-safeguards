@@ -1,7 +1,25 @@
 {
   "name": "mac-yolo-safeguards-skills",
-  "description": "Hugging Face pattern skill extension for Gemini CLI & AGY agents",
+  "description": "Gemini CLI & Workspace extension bundling Mac YOLO Safeguards, ThumbGate PreToolUse firewall, and Dayglass memory",
   "version": "1.0.0",
+  "author": {
+    "name": "Igor Ganapolsky",
+    "email": "ig5973700@gmail.com",
+    "url": "https://thumbgate.app"
+  },
+  "homepage": "https://github.com/IgorGanapolsky/mac-yolo-safeguards",
+  "repository": "https://github.com/IgorGanapolsky/mac-yolo-safeguards",
+  "license": "MIT",
+  "mcpServers": {
+    "mac-yolo-safeguards": {
+      "command": "node",
+      "args": ["tools/mac-yolo-mcp-server.js"]
+    },
+    "thumbgate": {
+      "command": "npx",
+      "args": ["--yes", "--package", "thumbgate", "thumbgate", "serve"]
+    }
+  },
   "skills": [
     {
       "name": "agent-session-start",

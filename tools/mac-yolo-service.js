@@ -22,13 +22,22 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { spawnSync } = require('child_process');
-const { callTool } = require('./mac-yolo-mcp-server');
+const { callTool, handleRpcRequest, getToolDefinitions } = require('./mac-yolo-mcp-server');
 const {
   listFlags,
   resolveFlagWithExposure,
   synthesizeWhatIsWorthBuilding,
 } = require('./spotify-confidence-flags-steal');
 const DEFAULT_PORT = Number(process.env.MAC_YOLO_SERVICE_PORT || 8766);
+
+function readRepoJson(relPath, fallback = {}) {
+  try {
+    const full = path.join(__dirname, '..', relPath);
+    return JSON.parse(fs.readFileSync(full, 'utf8'));
+  } catch {
+    return fallback;
+  }
+}
 
 function routeRequest(method, rawUrl, bodyObj = {}) {
   const parsed = new URL(rawUrl || '/', 'http://127.0.0.1');
@@ -120,6 +129,78 @@ function routeRequest(method, rawUrl, bodyObj = {}) {
     const { buildCollaborativeDealPlanWidget } = require('./wabi-sales-operations-engine');
     return { status: 200, body: buildCollaborativeDealPlanWidget(bodyObj || {}) };
   }
+
+  if (pathname === '/mcp') {
+    if (method === 'GET') {
+      return {
+        status: 200,
+        body: {
+          ok: true,
+          transport: 'streamable-http',
+          server: 'mac-yolo-safeguards',
+          protocolVersion: '2024-11-05',
+          toolsCount: getToolDefinitions().length,
+        },
+      };
+    }
+    if (method === 'POST') {
+      const rpcResp = handleRpcRequest(bodyObj || {});
+      return {
+        status: rpcResp ? 200 : 202,
+        body: rpcResp || { ok: true, accepted: true },
+      };
+    }
+  }
+
+  if (method === 'GET' && (pathname === '/.well-known/mcp.json' || pathname === '/.well-known/mcp/server-card.json')) {
+    return { status: 200, body: readRepoJson('.well-known/mcp/server-card.json') };
+  }
+
+  if (method === 'GET' && pathname === '/.well-known/oauth-protected-resource') {
+    return {
+      status: 200,
+      body: {
+        resource: 'https://thumbgate.app/mcp',
+        authorization_servers: ['https://thumbgate.app'],
+        bearer_methods_supported: ['header'],
+        scopes_supported: ['mcp:tools', 'mcp:read'],
+        public_unauthenticated_tools_supported: true,
+      },
+    };
+  }
+
+  if (method === 'GET' && pathname === '/.well-known/oauth-authorization-server') {
+    return {
+      status: 200,
+      body: {
+        issuer: 'https://thumbgate.app',
+        authorization_endpoint: 'https://thumbgate.app/oauth/authorize',
+        token_endpoint: 'https://thumbgate.app/oauth/token',
+        registration_endpoint: 'https://thumbgate.app/oauth/register',
+        response_types_supported: ['code'],
+        grant_types_supported: ['authorization_code', 'refresh_token'],
+        code_challenge_methods_supported: ['S256'],
+      },
+    };
+  }
+
+  if (method === 'GET' && pathname === '/.well-known/ai-plugin.json') {
+    return { status: 200, body: readRepoJson('.well-known/ai-plugin.json') };
+  }
+
+  if (method === 'GET' && (pathname === '/openapi.json' || pathname === '/.well-known/openapi.json')) {
+    return { status: 200, body: readRepoJson('.well-known/openapi.json') };
+  }
+
+  if (method === 'GET' && pathname === '/.well-known/agent.json') {
+    return { status: 200, body: readRepoJson('.well-known/agent.json') };
+  }
+
+  if (method === 'GET' && pathname === '/api/marketplace/connectors') {
+    const { buildMarketplaceCatalogReport } = require('./ai-connectors-marketplace-publisher');
+    return { status: 200, body: buildMarketplaceCatalogReport() };
+  }
+
   return { status: 404, body: { ok: false, error: `Not found: ${method} ${pathname}` } };
 }
 
