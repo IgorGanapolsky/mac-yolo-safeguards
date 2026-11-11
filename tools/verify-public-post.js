@@ -218,6 +218,13 @@ function extractArticleish(html, platform) {
     if (body) return stripHtml(body[0]);
   }
 
+  if (platform === 'bluesky') {
+    const bskyText =
+      h.match(/<p\b[^>]*\bid=["']bsky_post_text["'][^>]*>[\s\S]*?<\/p>/i)
+      || h.match(/<div\b[^>]*\bid=["']bsky_post_summary["'][^>]*>[\s\S]*?<\/div>/i);
+    if (bskyText) return stripHtml(bskyText[0]);
+  }
+
   return stripHtml(h);
 }
 
