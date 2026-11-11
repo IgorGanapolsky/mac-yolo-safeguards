@@ -9,7 +9,7 @@ Use when a request points at `https://app.confidence.spotify.com/experiments` or
 
 The signed-in page on 2026-11-03 was workspace `ThumbGate Workspace`, plan `Free`, profile `Igor G.`. Six rows were visible. Five were marked `Demo data`, including `Reduce checkout time (Ship)`. The other row was `ThumbGate Direct Checkout A/B`. The Mac app was not in the list.
 
-The email on 2026-11-08 (`jsoderholm@confidence.spotify.com`, Reply-To `experimentation-cs@spotify.com`, To `igor@igorganapolsky.com`) pitches the Confidence Agent across Confidence Projects, Slack (`Admin → Integrations → Slack → Add to Slack`), MCP (`claude mcp add --transport http confidence-flags https://mcp.confidence.dev/mcp/flags`), and connected GitHub. Its best practices are:
+The Confidence Agent onboarding email on 2026-11-08 (from `confidence.spotify.com`) pitches the Confidence Agent across Confidence Projects, Slack (`Admin → Integrations → Slack → Add to Slack`), MCP (`claude mcp add --transport http confidence-flags https://mcp.confidence.dev/mcp/flags`), and connected GitHub. Its best practices are:
 1. Give it a clear outcome: `"Summarise the checkout test and flag any guardrail regressions."`
 2. Add Slack to a shared product or launch channel, not just DMs.
 3. Review before you act. Treat it like a sharp teammate, not autopilot.
