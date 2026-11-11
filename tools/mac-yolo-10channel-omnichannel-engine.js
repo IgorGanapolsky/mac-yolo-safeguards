@@ -26,7 +26,7 @@
  *       * Tier 2 ($49.00 Corporate-Expense Kit): https://iganapolsky.gumroad.com/l/vcrho
  *       * Tier 3 ($499.00 Diagnostic):           https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y
  *       * Tier 4 ($1,500.00 Hardening Sprint):   https://buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38
- *       * Tier 5 ($3,000.00 Partner Pilot):      https://buy.stripe.com/fZucN5bmI8HkbO98qf3sI3j
+ *       * Tier 5 ($3,000.00 Partner Pilot):      https://buy.stripe.com/9B6eVdcqM7DgcSdayn3sJ0Z
  */
 
 const fs = require('fs');
@@ -41,7 +41,7 @@ const LINKS = {
   tier2TeamKit49: 'https://iganapolsky.gumroad.com/l/vcrho',
   tier3Diagnostic499: 'https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y',
   tier4Sprint1500: 'https://buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38',
-  tier5Pilot3000: 'https://buy.stripe.com/fZucN5bmI8HkbO98qf3sI3j',
+  tier5Pilot3000: 'https://buy.stripe.com/9B6eVdcqM7DgcSdayn3sJ0Z',
 };
 
 const CHANNELS_10 = [
