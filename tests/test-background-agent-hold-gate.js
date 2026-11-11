@@ -18,10 +18,21 @@ function assertHeld(report) {
   assert.strictEqual(report.localSpeedup, null);
   assert.strictEqual(report.localDetailGain, null);
   assert.strictEqual(report.source, SOURCE);
-  const body = JSON.stringify(report);
-  assert.ok(!body.includes('buy.stripe.com'));
-  assert.ok(!body.includes('checkout.stripe.com'));
-  assert.ok(!body.includes('/go/'));
+  assert.deepStrictEqual(Object.keys(report).sort(), [
+    'agentLeftRunning',
+    'applied',
+    'findings',
+    'humanReview',
+    'localDetailGain',
+    'localSpeedup',
+    'ok',
+    'projectWritten',
+    'source',
+    'status',
+  ]);
+  for (const item of report.findings) {
+    assert.deepStrictEqual(Object.keys(item).sort(), ['id', 'severity']);
+  }
 }
 
 function main() {
