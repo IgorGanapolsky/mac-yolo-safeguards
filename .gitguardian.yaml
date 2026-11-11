@@ -1,0 +1,5 @@
+version: 2
+secret:
+  ignored_matches:
+    - name: Cloudflare Web Analytics beacon token, public by design in every page's HTML
+      match: 284d0e87a489ee4766f86c00da3787892aba1f1a36745c3df217116ec6ed1fb6

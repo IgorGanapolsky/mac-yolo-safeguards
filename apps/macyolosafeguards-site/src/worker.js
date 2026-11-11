@@ -1,0 +1,78 @@
+// Cloudflare Worker for Mac YOLO Safeguards (macyolosafeguards.io)
+// Mirrors the dayglass.io Worker + Static Assets + /go/* checkout attribution architecture.
+
+const GO_REDIRECTS = {
+  "pro-direct": "https://buy.stripe.com/cNi6oH1M81eSg4pdKz3sJ10",
+  "pro": "https://buy.stripe.com/cNi6oH1M81eSg4pdKz3sJ10",
+  "pro_monthly": "https://buy.stripe.com/cNi6oH1M81eSg4pdKz3sJ10",
+  "monthly": "https://buy.stripe.com/cNi6oH1M81eSg4pdKz3sJ10",
+  "triage": "https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y",
+  "diagnostic": "https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y",
+  "499": "https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y",
+  "sprint": "https://buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38",
+  "hardening": "https://buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38",
+  "1500": "https://buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38",
+  "pilot": "https://buy.stripe.com/9B6eVdcqM7DgcSdayn3sJ0Z",
+  "b2b": "https://buy.stripe.com/9B6eVdcqM7DgcSdayn3sJ0Z",
+  "3000": "https://buy.stripe.com/9B6eVdcqM7DgcSdayn3sJ0Z",
+  "dmg": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.1.2/MacYoloSafeguards-1.1.2.dmg",
+  "download": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.1.2/MacYoloSafeguards-1.1.2.dmg",
+  "pkg": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.1.2/MacYoloSafeguards.pkg",
+  "zip": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.1.2/MacYoloSafeguards.zip",
+  "github": "https://github.com/IgorGanapolsky/mac-yolo-safeguards"
+};
+
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+
+    if (url.pathname === "/api/health" || url.pathname === "/healthz") {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          service: "macyolosafeguards",
+          domain: "macyolosafeguards.io",
+          version: "1.1.2",
+          checkout_ready: true,
+          redirects: Object.keys(GO_REDIRECTS)
+        }),
+        {
+          status: 200,
+          headers: {
+            "content-type": "application/json; charset=utf-8",
+            "cache-control": "no-store"
+          }
+        }
+      );
+    }
+
+    if (url.pathname === "/pricing" || url.pathname === "/pricing/") {
+      return Response.redirect(new URL("/#pricing", url.origin).toString(), 301);
+    }
+
+    if (url.pathname.startsWith("/go/")) {
+      const slug = url.pathname.slice(4).replace(/\/+$/, "").toLowerCase();
+      const target = GO_REDIRECTS[slug];
+      // An unknown or mistyped slug goes to the pricing section, not straight into a checkout.
+      if (!target) return Response.redirect(new URL("/#pricing", url.origin).toString(), 302);
+      const dest = new URL(target);
+      for (const [k, v] of url.searchParams.entries()) {
+        dest.searchParams.set(k, v);
+      }
+      return Response.redirect(dest.toString(), 302);
+    }
+
+    const accept = request.headers.get("accept") || "";
+    if ((url.pathname === "/" || url.pathname === "/index.html") && accept.includes("text/markdown")) {
+      const mdUrl = new URL("/llms.txt", url.origin);
+      const mdResp = await env.ASSETS.fetch(new Request(mdUrl.toString(), request));
+      if (mdResp.ok) {
+        const headers = new Headers(mdResp.headers);
+        headers.set("content-type", "text/markdown; charset=utf-8");
+        return new Response(mdResp.body, { status: 200, headers });
+      }
+    }
+
+    return env.ASSETS.fetch(request);
+  }
+};
