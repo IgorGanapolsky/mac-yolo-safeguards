@@ -4510,3 +4510,18 @@ The 10 Nov 2026 announcement at https://news.adobe.com/news/2026/11/adobe-powers
 | .agents/skills/background-agent-hold-gate/** | grok-background-agent-hold | 2026-11-11T15:57:30-0500 |
 | SKILLS.md (one row) | grok-background-agent-hold | 2026-11-11T15:57:30-0500 |
 | plan.md (this append) | grok-background-agent-hold | 2026-11-11T15:57:30-0500 |
+
+## OpenShell policy gate (append 2026-11-11T15:52:06-0500) — `grok-openshell-policy`
+
+NVIDIA OpenShell (https://github.com/NVIDIA/OpenShell) declares what each agent can touch and waits for a person when a policy adds a host or a credential. This gate keeps that shape locally. It does not install the product, start a sandbox, attach a credential, or record kernel enforcement or a formal proof as a local result.
+
+| T-OPENSHELL-POLICY-20261111 | Fail closed on an OpenShell install, a self-applied host or credential widening, and NVIDIA enforcement claims recorded as local results | in_progress | grok-openshell-policy | `tools/openshell-policy-gate.js`, `tests/test-openshell-policy-gate.js`, `.agents/skills/openshell-policy-gate/**`, `SKILLS.md` (one row), `plan.md` (this append) | `node tests/test-openshell-policy-gate.js` exits 0. No installer, sandbox, or credential is applied. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/openshell-policy-gate.js | grok-openshell-policy | 2026-11-11T15:52:06-0500 |
+| tests/test-openshell-policy-gate.js | grok-openshell-policy | 2026-11-11T15:52:06-0500 |
+| .agents/skills/openshell-policy-gate/** | grok-openshell-policy | 2026-11-11T15:52:06-0500 |
+| SKILLS.md (one row) | grok-openshell-policy | 2026-11-11T15:52:06-0500 |
+| plan.md (this append) | grok-openshell-policy | 2026-11-11T15:52:06-0500 |
