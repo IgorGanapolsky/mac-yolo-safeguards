@@ -24,10 +24,10 @@ const GO_REDIRECTS = {
   "pilot": "https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k",
   "b2b": "https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k",
   "3000": "https://buy.stripe.com/9B69ATbmI4r4aK5eOD3sI3k",
-  "dmg": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.1.0/MacYoloSafeguards-1.1.0.dmg",
-  "download": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.1.0/MacYoloSafeguards-1.1.0.dmg",
-  "pkg": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.1.0/MacYoloSafeguards.pkg",
-  "zip": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.1.0/MacYoloSafeguards.zip",
+  "dmg": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.1.1/MacYoloSafeguards-1.1.1.dmg",
+  "download": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.1.1/MacYoloSafeguards-1.1.1.dmg",
+  "pkg": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.1.1/MacYoloSafeguards.pkg",
+  "zip": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.1.1/MacYoloSafeguards.zip",
   "github": "https://github.com/IgorGanapolsky/mac-yolo-safeguards"
 };
 
@@ -41,7 +41,7 @@ export default {
           ok: true,
           service: "macyolosafeguards",
           domain: "macyolosafeguards.io",
-          version: "1.1.0",
+          version: "1.1.1",
           checkout_ready: true,
           redirects: Object.keys(GO_REDIRECTS)
         }),
@@ -55,9 +55,15 @@ export default {
       );
     }
 
+    if (url.pathname === "/pricing" || url.pathname === "/pricing/") {
+      return Response.redirect(new URL("/#pricing", url.origin).toString(), 301);
+    }
+
     if (url.pathname.startsWith("/go/")) {
       const slug = url.pathname.slice(4).replace(/\/+$/, "").toLowerCase();
-      const target = GO_REDIRECTS[slug] || GO_REDIRECTS["pro-direct"];
+      const target = GO_REDIRECTS[slug];
+      // An unknown or mistyped slug goes to the pricing section, not straight into a checkout.
+      if (!target) return Response.redirect(new URL("/#pricing", url.origin).toString(), 302);
       const dest = new URL(target);
       for (const [k, v] of url.searchParams.entries()) {
         dest.searchParams.set(k, v);
