@@ -269,6 +269,76 @@ function getToolDefinitions() {
         },
       },
     },
+    {
+      name: 'yolo_gemini_decisions_gate',
+      title: 'Gemini Decisions API Pre-Action & Batch Control Plane',
+      description: 'Evaluate coding-agent tool calls or commercial opportunity batches in a single forward pass using the Gemini Decisions API (gemini-decision-1 noul/choice/score primitives, $0.10/1M input tokens, $0 output tokens, and calibrated confidence escalation to mobile approval)',
+      annotations: {
+        title: 'Gemini Decisions API Pre-Action & Batch Control Plane',
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      inputSchema: {
+        type: 'object',
+        properties: {
+          mode: { type: 'string', enum: ['pre_action', 'commercial_batch'], default: 'pre_action' },
+          toolName: { type: 'string', default: 'bash' },
+          command: { type: 'string' },
+          confidenceThreshold: { type: 'number', default: 0.75 },
+          items: { type: 'array', items: { type: 'object' } },
+        },
+      },
+    },
+    {
+      name: 'yolo_emeans_quant_router',
+      title: 'e-means Codebook Quantization & Scaling Law Router',
+      description: 'Compute Meta FAIR e-means (arXiv:2611.09501) automatic (n, k, T) batch/step scaling laws and evaluate @shinboson codebook quantization tiers (Qwen3.5-4B 8.41 GB -> 1.23 GB) for Apple Silicon unified memory safety',
+      annotations: {
+        title: 'e-means Codebook Quantization & Scaling Law Router',
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      inputSchema: {
+        type: 'object',
+        properties: {
+          n: { type: 'number', default: 1000000 },
+          k: { type: 'number', default: 16384 },
+          epochs: { type: 'number', default: 5 },
+          mode: { type: 'string', enum: ['default', 'quality'], default: 'default' },
+          modelName: { type: 'string', default: 'Qwen3.5-4B-emeans-VQ' },
+          quantizedBytesGb: { type: 'number', default: 1.23 },
+          availableUnifiedMemoryGb: { type: 'number', default: 16.0 },
+        },
+      },
+    },
+    {
+      name: 'yolo_empirical_freeze_classifier',
+      title: 'Empirical macOS Coding-Agent Freeze Signature Classifier',
+      description: 'Deterministically classify the 5 empirical macOS coding-agent freeze signatures (orphaned_git_storm #108551, codex_node_repl_or_helper_leak #53664, sleep_wake_zombie_cli_spin #107354, windowserver_swap_cliff #54416, claude_vm_storage_bloat)',
+      annotations: {
+        title: 'Empirical macOS Coding-Agent Freeze Signature Classifier',
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      inputSchema: {
+        type: 'object',
+        properties: {
+          orphanedGitCount: { type: 'number', default: 0 },
+          nodeReplOrHelperCount: { type: 'number', default: 0 },
+          maxIdleCliRssGb: { type: 'number', default: 0 },
+          maxIdleCliCpuPct: { type: 'number', default: 0 },
+          swapUsedGb: { type: 'number', default: 0 },
+          mlxOrSwiftChildRssGb: { type: 'number', default: 0 },
+          claudeVmDiskGb: { type: 'number', default: 0 },
+        },
+      },
+    },
   ];
 }
 
@@ -447,6 +517,36 @@ function callTool(name, args = {}) {
   if (name === 'yolo_wabi_sales_ops') {
     const { runWabiSalesOperations } = require('./wabi-sales-operations-engine');
     return runWabiSalesOperations(args);
+  }
+  if (name === 'yolo_gemini_decisions_gate') {
+    const {
+      evaluatePreActionDecisionPack,
+      evaluateCommercialOpportunityBatch,
+    } = require('./gemini-decisions-engine');
+    if (args.mode === 'commercial_batch' && Array.isArray(args.items) && args.items.length > 0) {
+      return evaluateCommercialOpportunityBatch(args.items);
+    }
+    return evaluatePreActionDecisionPack(args, {
+      confidenceThreshold: args.confidenceThreshold,
+    });
+  }
+  if (name === 'yolo_emeans_quant_router') {
+    const {
+      deriveEmeansScalingLaws,
+      evaluateCodebookQuantizationTier,
+    } = require('./emeans-quant-router');
+    return {
+      ok: true,
+      scalingLaw: deriveEmeansScalingLaws(args),
+      quantizationTier: evaluateCodebookQuantizationTier(args),
+    };
+  }
+  if (name === 'yolo_empirical_freeze_classifier') {
+    const { classifyEmpiricalFreezeSignature } = require('./whatsapp-instinct-driver');
+    return {
+      ok: true,
+      ...classifyEmpiricalFreezeSignature(args),
+    };
   }
   throw new Error(`Unknown tool: ${name}`);
 }

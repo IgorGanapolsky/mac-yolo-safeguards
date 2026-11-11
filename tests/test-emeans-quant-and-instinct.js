@@ -298,3 +298,63 @@ test('gemini-decisions-engine builds valid noul/choice/score payloads, escalates
   assert.equal(batch.rankedOpportunities[0].id, 'claude-108551');
   assert.equal(batch.rankedOpportunities[1].offerLane, 'ignore_out_of_scope');
 });
+
+test('mac-yolo-mcp-server exposes yolo_gemini_decisions_gate, yolo_emeans_quant_router, and yolo_empirical_freeze_classifier', () => {
+  const { callTool, getToolDefinitions } = require('../tools/mac-yolo-mcp-server');
+  const names = getToolDefinitions().map((t) => t.name);
+  assert.ok(names.includes('yolo_gemini_decisions_gate'));
+  assert.ok(names.includes('yolo_emeans_quant_router'));
+  assert.ok(names.includes('yolo_empirical_freeze_classifier'));
+
+  const decisionRes = callTool('yolo_gemini_decisions_gate', {
+    mode: 'pre_action',
+    toolName: 'bash',
+    command: 'git push --force origin main',
+  });
+  assert.equal(decisionRes.decisions.interdiction_action.choice, 'hard_block_fail_closed');
+
+  const quantRes = callTool('yolo_emeans_quant_router', {
+    n: 100000,
+    k: 256,
+    epochs: 5,
+    quantizedBytesGb: 1.23,
+    availableUnifiedMemoryGb: 16.0,
+  });
+  assert.equal(quantRes.ok, true);
+  assert.equal(quantRes.quantizationTier.macFreezeSafe, true);
+
+  const freezeRes = callTool('yolo_empirical_freeze_classifier', {
+    orphanedGitCount: 309,
+    swapUsedGb: 16.0,
+  });
+  assert.equal(freezeRes.ok, true);
+  assert.equal(freezeRes.freezeRisk, 'critical');
+});
+
+test('mac-yolo-startup-credit-packets enforces Truth Guardrails and zero unattended submission across all 5 programs', () => {
+  const {
+    UNATTENDED_SUBMISSION_ALLOWED,
+    validateTruthGuardrails,
+    buildStartupCreditPacketsReport,
+  } = require('../tools/mac-yolo-startup-credit-packets');
+
+  assert.equal(UNATTENDED_SUBMISSION_ALLOWED, false);
+  const report = buildStartupCreditPacketsReport();
+  assert.equal(report.ok, true);
+  assert.equal(report.programsCount, 5);
+  assert.equal(report.unattendedSubmissionAllowed, false);
+  assert.ok(report.estimatedTotalNonDilutiveCreditsUsd.min >= 10000);
+  assert.ok(report.estimatedTotalNonDilutiveCreditsUsd.max >= 170000);
+
+  assert.throws(
+    () =>
+      validateTruthGuardrails({
+        id: 'fake-packet',
+        websiteUrl: 'https://thumbgate.app',
+        repo: 'mac-yolo-safeguards',
+        claim: 'We have $5M ARR and 10,000 paying customers',
+      }),
+    /ERR_FABRICATED_CLAIM_FORBIDDEN/,
+  );
+});
+
