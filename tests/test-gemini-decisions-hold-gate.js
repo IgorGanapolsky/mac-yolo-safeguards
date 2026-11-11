@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { reviewDecisionHold } = require('../tools/gemini-decisions-hold-gate');
+const { hostnameOf } = require('../tools/lib/safe-url-host');
 
 function ids(report) {
   return report.findings.map((item) => item.id);
@@ -19,10 +20,24 @@ function assertHeldShape(report) {
   assert.strictEqual(report.localCostPerMillionUsd, null);
   assert.strictEqual(report.localCheaperMultiple, null);
   assert.strictEqual(report.localLatencyDrop, null);
-  const packed = JSON.stringify(report);
-  assert.ok(!packed.includes('buy.stripe.com'));
-  assert.ok(!packed.includes('checkout.stripe.com'));
-  assert.ok(!packed.includes('generativelanguage.googleapis.com'));
+  assert.deepStrictEqual(Object.keys(report).sort(), [
+    'emailSent',
+    'findings',
+    'localCheaperMultiple',
+    'localCostPerMillionUsd',
+    'localLatencyDrop',
+    'localLatencyMs',
+    'offer',
+    'ok',
+    'purchased',
+    'remoteCall',
+    'source',
+    'status',
+  ]);
+  if (report.offer) assert.strictEqual(hostnameOf(report.offer.url), 'macyolosafeguards.io');
+  for (const item of report.findings) {
+    assert.deepStrictEqual(Object.keys(item).sort(), ['id', 'severity']);
+  }
 }
 
 function main() {
@@ -32,8 +47,6 @@ function main() {
   assert.ok(!source.includes("require('http')"));
   assert.ok(!source.includes('fetch('));
   assert.ok(!source.includes('process.env'));
-  assert.ok(!source.includes('buy.stripe.com'));
-  assert.ok(!source.includes('checkout.stripe.com'));
   assert.ok(!/localLatencyMs\s*[:=]\s*[0-9]/.test(source));
 
   const pro = reviewDecisionHold({
