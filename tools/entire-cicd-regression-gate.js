@@ -90,9 +90,17 @@ const REJECTED_APPROACHES = [
     pattern: 'Gumroad page',
     reason: 'User rejected Gumroad page button inside the native macOS HUD.',
   },
+  {
+    id: 'broken-capture-below-window-glass-hack',
+    pattern: 'captureBelowWindow',
+    reason: 'CGWindowListCreateImage fails without Screen Recording TCC and breaks native NSVisualEffectView blur/translucency.',
+  },
 ];
 
 const REQUIRED_BENTO_INVARIANTS = [
+  { id: 'native-nsvisualeffectview-blur', pattern: 'visualEffectView.material = .hudWindow' },
+  { id: 'native-behind-window-blending', pattern: 'visualEffectView.blendingMode = .behindWindow' },
+  { id: 'translucent-panel-alpha-088', pattern: 'hudPanel.alphaValue = 0.88' },
   { id: 'retina-menubar-pill', pattern: 'func renderMenuBarPill(' },
   { id: 'dayglass-header-drag-move', pattern: "case \"moveHud\":" },
   { id: 'dayglass-corner-resize', pattern: "case \"resizeHud\":" },

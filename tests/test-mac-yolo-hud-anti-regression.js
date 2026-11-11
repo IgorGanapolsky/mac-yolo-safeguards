@@ -49,13 +49,19 @@ function main() {
     '🪟',
     '💻',
     'Gumroad page',
+    'captureBelowWindow',
+    'hudPanel.alphaValue = 1',
   ];
   for (const b of banned) {
     assert.ok(!src.includes(b), `Regression string "${b}" is banned in macos/MacYoloSafeguardsApp.swift`);
   }
 
-  // 2. True native macOS translucency (NSGlassEffectView or 0.88 alpha) + see-through cards
-  assert.ok(src.includes('hudPanel.alphaValue = 0.88') || src.includes('forceTransparentWebView'), 'Native macOS translucency required');
+  // 2. True native macOS translucency (NSVisualEffectView .hudWindow .behindWindow + 0.88 alpha) + see-through cards
+  assert.ok(src.includes('NSVisualEffectView'), 'Native NSVisualEffectView required for window blur');
+  assert.ok(src.includes('visualEffectView.material = .hudWindow'), 'NSVisualEffectView .hudWindow material required');
+  assert.ok(src.includes('visualEffectView.blendingMode = .behindWindow'), 'NSVisualEffectView .behindWindow blending required');
+  assert.ok(src.includes('hudPanel.alphaValue = 0.88'), 'hudPanel.alphaValue = 0.88 translucency required');
+  assert.ok(src.includes('forceTransparentWebView'), 'forceTransparentWebView required');
   assert.ok(
     src.includes('background: rgba(255, 255, 255, 0.08)') || src.includes('background: rgba(15, 11, 33,'),
     'Translucent inner cards required'
