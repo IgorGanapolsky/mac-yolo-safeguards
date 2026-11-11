@@ -50,6 +50,22 @@ check('extractFromHint + isLikelyOutreachReply', () => {
   assert.ok(
     !isLikelyOutreachReply('To: newman Quick close-loop: Agent Reliability Diagnostic ($499)'),
   );
+  // Automated domain/vendor emails must not be misclassified as hot buyer replies
+  assert.ok(
+    !isLikelyOutreachReply(
+      'unread From: noreply@notify.cloudflare.com Subject: Domain thumbgate.app Auto Renewal Updated',
+    ),
+  );
+  assert.ok(
+    !isLikelyOutreachReply(
+      'unread From: jsoderholm@confidence.spotify.com Subject: Meet the Confidence Agent, wherever you work',
+    ),
+  );
+  assert.ok(
+    !isLikelyOutreachReply(
+      'unread From: noreply@email.hyperagent.com Subject: Your Autowiki is ready — Swappa/ShopGoodwill Arbitrage Desk',
+    ),
+  );
   const e = extractFromHint('jake_wauchope@outlook.com Re: Quick close-loop');
   assert.strictEqual(e.email, 'jake_wauchope@outlook.com');
 });

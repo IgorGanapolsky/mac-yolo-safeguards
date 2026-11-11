@@ -57,7 +57,7 @@
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
     "playwright": "^1.55.1",
-    "react-server-dom-webpack": "19.2.8",
+    "react-server-dom-webpack": "19.2.9",
     "tailwindcss": "4.2.1",
     "typescript": "^5.9.3",
     "undici": "^8.12.3",
@@ -81,7 +81,7 @@
     "zod": "4.6.7",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "react-server-dom-webpack": "19.2.8"
+    "react-server-dom-webpack": "19.2.9"
   },
   "type": "module"
 }
