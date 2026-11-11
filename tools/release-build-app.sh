@@ -18,8 +18,10 @@ ASC_ISSUER="${ASC_ISSUER_ID:-9e5d7ebf-d4fe-47c2-8370-14dd87c17113}"
 TOOLS=(mac-yolo-disk-guard.js mac-yolo-agent-guard.js mac-yolo-system-care-engine.js)
 
 notarize() {
-  xcrun notarytool submit "$1" --key "$ASC_KEY" --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER" --wait \
-    | tee /dev/stderr | grep -q 'status: Accepted'
+  local log
+  log=$(xcrun notarytool submit "$1" --key "$ASC_KEY" --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER" --wait)
+  echo "$log" >&2
+  [[ "$log" == *"status: Accepted"* ]]
 }
 
 WORK=$(mktemp -d)
@@ -42,7 +44,7 @@ for t in "${TOOLS[@]}"; do cp "$ROOT/tools/$t" "$APP/Contents/Resources/tools/$t
 for t in mac-yolo-agent-guard.js; do
   node "$APP/Contents/Resources/tools/$t" clean >/dev/null
 done
-"$APP/Contents/MacOS/MacYoloSafeguards" --health-self-test | grep -q MAC_YOLO_HEALTH_OK
+[[ "$("$APP/Contents/MacOS/MacYoloSafeguards" --health-self-test)" == *MAC_YOLO_HEALTH_OK* ]]
 
 xattr -cr "$APP"
 codesign --force --options runtime --timestamp --sign "$SIGN_ID" -i com.igor.MacYoloSafeguards "$APP"
