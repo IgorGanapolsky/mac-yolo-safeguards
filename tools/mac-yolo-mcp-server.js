@@ -170,7 +170,7 @@ function getToolDefinitions() {
     {
       name: 'yolo_revenue_observability',
       title: 'Cross-Fleet Revenue & Funnel Observability',
-      description: 'Honest cross-fleet revenue, traffic, checkout funnel, and observability gap report (separates $0 cleared external cash from owner test charges and staged pipeline)',
+      description: 'Funnel and pipeline numbers read from the latest Mac YOLO, ThumbGate and Dayglass receipt files (null when a receipt is missing). Does not measure cash; read Stripe and Gumroad for paid orders.',
       annotations: {
         title: 'Cross-Fleet Revenue & Funnel Observability',
         readOnlyHint: true,
@@ -370,38 +370,36 @@ function callTool(name, args = {}) {
     const yoloReceipt = readJsonSafe(path.join(home, '.hermes', 'receipts', 'mac-yolo-24x7-promote-latest.json'));
     const tgReceipt = readJsonSafe(path.join(home, 'workspace', 'ThumbGate', '.thumbgate', 'make-money-last-run.json'));
     const dgReceipt = readJsonSafe(path.join(home, '.dayglass', 'make-money-last-run.json'));
+    // Every number comes from a receipt file read now, or is null. Hand-typed figures
+    // were removed because callers took them for live data.
+    const tgFunnel = tgReceipt?.stages?.stage1Funnel?.funnelBaseline ?? null;
+    const dgBoard = dgReceipt?.stages?.stage1_funnel_and_checkout_truth?.scoreboard_summary ?? null;
+    const missingReceipts = [
+      ['macYolo', yoloReceipt],
+      ['thumbgate', tgReceipt],
+      ['dayglass', dgReceipt],
+    ].filter(([, r]) => !r).map(([k]) => k);
     return {
       ok: true,
-      honestyContract: 'Cleared external stranger cash is $0.00 today/30d. Owner test charges and staged pipeline are reported separately and never counted as realized revenue.',
-      clearedExternalCashTodayUsd: 0.0,
-      clearedExternalCash30dUsd: 0.0,
-      historicalReconciledStripeLifetimeUsd: 149.0,
-      founderTestChargesUsd: 38.0,
-      liveFunnelTelemetry: {
-        thumbgateAiVisitorsToday: 361,
-        thumbgateAiVisitors30d: tgReceipt?.stages?.stage1Funnel?.funnelBaseline?.visitors30d ?? 4148,
-        thumbgateAiVisitorsLifetime: 11462,
-        ctaClicksToday: 7,
-        ctaClicks30d: tgReceipt?.stages?.stage1Funnel?.funnelBaseline?.ctaClicks30d ?? 127,
-        trueCheckoutStartsToday: 8,
-        trueCheckoutStarts24h: 13,
-        checkoutCancelPageViewsToday: 4,
-        checkoutCancelPageViews30d: 17,
-        npmDownloadsLastMonth: 1474,
-        dayglassGitClones: dgReceipt?.stages?.stage1_funnel_and_checkout_truth?.scoreboard_summary?.dayglass_mac_clones?.count ?? 395,
-        dayglassDmgDownloads: dgReceipt?.stages?.stage1_funnel_and_checkout_truth?.scoreboard_summary?.github_dmg_downloads ?? 17,
+      honestyContract: 'Every number is read from a receipt file during this call, or is null. Nothing here is an estimate. Cash is not measured here: read paid orders from Stripe and Gumroad.',
+      cashMeasured: false,
+      receipts: {
+        macYolo: yoloReceipt ? { openPipelineGrossUsd: yoloReceipt.openPipelineGrossUsd ?? null } : null,
+        thumbgate: tgReceipt
+          ? {
+              visitors30d: tgFunnel?.visitors30d ?? null,
+              ctaClicks30d: tgFunnel?.ctaClicks30d ?? null,
+              expectedPipelineUsd: tgReceipt?.stages?.stage2Promotion?.expectedPipelineUsd ?? null,
+            }
+          : null,
+        dayglass: dgReceipt
+          ? { gitClones: dgBoard?.dayglass_mac_clones?.count ?? null, dmgDownloads: dgBoard?.github_dmg_downloads ?? null }
+          : null,
       },
-      stagedPipeline: {
-        macYoloCuratedPipelineUsd: yoloReceipt?.openPipelineGrossUsd ?? 9998,
-        thumbgatePartnerExpectedPipelineUsd: tgReceipt?.stages?.stage2Promotion?.expectedPipelineUsd ?? 40455.24,
-      },
-      observabilityCoverageAndGaps: {
-        hostedRailwayTelemetryWorking: true,
-        hostedStripeSecretPresentOnRailway: true,
-        gumroadLiveSsrPolled: true,
+      missingReceipts,
+      observabilityGaps: {
         localStripeSecretInShellEnv: Boolean(process.env.STRIPE_SECRET_KEY),
         plausibleApiKeyInShellEnv: Boolean(process.env.PLAUSIBLE_API_KEY),
-        primaryFunnelBottleneck: 'checkout_start_to_paid_drop (8 checkout starts today -> 4 cancel page views -> 0 paid confirmations)',
       },
     };
   }
