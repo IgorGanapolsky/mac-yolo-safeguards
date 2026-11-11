@@ -16,13 +16,13 @@
  *      - JID:   `23949492670633@lid`
  *      - Throws `ERR_WHATSAPP_NON_INSTINCT_TARGET_FORBIDDEN` on any other contact.
  *   2. Product-Boundary Isolation (`PRODUCT_ID = 'mac-yolo-safeguards'`):
- *      - Rejects prompts mentioning unrelated products (`ERR_CROSS_PRODUCT_MIX_FORBIDDEN`).
- *      - Filters shared Instinct thread replies strictly to `mac-yolo-safeguards` /
- *        `thumbgate.app` / macOS coding-agent safeguard topics, ignoring concurrent
- *        threads from other products.
+ *      - Rejects prompts mentioning unrelated products or lacking confirmed
+ *        `mac-yolo-safeguards` scope (`ERR_CROSS_PRODUCT_MIX_FORBIDDEN`).
+ *      - Filters shared Instinct thread replies using turn provenance and explicit
+ *        `mac-yolo-safeguards` tags/topics, ignoring concurrent threads from other products.
  *   3. Zero External Outreach:
- *      - Throws `ERR_EXTERNAL_OUTREACH_FORBIDDEN` if a prompt requests outbound
- *        emails, texts, or invites to external people.
+ *      - Clause-level negation-safe guard throws `ERR_EXTERNAL_OUTREACH_FORBIDDEN`
+ *        if any clause requests outbound emails, texts, DMs, or invites to external people.
  */
 
 const fs = require('fs');
@@ -31,6 +31,7 @@ const os = require('os');
 const { execFileSync } = require('child_process');
 
 const PRODUCT_ID = 'mac-yolo-safeguards';
+const PRODUCT_TAG = `[PRODUCT: ${PRODUCT_ID}]`;
 const INSTINCT_PHONE = '16508702892';
 const INSTINCT_JID = '23949492670633@lid';
 const INSTINCT_SESSION_PK = 3;
@@ -43,8 +44,11 @@ const DEFAULT_DB_PATH = path.join(
   'ChatStorage.sqlite',
 );
 
+const NEGATED_OUTREACH_CLAUSE_RE =
+  /^\s*(?:please\s+)?(?:never|do\s+not|don't|no)\s+(?:send|email|text|message|dm|invite|contact|blast|reach\s+out)\b/i;
+
 const OUTREACH_FORBIDDEN_RE =
-  /\b(?:send\s+(?:an?\s+)?(?:email|text|message|invite|dm)\s+to|email\s+my\s+contacts|message\s+my\s+calendar|blast\s+contacts)\b/i;
+  /\b(?:send\s+(?:an?\s+)?(?:email|text|message|invite|dm)\b|email\s+(?!address\b|header\b|headers\b|log\b|logs\b)[a-z0-9_@.-]+|invite\s+[a-z0-9_@.-]+|message\s+(?:my\s+)?(?:contacts|calendar|[a-z0-9_@.-]+)|dm\s+[a-z0-9_@.-]+|blast\s+contacts|cold[- ]?email|reach\s+out\s+to)\b/i;
 
 const UNRELATED_PRODUCT_RE =
   /\b(?:foreclosure|tax-deed|tax\s+deed|tax-lien|probate|miami-dade|broward|palm\s+beach|distressed-property|somelco|monceau|prop-hunters|labros)\b/i;
@@ -67,54 +71,105 @@ function assertInstinctTargetOnly(target = {}) {
   return { phone: INSTINCT_PHONE, jid: INSTINCT_JID, sessionPk: INSTINCT_SESSION_PK };
 }
 
-function validateInstinctPrompt(promptText) {
+function splitPromptClauses(text) {
+  return String(text || '')
+    .split(/[.;!\n]+|\b(?:and\s+then|then|but|however)\b/i)
+    .map((c) => c.trim())
+    .filter(Boolean);
+}
+
+function validateInstinctPrompt(promptText, options = {}) {
   const text = String(promptText || '').trim();
   if (!text) {
     const err = new Error('ERR_EMPTY_INSTINCT_PROMPT: Prompt text is required.');
     err.code = 'ERR_EMPTY_INSTINCT_PROMPT';
     throw err;
   }
-  if (UNRELATED_PRODUCT_RE.test(text)) {
+  if (
+    (options.productId != null && options.productId !== PRODUCT_ID) ||
+    UNRELATED_PRODUCT_RE.test(text)
+  ) {
     const err = new Error(
       'ERR_CROSS_PRODUCT_MIX_FORBIDDEN: Prompts from mac-yolo-safeguards must focus exclusively on mac-yolo-safeguards / thumbgate.app and never mix unrelated products.',
     );
     err.code = 'ERR_CROSS_PRODUCT_MIX_FORBIDDEN';
     throw err;
   }
-  const withoutNegations = text.replace(
-    /\b(?:never|do\s+not|don't|no)\s+(?:send|email|message|invite)[^.\n]*/gi,
-    '',
-  );
-  if (OUTREACH_FORBIDDEN_RE.test(withoutNegations)) {
+
+  const hasExplicitProductTag = text.startsWith(PRODUCT_TAG);
+  const hasConfirmedProductContext =
+    hasExplicitProductTag ||
+    options.productId === PRODUCT_ID ||
+    MAC_YOLO_RELEVANT_RE.test(text);
+
+  if (!hasConfirmedProductContext) {
     const err = new Error(
-      'ERR_EXTERNAL_OUTREACH_FORBIDDEN: Instinct prompts may not request outbound emails, messages, or invites to external people.',
+      'ERR_CROSS_PRODUCT_MIX_FORBIDDEN: Prompt scope could not be confirmed for mac-yolo-safeguards.',
     );
-    err.code = 'ERR_EXTERNAL_OUTREACH_FORBIDDEN';
+    err.code = 'ERR_CROSS_PRODUCT_MIX_FORBIDDEN';
     throw err;
   }
-  return text.startsWith(`[PRODUCT: ${PRODUCT_ID}]`) ? text : `[PRODUCT: ${PRODUCT_ID}] ${text}`;
+
+  const clauses = splitPromptClauses(text);
+  for (const clause of clauses) {
+    if (NEGATED_OUTREACH_CLAUSE_RE.test(clause)) {
+      continue;
+    }
+    if (OUTREACH_FORBIDDEN_RE.test(clause)) {
+      const err = new Error(
+        'ERR_EXTERNAL_OUTREACH_FORBIDDEN: Instinct prompts may not request outbound emails, messages, or invites to external people.',
+      );
+      err.code = 'ERR_EXTERNAL_OUTREACH_FORBIDDEN';
+      throw err;
+    }
+  }
+
+  return hasExplicitProductTag ? text : `${PRODUCT_TAG} ${text}`;
 }
 
-function isMacYoloSafeguardsMessage(text) {
+function isMacYoloSafeguardsMessage(text, options = {}) {
   const clean = String(text || '');
   if (!clean) return false;
-  if (UNRELATED_PRODUCT_RE.test(clean) && !clean.includes('mac-yolo-safeguards')) {
+  // Never accept a message that mentions an unrelated product, even if it also mentions mac-yolo-safeguards
+  if (UNRELATED_PRODUCT_RE.test(clean)) {
     return false;
+  }
+  if (clean.includes(PRODUCT_TAG) || options.provenanceProductId === PRODUCT_ID) {
+    return true;
   }
   return MAC_YOLO_RELEVANT_RE.test(clean);
 }
 
-function extractStructuredIntelFromMessages(messages = []) {
+function extractStructuredIntelFromMessages(messages = [], options = {}) {
   const urls = new Set();
   const assistantReplies = [];
   let ignoredOtherProductCount = 0;
+  let activeTurnScope = null;
+  const maxReplies = options.limit ? Math.max(1, Number(options.limit)) : Infinity;
 
   for (const m of messages) {
     if (!m || typeof m.text !== 'string') continue;
-    if (!isMacYoloSafeguardsMessage(m.text)) {
+
+    if (m.isFromMe) {
+      if (UNRELATED_PRODUCT_RE.test(m.text)) {
+        activeTurnScope = 'other';
+      } else if (m.text.includes(PRODUCT_TAG) || isMacYoloSafeguardsMessage(m.text)) {
+        activeTurnScope = PRODUCT_ID;
+      } else {
+        activeTurnScope = 'other';
+      }
+    }
+
+    const messageProvenance =
+      m.productId === PRODUCT_ID || (!m.isFromMe && activeTurnScope === PRODUCT_ID)
+        ? PRODUCT_ID
+        : null;
+
+    if (!isMacYoloSafeguardsMessage(m.text, { provenanceProductId: messageProvenance })) {
       if (!m.isFromMe) ignoredOtherProductCount++;
       continue;
     }
+
     if (!m.isFromMe) {
       assistantReplies.push({
         pk: m.pk,
@@ -129,20 +184,27 @@ function extractStructuredIntelFromMessages(messages = []) {
     }
   }
 
+  const boundedReplies =
+    assistantReplies.length > maxReplies
+      ? assistantReplies.slice(assistantReplies.length - maxReplies)
+      : assistantReplies;
+
   return {
     productId: PRODUCT_ID,
-    assistantReplyCount: assistantReplies.length,
+    assistantReplyCount: boundedReplies.length,
     ignoredOtherProductCount,
-    latestAssistantReply: assistantReplies.length > 0 ? assistantReplies[assistantReplies.length - 1] : null,
+    latestAssistantReply:
+      boundedReplies.length > 0 ? boundedReplies[boundedReplies.length - 1] : null,
     extractedUrls: Array.from(urls),
-    assistantReplies,
+    assistantReplies: boundedReplies,
   };
 }
 
 function readInstinctThread(options = {}) {
   assertInstinctTargetOnly(options);
   const dbPath = options.dbPath || DEFAULT_DB_PATH;
-  const limit = Math.max(1, Math.min(50, Number(options.limit) || 25));
+  const limit = Math.max(1, Math.min(50, Math.trunc(Number(options.limit) || 25)));
+  const scanWindow = Math.max(limit, Math.min(500, limit * 10));
 
   if (!fs.existsSync(dbPath)) {
     return {
@@ -154,12 +216,14 @@ function readInstinctThread(options = {}) {
     };
   }
 
-  const sql = `SELECT json_object('pk', m.Z_PK, 'isFromMe', m.ZISFROMME, 'ts', m.ZMESSAGEDATE, 'text', m.ZTEXT)
-FROM ZWAMESSAGE m
-JOIN ZWACHATSESSION s ON m.ZCHATSESSION = s.Z_PK
-WHERE s.Z_PK = ${INSTINCT_SESSION_PK} AND s.ZCONTACTJID = '${INSTINCT_JID}' AND m.ZTEXT IS NOT NULL
-ORDER BY m.Z_PK DESC
-LIMIT ${limit};`;
+  const sql = [
+    "SELECT json_object('pk', m.Z_PK, 'isFromMe', m.ZISFROMME, 'ts', m.ZMESSAGEDATE, 'text', m.ZTEXT)",
+    'FROM ZWAMESSAGE m',
+    'JOIN ZWACHATSESSION s ON m.ZCHATSESSION = s.Z_PK',
+    'WHERE s.Z_PK = 3 AND s.ZCONTACTJID = \'23949492670633@lid\' AND m.ZTEXT IS NOT NULL',
+    'ORDER BY m.Z_PK DESC',
+    `LIMIT ${Number(scanWindow)};`,
+  ].join('\n');
 
   const stdout = execFileSync('sqlite3', ['-readonly', dbPath, sql], {
     encoding: 'utf8',
@@ -187,7 +251,7 @@ LIMIT ${limit};`;
     .filter(Boolean)
     .reverse();
 
-  const intel = extractStructuredIntelFromMessages(rows);
+  const intel = extractStructuredIntelFromMessages(rows, { limit });
   return {
     ok: true,
     productId: PRODUCT_ID,
@@ -289,6 +353,7 @@ if (require.main === module) {
 
 module.exports = {
   PRODUCT_ID,
+  PRODUCT_TAG,
   INSTINCT_PHONE,
   INSTINCT_JID,
   INSTINCT_SESSION_PK,
