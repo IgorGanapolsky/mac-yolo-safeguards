@@ -4580,3 +4580,18 @@ Replaces `/usr/bin/networkQuality -c -s -M 20` on the HUD `Test Speed` action (w
 | tests/test-mac-yolo-network-guard.js | omp-hud-network-guard-20261112 | 2026-11-12T10:36:00-0500 |
 | tests/test-mac-yolo-hud-anti-regression.js | omp-hud-network-guard-20261112 | 2026-11-12T10:36:00-0500 |
 | plan.md (this append) | omp-hud-network-guard-20261112 | 2026-11-12T10:36:00-0500 |
+
+## Quota before provision (append 2026-11-12T13:41:47-0500) — `grok-quota-before-provision`
+
+The signed-in console at https://console.crusoecloud.com/home has no infrastructure quota, so a create or start stays refused. A positive quota still does not start a machine. A credit balance is not customer cash, and a numeric revenue share stays unmeasured. Their support slogans stay theirs. The check does not send the ask and does not open a checkout. The offer is Mac YOLO Safeguards.
+
+| T-QUOTA-BEFORE-PROVISION-20261112 | Fail closed before a machine starts, before a credit balance counts as cash, and before a numeric revenue share is recorded | in_progress | grok-quota-before-provision | `tools/quota-before-provision.js`, `tests/test-quota-before-provision.js`, `.agents/skills/quota-before-provision/**`, `SKILLS.md` (one row), `plan.md` (this append) | `node tests/test-quota-before-provision.js` exits 0. No machine is started and no checkout is opened. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/quota-before-provision.js | grok-quota-before-provision | 2026-11-12T13:41:47-0500 |
+| tests/test-quota-before-provision.js | grok-quota-before-provision | 2026-11-12T13:41:47-0500 |
+| .agents/skills/quota-before-provision/** | grok-quota-before-provision | 2026-11-12T13:41:47-0500 |
+| SKILLS.md (one row) | grok-quota-before-provision | 2026-11-12T13:41:47-0500 |
+| plan.md (this append) | grok-quota-before-provision | 2026-11-12T13:41:47-0500 |
