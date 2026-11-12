@@ -45,6 +45,7 @@ for t in mac-yolo-agent-guard.js; do
   node "$APP/Contents/Resources/tools/$t" clean >/dev/null
 done
 [[ "$("$APP/Contents/MacOS/MacYoloSafeguards" --health-self-test)" == *MAC_YOLO_HEALTH_OK* ]]
+[[ "$("$APP/Contents/MacOS/MacYoloSafeguards" --net-self-test)" == *MAC_YOLO_NET_OK* ]]
 
 xattr -cr "$APP"
 codesign --force --options runtime --timestamp --sign "$SIGN_ID" -i com.igor.MacYoloSafeguards "$APP"

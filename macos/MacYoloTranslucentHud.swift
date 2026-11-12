@@ -550,14 +550,15 @@ private let HUD_HTML = #"""
                 <span class="ico-badge ico-net"><svg viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1"/></svg></span>
                 <span id="netName">Network &amp; Egress</span>
               </div>
-              <span class="tile-val" style="color:#5eead4;font-size:11px;">Local-First ›</span>
+              <span class="tile-val" id="netVerdict" style="color:#94a3b8;font-size:11px;">Checking… ›</span>
             </div>
             <div class="net-rates" style="padding-left:2px;">
               <div id="netUp">↑ 0 KB/sec</div>
               <div id="netDown">↓ 0 KB/sec</div>
+              <div id="netWhy" style="font-size:10.5px;color:rgba(255,255,255,0.7);margin-top:2px;"></div>
             </div>
           </div>
-          <button class="tile-action" id="testSpeedBtn" onclick="event.stopPropagation();triggerHudAction('testSpeed', this, 'Refreshing…', 'Refresh')">Refresh</button>
+          <button class="tile-action" id="testSpeedBtn" onclick="event.stopPropagation();triggerHudAction('testSpeed', this, 'Testing…', 'Test Speed')">Test Speed</button>
         </div>
 
         <div class="tile tile-tall" onclick="openCardDetail('fleet')">
@@ -1017,6 +1018,12 @@ private let HUD_HTML = #"""
       setTextIfChanged('mcpRightBadge', state.mcpRightBadge);
       setTextIfChanged('netUp', state.netUp);
       setTextIfChanged('netDown', state.netDown);
+      setTextIfChanged('netVerdict', state.netVerdict);
+      setTextIfChanged('netWhy', state.netWhy);
+      if (state.netVerdictColor) {
+        const nv = document.getElementById('netVerdict');
+        if (nv && nv.dataset.color !== state.netVerdictColor) { nv.style.color = state.netVerdictColor; nv.dataset.color = state.netVerdictColor; }
+      }
       setTextIfChanged('recTitle', state.recTitle);
       setTextIfChanged('recDesc', state.recDesc);
       if (state.memPctNum) {
@@ -1139,6 +1146,73 @@ func runTool(_ name: String, _ args: [String]) -> ToolRun {
     return ToolRun(ran: true, output: text, problem: nil)
 }
 
+// Runs a system command with a time limit and returns what it printed.
+func captureCommand(_ path: String, _ args: [String], timeout: TimeInterval) -> String {
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: path)
+    p.arguments = args
+    let pipe = Pipe()
+    p.standardOutput = pipe
+    p.standardError = FileHandle.nullDevice
+    guard (try? p.run()) != nil else { return "" }
+    let stop = DispatchWorkItem { if p.isRunning { p.terminate() } }
+    DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: stop)
+    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+    p.waitUntilExit()
+    stop.cancel()
+    return String(data: data, encoding: .utf8) ?? ""
+}
+
+func formatRate(_ bytesPerSec: Double) -> String {
+    bytesPerSec >= 1_048_576 ? String(format: "%.1f MB/s", bytesPerSec / 1_048_576) : "\(Int(bytesPerSec / 1024)) KB/s"
+}
+
+// Average round trip from `ping -q` output, in ms, or nil when nothing came back.
+func parsePingAverage(_ text: String) -> Int? {
+    guard let line = text.split(separator: "\n").first(where: { $0.contains("min/avg/max") }),
+          let values = line.split(separator: "=").last?.split(separator: "/"), values.count >= 2,
+          let avg = Double(values[1].trimmingCharacters(in: .whitespaces)) else { return nil }
+    return Int(avg.rounded())
+}
+
+// The app sending the most to the internet, from the last sample of
+// `nettop -P -d -t external -L 2 -s <seconds> -J bytes_out -x`. Loopback traffic between
+// local apps is excluded by -t external. Tailscale forwards another app's bytes, so when
+// it tops the list and a second app sent most of the same amount, that app is named.
+func parseTopUploader(_ text: String, seconds: Double) -> String {
+    let rows = text.split(separator: "\n").map { $0.split(separator: ",", omittingEmptySubsequences: false).map(String.init) }
+    guard let header = rows.lastIndex(where: { $0.count > 1 && $0[1] == "bytes_out" }) else { return "" }
+    var usage: [(name: String, rate: Double)] = []
+    for r in rows[(header + 1)...] where r.count >= 2 && !r[0].isEmpty {
+        guard let bytes = Double(r[1]), bytes > 0 else { continue }
+        var name = r[0]
+        if let dot = name.lastIndex(of: "."), Int(name[name.index(after: dot)...]) != nil { name = String(name[..<dot]) }
+        usage.append((name, bytes / max(seconds, 0.5)))
+    }
+    usage.sort { $0.rate > $1.rate }
+    guard var top = usage.first, top.rate >= 50 * 1024 else { return "" }
+    if top.name.hasPrefix("io.tailscale"), let inner = usage.dropFirst().first, inner.rate >= top.rate * 0.6 {
+        top = (inner.name + " via Tailscale", top.rate)
+    }
+    return "\(top.name) \(formatRate(top.rate))"
+}
+
+// Card verdict from delay, upload in use and measured upload capacity (KB/s, 0 when not measured yet).
+func internetVerdict(latencyMs: Int?, upKB: Int, capacityKB: Int, topUploader: String) -> (label: String, color: String, why: String) {
+    guard let ms = latencyMs else {
+        return ("Checking… ›", "#94a3b8", topUploader)
+    }
+    let fullPct = capacityKB > 0 ? min(100, upKB * 100 / capacityKB) : -1
+    var why = ["Delay \(ms) ms"]
+    if fullPct >= 0 { why.append("upload \(fullPct)% full") }
+    if !topUploader.isEmpty { why.append(topUploader) }
+    let label: String, color: String
+    if ms >= 250 || (fullPct >= 70 && ms >= 120) { (label, color) = ("Very slow", "#f87171") }
+    else if ms >= 100 { (label, color) = ("Slow", "#fbbf24") }
+    else { (label, color) = ("Fast", "#5eead4") }
+    return (label + " ›", color, why.joined(separator: " · "))
+}
+
 func jsonObject(_ text: String) -> [String: Any] {
     guard let data = text.data(using: .utf8),
           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [:] }
@@ -1216,6 +1290,11 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var lastCpuTicks: [UInt32]? = nil
     var lastUpKB: Int = 0
     var lastDownKB: Int = 0
+    var netLatencyMs: Int? = nil
+    var netTopUploader: String = ""
+    var netProbeBusy = false
+    var netProbeAt: Date = .distantPast
+    var netSpeedTestBusy = false
     var cachedMenuBarIcon: NSImage?
     var autoGuardTimer: Timer?
     var autoGuardBusy = false
@@ -1487,7 +1566,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                 }
             }
         case "testSpeed":
-            refreshLiveTelemetry()
+            runSpeedTest()
         case "moveHud":
             if let dx = (body["dx"] as? NSNumber)?.doubleValue,
                let dy = (body["dy"] as? NSNumber)?.doubleValue {
@@ -1670,6 +1749,42 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             offset += step
         }
         return nil
+    }
+
+    // Every 20 seconds, off the main thread: delay to 1.1.1.1 and the top internet uploader.
+    func probeInternetHealthIfDue() {
+        guard !netProbeBusy, Date().timeIntervalSince(netProbeAt) >= 20 else { return }
+        netProbeBusy = true
+        netProbeAt = Date()
+        DispatchQueue.global(qos: .utility).async {
+            let latency = parsePingAverage(captureCommand("/sbin/ping", ["-c", "3", "-q", "-t", "5", "1.1.1.1"], timeout: 7))
+            let top = parseTopUploader(captureCommand("/usr/bin/nettop", ["-P", "-d", "-t", "external", "-L", "2", "-s", "2", "-J", "bytes_out", "-x"], timeout: 8), seconds: 2)
+            DispatchQueue.main.async {
+                self.netLatencyMs = latency
+                self.netTopUploader = top
+                self.netProbeBusy = false
+            }
+        }
+    }
+
+    // macOS's own speed test. Saves upload capacity so the card can say how full the upload is.
+    func runSpeedTest() {
+        guard !netSpeedTestBusy else { return }
+        netSpeedTestBusy = true
+        DispatchQueue.global(qos: .utility).async {
+            let obj = jsonObject(captureCommand("/usr/bin/networkQuality", ["-c", "-s", "-M", "20"], timeout: 40))
+            DispatchQueue.main.async {
+                if let ul = (obj["ul_throughput"] as? NSNumber)?.doubleValue, ul > 0 {
+                    UserDefaults.standard.set(Int(ul / 8 / 1024), forKey: "MacYoloUploadCapKB")
+                }
+                if let dl = (obj["dl_throughput"] as? NSNumber)?.doubleValue, dl > 0 {
+                    UserDefaults.standard.set(Int(dl / 8 / 1024), forKey: "MacYoloDownloadCapKB")
+                }
+                self.netSpeedTestBusy = false
+                self.netProbeAt = .distantPast
+                self.refreshLiveTelemetry()
+            }
+        }
     }
 
     func sampleNetworkRates() -> (String, String) {
@@ -2017,6 +2132,10 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         }
 
         let (upRate, downRate) = sampleNetworkRates()
+        probeInternetHealthIfDue()
+        let upCapKB = UserDefaults.standard.integer(forKey: "MacYoloUploadCapKB")
+        let downCapKB = UserDefaults.standard.integer(forKey: "MacYoloDownloadCapKB")
+        let verdict = internetVerdict(latencyMs: netLatencyMs, upKB: lastUpKB, capacityKB: upCapKB, topUploader: netTopUploader)
         let wifiName = resolvedWifiInterfaceName()
         let (rxBytes, txBytes) = interfaceByteTotals(named: wifiName) ?? (0, 0)
         let rxGB = Double(rxBytes) / 1_073_741_824.0
@@ -2066,6 +2185,9 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         ].joined(separator: ";;")
 
         let detailNetworkFull = [
+            "Internet Delay (ping 1.1.1.1)|\(netLatencyMs.map { "\($0) ms" } ?? "measuring")|\(min(100, (netLatencyMs ?? 0) / 5))",
+            "Top Internet Uploader (local traffic excluded)|\(netTopUploader.isEmpty ? "nothing over 50 KB/s" : netTopUploader)|50",
+            "Measured Line Speed (Test Speed)|\(upCapKB > 0 ? "↑ \(formatRate(Double(upCapKB) * 1024)) · ↓ \(formatRate(Double(downCapKB) * 1024))" : "not measured yet, tap Test Speed")|50",
             "Active Wi-Fi Interface (\(wifiName))|\(upRate) · \(downRate)|45",
             String(format: "Cumulative Interface Traffic (\(wifiName))|↓ %.2f GB RX · ↑ %.2f GB TX|60", rxGB, txGB),
         ].joined(separator: ";;")
@@ -2113,6 +2235,9 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "detailOptimization": detailCpuFull,
             "netUp": upRate,
             "netDown": downRate,
+            "netVerdict": verdict.label,
+            "netVerdictColor": verdict.color,
+            "netWhy": verdict.why,
             "recTitle": culprits.recTitle + " ›",
             "recDesc": culprits.recDesc,
             "statusBarIconVisible": showStatusBarIcon ? "true" : "false",
@@ -2662,6 +2787,27 @@ extension MacYoloAppDelegate {
         content.body = text
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
     }
+}
+
+// Checks the network card's parsing on fixed samples, then prints one live reading.
+if CommandLine.arguments.contains("--net-self-test") {
+    let ping = "--- 1.1.1.1 ping statistics ---\n3 packets transmitted, 3 packets received, 0.0% packet loss\nround-trip min/avg/max/stddev = 35.413/223.242/614.682/240.305 ms\n"
+    let nettop = ",bytes_out,\nio.tailscale.ip.92725,9000,\nnc.38875,8000,\n,bytes_out,\nio.tailscale.ip.92725,2780000,\nnc.38875,2598000,\nomp.6894,224000,\nBrowserOS neo.47480,0,\n"
+    var failures: [String] = []
+    if parsePingAverage(ping) != 223 { failures.append("ping avg") }
+    if parsePingAverage("3 packets transmitted, 0 packets received, 100.0% packet loss") != nil { failures.append("ping loss") }
+    if parseTopUploader(nettop, seconds: 2) != "nc via Tailscale 1.3 MB/s" { failures.append("uploader: \(parseTopUploader(nettop, seconds: 2))") }
+    if parseTopUploader(",bytes_out,\nomp.1,1000,\n", seconds: 2) != "" { failures.append("quiet uploader") }
+    if internetVerdict(latencyMs: 458, upKB: 1948, capacityKB: 2150, topUploader: "nc via Tailscale 1.3 MB/s").label != "Very slow ›" { failures.append("verdict very slow") }
+    if internetVerdict(latencyMs: 130, upKB: 1900, capacityKB: 2150, topUploader: "").label != "Very slow ›" { failures.append("verdict full upload") }
+    if internetVerdict(latencyMs: 130, upKB: 100, capacityKB: 2150, topUploader: "").label != "Slow ›" { failures.append("verdict slow") }
+    if internetVerdict(latencyMs: 30, upKB: 100, capacityKB: 0, topUploader: "").why != "Delay 30 ms" { failures.append("verdict fast why") }
+    guard failures.isEmpty else { print("MAC_YOLO_NET_FAIL \(failures.joined(separator: ", "))"); exit(1) }
+    let live = parsePingAverage(captureCommand("/sbin/ping", ["-c", "3", "-q", "-t", "5", "1.1.1.1"], timeout: 7))
+    let top = parseTopUploader(captureCommand("/usr/bin/nettop", ["-P", "-d", "-t", "external", "-L", "2", "-s", "2", "-J", "bytes_out", "-x"], timeout: 8), seconds: 2)
+    let v = internetVerdict(latencyMs: live, upKB: 0, capacityKB: 0, topUploader: top)
+    print("MAC_YOLO_NET_OK live=\(v.label) \(v.why)")
+    exit(0)
 }
 
 if let i = CommandLine.arguments.firstIndex(of: "--license-self-test"), i + 1 < CommandLine.arguments.count {
