@@ -22,6 +22,7 @@ node tests/test-prolo-android-podcasts-only.js
 node tests/test-mac-yolo-hud-anti-regression.js
 node tests/test-mac-yolo-app-portable.js
 node tests/test-mac-yolo-jobs.js
+node tests/test-mac-yolo-secret-scan.js
 node tests/test-mac-yolo-local-models.js
 node tests/test-mac-yolo-disk-guard.js
 node tests/test-mac-yolo-sandboxes.js
