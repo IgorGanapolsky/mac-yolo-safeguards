@@ -4,6 +4,17 @@ import { sendCheckoutAlerts } from "./checkout-alerts.js";
 // Cloudflare Worker for Mac YOLO Safeguards (macyolosafeguards.io)
 // Mirrors the dayglass.io Worker + Static Assets + /go/* checkout attribution architecture.
 
+const PRO_SLUGS = new Set(["pro-direct", "pro", "pro_monthly", "monthly"]);
+
+// Staging (CHECKOUT_MODE = "test") never redirects to a live Stripe link: Pro slugs go to the
+// test-mode PRO_CHECKOUT_URL when it is set, and every other slug falls back to pricing.
+export function checkoutTarget(slug, env = {}) {
+  if (env.CHECKOUT_MODE === "test") {
+    return PRO_SLUGS.has(slug) && env.PRO_CHECKOUT_URL ? env.PRO_CHECKOUT_URL : undefined;
+  }
+  return GO_REDIRECTS[slug];
+}
+
 const GO_REDIRECTS = {
   "pro-direct": "https://buy.stripe.com/cNi6oH1M81eSg4pdKz3sJ10",
   "pro": "https://buy.stripe.com/cNi6oH1M81eSg4pdKz3sJ10",
@@ -66,12 +77,13 @@ export default {
     }
 
     if (url.pathname === "/pricing" || url.pathname === "/pricing/") {
-      return Response.redirect(new URL("/#pricing", url.origin).toString(), 301);
+      // Keep ?from=… so the page can tag checkout links with where the visitor came from.
+      return Response.redirect(new URL("/" + url.search + "#pricing", url.origin).toString(), 301);
     }
 
     if (url.pathname.startsWith("/go/")) {
       const slug = url.pathname.slice(4).replace(/\/+$/, "").toLowerCase();
-      const target = GO_REDIRECTS[slug];
+      const target = checkoutTarget(slug, env);
       // An unknown or mistyped slug goes to the pricing section, not straight into a checkout.
       if (!target) return Response.redirect(new URL("/#pricing", url.origin).toString(), 302);
       const dest = new URL(target);

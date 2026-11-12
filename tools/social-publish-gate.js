@@ -26,10 +26,13 @@
  *   - Dead free Play package URL in body
  *   - Optional buy-link / mention / honesty checks on body
  *   - LinkedIn: store app URLs belong in first comment (warn+block with body)
+ *   - Source value: a typed score, a skip flag, uncapped spend, or a raw
+ *     card, identity number, or key in the draft blocks the post
  */
 
 const fs = require('fs');
 const path = require('path');
+const { guardOutbound } = require('./source-value-guard');
 
 const ROOT = path.resolve(__dirname, '..');
 const DEFAULT_LOG = path.join(ROOT, 'docs/social/hermes-mobile-content-log.tsv');
@@ -86,6 +89,13 @@ Optional:
   --title "..."          title (Medium/dev.to)
   --log PATH             content log TSV (default docs/social/hermes-mobile-content-log.tsv)
   --lookback-days N      default ${LOOKBACK_DAYS}
+  --value-score N        typed value score (fails without a processor return)
+  --risk-score N         typed risk score (fails without a processor return)
+  --measured-cents N     processor return in cents
+  --measured-source STR  must be processor when a score is set
+  --skip-governance      fail the post (a skip does not count)
+  --spend                spend is on (fails unless --call-cap is set)
+  --call-cap N           positive call cap for spend
   --require-buy-links    fail if body lacks ThumbGate/store/UTM CTA
   --require-mentions     fail if agent/cloud/pre-exec talk lacks product links
   --require-taste        fail if taste-gate promo_social score below threshold
@@ -123,6 +133,13 @@ function parseArgs(argv) {
     else if (a === '--title') args.title = argv[++i];
     else if (a === '--log') args.log = path.resolve(argv[++i]);
     else if (a === '--lookback-days') args.lookbackDays = Number(argv[++i]);
+    else if (a === '--value-score') args.valueScore = Number(argv[++i]);
+    else if (a === '--risk-score') args.riskScore = Number(argv[++i]);
+    else if (a === '--measured-cents') args.measuredCents = Number(argv[++i]);
+    else if (a === '--measured-source') args.measuredSource = argv[++i];
+    else if (a === '--skip-governance') args.skipGovernance = true;
+    else if (a === '--spend') args.spend = true;
+    else if (a === '--call-cap') args.callCap = Number(argv[++i]);
     else throw new Error(`Unknown argument: ${a}`);
   }
   return args;
@@ -503,6 +520,25 @@ function evaluate(args) {
     warnings.push(
       'Reddit body has hard promo links — many subs require discussion-first / links in comment only',
     );
+  }
+
+  const sourceReport = guardOutbound({
+    text: combined,
+    valueScore: args.valueScore,
+    riskScore: args.riskScore,
+    measuredCents: args.measuredCents,
+    measuredSource: args.measuredSource,
+    skipGovernance: args.skipGovernance,
+    bypass: args.bypass,
+    spend: args.spend,
+    callCap: args.callCap,
+    agents: args.agents,
+    vendorFigures: args.vendorFigures,
+  });
+  if (!sourceReport.ok) {
+    for (const item of sourceReport.findings) {
+      blocks.push(item.id + ': ' + item.detail);
+    }
   }
 
   const allow = blocks.length === 0;

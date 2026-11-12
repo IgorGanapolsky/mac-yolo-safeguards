@@ -7,7 +7,7 @@
  * Permanent anti-regression gate for MacYoloSafeguards.app (Menu Bar Pill + Translucent Bento HUD).
  * Prevents recurrence of:
  *   1. Opaque black list regression ("Sizes appear after Scan.", "Status bar icon on", "Agent temp")
- *   2. Missing native macOS translucency (NSVisualEffectView .hudWindow .behindWindow + alphaValue = 0.88)
+ *   2. Missing native macOS translucency (NSVisualEffectView .hudWindow .behindWindow; window at full opacity so the desktop does not bleed through)
  *   3. Stacked glass-on-glass inner card blur (must use matte rgba(15, 11, 33, …) inner cards)
  *   4. Flat monochrome text status item instead of Retina renderMenuBarPill
  *   5. Unlabeled mystery emoji footer buttons (must have ⚙️ Settings, 🧹 Clean Junk, ⚡ Free RAM, ✕ Close)
@@ -50,18 +50,22 @@ function main() {
     '💻',
     'Gumroad page',
     'captureBelowWindow',
-    'hudPanel.alphaValue = 1',
+    'hudPanel.alphaValue = 0.88',
+    'id="hudSizeBtn"',
+    'footerSizeLabel',
+    'Click any card for live drill-down',
     '/usr/bin/networkQuality',
   ];
   for (const b of banned) {
     assert.ok(!src.includes(b), `Regression string "${b}" is banned in macos/MacYoloSafeguardsApp.swift`);
   }
 
-  // 2. True native macOS translucency (NSVisualEffectView .hudWindow .behindWindow + 0.88 alpha) + see-through cards
+  // 2. Native blur (NSVisualEffectView .hudWindow .behindWindow) at full window opacity. At 0.88 the desktop's text showed
+  // through the cards (three UI reviews, 2026-11-12).
   assert.ok(src.includes('NSVisualEffectView'), 'Native NSVisualEffectView required for window blur');
   assert.ok(src.includes('visualEffectView.material = .hudWindow'), 'NSVisualEffectView .hudWindow material required');
   assert.ok(src.includes('visualEffectView.blendingMode = .behindWindow'), 'NSVisualEffectView .behindWindow blending required');
-  assert.ok(src.includes('hudPanel.alphaValue = 0.88'), 'hudPanel.alphaValue = 0.88 translucency required');
+  assert.ok(src.includes('hudPanel.alphaValue = 1.0'), 'hudPanel.alphaValue = 1.0 required; the blur provides the translucency');
   assert.ok(src.includes('forceTransparentWebView'), 'forceTransparentWebView required');
   assert.ok(
     src.includes('background: rgba(255, 255, 255, 0.08)') || src.includes('background: rgba(15, 11, 33,'),
@@ -76,9 +80,9 @@ function main() {
 
   // 4. Dayglass-style drag-to-move, corner resize, top-right placement, and AI Agent Optimization card
   assert.ok(src.includes('case "moveHud":') && src.includes('case "resizeHud":'), 'Dayglass moveHud and resizeHud handlers required');
-  assert.ok(src.includes('id="hudResizeGrip"') && src.includes('id="hudSizeBtnText"'), 'Dayglass corner resize grip and SVG Size/Expand button required');
+  assert.ok(src.includes('id="hudResizeGrip"'), 'Corner resize grip required (resizing is by dragging, not a Size button)');
   assert.ok(src.includes('class="ico-badge ico-disk"><svg') && src.includes('class="hdr-pill"'), 'Duotone SVG icon badges and specular pill buttons required');
-  assert.ok((src.includes('AI YOLO Agent Optimization') || src.includes('id="recSection"')) && src.includes('user agents'), 'AI Agent Optimization card and live user agents health strip required');
+  assert.ok((src.includes('AI Agent Optimization') || src.includes('id="recSection"')) && src.includes('user agents'), 'AI Agent Optimization card and live user agents health strip required');
 
   // 5. Steady network rate sampling decoupled from app switching + itemized Action Receipt Banner + pre-AppKit flock + BTM guard
   assert.ok(src.includes('dt < 1.2') || src.includes('dt >= 1.2'), 'dt 1.2s guard required in sampleNetworkRates()');
@@ -90,6 +94,10 @@ function main() {
   assert.ok(!/"(recTitle|memPressure|cpuLoad)":[^\n]*shortLine/.test(src) && !src.includes('let rTitle = "Top Hogs'), 'Top Hogs must appear only on the Protection line, not the optimization card, memory tile or CPU tile');
   // Switching apps must not write the app name over the Agents card ("Gemini / Gemini", "Google Chrome").
   assert.ok(!/let activePayload: \[String: String\] = \[[^\]]*"activeApp"/.test(src), 'App-switch payload must not overwrite the Agents card (activeApp/activeWin)');
+  // Blanking out secrets rewrites transcripts and can't be undone: it needs a second click, and only the Swift side runs it.
+  assert.ok(src.includes('function blankOutSecrets(') && src.includes("'Click again to confirm'") && src.includes('case "redactSecrets":') && !/triggerHudAction\('redactSecrets'/.test(src), 'Blank Out Secrets must require a second click before redacting');
+  assert.ok(/"netName": networkTitle\(/.test(src) && src.includes("setTextIfChanged('netName', state.netName)"), 'Network card title must show the network name and how long the Mac has been on it');
+  assert.ok(src.includes('lookupFailed = true') && src.includes('addingTimeInterval(-540)'), 'A slow Wi-Fi lookup must keep the last network name and retry in a minute, not show plain "Wi-Fi"');
   const launcherSrc = fs.readFileSync(LAUNCHER_PATH, 'utf8');
   assert.ok(launcherSrc.includes('Developer ID Application: Igor Ganapolsky (9GMM26JC5X)') && launcherSrc.includes('is_self_test'), 'tools/launch-mac-yolo-menubar.sh must sign with Developer ID Application and skip re-signing on self-tests');
 
