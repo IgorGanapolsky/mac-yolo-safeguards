@@ -183,6 +183,20 @@ function main() {
   assert.strictEqual(blockedReport.emailSent, false);
   assert.strictEqual(blockedReport.purchased, false);
 
+  // Review fixes (PR #2305).
+  assert.ok(ids(reviewDecisionHold({ action: 'note', signal: 'Codex froze my Mac', note: 'Send an email to the buyer' })).includes('send_or_charge'));
+  assert.strictEqual(reviewDecisionHold({ action: 'hold', signal: 'Codex froze two Macs and filled swap' }).offer.id, 'sprint');
+  assert.strictEqual(reviewDecisionHold({ action: 'hold', signal: 'Codex froze 3 Macs' }).offer.id, 'sprint');
+  for (const form of ['foreclosures', 'tax deeds', 'real-estate']) {
+    assert.ok(ids(reviewDecisionHold({ action: 'hold', signal: `Cursor froze my Mac while I worked on ${form}` })).includes('other_business'), form);
+  }
+  const windows = reviewDecisionHold({ action: 'hold', signal: 'Cursor froze on Windows' });
+  assert.strictEqual(windows.offer, null);
+  assert.strictEqual(windows.status, 'clear');
+  assert.strictEqual(reviewDecisionHold({ action: 'hold', signal: 'Cursor froze my Mac; I want Pro Guard and the Diagnostic' }).status, 'human');
+  assert.ok(ids(reviewDecisionHold({ action: 'note', signal: 'Google says Decisions is fast', note: 'We measured 150-250 ms' })).includes('vendor_figure_as_local'));
+  assert.ok(!ids(reviewDecisionHold({ action: 'note', signal: "Google's docs quote 150-250 ms" })).includes('vendor_figure_as_local'));
+
   console.log('test-gemini-decisions-hold-gate: PASS');
 }
 
