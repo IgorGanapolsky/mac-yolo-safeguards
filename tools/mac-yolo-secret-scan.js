@@ -18,11 +18,12 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
+const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 
 const MAX_FILE_BYTES = 200 * 1024 * 1024;
 const MIN_AGE_MS = 2 * 60 * 1000;
 const MAX_LISTED_PER_FILE = 100;
-const CHUNK = 1024 * 1024;
+const CHUNK = 4 * 1024 * 1024;
 const DEFAULT_DAYS = 30;
 
 function homeDir() { return process.env.MAC_YOLO_HOME || os.homedir(); }
@@ -53,13 +54,38 @@ const PATTERNS = [
 
 const SPECIFICITY = new Map(PATTERNS.map((p, i) => [p.kind, i]));
 
+// One cheap test per line: most lines contain none of these, so they skip every regex below.
+// It only has to be a superset of what the patterns can match.
+const PREFILTER = /sk-|gh[pos]_|github_pat_|k_live_|whsec_|AKIA|AIza|xox[baprs]-|PRIVATE KEY|passw|secret|api_key|token/;
+
+// Documentation and example values are not leaks.
+const PLACEHOLDER = /example|xxxx|your_|<|redacted|placeholder|dummy|test_/i;
+const CODE_VALUE = /^(?:\$|process\.env|os\.environ|getenv)|\(/;
+
+function mostlyOneChar(value) {
+  const seen = new Map();
+  let max = 0;
+  for (let i = 0; i < value.length; i++) {
+    const n = (seen.get(value[i]) || 0) + 1;
+    seen.set(value[i], n);
+    if (n > max) max = n;
+  }
+  return max > value.length * 0.6;
+}
+
+function isPlaceholder(kind, value) {
+  if (PLACEHOLDER.test(value) || mostlyOneChar(value)) return true;
+  if (kind === 'password-assignment' && CODE_VALUE.test(value)) return true;
+  return false;
+}
+
 function fingerprint(value) {
   return value.slice(0, 4) + '\u2026' + crypto.createHash('sha256').update(value, 'latin1').digest('hex').slice(0, 8);
 }
 
 /** Non-overlapping secrets in one line: [{kind, start, end}] sorted by start. */
 function findInLine(line) {
-  if (line.length < 8) return [];
+  if (line.length < 8 || !PREFILTER.test(line)) return [];
   const all = [];
   for (const p of PATTERNS) {
     p.re.lastIndex = 0;
@@ -73,6 +99,7 @@ function findInLine(line) {
         [start, end] = span;
         if (line.startsWith('[REDACTED:', start)) continue;
       }
+      if (isPlaceholder(p.kind, line.slice(start, end))) continue;
       all.push({ kind: p.kind, start, end });
       if (m[0].length === 0) p.re.lastIndex++;
     }
@@ -134,6 +161,7 @@ function realRoots(home) {
 function collectFiles(home, sinceDays, now = Date.now()) {
   const cutoff = now - sinceDays * 86400000;
   const files = [];
+  const stats = new Map();
   const skippedLarge = [];
   for (const root of realRoots(home)) {
     const stack = [root.dir];
@@ -151,11 +179,12 @@ function collectFiles(home, sinceDays, now = Date.now()) {
         if (st.mtimeMs < cutoff) continue;
         if (st.size > MAX_FILE_BYTES) { skippedLarge.push(full); continue; }
         files.push(full);
+        stats.set(full, { size: st.size, mtimeMs: st.mtimeMs });
       }
     }
   }
   files.sort();
-  return { files, skippedLarge };
+  return { files, skippedLarge, stats };
 }
 
 function scanFile(file) {
@@ -182,15 +211,109 @@ function parseDays(argv) {
   return n;
 }
 
-function scan(home, sinceDays) {
+// ---- cache: counts and fingerprints per file, keyed by path + size + mtime. Never values. ----
+const CACHE_VERSION = crypto.createHash('sha256')
+  .update(JSON.stringify([2, PATTERNS.map((p) => p.re.source), PLACEHOLDER.source, CODE_VALUE.source, PREFILTER.source]))
+  .digest('hex').slice(0, 16);
+
+function cachePath(home) { return path.join(home, 'Library', 'Caches', 'MacYoloSafeguards', 'secret-scan.json'); }
+
+function loadCache(home) {
+  try {
+    const c = JSON.parse(fs.readFileSync(cachePath(home), 'utf8'));
+    if (c && c.version === CACHE_VERSION && c.files && typeof c.files === 'object') return c.files;
+  } catch { /* no usable cache */ }
+  return {};
+}
+
+function saveCache(home, files) {
+  try {
+    const file = cachePath(home);
+    fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+    const tmp = `${file}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify({ version: CACHE_VERSION, files }), { mode: 0o600 });
+    fs.renameSync(tmp, file);
+  } catch { /* the cache is an optimisation only */ }
+}
+
+function dropFromCache(home, file) {
+  const files = loadCache(home);
+  if (files[file]) { delete files[file]; saveCache(home, files); }
+}
+
+// ---- parallel scan of files the cache could not answer ----
+function scanMany(files, sizes) {
+  const results = new Map();
+  if (!files.length) return Promise.resolve(results);
+  const ordered = [...files].sort((a, b) => sizes.get(b) - sizes.get(a));
+  const workers = Math.max(1, Math.min(Number(process.env.MAC_YOLO_SECRET_WORKERS) || Math.max(2, Math.min(12, os.cpus().length - 2)), Math.ceil(ordered.length / 4)));
+  if (workers === 1 || ordered.length < 8) {
+    for (const f of ordered) {
+      try { results.set(f, scanFile(f)); } catch (err) { results.set(f, { error: err.code || 'read-failed' }); }
+    }
+    return Promise.resolve(results);
+  }
+  // Batches of about 32 MB or 40 files, handed out as workers free up (largest first).
+  const batches = [];
+  let cur = [];
+  let bytes = 0;
+  for (const f of ordered) {
+    cur.push(f);
+    bytes += sizes.get(f);
+    if (bytes >= 32 * 1024 * 1024 || cur.length >= 40) { batches.push(cur); cur = []; bytes = 0; }
+  }
+  if (cur.length) batches.push(cur);
+  return new Promise((resolve, reject) => {
+    let next = 0;
+    let live = 0;
+    const pool = [];
+    const finish = () => { for (const w of pool) w.terminate(); };
+    const feed = (w) => {
+      if (next >= batches.length) { w.postMessage(null); return; }
+      w.postMessage(batches[next++]);
+    };
+    for (let i = 0; i < workers; i++) {
+      const w = new Worker(__filename, { workerData: { secretScanWorker: true } });
+      pool.push(w);
+      live++;
+      w.on('message', (out) => {
+        for (const [f, r] of out) results.set(f, r);
+        feed(w);
+      });
+      w.on('error', (err) => { finish(); reject(err); });
+      w.on('exit', () => { if (--live === 0) resolve(results); });
+      feed(w);
+    }
+  });
+}
+
+async function scan(home, sinceDays, { useCache = true } = {}) {
   const started = Date.now();
-  const { files, skippedLarge } = collectFiles(home, sinceDays);
+  const { files, skippedLarge, stats } = collectFiles(home, sinceDays);
+  const cache = useCache ? loadCache(home) : {};
+  const fresh = {};
   const result = [];
   const byKind = {};
   let secrets = 0;
+  let cacheHits = 0;
+  const todo = [];
   for (const file of files) {
-    let r;
-    try { r = scanFile(file); } catch (err) { result.push({ file: tilde(file, home), error: err.code || 'read-failed' }); continue; }
+    const st = stats.get(file);
+    const c = cache[file];
+    if (c && c.size === st.size && c.mtimeMs === st.mtimeMs) { fresh[file] = c; cacheHits++; } else todo.push(file);
+  }
+  const sizes = new Map(todo.map((f) => [f, stats.get(f).size]));
+  const scanned = await scanMany(todo, sizes);
+  const now = Date.now();
+  for (const file of files) {
+    let r = fresh[file];
+    if (!r) {
+      r = scanned.get(file);
+      if (!r || r.error) { result.push({ file: tilde(file, home), error: (r && r.error) || 'read-failed' }); continue; }
+      const st = stats.get(file);
+      // A file still being written may change between stat and read; only cache settled ones.
+      if (now - st.mtimeMs >= MIN_AGE_MS) fresh[file] = { size: st.size, mtimeMs: st.mtimeMs, total: r.total, counts: r.counts, findings: r.findings };
+    }
     if (!r.total) continue;
     secrets += r.total;
     for (const [k, v] of Object.entries(r.counts)) byKind[k] = (byKind[k] || 0) + v;
@@ -199,6 +322,7 @@ function scan(home, sinceDays) {
       truncated: r.total > r.findings.length,
     });
   }
+  if (useCache) saveCache(home, fresh);
   return {
     ok: true,
     sinceDays,
@@ -209,6 +333,7 @@ function scan(home, sinceDays) {
       byKind,
       skippedTooLarge: skippedLarge.map((f) => tilde(f, home)),
     },
+    cacheHits,
     files: result,
     elapsedMs: Date.now() - started,
   };
@@ -289,18 +414,18 @@ function redact(home, argv) {
   for (const file of files) {
     try {
       const r = redactFile(file);
-      if (r.status === 'redacted') { changed.push({ file: tilde(file, home), redacted: r.redacted, counts: r.counts }); total += r.redacted; }
+      if (r.status === 'redacted') { dropFromCache(home, file); changed.push({ file: tilde(file, home), redacted: r.redacted, counts: r.counts }); total += r.redacted; }
       else if (r.status === 'skipped') skipped.push({ file: tilde(file, home), reason: r.reason });
     } catch (err) { errors.push({ file: tilde(file, home), error: err.code || 'redact-failed' }); }
   }
   return { ok: errors.length === 0, redacted: total, filesChanged: changed.length, changed, skipped, errors, elapsedMs: Date.now() - started };
 }
 
-function main(argv) {
+async function main(argv) {
   const [cmd, ...rest] = argv;
   const home = homeDir();
   try {
-    if (cmd === 'scan') console.log(JSON.stringify(scan(home, parseDays(rest))));
+    if (cmd === 'scan') console.log(JSON.stringify(await scan(home, parseDays(rest), { useCache: !rest.includes('--no-cache') })));
     else if (cmd === 'redact') {
       const r = redact(home, rest);
       console.log(JSON.stringify(r));
@@ -315,6 +440,15 @@ function main(argv) {
   }
 }
 
-if (require.main === module) main(process.argv.slice(2));
+if (!isMainThread && workerData && workerData.secretScanWorker) {
+  parentPort.on('message', (batch) => {
+    if (batch === null) { process.exit(0); }
+    parentPort.postMessage(batch.map((f) => {
+      try { return [f, scanFile(f)]; } catch (err) { return [f, { error: err.code || 'read-failed' }]; }
+    }));
+  });
+} else if (require.main === module) {
+  main(process.argv.slice(2));
+}
 
 module.exports = { PATTERNS, fingerprint, findInLine, redactLine, collectFiles, scanFile, scan, redactFile, redact, MIN_AGE_MS };
