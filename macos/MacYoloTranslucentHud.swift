@@ -567,15 +567,15 @@ private let HUD_HTML = #"""
             <div class="tile-row">
               <div class="tile-head">
                 <span class="ico-badge ico-win"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><line x1="3" y1="9" x2="21" y2="9"/><circle cx="6.5" cy="6.5" r="0.8"/><circle cx="9.5" cy="6.5" r="0.8"/></svg></span>
-                <span>AI Fleet &amp; MCPs</span>
+                <span>Agents</span>
               </div>
               <span class="tile-val" id="mcpRightBadge" style="color:#34d399;font-size:11px;">MCPs ›</span>
             </div>
             <div class="tile-sub good" id="activeAppTile" style="padding-left:2px;margin-top:4px;font-weight:600;">Scanning active swarms…</div>
             <div class="tile-sub" id="activeWinTile" style="padding-left:2px;margin-top:2px;">Scanning MCP &amp; LaunchAgent daemons…</div>
-            <div class="tile-sub" id="fleetUsage" style="padding-left:2px;margin-top:2px;color:rgba(255,255,255,0.85);">Last hour: counting model calls…</div>
+            <div class="tile-sub" id="fleetUsage" style="padding-left:2px;margin-top:2px;color:rgba(255,255,255,0.85);white-space:pre-line;line-height:1.35;font-size:10.5px;">Counting each agent…</div>
           </div>
-          <button class="tile-action" onclick="event.stopPropagation();openCardDetail('fleet')">Inspect Fleet ›</button>
+          <button class="tile-action" onclick="event.stopPropagation();openCardDetail('fleet')">See each agent ›</button>
         </div>
       </div>
 
@@ -961,6 +961,8 @@ private let HUD_HTML = #"""
       var subEl = document.getElementById('detailSub');
       var box = document.getElementById('detailRowsContainer');
       if (!box) return;
+      box.style.maxHeight = _activeDetailCard === 'fleet' ? '440px' : '';
+      box.style.overflowY = _activeDetailCard === 'fleet' ? 'auto' : 'visible';
       if (!box.dataset.bound) {
         box.dataset.bound = '1';
         box.addEventListener('click', function(ev) {
@@ -979,13 +981,14 @@ private let HUD_HTML = #"""
         tokens: ['AI Tokens, Prompt Cache & Session Ledger', 'Live session JSONL transcripts on disk (~/.omp, ~/.grok, ~/.claude)', s.detailTokens],
         cpu: ['CPU, Apple Silicon GPU & Fan Culprits', 'Live %CPU + Apple Silicon AGXAccelerator GPU & thermal telemetry', s.detailCpu],
         network: ['Internet', 'Tap a row for the numbers behind it', s.detailNetwork],
-        fleet: ['AI Fleet, Active Swarms & MCP Bus', 'Verified coding agent sessions, RAM footprint & stdio MCP child servers', s.detailFleet],
+        fleet: ['Agents', 'Each name is one agent. Tap a row for calls, tokens, cloud, and internet.', s.detailFleet],
         optimization: ['AI YOLO Optimization & Culprit Matrix', 'Combined CPU, GPU, RAM & AI session waste breakdown', s.detailOptimization || s.detailCpu]
       }[_activeDetailCard] || ['Live Details', 'Real-time telemetry', s.detailCpu];
       if (titleEl) titleEl.textContent = meta[0];
       if (subEl) subEl.textContent = meta[1];
       var raw = meta[2] || '';
-      var rows = raw.split(';;').filter(Boolean).slice(0, 7);
+      var cap = _activeDetailCard === 'fleet' ? 24 : 7;
+      var rows = raw.split(';;').filter(Boolean).slice(0, cap);
       function esc(t) {
         return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       }
@@ -1000,8 +1003,8 @@ private let HUD_HTML = #"""
         if (more) {
           html += '<div data-row="' + rowId + '" style="padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.045);border:1px solid rgba(255,255,255,0.09);cursor:pointer;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">' +
-            '<span style="color:rgba(255,255,255,0.94);font-size:12px;font-weight:600;">' + esc(lbl) + '</span>' +
-            '<span style="color:#5eead4;font-size:11.5px;font-weight:650;font-variant-numeric:tabular-nums;text-align:right;">' + esc(val) + (open ? '  ▾' : '  ›') + '</span>' +
+            '<span style="color:rgba(255,255,255,0.94);font-size:12px;font-weight:600;flex-shrink:0;">' + esc(lbl) + '</span>' +
+            '<span style="color:#5eead4;font-size:11.5px;font-weight:650;font-variant-numeric:tabular-nums;text-align:right;max-width:68%;white-space:normal;line-height:1.35;">' + esc(val) + (open ? '  ▾' : '  ›') + '</span>' +
             '</div>' +
             (open ? '<div style="margin-top:6px;font-size:11.5px;line-height:1.4;color:rgba(255,255,255,0.78);">' + esc(more) + '</div>' : '') +
             '</div>';
@@ -1285,25 +1288,65 @@ func tallyAgentTokens(_ text: String, agent: String, cutoff: Date, into totals: 
     }
 }
 
+// Grok logs no token counts or prices. Its events.jsonl marks each model reply with a timed
+// "first_token" event, so calls since `cutoff` can be counted; tokens and price stay at zero.
+func tallyGrokCalls(_ text: String, cutoff: Date, into totals: inout [String: AgentTokens]) {
+    let fmt = ISO8601DateFormatter(); fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    var n = 0
+    for line in text.split(separator: "\n") where line.contains("\"first_token\"") {
+        guard let obj = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
+              (obj["type"] as? String) == "first_token",
+              let ts = obj["ts"] as? String, let when = fmt.date(from: ts), when >= cutoff else { continue }
+        n += 1
+    }
+    guard n > 0 else { return }
+    var t = totals["Grok"] ?? AgentTokens()
+    t.calls += n
+    totals["Grok"] = t
+}
+
 func formatTokens(_ n: Int) -> String {
     n >= 1_000_000 ? String(format: "%.1fM", Double(n) / 1e6) : n >= 1000 ? "\(n / 1000)K" : "\(n)"
 }
 
-// One detail row per agent: model calls, tokens and internet in the last hour / right now.
+// One tappable row per agent. Field 4 is the plain explanation. A dollar amount is written only when the log has one.
 func agentUsageRows(tokens: [String: AgentTokens], net: [(agent: String, inRate: Double, outRate: Double)]) -> [String] {
     let netBy = Dictionary(uniqueKeysWithValues: net.map { ($0.agent, ($0.inRate, $0.outRate)) })
     let names = Set(tokens.keys).union(netBy.keys)
-    let maxTok = max(1, tokens.values.map(\.tokens).max() ?? 1)
-    return names.sorted { (tokens[$0]?.tokens ?? 0, (netBy[$0]?.1 ?? 0)) > (tokens[$1]?.tokens ?? 0, (netBy[$1]?.1 ?? 0)) }.map { a in
-        var parts: [String] = []
-        if let t = tokens[a] {
-            parts.append("\(t.calls) model calls · \(formatTokens(t.tokens)) new tokens" + (t.cached > 0 ? " (+\(formatTokens(t.cached)) cached)" : ""))
-            if t.costUSD > 0 { parts.append(String(format: "$%.2f", t.costUSD)) }
+    return names.sorted { (tokens[$0]?.tokens ?? 0, tokens[$0]?.calls ?? 0, (netBy[$0]?.1 ?? 0)) > (tokens[$1]?.tokens ?? 0, tokens[$1]?.calls ?? 0, (netBy[$1]?.1 ?? 0)) }.map { a in
+        let t = tokens[a]
+        let r = netBy[a]
+        var bits: [String] = []
+        if let t {
+            bits.append("\(t.calls) \(t.calls == 1 ? "call" : "calls")")
+            if t.tokens > 0 { bits.append("\(formatTokens(t.tokens)) new") }
+            if t.cached > 0 { bits.append("\(formatTokens(t.cached)) cached") }
+            if t.costUSD > 0 { bits.append(String(format: "$%.2f cloud", t.costUSD)) }
+            else if t.calls > 0 { bits.append("no price") }
         }
-        if let r = netBy[a] { parts.append("internet ↑ \(formatRate(r.1)) ↓ \(formatRate(r.0))") }
-        let bar = tokens[a].map { max(4, $0.tokens * 100 / maxTok) } ?? 10
-        return "\(a)|\(parts.joined(separator: " · "))|\(bar)"
+        if let r { bits.append("↑ \(formatRate(r.1)) ↓ \(formatRate(r.0))") }
+        var sentences: [String] = []
+        if let t, t.tokens > 0 || t.cached > 0 {
+            let cachedBit = t.cached > 0 ? " \(formatTokens(t.cached)) were read back from cache." : ""
+            sentences.append("Last hour: \(t.calls) model \(t.calls == 1 ? "call" : "calls") and \(formatTokens(t.tokens)) new tokens.\(cachedBit)")
+            sentences.append(t.costUSD > 0 ? String(format: "Cloud cost recorded in the session log: $%.2f.", t.costUSD) : "The session log has no price, so no cloud dollars are shown.")
+        } else if let t, t.calls > 0 {
+            sentences.append("Last hour: \(t.calls) model \(t.calls == 1 ? "reply" : "replies"). This agent's log has no token counts. The log has no price, so no cloud dollars are shown.")
+        } else {
+            sentences.append("No model-call count in the logs this menu reads. Cloud spend is not shown without a price in the log.")
+        }
+        sentences.append(r.map { "Internet right now: sending \(formatRate($0.1)), receiving \(formatRate($0.0))." } ?? "No internet from this agent in the latest sample.")
+        return "\(a)|\(bits.joined(separator: " · "))|0|\(sentences.joined(separator: " "))"
     }
+}
+
+func fleetGlance(tokens: [String: AgentTokens], net: [(agent: String, inRate: Double, outRate: Double)]) -> String {
+    let rows = agentUsageRows(tokens: tokens, net: net)
+    if rows.isEmpty { return "No agent internet or model calls in the latest sample" }
+    return rows.prefix(3).map { row -> String in
+        let parts = row.split(separator: "|", omittingEmptySubsequences: false)
+        return "\(parts[0]) · \(parts.count > 1 ? parts[1] : "")"
+    }.joined(separator: "\n")
 }
 
 // Plain names for processes that commonly fill an upload.
@@ -1944,7 +1987,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         }
     }
 
-    // Reads the last hour of Claude Code and OMP session logs for real per-call token counts. Every 2 minutes.
+    // Every 2 minutes: Claude and OMP usage logs for the last hour, plus recent Grok replies (no token or price fields).
     func scanAgentTokensIfDue() {
         guard !agentTokensBusy, Date().timeIntervalSince(agentTokensAt) >= 120 else { return }
         agentTokensBusy = true
@@ -1952,6 +1995,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         DispatchQueue.global(qos: .utility).async {
             let home = FileManager.default.homeDirectoryForCurrentUser.path
             let list = captureCommand("/usr/bin/find", ["\(home)/.claude/projects", "\(home)/.omp/agent/sessions", "-name", "*.jsonl", "-mmin", "-60"], timeout: 10)
+            let grokList = captureCommand("/usr/bin/find", ["\(home)/.grok/sessions", "-name", "events.jsonl", "-mmin", "-60"], timeout: 8)
             let cutoff = Date().addingTimeInterval(-3600)
             var totals: [String: AgentTokens] = [:]
             var seen = Set<String>()
@@ -1962,6 +2006,14 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                 let data = (try? fh.readToEnd()) ?? Data()
                 try? fh.close()
                 tallyAgentTokens(String(decoding: data, as: UTF8.self), agent: path.contains("/.omp/") ? "OMP" : "Claude", cutoff: cutoff, into: &totals, seen: &seen)
+            }
+            for path in grokList.split(separator: "\n").prefix(40).map(String.init) {
+                guard let fh = FileHandle(forReadingAtPath: path) else { continue }
+                let size = (try? fh.seekToEnd()) ?? 0
+                try? fh.seek(toOffset: size > 1_000_000 ? size - 1_000_000 : 0)
+                let data = (try? fh.readToEnd()) ?? Data()
+                try? fh.close()
+                tallyGrokCalls(String(decoding: data, as: UTF8.self), cutoff: cutoff, into: &totals)
             }
             DispatchQueue.main.async {
                 self.agentTokens = totals
@@ -2425,18 +2477,14 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         ].joined(separator: ";;")
 
         let perAgentRows = agentUsageRows(tokens: agentTokens, net: agentNet)
-        let tokTotal = agentTokens.values.reduce(0) { $0 + $1.tokens }
-        let callTotal = agentTokens.values.reduce(0) { $0 + $1.calls }
-        let costTotal = agentTokens.values.reduce(0.0) { $0 + $1.costUSD }
-        let topTokAgent = agentTokens.max { $0.value.tokens < $1.value.tokens }
-        let fleetUsage = agentTokens.isEmpty ? "Last hour: counting model calls…"
-            : "Last hour: \(callTotal) model calls · \(formatTokens(tokTotal)) new tokens" + (costTotal > 0 ? String(format: " · $%.2f", costTotal) : "") + (topTokAgent.map { " · most: \($0.key)" } ?? "")
-        let detailFleetFull = ([
-            "Per agent, last hour (click a row's agent in Fleet for RAM)|model calls and tokens from session logs; internet right now|100",
-        ] + perAgentRows + [
-            "User LaunchAgents (~/Library/LaunchAgents)|\(agentCount) plists loaded|100",
-            "Total Live OS Processes|\(culprits.totalProcs) active processes|\(min(100, culprits.totalProcs / 15))",
+        let fleetUsage = fleetGlance(tokens: agentTokens, net: agentNet)
+        let agentBlock = perAgentRows.isEmpty
+            ? ["Nobody yet|Waiting for the first sample|0|Internet is checked about every 20 seconds. Model calls are read from session logs about every 2 minutes."]
+            : perAgentRows
+        let detailFleetFull = (agentBlock + [
             culprits.detailFleet,
+            "LaunchAgents|\(agentCount) loaded|0|Background jobs in your Library LaunchAgents folder. These are not model calls.",
+            "Processes|\(culprits.totalProcs) running|0|Every process on this Mac, not only the agents above.",
         ]).joined(separator: ";;")
 
         let detailShieldFull = [
@@ -3069,8 +3117,16 @@ if CommandLine.arguments.contains("--net-self-test") {
     tallyAgentTokens(ompLog, agent: "OMP", cutoff: Date().addingTimeInterval(-3600), into: &tot, seen: &seen)
     if tot["Claude"]?.calls != 1 || tot["Claude"]?.tokens != 200 || tot["Claude"]?.cached != 800 { failures.append("claude tokens \(String(describing: tot["Claude"]))") }
     if tot["OMP"]?.tokens != 5000 || tot["OMP"]?.costUSD != 0.25 { failures.append("omp tokens") }
-    if !agentUsageRows(tokens: tot, net: byAgent).contains(where: { $0.hasPrefix("Claude|1 model calls · 200 new tokens (+800 cached)") }) { failures.append("cached split") }
-    if !(agentUsageRows(tokens: tot, net: byAgent).first ?? "").hasPrefix("OMP|1 model calls · 5K new tokens · $0.25") { failures.append("rows \(agentUsageRows(tokens: tot, net: byAgent))") }
+    let usageRows = agentUsageRows(tokens: tot, net: byAgent)
+    if !usageRows.contains(where: { $0.hasPrefix("Claude|1 call · 200 new · 800 cached · no price") && $0.contains("The session log has no price") }) { failures.append("cached split \(usageRows)") }
+    if !(usageRows.first ?? "").hasPrefix("OMP|1 call · 5K new · $0.25 cloud") || !(usageRows.first ?? "").contains("Cloud cost recorded in the session log: $0.25.") { failures.append("rows \(usageRows)") }
+    if !usageRows.contains(where: { $0.hasPrefix("Grok|↑ 195 KB/s ↓ 0 KB/s") && $0.contains("No model-call count") }) { failures.append("grok net \(usageRows)") }
+    let glance = fleetGlance(tokens: tot, net: byAgent)
+    if !glance.hasPrefix("OMP · 1 call · 5K new · $0.25 cloud\nClaude · 1 call · 200 new · 800 cached · no price") { failures.append("glance \(glance)") }
+    var grokTotals: [String: AgentTokens] = [:]
+    let nowTs = ISO8601DateFormatter.string(from: Date(), timeZone: TimeZone(identifier: "UTC")!, formatOptions: [.withInternetDateTime, .withFractionalSeconds])
+    tallyGrokCalls("{\"ts\":\"\(nowTs)\",\"type\":\"first_token\"}\n{\"ts\":\"\(nowTs)\",\"type\":\"first_token\"}\n{\"ts\":\"2020-01-01T00:00:00.000Z\",\"type\":\"first_token\"}\n{\"ts\":\"\(nowTs)\",\"type\":\"tool_started\"}\n", cutoff: Date().addingTimeInterval(-3600), into: &grokTotals)
+    if grokTotals["Grok"]?.calls != 2 || grokTotals["Grok"]?.tokens != 0 || grokTotals["Grok"]?.costUSD != 0 { failures.append("grok calls \(String(describing: grokTotals["Grok"]))") }
     let idle = internetHeadline(latencyMs: 33, lineDownMbps: 0, lineUpMbps: 0, downKB: 12, upKB: 40)
     if idle.speed != "Delay 33 ms" || idle.speed.contains("KB") || idle.speed.contains("Mbps") { failures.append("idle shown as speed: \(idle.speed)") }
     if idle.using != "Using now ↓ 12 KB/s · ↑ 40 KB/s" { failures.append("using line: \(idle.using)") }
