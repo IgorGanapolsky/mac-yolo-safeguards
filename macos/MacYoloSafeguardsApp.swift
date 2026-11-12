@@ -553,9 +553,9 @@ private let HUD_HTML = #"""
               <span class="tile-val" id="netVerdict" style="color:#94a3b8;font-size:11px;">Checking… ›</span>
             </div>
             <div class="net-rates" style="padding-left:2px;">
-              <div id="netImpact" style="font-size:13px;color:#fff;font-weight:700;">Delay measuring</div>
+              <div id="netImpact" style="font-size:13px;color:#fff;font-weight:700;">Checking your internet…</div>
               <div id="netCause" style="font-size:11px;color:rgba(255,255,255,0.8);margin-top:1px;"></div>
-              <div id="netUp" style="font-size:10px;color:rgba(255,255,255,0.55);margin-top:2px;">Delay measuring</div>
+              <div id="netUp" style="font-size:11px;color:rgba(255,255,255,0.85);margin-top:2px;">Delay measuring</div>
               <div id="netDown" style="font-size:10px;color:rgba(255,255,255,0.55);">Using now ↓ 0 KB/s · ↑ 0 KB/s</div>
             </div>
           </div>
@@ -1234,7 +1234,8 @@ func agentNetUsage(_ procs: [(name: String, inRate: Double, outRate: Double)]) -
     return by.map { ($0.key, $0.value.0, $0.value.1) }.sorted { $0.1 + $0.2 > $1.1 + $1.2 }
 }
 
-struct AgentTokens { var calls = 0; var tokens = 0; var costUSD = 0.0 }
+// tokens = new tokens (input, output, cache writes). cached = cache re-reads, counted apart because they are cheap.
+struct AgentTokens { var calls = 0; var tokens = 0; var cached = 0; var costUSD = 0.0 }
 
 // Adds the model calls in one session log since `cutoff`. Claude logs one line per content block with the
 // same message id, so calls are counted once per id. OMP logs usage (and cost) once per assistant message.
@@ -1251,8 +1252,8 @@ func tallyAgentTokens(_ text: String, agent: String, cutoff: Date, into totals: 
         func n(_ k: String) -> Int { (usage[k] as? NSNumber)?.intValue ?? 0 }
         var t = totals[agent] ?? AgentTokens()
         t.calls += 1
-        if let total = usage["totalTokens"] as? NSNumber { t.tokens += total.intValue }
-        else { t.tokens += n("input_tokens") + n("output_tokens") + n("cache_creation_input_tokens") + n("cache_read_input_tokens") }
+        if let total = usage["totalTokens"] as? NSNumber { t.tokens += total.intValue - n("cacheRead"); t.cached += n("cacheRead") }
+        else { t.tokens += n("input_tokens") + n("output_tokens") + n("cache_creation_input_tokens"); t.cached += n("cache_read_input_tokens") }
         if let cost = (usage["cost"] as? [String: Any])?["total"] as? NSNumber { t.costUSD += cost.doubleValue }
         totals[agent] = t
     }
@@ -1270,7 +1271,7 @@ func agentUsageRows(tokens: [String: AgentTokens], net: [(agent: String, inRate:
     return names.sorted { (tokens[$0]?.tokens ?? 0, (netBy[$0]?.1 ?? 0)) > (tokens[$1]?.tokens ?? 0, (netBy[$1]?.1 ?? 0)) }.map { a in
         var parts: [String] = []
         if let t = tokens[a] {
-            parts.append("\(t.calls) model calls · \(formatTokens(t.tokens)) tokens")
+            parts.append("\(t.calls) model calls · \(formatTokens(t.tokens)) new tokens" + (t.cached > 0 ? " (+\(formatTokens(t.cached)) cached)" : ""))
             if t.costUSD > 0 { parts.append(String(format: "$%.2f", t.costUSD)) }
         }
         if let r = netBy[a] { parts.append("internet ↑ \(formatRate(r.1)) ↓ \(formatRate(r.0))") }
@@ -2394,9 +2395,10 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let perAgentRows = agentUsageRows(tokens: agentTokens, net: agentNet)
         let tokTotal = agentTokens.values.reduce(0) { $0 + $1.tokens }
         let callTotal = agentTokens.values.reduce(0) { $0 + $1.calls }
+        let costTotal = agentTokens.values.reduce(0.0) { $0 + $1.costUSD }
         let topTokAgent = agentTokens.max { $0.value.tokens < $1.value.tokens }
         let fleetUsage = agentTokens.isEmpty ? "Last hour: counting model calls…"
-            : "Last hour: \(callTotal) model calls · \(formatTokens(tokTotal)) tokens" + (topTokAgent.map { " · most: \($0.key)" } ?? "")
+            : "Last hour: \(callTotal) model calls · \(formatTokens(tokTotal)) new tokens" + (costTotal > 0 ? String(format: " · $%.2f", costTotal) : "") + (topTokAgent.map { " · most: \($0.key)" } ?? "")
         let detailFleetFull = ([
             "Per agent, last hour (click a row's agent in Fleet for RAM)|model calls and tokens from session logs; internet right now|100",
         ] + perAgentRows + [
@@ -2440,12 +2442,12 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "detailFleet": detailFleetFull,
             "detailShield": detailShieldFull,
             "detailOptimization": detailCpuFull,
-            "netUp": verdict.impact,
+            "netUp": headline.speed,
             "netDown": headline.using,
             "netVerdict": verdict.label,
             "netVerdictColor": verdict.color,
             "netWhy": verdict.why,
-            "netImpact": headline.speed,
+            "netImpact": verdict.impact,
             "netCause": verdict.cause,
             "fleetUsage": fleetUsage,
             "recTitle": culprits.recTitle + " ›",
@@ -3033,9 +3035,10 @@ if CommandLine.arguments.contains("--net-self-test") {
     var tot: [String: AgentTokens] = [:]; var seen = Set<String>()
     tallyAgentTokens(claudeLog, agent: "Claude", cutoff: Date().addingTimeInterval(-3600), into: &tot, seen: &seen)
     tallyAgentTokens(ompLog, agent: "OMP", cutoff: Date().addingTimeInterval(-3600), into: &tot, seen: &seen)
-    if tot["Claude"]?.calls != 1 || tot["Claude"]?.tokens != 1000 { failures.append("claude tokens \(String(describing: tot["Claude"]))") }
+    if tot["Claude"]?.calls != 1 || tot["Claude"]?.tokens != 200 || tot["Claude"]?.cached != 800 { failures.append("claude tokens \(String(describing: tot["Claude"]))") }
     if tot["OMP"]?.tokens != 5000 || tot["OMP"]?.costUSD != 0.25 { failures.append("omp tokens") }
-    if !(agentUsageRows(tokens: tot, net: byAgent).first ?? "").hasPrefix("OMP|1 model calls · 5K tokens · $0.25") { failures.append("rows \(agentUsageRows(tokens: tot, net: byAgent))") }
+    if !agentUsageRows(tokens: tot, net: byAgent).contains(where: { $0.hasPrefix("Claude|1 model calls · 200 new tokens (+800 cached)") }) { failures.append("cached split") }
+    if !(agentUsageRows(tokens: tot, net: byAgent).first ?? "").hasPrefix("OMP|1 model calls · 5K new tokens · $0.25") { failures.append("rows \(agentUsageRows(tokens: tot, net: byAgent))") }
     let idle = internetHeadline(latencyMs: 33, lineDownMbps: 0, lineUpMbps: 0, downKB: 12, upKB: 40)
     if idle.speed != "Delay 33 ms" || idle.speed.contains("KB") || idle.speed.contains("Mbps") { failures.append("idle shown as speed: \(idle.speed)") }
     if idle.using != "Using now ↓ 12 KB/s · ↑ 40 KB/s" { failures.append("using line: \(idle.using)") }
