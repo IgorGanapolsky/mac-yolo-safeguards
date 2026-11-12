@@ -4,7 +4,7 @@ import { findCheckoutAlerts, sendCheckoutAlerts, NTFY_URL } from "../src/checkou
 
 const NOW = Date.UTC(2026, 10, 12, 16, 7); // 11:07 AM ET; slice is 10:30-11:00 AM ET
 const END = Math.floor(NOW / 1000 / 1800) * 1800;
-const PILOT = "plink_1UX2foGGBpd520QYJpfjYKge";
+const PILOT = "plink_1Ub5YLK8kufMLNF8YigxUkTf";
 
 function fakeFetch({ open = [], expired = [] }, sent = []) {
   return async (url, opts) => {
@@ -22,7 +22,7 @@ test("an open $3,000 checkout an hour old alerts once, without the buyer's email
   assert.equal(a.length, 1);
   assert.equal(a[0].title, "$3,000.00 Partner Pilot checkout open for an hour, not paid");
   assert.match(a[0].body, /AM ET\. The buyer left an email/);
-  assert.equal(a[0].click, "https://dashboard.stripe.com/acct_1RNcJ1GGBpd520QY/payments/pi_9");
+  assert.equal(a[0].click, "https://dashboard.stripe.com/acct_1UVwVAK8kufMLNF8/payments/pi_9");
   assert.ok(!JSON.stringify(a).includes("buyer@example.com"));
   // The next slice does not repeat it.
   assert.equal((await findCheckoutAlerts({}, NOW + 1800 * 1000, fakeFetch({ open: [s] }))).length, 0);
