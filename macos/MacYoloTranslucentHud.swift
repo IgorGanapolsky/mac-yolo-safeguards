@@ -1,8 +1,10 @@
 import Cocoa
 import CoreGraphics
 import CoreImage
+import CryptoKit
 import Darwin
 import Foundation
+import UserNotifications
 import WebKit
 
 private let HUD_HTML = #"""
@@ -1150,6 +1152,45 @@ func receiptJSON(action: String, title: String, items: [String], spared: String)
     return text
 }
 
+// Pro license: a signed key from macyolosafeguards.io/activate, checked offline.
+let proLicensePublicKey = "ZDCWvx/TkO8J5WGNsXC/SpBpjqvUDLBIQa/MnAscPf0="
+let proCheckoutURL = "https://macyolosafeguards.io/go/pro"
+
+struct ProLicense {
+    let key: String
+    let email: String
+    let expires: Date
+    var isCurrent: Bool { expires > Date() }
+}
+
+func base64urlData(_ s: String) -> Data? {
+    var t = s.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+    while t.count % 4 != 0 { t += "=" }
+    return Data(base64Encoded: t)
+}
+
+// Returns the license when the signature is good, expired or not.
+func verifyProLicense(_ raw: String, publicKey: String = proLicensePublicKey) -> ProLicense? {
+    let key = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    let parts = key.split(separator: ".", omittingEmptySubsequences: false).map(String.init)
+    guard parts.count == 2,
+          let sig = base64urlData(parts[1]),
+          let body = base64urlData(parts[0]),
+          let pkData = Data(base64Encoded: publicKey),
+          let pk = try? Curve25519.Signing.PublicKey(rawRepresentation: pkData),
+          pk.isValidSignature(sig, for: Data(parts[0].utf8)),
+          let obj = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+          let exp = (obj["exp"] as? NSNumber)?.doubleValue else { return nil }
+    return ProLicense(key: key, email: obj["email"] as? String ?? "", expires: Date(timeIntervalSince1970: exp))
+}
+
+func freeDiskGB() -> Double {
+    let url = URL(fileURLWithPath: NSHomeDirectory())
+    guard let v = try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]),
+          let bytes = v.volumeAvailableCapacityForImportantUsage else { return .infinity }
+    return Double(bytes) / 1_073_741_824
+}
+
 class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
     var statusItem: NSStatusItem!
     var hudPanel: NSPanel!
@@ -1176,6 +1217,13 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var lastUpKB: Int = 0
     var lastDownKB: Int = 0
     var cachedMenuBarIcon: NSImage?
+    var autoGuardTimer: Timer?
+    var autoGuardBusy = false
+    var lastAutoDiskClean: Date = .distantPast
+    var lastLicenseRefresh: Date = .distantPast
+    var autoGuardMenuItem: NSMenuItem!
+    var proStatusMenuItem: NSMenuItem!
+    var proLicenseMenuItem: NSMenuItem!
     func applicationDidFinishLaunching(_ notification: Notification) {
         if CommandLine.arguments.contains("--health-self-test") {
             print("MAC_YOLO_HEALTH_OK")
@@ -1308,6 +1356,9 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             self?.updateActiveWindowFromWorkspace(NSWorkspace.shared.frontmostApplication)
             self?.refreshLiveTelemetry()
         }
+        refreshProLicenseIfDue()
+        updateProMenu()
+        startAutoGuardIfEnabled()
 
         let quietLaunch = CommandLine.arguments.contains("--quiet-launch")
             || ProcessInfo.processInfo.environment["MAC_YOLO_QUIET_LAUNCH"] == "1"
@@ -1338,6 +1389,16 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
 
         gearMenu = NSMenu(title: "Mac YOLO Menu")
         gearMenu.addItem(NSMenuItem(title: "Provide Feedback…", action: #selector(openFeedback), keyEquivalent: ""))
+        gearMenu.addItem(NSMenuItem.separator())
+        autoGuardMenuItem = NSMenuItem(title: "Auto-Guard (Pro)", action: #selector(toggleAutoGuard(_:)), keyEquivalent: "")
+        autoGuardMenuItem.target = self
+        gearMenu.addItem(autoGuardMenuItem)
+        proLicenseMenuItem = NSMenuItem(title: "Enter Pro License…", action: #selector(enterProLicense(_:)), keyEquivalent: "")
+        proLicenseMenuItem.target = self
+        gearMenu.addItem(proLicenseMenuItem)
+        proStatusMenuItem = NSMenuItem(title: "Get Pro…", action: #selector(openGetPro(_:)), keyEquivalent: "")
+        proStatusMenuItem.target = self
+        gearMenu.addItem(proStatusMenuItem)
         gearMenu.addItem(NSMenuItem.separator())
         statusBarMenuItem = NSMenuItem(title: "Show Status Bar Icon", action: #selector(toggleStatusBarIcon(_:)), keyEquivalent: "")
         statusBarMenuItem.target = self
@@ -2416,6 +2477,201 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             NSWorkspace.shared.open(url)
         }
     }
+}
+
+// MARK: - Pro: license and Auto-Guard
+
+extension MacYoloAppDelegate {
+    var storedLicense: ProLicense? {
+        guard let raw = UserDefaults.standard.string(forKey: "MacYoloProLicense") else { return nil }
+        return verifyProLicense(raw)
+    }
+
+    var isPro: Bool { storedLicense?.isCurrent == true }
+
+    var autoGuardOn: Bool { isPro && UserDefaults.standard.bool(forKey: "MacYoloAutoGuard") }
+
+    func updateProMenu() {
+        guard autoGuardMenuItem != nil else { return }
+        autoGuardMenuItem.state = autoGuardOn ? .on : .off
+        if let lic = storedLicense, lic.isCurrent {
+            let who = lic.email.isEmpty ? "Pro" : "Pro: \(lic.email)"
+            proStatusMenuItem.title = who
+            proStatusMenuItem.action = nil
+            proLicenseMenuItem.isHidden = true
+        } else {
+            proStatusMenuItem.title = storedLicense == nil ? "Get Pro…" : "Pro expired. Renew…"
+            proStatusMenuItem.action = #selector(openGetPro(_:))
+            proLicenseMenuItem.isHidden = false
+        }
+    }
+
+    @objc func openGetPro(_ sender: Any?) {
+        if let url = URL(string: proCheckoutURL) { NSWorkspace.shared.open(url) }
+    }
+
+    @objc func toggleAutoGuard(_ sender: Any?) {
+        guard isPro else {
+            NSApp.activate(ignoringOtherApps: true)
+            let alert = NSAlert()
+            alert.messageText = "Auto-Guard is part of Pro"
+            alert.informativeText = "Auto-Guard watches your Mac every minute. When memory gets tight it stops leftover agent processes, and when disk runs low it cleans caches, so long agent sessions don't freeze the Mac. Pro is $19 a month."
+            alert.addButton(withTitle: "Get Pro")
+            alert.addButton(withTitle: "Enter License…")
+            alert.addButton(withTitle: "Not Now")
+            switch alert.runModal() {
+            case .alertFirstButtonReturn: openGetPro(nil)
+            case .alertSecondButtonReturn: enterProLicense(nil)
+            default: break
+            }
+            return
+        }
+        UserDefaults.standard.set(!autoGuardOn, forKey: "MacYoloAutoGuard")
+        startAutoGuardIfEnabled()
+        updateProMenu()
+    }
+
+    @objc func enterProLicense(_ sender: Any?) {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "Enter your Pro license"
+        alert.informativeText = "Paste the key from the page you saw after checkout."
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
+        field.placeholderString = "License key"
+        alert.accessoryView = field
+        alert.addButton(withTitle: "Unlock")
+        alert.addButton(withTitle: "Cancel")
+        alert.window.initialFirstResponder = field
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        applyProLicense(field.stringValue)
+    }
+
+    // Saves a key and turns Auto-Guard on. Returns true when the key is valid and current.
+    @discardableResult
+    func applyProLicense(_ raw: String, quiet: Bool = false) -> Bool {
+        guard let lic = verifyProLicense(raw), lic.isCurrent else {
+            if !quiet {
+                NSApp.activate(ignoringOtherApps: true)
+                let a = NSAlert()
+                a.messageText = "That key didn't work"
+                a.informativeText = "Copy the whole key from your activation page and try again. If it still fails, reply to your receipt email."
+                a.runModal()
+            }
+            return false
+        }
+        UserDefaults.standard.set(lic.key, forKey: "MacYoloProLicense")
+        UserDefaults.standard.set(true, forKey: "MacYoloAutoGuard")
+        startAutoGuardIfEnabled()
+        updateProMenu()
+        if !quiet {
+            NSApp.activate(ignoringOtherApps: true)
+            let a = NSAlert()
+            a.messageText = "You're Pro. Auto-Guard is on."
+            a.informativeText = "Mac YOLO now checks memory and disk every minute and cleans up on its own. You can turn it off in the gear menu."
+            a.runModal()
+        }
+        return true
+    }
+
+    // macyolo://activate?key=... from the activation page.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls where url.scheme == "macyolo" && url.host == "activate" {
+            let key = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?.first(where: { $0.name == "key" })?.value ?? ""
+            applyProLicense(key)
+        }
+    }
+
+    // Renews the key while the subscription is active, starting 10 days before it runs out.
+    func refreshProLicenseIfDue() {
+        guard let lic = storedLicense,
+              lic.expires.timeIntervalSinceNow < 10 * 86400,
+              Date().timeIntervalSince(lastLicenseRefresh) > 6 * 3600 else { return }
+        lastLicenseRefresh = Date()
+        var comps = URLComponents(string: "https://macyolosafeguards.io/license/refresh")!
+        comps.queryItems = [URLQueryItem(name: "key", value: lic.key)]
+        guard let url = comps.url else { return }
+        URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+            guard let data = data,
+                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  obj["ok"] as? Bool == true,
+                  let key = obj["key"] as? String,
+                  let fresh = verifyProLicense(key), fresh.expires > lic.expires else { return }
+            DispatchQueue.main.async {
+                UserDefaults.standard.set(fresh.key, forKey: "MacYoloProLicense")
+                self?.updateProMenu()
+            }
+        }.resume()
+    }
+
+    func startAutoGuardIfEnabled() {
+        autoGuardTimer?.invalidate()
+        autoGuardTimer = nil
+        guard autoGuardOn else { return }
+        if Bundle.main.bundleIdentifier != nil {
+            UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in }
+        }
+        autoGuardTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            self?.autoGuardTick()
+        }
+        autoGuardTick()
+    }
+
+    func autoGuardTick() {
+        refreshProLicenseIfDue()
+        guard autoGuardOn else {
+            startAutoGuardIfEnabled()
+            updateProMenu()
+            return
+        }
+        guard !autoGuardBusy else { return }
+        autoGuardBusy = true
+        let cleanDisk = freeDiskGB() < 10 && Date().timeIntervalSince(lastAutoDiskClean) > 3600
+        if cleanDisk { lastAutoDiskClean = Date() }
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            var notes: [String] = []
+            let mem = runTool("mac-yolo-agent-guard.js", ["pressure", "--execute"])
+            if mem.ran {
+                let res = jsonObject(mem.output)
+                if res["acted"] as? Bool == true {
+                    let storms = (res["stopped"] as? [[String: Any]]) ?? []
+                    let n = storms.reduce(0) { $0 + (($1["signalled"] as? Int) ?? 0) }
+                        + ((res["stoppedOrphans"] as? [Any]) ?? []).count
+                        + ((res["stoppedStranded"] as? [Any]) ?? []).count
+                    if n > 0 { notes.append("Memory was tight, so it stopped \(n) leftover agent process\(n == 1 ? "" : "es").") }
+                }
+            }
+            if cleanDisk {
+                let disk = runTool("mac-yolo-disk-guard.js", ["--clean", "--json"])
+                let gib = (jsonObject(disk.output)["reclaimedGiB"] as? NSNumber)?.doubleValue ?? 0
+                if disk.ran && gib > 0 { notes.append(String(format: "Disk was low, so it cleaned %.1f GB of caches.", gib)) }
+            }
+            DispatchQueue.main.async {
+                self?.autoGuardBusy = false
+                guard !notes.isEmpty else { return }
+                self?.notifyAutoGuard(notes.joined(separator: " "))
+                self?.refreshLiveTelemetry()
+            }
+        }
+    }
+
+    func notifyAutoGuard(_ text: String) {
+        guard Bundle.main.bundleIdentifier != nil else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "Auto-Guard"
+        content.body = text
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
+    }
+}
+
+if let i = CommandLine.arguments.firstIndex(of: "--license-self-test"), i + 1 < CommandLine.arguments.count {
+    let pk = CommandLine.arguments.count > i + 2 ? CommandLine.arguments[i + 2] : proLicensePublicKey
+    if let lic = verifyProLicense(CommandLine.arguments[i + 1], publicKey: pk) {
+        print("MAC_YOLO_LICENSE_OK current=\(lic.isCurrent) email=\(lic.email)")
+        exit(0)
+    }
+    print("MAC_YOLO_LICENSE_INVALID")
+    exit(1)
 }
 
 if CommandLine.arguments.contains("--health-self-test") {

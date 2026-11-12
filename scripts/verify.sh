@@ -23,6 +23,7 @@ node tests/test-mac-yolo-hud-anti-regression.js
 node tests/test-mac-yolo-app-portable.js
 node tests/test-mac-yolo-local-models.js
 node tests/test-mac-yolo-disk-guard.js
+node --test apps/macyolosafeguards-site/test/license.test.js
 node tools/entire-cicd-regression-gate.js
 node tests/test-ultramarine-and-android-summit-26-steals.js
 node tests/test-prompt-caching-and-judgment-calls-steal.js
