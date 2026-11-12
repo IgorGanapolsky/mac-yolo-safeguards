@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
-import { activate, refresh, readLicense, signLicense, activatePage, PRO_PAYMENT_LINK } from "../src/license.js";
+import { activate, refresh, readLicense, signLicense, activatePage, PRO_PAYMENT_LINK, PRO_PAYMENT_LINKS } from "../src/license.js";
 
 const { publicKey, privateKey } = generateKeyPairSync("ed25519");
 const SK = privateKey.export({ format: "der", type: "pkcs8" }).toString("base64");
@@ -36,6 +36,13 @@ test("a paid Pro checkout gets a key", async () => {
   const lic = await readLicense(r.key, PK);
   assert.equal(lic.sub, "sub_123");
   assert.match(activatePage(r), /macyolo:\/\/activate\?key=/);
+});
+
+test("the yearly Pro checkout gets a key too", async () => {
+  const yearly = [...PRO_PAYMENT_LINKS].find((l) => l !== PRO_PAYMENT_LINK);
+  assert.ok(yearly);
+  const r = await activate(env, SID, fakeStripe({ [`checkout/sessions/${SID}`]: { ...paid, payment_link: yearly } }));
+  assert.equal(r.ok, true);
 });
 
 test("unpaid, wrong-product and bad ids get no key", async () => {
