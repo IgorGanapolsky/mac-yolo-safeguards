@@ -4622,3 +4622,16 @@ The menu-bar panel stays one clear web page on an AppKit panel. This check does 
 | tools/mac-yolo-hud-release-review.js | grok-hud-release-review | 2026-11-12T15:11:16-0500 |
 | tests/test-mac-yolo-hud-release-review.js | grok-hud-release-review | 2026-11-12T15:11:16-0500 |
 | plan.md (this append) | grok-hud-release-review | 2026-11-12T15:11:16-0500 |
+
+## Practice grade (append 2026-11-12T15:26:59-0500) — `grok-practice-grade`
+
+Evals, the pipeline report, the model registry, and graph retrieval get one card. The card's number is the weakest plane. A perfect mark requires a held-out Mac app golden run, settled non-founder cents, a trained production model with a holdout AUC, and a graph query that names the panel from a clean current main without pasting the search into SQL. The measurements from 3:21 PM EST stay a D.
+
+| T-PRACTICE-GRADE-20261112 | Fail a perfect practice grade until holdout, settled cents, a production model, and a current graph query are in the evidence | in_progress | grok-practice-grade | `tools/mac-yolo-practice-grade.js`, `tests/test-mac-yolo-practice-grade.js`, `plan.md` (this append) | `node tests/test-mac-yolo-practice-grade.js` exits 0. Grading the 3:21 PM evidence exits 1 with D (2/10). |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/mac-yolo-practice-grade.js | grok-practice-grade | 2026-11-12T15:26:59-0500 |
+| tests/test-mac-yolo-practice-grade.js | grok-practice-grade | 2026-11-12T15:26:59-0500 |
+| plan.md (this append) | grok-practice-grade | 2026-11-12T15:26:59-0500 |
