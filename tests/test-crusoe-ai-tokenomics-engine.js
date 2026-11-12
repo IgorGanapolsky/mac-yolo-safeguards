@@ -103,26 +103,60 @@ function main() {
   assert.ok(zstd.speedupFactor > 4.0);
   assert.ok(zstd.cpuSecondsSaved > 80);
 
-  // 5. Malformed string/NaN resilience + MCP & HTTP route verification
+  // 5. Prototype-key, local-model, insufficient-credit, overflow & null-payload resilience + MCP & HTTP verification
   const malformed = evaluateAgenticTokenomics({
+    modelId: 'constructor',
     uncachedInputTokens: 'not-a-number',
     cachedInputTokens: NaN,
     outputTokens: -999,
     avgWatts: 'bad',
     wallSeconds: Infinity,
   });
+  assert.strictEqual(malformed.modelId, 'deepseek-ai/DeepSeek-V4.1-Flash');
   assert.strictEqual(malformed.metrics.totalTokens, 0);
   assert.strictEqual(Number.isFinite(malformed.metrics.actualComputeUsd), true);
+
+  const arrayModel = evaluateAgenticTokenomics({ modelId: ['toString'], uncachedInputTokens: 1e308, cachedInputTokens: 1e308, avgWatts: 1e200, wallSeconds: 1e200 });
+  assert.strictEqual(Number.isFinite(arrayModel.metrics.tokensPerWattHour), true);
+  assert.strictEqual(Number.isFinite(arrayModel.metrics.actualComputeUsd), true);
+
+  const insufficientCredits = routeZeroSpendCrusoeOrLocal({
+    preferredModel: 'constructor',
+    estimatedInputTokens: null,
+    estimatedOutputTokens: '',
+    apiKeyPresent: true,
+    quotaAvailable: true,
+    paymentMethodAttached: false,
+    freeCreditsRemainingUsd: 0.0001,
+  });
+  assert.strictEqual(insufficientCredits.route, 'local_apple_silicon_zero_spend');
+  assert.strictEqual(insufficientCredits.fallbackReason, 'insufficient_free_credits_for_request');
+
+  const localExplicit = routeZeroSpendCrusoeOrLocal({
+    preferredModel: 'local/apple-silicon-mlx',
+    apiKeyPresent: true,
+    quotaAvailable: true,
+    paymentMethodAttached: false,
+    freeCreditsRemainingUsd: 10,
+  });
+  assert.strictEqual(localExplicit.route, 'local_apple_silicon_zero_spend');
+  assert.strictEqual(localExplicit.baseUrl, 'http://127.0.0.1:11434/v1/');
 
   const { callTool } = require('../tools/mac-yolo-mcp-server');
   const { routeRequest } = require('../tools/mac-yolo-service');
   const mcpOut = callTool('yolo_crusoe_tokenomics', { mode: 'zstd_unpack', payload: { imageSizeGb: 7 } });
   assert.strictEqual(mcpOut.ok, true);
+  const nullSnap = routeRequest('POST', '/api/tokenomics/crusoe', {
+    mode: 'snapshot_contract',
+    payload: { snapshotSpec: null, restoreSpec: null },
+  });
+  assert.strictEqual(nullSnap.status, 200);
+  assert.strictEqual(nullSnap.body.ok, true);
   const httpOut = routeRequest('GET', '/api/tokenomics/crusoe?mode=route');
   assert.strictEqual(httpOut.status, 200);
   assert.strictEqual(httpOut.body.outboundCashSpendUsd, 0);
 
-  console.log('test-crusoe-ai-tokenomics-engine: PASS (5/5)');
+  console.log('test-crusoe-ai-tokenomics-engine: PASS (6/6)');
 }
 
 main();

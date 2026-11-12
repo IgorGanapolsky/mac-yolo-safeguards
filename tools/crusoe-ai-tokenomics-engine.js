@@ -63,29 +63,45 @@ const CRUSOE_FOUNDRY_MODELS = Object.freeze({
   },
 });
 
-function finiteNonNeg(v, fallback = 0) {
+function asPlainObj(v) {
+  return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+}
+
+function resolveModelId(id, defaultId = 'deepseek-ai/DeepSeek-V4.1-Flash') {
+  return typeof id === 'string' && Object.prototype.hasOwnProperty.call(CRUSOE_FOUNDRY_MODELS, id)
+    ? id
+    : defaultId;
+}
+
+function finiteNonNeg(v, fallback = 0, max = 1e15) {
+  if (typeof v !== 'number' && !(typeof v === 'string' && v.trim() !== '')) {
+    return fallback;
+  }
   const n = Number(v);
-  return Number.isFinite(n) && n >= 0 ? n : fallback;
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  const clamped = Math.min(max, n);
+  return clamped === 0 ? 0 : clamped;
 }
 
 function round6(n) {
   const v = Number(n);
-  return Number.isFinite(v) ? Math.round(v * 1_000_000) / 1_000_000 : 0;
+  if (!Number.isFinite(v)) return 0;
+  const r = Math.round(v * 1_000_000) / 1_000_000;
+  return Number.isFinite(r) ? (r === 0 ? 0 : r) : 0;
 }
 
 function evaluateAgenticTokenomics(input = {}) {
-  const modelId = input.modelId && CRUSOE_FOUNDRY_MODELS[input.modelId]
-    ? input.modelId
-    : 'deepseek-ai/DeepSeek-V4.1-Flash';
+  const inp = asPlainObj(input);
+  const modelId = resolveModelId(inp.modelId);
   const spec = CRUSOE_FOUNDRY_MODELS[modelId];
 
-  const uncachedInputTokens = finiteNonNeg(input.uncachedInputTokens, 0);
-  const cachedInputTokens = finiteNonNeg(input.cachedInputTokens, 0);
-  const outputTokens = finiteNonNeg(input.outputTokens, 0);
-  const retryOrThrashTokens = finiteNonNeg(input.retryOrThrashTokens, 0);
-  const completedTasks = Math.floor(finiteNonNeg(input.completedTasks, 0));
-  const avgWatts = Math.max(1, finiteNonNeg(input.avgWatts, modelId.startsWith('local/') ? 28 : 450));
-  const wallSeconds = Math.max(0.001, finiteNonNeg(input.wallSeconds, 10));
+  const uncachedInputTokens = finiteNonNeg(inp.uncachedInputTokens, 0);
+  const cachedInputTokens = finiteNonNeg(inp.cachedInputTokens, 0);
+  const outputTokens = finiteNonNeg(inp.outputTokens, 0);
+  const retryOrThrashTokens = finiteNonNeg(inp.retryOrThrashTokens, 0);
+  const completedTasks = Math.floor(finiteNonNeg(inp.completedTasks, 0));
+  const avgWatts = Math.max(1, finiteNonNeg(inp.avgWatts, modelId.startsWith('local/') ? 28 : 450));
+  const wallSeconds = Math.max(0.001, finiteNonNeg(inp.wallSeconds, 10));
   const totalInputTokens = uncachedInputTokens + cachedInputTokens;
   const totalTokens = totalInputTokens + outputTokens;
   const productiveTokens = Math.max(0, totalTokens - Math.min(totalTokens, retryOrThrashTokens));
@@ -102,18 +118,21 @@ function evaluateAgenticTokenomics(input = {}) {
   const kvCacheSavingsUsd = Math.max(0, uncachedBaselineUsd - actualComputeUsd);
   const kvCacheHitRatio = totalInputTokens > 0 ? round6(cachedInputTokens / totalInputTokens) : 0;
   const goodputRatio = totalTokens > 0 ? round6(productiveTokens / totalTokens) : 1;
-  const costPerTokenUsd = totalTokens > 0 ? Number((actualComputeUsd / totalTokens).toExponential(4)) : 0;
+  const rawPerTok = totalTokens > 0 ? actualComputeUsd / totalTokens : 0;
+  const costPerTokenUsd = Number.isFinite(rawPerTok) && rawPerTok > 0 ? Number(rawPerTok.toExponential(4)) : 0;
 
   const joules = avgWatts * wallSeconds;
   const wattHours = joules / 3600;
-  const tokensPerWattSecond = round6(productiveTokens / joules);
-  const tokensPerWattHour = Math.round(wattHours > 0 ? productiveTokens / wattHours : 0);
+  const tokensPerWattSecond = round6(joules > 0 ? productiveTokens / joules : 0);
+  const rawTpwh = wattHours > 0 ? productiveTokens / wattHours : 0;
+  const tokensPerWattHour = Number.isFinite(rawTpwh) ? Math.round(rawTpwh) : 0;
 
   const costPerCompletedTaskUsd = completedTasks > 0 ? round6(actualComputeUsd / completedTasks) : null;
 
   return {
     ok: true,
     modelId,
+    rawComputeUsd: Number.isFinite(actualComputeUsd) ? actualComputeUsd : 0,
     metrics: {
       totalTokens,
       productiveTokens,
@@ -133,13 +152,26 @@ function evaluateAgenticTokenomics(input = {}) {
 }
 
 function routeZeroSpendCrusoeOrLocal(request = {}) {
-  const modelId =
-    request.preferredModel && CRUSOE_FOUNDRY_MODELS[request.preferredModel]
-      ? request.preferredModel
-      : 'deepseek-ai/DeepSeek-V4.1-Flash';
-  const estInputTokens = finiteNonNeg(request.estimatedInputTokens, 20_000);
-  const estCachedRatio = Math.min(1, finiteNonNeg(request.estimatedCacheHitRatio, 0.8));
-  const estOutputTokens = finiteNonNeg(request.estimatedOutputTokens, 2_000);
+  const req = asPlainObj(request);
+  const modelId = resolveModelId(req.preferredModel);
+  const freeCreditsRemainingUsd = finiteNonNeg(req.freeCreditsRemainingUsd, 0);
+
+  if (modelId.startsWith('local/')) {
+    return {
+      ok: true,
+      route: 'local_apple_silicon_zero_spend',
+      baseUrl: 'http://127.0.0.1:11434/v1/',
+      modelId: 'local/apple-silicon-mlx',
+      outboundCashSpendUsd: 0,
+      creditBurnEstimateUsd: 0,
+      freeCreditsAfterUsd: round6(freeCreditsRemainingUsd),
+      fallbackReason: 'local_model_requested',
+    };
+  }
+
+  const estInputTokens = Math.max(1, finiteNonNeg(req.estimatedInputTokens, 20_000));
+  const estCachedRatio = Math.min(1, finiteNonNeg(req.estimatedCacheHitRatio, 0.8));
+  const estOutputTokens = finiteNonNeg(req.estimatedOutputTokens, 2_000);
   const econ = evaluateAgenticTokenomics({
     modelId,
     uncachedInputTokens: Math.round(estInputTokens * (1 - estCachedRatio)),
@@ -148,14 +180,19 @@ function routeZeroSpendCrusoeOrLocal(request = {}) {
     completedTasks: 1,
   });
 
-  const apiKeyPresent = Boolean(request.apiKeyPresent);
-  const quotaAvailable = request.quotaAvailable !== false;
-  const paymentMethodAttached = Boolean(request.paymentMethodAttached);
-  const freeCreditsRemainingUsd = finiteNonNeg(request.freeCreditsRemainingUsd, 0);
-  const neededCreditsUsd = econ.metrics.actualComputeUsd;
+  const apiKeyPresent = Boolean(req.apiKeyPresent);
+  const quotaAvailable =
+    req.quotaAvailable !== false &&
+    req.quotaAvailable !== 0 &&
+    req.quotaAvailable !== null &&
+    req.quotaAvailable !== 'false';
+  const paymentMethodAttached = Boolean(req.paymentMethodAttached);
+  const rawNeeded = econ.rawComputeUsd;
+  const neededCreditsUsd =
+    rawNeeded > 0 ? Math.max(0.000001, Math.ceil(rawNeeded * 1_000_000) / 1_000_000) : 0.000001;
 
   // Hard $0 Outbound Cash Spend Invariant: NEVER route to external cloud if a payment card could be billed
-  // or if free/partner credits cannot cover the request.
+  // or if free/partner credits cannot cover the ceiling compute cost of the request.
   if (
     apiKeyPresent &&
     quotaAvailable &&
@@ -170,7 +207,7 @@ function routeZeroSpendCrusoeOrLocal(request = {}) {
       modelId,
       outboundCashSpendUsd: 0,
       creditBurnEstimateUsd: neededCreditsUsd,
-      freeCreditsAfterUsd: round6(freeCreditsRemainingUsd - neededCreditsUsd),
+      freeCreditsAfterUsd: round6(Math.max(0, freeCreditsRemainingUsd - neededCreditsUsd)),
       fallbackReason: null,
     };
   }
@@ -179,6 +216,9 @@ function routeZeroSpendCrusoeOrLocal(request = {}) {
   if (paymentMethodAttached) fallbackReason = 'payment_method_attached_blocked_by_zero_spend_policy';
   else if (!quotaAvailable) fallbackReason = 'crusoe_quota_absent';
   else if (!apiKeyPresent) fallbackReason = 'crusoe_api_key_absent';
+  else if (freeCreditsRemainingUsd > 0 && freeCreditsRemainingUsd < neededCreditsUsd) {
+    fallbackReason = 'insufficient_free_credits_for_request';
+  }
 
   return {
     ok: true,
@@ -193,14 +233,15 @@ function routeZeroSpendCrusoeOrLocal(request = {}) {
 }
 
 function validateWorkerRestoreContract(snapshotSpec = {}, restoreSpec = {}, restoreLogText = '') {
-  const srcMounts = Array.isArray(snapshotSpec.mounts) ? snapshotSpec.mounts.map(String) : [];
-  const dstMounts = new Set(Array.isArray(restoreSpec.mounts) ? restoreSpec.mounts.map(String) : []);
+  const snap = asPlainObj(snapshotSpec);
+  const rest = asPlainObj(restoreSpec);
+  const srcMounts = Array.isArray(snap.mounts) ? snap.mounts.map(String) : [];
+  const dstMounts = new Set(Array.isArray(rest.mounts) ? rest.mounts.map(String) : []);
   const missingMounts = srcMounts.filter((m) => !dstMounts.has(m));
 
-  const srcEnvKeys = Array.isArray(snapshotSpec.requiredEnvKeys) ? snapshotSpec.requiredEnvKeys.map(String) : [];
-  const dstEnvKeys = new Set(Array.isArray(restoreSpec.presentEnvKeys) ? restoreSpec.presentEnvKeys.map(String) : []);
+  const srcEnvKeys = Array.isArray(snap.requiredEnvKeys) ? snap.requiredEnvKeys.map(String) : [];
+  const dstEnvKeys = new Set(Array.isArray(rest.presentEnvKeys) ? rest.presentEnvKeys.map(String) : []);
   const missingEnvKeys = srcEnvKeys.filter((k) => !dstEnvKeys.has(k));
-
   // Stolen from Crusoe PR ai-dynamo/snapshot#532: read from the end of restore.log to surface the
   // last fatal error (e.g. missing /cache/vllm mount) rather than earlier non-fatal warnings like binfmt_misc.
   const lines = String(restoreLogText || '')
@@ -244,9 +285,10 @@ function validateWorkerRestoreContract(snapshotSpec = {}, restoreSpec = {}, rest
 }
 
 function estimateArtifactPullAndUnpack(options = {}) {
-  const imageSizeGb = Math.max(0.1, finiteNonNeg(options.imageSizeGb, 7.0));
-  const currentFormat = options.currentFormat === 'zstd' ? 'zstd' : 'gzip';
-  const parallelUnpacks = Math.max(1, Math.min(16, Math.floor(finiteNonNeg(options.parallelUnpacks, 8))));
+  const opts = asPlainObj(options);
+  const imageSizeGb = Math.max(0.1, finiteNonNeg(opts.imageSizeGb, 7.0));
+  const currentFormat = opts.currentFormat === 'zstd' ? 'zstd' : 'gzip';
+  const parallelUnpacks = Math.max(1, Math.min(16, Math.floor(finiteNonNeg(opts.parallelUnpacks, 8))));
   // Grounded in Crusoe Nov 6, 2026 CMK benchmark (gzip 95 MB/s vs zstd 681 MB/s, 18% size reduction, 4x less CPU)
   const uncompressedMb = imageSizeGb * 1024;
   const gzipPullSeconds = round6((imageSizeGb / 7.0) * 112.7);

@@ -691,8 +691,12 @@ function callTool(name, args = {}) {
       validateWorkerRestoreContract,
       estimateArtifactPullAndUnpack,
     } = require('./crusoe-ai-tokenomics-engine');
-    const mode = args.mode || 'tokenomics';
-    const payload = args.payload || {};
+    const safeArgs = args && typeof args === 'object' && !Array.isArray(args) ? args : {};
+    const mode = typeof safeArgs.mode === 'string' ? safeArgs.mode : 'tokenomics';
+    const payload =
+      safeArgs.payload && typeof safeArgs.payload === 'object' && !Array.isArray(safeArgs.payload)
+        ? safeArgs.payload
+        : {};
     if (mode === 'route') return routeZeroSpendCrusoeOrLocal(payload);
     if (mode === 'snapshot_contract') {
       return validateWorkerRestoreContract(payload.snapshotSpec, payload.restoreSpec, payload.restoreLogText);
