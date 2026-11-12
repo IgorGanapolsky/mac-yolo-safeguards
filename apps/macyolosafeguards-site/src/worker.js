@@ -77,7 +77,8 @@ export default {
     }
 
     if (url.pathname === "/pricing" || url.pathname === "/pricing/") {
-      return Response.redirect(new URL("/#pricing", url.origin).toString(), 301);
+      // Keep ?from=… so the page can tag checkout links with where the visitor came from.
+      return Response.redirect(new URL("/" + url.search + "#pricing", url.origin).toString(), 301);
     }
 
     if (url.pathname.startsWith("/go/")) {
