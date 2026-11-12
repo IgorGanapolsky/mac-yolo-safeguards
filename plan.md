@@ -4595,3 +4595,17 @@ The signed-in console at https://console.crusoecloud.com/home has no infrastruct
 | .agents/skills/quota-before-provision/** | grok-quota-before-provision | 2026-11-12T13:41:47-0500 |
 | SKILLS.md (one row) | grok-quota-before-provision | 2026-11-12T13:41:47-0500 |
 | plan.md (this append) | grok-quota-before-provision | 2026-11-12T13:41:47-0500 |
+
+## Jobs menu on the panel (append 2026-11-12T14:25:00-0500) — `grok-jobs-menu-reachable`
+
+The Background Jobs submenu already lists LaunchAgents, crontab lines, and loose scripts. The running panel had no control that opened it. A Jobs button at the top of the panel and a right-click on the menu-bar icon open that same menu. This does not install a build. The 10:36 network claim stays the network work. Pull request 2332 still owns the heavy-program sentence.
+
+| T-JOBS-MENU-REACHABLE-20261112 | Open the existing background-jobs menu from the panel and the menu bar | in_progress | grok-jobs-menu-reachable | `macos/MacYoloSafeguardsApp.swift`, `macos/MacYoloTranslucentHud.swift`, `tests/test-jobs-menu-reachable.js`, `plan.md` (this append) | `node tests/test-jobs-menu-reachable.js` exits 0. The Jobs button and the menu-bar right-click both open the existing Background Jobs menu. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| macos/MacYoloSafeguardsApp.swift | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
+| macos/MacYoloTranslucentHud.swift | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
+| tests/test-jobs-menu-reachable.js | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
+| plan.md (this append) | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
