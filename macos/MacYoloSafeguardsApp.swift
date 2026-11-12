@@ -646,7 +646,7 @@ private let HUD_HTML = #"""
         <div id="uninstallList" style="font-size:12px;color:rgba(255,255,255,0.72);padding:6px 0;">Open this list to measure apps.</div>
         <div style="display:flex;gap:6px;align-items:center;padding-top:5px;border-top:1px solid rgba(255,255,255,0.12);">
           <input id="customUninstallInput" type="text" placeholder="App name" style="flex:1;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.22);border-radius:7px;padding:4px 8px;color:#fff;font-size:11px;outline:none;" />
-          <button class="tile-action" style="margin-top:0;color:#fca5a5;" onclick="requestUninstall(document.getElementById('customUninstallInput').value)">Uninstall</button>
+          <button class="tile-action" style="margin-top:0;color:#fca5a5;" onclick="requestUninstall(document.getElementById('customUninstallInput').value, this)">Uninstall</button>
         </div>
       </div>
     </div>
@@ -694,17 +694,27 @@ private let HUD_HTML = #"""
       var box = document.getElementById('proPaywallBanner');
       var reason = document.getElementById('proPaywallReason');
       if (reason && featureLabel) {
-        reason.textContent = featureLabel + ' is part of Mac YOLO Pro Guard ($59/year or $19/month). Live diagnostics stay free.';
+        reason.textContent = featureLabel + ' is part of Mac YOLO Pro Guard ($59/year or $19/month). Manual cleanup stays free.';
       }
       if (box) box.style.display = 'block';
-      sendAction('proPaywallShown', { feature: featureLabel || 'remediation' });
     }
     function handleProHeaderClick() {
       if (_isProClient) {
         sendAction('openGearMenu');
       } else {
-        showProPaywall('24/7 Auto-Guard & 1-Click Remediation');
+        showProPaywall('24/7 Auto-Guard');
       }
+    }
+    function leaveCompactForDrawer() {
+      if (!_compactHud) return;
+      _compactHud = false;
+      var bento = document.querySelector('.bento');
+      var rec = document.getElementById('recSection');
+      var lbl = document.getElementById('hudCompactLabel');
+      if (bento) bento.style.display = 'grid';
+      if (rec) rec.style.display = 'block';
+      if (lbl) lbl.textContent = 'Compact ▴';
+      sendAction('setCompactMode', { compact: false });
     }
     function toggleCompactHud() {
       _compactHud = !_compactHud;
@@ -717,10 +727,6 @@ private let HUD_HTML = #"""
       sendAction('setCompactMode', { compact: _compactHud });
     }
     function confirmStopRunaways(btn) {
-      if (!_isProClient) {
-        showProPaywall('1-Click Stop Runaways');
-        return;
-      }
       if (Date.now() > _stopArmedUntil) {
         _stopArmedUntil = Date.now() + 4000;
         btn.textContent = 'Click again to stop';
@@ -734,11 +740,6 @@ private let HUD_HTML = #"""
     }
     var _hudActionConfirmUntil = {};
     function confirmHudAction(action, btn, busyText, doneText, idleText) {
-      if (!_isProClient && (action === 'freeUpDisk' || action === 'freeUpMemory' || action === 'coolDownFans')) {
-        var names = { freeUpDisk: 'Clean AI Waste', freeUpMemory: 'Free Agent RAM', coolDownFans: 'Stop Runaways' };
-        showProPaywall(names[action] || 'Remediation');
-        return;
-      }
       var now = Date.now();
       if ((_hudActionConfirmUntil[action] || 0) <= now) {
         _hudActionConfirmUntil[action] = now + 4000;
@@ -759,10 +760,6 @@ private let HUD_HTML = #"""
       triggerHudAction(action, btn, busyText, doneText);
     }
     function blankOutSecrets(btn) {
-      if (!_isProClient) {
-        showProPaywall('2-Click Secret Redactor');
-        return;
-      }
       if (btn.getAttribute('data-busy') === '1') return;
       if (Date.now() > _secretsArmedUntil) {
         _secretsArmedUntil = Date.now() + 5000;
@@ -777,11 +774,6 @@ private let HUD_HTML = #"""
       sendAction('redactSecrets');
     }
     function triggerHudAction(action, btnEl, busyText, doneText) {
-      if (!_isProClient && (action === 'freeUpDisk' || action === 'freeUpMemory' || action === 'coolDownFans')) {
-        var names = { freeUpDisk: '1-Click Clean AI Waste', freeUpMemory: '1-Click Free Agent RAM', coolDownFans: '1-Click Stop Runaways' };
-        showProPaywall(names[action] || '1-Click Remediation');
-        return;
-      }
       var origText = btnEl ? (btnEl.getAttribute('data-orig') || btnEl.textContent) : '';
       if (btnEl && !btnEl.getAttribute('data-orig')) btnEl.setAttribute('data-orig', origText);
       if (btnEl) {
@@ -929,8 +921,8 @@ private let HUD_HTML = #"""
       function bindResize(el, mode) {
         if (!el) return;
         el.addEventListener('pointerdown', function(e) {
+          leaveCompactForDrawer();
           e.preventDefault();
-          e.stopPropagation();
           el.setPointerCapture(e.pointerId);
           var sx = e.screenX, sy = e.screenY;
           var sw = window.innerWidth || 420, sh = window.innerHeight || 630;
@@ -959,6 +951,7 @@ private let HUD_HTML = #"""
     var _activeDetailCard = null;
     var _lastHudState = {};
     function toggleSettingsDrawer(forceShow) {
+      leaveCompactForDrawer();
       var el = document.getElementById('settingsDrawer');
       var ov = document.getElementById('overviewSection');
       var det = document.getElementById('cardDetailDrawer');
@@ -1043,7 +1036,7 @@ private let HUD_HTML = #"""
       }
     }
     function openCardDetail(cardId) {
-      _activeDetailCard = cardId;
+      leaveCompactForDrawer();
       var ov = document.getElementById('overviewSection');
       var setEl = document.getElementById('settingsDrawer');
       var det = document.getElementById('cardDetailDrawer');
@@ -2133,8 +2126,6 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             openGetPro(nil)
         case "enterProLicense":
             enterProLicense(nil)
-        case "proPaywallShown":
-            postFunnelEvent("pro_paywall_shown", source: (body["feature"] as? String) ?? "hud")
         case "resizeHud":
             if let w = (body["width"] as? NSNumber)?.doubleValue,
                let h = (body["height"] as? NSNumber)?.doubleValue {
@@ -3371,7 +3362,6 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     }
 
     @objc func smartCleanDisk() {
-        guard requireProOrShowPaywall(feature: "1-Click Clean AI Waste") else { return }
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let run = runTool("mac-yolo-disk-guard.js", ["--clean", "--json"])
             DispatchQueue.main.async {
@@ -3388,7 +3378,6 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     // Stops process storms (one command running in 40+ copies), orphaned MCP servers and
     // stranded agent helpers, then shuts down simulators. Live agent sessions are never touched.
     @objc func freeAgentRam() {
-        guard requireProOrShowPaywall(feature: "1-Click Free Agent RAM") else { return }
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let run = runTool("mac-yolo-agent-guard.js", ["clean", "--execute"])
             DispatchQueue.main.async {
@@ -3445,7 +3434,6 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     }
 
     func redactSecrets() {
-        guard requireProOrShowPaywall(feature: "2-Click Secret Redactor") else { return }
         guard !secretsRedacting else { return }
         secretsRedacting = true
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -3472,7 +3460,6 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     }
 
     @objc func coolDownFans() {
-        guard requireProOrShowPaywall(feature: "1-Click Stop Runaways") else { return }
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let run = runTool("mac-yolo-system-care-engine.js", ["--cool-down-fans"])
             DispatchQueue.main.async {
@@ -3515,27 +3502,6 @@ extension MacYoloAppDelegate {
 
     var autoGuardOn: Bool { isPro && UserDefaults.standard.bool(forKey: "MacYoloAutoGuard") }
 
-    func postFunnelEvent(_ event: String, source: String = "mac_app") {
-        if ProcessInfo.processInfo.environment["MAC_YOLO_TELEMETRY"] == "0" { return }
-        if CommandLine.arguments.contains(where: { $0.contains("self-test") }) { return }
-        guard let url = URL(string: "https://macyolosafeguards.io/api/telemetry/event") else { return }
-        var req = URLRequest(url: url, timeoutInterval: 5)
-        req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let cohort = hasFounderMarker ? "owner" : (ProcessInfo.processInfo.environment["CI"] == "true" ? "ci" : "external")
-        let safeSource = source.lowercased().replacingOccurrences(of: "[^a-z0-9_-]", with: "_", options: .regularExpression)
-        let payload: [String: String] = ["event": event, "cohort": cohort, "source": String(safeSource.prefix(36))]
-        req.httpBody = try? JSONSerialization.data(withJSONObject: payload)
-        URLSession.shared.dataTask(with: req) { _, _, _ in }.resume()
-    }
-
-    func requireProOrShowPaywall(feature: String) -> Bool {
-        if isPro { return true }
-        postFunnelEvent("pro_paywall_shown", source: feature)
-        let escaped = feature.replacingOccurrences(of: "'", with: "\\'")
-        webView?.evaluateJavaScript("if (window.showProPaywall) window.showProPaywall('\(escaped)');", completionHandler: nil)
-        return false
-    }
 
     func updateProMenu() {
         guard autoGuardMenuItem != nil else { return }
@@ -3553,7 +3519,7 @@ extension MacYoloAppDelegate {
     }
 
     @objc func openGetPro(_ sender: Any?) {
-        if let url = URL(string: proCheckoutURL + "?from=app_paywall") { NSWorkspace.shared.open(url) }
+        if let url = URL(string: proCheckoutURL + "?client_reference_id=app_paywall") { NSWorkspace.shared.open(url) }
     }
 
     @objc func toggleAutoGuard(_ sender: Any?) {
