@@ -557,6 +557,7 @@ private let HUD_HTML = #"""
             </div>
             <div class="net-rates" style="padding-left:2px;">
               <div id="netImpact" style="font-size:13px;color:#fff;font-weight:700;">Checking your internet…</div>
+              <div id="netLink" style="font-size:12px;color:#e2e8f0;font-weight:650;margin-top:2px;">Checking which network…</div>
               <div id="netCause" style="font-size:11px;color:rgba(255,255,255,0.8);margin-top:1px;"></div>
               <div id="netUp" style="font-size:11px;color:rgba(255,255,255,0.85);margin-top:2px;">Delay measuring</div>
               <div id="netDown" style="font-size:10px;color:rgba(255,255,255,0.55);">Using now ↓ 0 KB/s · ↑ 0 KB/s</div>
@@ -1057,6 +1058,7 @@ private let HUD_HTML = #"""
       setTextIfChanged('netDown', state.netDown);
       setTextIfChanged('netVerdict', state.netVerdict);
       setTextIfChanged('netImpact', state.netImpact);
+      setTextIfChanged('netLink', state.netLink);
       setTextIfChanged('netCause', state.netCause);
       setTextIfChanged('fleetUsage', state.fleetUsage);
       if (state.netVerdictColor) {
@@ -1467,6 +1469,89 @@ func internetHeadline(latencyMs: Int?, lineDownMbps: Double, lineUpMbps: Double,
     return ("Delay measuring", using)
 }
 
+func safeInterfaceName(_ raw: String) -> String? {
+    let name = raw.split(separator: " ").first.map(String.init) ?? ""
+    guard name.range(of: #"^[A-Za-z][A-Za-z0-9]{0,15}$"#, options: .regularExpression) != nil else { return nil }
+    return name
+}
+
+func parseDefaultInterface(_ text: String) -> String? {
+    for line in text.split(separator: "\n") {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard trimmed.hasPrefix("interface:") else { continue }
+        return safeInterfaceName(String(trimmed.dropFirst("interface:".count)))
+    }
+    return nil
+}
+
+func hardwarePortName(for device: String, listing: String) -> String {
+    guard !device.isEmpty else { return "" }
+    var pending = ""
+    for raw in listing.split(separator: "\n") {
+        let line = String(raw).trimmingCharacters(in: .whitespaces)
+        if line.hasPrefix("Hardware Port:") {
+            pending = String(line.dropFirst("Hardware Port:".count)).trimmingCharacters(in: .whitespaces)
+            continue
+        }
+        guard line.hasPrefix("Device:") else { continue }
+        let rest = String(line.dropFirst("Device:".count)).trimmingCharacters(in: .whitespaces)
+        let dev = rest.split(separator: " ").first.map(String.init) ?? ""
+        if dev == device { return pending }
+    }
+    return ""
+}
+
+func cleanNetworkName(_ raw: String) -> String {
+    let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    if trimmed.isEmpty || trimmed.count > 64 || trimmed.hasPrefix("<") { return "" }
+    if trimmed.unicodeScalars.contains(where: { $0.value < 32 }) { return "" }
+    return trimmed
+}
+
+func networkLinkLine(name: String, heldSince: Date?, now: Date) -> String {
+    let trimmed = cleanNetworkName(name)
+    guard !trimmed.isEmpty else { return "Network name unavailable" }
+    guard let start = heldSince, start <= now else { return "On \(trimmed)" }
+    let secs = Int(now.timeIntervalSince(start))
+    if secs < 60 { return "On \(trimmed) for under a minute" }
+    let mins = secs / 60
+    if mins < 60 { return "On \(trimmed) for \(mins) min" }
+    let hours = mins / 60
+    let remMin = mins % 60
+    if hours < 24 {
+        if remMin == 0 { return "On \(trimmed) for \(hours) hr" }
+        return "On \(trimmed) for \(hours) hr \(remMin) min"
+    }
+    let days = hours / 24
+    let remHr = hours % 24
+    let dayWord = days == 1 ? "day" : "days"
+    if remHr == 0 { return "On \(trimmed) for \(days) \(dayWord)" }
+    return "On \(trimmed) for \(days) \(dayWord) \(remHr) hr"
+}
+
+func parseNetworkLink(summary: String, portName: String, now: Date) -> String {
+    var ssid = ""
+    var lease: Date?
+    let fmt = DateFormatter()
+    fmt.locale = Locale(identifier: "en_US_POSIX")
+    fmt.timeZone = TimeZone.current
+    fmt.dateFormat = "M/d/yyyy HH:mm:ss"
+    for raw in summary.split(separator: "\n") {
+        let line = String(raw)
+        guard let colon = line.firstIndex(of: ":") else { continue }
+        let key = line[..<colon].trimmingCharacters(in: .whitespaces)
+        let value = String(line[line.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
+        if key == "SSID", ssid.isEmpty {
+            ssid = cleanNetworkName(value)
+        }
+        if key == "LeaseStartTime", lease == nil {
+            lease = fmt.date(from: value)
+        }
+    }
+    let name = ssid.isEmpty ? portName : ssid
+    return networkLinkLine(name: name, heldSince: lease, now: now)
+}
+
 func lineMbps(downCapKB: Int, upCapKB: Int, cachedDown: Double, cachedUp: Double) -> (Double, Double) {
     if cachedDown >= 1 || cachedUp >= 1 {
         return (max(0, cachedDown), max(0, cachedUp))
@@ -1604,6 +1689,8 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var lastActiveWin: String = "Claude"
     var wifiInterfaceName: String = ""
     var wifiLookupRetryAt: Date = .distantPast
+    var networkLinkCache: String = ""
+    var networkLinkCacheAt: Date = .distantPast
     var statusSettingsSyncedAt: Date = .distantPast
     var netHistory: [(t: Date, inn: UInt64, out: UInt64)] = []
     var lastCpuTicks: [UInt32]? = nil
@@ -2060,6 +2147,30 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             wifiLookupRetryAt = Date().addingTimeInterval(30)
         }
         return found
+    }
+
+    func currentNetworkLink(now: Date = Date()) -> String {
+        if !networkLinkCache.isEmpty, now.timeIntervalSince(networkLinkCacheAt) < 20 {
+            return networkLinkCache
+        }
+        let route = captureCommand("/sbin/route", ["-n", "get", "default"], timeout: 2)
+        let iface = parseDefaultInterface(route) ?? safeInterfaceName(resolvedWifiInterfaceName()) ?? ""
+        var summary = ""
+        var listing = ""
+        if !iface.isEmpty {
+            summary = captureCommand("/usr/sbin/ipconfig", ["getsummary", iface], timeout: 2)
+            let hasSsid = summary.split(separator: "\n").contains { line in
+                let key = line.split(separator: ":", maxSplits: 1).first.map { String($0).trimmingCharacters(in: .whitespaces) } ?? ""
+                return key == "SSID"
+            }
+            if !hasSsid {
+                listing = captureCommand("/usr/sbin/networksetup", ["-listallhardwareports"], timeout: 2)
+            }
+        }
+        let line = parseNetworkLink(summary: summary, portName: hardwarePortName(for: iface, listing: listing), now: now)
+        networkLinkCache = line
+        networkLinkCacheAt = now
+        return line
     }
 
     func interfaceByteTotals(named ifname: String) -> (UInt64, UInt64)? {
@@ -2634,6 +2745,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let cachedLine = cachedLineMbps()
         let line = lineMbps(downCapKB: downCapKB, upCapKB: upCapKB, cachedDown: cachedLine.0, cachedUp: cachedLine.1)
         let headline = internetHeadline(latencyMs: netLatencyMs, lineDownMbps: line.0, lineUpMbps: line.1, downKB: lastDownKB, upKB: lastUpKB)
+        let linkLine = currentNetworkLink()
         let verdict = internetVerdict(latencyMs: netLatencyMs, upKB: lastUpKB, capacityKB: upCapKB, topUploader: netTopUploader)
         let wifiName = resolvedWifiInterfaceName()
         let (rxBytes, txBytes) = interfaceByteTotals(named: wifiName) ?? (0, 0)
@@ -2711,6 +2823,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             ?? "Nothing over 50 KB/s. Wi-Fi \(wifiName) moved \(upRate) and \(downRate) in the last few seconds. \(sinceRestart)"
         let upFullPct = upCapKB > 0 ? min(100, lastUpKB * 100 / upCapKB) : -1
         let detailNetworkFull = [
+            "Connected|\(linkLine)|0|This is how long this Mac has held its current address. A new address starts this clock over, even on the same Wi-Fi.",
             "Internet|\(verdict.impact)|0|A reply took \(delayMeaning). Under 100 ms is comfortable. This is delay, not download speed.",
             wifiVsProviderRow(routerMs: netRouterLatencyMs, wanMs: netLatencyMs, upFullPct: upFullPct, topUploader: netTopUploader),
             "Your speed|\(speedValue)|0|\(speedMore)",
@@ -2787,6 +2900,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "netVerdictColor": verdict.color,
             "netWhy": verdict.why,
             "netImpact": verdict.impact,
+            "netLink": linkLine,
             "netCause": verdict.cause,
             "fleetUsage": fleetUsage,
             "recTitle": culprits.recTitle + " ›",
@@ -3563,6 +3677,37 @@ if CommandLine.arguments.contains("--net-self-test") {
     if idle.using != "Using now ↓ 12 KB/s · ↑ 40 KB/s" { failures.append("using line: \(idle.using)") }
     let measured = internetHeadline(latencyMs: 33, lineDownMbps: 97.3, lineUpMbps: 7.8, downKB: 12, upKB: 40)
     if measured.speed != "Line ↓ 97.3 Mbps · ↑ 7.8 Mbps" || measured.speed.contains("12") { failures.append("line speed: \(measured.speed)") }
+    let linkNow = Date(timeIntervalSince1970: 1_700_000_000)
+    if networkLinkLine(name: "Cafe", heldSince: linkNow.addingTimeInterval(-20 * 60), now: linkNow) != "On Cafe for 20 min" { failures.append("link 20 min") }
+    if networkLinkLine(name: "Cafe", heldSince: linkNow.addingTimeInterval(-30), now: linkNow) != "On Cafe for under a minute" { failures.append("link under a minute") }
+    if networkLinkLine(name: "Cafe", heldSince: linkNow.addingTimeInterval(-125 * 60), now: linkNow) != "On Cafe for 2 hr 5 min" { failures.append("link hours") }
+    if networkLinkLine(name: "Cafe", heldSince: linkNow.addingTimeInterval(-26 * 3600), now: linkNow) != "On Cafe for 1 day 2 hr" { failures.append("link day") }
+    if networkLinkLine(name: "Cafe", heldSince: linkNow.addingTimeInterval(-48 * 3600), now: linkNow) != "On Cafe for 2 days" { failures.append("link days") }
+    if networkLinkLine(name: "Cafe", heldSince: nil, now: linkNow) != "On Cafe" { failures.append("link no clock") }
+    if networkLinkLine(name: "Cafe", heldSince: linkNow.addingTimeInterval(60), now: linkNow) != "On Cafe" { failures.append("link future") }
+    if networkLinkLine(name: "  ", heldSince: linkNow, now: linkNow) != "Network name unavailable" { failures.append("link blank") }
+    let linkFmt = DateFormatter()
+    linkFmt.locale = Locale(identifier: "en_US_POSIX")
+    linkFmt.timeZone = TimeZone.current
+    linkFmt.dateFormat = "M/d/yyyy HH:mm:ss"
+    if let held = linkFmt.date(from: "11/12/2026 14:26:19") {
+        let sample = "        BSSID : aa:bb:cc:dd:ee:ff\n        LeaseStartTime : 11/12/2026 14:26:19\n        LeaseStartTime : 11/12/2026 14:26:20\n        SSID : CafeGuest\n"
+        let parsed = parseNetworkLink(summary: sample, portName: "Wi-Fi", now: held.addingTimeInterval(20 * 60))
+        if parsed != "On CafeGuest for 20 min" { failures.append("parse ssid \(parsed)") }
+        let future = parseNetworkLink(summary: "SSID : Cafe\nLeaseStartTime : 11/12/2026 18:00:00\n", portName: "Wi-Fi", now: held)
+        if future != "On Cafe" { failures.append("parse future \(future)") }
+        let namedOnly = parseNetworkLink(summary: "SSID : CafeGuest\n", portName: "Wi-Fi", now: held)
+        if namedOnly != "On CafeGuest" { failures.append("parse no lease \(namedOnly)") }
+    } else {
+        failures.append("lease date")
+    }
+    let portOnly = parseNetworkLink(summary: "        BSSID : aa:bb:cc:dd:ee:ff\n", portName: "Wi-Fi", now: linkNow)
+    if portOnly != "On Wi-Fi" { failures.append("bssid ignored \(portOnly)") }
+    if parseDefaultInterface("destination: default\ninterface: en0\n") != "en0" { failures.append("default iface") }
+    if parseDefaultInterface("interface: en0; curl evil\n") != nil { failures.append("iface junk") }
+    let ports = "Hardware Port: Wi-Fi\nDevice: en0 Ethernet Address: 00\nHardware Port: iPhone USB\nDevice: en7 Ethernet Address: 00\n"
+    if hardwarePortName(for: "en0", listing: ports) != "Wi-Fi" { failures.append("port wifi") }
+    if hardwarePortName(for: "en7", listing: ports) != "iPhone USB" { failures.append("port phone") }
     let fromCap = lineMbps(downCapKB: 11877, upCapKB: 952, cachedDown: 0, cachedUp: 0)
     if formatMbps(fromCap.0) != "97.3 Mbps" || formatMbps(fromCap.1) != "7.8 Mbps" { failures.append("cap convert \(fromCap)") }
     if lineMbps(downCapKB: 0, upCapKB: 0, cachedDown: 0.1, cachedUp: 0.1) != (0, 0) { failures.append("trickle cache counted as line") }

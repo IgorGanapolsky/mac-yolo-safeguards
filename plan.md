@@ -4609,3 +4609,17 @@ The Background Jobs submenu already lists LaunchAgents, crontab lines, and loose
 | macos/MacYoloTranslucentHud.swift | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
 | tests/test-jobs-menu-reachable.js | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
 | plan.md (this append) | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
+
+## Network name on the Internet card (append 2026-11-12T14:55:28-0500) — `grok-hud-network-link`
+
+Pull request 2334 merged as 21e64aae, so the Jobs button claim on the two HUD files is finished. The Internet glance still omitted the network name and how long this Mac has been on it. The new line reads the default-route interface with ipconfig getsummary, shows the network name, and counts from the first address start time. A missing or future start shows the name only. The hardware address is ignored. The line-speed headline, the plain sentence, and Top Hogs stay. This does not install a build.
+
+| T-HUD-NETWORK-LINK-20261112 | Show which network the Mac is on, and for how long, on the Internet glance | in_progress | grok-hud-network-link | `macos/MacYoloSafeguardsApp.swift`, `macos/MacYoloTranslucentHud.swift`, `tests/test-hud-network-link.js`, `plan.md` (this append) | `node tests/test-hud-network-link.js` exits 0. The glance line names the network and the address hold. The line-speed headline stays. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| macos/MacYoloSafeguardsApp.swift | grok-hud-network-link | 2026-11-12T14:55:28-0500 |
+| macos/MacYoloTranslucentHud.swift | grok-hud-network-link | 2026-11-12T14:55:28-0500 |
+| tests/test-hud-network-link.js | grok-hud-network-link | 2026-11-12T14:55:28-0500 |
+| plan.md (this append) | grok-hud-network-link | 2026-11-12T14:55:28-0500 |
