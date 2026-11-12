@@ -4,7 +4,6 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 
 | Skill | Description | Definition | Source |
 | :--- | :--- | :--- | :--- |
-| `task-checkout-gate` | Refuse a coding task that writes the shared checkout or another task's tree, and refuse a remote cloud dev machine. | `.agents/skills/task-checkout-gate/SKILL.md` | local |
 | `quota-before-provision` | Refuse starting an instance, cluster, bucket, disk, or network while quota is absent, and refuse counting a credit balance as customer cash. | `.agents/skills/quota-before-provision/SKILL.md` | local |
 | `opt-before-scale` | Refuse scale, ad, or traffic spend until outside clients, average collected cents, and repeat payers are measured, and refuse a property or private-credit action. | `.agents/skills/opt-before-scale/SKILL.md` | local |
 | `background-agent-hold-gate` | Refuse a background agent that keeps running after someone steps away, and refuse an unattended write into a design project file. | `.agents/skills/background-agent-hold-gate/SKILL.md` | local |

@@ -1,0 +1,40 @@
+{
+  "id": "<redacted>",
+  "source": "derived",
+  "description": "Single orphaned node MCP server (ppid 1, parent agent died), 45 minutes old, burned CPU for 30 minutes. A lone copy is spared by design (could be a nohup server).",
+  "snapshot": "real-03",
+  "overlay": {
+    "add": [
+      "900001 1 180000 45:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/f1/node_modules/.bin/orphan-mcp-server"
+    ],
+    "cpu": {
+      "900001": 1800
+    }
+  },
+  "timeline": {
+    "flatForSec": 1800,
+    "moving": [
+      900001,
+      10115,
+      43925
+    ]
+  },
+  "expect": {
+    "kill": [
+      {
+        "pid": 900001,
+        "reason": "orphaned MCP server, parent agent gone, burning CPU for 30 minutes"
+      }
+    ],
+    "spare": [
+      {
+        "pid": 97363,
+        "reason": "live session"
+      },
+      {
+        "pid": 27893,
+        "reason": "live omp"
+      }
+    ]
+  }
+}
