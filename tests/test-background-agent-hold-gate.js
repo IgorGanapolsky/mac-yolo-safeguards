@@ -176,6 +176,22 @@ function main() {
   assert.ok(blockedReport.findings.some((item) => item.id === 'background_agent'));
   assert.strictEqual(blockedReport.agentLeftRunning, false);
 
+  // Review follow-ups: split word order, shell redirection, malformed CLI values.
+  const split = reviewBackgroundAgent({ note: 'Keep the agent running in the background after I step away.' });
+  assert.ok(ids(split).includes('background_agent'));
+  assert.strictEqual(split.humanReview, true);
+  for (const command of ['printf updated > poster.psd', 'cat draft.txt >> "art/cover.ai"']) {
+    assert.ok(ids(reviewBackgroundAgent({ command })).includes('project_write'), command);
+  }
+  assert.strictEqual(reviewBackgroundAgent({ command: 'cat poster.psd > /dev/null' }).ok, true);
+  assert.strictEqual(reviewBackgroundAgent({ note: 'The agent finished; Premiere is closed.' }).ok, true);
+  for (const args of [['--action', '--json'], ['--action']]) {
+    const bad = spawnSync(process.execPath, [
+      path.join(__dirname, '../tools/background-agent-hold-gate.js'), ...args,
+    ], { encoding: 'utf8' });
+    assert.strictEqual(bad.status, 2, args.join(' '));
+  }
+
   console.log('test-background-agent-hold-gate: PASS');
 }
 
