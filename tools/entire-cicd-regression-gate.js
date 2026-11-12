@@ -100,7 +100,7 @@ const REJECTED_APPROACHES = [
 const REQUIRED_BENTO_INVARIANTS = [
   { id: 'native-nsvisualeffectview-blur', pattern: 'visualEffectView.material = .hudWindow' },
   { id: 'native-behind-window-blending', pattern: 'visualEffectView.blendingMode = .behindWindow' },
-  { id: 'translucent-panel-alpha-088', pattern: 'hudPanel.alphaValue = 0.88' },
+  { id: 'panel-full-opacity-over-blur', pattern: 'hudPanel.alphaValue = 1.0' },
   { id: 'retina-menubar-pill', pattern: 'func renderMenuBarPill(' },
   { id: 'dayglass-header-drag-move', pattern: "case \"moveHud\":" },
   { id: 'dayglass-corner-resize', pattern: "case \"resizeHud\":" },
