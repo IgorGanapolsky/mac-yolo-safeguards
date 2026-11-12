@@ -89,12 +89,15 @@ notify() {
   # --- Banner spam control (added 2026-07-17) ---------------------------------
   # This guard fires every 60s; under sustained memory pressure the routine
   # "reclaimed …" events banner-spammed the user relentlessly. Routine reclaims
-  # are now LOG-ONLY (the reclaim work still happens). Everything else is
-  # debounced so an identical TITLE banners at most once per
+  # are now LOG-ONLY (the reclaim work still happens). Advisory banners are
+  # log-only too: the aggregate "across N procs" close-tabs warning, and the
+  # "inspect …% CPU" warning. Their titles include the live megabyte or CPU
+  # figure, so the 1800s debounce treated every flicker as a new alert.
+  # Everything else is debounced so an identical TITLE banners at most once per
   # YOLO_NOTIFY_DEBOUNCE_SEC (default 1800s). Full mute: YOLO_NOTIFY_QUIET=1.
   local _sev=alert
   case "$TITLE" in
-    *reclaimed*|*"forwarding active"*|*"USB forwarding"*|*"shut down"*|*"killed CodeQL"*) _sev=routine ;;
+    *reclaimed*|*"forwarding active"*|*"USB forwarding"*|*"shut down"*|*"killed CodeQL"*|*" across "*procs*|*"yolo-guard: inspect "*) _sev=routine ;;
   esac
   if [ "${YOLO_NOTIFY_QUIET:-0}" = 1 ] || [ "$_sev" = routine ]; then
     echo "$(date) NOTIFY(log-only,$_sev): $TITLE — $MSG" >> "$LOG"
@@ -144,6 +147,13 @@ notify() {
   fi
   echo "$(date) NOTIFY: $TITLE — $MSG" >> "$LOG"
 }
+
+# Exits after one notify() call. The banner test uses this so it never reaches
+# the kill paths. Unset in the LaunchAgent, so the 60s guard is unchanged.
+if [ "${YOLO_GUARD_NOTIFY_SELFTEST:-0}" = 1 ]; then
+  notify "${YOLO_GUARD_NOTIFY_SELFTEST_TITLE:-}" "${YOLO_GUARD_NOTIFY_SELFTEST_MSG:-selftest}"
+  exit 0
+fi
 
 # --- Auto-configure adb reverse port forwarding for Hermes Mobile ---
 # OPT-IN since 2026-07-25. This block re-created tcp:8642/8765 on every guard tick, so the
