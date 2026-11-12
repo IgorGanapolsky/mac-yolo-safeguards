@@ -4501,6 +4501,11 @@ Shin’s 2026-11-11 post (https://x.com/shinboson/status/2120499242342985821) sw
 Google's Decisions API post (https://blog.google/innovation-and-ai/technology/developers-tools/gemini-decisions-api/) describes a closed set of answers and a human for the ambiguous case. Their latency and price figures stay theirs. A Mac freeze complaint can name Pro Guard, the Diagnostic, or the Sprint as a hold at the public `/go/` path. A call to Google, a send, a charge, or those figures recorded as a local result is blocked. Nothing is purchased and no mail is sent.
 
 | T-GEMINI-DECISIONS-HOLD-20261111 | Hold a Mac YOLO offer without calling Gemini Decisions | in_progress | grok-gemini-decisions-hold | `tools/gemini-decisions-hold-gate.js`, `tests/test-gemini-decisions-hold-gate.js`, `.agents/skills/gemini-decisions-hold-gate/**`, `SKILLS.md` (one row), `plan.md` (this append) | `node tests/test-gemini-decisions-hold-gate.js` exits 0. Purchased, email, and remote call stay false. |
+## OpenShell policy gate (append 2026-11-11T15:52:06-0500) — `grok-openshell-policy`
+
+NVIDIA OpenShell (https://github.com/NVIDIA/OpenShell) declares what each agent can touch and waits for a person when a policy adds a host or a credential. This gate keeps that shape locally. It does not install the product, start a sandbox, attach a credential, or record kernel enforcement or a formal proof as a local result.
+
+| T-OPENSHELL-POLICY-20261111 | Fail closed on an OpenShell install, a self-applied host or credential widening, and NVIDIA enforcement claims recorded as local results | in_progress | grok-openshell-policy | `tools/openshell-policy-gate.js`, `tests/test-openshell-policy-gate.js`, `.agents/skills/openshell-policy-gate/**`, `SKILLS.md` (one row), `plan.md` (this append) | `node tests/test-openshell-policy-gate.js` exits 0. No installer, sandbox, or credential is applied. |
 
 ### File claims (§2 append)
 | File | Owner | Claimed |
@@ -4510,3 +4515,8 @@ Google's Decisions API post (https://blog.google/innovation-and-ai/technology/de
 | .agents/skills/gemini-decisions-hold-gate/** | grok-gemini-decisions-hold | 2026-11-11T15:20:00-0500 |
 | SKILLS.md (one row) | grok-gemini-decisions-hold | 2026-11-11T15:20:00-0500 |
 | plan.md (this append) | grok-gemini-decisions-hold | 2026-11-11T15:20:00-0500 |
+| tools/openshell-policy-gate.js | grok-openshell-policy | 2026-11-11T15:52:06-0500 |
+| tests/test-openshell-policy-gate.js | grok-openshell-policy | 2026-11-11T15:52:06-0500 |
+| .agents/skills/openshell-policy-gate/** | grok-openshell-policy | 2026-11-11T15:52:06-0500 |
+| SKILLS.md (one row) | grok-openshell-policy | 2026-11-11T15:52:06-0500 |
+| plan.md (this append) | grok-openshell-policy | 2026-11-11T15:52:06-0500 |
