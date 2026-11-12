@@ -14,8 +14,11 @@ const SOURCE = 'https://depthfirst.com/post/secure-agent-first-cloud-dev-environ
 const DEFAULT_SHARED = '/Users/iganapolsky/workspace/mac-yolo-safeguards';
 
 const INSTALL_TEXT = /\b(?:npm\s+install|brew\s+install|pip\s+install|install|enable)\b[\s\S]{0,50}\b(?:dependency firewall|dfc|private devbox)\b|\binstall\s+depthfirst\b/i;
+// Cloud CLIs that start a remote machine without naming a devbox.
+const REMOTE_CLI = /\baws\s+ec2\s+run-instances\b|\bgcloud\s+compute\s+instances\s+create\b|\baz\s+vm\s+create\b|\bdoctl\s+compute\s+droplet\s+create\b|\bhcloud\s+server\s+create\b/i;
 const REMOTE_TEXT = /\b(?:start|create|provision|launch)\b[\s\S]{0,80}\b(?:devbox|private ec2|dependency firewall)\b|\btailscale\s+up\b[\s\S]{0,60}\b(?:devbox|private ec2)\b|\bdfc\s+(?:up|start|install)\b/i;
-const BRANCH_IN_PLACE = /\bgit\s+checkout\s+-b\b/;
+// Allows git global options first: `git -C <dir> checkout -b x`, `git -c k=v switch -c x`.
+const BRANCH_IN_PLACE = /\bgit(?:\s+(?:-[Cc]\s+\S+|--?[\w-]+(?:=\S+)?))*\s+(?:checkout\s+-[bB]|switch\s+(?:-[cC]|--create))\b/;
 const VENDOR_CLAIM = /operational in less than a week|prevent(?:s|ing) supply chain attacks|security-engineering load by roughly 70%|hundreds of CVEs/i;
 const ATTRIBUTED = /\bdepthfirst\b/i;
 
@@ -23,13 +26,19 @@ function finding(id) {
   return { id, severity: 'block' };
 }
 
-const posix = require('path').posix;
+const nodePath = require('path');
+const fs = require('fs');
+const posix = nodePath.posix;
 
 // Resolve `.`, `..` and repeated slashes so `/a/./b` and `/a/b/` compare equal to `/a/b`.
 function norm(value) {
   const raw = String(value || '').trim();
   if (!raw) return '';
-  return posix.normalize(raw).replace(/\/+$/, '') || '/';
+  // Resolve relative paths against the cwd and follow symlinks when the path exists,
+  // so `.` or an alias of a protected checkout compares as the real directory.
+  let resolved = nodePath.resolve(raw);
+  try { resolved = fs.realpathSync(resolved); } catch { /* not on disk: keep the resolved path */ }
+  return posix.normalize(resolved.split(nodePath.sep).join('/')).replace(/\/+$/, '') || '/';
 }
 
 function sameOrInside(path, root) {
@@ -52,6 +61,35 @@ function overlapsOtherTask(taskPath, otherTaskPaths) {
   return otherTaskPaths.some((other) => sameOrInside(taskPath, other) || sameOrInside(other, taskPath));
 }
 
+// A claim needs depthfirst named in the same sentence, not anywhere in the text.
+function unattributedClaim(text) {
+  return text.split(/(?<=[.!?])\s+|\n+/).some((sentence) => VENDOR_CLAIM.test(sentence) && !ATTRIBUTED.test(sentence));
+}
+
+// The repository's main worktree is the shared checkout; fall back to DEFAULT_SHARED.
+// Read from .git with fs only (no git process): a linked worktree's .git file points
+// at <main>/.git/worktrees/<name>.
+function detectSharedRoot(cwd = process.cwd()) {
+  let dir = nodePath.resolve(cwd);
+  for (;;) {
+    const dotGit = nodePath.join(dir, '.git');
+    try {
+      const stat = fs.statSync(dotGit);
+      if (stat.isDirectory()) return dir;
+      const match = fs.readFileSync(dotGit, 'utf8').match(/^gitdir:\s*(.+)$/m);
+      if (match) {
+        const gitdir = nodePath.resolve(dir, match[1].trim());
+        const marker = gitdir.lastIndexOf(nodePath.sep + '.git' + nodePath.sep + 'worktrees' + nodePath.sep);
+        if (marker >= 0) return gitdir.slice(0, marker);
+      }
+      return dir;
+    } catch { /* no .git here */ }
+    const parent = nodePath.dirname(dir);
+    if (parent === dir) return DEFAULT_SHARED;
+    dir = parent;
+  }
+}
+
 function reviewTaskCheckout(input = {}) {
   const action = String(input.action || 'note').toLowerCase();
   const note = String(input.note || '');
@@ -66,7 +104,7 @@ function reviewTaskCheckout(input = {}) {
   const findings = [];
 
   if (action === 'install' || INSTALL_TEXT.test(blob)) findings.push(finding('vendor_install'));
-  if (action === 'devbox' || REMOTE_TEXT.test(blob)) findings.push(finding('remote_devbox'));
+  if (action === 'devbox' || REMOTE_TEXT.test(blob) || REMOTE_CLI.test(command)) findings.push(finding('remote_devbox'));
   if (
     action === 'share'
     || action === 'shared'
@@ -77,7 +115,7 @@ function reviewTaskCheckout(input = {}) {
   ) {
     findings.push(finding('shared_checkout'));
   }
-  if (VENDOR_CLAIM.test(blob) && !ATTRIBUTED.test(blob)) {
+  if (VENDOR_CLAIM.test(blob) && unattributedClaim(blob)) {
     findings.push(finding('vendor_claim_as_local'));
   }
 
@@ -127,7 +165,7 @@ function main() {
     command: argValue(argv, '--command'),
     taskPath: argValue(argv, '--task-path'),
     otherTaskPaths: argValues(argv, '--other-task-path'),
-    sharedRoot: argValue(argv, '--shared-root') || DEFAULT_SHARED,
+    sharedRoot: argValue(argv, '--shared-root') || detectSharedRoot(),
   });
   if (argv.indexOf('--json') >= 0) console.log(JSON.stringify(report));
   else {
@@ -144,5 +182,6 @@ if (require.main === module) main();
 module.exports = {
   SOURCE,
   DEFAULT_SHARED,
+  detectSharedRoot,
   reviewTaskCheckout,
 };

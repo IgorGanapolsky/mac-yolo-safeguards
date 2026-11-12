@@ -206,6 +206,34 @@ function main() {
   ], { encoding: 'utf8' });
   assert.strictEqual(multiCli.status, 2);
 
+  // Third review round.
+  const ids3 = (input) => reviewTaskCheckout({ action: 'task', taskPath: OWN, ...input }).findings.map((f) => f.id);
+  assert.ok(ids3({ command: 'aws ec2 run-instances --image-id ami-example' }).includes('remote_devbox'));
+  assert.ok(ids3({ command: 'gcloud compute instances create box-1' }).includes('remote_devbox'));
+  assert.ok(ids3({ command: 'git -C ' + DEFAULT_SHARED + ' checkout -b feature' }).includes('shared_checkout'));
+  assert.ok(ids3({ command: 'git -c core.x=1 switch -c feature' }).includes('shared_checkout'));
+  assert.ok(!ids3({ command: 'git worktree add ../wt-x -b x' }).includes('shared_checkout'));
+  assert.ok(ids3({ note: 'Our system prevents supply chain attacks. depthfirst describes another system.' }).includes('vendor_claim_as_local'));
+  assert.ok(!ids3({ note: 'depthfirst says it prevents supply chain attacks.' }).includes('vendor_claim_as_local'));
+  const repoRoot = path.join(__dirname, '..');
+  const dotCli = spawnSync(process.execPath, [path.join(repoRoot, 'tools/task-checkout-gate.js'),
+    '--action', 'task', '--task-path', '.', '--shared-root', repoRoot, '--json'], { encoding: 'utf8', cwd: repoRoot });
+  assert.strictEqual(dotCli.status, 2, 'a relative "." inside the shared checkout must block');
+  const os = require('os');
+  const link = path.join(os.tmpdir(), 'tcg-link-' + process.pid);
+  try { fs.symlinkSync(repoRoot, link); } catch { /* ignore */ }
+  if (fs.existsSync(link)) {
+    assert.ok(reviewTaskCheckout({ action: 'task', taskPath: link, sharedRoot: repoRoot }).findings.some((f) => f.id === 'shared_checkout'));
+    fs.unlinkSync(link);
+  }
+  const { detectSharedRoot } = require('../tools/task-checkout-gate');
+  assert.strictEqual(detectSharedRoot(path.join(repoRoot, 'tools')), fs.realpathSync(repoRoot));
+  // A linked worktree's .git file points back at the main checkout.
+  const fakeWt = fs.mkdtempSync(path.join(os.tmpdir(), 'tcg-wt-'));
+  fs.writeFileSync(path.join(fakeWt, '.git'), 'gitdir: /srv/main-checkout/.git/worktrees/wt-a\n');
+  assert.strictEqual(detectSharedRoot(path.join(fakeWt)), '/srv/main-checkout');
+  fs.rmSync(fakeWt, { recursive: true, force: true });
+
   console.log('test-task-checkout-gate: PASS');
 }
 
