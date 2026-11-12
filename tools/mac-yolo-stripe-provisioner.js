@@ -72,17 +72,6 @@ const MAC_YOLO_STRIPE_CATALOG = [
     amountCents: 150000,
   },
   {
-    offer: 'Mac YOLO Pro Guard',
-    route: 'Mac YOLO Pro Guard ($19/mo)',
-    status: 'ready',
-    stripe_product_name: 'Mac YOLO Safeguards — Pro Auto-Guard ($19/mo)',
-    stripe_product_id: 'prod_MacYoloProGuard19',
-    stripe_price_id: 'price_MacYoloProGuard19',
-    payment_link_url: 'https://buy.stripe.com/cNi6oH1M81eSg4pdKz3sJ10',
-    stripe_amount_usd: '19.00',
-    amountCents: 1900,
-  },
-  {
     offer: 'Partner Pilot',
     route: 'Partner Pilot ($3,000)',
     status: 'ready',
@@ -92,6 +81,17 @@ const MAC_YOLO_STRIPE_CATALOG = [
     payment_link_url: 'https://buy.stripe.com/9B6eVdcqM7DgcSdayn3sJ0Z',
     stripe_amount_usd: '3000.00',
     amountCents: 300000,
+  },
+  {
+    offer: 'Mac YOLO Pro Guard',
+    route: 'Mac YOLO Pro Guard ($19/mo)',
+    status: 'ready',
+    stripe_product_name: 'Mac YOLO Safeguards — Pro Auto-Guard ($19/mo)',
+    stripe_product_id: 'prod_VYvoKL9jDkHsXT',
+    stripe_price_id: 'price_1UXnxBGGBpd520QYjQeJ11pl',
+    payment_link_url: 'https://buy.stripe.com/cNi6oH1M81eSg4pdKz3sJ10',
+    stripe_amount_usd: '19.00',
+    amountCents: 1900,
   },
 ];
 
