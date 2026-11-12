@@ -10,3 +10,9 @@ directory = "public"
 binding = "ASSETS"
 # Let the Worker see "/" first so Accept: text/markdown negotiation runs before the static index.html.
 run_worker_first = ["/", "/index.html"]
+
+# Staging copy for end-to-end license tests against Stripe test mode, on workers.dev only.
+# Secrets: STRIPE_RESTRICTED_KEY (a test-mode key), LICENSE_SIGNING_KEY (a test key pair).
+# Vars below point it at the test-mode Pro payment link and the matching public key.
+[env.staging]
+workers_dev = true
