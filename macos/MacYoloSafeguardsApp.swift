@@ -454,7 +454,6 @@ private let HUD_HTML = #"""
           </div>
           <div>
             <div class="header-title">Mac YOLO: <span id="healthState">Checking…</span></div>
-            <div class="header-sub" id="macModel">AI Tokens &amp; Waste · CPU/GPU &amp; Memory · Cleanup &amp; Fleet Guard</div>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;">
@@ -464,10 +463,6 @@ private let HUD_HTML = #"""
           <button class="hdr-pill" onclick="toggleSettingsDrawer()">
             <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82-.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             <span>Settings</span>
-          </button>
-          <button class="hdr-pill" id="hudSizeBtn" onclick="cycleHudSize()">
-            <svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-            <span id="hudSizeBtnText">Size</span>
           </button>
         </div>
       </div>
@@ -498,7 +493,7 @@ private let HUD_HTML = #"""
             <div class="tile-sub warn" id="diskAvail">Scanning disk &amp; /tmp waste…</div>
             <div class="meter-track"><div class="meter-fill" id="diskBarFill" style="width:84%;background:linear-gradient(90deg,#fbbf24,#38bdf8);"></div></div>
           </div>
-          <button class="tile-action" id="freeDiskBtn" onclick="event.stopPropagation();triggerHudAction('freeUpDisk', this, 'Purging…', 'Purged ✓')">Clean AI Waste</button>
+          <button class="tile-action" id="freeDiskBtn" title="Deletes agent caches and old temp files. Session transcripts you are using are kept." onclick="event.stopPropagation();triggerHudAction('freeUpDisk', this, 'Cleaning…', 'Cleaned ✓')">Clean AI Waste</button>
         </div>
 
         <div class="tile tile-tall" onclick="openCardDetail('memory')">
@@ -526,9 +521,13 @@ private let HUD_HTML = #"""
               <span class="tile-val" id="battPct" style="color:#5eead4;font-size:11.5px;">Live ›</span>
             </div>
             <div class="tile-sub" id="battState">Scanning active session JSONLs…</div>
+            <div class="tile-sub" id="secretsLine" style="display:none;color:#fbbf24;"></div>
             <div class="meter-track"><div class="meter-fill" id="tokBarFill" style="width:22%;background:linear-gradient(90deg,#10b981,#5eead4);"></div></div>
           </div>
-          <button class="tile-action" onclick="event.stopPropagation();openCardDetail('tokens')">Inspect Sessions ›</button>
+          <div style="display:flex;gap:6px;justify-content:flex-end;">
+            <button class="tile-action" id="secretsBtn" style="display:none;" title="Replaces API keys and passwords in agent session transcripts with [REDACTED]. Everything else in each transcript stays the same. Sessions still being written are skipped. This can't be undone." onclick="event.stopPropagation();blankOutSecrets(this)">Blank Out Secrets</button>
+            <button class="tile-action" onclick="event.stopPropagation();openCardDetail('tokens')">Inspect Sessions ›</button>
+          </div>
         </div>
 
         <div class="tile tile-tall" onclick="openCardDetail('cpu')">
@@ -543,7 +542,7 @@ private let HUD_HTML = #"""
             <div class="tile-sub" id="cpuLoad">Scanning CPU &amp; AGXAccelerator GPU…</div>
             <div class="meter-track"><div class="meter-fill" id="cpuBarFill" style="width:24%;background:linear-gradient(90deg,#a855f7,#fb7185);"></div></div>
           </div>
-          <button class="tile-action" onclick="event.stopPropagation();triggerHudAction('coolDownFans', this, 'Cooling…', 'Fans Cooled ✓')">Cool Down Fans</button>
+          <button class="tile-action" onclick="event.stopPropagation();triggerHudAction('coolDownFans', this, 'Stopping…', 'Done ✓')" title="Stops processes burning CPU with no live agent session, and shuts down idle simulators. Your open apps and live agents are left alone.">Stop Runaways</button>
         </div>
 
         <div class="tile tile-tall" onclick="openCardDetail('network')">
@@ -595,7 +594,7 @@ private let HUD_HTML = #"""
       </div>
 
       <div id="recSection">
-        <div class="rec-header">AI YOLO Agent Optimization (Click any card for live drill-down)</div>
+        <div class="rec-header">AI Agent Optimization</div>
         <div class="card rec-card clickable-card" onclick="openCardDetail('optimization')">
           <div class="rec-top">
             <div class="rec-badge">
@@ -605,13 +604,6 @@ private let HUD_HTML = #"""
               <div class="rec-title" id="recTitle">Live Fan &amp; CPU Culprits ›</div>
               <div class="rec-desc" id="recDesc">Scanning top CPU &amp; fan culprits across active agent swarms and background daemons…</div>
             </div>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-top:4px;">
-            <div style="display:flex;gap:6px;">
-              <button class="rec-btn" id="coolFansMainBtn" onclick="event.stopPropagation();triggerHudAction('coolDownFans', this, 'Cooling Fans…', 'Fans Cooled ✓')">Cool Down Fans</button>
-              <button class="tile-action" style="margin-top:0;padding:6px 10px;" onclick="event.stopPropagation();triggerHudAction('freeUpDisk', this, 'Purging…', 'Purged ✓')">Clean AI Waste</button>
-            </div>
-            <button class="tile-action" style="margin-top:0;padding:6px 10px;" onclick="event.stopPropagation();toggleSettingsDrawer(true)">Uninstall Apps…</button>
           </div>
         </div>
       </div>
@@ -629,10 +621,7 @@ private let HUD_HTML = #"""
         <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid rgba(255,255,255,0.12);margin-top:4px;">
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
             <button class="rec-btn" id="drawerSpeedBtn" style="display:none;" onclick="triggerHudAction('testSpeed', this, 'Testing…', 'Test Speed')">Test Speed</button>
-            <button class="rec-btn" onclick="triggerHudAction('coolDownFans', this, 'Cooling &amp; Reaping…', 'Fans Cooled ✓')">Cool Down Fans</button>
-            <button class="tile-action" style="margin-top:0;padding:6px 11px;" onclick="triggerHudAction('freeUpDisk', this, 'Purging…', 'Purged ✓')">Clean AI Waste</button>
           </div>
-          <button class="tile-action" style="margin-top:0;padding:6px 11px;" onclick="toggleSettingsDrawer(true)">Uninstall Apps…</button>
         </div>
       </div>
       <div class="card rec-card" id="settingsDrawer" style="display:none;padding:10px 13px;">
@@ -654,7 +643,7 @@ private let HUD_HTML = #"""
 
     <div class="hud-footer">
       <button class="tile-action" style="margin-top:0;" onclick="sendAction('toggleStatusBarIcon')">Menu Bar Icon: <strong id="quickStatusIconLabel" style="color:#5eead4;">Shown ✓</strong></button>
-      <span id="footerSizeLabel" style="font-size:11px;color:rgba(255,255,255,0.68);cursor:pointer;" onclick="cycleHudSize()" title="Click to cycle size or drag corner">480×688</span>
+
     </div>
   </div>
   <div class="hud-resize-edge-right" id="hudResizeRight"></div>
@@ -662,12 +651,6 @@ private let HUD_HTML = #"""
   <div class="hud-resize-grip" id="hudResizeGrip" title="Drag to resize">◢</div>
 
   <script>
-    var HUD_PRESETS = [
-      { label: '480×688', width: 480, height: 688 },
-      { label: '540×720', width: 540, height: 720 },
-      { label: '640×780', width: 640, height: 780 }
-    ];
-    var _presetIdx = 0;
     var _diskCleanStatusOverride = null;
     var _diskCleanStatusUntil = 0;
     var _lastCleanDetailRows = '';
@@ -691,6 +674,22 @@ private let HUD_HTML = #"""
       if (s.indexOf('Playwright') !== -1) return 'Playwright Browser Binaries';
       if (s.indexOf('Trash') !== -1) return 'macOS User Trash';
       return s.split(' (')[0];
+    }
+    // Blanking out secrets edits transcripts and can't be undone, so it takes a second click within 5 s.
+    var _secretsArmedUntil = 0;
+    function blankOutSecrets(btn) {
+      if (btn.getAttribute('data-busy') === '1') return;
+      if (Date.now() > _secretsArmedUntil) {
+        _secretsArmedUntil = Date.now() + 5000;
+        btn.textContent = 'Click again to confirm';
+        btn.style.color = '#fbbf24';
+        setTimeout(function() { if (Date.now() >= _secretsArmedUntil && btn.getAttribute('data-busy') !== '1') { btn.textContent = 'Blank Out Secrets'; btn.style.color = ''; } }, 5100);
+        return;
+      }
+      _secretsArmedUntil = 0;
+      btn.setAttribute('data-busy', '1');
+      btn.textContent = 'Blanking out…';
+      sendAction('redactSecrets');
     }
     function triggerHudAction(action, btnEl, busyText, doneText) {
       var origText = btnEl ? (btnEl.getAttribute('data-orig') || btnEl.textContent) : '';
@@ -808,16 +807,7 @@ private let HUD_HTML = #"""
     function resizeHud(w, h, persist) {
       var cw = Math.max(380, Math.min(880, Math.round(w)));
       var ch = Math.max(540, Math.min(920, Math.round(h)));
-      var lbl = document.getElementById('footerSizeLabel');
-      if (lbl) lbl.textContent = cw + '×' + ch;
       sendAction('resizeHud', { width: cw, height: ch, persist: !!persist });
-    }
-    function cycleHudSize() {
-      _presetIdx = (_presetIdx + 1) % HUD_PRESETS.length;
-      var p = HUD_PRESETS[_presetIdx];
-      var btnTxt = document.getElementById('hudSizeBtnText');
-      if (btnTxt) btnTxt.textContent = p.label;
-      resizeHud(p.width, p.height, true);
     }
     window.addEventListener('keydown', function(e) {
       if (e.key === 'Escape') sendAction('dismiss');
@@ -1050,6 +1040,16 @@ private let HUD_HTML = #"""
       setTextIfChanged('memRightBadge', state.memRightBadge);
       setTextIfChanged('battPct', state.battPct);
       setTextIfChanged('battState', state.battState);
+      if (state.secretsLine !== undefined) {
+        var sl = document.getElementById('secretsLine'), sb = document.getElementById('secretsBtn');
+        setTextIfChanged('secretsLine', state.secretsLine);
+        if (sl) sl.style.display = state.secretsLine ? 'block' : 'none';
+        if (sl) sl.style.color = Number(state.secretsCount) > 0 ? '#fbbf24' : 'rgba(255,255,255,0.6)';
+        if (sb) {
+          sb.style.display = Number(state.secretsCount) > 0 ? 'inline-block' : 'none';
+          if (state.secretsBusy !== '1' && sb.getAttribute('data-busy') === '1') { sb.removeAttribute('data-busy'); sb.textContent = 'Blank Out Secrets'; sb.style.color = ''; }
+        }
+      }
       setTextIfChanged('cpuLoad', state.cpuLoad);
       setTextIfChanged('cpuTemp', state.cpuRight);
       setTextIfChanged('mcpRightBadge', state.mcpRightBadge);
@@ -1155,7 +1155,7 @@ func findNodeBinary() -> String? {
 
 // Only agents that are running, e.g. "Claude×14 · OMP×7 · Grok×4". Tools you don't use stay off the card.
 func agentSwarmLine(_ counts: [(String, Int)]) -> String {
-    let live = counts.filter { $0.1 > 0 }.map { "\($0.0)×\($0.1)" }
+    let live = counts.filter { $0.1 > 0 }.map { "\($0.0) \($0.1)" }
     return live.isEmpty ? "No coding agents running" : live.joined(separator: " · ")
 }
 
@@ -1266,6 +1266,14 @@ func connectedForText(_ seconds: TimeInterval) -> String {
     let h = m / 60
     if h < 24 { return m % 60 == 0 ? "for \(h)h" : "for \(h)h \(m % 60)m" }
     return "for \(h / 24)d \(h % 24)h"
+}
+
+// Tokens card line about leaked secrets; empty until the first scan finishes.
+func secretsLine(count: Int, files: Int) -> String {
+    if count < 0 { return "" }
+    if count == 0 { return "No secrets found in agent logs" }
+    let n = NumberFormatter.localizedString(from: NSNumber(value: count), number: .decimal)
+    return "⚠︎ \(n) secret\(count == 1 ? "" : "s") in agent logs (\(files) file\(files == 1 ? "" : "s"))"
 }
 
 // Network card title, e.g. "Cafe_Guest · for 1h 12m".
@@ -1672,6 +1680,11 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var netSince: Date?
     var netNameKey = ""
     var netNameBusy = false
+    var secretsCount = -1
+    var secretsFiles = 0
+    var secretsBusy = false
+    var secretsRedacting = false
+    var secretsScannedAt = Date.distantPast
     var netNameCheckedAt = Date.distantPast
     var netNameReadAt = Date.distantPast
     var agentNet: [(agent: String, inRate: Double, outRate: Double)] = []
@@ -1900,7 +1913,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         hudPanel.level = .statusBar
         hudPanel.isOpaque = false
         hudPanel.backgroundColor = .clear
-        hudPanel.alphaValue = 0.88
+        hudPanel.alphaValue = 1.0
         hudPanel.hasShadow = true
         hudPanel.isMovableByWindowBackground = true
         hudPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
@@ -1948,6 +1961,8 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             smartCleanDisk()
         case "freeUpMemory":
             freeAgentRam()
+        case "redactSecrets":
+            redactSecrets()
         case "optimizeAgents", "coolDownFans":
             coolDownFans()
         case "listUninstallApps":
@@ -2714,7 +2729,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let usedDecimalGB = max(0, totalDecimalGB - freeDecimalGB)
         let diskUsedPct = min(99, max(5, Int(round((usedDecimalGB / max(1, totalDecimalGB)) * 100.0))))
         let freeMenuInt = Int(round(freeDecimalGB))
-        let diskAvailStr = String(format: "%.1f GB Free of %.0f GB (%d%% used)", freeDecimalGB, totalDecimalGB, diskUsedPct)
+        let diskAvailStr = String(format: "%.0f GB free of %.0f GB (%d%% used)", freeDecimalGB, totalDecimalGB, diskUsedPct)
 
         var memPressurePct = 36
         var activeGB = 10.0
@@ -2746,6 +2761,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let (upRate, downRate) = sampleNetworkRates()
         probeInternetHealthIfDue()
         refreshNetworkNameIfDue()
+        scanSecretsIfDue()
         scanAgentTokensIfDue()
         let upCapKB = UserDefaults.standard.integer(forKey: "MacYoloUploadCapKB")
         let downCapKB = UserDefaults.standard.integer(forKey: "MacYoloDownloadCapKB")
@@ -2880,11 +2896,14 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "activeApp": culprits.swarmSummary,
             "activeWin": "\(culprits.pyCount) Python & \(culprits.nodeCount) node MCPs · \(agentCount) user agents",
             "diskAvail": diskAvailStr,
-            "diskRightBadge": "\(freeMenuInt)G Free ›",
+            "diskRightBadge": String(format: "%.0f GB free ›", freeDecimalGB),
             "memPressure": culprits.topMem.isEmpty ? "Pressure \(memPressurePct)%" : "Pressure \(memPressurePct)% · \(culprits.topMem)",
             "memRightBadge": "VRAM \(String(format: "%.1fG", gpu.vramGB)) ›",
             "memPctNum": "\(memPressurePct)",
-            "battPct": String(format: "%.0fM tok ›", sess.estTokensM),
+            "battPct": String(format: "%.1fM tok ›", sess.estTokensM),
+            "secretsLine": secretsLine(count: secretsCount, files: secretsFiles),
+            "secretsCount": "\(secretsCount)",
+            "secretsBusy": secretsRedacting ? "1" : "0",
             "battState": String(format: "%.1f MB live JSONLs (%d files, 2h)", sess.totalMB, sess.ompFiles + sess.grokFiles),
             "tokPctNum": "\(min(100, max(12, Int(round(sess.totalMB / 2.5)))))",
             "cpuLoad": "Load 1m: \(load1Str) on \(ncpu) cores",
@@ -3188,7 +3207,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let origin = hudOriginUnderMenuBar(size: hudPanel.frame.size)
         hudPanel.setFrameOrigin(origin)
         hudPanel.isFloatingPanel = true
-        hudPanel.alphaValue = 0.88
+        hudPanel.alphaValue = 1.0
         hudPanel.level = .statusBar
         hudPanel.hidesOnDeactivate = false
         hudPanel.orderFrontRegardless()
@@ -3255,6 +3274,50 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         }
     }
 
+
+    // API keys and passwords that leaked into agent transcripts (last 30 days). Rescans every 30 minutes.
+    func scanSecretsIfDue(force: Bool = false) {
+        guard !secretsBusy, force || Date().timeIntervalSince(secretsScannedAt) >= 1800 else { return }
+        secretsBusy = true
+        secretsScannedAt = Date()
+        DispatchQueue.global(qos: .utility).async {
+            let run = runTool("mac-yolo-secret-scan.js", ["scan", "--since-days", "30"])
+            let totals = jsonObject(run.output)["totals"] as? [String: Any]
+            DispatchQueue.main.async {
+                if run.ran, let t = totals {
+                    self.secretsCount = (t["secrets"] as? Int) ?? 0
+                    self.secretsFiles = (t["filesWithSecrets"] as? Int) ?? 0
+                }
+                self.secretsBusy = false
+            }
+        }
+    }
+
+    func redactSecrets() {
+        guard !secretsRedacting else { return }
+        secretsRedacting = true
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let run = runTool("mac-yolo-secret-scan.js", ["redact", "--all", "--since-days", "30"])
+            let out = jsonObject(run.output)
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.secretsRedacting = false
+                guard run.ran else {
+                    self.showProblem(action: "toolProblem", title: "Couldn't blank out secrets", problem: run.problem ?? "Unknown error.")
+                    return
+                }
+                let redacted = (out["redacted"] as? Int) ?? 0
+                let files = (out["filesChanged"] as? Int) ?? 0
+                let skipped = (out["skipped"] as? [Any])?.count ?? 0
+                let errors = (out["errors"] as? [Any])?.count ?? 0
+                var items = ["Replaced \(redacted) secret\(redacted == 1 ? "" : "s") with [REDACTED] in \(files) transcript\(files == 1 ? "" : "s")"]
+                if skipped > 0 { items.append("Skipped \(skipped) file\(skipped == 1 ? "" : "s") a session is still writing; they'll be picked up next time") }
+                if errors > 0 { items.append("\(errors) file\(errors == 1 ? "" : "s") could not be changed") }
+                self.showReceipt(receiptJSON(action: "redactSecrets", title: redacted > 0 ? "✓ Blanked out \(redacted) secrets" : "✓ No secrets to blank out", items: items, spared: "🛡 Only the secret values changed. The rest of each transcript is the same."))
+                self.scanSecretsIfDue(force: true)
+            }
+        }
+    }
 
     @objc func coolDownFans() {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -3754,7 +3817,7 @@ if CommandLine.arguments.contains("--health-self-test") {
           !c.detailCpu.isEmpty,
           shieldRows.first?.hasPrefix("Top Hogs Right Now|") == true,
           !c.recTitle.contains("Top Hogs"), !c.recTitle.contains("CPU"),
-          agentSwarmLine([("Claude", 2), ("Pool", 0), ("Grok", 1)]) == "Claude×2 · Grok×1",
+          agentSwarmLine([("Claude", 2), ("Pool", 0), ("Grok", 1)]) == "Claude 2 · Grok 1",
           agentSwarmLine([("Pool", 0)]) == "No coding agents running",
           parseCurrentWifiName(#"{"SPAirPortDataType":[{"spairport_airport_interfaces":[{"_name":"en0","spairport_current_network_information":{"_name":"Cafe_Guest"}},{"_name":"awdl0"}]}]}"#) == "Cafe_Guest",
           parseCurrentWifiName(#"{"SPAirPortDataType":[{"spairport_airport_interfaces":[{"_name":"en0"}]}]}"#) == nil,
@@ -3762,6 +3825,8 @@ if CommandLine.arguments.contains("--health-self-test") {
           parseLeaseStart("  LeaseStartTime : 11/12/2026 14:26:20\n  LeaseStartTime : 11/12/2026 14:26:19\n").map({ Calendar.current.component(.second, from: $0) }) == 19,
           networkTitle(name: "Cafe_Guest", since: Date(timeIntervalSince1970: 0), now: Date(timeIntervalSince1970: 4320)) == "Cafe_Guest · for 1h 12m",
           networkTitle(name: "", since: nil, now: Date()) == "Internet",
+          secretsLine(count: -1, files: 0) == "", secretsLine(count: 1, files: 1) == "⚠︎ 1 secret in agent logs (1 file)",
+          secretsLine(count: 0, files: 0) == "No secrets found in agent logs",
           connectedForText(30) == "just joined", connectedForText(2 * 86400 + 3 * 3600) == "for 2d 3h",
           c.topMem.hasPrefix("Most RAM: "),
           shieldRows.contains(where: { $0.hasPrefix("1. ") }),
