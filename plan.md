@@ -4632,3 +4632,16 @@ The menu-bar panel stays one clear web page on an AppKit panel. This check does 
 | tools/mac-yolo-hud-release-review.js | grok-hud-release-review | 2026-11-12T15:11:16-0500 |
 | tests/test-mac-yolo-hud-release-review.js | grok-hud-release-review | 2026-11-12T15:11:16-0500 |
 | plan.md (this append) | grok-hud-release-review | 2026-11-12T15:11:16-0500 |
+
+## Source value guard (append 2026-11-12T15:32:06-0500) — `grok-source-value-guard`
+
+An outbound action fails when a typed score stands in for a processor return, a skip flag is set, spend has no cap, an agent is untracked, a vendor figure is marked as a local result, or the text still contains a card-shaped number, an identity-number shape, or a key-shaped value. The same input always maps to the same letter stand-in. There is no second database and no vendor figure stored as a local result. Source note: https://capitalonesoftware.com/blog/gartner-2026-ai-risk-business-value
+
+| T-SOURCE-VALUE-GUARD-20261112 | Fail an outbound action when value is a typed score, governance is skipped, or a raw account number is still in the text | in_progress | grok-source-value-guard | `tools/source-value-guard.js`, `tests/test-source-value-guard.js`, `plan.md` (this append) | `node tests/test-source-value-guard.js` exits 0. A typed score, a skip flag, or a raw account number exits 1. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/source-value-guard.js | grok-source-value-guard | 2026-11-12T15:32:06-0500 |
+| tests/test-source-value-guard.js | grok-source-value-guard | 2026-11-12T15:32:06-0500 |
+| plan.md (this append) | grok-source-value-guard | 2026-11-12T15:32:06-0500 |
