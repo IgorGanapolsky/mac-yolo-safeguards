@@ -21,7 +21,7 @@ function main() {
   // 1. Verify catalog uses real Stripe IDs and passes isolation
   const iso = verifyCatalogIsolation(MAC_YOLO_STRIPE_CATALOG);
   assert.strictEqual(iso.ok, true, `Catalog isolation failed: ${iso.violations.join('; ')}`);
-  assert.strictEqual(MAC_YOLO_STRIPE_CATALOG.length, 5);
+  assert.strictEqual(MAC_YOLO_STRIPE_CATALOG.length, 6);
   const diag = MAC_YOLO_STRIPE_CATALOG.find((o) => o.offer === 'Agent Reliability Diagnostic');
   const sprint = MAC_YOLO_STRIPE_CATALOG.find((o) => o.offer === 'AI Agent Hardening Sprint');
   const pilot = MAC_YOLO_STRIPE_CATALOG.find((o) => o.offer === 'Partner Pilot');
