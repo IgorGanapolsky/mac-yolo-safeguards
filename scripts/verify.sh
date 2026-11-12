@@ -31,5 +31,6 @@ node tests/test-ultramarine-and-android-summit-26-steals.js
 node tests/test-prompt-caching-and-judgment-calls-steal.js
 node tests/test-herdr-moe-llm-judge-swarm-sow.js
 node tests/test-mac-yolo-release-cd-engine.js
+node tests/test-crusoe-ai-tokenomics-engine.js
 
 echo "✅ All Local CI Verification Checks Passed!"

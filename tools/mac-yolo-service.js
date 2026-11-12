@@ -210,6 +210,17 @@ function routeRequest(method, rawUrl, bodyObj = {}) {
     };
   }
 
+
+  if ((method === 'GET' || method === 'POST') && pathname === '/api/tokenomics/crusoe') {
+    return {
+      status: 200,
+      body: callTool('yolo_crusoe_tokenomics', {
+        mode: String((bodyObj && bodyObj.mode) || parsed.searchParams.get('mode') || 'tokenomics'),
+        payload: (bodyObj && bodyObj.payload) || {},
+      }),
+    };
+  }
+
   return { status: 404, body: { ok: false, error: `Not found: ${method} ${pathname}` } };
 }
 
