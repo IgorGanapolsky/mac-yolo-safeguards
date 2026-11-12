@@ -23,6 +23,11 @@
   <nav><a href="#pricing">Pricing</a><a href="https://github.com/IgorGanapolsky/mac-yolo-safeguards">GitHub</a></nav>
 </header>
 <main>
+<p id="ph-welcome" class="welcome" hidden>Coming from Product Hunt? Welcome. The app is free, so download it below. If you hit a bug or have a question, ask on <a href="https://www.producthunt.com/products/mac-yolo-safeguards">our launch page</a> and I'll answer there.</p>
+<script>
+// Product Hunt adds ?ref=producthunt to outbound links; greet those visitors.
+(function(){var q=new URLSearchParams(location.search);if(q.get("ref")==="producthunt"||/(^|\.)producthunt\.com$/.test((document.referrer&&new URL(document.referrer).hostname)||""))document.getElementById("ph-welcome").hidden=false})();
+</script>
 <h1>Keep AI coding agents from freezing your Mac.</h1>
 <p class="lead">If you run Claude Code, Cursor or Codex for hours, you've probably watched your Mac slow to a crawl: memory fills up, swap grows, the disk runs out, and leftover agent processes keep running after the session ends. Mac YOLO Safeguards is a small, free menu bar app that shows you what's happening and cleans it up.</p>
 <a class="btn" href="/go/dmg">Download for Mac (free)</a>
