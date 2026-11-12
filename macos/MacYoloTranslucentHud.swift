@@ -961,6 +961,16 @@ private let HUD_HTML = #"""
       var subEl = document.getElementById('detailSub');
       var box = document.getElementById('detailRowsContainer');
       if (!box) return;
+      if (!box.dataset.bound) {
+        box.dataset.bound = '1';
+        box.addEventListener('click', function(ev) {
+          var row = ev.target.closest('[data-row]');
+          if (!row) return;
+          var id = row.getAttribute('data-row');
+          window._openDetailRow = (window._openDetailRow === id) ? '' : id;
+          renderActiveCardDetail(_lastHudState);
+        });
+      }
       var diskRowsCombined = (_lastCleanDetailRows ? (_lastCleanDetailRows + ';;' + (s.detailDisk || '')) : (s.detailDisk || ''));
       var meta = {
         shield: ['Protection by Mac YOLO — Real-Time Guard', 'Live kernel, GPU, memory & active session telemetry', s.detailShield],
@@ -968,7 +978,7 @@ private let HUD_HTML = #"""
         memory: ['Memory & Agent RAM — Top Live Consumers', 'Mach VM breakdown + top RSS memory consumers by app', s.detailMemory],
         tokens: ['AI Tokens, Prompt Cache & Session Ledger', 'Live session JSONL transcripts on disk (~/.omp, ~/.grok, ~/.claude)', s.detailTokens],
         cpu: ['CPU, Apple Silicon GPU & Fan Culprits', 'Live %CPU + Apple Silicon AGXAccelerator GPU & thermal telemetry', s.detailCpu],
-        network: ['Network, Wi-Fi & Zero-Cloud-Egress', 'Live BSD kernel interface byte counters & local service bindings', s.detailNetwork],
+        network: ['Internet', 'Tap a row for the numbers behind it', s.detailNetwork],
         fleet: ['AI Fleet, Active Swarms & MCP Bus', 'Verified coding agent sessions, RAM footprint & stdio MCP child servers', s.detailFleet],
         optimization: ['AI YOLO Optimization & Culprit Matrix', 'Combined CPU, GPU, RAM & AI session waste breakdown', s.detailOptimization || s.detailCpu]
       }[_activeDetailCard] || ['Live Details', 'Real-time telemetry', s.detailCpu];
@@ -976,15 +986,31 @@ private let HUD_HTML = #"""
       if (subEl) subEl.textContent = meta[1];
       var raw = meta[2] || '';
       var rows = raw.split(';;').filter(Boolean).slice(0, 7);
+      function esc(t) {
+        return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
       var html = '';
       for (var i = 0; i < rows.length; i++) {
         var parts = rows[i].split('|');
         var lbl = parts[0] || '';
         var val = parts[1] || '';
-        html += '<div style="padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.045);border:1px solid rgba(255,255,255,0.09);display:flex;justify-content:space-between;align-items:center;gap:10px;">' +
-          '<span style="color:rgba(255,255,255,0.94);font-size:12px;font-weight:560;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + lbl + '</span>' +
-          '<span style="color:#5eead4;font-size:11.5px;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap;background:rgba(20,184,166,0.13);border:1px solid rgba(94,234,212,0.25);padding:2px 8px;border-radius:99px;">' + val + '</span>' +
-          '</div>';
+        var more = parts[3] || '';
+        var rowId = _activeDetailCard + ':' + i;
+        var open = more && window._openDetailRow === rowId;
+        if (more) {
+          html += '<div data-row="' + rowId + '" style="padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.045);border:1px solid rgba(255,255,255,0.09);cursor:pointer;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">' +
+            '<span style="color:rgba(255,255,255,0.94);font-size:12px;font-weight:600;">' + esc(lbl) + '</span>' +
+            '<span style="color:#5eead4;font-size:11.5px;font-weight:650;font-variant-numeric:tabular-nums;text-align:right;">' + esc(val) + (open ? '  ▾' : '  ›') + '</span>' +
+            '</div>' +
+            (open ? '<div style="margin-top:6px;font-size:11.5px;line-height:1.4;color:rgba(255,255,255,0.78);">' + esc(more) + '</div>' : '') +
+            '</div>';
+        } else {
+          html += '<div style="padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.045);border:1px solid rgba(255,255,255,0.09);display:flex;justify-content:space-between;align-items:center;gap:10px;">' +
+            '<span style="color:rgba(255,255,255,0.94);font-size:12px;font-weight:560;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(lbl) + '</span>' +
+            '<span style="color:#5eead4;font-size:11.5px;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap;background:rgba(20,184,166,0.13);border:1px solid rgba(94,234,212,0.25);padding:2px 8px;border-radius:99px;">' + esc(val) + '</span>' +
+            '</div>';
+        }
       }
       if (box.innerHTML !== html) box.innerHTML = html;
     }
@@ -2366,7 +2392,6 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         ].joined(separator: ";;")
 
         let topSplit = netTopUploader.isEmpty ? nil : splitUploader(netTopUploader)
-        let upPct = upCapKB > 0 ? min(100, lastUpKB * 100 / upCapKB) : -1
         let delayMeaning: String = {
             guard let ms = netLatencyMs else { return "measuring" }
             if ms < 50 { return "\(ms) ms · great" }
@@ -2379,17 +2404,24 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             if let t = topSplit { return "Pause or quit \(friendlyAppName(t.name)) until you need it" }
             return "Move closer to the router or restart it; if that fails, call your provider"
         }()
+        let speedValue: String
+        let speedMore: String
+        if line.0 >= 1 || line.1 >= 1 {
+            speedValue = "↓ \(formatMbps(line.0)) · ↑ \(formatMbps(line.1))"
+            speedMore = "This is the last measured line speed, not what is moving this second. Tap Test Speed to measure again."
+        } else {
+            speedValue = "Not measured yet"
+            speedMore = "Tap Test Speed once. A KB/s figure is only what is moving right now, not how fast the line is."
+        }
+        let whoValue = topSplit.map { friendlyAppName($0.name) } ?? "Quiet"
+        let sinceRestart = String(format: "Since restart, %.2f GB down and %.2f GB up.", rxGB, txGB)
+        let whoMore = topSplit.map { "\(friendlyAppName($0.name)) is sending \($0.rate). Wi-Fi \(wifiName) moved \(upRate) and \(downRate) in the last few seconds. \(sinceRestart)" }
+            ?? "Nothing over 50 KB/s. Wi-Fi \(wifiName) moved \(upRate) and \(downRate) in the last few seconds. \(sinceRestart)"
         let detailNetworkFull = [
-            "Is my internet OK?|\(verdict.label.replacingOccurrences(of: " ›", with: "")) · \(verdict.impact)|\(min(100, (netLatencyMs ?? 0) / 3))",
-            "What's slowing it down?|\(verdict.cause)|60",
-            "What should I do?|\(fixHint)|40",
-            "How long a reply takes (lower is better)|\(delayMeaning)|\(min(100, (netLatencyMs ?? 0) / 3))",
-            "App sending the most data|\(topSplit.map { "\(friendlyAppName($0.name)) · \($0.rate)" } ?? "nothing over 50 KB/s")|50",
-            "How full your upload is|\(upPct >= 0 ? "\(upPct)% of your line" : "tap Test Speed to find out")|\(max(0, upPct))",
-            "Your line's top speed (Test Speed)|\(line.0 >= 1 || line.1 >= 1 ? "↓ \(formatMbps(line.0)) down · ↑ \(formatMbps(line.1)) up" : "not measured yet, tap Test Speed")|50",
-            "Internet by agent, right now|\(agentNet.isEmpty ? "no agent traffic over 0 KB/s" : agentNet.prefix(4).map { "\($0.agent) ↑ \(formatRate($0.outRate))" }.joined(separator: " · "))|50",
-            "Right now on \(wifiName)|\(upRate) · \(downRate)|45",
-            String(format: "Total since restart (\(wifiName))|↓ %.2f GB down · ↑ %.2f GB up|60", rxGB, txGB),
+            "Internet|\(verdict.impact)|0|A reply took \(delayMeaning). Under 100 ms is comfortable. This is delay, not download speed.",
+            "Your speed|\(speedValue)|0|\(speedMore)",
+            "Using it now|\(whoValue)|0|\(whoMore)",
+            "What to do|\(fixHint)|0|\(verdict.cause)",
         ].joined(separator: ";;")
 
         let perAgentRows = agentUsageRows(tokens: agentTokens, net: agentNet)
