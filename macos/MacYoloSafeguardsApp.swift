@@ -546,11 +546,11 @@ private let HUD_HTML = #"""
         <div class="tile tile-tall" onclick="openCardDetail('network')">
           <div>
             <div class="tile-row">
-              <div class="tile-head">
-                <span class="ico-badge ico-net"><svg viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1"/></svg></span>
-                <span id="netName">Internet</span>
+              <div class="tile-head" style="min-width:0;flex:1;">
+                <span class="ico-badge ico-net" style="flex-shrink:0;"><svg viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1"/></svg></span>
+                <span id="netName" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Internet</span>
               </div>
-              <span class="tile-val" id="netVerdict" style="color:#94a3b8;font-size:11px;">Checking… ›</span>
+              <span class="tile-val" id="netVerdict" style="color:#94a3b8;font-size:11px;flex-shrink:0;">Checking… ›</span>
             </div>
             <div class="net-rates" style="padding-left:2px;">
               <div id="netImpact" style="font-size:13px;color:#fff;font-weight:700;">Checking your internet…</div>
@@ -983,7 +983,7 @@ private let HUD_HTML = #"""
         memory: ['Memory & Agent RAM — Top Live Consumers', 'Mach VM breakdown + top RSS memory consumers by app', s.detailMemory],
         tokens: ['AI Tokens, Prompt Cache & Session Ledger', 'Live session JSONL transcripts on disk (~/.omp, ~/.grok, ~/.claude)', s.detailTokens],
         cpu: ['CPU, Apple Silicon GPU & Fan Culprits', 'Live %CPU + Apple Silicon AGXAccelerator GPU & thermal telemetry', s.detailCpu],
-        network: ['Internet', 'Tap a row for the numbers behind it', s.detailNetwork],
+        network: [s.netDetailTitle || 'Internet', s.netDetailSub || 'Tap a row for the numbers behind it', s.detailNetwork],
         fleet: ['Agents', 'Each name is one agent. Tap a row for calls, tokens, cloud, and internet.', s.detailFleet],
         optimization: ['AI YOLO Optimization & Culprit Matrix', 'Combined CPU, GPU, RAM & AI session waste breakdown', s.detailOptimization || s.detailCpu]
       }[_activeDetailCard] || ['Live Details', 'Real-time telemetry', s.detailCpu];
@@ -1050,6 +1050,11 @@ private let HUD_HTML = #"""
       setTextIfChanged('cpuLoad', state.cpuLoad);
       setTextIfChanged('cpuTemp', state.cpuRight);
       setTextIfChanged('mcpRightBadge', state.mcpRightBadge);
+      setTextIfChanged('netName', state.netName);
+      if (state.netTitleAttr) {
+        var nnEl = document.getElementById('netName');
+        if (nnEl && nnEl.title !== state.netTitleAttr) nnEl.title = state.netTitleAttr;
+      }
       setTextIfChanged('netUp', state.netUp);
       setTextIfChanged('netDown', state.netDown);
       setTextIfChanged('netVerdict', state.netVerdict);
@@ -1499,6 +1504,104 @@ func wifiVsProviderRow(routerMs: Int?, wanMs: Int?, upFullPct: Int, topUploader:
     return "Wi-Fi vs Provider|\(val)|0|\(more)"
 }
 
+func parseDefaultRouteInterface(_ routeText: String) -> String? {
+    for raw in routeText.split(separator: "\n") {
+        let line = raw.trimmingCharacters(in: .whitespaces)
+        if line.hasPrefix("interface:") {
+            let iface = line.dropFirst("interface:".count).trimmingCharacters(in: .whitespaces)
+            if !iface.isEmpty { return iface }
+        }
+    }
+    return nil
+}
+
+func parseIpconfigSummary(_ text: String) -> (active: Bool, leaseStart: Date?, router: String?) {
+    var active = false
+    var router: String? = nil
+    var earliestLease: Date? = nil
+    let df = DateFormatter()
+    df.locale = Locale(identifier: "en_US_POSIX")
+    df.timeZone = TimeZone.current
+    df.dateFormat = "MM/dd/yyyy HH:mm:ss"
+    for raw in text.split(separator: "\n") {
+        let line = raw.trimmingCharacters(in: .whitespaces)
+        if line.hasPrefix("LinkStatusActive :") {
+            let val = line.dropFirst("LinkStatusActive :".count).trimmingCharacters(in: .whitespaces)
+            if val.uppercased() == "TRUE" { active = true }
+        } else if line.hasPrefix("Router :"), router == nil {
+            let val = line.dropFirst("Router :".count).trimmingCharacters(in: .whitespaces)
+            if !val.isEmpty { router = val }
+        } else if line.hasPrefix("LeaseStartTime :") {
+            let val = line.dropFirst("LeaseStartTime :".count).trimmingCharacters(in: .whitespaces)
+            if let d = df.date(from: val), d <= Date().addingTimeInterval(60) {
+                if let prev = earliestLease {
+                    if d < prev { earliestLease = d }
+                } else {
+                    earliestLease = d
+                }
+            }
+        }
+    }
+    return (active, earliestLease, router)
+}
+
+func parsePreferredWifiFirst(_ text: String) -> String? {
+    var sawHeader = false
+    for raw in text.split(separator: "\n") {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { continue }
+        if trimmed.lowercased().hasPrefix("preferred networks on ") {
+            sawHeader = true
+            continue
+        }
+        if sawHeader {
+            return trimmed
+        }
+    }
+    return nil
+}
+
+func parseAirportCurrentNetwork(_ text: String) -> String? {
+    let metadataPrefixes = [
+        "phy mode:", "channel:", "country code:", "network type:", "security:",
+        "signal / noise:", "transmit rate:", "mcs index:", "bssid:"
+    ]
+    var inCurrent = false
+    for raw in text.split(separator: "\n") {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { continue }
+        let lower = trimmed.lowercased()
+        if lower == "current network information:" {
+            inCurrent = true
+            continue
+        }
+        if inCurrent {
+            if lower.hasPrefix("other local wi-fi networks:") || lower.hasPrefix("awdl") {
+                break
+            }
+            if trimmed.hasSuffix(":"), !metadataPrefixes.contains(where: { lower.hasPrefix($0) }) {
+                let name = String(trimmed.dropLast()).trimmingCharacters(in: .whitespaces)
+                if !name.isEmpty { return name }
+            }
+        }
+    }
+    return nil
+}
+
+func formatConnectedDuration(_ seconds: TimeInterval) -> String {
+    let s = max(0, Int(seconds))
+    if s < 60 { return "<1m" }
+    if s < 3600 { return "\(s / 60)m" }
+    if s < 86400 {
+        let h = s / 3600
+        let m = (s % 3600) / 60
+        return m > 0 ? "\(h)h \(m)m" : "\(h)h"
+    }
+    let d = s / 86400
+    let h = (s % 86400) / 3600
+    return h > 0 ? "\(d)d \(h)h" : "\(d)d"
+}
+
 func cachedLineMbps() -> (Double, Double) {
     let path = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".hermes/mac-yolo-net-state.json").path
     guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
@@ -1610,6 +1713,14 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var netRouterLatencyMs: Int? = nil
     var netTopUploader: String = ""
     var netProbeBusy = false
+    var connectedNetName: String = ""
+    var connectedNetKind: String = ""
+    var connectedNetRouter: String = ""
+    var connectedNetSince: Date? = nil
+    var connectedNetSampledAt: Date = .distantPast
+    var connectedNetBusy = false
+    var airportVerifyAt: Date = .distantPast
+    var airportVerifyBusy = false
     var agentNet: [(agent: String, inRate: Double, outRate: Double)] = []
     var agentTotalBytes: [String: Double] = [:]
     var agentTokens: [String: AgentTokens] = [:]
@@ -2080,6 +2191,78 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         }
         return nil
     }
+    func updateConnectedNetworkSnapshot(name: String, kind: String, router: String, leaseStart: Date?) {
+        if name.isEmpty {
+            connectedNetName = ""
+            connectedNetKind = "Offline"
+            connectedNetRouter = ""
+            connectedNetSince = nil
+            return
+        }
+        let sameNet = (name == connectedNetName && (router.isEmpty || connectedNetRouter.isEmpty || router == connectedNetRouter))
+        connectedNetName = name
+        connectedNetKind = kind
+        if !router.isEmpty { connectedNetRouter = router }
+        if sameNet, let existing = connectedNetSince {
+            if let lease = leaseStart, lease < existing {
+                connectedNetSince = lease
+            }
+        } else {
+            connectedNetSince = leaseStart ?? Date()
+        }
+    }
+
+    func sampleConnectedNetworkSync(wifiIface: String) -> (name: String, kind: String, router: String, leaseStart: Date?) {
+        let wifiSummary = parseIpconfigSummary(captureCommand("/usr/sbin/ipconfig", ["getsummary", wifiIface], timeout: 2))
+        if wifiSummary.active {
+            let ssid = parsePreferredWifiFirst(captureCommand("/usr/sbin/networksetup", ["-listpreferredwirelessnetworks", wifiIface], timeout: 2)) ?? "Wi-Fi"
+            return (ssid, "Wi-Fi (\(wifiIface))", wifiSummary.router ?? "", wifiSummary.leaseStart)
+        }
+        if let defIface = parseDefaultRouteInterface(captureCommand("/sbin/route", ["-n", "get", "default"], timeout: 2)), !defIface.isEmpty {
+            let sum = parseIpconfigSummary(captureCommand("/usr/sbin/ipconfig", ["getsummary", defIface], timeout: 2))
+            let label = defIface.hasPrefix("utun") ? "VPN / Tailscale (\(defIface))" : "Ethernet (\(defIface))"
+            return (label, label, sum.router ?? "", sum.leaseStart)
+        }
+        return ("", "Offline", "", nil)
+    }
+
+    func sampleConnectedNetworkIfDue(wifiIface: String) {
+        if connectedNetSampledAt == .distantPast {
+            let snap = sampleConnectedNetworkSync(wifiIface: wifiIface)
+            updateConnectedNetworkSnapshot(name: snap.name, kind: snap.kind, router: snap.router, leaseStart: snap.leaseStart)
+            connectedNetSampledAt = Date()
+        } else if !connectedNetBusy, Date().timeIntervalSince(connectedNetSampledAt) >= 15 {
+            connectedNetBusy = true
+            connectedNetSampledAt = Date()
+            let prevRouter = connectedNetRouter
+            DispatchQueue.global(qos: .utility).async {
+                let snap = self.sampleConnectedNetworkSync(wifiIface: wifiIface)
+                DispatchQueue.main.async {
+                    let routerChanged = !snap.router.isEmpty && snap.router != prevRouter
+                    self.updateConnectedNetworkSnapshot(name: snap.name, kind: snap.kind, router: snap.router, leaseStart: snap.leaseStart)
+                    self.connectedNetBusy = false
+                    if routerChanged { self.airportVerifyAt = .distantPast }
+                }
+            }
+        }
+        if !airportVerifyBusy, connectedNetKind.hasPrefix("Wi-Fi"), Date().timeIntervalSince(airportVerifyAt) >= 90 {
+            airportVerifyBusy = true
+            airportVerifyAt = Date()
+            DispatchQueue.global(qos: .utility).async {
+                let sp = captureCommand("/usr/sbin/system_profiler", ["SPAirPortDataType"], timeout: 22)
+                let exactSsid = parseAirportCurrentNetwork(sp)
+                DispatchQueue.main.async {
+                    if let ssid = exactSsid, !ssid.isEmpty, self.connectedNetKind.hasPrefix("Wi-Fi") {
+                        if ssid != self.connectedNetName {
+                            self.connectedNetName = ssid
+                        }
+                    }
+                    self.airportVerifyBusy = false
+                }
+            }
+        }
+    }
+
 
     // Every 20 seconds, off the main thread: delay to 1.1.1.1 and the top internet uploader.
     func probeInternetHealthIfDue() {
@@ -2705,8 +2888,31 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let sinceRestart = String(format: "Since restart, %.2f GB down and %.2f GB up.", rxGB, txGB)
         let whoMore = topSplit.map { "\(friendlyAppName($0.name)) is sending \($0.rate). Wi-Fi \(wifiName) moved \(upRate) and \(downRate) in the last few seconds. \(sinceRestart)" }
             ?? "Nothing over 50 KB/s. Wi-Fi \(wifiName) moved \(upRate) and \(downRate) in the last few seconds. \(sinceRestart)"
+        sampleConnectedNetworkIfDue(wifiIface: wifiName)
+        let netDurStr = connectedNetSince.map { formatConnectedDuration(Date().timeIntervalSince($0)) } ?? ""
+        let netCardTitle: String
+        let netDetailTitleStr: String
+        let netDetailSubStr: String
+        let netConnectedRow: String
+        if connectedNetName.isEmpty {
+            netCardTitle = "Offline"
+            netDetailTitleStr = "Internet — Offline"
+            netDetailSubStr = "No active Wi-Fi or Ethernet connection detected"
+            netConnectedRow = "Connected network|Offline|0|Neither Wi-Fi (\(wifiName)) nor a wired interface has an active link right now."
+        } else {
+            let clockFmt = DateFormatter()
+            clockFmt.dateStyle = .none
+            clockFmt.timeStyle = .short
+            let sinceClock = connectedNetSince.map { clockFmt.string(from: $0) } ?? "now"
+            netCardTitle = netDurStr.isEmpty ? connectedNetName : "\(connectedNetName) · \(netDurStr)"
+            netDetailTitleStr = netDurStr.isEmpty ? connectedNetName : "\(connectedNetName) — \(netDurStr)"
+            netDetailSubStr = "Connected via \(connectedNetKind) since \(sinceClock)"
+            let routerNote = connectedNetRouter.isEmpty ? "" : " Router \(connectedNetRouter)."
+            netConnectedRow = "Connected network|\(connectedNetName) · \(netDurStr)|0|Connected to \(connectedNetName) via \(connectedNetKind) for \(netDurStr) (since \(sinceClock)).\(routerNote)"
+        }
         let upFullPct = upCapKB > 0 ? min(100, lastUpKB * 100 / upCapKB) : -1
         let detailNetworkFull = [
+            netConnectedRow,
             "Internet|\(verdict.impact)|0|A reply took \(delayMeaning). Under 100 ms is comfortable. This is delay, not download speed.",
             wifiVsProviderRow(routerMs: netRouterLatencyMs, wanMs: netLatencyMs, upFullPct: upFullPct, topUploader: netTopUploader),
             "Your speed|\(speedValue)|0|\(speedMore)",
@@ -2777,6 +2983,10 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "detailFleet": detailFleetFull,
             "detailShield": detailShieldFull,
             "detailOptimization": detailCpuFull,
+            "netName": netCardTitle,
+            "netTitleAttr": netDetailSubStr,
+            "netDetailTitle": netDetailTitleStr,
+            "netDetailSub": netDetailSubStr,
             "netUp": headline.speed,
             "netDown": headline.using,
             "netVerdict": verdict.label,
@@ -3570,6 +3780,16 @@ if CommandLine.arguments.contains("--net-self-test") {
     let totalsSample = ",bytes_in,bytes_out,\nagy.777,3000000,520000000,\n,bytes_in,bytes_out,\nagy.777,0,0,\n"
     let parsedTotals = parseNettopTotals(totalsSample, excludingPid: -1)
     if Int(parsedTotals["Gemini"] ?? 0) != 523_000_000 { failures.append("totals \(parsedTotals)") }
+    let ipSample = "LinkStatusActive : TRUE\nRouter : 192.168.1.254\nLeaseStartTime : 11/12/2026 14:26:19\nLeaseStartTime : 11/12/2026 14:26:20\n"
+    let ipParsed = parseIpconfigSummary(ipSample)
+    if !ipParsed.active || ipParsed.router != "192.168.1.254" || ipParsed.leaseStart == nil { failures.append("ipconfig summary \(ipParsed)") }
+    if parsePreferredWifiFirst("Preferred networks on en0:\n\tunattimocoffee_Guest\n\tIGOR_HOME\n") != "unattimocoffee_Guest" { failures.append("preferred wifi") }
+    let spSample = "      Status: Connected\n      Current Network Information:\n        unattimocoffee_Guest:\n          PHY Mode: 802.11ax\n          Channel: 48 (5GHz, 160MHz)\n"
+    if parseAirportCurrentNetwork(spSample) != "unattimocoffee_Guest" { failures.append("airport current \(String(describing: parseAirportCurrentNetwork(spSample)))") }
+    if parseDefaultRouteInterface("   route to: default\n   interface: en0\n") != "en0" { failures.append("route iface") }
+    if formatConnectedDuration(45) != "<1m" || formatConnectedDuration(1080) != "18m" || formatConnectedDuration(8040) != "2h 14m" || formatConnectedDuration(190800) != "2d 5h" {
+        failures.append("duration format")
+    }
     guard failures.isEmpty else { print("MAC_YOLO_NET_FAIL \(failures.joined(separator: ", "))"); exit(1) }
     let live = parsePingAverage(captureCommand("/sbin/ping", ["-c", "3", "-q", "-t", "5", "1.1.1.1"], timeout: 7))
     let sample = captureCommand("/usr/bin/nettop", ["-P", "-d", "-t", "external", "-L", "2", "-s", "2", "-J", "bytes_in,bytes_out", "-x"], timeout: 8)
@@ -3578,7 +3798,10 @@ if CommandLine.arguments.contains("--net-self-test") {
     let v = internetVerdict(latencyMs: live, upKB: 0, capacityKB: 0, topUploader: top)
     let cached = cachedLineMbps()
     let shown = internetHeadline(latencyMs: live, lineDownMbps: cached.0, lineUpMbps: cached.1, downKB: 0, upKB: 0)
-    print("MAC_YOLO_NET_OK live=\(v.label) \(v.impact) | \(v.cause) | \(v.why) speed=\(shown.speed)")
+    let liveHelper = MacYoloAppDelegate()
+    let conn = liveHelper.sampleConnectedNetworkSync(wifiIface: liveHelper.resolvedWifiInterfaceName())
+    let connDur = conn.leaseStart.map { formatConnectedDuration(Date().timeIntervalSince($0)) } ?? "n/a"
+    print("MAC_YOLO_NET_OK connected=\(conn.name) for=\(connDur) live=\(v.label) \(v.impact) | \(v.cause) | \(v.why) speed=\(shown.speed)")
     exit(0)
 }
 
