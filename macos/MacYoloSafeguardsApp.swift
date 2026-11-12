@@ -1617,6 +1617,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var lastAutoDiskClean: Date = .distantPast
     var lastLicenseRefresh: Date = .distantPast
     var proNudgeTimer: Timer?
+    let backgroundJobsMenu = NSMenu(title: "Background Jobs")
     var autoGuardMenuItem: NSMenuItem!
     var proStatusMenuItem: NSMenuItem!
     var proLicenseMenuItem: NSMenuItem!
@@ -1796,6 +1797,11 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         proStatusMenuItem = NSMenuItem(title: "Get Pro…", action: #selector(openGetPro(_:)), keyEquivalent: "")
         proStatusMenuItem.target = self
         gearMenu.addItem(proStatusMenuItem)
+        gearMenu.addItem(NSMenuItem.separator())
+        let jobsItem = NSMenuItem(title: "Background Jobs", action: nil, keyEquivalent: "")
+        jobsItem.submenu = backgroundJobsMenu
+        backgroundJobsMenu.delegate = self
+        gearMenu.addItem(jobsItem)
         gearMenu.addItem(NSMenuItem.separator())
         statusBarMenuItem = NSMenuItem(title: "Show Status Bar Icon", action: #selector(toggleStatusBarIcon(_:)), keyEquivalent: "")
         statusBarMenuItem.target = self
@@ -3357,6 +3363,84 @@ extension MacYoloAppDelegate {
     }
 }
 
+// Background Jobs: lists LaunchAgents, cron lines and loose agent scripts, and pauses or stops
+// them. Jobs that open apps or web pages come first, since one that reopens a browser every
+// minute takes the Mac away from whoever is using it.
+extension MacYoloAppDelegate: NSMenuDelegate {
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        guard menu === backgroundJobsMenu else { return }
+        menu.removeAllItems()
+        menu.addItem(withTitle: "Checking background jobs…", action: nil, keyEquivalent: "")
+        DispatchQueue.global(qos: .userInitiated).async {
+            let run = runTool("mac-yolo-jobs.js", ["list"])
+            DispatchQueue.main.async { self.fillBackgroundJobsMenu(menu, run) }
+        }
+    }
+
+    func fillBackgroundJobsMenu(_ menu: NSMenu, _ run: ToolRun) {
+        menu.removeAllItems()
+        guard run.ran, let data = run.output.data(using: .utf8),
+              let res = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let jobs = res["jobs"] as? [[String: Any]] else {
+            menu.addItem(withTitle: run.problem ?? "Couldn't read background jobs.", action: nil, keyEquivalent: "")
+            return
+        }
+        let openers = (res["opensApps"] as? Int) ?? 0
+        let header = openers > 0
+            ? "\(jobs.count) jobs · \(openers) can open apps or web pages"
+            : "\(jobs.count) jobs · none open apps"
+        menu.addItem(withTitle: header, action: nil, keyEquivalent: "")
+        menu.addItem(NSMenuItem.separator())
+        for job in jobs.prefix(40) {
+            let id = job["id"] as? String ?? ""
+            let kind = job["kind"] as? String ?? ""
+            let status = job["status"] as? String ?? ""
+            let paused = status == "paused"
+            let opens = (job["opensApps"] as? Bool) == true && !paused
+            let name = job["name"] as? String ?? id
+            let title = (opens ? "⚠︎ " : "") + name + " — " + (paused ? "paused" : (job["schedule"] as? String ?? status))
+            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            item.toolTip = (job["command"] as? String ?? "") + (opens ? "\nThis job can open apps or web pages." : "")
+            let sub = NSMenu(title: name)
+            func add(_ label: String, _ action: String) {
+                let a = NSMenuItem(title: label, action: #selector(backgroundJobAction(_:)), keyEquivalent: "")
+                a.target = self
+                a.representedObject = [action, id, name]
+                sub.addItem(a)
+            }
+            switch kind {
+            case "launchd":
+                if paused { add("Resume", "resume") } else { add("Pause (stays off after restart)", "pause"); add("Stop until next login", "stop") }
+            case "cron":
+                add(paused ? "Resume" : "Pause", paused ? "resume" : "pause")
+            default:
+                add("Stop", "stop")
+            }
+            item.submenu = sub
+            menu.addItem(item)
+        }
+    }
+
+    @objc func backgroundJobAction(_ sender: NSMenuItem) {
+        guard let parts = sender.representedObject as? [String], parts.count == 3 else { return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let run = runTool("mac-yolo-jobs.js", [parts[0], parts[1]])
+            var message = run.problem ?? "Done."
+            if let data = run.output.data(using: .utf8),
+               let res = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+                message = (res["message"] as? String) ?? (res["problem"] as? String) ?? message
+            }
+            DispatchQueue.main.async {
+                NSApp.activate(ignoringOtherApps: true)
+                let alert = NSAlert()
+                alert.messageText = parts[2]
+                alert.informativeText = message
+                alert.runModal()
+            }
+        }
+    }
+}
+
 extension MacYoloAppDelegate: UNUserNotificationCenterDelegate {
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         if let link = response.notification.request.content.userInfo["open"] as? String, let url = URL(string: link) {
@@ -3368,6 +3452,28 @@ extension MacYoloAppDelegate: UNUserNotificationCenterDelegate {
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         completionHandler([.banner])
     }
+}
+
+// Checks the Background Jobs menu on a fixed tool result.
+if CommandLine.arguments.contains("--jobs-self-test") {
+    let sample = #"{"ok":true,"opensApps":1,"jobs":[{"id":"launchd:com.x.opener","kind":"launchd","name":"com.x.opener","schedule":"every 1 min","status":"loaded","opensApps":true,"command":"/x/opener.sh"},{"id":"cron:2","kind":"cron","name":"backup.sh","schedule":"0 3 * * *","status":"paused","opensApps":false},{"id":"script:/x/loop.py","kind":"process","name":"loop.py","schedule":"2 copies running","status":"running","opensApps":false}]}"#
+    let menu = NSMenu(title: "Background Jobs")
+    MacYoloAppDelegate().fillBackgroundJobsMenu(menu, ToolRun(ran: true, output: sample, problem: nil))
+    let titles = menu.items.map { $0.title }
+    let subs = menu.items.compactMap { $0.submenu?.items.map { $0.title } }
+    var failures: [String] = []
+    if titles.first != "3 jobs · 1 can open apps or web pages" { failures.append("header \(titles.first ?? "")") }
+    if !titles.contains("⚠︎ com.x.opener — every 1 min") { failures.append("opener row") }
+    if !titles.contains("backup.sh — paused") { failures.append("paused row") }
+    if subs.first != ["Pause (stays off after restart)", "Stop until next login"] { failures.append("launchd actions") }
+    if subs.count > 1 && subs[1] != ["Resume"] { failures.append("cron actions") }
+    if subs.count > 2 && subs[2] != ["Stop"] { failures.append("process actions") }
+    let broken = NSMenu(title: "Background Jobs")
+    MacYoloAppDelegate().fillBackgroundJobsMenu(broken, ToolRun(ran: false, output: "", problem: "This action needs Node.js."))
+    if broken.items.map({ $0.title }) != ["This action needs Node.js."] { failures.append("error row") }
+    if !failures.isEmpty { print("MAC_YOLO_JOBS_FAIL " + failures.joined(separator: ", ")); exit(1) }
+    print("MAC_YOLO_JOBS_OK")
+    exit(0)
 }
 
 // Checks when a free user is told about Pro, on fixed samples.
