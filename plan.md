@@ -4495,3 +4495,33 @@ Shin’s 2026-11-11 post (https://x.com/shinboson/status/2120499242342985821) sw
 | .agents/skills/quant-codebook-claim-gate/** | grok-quant-codebook-claim | 2026-11-11T14:00:00-0500 |
 | SKILLS.md (one row) | grok-quant-codebook-claim | 2026-11-11T14:00:00-0500 |
 | plan.md (this append) | grok-quant-codebook-claim | 2026-11-11T14:00:00-0500 |
+
+## OpenShell policy gate (append 2026-11-11T15:52:06-0500) — `grok-openshell-policy`
+
+NVIDIA OpenShell (https://github.com/NVIDIA/OpenShell) declares what each agent can touch and waits for a person when a policy adds a host or a credential. This gate keeps that shape locally. It does not install the product, start a sandbox, attach a credential, or record kernel enforcement or a formal proof as a local result.
+
+| T-OPENSHELL-POLICY-20261111 | Fail closed on an OpenShell install, a self-applied host or credential widening, and NVIDIA enforcement claims recorded as local results | in_progress | grok-openshell-policy | `tools/openshell-policy-gate.js`, `tests/test-openshell-policy-gate.js`, `.agents/skills/openshell-policy-gate/**`, `SKILLS.md` (one row), `plan.md` (this append) | `node tests/test-openshell-policy-gate.js` exits 0. No installer, sandbox, or credential is applied. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/openshell-policy-gate.js | grok-openshell-policy | 2026-11-11T15:52:06-0500 |
+| tests/test-openshell-policy-gate.js | grok-openshell-policy | 2026-11-11T15:52:06-0500 |
+| .agents/skills/openshell-policy-gate/** | grok-openshell-policy | 2026-11-11T15:52:06-0500 |
+| SKILLS.md (one row) | grok-openshell-policy | 2026-11-11T15:52:06-0500 |
+| plan.md (this append) | grok-openshell-policy | 2026-11-11T15:52:06-0500 |
+
+## Context weight gate (append 2026-11-11T16:11:01-0500) — `grok-context-weight`
+
+Four public products suggest a shared clock for speech, terminal, and screen text (https://bugsee.com/), a markdown extract (https://www.firecrawl.dev/), a cheaper path for repetitive work (https://openrouter.ai/), and a screen built from a schema (https://www.jetadmin.io/). This gate keeps the local piece. A meeting block is markdown only when the three supplied stamps match. A code window becomes a fenced block and a slide line becomes a heading. A column list becomes a markdown table. Nothing is published, stored in a new database, sent to a model, or opened as a window. Latency, compression, and memory figures stay null.
+
+| T-CONTEXT-WEIGHT-20261111 | Fail closed on an unanchored timeline, a second timeline database, a raw screen tree, a model call, and an Electron or generated native window | in_progress | grok-context-weight | `tools/context-weight-gate.js`, `tests/test-context-weight-gate.js`, `.agents/skills/context-weight-gate/**`, `SKILLS.md` (one row), `plan.md` (this append) | `node tests/test-context-weight-gate.js` exits 0. No database is opened, no model is called, and no window is started. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/context-weight-gate.js | grok-context-weight | 2026-11-11T16:11:01-0500 |
+| tests/test-context-weight-gate.js | grok-context-weight | 2026-11-11T16:11:01-0500 |
+| .agents/skills/context-weight-gate/** | grok-context-weight | 2026-11-11T16:11:01-0500 |
+| SKILLS.md (one row) | grok-context-weight | 2026-11-11T16:11:01-0500 |
+| plan.md (this append) | grok-context-weight | 2026-11-11T16:11:01-0500 |
