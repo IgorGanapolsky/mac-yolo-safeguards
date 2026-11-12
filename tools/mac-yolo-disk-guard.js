@@ -156,6 +156,8 @@ function runDiskSmartScan() {
   const devToolKiB = getDirSizeKiB(pipCachePath, 3000) + getDirSizeKiB(tsCachePath, 3000);
   const playwrightKiB = getDirSizeKiB(path.join(HOME, 'Library/Caches/ms-playwright'), 4000);
   const trashKiB = getDirSizeKiB(path.join(HOME, '.Trash'), 3000);
+  const adobeRunning = adobeVideoAppRunning();
+  const adobeCacheKiB = ADOBE_MEDIA_CACHE_DIRS.reduce((sum, d) => sum + getDirSizeKiB(d, 4000), 0);
 
   const categories = [
     {
@@ -223,6 +225,18 @@ function runDiskSmartScan() {
       safeAutoClean: false,
     },
     {
+      // Premiere, After Effects and Media Encoder rebuild these on the next open. Now that
+      // agents drive those apps through Adobe's local MCP tools, the caches grow fast.
+      id: 'adobe_media_cache',
+      label: adobeRunning
+        ? `Adobe media cache (left alone: ${adobeRunning} is open)`
+        : 'Adobe media cache (Premiere, After Effects, Media Encoder)',
+      paths: ADOBE_MEDIA_CACHE_DIRS,
+      sizeGiB: Number((adobeCacheKiB / (1024 * 1024)).toFixed(2)),
+      sizeMiB: Number((adobeCacheKiB / 1024).toFixed(1)),
+      safeAutoClean: !adobeRunning,
+    },
+    {
       id: 'macos_trash',
       label: 'macOS User Trash',
       paths: [path.join(HOME, '.Trash')],
@@ -277,7 +291,25 @@ end run`;
   }
 }
 
+const ADOBE_MEDIA_CACHE_DIRS = ['Media Cache Files', 'Media Cache', 'Peak Files'].map((d) =>
+  path.join(HOME, 'Library', 'Application Support', 'Adobe', 'Common', d),
+);
+
+// Name of an open Adobe app that reads the media cache, or null. Its cache is only cleaned
+// while none of them is running.
+function adobeVideoAppRunning(psText) {
+  let text = psText;
+  if (text == null) {
+    // comm= is the executable path only, so a shell command that mentions an app name doesn't count.
+    const r = spawnSync('ps', ['-axo', 'comm='], { encoding: 'utf8', timeout: 5000 });
+    text = r.stdout || '';
+  }
+  const m = text.match(/\.app\/Contents\/MacOS\/Adobe (Premiere Pro|After Effects|Media Encoder|Audition|Premiere Rush)/);
+  return m ? `Adobe ${m[1]}` : null;
+}
+
 const SAFE_USER_CACHE_PREFIXES = [
+  ...ADOBE_MEDIA_CACHE_DIRS,
   path.join(HOME, '.npm', '_cacache'),
   path.join(HOME, 'Library', 'Caches', 'Homebrew'),
   path.join(HOME, 'Library', 'Caches', 'pip'),
@@ -463,6 +495,8 @@ if (require.main === module) {
 }
 
 module.exports = {
+  adobeVideoAppRunning,
+  ADOBE_MEDIA_CACHE_DIRS,
   getRootDiskUsage,
   findStaleClaudeTmpEntries,
   runDiskSmartScan,
