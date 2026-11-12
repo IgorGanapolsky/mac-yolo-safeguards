@@ -10,17 +10,26 @@ const tool = require('../tools/mac-yolo-secret-scan');
 
 const TOOL = path.join(__dirname, '..', 'tools', 'mac-yolo-secret-scan.js');
 // Fake secrets are assembled at runtime so no secret-looking literal sits in the repo.
-const X = (n, c = 'x') => c.repeat(n);
+const crypto = require('crypto');
+// Realistic-looking random body (not repetitive, so placeholder filters leave it alone).
+const R = (n, seed, alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') => {
+  let out = '';
+  for (let i = 0; out.length < n; i++) {
+    for (const b of crypto.createHash('sha256').update(`${seed}:${i}`).digest()) out += alphabet[b % alphabet.length];
+  }
+  return out.slice(0, n);
+};
+const UP = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 const FAKES = {
-  'anthropic-key': 'sk-' + 'ant-' + 'api03-' + X(40),
-  'openai-key': 'sk-' + 'proj-' + X(40, 'a'),
-  'github-token': 'gh' + 'p_' + X(36, 'b'),
-  'stripe-key': 'sk_' + 'live_' + X(24, 'c'),
-  'aws-access-key': 'AK' + 'IA' + X(16, 'D'),
-  'google-api-key': 'AI' + 'za' + X(35, 'e'),
-  'slack-token': 'xo' + 'xb-' + '1234567890-' + X(12, 'f'),
-  'private-key': '-----' + 'BEGIN RSA PRIVATE KEY-----\\n' + X(60, 'g') + '\\n-----' + 'END RSA PRIVATE KEY-----',
-  'password-assignment': X(12, 'h') + '9',
+  'anthropic-key': 'sk-' + 'ant-' + 'api03-' + R(40, 1),
+  'openai-key': 'sk-' + 'proj-' + R(40, 2),
+  'github-token': 'gh' + 'p_' + R(36, 3),
+  'stripe-key': 'sk_' + 'live_' + R(24, 4),
+  'aws-access-key': 'AK' + 'IA' + R(16, 5, UP),
+  'google-api-key': 'AI' + 'za' + R(35, 6),
+  'slack-token': 'xo' + 'xb-' + '1234567890-' + R(12, 7),
+  'private-key': '-----' + 'BEGIN RSA PRIVATE KEY-----\\n' + R(60, 8) + '\\n-----' + 'END RSA PRIVATE KEY-----',
+  'password-assignment': R(13, 9),
 };
 const LINES = {
   'anthropic-key': (s) => `{"text":"export KEY=${s} done"}`,
@@ -48,7 +57,6 @@ const BENIGN = [
 const secretValues = Object.values(FAKES);
 function noSecrets(text) {
   for (const v of secretValues) assert.ok(!text.includes(v), 'output leaked a secret value');
-  assert.ok(!/xxxxxxxxxxxxxxxx|hhhhhhhhhhhh/.test(text), 'output leaked a secret body');
 }
 
 // Pure detection: each kind found exactly once, with the right kind.
@@ -60,6 +68,38 @@ for (const line of BENIGN) assert.deepStrictEqual(tool.findInLine(line), [], `no
 
 // The fingerprint is 4 chars, an ellipsis, 8 hex, and not the value.
 assert.match(tool.fingerprint(FAKES['github-token']), /^ghp_…[0-9a-f]{8}$/);
+
+// Placeholders and examples are ignored; a real-looking value of the same shape is still caught.
+const detect = (line) => tool.findInLine(line).map((f) => f.kind);
+const ignored = [
+  '{"text":"key ' + 'sk-' + 'ant-' + 'api03-' + R(30, 20) + 'EXAMPLE"}',
+  '{"text":"key ' + 'sk-' + 'ant-' + 'api03-' + R(20, 21) + '-example-' + R(10, 22) + '"}',
+  '{"text":"OPENAI=' + 'sk-' + 'proj-' + 'x'.repeat(40) + '"}',
+  '{"text":"OPENAI=' + 'sk-' + 'proj-' + 'XXXX' + R(36, 23) + '"}',
+  '{"text":"' + 'sk-' + 'proj-' + R(10, 24) + 'your_' + 'key_here_' + R(20, 25) + '"}',
+  '{"text":"' + 'sk-' + 'proj-' + 'YOUR_' + 'KEY_' + R(36, 26) + '"}',
+  '{"text":"' + 'sk-' + 'proj-<' + R(36, 27) + '>"}',
+  '{"text":"' + 'sk-' + 'proj-' + R(20, 28) + 'REDACTED' + R(12, 29) + '"}',
+  '{"text":"' + 'sk-' + 'proj-' + 'placeholder' + R(30, 30) + '"}',
+  '{"text":"' + 'sk-' + 'proj-' + 'dummy' + R(30, 31) + '"}',
+  '{"text":"' + 'sk_' + 'live_' + 'test_' + R(24, 32) + '"}',
+  '{"text":"ghp_' + 'a'.repeat(36) + '"}',
+  '{"text":"id ' + 'AKIAIOSFODNN7' + 'EXAMPLE"}',
+  '{"text":"id ' + 'AK' + 'IA' + 'AAAAAAAAAAAAAAAA"}',
+  '{"text":"password = \"$' + 'DB_PASSWORD_VALUE\""}',
+  '{"text":"password = \"${' + 'DB_PASSWORD}\""}',
+  '{"text":"token = \"process.' + 'env.API_TOKEN\""}',
+  '{"text":"secret = \"os.' + 'environ_secret_value\""}',
+  '{"text":"api_key = \"getenv' + 'Value1234\""}',
+  '{"text":"password = \"hashPassword' + '(userInput)\""}',
+  '{"text":"secret: \"' + 'a'.repeat(20) + '\""}',
+  '{"text":"password: \"your_' + 'password_here\""}',
+];
+for (const line of ignored) assert.deepStrictEqual(detect(line), [], `ignored: ${line.slice(0, 60)}`);
+assert.deepStrictEqual(detect('{"text":"export K=' + 'sk-' + 'ant-' + 'api03-' + R(40, 40) + '"}'), ['anthropic-key']);
+assert.deepStrictEqual(detect('{"text":"password = \"' + 'hunter2' + 'hunter2\""}'), ['password-assignment']);
+assert.deepStrictEqual(detect('{"text":"password = \"' + 'password' + '123\""}'), ['password-assignment'], 'real-looking dictionary words stay flagged');
+assert.deepStrictEqual(detect('{"text":"secret = \"' + R(24, 41) + '\""}'), ['password-assignment']);
 
 // Temp HOME with transcripts in all three roots.
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'mys-secret-'));
@@ -97,6 +137,17 @@ const first = s.files.find((f) => f.file === '~/.claude/projects/-p/a.jsonl');
 assert.ok(first, 'home is shown as ~');
 assert.deepStrictEqual(first.findings[0], { kind: 'anthropic-key', line: 1, fingerprint: tool.fingerprint(FAKES['anthropic-key']) });
 assert.ok(!JSON.stringify(s).includes(home), 'real path not printed');
+assert.strictEqual(run('scan', '--since-days', '90').totals.filesScanned, 4);
+
+// Cache: a second scan answers from the cache, never stores a value, and a changed file is rescanned.
+const cacheFile = path.join(home, 'Library', 'Caches', 'MacYoloSafeguards', 'secret-scan.json');
+assert.ok(fs.existsSync(cacheFile));
+noSecrets(fs.readFileSync(cacheFile, 'utf8'));
+assert.strictEqual(fs.statSync(cacheFile).mode & 0o777, 0o600);
+const warm = run('scan');
+assert.strictEqual(warm.cacheHits, 3);
+assert.strictEqual(warm.totals.secrets, s.totals.secrets);
+assert.strictEqual(run('scan', '--no-cache').cacheHits, 0);
 assert.strictEqual(run('scan', '--since-days', '90').totals.filesScanned, 4);
 
 // Redact: only the secrets change; all other bytes are identical; mode kept; mtime kept.
@@ -169,6 +220,19 @@ for (const [name, input] of Object.entries(hostile)) {
   const ms = Number(process.hrtime.bigint() - t0) / 1e6;
   assert.ok(ms < 50, `${name} took ${ms.toFixed(1)} ms`);
 }
+
+// The worker-thread path (many files) finds the same things as the in-process path.
+const home2 = fs.mkdtempSync(path.join(os.tmpdir(), 'mys-secret-many-'));
+for (let i = 0; i < 20; i++) {
+  const f = path.join(home2, '.claude', 'projects', 'p', `f${i}.jsonl`);
+  fs.mkdirSync(path.dirname(f), { recursive: true });
+  fs.writeFileSync(f, BENIGN[0] + '\n' + LINES['github-token']('gh' + 'p_' + R(36, 100 + i)) + '\n');
+  old(f);
+}
+const many = JSON.parse(execFileSync(process.execPath, [TOOL, 'scan'], { encoding: 'utf8', env: { ...env, MAC_YOLO_HOME: home2, MAC_YOLO_SECRET_WORKERS: '3' } }));
+assert.strictEqual(many.totals.secrets, 20);
+assert.strictEqual(many.totals.filesWithSecrets, 20);
+fs.rmSync(home2, { recursive: true, force: true });
 
 fs.rmSync(home, { recursive: true, force: true });
 fs.rmSync(outside, { recursive: true, force: true });
