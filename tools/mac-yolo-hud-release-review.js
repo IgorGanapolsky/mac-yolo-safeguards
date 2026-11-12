@@ -20,6 +20,12 @@ function reviewHudRelease(text) {
       detail: 'An instructional click line repeats what the card controls already show.',
     });
   }
+  if (src.indexOf('id="hudSizeBtn"') !== -1 || src.indexOf('id="footerSizeLabel"') !== -1) {
+    findings.push({
+      id: 'debugChrome',
+      detail: 'A Size control or a pixel readout is part of the panel chrome.',
+    });
+  }
   if (/onclick="[^"]*triggerHudAction\('(freeUpMemory|coolDownFans|freeUpDisk)'/.test(src)) {
     findings.push({
       id: 'destructiveClick',

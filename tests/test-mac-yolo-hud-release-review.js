@@ -23,6 +23,7 @@ const FAILING = [
   'onclick="triggerHudAction(\'freeUpMemory\', this, \'Reaping\', \'Done\')"',
   'onclick="triggerHudAction(\'coolDownFans\', this, \'Cooling\', \'Done\')"',
   'Click any card for a closer look',
+  'id="footerSizeLabel"',
   'hudPanel.alphaValue = 0.88',
   '.shell::before { background: radial-gradient(circle, rgba(0,0,0,0.4), rgba(0,0,0,0.6)); }',
   'function requestUninstall(name) {',
@@ -47,7 +48,7 @@ function main() {
 
   const fail = reviewHudRelease(FAILING);
   assert.strictEqual(fail.ok, false);
-  assert.deepStrictEqual(ids(fail), ['attention', 'clickPrompt', 'destructiveClick', 'uninstallImmediate', 'panelFade', 'flatTint']);
+  assert.deepStrictEqual(ids(fail), ['attention', 'clickPrompt', 'debugChrome', 'destructiveClick', 'uninstallImmediate', 'panelFade', 'flatTint']);
 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hud-review-'));
   const passFile = path.join(dir, 'pass.swift');
