@@ -1,4 +1,5 @@
 import { activate, activatePage, refresh } from "./license.js";
+import { sendCheckoutAlerts } from "./checkout-alerts.js";
 
 // Cloudflare Worker for Mac YOLO Safeguards (macyolosafeguards.io)
 // Mirrors the dayglass.io Worker + Static Assets + /go/* checkout attribution architecture.
@@ -17,10 +18,10 @@ const GO_REDIRECTS = {
   "pilot": "https://buy.stripe.com/9B6eVdcqM7DgcSdayn3sJ0Z",
   "b2b": "https://buy.stripe.com/9B6eVdcqM7DgcSdayn3sJ0Z",
   "3000": "https://buy.stripe.com/9B6eVdcqM7DgcSdayn3sJ0Z",
-  "dmg": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.2.0/MacYoloSafeguards-1.2.0.dmg",
-  "download": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.2.0/MacYoloSafeguards-1.2.0.dmg",
-  "pkg": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.2.0/MacYoloSafeguards.pkg",
-  "zip": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.2.0/MacYoloSafeguards.zip",
+  "dmg": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.2.1/MacYoloSafeguards-1.2.1.dmg",
+  "download": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.2.1/MacYoloSafeguards-1.2.1.dmg",
+  "pkg": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.2.1/MacYoloSafeguards.pkg",
+  "zip": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.2.1/MacYoloSafeguards.zip",
   "github": "https://github.com/IgorGanapolsky/mac-yolo-safeguards"
 };
 
@@ -34,7 +35,7 @@ export default {
           ok: true,
           service: "macyolosafeguards",
           domain: "macyolosafeguards.io",
-          version: "1.2.0",
+          version: "1.2.1",
           checkout_ready: true,
           redirects: Object.keys(GO_REDIRECTS)
         }),
@@ -92,5 +93,10 @@ export default {
     }
 
     return env.ASSETS.fetch(request);
+  },
+
+  // Every 30 minutes: alert on unpaid checkouts worth $400 or more.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(sendCheckoutAlerts(env, event.scheduledTime).then((a) => console.log(`checkout alerts sent: ${a.length}`)));
   }
 };
