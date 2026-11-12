@@ -521,9 +521,13 @@ private let HUD_HTML = #"""
               <span class="tile-val" id="battPct" style="color:#5eead4;font-size:11.5px;">Live ›</span>
             </div>
             <div class="tile-sub" id="battState">Scanning active session JSONLs…</div>
+            <div class="tile-sub" id="secretsLine" style="display:none;color:#fbbf24;"></div>
             <div class="meter-track"><div class="meter-fill" id="tokBarFill" style="width:22%;background:linear-gradient(90deg,#10b981,#5eead4);"></div></div>
           </div>
-          <button class="tile-action" onclick="event.stopPropagation();openCardDetail('tokens')">Inspect Sessions ›</button>
+          <div style="display:flex;gap:6px;justify-content:flex-end;">
+            <button class="tile-action" id="secretsBtn" style="display:none;" title="Replaces API keys and passwords in agent session transcripts with [REDACTED]. Everything else in each transcript stays the same. Sessions still being written are skipped. This can't be undone." onclick="event.stopPropagation();blankOutSecrets(this)">Blank Out Secrets</button>
+            <button class="tile-action" onclick="event.stopPropagation();openCardDetail('tokens')">Inspect Sessions ›</button>
+          </div>
         </div>
 
         <div class="tile tile-tall" onclick="openCardDetail('cpu')">
@@ -670,6 +674,22 @@ private let HUD_HTML = #"""
       if (s.indexOf('Playwright') !== -1) return 'Playwright Browser Binaries';
       if (s.indexOf('Trash') !== -1) return 'macOS User Trash';
       return s.split(' (')[0];
+    }
+    // Blanking out secrets edits transcripts and can't be undone, so it takes a second click within 5 s.
+    var _secretsArmedUntil = 0;
+    function blankOutSecrets(btn) {
+      if (btn.getAttribute('data-busy') === '1') return;
+      if (Date.now() > _secretsArmedUntil) {
+        _secretsArmedUntil = Date.now() + 5000;
+        btn.textContent = 'Click again to confirm';
+        btn.style.color = '#fbbf24';
+        setTimeout(function() { if (Date.now() >= _secretsArmedUntil && btn.getAttribute('data-busy') !== '1') { btn.textContent = 'Blank Out Secrets'; btn.style.color = ''; } }, 5100);
+        return;
+      }
+      _secretsArmedUntil = 0;
+      btn.setAttribute('data-busy', '1');
+      btn.textContent = 'Blanking out…';
+      sendAction('redactSecrets');
     }
     function triggerHudAction(action, btnEl, busyText, doneText) {
       var origText = btnEl ? (btnEl.getAttribute('data-orig') || btnEl.textContent) : '';
@@ -1020,6 +1040,16 @@ private let HUD_HTML = #"""
       setTextIfChanged('memRightBadge', state.memRightBadge);
       setTextIfChanged('battPct', state.battPct);
       setTextIfChanged('battState', state.battState);
+      if (state.secretsLine !== undefined) {
+        var sl = document.getElementById('secretsLine'), sb = document.getElementById('secretsBtn');
+        setTextIfChanged('secretsLine', state.secretsLine);
+        if (sl) sl.style.display = state.secretsLine ? 'block' : 'none';
+        if (sl) sl.style.color = Number(state.secretsCount) > 0 ? '#fbbf24' : 'rgba(255,255,255,0.6)';
+        if (sb) {
+          sb.style.display = Number(state.secretsCount) > 0 ? 'inline-block' : 'none';
+          if (state.secretsBusy !== '1' && sb.getAttribute('data-busy') === '1') { sb.removeAttribute('data-busy'); sb.textContent = 'Blank Out Secrets'; sb.style.color = ''; }
+        }
+      }
       setTextIfChanged('cpuLoad', state.cpuLoad);
       setTextIfChanged('cpuTemp', state.cpuRight);
       setTextIfChanged('mcpRightBadge', state.mcpRightBadge);
@@ -1236,6 +1266,14 @@ func connectedForText(_ seconds: TimeInterval) -> String {
     let h = m / 60
     if h < 24 { return m % 60 == 0 ? "for \(h)h" : "for \(h)h \(m % 60)m" }
     return "for \(h / 24)d \(h % 24)h"
+}
+
+// Tokens card line about leaked secrets; empty until the first scan finishes.
+func secretsLine(count: Int, files: Int) -> String {
+    if count < 0 { return "" }
+    if count == 0 { return "No secrets found in agent logs" }
+    let n = NumberFormatter.localizedString(from: NSNumber(value: count), number: .decimal)
+    return "⚠︎ \(n) secret\(count == 1 ? "" : "s") in agent logs (\(files) file\(files == 1 ? "" : "s"))"
 }
 
 // Network card title, e.g. "Cafe_Guest · for 1h 12m".
@@ -1642,6 +1680,11 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var netSince: Date?
     var netNameKey = ""
     var netNameBusy = false
+    var secretsCount = -1
+    var secretsFiles = 0
+    var secretsBusy = false
+    var secretsRedacting = false
+    var secretsScannedAt = Date.distantPast
     var netNameCheckedAt = Date.distantPast
     var netNameReadAt = Date.distantPast
     var agentNet: [(agent: String, inRate: Double, outRate: Double)] = []
@@ -1918,6 +1961,8 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             smartCleanDisk()
         case "freeUpMemory":
             freeAgentRam()
+        case "redactSecrets":
+            redactSecrets()
         case "optimizeAgents", "coolDownFans":
             coolDownFans()
         case "listUninstallApps":
@@ -2708,6 +2753,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let (upRate, downRate) = sampleNetworkRates()
         probeInternetHealthIfDue()
         refreshNetworkNameIfDue()
+        scanSecretsIfDue()
         scanAgentTokensIfDue()
         let upCapKB = UserDefaults.standard.integer(forKey: "MacYoloUploadCapKB")
         let downCapKB = UserDefaults.standard.integer(forKey: "MacYoloDownloadCapKB")
@@ -2847,6 +2893,9 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "memRightBadge": "VRAM \(String(format: "%.1fG", gpu.vramGB)) ›",
             "memPctNum": "\(memPressurePct)",
             "battPct": String(format: "%.1fM tok ›", sess.estTokensM),
+            "secretsLine": secretsLine(count: secretsCount, files: secretsFiles),
+            "secretsCount": "\(secretsCount)",
+            "secretsBusy": secretsRedacting ? "1" : "0",
             "battState": String(format: "%.1f MB live JSONLs (%d files, 2h)", sess.totalMB, sess.ompFiles + sess.grokFiles),
             "tokPctNum": "\(min(100, max(12, Int(round(sess.totalMB / 2.5)))))",
             "cpuLoad": "Load 1m: \(load1Str) on \(ncpu) cores",
@@ -3217,6 +3266,50 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         }
     }
 
+
+    // API keys and passwords that leaked into agent transcripts (last 30 days). Rescans every 30 minutes.
+    func scanSecretsIfDue(force: Bool = false) {
+        guard !secretsBusy, force || Date().timeIntervalSince(secretsScannedAt) >= 1800 else { return }
+        secretsBusy = true
+        secretsScannedAt = Date()
+        DispatchQueue.global(qos: .utility).async {
+            let run = runTool("mac-yolo-secret-scan.js", ["scan", "--since-days", "30"])
+            let totals = jsonObject(run.output)["totals"] as? [String: Any]
+            DispatchQueue.main.async {
+                if run.ran, let t = totals {
+                    self.secretsCount = (t["secrets"] as? Int) ?? 0
+                    self.secretsFiles = (t["filesWithSecrets"] as? Int) ?? 0
+                }
+                self.secretsBusy = false
+            }
+        }
+    }
+
+    func redactSecrets() {
+        guard !secretsRedacting else { return }
+        secretsRedacting = true
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let run = runTool("mac-yolo-secret-scan.js", ["redact", "--all", "--since-days", "30"])
+            let out = jsonObject(run.output)
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.secretsRedacting = false
+                guard run.ran else {
+                    self.showProblem(action: "toolProblem", title: "Couldn't blank out secrets", problem: run.problem ?? "Unknown error.")
+                    return
+                }
+                let redacted = (out["redacted"] as? Int) ?? 0
+                let files = (out["filesChanged"] as? Int) ?? 0
+                let skipped = (out["skipped"] as? [Any])?.count ?? 0
+                let errors = (out["errors"] as? [Any])?.count ?? 0
+                var items = ["Replaced \(redacted) secret\(redacted == 1 ? "" : "s") with [REDACTED] in \(files) transcript\(files == 1 ? "" : "s")"]
+                if skipped > 0 { items.append("Skipped \(skipped) file\(skipped == 1 ? "" : "s") a session is still writing; they'll be picked up next time") }
+                if errors > 0 { items.append("\(errors) file\(errors == 1 ? "" : "s") could not be changed") }
+                self.showReceipt(receiptJSON(action: "redactSecrets", title: redacted > 0 ? "✓ Blanked out \(redacted) secrets" : "✓ No secrets to blank out", items: items, spared: "🛡 Only the secret values changed. The rest of each transcript is the same."))
+                self.scanSecretsIfDue(force: true)
+            }
+        }
+    }
 
     @objc func coolDownFans() {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -3724,6 +3817,8 @@ if CommandLine.arguments.contains("--health-self-test") {
           parseLeaseStart("  LeaseStartTime : 11/12/2026 14:26:20\n  LeaseStartTime : 11/12/2026 14:26:19\n").map({ Calendar.current.component(.second, from: $0) }) == 19,
           networkTitle(name: "Cafe_Guest", since: Date(timeIntervalSince1970: 0), now: Date(timeIntervalSince1970: 4320)) == "Cafe_Guest · for 1h 12m",
           networkTitle(name: "", since: nil, now: Date()) == "Internet",
+          secretsLine(count: -1, files: 0) == "", secretsLine(count: 1, files: 1) == "⚠︎ 1 secret in agent logs (1 file)",
+          secretsLine(count: 0, files: 0) == "No secrets found in agent logs",
           connectedForText(30) == "just joined", connectedForText(2 * 86400 + 3 * 3600) == "for 2d 3h",
           c.topMem.hasPrefix("Most RAM: "),
           shieldRows.contains(where: { $0.hasPrefix("1. ") }),
