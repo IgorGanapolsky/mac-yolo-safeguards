@@ -2,7 +2,9 @@
 // /activate with the checkout session id, and we hand back a signed key that the
 // Mac app checks offline. Keys last 40 days and renew while the subscription is active.
 
-export const PRO_PAYMENT_LINK = "plink_1UXnxHGGBpd520QYd2IwFajC";
+// Monthly and yearly Pro Guard links on the Mac YOLO Stripe account.
+export const PRO_PAYMENT_LINK = "plink_1Ub5YIK8kufMLNF8TRikMkZh";
+export const PRO_PAYMENT_LINKS = new Set([PRO_PAYMENT_LINK, "plink_1Ub5YJK8kufMLNF8mWuPJcI1"]);
 export const LICENSE_PUBLIC_KEY = "ZDCWvx/TkO8J5WGNsXC/SpBpjqvUDLBIQa/MnAscPf0=";
 export const LICENSE_DAYS = 40;
 const ACTIVE_SUB = new Set(["active", "trialing", "past_due"]);
@@ -58,7 +60,7 @@ export async function activate(env, sessionId, fetchImpl = fetch) {
   if (!/^cs_(live|test)_[A-Za-z0-9]{10,200}$/.test(sessionId || "")) return { ok: false, reason: "That checkout link is not valid." };
   const s = await stripeGet(env, `checkout/sessions/${sessionId}`, fetchImpl);
   if (!s) return { ok: false, reason: "We couldn't find that checkout. If you paid, reply to your receipt and we'll send your key." };
-  if (s.payment_link !== (env.PRO_PAYMENT_LINK || PRO_PAYMENT_LINK)) return { ok: false, reason: "That checkout wasn't for Mac YOLO Pro Guard." };
+  if (!(env.PRO_PAYMENT_LINK ? s.payment_link === env.PRO_PAYMENT_LINK : PRO_PAYMENT_LINKS.has(s.payment_link))) return { ok: false, reason: "That checkout wasn't for Mac YOLO Pro Guard." };
   if (s.status !== "complete" || !["paid", "no_payment_required"].includes(s.payment_status) || !s.subscription) {
     return { ok: false, reason: "That checkout isn't paid yet." };
   }

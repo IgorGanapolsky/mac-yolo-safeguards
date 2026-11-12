@@ -7,13 +7,16 @@
 
 export const ALERT_MIN_CENTS = 40000;
 export const NTFY_URL = "https://ntfy.sh/yolo-guard-fdh8ktuw1vtxb5sb";
-const ACCOUNT = "acct_1RNcJ1GGBpd520QY";
+const ACCOUNT = "acct_1UVwVAK8kufMLNF8";
 const SLICE_S = 30 * 60;
 const STALL_S = 60 * 60;
 
 const PRODUCTS = {
-  plink_1UX2foGGBpd520QYJpfjYKge: "Partner Pilot",
-  plink_1UXnxHGGBpd520QYd2IwFajC: "Pro Guard",
+  plink_1Ub5YIK8kufMLNF8TRikMkZh: "Pro Guard",
+  plink_1Ub5YJK8kufMLNF8mWuPJcI1: "Pro Guard yearly",
+  plink_1Ub5YJK8kufMLNF8zUXFrj9E: "Diagnostic",
+  plink_1Ub5YKK8kufMLNF81IrS1jes: "Hardening Sprint",
+  plink_1Ub5YLK8kufMLNF8YigxUkTf: "Partner Pilot",
 };
 
 function money(cents, currency) {
