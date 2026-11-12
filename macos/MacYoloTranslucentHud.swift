@@ -624,7 +624,8 @@ private let HUD_HTML = #"""
         </div>
         <div id="detailRowsContainer" style="display:flex;flex-direction:column;gap:6px;margin-top:4px;"></div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid rgba(255,255,255,0.12);margin-top:4px;">
-          <div style="display:flex;gap:6px;">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="rec-btn" id="drawerSpeedBtn" style="display:none;" onclick="triggerHudAction('testSpeed', this, 'Testing…', 'Test Speed')">Test Speed</button>
             <button class="rec-btn" onclick="triggerHudAction('coolDownFans', this, 'Cooling &amp; Reaping…', 'Fans Cooled ✓')">Cool Down Fans</button>
             <button class="tile-action" style="margin-top:0;padding:6px 11px;" onclick="triggerHudAction('freeUpDisk', this, 'Purging…', 'Purged ✓')">Clean AI Waste</button>
           </div>
@@ -961,8 +962,10 @@ private let HUD_HTML = #"""
       var subEl = document.getElementById('detailSub');
       var box = document.getElementById('detailRowsContainer');
       if (!box) return;
-      box.style.maxHeight = _activeDetailCard === 'fleet' ? '440px' : '';
-      box.style.overflowY = _activeDetailCard === 'fleet' ? 'auto' : 'visible';
+      box.style.maxHeight = '440px';
+      box.style.overflowY = 'auto';
+      var speedBtn = document.getElementById('drawerSpeedBtn');
+      if (speedBtn) speedBtn.style.display = _activeDetailCard === 'network' ? 'inline-block' : 'none';
       if (!box.dataset.bound) {
         box.dataset.bound = '1';
         box.addEventListener('click', function(ev) {
@@ -975,7 +978,7 @@ private let HUD_HTML = #"""
       }
       var diskRowsCombined = (_lastCleanDetailRows ? (_lastCleanDetailRows + ';;' + (s.detailDisk || '')) : (s.detailDisk || ''));
       var meta = {
-        shield: ['Protection by Mac YOLO — Real-Time Guard', 'Live kernel, GPU, memory & active session telemetry', s.detailShield],
+        shield: ['Protection by Mac YOLO — Real-Time Guard', 'Live top CPU & RAM hogs right now — tap any row for details', s.detailShield],
         disk: ['Disk & AI Waste Cleanup — Live Breakdown', 'APFS volume status + itemized AI/dev cache cleanup receipts', diskRowsCombined],
         memory: ['Memory & Agent RAM — Top Live Consumers', 'Mach VM breakdown + top RSS memory consumers by app', s.detailMemory],
         tokens: ['AI Tokens, Prompt Cache & Session Ledger', 'Live session JSONL transcripts on disk (~/.omp, ~/.grok, ~/.claude)', s.detailTokens],
@@ -987,7 +990,7 @@ private let HUD_HTML = #"""
       if (titleEl) titleEl.textContent = meta[0];
       if (subEl) subEl.textContent = meta[1];
       var raw = meta[2] || '';
-      var cap = _activeDetailCard === 'fleet' ? 24 : 7;
+      var cap = 24;
       var rows = raw.split(';;').filter(Boolean).slice(0, cap);
       function esc(t) {
         return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -1208,12 +1211,48 @@ func parsePingAverage(_ text: String) -> Int? {
     return Int(avg.rounded())
 }
 
-// The app sending the most to the internet, from the last sample of
-// `nettop -P -d -t external -L 2 -s <seconds> -J bytes_out -x`. Loopback traffic between
-// local apps is excluded by -t external. Tailscale forwards another app's bytes, so when
-// it tops the list and a second app sent most of the same amount, that app is named.
-// Per-process internet rates (bytes/s) from the last block of `nettop -P -d -x -J bytes_in,bytes_out`.
-func parseNettopRates(_ text: String, seconds: Double) -> [(name: String, inRate: Double, outRate: Double)] {
+func parseDefaultGateway(_ text: String) -> String? {
+    for line in text.split(separator: "\n") {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        if trimmed.hasPrefix("gateway:") {
+            let ip = trimmed.dropFirst("gateway:".count).trimmingCharacters(in: .whitespaces)
+            if !ip.isEmpty { return ip }
+        }
+    }
+    return nil
+}
+
+func formatBytesShort(_ bytes: Double) -> String {
+    if bytes >= 1_073_741_824 { return String(format: "%.2f GB", bytes / 1_073_741_824) }
+    if bytes >= 1_048_576 { return String(format: "%.1f MB", bytes / 1_048_576) }
+    if bytes >= 1024 { return String(format: "%.0f KB", bytes / 1024) }
+    return "0 KB"
+}
+
+// Cumulative external internet bytes (in + out) since PID launch from the first block of `nettop -t external -L 2`.
+func parseNettopTotals(_ text: String, excludingPid: Int32 = ProcessInfo.processInfo.processIdentifier) -> [String: Double] {
+    let rows = text.split(separator: "\n").map { $0.split(separator: ",", omittingEmptySubsequences: false).map(String.init) }
+    guard let h1 = rows.firstIndex(where: { $0.first == "" && $0.contains("bytes_out") }) else { return [:] }
+    let h2 = rows.lastIndex(where: { $0.first == "" && $0.contains("bytes_out") }) ?? rows.count
+    let endIdx = h2 > h1 ? h2 : rows.count
+    let inCol = rows[h1].firstIndex(of: "bytes_in"), outCol = rows[h1].firstIndex(of: "bytes_out")!
+    var byAgent: [String: Double] = [:]
+    for r in rows[(h1 + 1)..<endIdx] where r.count > outCol && !r[0].isEmpty {
+        var name = r[0]
+        if let dot = name.lastIndex(of: "."), let pid = Int32(name[name.index(after: dot)...]) {
+            if pid == excludingPid { continue }
+            name = String(name[..<dot])
+        }
+        guard let a = agentName(forProcess: name) else { continue }
+        let bo = Double(r[outCol]) ?? 0
+        let bi = inCol.flatMap { r.count > $0 ? Double(r[$0]) : nil } ?? 0
+        if bo + bi > 0 { byAgent[a, default: 0] += bo + bi }
+    }
+    return byAgent
+}
+
+// Per-process internet rates (bytes/s) from the last block of `nettop -P -d -t external -L 2 -x -J bytes_in,bytes_out`.
+func parseNettopRates(_ text: String, seconds: Double, excludingPid: Int32 = ProcessInfo.processInfo.processIdentifier) -> [(name: String, inRate: Double, outRate: Double)] {
     let rows = text.split(separator: "\n").map { $0.split(separator: ",", omittingEmptySubsequences: false).map(String.init) }
     guard let h = rows.lastIndex(where: { $0.first == "" && $0.contains("bytes_out") }) else { return [] }
     let inCol = rows[h].firstIndex(of: "bytes_in"), outCol = rows[h].firstIndex(of: "bytes_out")!
@@ -1223,7 +1262,10 @@ func parseNettopRates(_ text: String, seconds: Double) -> [(name: String, inRate
         let bi = inCol.flatMap { r.count > $0 ? Double(r[$0]) : nil } ?? 0
         guard bo > 0 || bi > 0 else { continue }
         var name = r[0]
-        if let dot = name.lastIndex(of: "."), Int(name[name.index(after: dot)...]) != nil { name = String(name[..<dot]) }
+        if let dot = name.lastIndex(of: "."), let pid = Int32(name[name.index(after: dot)...]) {
+            if pid == excludingPid { continue }
+            name = String(name[..<dot])
+        }
         let secs = max(seconds, 0.5)
         out.append((name, bi / secs, bo / secs))
     }
@@ -1274,6 +1316,7 @@ func tallyAgentTokens(_ text: String, agent: String, cutoff: Date, into totals: 
     for line in text.split(separator: "\n") where line.contains("\"usage\"") {
         guard let obj = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
               let msg = obj["message"] as? [String: Any], (msg["role"] as? String) == "assistant",
+              (msg["model"] as? String) != "<synthetic>",
               let usage = msg["usage"] as? [String: Any],
               let ts = obj["timestamp"] as? String, let when = fmt.date(from: ts) ?? plain.date(from: ts), when >= cutoff else { continue }
         let id = (msg["id"] as? String) ?? (obj["id"] as? String) ?? (obj["uuid"] as? String) ?? ts
@@ -1310,12 +1353,17 @@ func formatTokens(_ n: Int) -> String {
 }
 
 // One tappable row per agent. Field 4 is the plain explanation. A dollar amount is written only when the log has one.
-func agentUsageRows(tokens: [String: AgentTokens], net: [(agent: String, inRate: Double, outRate: Double)]) -> [String] {
+func agentUsageRows(tokens: [String: AgentTokens], net: [(agent: String, inRate: Double, outRate: Double)], totalsSinceLaunch: [String: Double] = [:]) -> [String] {
     let netBy = Dictionary(uniqueKeysWithValues: net.map { ($0.agent, ($0.inRate, $0.outRate)) })
-    let names = Set(tokens.keys).union(netBy.keys)
-    return names.sorted { (tokens[$0]?.tokens ?? 0, tokens[$0]?.calls ?? 0, (netBy[$0]?.1 ?? 0)) > (tokens[$1]?.tokens ?? 0, tokens[$1]?.calls ?? 0, (netBy[$1]?.1 ?? 0)) }.map { a in
+    let activeTotals = totalsSinceLaunch.filter { $0.value >= 1_048_576 }
+    let names = Set(tokens.keys).union(netBy.keys).union(activeTotals.keys)
+    return names.sorted {
+        (tokens[$0]?.tokens ?? 0, tokens[$0]?.calls ?? 0, (netBy[$0]?.1 ?? 0), totalsSinceLaunch[$0] ?? 0) >
+        (tokens[$1]?.tokens ?? 0, tokens[$1]?.calls ?? 0, (netBy[$1]?.1 ?? 0), totalsSinceLaunch[$1] ?? 0)
+    }.map { a in
         let t = tokens[a]
         let r = netBy[a]
+        let sinceBytes = totalsSinceLaunch[a] ?? 0
         var bits: [String] = []
         if let t {
             bits.append("\(t.calls) \(t.calls == 1 ? "call" : "calls")")
@@ -1325,6 +1373,7 @@ func agentUsageRows(tokens: [String: AgentTokens], net: [(agent: String, inRate:
             else if t.calls > 0 { bits.append("no price") }
         }
         if let r { bits.append("↑ \(formatRate(r.1)) ↓ \(formatRate(r.0))") }
+        else if sinceBytes >= 1_048_576 { bits.append("\(formatBytesShort(sinceBytes)) total") }
         var sentences: [String] = []
         if let t, t.tokens > 0 || t.cached > 0 {
             let cachedBit = t.cached > 0 ? " \(formatTokens(t.cached)) were read back from cache." : ""
@@ -1335,13 +1384,14 @@ func agentUsageRows(tokens: [String: AgentTokens], net: [(agent: String, inRate:
         } else {
             sentences.append("No model-call count in the logs this menu reads. Cloud spend is not shown without a price in the log.")
         }
-        sentences.append(r.map { "Internet right now: sending \(formatRate($0.1)), receiving \(formatRate($0.0))." } ?? "No internet from this agent in the latest sample.")
+        let totalNote = sinceBytes >= 1024 ? " External internet since launch: \(formatBytesShort(sinceBytes)) (127.0.0.1 loopback excluded)." : ""
+        sentences.append((r.map { "Internet right now: sending \(formatRate($0.1)), receiving \(formatRate($0.0))." } ?? "No internet from this agent in the latest sample.") + totalNote)
         return "\(a)|\(bits.joined(separator: " · "))|0|\(sentences.joined(separator: " "))"
     }
 }
 
-func fleetGlance(tokens: [String: AgentTokens], net: [(agent: String, inRate: Double, outRate: Double)]) -> String {
-    let rows = agentUsageRows(tokens: tokens, net: net)
+func fleetGlance(tokens: [String: AgentTokens], net: [(agent: String, inRate: Double, outRate: Double)], totalsSinceLaunch: [String: Double] = [:]) -> String {
+    let rows = agentUsageRows(tokens: tokens, net: net, totalsSinceLaunch: totalsSinceLaunch)
     if rows.isEmpty { return "No agent internet or model calls in the latest sample" }
     return rows.prefix(3).map { row -> String in
         let parts = row.split(separator: "|", omittingEmptySubsequences: false)
@@ -1409,13 +1459,38 @@ func internetHeadline(latencyMs: Int?, lineDownMbps: Double, lineUpMbps: Double,
 }
 
 func lineMbps(downCapKB: Int, upCapKB: Int, cachedDown: Double, cachedUp: Double) -> (Double, Double) {
+    if cachedDown >= 1 || cachedUp >= 1 {
+        return (max(0, cachedDown), max(0, cachedUp))
+    }
     if downCapKB > 0 || upCapKB > 0 {
         let down = downCapKB > 0 ? Double(downCapKB) * 1024.0 * 8.0 / 1_000_000.0 : 0
         let up = upCapKB > 0 ? Double(upCapKB) * 1024.0 * 8.0 / 1_000_000.0 : 0
         return (down, up)
     }
-    if cachedDown >= 1 { return (cachedDown, max(0, cachedUp)) }
     return (0, 0)
+}
+
+func wifiVsProviderRow(routerMs: Int?, wanMs: Int?, upFullPct: Int, topUploader: String) -> String {
+    let rPart = routerMs.map { "Wi-Fi \($0) ms" } ?? "Wi-Fi --"
+    let wPart = wanMs.map { "Internet \($0) ms" } ?? "Internet --"
+    let val = "\(rPart) · \(wPart)"
+    let more: String
+    if routerMs == nil && wanMs == nil {
+        more = "Measuring your local Wi-Fi router and internet provider latency right now."
+    } else if let r = routerMs, wanMs == nil {
+        more = "Your local Wi-Fi router answered in \(r) ms, so Wi-Fi is connected, but the internet did not reply (provider outage or captive login)."
+    } else if let r = routerMs, r >= 80 {
+        more = "Your local Wi-Fi router took \(r) ms to answer, so Wi-Fi signal or interference is slowing you down before traffic even reaches your provider."
+    } else if let w = wanMs, w >= 120 {
+        let rText = routerMs.map { "Your Wi-Fi router answered in \($0) ms (healthy), so Wi-Fi is fine. " } ?? ""
+        let hog = topUploader.isEmpty ? "your provider's line is congested." : "\(friendlyAppName(splitUploader(topUploader).name)) is filling your upload pipe\(upFullPct >= 0 ? " (\(upFullPct)% full)" : "")."
+        more = "\(rText)Internet delay is \(w) ms because \(hog)"
+    } else if let w = wanMs, routerMs == nil {
+        more = "Internet provider replied cleanly in \(w) ms (your local router ignores ping)."
+    } else {
+        more = "Both your local Wi-Fi router and your internet provider are replying cleanly with no upload bottleneck."
+    }
+    return "Wi-Fi vs Provider|\(val)|0|\(more)"
 }
 
 func cachedLineMbps() -> (Double, Double) {
@@ -1442,6 +1517,27 @@ func receiptJSON(action: String, title: String, items: [String], spared: String)
 // Pro license: a signed key from macyolosafeguards.io/activate, checked offline.
 let proLicensePublicKey = "ZDCWvx/TkO8J5WGNsXC/SpBpjqvUDLBIQa/MnAscPf0="
 let proCheckoutURL = "https://macyolosafeguards.io/go/pro"
+let proPricingURL = "https://macyolosafeguards.io/pricing"
+
+// How many processes Auto-Guard would stop, from `mac-yolo-agent-guard.js pressure` run without --execute.
+func pressureWouldStopCount(_ res: [String: Any]) -> Int {
+    guard res["acted"] as? Bool == true else { return 0 }
+    let storms = (res["wouldStop"] as? [[String: Any]]) ?? []
+    return storms.reduce(0) { $0 + (($1["copies"] as? Int) ?? 0) }
+        + ((res["wouldStopOrphans"] as? [Any]) ?? []).count
+        + ((res["wouldStopStranded"] as? [Any]) ?? []).count
+}
+
+// What a free user hears when their Mac hits a problem Auto-Guard fixes for Pro. nil means stay quiet:
+// Pro users, less than a day since the last notice, or nothing Pro would actually do.
+func proNudgeText(isPro: Bool, sinceLastNudge: TimeInterval, wouldStop: Int, freeDiskGB: Double) -> String? {
+    guard !isPro, sinceLastNudge >= 86400 else { return nil }
+    var parts: [String] = []
+    if wouldStop > 0 { parts.append("Memory is tight and \(wouldStop) leftover agent process\(wouldStop == 1 ? " is" : "es are") holding it.") }
+    if freeDiskGB < 10 { parts.append(String(format: "Only %.0f GB of disk is free.", freeDiskGB)) }
+    guard !parts.isEmpty else { return nil }
+    return parts.joined(separator: " ") + " Pro's Auto-Guard handles this on its own every minute. Click to see Pro, or use Free Agent RAM and Clean AI Waste yourself."
+}
 
 struct ProLicense {
     let key: String
@@ -1504,9 +1600,11 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var lastUpKB: Int = 0
     var lastDownKB: Int = 0
     var netLatencyMs: Int? = nil
+    var netRouterLatencyMs: Int? = nil
     var netTopUploader: String = ""
     var netProbeBusy = false
     var agentNet: [(agent: String, inRate: Double, outRate: Double)] = []
+    var agentTotalBytes: [String: Double] = [:]
     var agentTokens: [String: AgentTokens] = [:]
     var agentTokensAt: Date = .distantPast
     var agentTokensBusy = false
@@ -1517,6 +1615,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var autoGuardBusy = false
     var lastAutoDiskClean: Date = .distantPast
     var lastLicenseRefresh: Date = .distantPast
+    var proNudgeTimer: Timer?
     var autoGuardMenuItem: NSMenuItem!
     var proStatusMenuItem: NSMenuItem!
     var proLicenseMenuItem: NSMenuItem!
@@ -1655,6 +1754,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         refreshProLicenseIfDue()
         updateProMenu()
         startAutoGuardIfEnabled()
+        startProNudgeTimer()
 
         let quietLaunch = CommandLine.arguments.contains("--quiet-launch")
             || ProcessInfo.processInfo.environment["MAC_YOLO_QUIET_LAUNCH"] == "1"
@@ -1974,14 +2074,19 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         netProbeBusy = true
         netProbeAt = Date()
         DispatchQueue.global(qos: .utility).async {
+            let gw = parseDefaultGateway(captureCommand("/sbin/route", ["-n", "get", "default"], timeout: 3))
+            let routerMs = gw.flatMap { parsePingAverage(captureCommand("/sbin/ping", ["-c", "2", "-q", "-t", "2", $0], timeout: 3)) }
             let latency = parsePingAverage(captureCommand("/sbin/ping", ["-c", "3", "-q", "-t", "5", "1.1.1.1"], timeout: 7))
             let sample = captureCommand("/usr/bin/nettop", ["-P", "-d", "-t", "external", "-L", "2", "-s", "2", "-J", "bytes_in,bytes_out", "-x"], timeout: 8)
             let top = parseTopUploader(sample, seconds: 2)
             let perAgent = agentNetUsage(parseNettopRates(sample, seconds: 2))
+            let totals = parseNettopTotals(sample)
             DispatchQueue.main.async {
+                self.netRouterLatencyMs = routerMs
                 self.netLatencyMs = latency
                 self.netTopUploader = top
                 self.agentNet = perAgent
+                self.agentTotalBytes = totals
                 self.netProbeBusy = false
             }
         }
@@ -2002,15 +2107,15 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             for path in list.split(separator: "\n").prefix(300).map(String.init) {
                 guard let fh = FileHandle(forReadingAtPath: path) else { continue }
                 let size = (try? fh.seekToEnd()) ?? 0
-                try? fh.seek(toOffset: size > 4_000_000 ? size - 4_000_000 : 0)
+                try? fh.seek(toOffset: size > 32_000_000 ? size - 32_000_000 : 0)
                 let data = (try? fh.readToEnd()) ?? Data()
                 try? fh.close()
                 tallyAgentTokens(String(decoding: data, as: UTF8.self), agent: path.contains("/.omp/") ? "OMP" : "Claude", cutoff: cutoff, into: &totals, seen: &seen)
             }
-            for path in grokList.split(separator: "\n").prefix(40).map(String.init) {
+            for path in grokList.split(separator: "\n").prefix(60).map(String.init) {
                 guard let fh = FileHandle(forReadingAtPath: path) else { continue }
                 let size = (try? fh.seekToEnd()) ?? 0
-                try? fh.seek(toOffset: size > 1_000_000 ? size - 1_000_000 : 0)
+                try? fh.seek(toOffset: size > 16_000_000 ? size - 16_000_000 : 0)
                 let data = (try? fh.readToEnd()) ?? Data()
                 try? fh.close()
                 tallyGrokCalls(String(decoding: data, as: UTF8.self), cutoff: cutoff, into: &totals)
@@ -2022,21 +2127,81 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         }
     }
 
-    // macOS's own speed test. Saves upload capacity so the card can say how full the upload is.
+    // Polite single-stream Cloudflare speed check (<7.5 MB total, ~4s) so asymmetric 5G/cable uploads never bufferbloat.
     func runSpeedTest() {
         guard !netSpeedTestBusy else { return }
         netSpeedTestBusy = true
-        DispatchQueue.global(qos: .utility).async {
-            let obj = jsonObject(captureCommand("/usr/bin/networkQuality", ["-c", "-s", "-M", "20"], timeout: 40))
-            DispatchQueue.main.async {
-                if let ul = (obj["ul_throughput"] as? NSNumber)?.doubleValue, ul > 0 {
-                    UserDefaults.standard.set(Int(ul / 8 / 1024), forKey: "MacYoloUploadCapKB")
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let cfg = URLSessionConfiguration.ephemeral
+            cfg.timeoutIntervalForRequest = 10
+            cfg.timeoutIntervalForResource = 12
+            let session = URLSession(configuration: cfg)
+            var dlMbps = 0.0
+            var ulMbps = 0.0
+            if let dlUrl = URL(string: "https://speed.cloudflare.com/__down?bytes=3000000") {
+                let sem = DispatchSemaphore(value: 0)
+                let t0 = CFAbsoluteTimeGetCurrent()
+                session.dataTask(with: dlUrl) { data, resp, _ in
+                    let dt = max(0.05, CFAbsoluteTimeGetCurrent() - t0)
+                    if let http = resp as? HTTPURLResponse, http.statusCode == 200, let n = data?.count, n > 100_000 {
+                        dlMbps = (Double(n) * 8.0) / dt / 1_000_000.0
+                    }
+                    sem.signal()
+                }.resume()
+                _ = sem.wait(timeout: .now() + 13)
+            }
+            if let ulUrl = URL(string: "https://speed.cloudflare.com/__up") {
+                var req = URLRequest(url: ulUrl)
+                req.httpMethod = "POST"
+                req.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+                let payload = Data(count: 1_000_000)
+                let sem = DispatchSemaphore(value: 0)
+                let t0 = CFAbsoluteTimeGetCurrent()
+                session.uploadTask(with: req, from: payload) { _, resp, _ in
+                    let dt = max(0.05, CFAbsoluteTimeGetCurrent() - t0)
+                    if let http = resp as? HTTPURLResponse, (200...299).contains(http.statusCode) {
+                        ulMbps = (Double(payload.count) * 8.0) / dt / 1_000_000.0
+                    }
+                    sem.signal()
+                }.resume()
+                _ = sem.wait(timeout: .now() + 13)
+            }
+            session.finishTasksAndInvalidate()
+            if dlMbps > 0 || ulMbps > 0 {
+                let stateUrl = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".hermes/mac-yolo-net-state.json")
+                try? FileManager.default.createDirectory(at: stateUrl.deletingLastPathComponent(), withIntermediateDirectories: true)
+                var stateObj = ((try? Data(contentsOf: stateUrl)).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }) ?? [:]
+                stateObj["downloadMbps"] = dlMbps > 0 ? (dlMbps * 10).rounded() / 10 : NSNull()
+                stateObj["uploadMbps"] = ulMbps > 0 ? (ulMbps * 10).rounded() / 10 : NSNull()
+                let nowIso = ISO8601DateFormatter().string(from: Date())
+                stateObj["speedMeasuredAt"] = nowIso
+                stateObj["updatedAt"] = nowIso
+                if let outData = try? JSONSerialization.data(withJSONObject: stateObj, options: [.prettyPrinted]) {
+                    try? outData.write(to: stateUrl, options: .atomic)
                 }
-                if let dl = (obj["dl_throughput"] as? NSNumber)?.doubleValue, dl > 0 {
-                    UserDefaults.standard.set(Int(dl / 8 / 1024), forKey: "MacYoloDownloadCapKB")
+            }
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if ulMbps > 0 {
+                    UserDefaults.standard.set(Int((ulMbps * 1_000_000.0 / 8.0 / 1024.0).rounded()), forKey: "MacYoloUploadCapKB")
+                }
+                if dlMbps > 0 {
+                    UserDefaults.standard.set(Int((dlMbps * 1_000_000.0 / 8.0 / 1024.0).rounded()), forKey: "MacYoloDownloadCapKB")
                 }
                 self.netSpeedTestBusy = false
                 self.netProbeAt = .distantPast
+                if dlMbps > 0 || ulMbps > 0 {
+                    let routerBit = self.netRouterLatencyMs.map { "Wi-Fi router: \($0) ms · " } ?? ""
+                    let wanBit = self.netLatencyMs.map { "Internet: \($0) ms" } ?? "Latency refreshing"
+                    self.showReceipt(receiptJSON(
+                        action: "testSpeed",
+                        title: "✓ Speed measured: ↓ \(formatMbps(dlMbps)) · ↑ \(formatMbps(ulMbps))",
+                        items: ["\(routerBit)\(wanBit)", "Polite single-stream check (<7.5 MB) — zero upload saturation"],
+                        spared: "🛡 Calls & active agent streams were not interrupted."
+                    ))
+                } else {
+                    self.showProblem(action: "testSpeed", title: "Speed check couldn't reach Cloudflare", problem: "Check your Wi-Fi or firewall and try again.")
+                }
                 self.refreshLiveTelemetry()
             }
         }
@@ -2068,20 +2233,30 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
 
     func fanLabel(for fullComm: String, base: String) -> String {
         let lower = (fullComm + " " + base).lowercased()
+        let lowerBase = base.lowercased()
         if lower.contains("browseros") { return "BrowserOS" }
         if lower.contains("ghostty") { return "Ghostty" }
         if lower.contains("opendirectoryd") { return "Directory Services" }
         if lower.contains("jamf") { return "Jamf Protect" }
-        if lower.contains("llama-server") || base == "ollama" { return "Ollama" }
+        if lower.contains("llama-server") || lowerBase == "ollama" { return "Ollama" }
         if base == "mds" || base.hasPrefix("mds_") || base == "mdworker_shared" { return "Spotlight" }
         if base == "mediaanalysisd" || base == "photoanalysisd" { return "Photos Analysis" }
         if base == "WindowServer" { return "WindowServer" }
+        if lowerBase == "dotnet" { return ".NET Build/Test" }
+        if lowerBase == "swiftc" || lowerBase == "swift-frontend" { return "Swift Compiler" }
+        if lowerBase == "cargo" || lowerBase == "rustc" { return "Rust Build" }
+        if lowerBase == "omp" { return "OMP" }
+        if lowerBase == "agy" || lower.contains("/gemini.app/") { return "Gemini" }
+        if lowerBase == "ccusage" { return "ccusage" }
+        if lowerBase == "gh" || lowerBase == "gh-real" { return "GitHub CLI" }
         if lower.contains("claude") { return "Claude" }
         if lower.contains("cursor") { return "Cursor" }
         if lower.contains("grok") { return "Grok" }
         if lower.contains("google chrome") { return "Chrome" }
-        if base == "node" { return "node" }
-        return base
+        if lowerBase.hasPrefix("python") { return "Python" }
+        if lowerBase == "node" { return "Node.js" }
+        if lowerBase == "bun" { return "Bun" }
+        return base.replacingOccurrences(of: "|", with: "/").replacingOccurrences(of: ";", with: ",")
     }
 
     func appleThermalWarning() -> Bool {
@@ -2288,7 +2463,11 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             let gb = rssByApp[name, default: 0] / 1_048_576.0
             let cnt = countByApp[name, default: 1]
             let bar = min(100, max(4, Int(round(c))))
-            return String(format: "%d. %@ (%d procs)|%.1f%% CPU · %.2f GB RAM|%d", idx + 1, name, cnt, c, gb, bar)
+            let coresBusy = c / 100.0
+            let note = systemIndexers.contains(name)
+                ? "Protected macOS background indexer; settles automatically."
+                : String(format: "Using ~%.1f of %d CPU cores and %.2f GB RAM across %d process%@ right now.", coresBusy, ncpu, gb, cnt, cnt == 1 ? "" : "es")
+            return String(format: "%d. %@ (%d procs)|%.1f%% CPU · %.2f GB RAM|%d|%@", idx + 1, name, cnt, c, gb, bar, note)
         }.joined(separator: ";;")
         let memRanked = rssByApp.keys.sorted { rssByApp[$0, default: 0] > rssByApp[$1, default: 0] }
         let memRows = memRanked.prefix(6).enumerated().map { idx, name in
@@ -2297,18 +2476,19 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             let c = cpuByApp[name, default: 0]
             let cnt = countByApp[name, default: 1]
             let bar = min(100, max(4, Int(round(pct32 * 2.5))))
-            return String(format: "%d. %@ (%d procs)|%.2f GB (%.1f%%) · %.0f%% CPU|%d", idx + 1, name, cnt, gb, pct32, c, bar)
+            let note = String(format: "Holding %.2f GB resident RAM (%.1f%% of 32 GB) and %.0f%% CPU across %d process%@.", gb, pct32, c, cnt, cnt == 1 ? "" : "es")
+            return String(format: "%d. %@ (%d procs)|%.2f GB (%.1f%%) · %.0f%% CPU|%d|%@", idx + 1, name, cnt, gb, pct32, c, bar, note)
         }.joined(separator: ";;")
         let poolSessions = max(0, (poolCount + 1) / 2)
         let ompSessions = ompCount > 0 ? max(1, ompCount / 3) : 0
         let swarmStr = "Claude×\(claudeCliCount) · Gemini×\(geminiActive ? 1 : 0) · OMP×\(ompSessions) · Pool×\(poolSessions) · Grok×\(grokCount)"
         let fleetRows = [
-            "Claude Code CLI + Desktop App|\(claudeCliCount) CLI sessions · \(fmtRam(claudeTotalRssKB)) RAM|85",
-            "Gemini & Antigravity (agy)|\(geminiActive ? "Active · \(fmtRam(geminiRssKB)) RAM" : "Idle (0 MB)")|70",
-            "OMP (Oh-My-Pi) Coding Agent|\(ompSessions) sessions (\(ompCount) workers) · \(fmtRam(ompRssKB))|75",
-            "Poolside (Laguna) + Grok CLI|\(poolSessions) Pool + \(grokCount) Grok · \(fmtRam(poolRssKB + grokRssKB))|60",
-            "Cursor IDE|\(cursorCount > 0 ? "Active · \(fmtRam(cursorRssKB)) RAM" : "Not running (0 MB)")|10",
-            "Stdio MCP Child Servers|\(pyCount) Python + \(nodeCount) Node · \(fmtRam(pyRssKB + nodeRssKB))|80",
+            "Claude Code CLI + Desktop App|\(claudeCliCount) CLI sessions · \(fmtRam(claudeTotalRssKB)) RAM|85|Live Claude CLI and desktop processes currently resident in memory.",
+            "Gemini & Antigravity (agy)|\(geminiActive ? "Active · \(fmtRam(geminiRssKB)) RAM" : "Idle (0 MB)")|70|Google Antigravity / Gemini local language server and worker processes.",
+            "OMP (Oh-My-Pi) Coding Agent|\(ompSessions) sessions (\(ompCount) workers) · \(fmtRam(ompRssKB))|75|Active Oh-My-Pi terminal sessions and subagent worker processes.",
+            "Poolside (Laguna) + Grok CLI|\(poolSessions) Pool + \(grokCount) Grok · \(fmtRam(poolRssKB + grokRssKB))|60|Combined Poolside CLI and Grok CLI background workers.",
+            "Cursor IDE|\(cursorCount > 0 ? "Active · \(fmtRam(cursorRssKB)) RAM" : "Not running (0 MB)")|10|Foreground Cursor editor and renderer helpers.",
+            "Stdio MCP Child Servers|\(pyCount) Python + \(nodeCount) Node · \(fmtRam(pyRssKB + nodeRssKB))|80|Python and Node.js processes (including MCP tool servers and build scripts).",
         ].joined(separator: ";;")
         return (shortStr.isEmpty ? "Idle" : shortStr, rTitle, rDesc, cpuRows, memRows, fleetRows, topCpu, totalProcs, pyCount, nodeCount, swarmStr, realCpuPct)
     }
@@ -2332,6 +2512,46 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         guard total > 0 else { return nil }
         let busy = total - delta[Int(CPU_STATE_IDLE)]
         return Int((Double(busy) / Double(total) * 100.0).rounded())
+    }
+
+    func buildDetailShieldFull(
+        culpritsShortLine: String,
+        culpritsDetailCpu: String,
+        totalProcs: Int,
+        swarmSummary: String,
+        cpuPct: Int,
+        load1Str: String,
+        load5Str: String,
+        load15Str: String,
+        ncpu: Int,
+        gpuDevicePct: Int,
+        gpuRendererPct: Int,
+        gpuVramGB: Double,
+        memPressurePct: Int,
+        activeGB: Double,
+        wiredGB: Double,
+        compressedGB: Double,
+        sessTotalMB: Double,
+        sessFiles: Int,
+        sessTokensM: Double,
+        freeDecimalGB: Double,
+        totalDecimalGB: Double,
+        diskUsedPct: Int
+    ) -> String {
+        var rows: [String] = [
+            "Top Hogs Right Now|\(culpritsShortLine)|\(cpuPct)|Ranked by live CPU & resident RAM across all \(totalProcs) processes on this Mac. Individual top hogs are listed right below."
+        ]
+        if !culpritsDetailCpu.isEmpty {
+            rows.append(culpritsDetailCpu)
+        }
+        rows.append(contentsOf: [
+            "Real-Time CPU & Apple Silicon GPU|CPU \(cpuPct)% (Load \(load1Str)/\(ncpu)) · GPU \(gpuDevicePct)% (\(String(format: "%.1fG", gpuVramGB)) VRAM)|\(cpuPct)|Kernel load avg (1m / 5m / 15m): \(load1Str) / \(load5Str) / \(load15Str) across \(ncpu) cores · GPU Renderer \(gpuRendererPct)%.",
+            String(format: "Real-Time Memory Pressure|%d%% used (Active %.1fG · Wired %.1fG · Comp %.1fG)|%d|Mach VM active %.1f GB, wired %.1f GB, compressed %.1f GB, Metal/GPU unified %.2f GB.", memPressurePct, activeGB, wiredGB, compressedGB, memPressurePct, activeGB, wiredGB, compressedGB, gpuVramGB),
+            "Active Multi-Agent Swarms|\(swarmSummary)|80|Live coding agent sessions detected in the process table right now.",
+            String(format: "Live 2h AI Session Volume|%.1f MB (%d JSONL files · ~%.1fM tokens)|72|Session transcripts modified in the last 2 hours under ~/.claude, ~/.omp, and ~/.grok.", sessTotalMB, sessFiles, sessTokensM),
+            String(format: "Disk Free|%.1f GB free|%d|%.1f GB available out of %.0f GB (%d%% used) on Macintosh HD.", freeDecimalGB, diskUsedPct, freeDecimalGB, totalDecimalGB, diskUsedPct),
+        ])
+        return rows.joined(separator: ";;")
     }
 
     func refreshLiveTelemetry() {
@@ -2469,15 +2689,17 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let sinceRestart = String(format: "Since restart, %.2f GB down and %.2f GB up.", rxGB, txGB)
         let whoMore = topSplit.map { "\(friendlyAppName($0.name)) is sending \($0.rate). Wi-Fi \(wifiName) moved \(upRate) and \(downRate) in the last few seconds. \(sinceRestart)" }
             ?? "Nothing over 50 KB/s. Wi-Fi \(wifiName) moved \(upRate) and \(downRate) in the last few seconds. \(sinceRestart)"
+        let upFullPct = upCapKB > 0 ? min(100, lastUpKB * 100 / upCapKB) : -1
         let detailNetworkFull = [
             "Internet|\(verdict.impact)|0|A reply took \(delayMeaning). Under 100 ms is comfortable. This is delay, not download speed.",
+            wifiVsProviderRow(routerMs: netRouterLatencyMs, wanMs: netLatencyMs, upFullPct: upFullPct, topUploader: netTopUploader),
             "Your speed|\(speedValue)|0|\(speedMore)",
             "Using it now|\(whoValue)|0|\(whoMore)",
             "What to do|\(fixHint)|0|\(verdict.cause)",
         ].joined(separator: ";;")
 
-        let perAgentRows = agentUsageRows(tokens: agentTokens, net: agentNet)
-        let fleetUsage = fleetGlance(tokens: agentTokens, net: agentNet)
+        let perAgentRows = agentUsageRows(tokens: agentTokens, net: agentNet, totalsSinceLaunch: agentTotalBytes)
+        let fleetUsage = fleetGlance(tokens: agentTokens, net: agentNet, totalsSinceLaunch: agentTotalBytes)
         let agentBlock = perAgentRows.isEmpty
             ? ["Nobody yet|Waiting for the first sample|0|Internet is checked about every 20 seconds. Model calls are read from session logs about every 2 minutes."]
             : perAgentRows
@@ -2487,13 +2709,30 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "Processes|\(culprits.totalProcs) running|0|Every process on this Mac, not only the agents above.",
         ]).joined(separator: ";;")
 
-        let detailShieldFull = [
-            "Real-Time CPU & Apple Silicon GPU|CPU \(cpuPct)% (Load \(load1Str)/\(ncpu)) · GPU \(gpu.devicePct)% (\(String(format: "%.1fG", gpu.vramGB)) VRAM)|\(cpuPct)",
-            String(format: "Real-Time Memory Pressure|%d%% used (Active %.1fG · Wired %.1fG · Comp %.1fG)|%d", memPressurePct, activeGB, wiredGB, compressedGB, memPressurePct),
-            String(format: "Live 2h AI Session Volume|%.1f MB (%d JSONL files · ~%.1fM tokens)|72", sess.totalMB, sess.ompFiles + sess.grokFiles, sess.estTokensM),
-            "Active Multi-Agent Swarms|\(culprits.swarmSummary)|80",
-            "Disk Free|\(String(format: "%.1f GB free", freeDecimalGB))|\(diskUsedPct)",
-        ].joined(separator: ";;")
+        let detailShieldFull = buildDetailShieldFull(
+            culpritsShortLine: culprits.shortLine,
+            culpritsDetailCpu: culprits.detailCpu,
+            totalProcs: culprits.totalProcs,
+            swarmSummary: culprits.swarmSummary,
+            cpuPct: cpuPct,
+            load1Str: load1Str,
+            load5Str: load5Str,
+            load15Str: load15Str,
+            ncpu: ncpu,
+            gpuDevicePct: gpu.devicePct,
+            gpuRendererPct: gpu.rendererPct,
+            gpuVramGB: gpu.vramGB,
+            memPressurePct: memPressurePct,
+            activeGB: activeGB,
+            wiredGB: wiredGB,
+            compressedGB: compressedGB,
+            sessTotalMB: sess.totalMB,
+            sessFiles: sess.ompFiles + sess.grokFiles,
+            sessTokensM: sess.estTokensM,
+            freeDecimalGB: freeDecimalGB,
+            totalDecimalGB: totalDecimalGB,
+            diskUsedPct: diskUsedPct
+        )
 
         let payload: [String: String] = [
             "healthState": healthStateStr,
@@ -3072,6 +3311,40 @@ extension MacYoloAppDelegate {
         }
     }
 
+    // Free users: every 15 minutes, look (without acting) at what Auto-Guard would do. At most one notice a day.
+    func startProNudgeTimer() {
+        guard Bundle.main.bundleIdentifier != nil else { return }
+        UNUserNotificationCenter.current().delegate = self
+        proNudgeTimer?.invalidate()
+        proNudgeTimer = Timer.scheduledTimer(withTimeInterval: 15 * 60, repeats: true) { [weak self] _ in
+            self?.proNudgeTick()
+        }
+    }
+
+    func proNudgeTick() {
+        let last = UserDefaults.standard.object(forKey: "MacYoloProNudgeAt") as? Date ?? .distantPast
+        let since = Date().timeIntervalSince(last)
+        guard !isPro, since >= 86400 else { return }
+        let disk = freeDiskGB()
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let mem = runTool("mac-yolo-agent-guard.js", ["pressure"])
+            let n = mem.ran ? pressureWouldStopCount(jsonObject(mem.output)) : 0
+            DispatchQueue.main.async {
+                guard let self = self,
+                      let text = proNudgeText(isPro: self.isPro, sinceLastNudge: since, wouldStop: n, freeDiskGB: disk) else { return }
+                UserDefaults.standard.set(Date(), forKey: "MacYoloProNudgeAt")
+                UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { granted, _ in
+                    guard granted else { return }
+                    let content = UNMutableNotificationContent()
+                    content.title = "Your Mac needs a cleanup"
+                    content.body = text
+                    content.userInfo = ["open": proPricingURL]
+                    UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "pro-nudge", content: content, trigger: nil))
+                }
+            }
+        }
+    }
+
     func notifyAutoGuard(_ text: String) {
         guard Bundle.main.bundleIdentifier != nil else { return }
         let content = UNMutableNotificationContent()
@@ -3079,6 +3352,35 @@ extension MacYoloAppDelegate {
         content.body = text
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
     }
+}
+
+extension MacYoloAppDelegate: UNUserNotificationCenterDelegate {
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        if let link = response.notification.request.content.userInfo["open"] as? String, let url = URL(string: link) {
+            NSWorkspace.shared.open(url)
+        }
+        completionHandler()
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner])
+    }
+}
+
+// Checks when a free user is told about Pro, on fixed samples.
+if CommandLine.arguments.contains("--nudge-self-test") {
+    var failures: [String] = []
+    let tight: [String: Any] = ["acted": true, "wouldStop": [["copies": 3], ["copies": 2]], "wouldStopOrphans": [["pid": 1]], "wouldStopStranded": []]
+    if pressureWouldStopCount(tight) != 6 { failures.append("count \(pressureWouldStopCount(tight))") }
+    if pressureWouldStopCount(["acted": false]) != 0 { failures.append("count normal") }
+    if proNudgeText(isPro: true, sinceLastNudge: 1e9, wouldStop: 6, freeDiskGB: 2) != nil { failures.append("pro stays quiet") }
+    if proNudgeText(isPro: false, sinceLastNudge: 3600, wouldStop: 6, freeDiskGB: 2) != nil { failures.append("once a day") }
+    if proNudgeText(isPro: false, sinceLastNudge: 1e9, wouldStop: 0, freeDiskGB: 200) != nil { failures.append("healthy stays quiet") }
+    if proNudgeText(isPro: false, sinceLastNudge: 1e9, wouldStop: 1, freeDiskGB: 200)?.hasPrefix("Memory is tight and 1 leftover agent process is holding it.") != true { failures.append("memory text") }
+    if proNudgeText(isPro: false, sinceLastNudge: 1e9, wouldStop: 0, freeDiskGB: 7.4)?.hasPrefix("Only 7 GB of disk is free.") != true { failures.append("disk text") }
+    if !failures.isEmpty { print("MAC_YOLO_NUDGE_FAIL " + failures.joined(separator: ", ")); exit(1) }
+    print("MAC_YOLO_NUDGE_OK")
+    exit(0)
 }
 
 // Checks the network card's parsing on fixed samples, then prints one live reading.
@@ -3105,12 +3407,13 @@ if CommandLine.arguments.contains("--net-self-test") {
     if parseTopUploader(both, seconds: 2) != "grok.real 195 KB/s" { failures.append("uploader two cols: \(parseTopUploader(both, seconds: 2))") }
     let nowIso = ISO8601DateFormatter().string(from: Date())
     let claudeLog = """
-    {"type":"assistant","timestamp":"\(nowIso)","message":{"id":"m1","role":"assistant","usage":{"input_tokens":2,"cache_creation_input_tokens":100,"cache_read_input_tokens":800,"output_tokens":98}}}
-    {"type":"assistant","timestamp":"\(nowIso)","message":{"id":"m1","role":"assistant","usage":{"input_tokens":2,"cache_creation_input_tokens":100,"cache_read_input_tokens":800,"output_tokens":98}}}
-    {"type":"assistant","timestamp":"2020-01-01T00:00:00.000Z","message":{"id":"old","role":"assistant","usage":{"input_tokens":5}}}
+    {"type":"assistant","timestamp":"\(nowIso)","message":{"id":"m1","model":"claude-opus-5-5","role":"assistant","usage":{"input_tokens":2,"cache_creation_input_tokens":100,"cache_read_input_tokens":800,"output_tokens":98}}}
+    {"type":"assistant","timestamp":"\(nowIso)","message":{"id":"m1","model":"claude-opus-5-5","role":"assistant","usage":{"input_tokens":2,"cache_creation_input_tokens":100,"cache_read_input_tokens":800,"output_tokens":98}}}
+    {"type":"assistant","timestamp":"\(nowIso)","message":{"id":"msyn","model":"<synthetic>","role":"assistant","usage":{"input_tokens":999,"output_tokens":999}}}
+    {"type":"assistant","timestamp":"2020-01-01T00:00:00.000Z","message":{"id":"old","model":"claude-opus-5-5","role":"assistant","usage":{"input_tokens":5}}}
     """
     let ompLog = """
-    {"type":"message","id":"a1","timestamp":"\(nowIso)","message":{"role":"assistant","usage":{"totalTokens":5000,"cost":{"total":0.25}}}}
+    {"type":"message","id":"a1","timestamp":"\(nowIso)","message":{"model":"gemini-4-carbon","role":"assistant","usage":{"totalTokens":5000,"cost":{"total":0.25}}}}
     """
     var tot: [String: AgentTokens] = [:]; var seen = Set<String>()
     tallyAgentTokens(claudeLog, agent: "Claude", cutoff: Date().addingTimeInterval(-3600), into: &tot, seen: &seen)
@@ -3135,6 +3438,21 @@ if CommandLine.arguments.contains("--net-self-test") {
     let fromCap = lineMbps(downCapKB: 11877, upCapKB: 952, cachedDown: 0, cachedUp: 0)
     if formatMbps(fromCap.0) != "97.3 Mbps" || formatMbps(fromCap.1) != "7.8 Mbps" { failures.append("cap convert \(fromCap)") }
     if lineMbps(downCapKB: 0, upCapKB: 0, cachedDown: 0.1, cachedUp: 0.1) != (0, 0) { failures.append("trickle cache counted as line") }
+    let freshCacheWins = lineMbps(downCapKB: 5000, upCapKB: 500, cachedDown: 95.4, cachedUp: 8.2)
+    if formatMbps(freshCacheWins.0) != "95.4 Mbps" || formatMbps(freshCacheWins.1) != "8.2 Mbps" { failures.append("cached line priority \(freshCacheWins)") }
+    let bloatRow = wifiVsProviderRow(routerMs: 10, wanMs: 480, upFullPct: 92, topUploader: "agy 950 KB/s")
+    if !bloatRow.contains("Wi-Fi 10 ms · Internet 480 ms") || !bloatRow.contains("Wi-Fi is fine") || !bloatRow.contains("Gemini") { failures.append("bloat row \(bloatRow)") }
+    let wifiSlowRow = wifiVsProviderRow(routerMs: 115, wanMs: 140, upFullPct: 10, topUploader: "")
+    if !wifiSlowRow.contains("local Wi-Fi router took 115 ms") { failures.append("wifi slow row \(wifiSlowRow)") }
+    let nilBothRow = wifiVsProviderRow(routerMs: nil, wanMs: nil, upFullPct: -1, topUploader: "")
+    if !nilBothRow.contains("Measuring your local Wi-Fi") || nilBothRow.contains("replying cleanly") { failures.append("nil both row \(nilBothRow)") }
+    let wanDownRow = wifiVsProviderRow(routerMs: 9, wanMs: nil, upFullPct: -1, topUploader: "")
+    if !wanDownRow.contains("internet did not reply") || wanDownRow.contains("replying cleanly") { failures.append("wan down row \(wanDownRow)") }
+    let routerNoIcmpRow = wifiVsProviderRow(routerMs: nil, wanMs: 34, upFullPct: 10, topUploader: "")
+    if !routerNoIcmpRow.contains("ignores ping") || routerNoIcmpRow.contains("Both your local") { failures.append("router no icmp row \(routerNoIcmpRow)") }
+    let totalsSample = ",bytes_in,bytes_out,\nagy.777,3000000,520000000,\n,bytes_in,bytes_out,\nagy.777,0,0,\n"
+    let parsedTotals = parseNettopTotals(totalsSample, excludingPid: -1)
+    if Int(parsedTotals["Gemini"] ?? 0) != 523_000_000 { failures.append("totals \(parsedTotals)") }
     guard failures.isEmpty else { print("MAC_YOLO_NET_FAIL \(failures.joined(separator: ", "))"); exit(1) }
     let live = parsePingAverage(captureCommand("/sbin/ping", ["-c", "3", "-q", "-t", "5", "1.1.1.1"], timeout: 7))
     let sample = captureCommand("/usr/bin/nettop", ["-P", "-d", "-t", "external", "-L", "2", "-s", "2", "-J", "bytes_in,bytes_out", "-x"], timeout: 8)
@@ -3158,6 +3476,41 @@ if let i = CommandLine.arguments.firstIndex(of: "--license-self-test"), i + 1 < 
 }
 
 if CommandLine.arguments.contains("--health-self-test") {
+    let helper = MacYoloAppDelegate()
+    let c = helper.sampleTopCpuCulprits()
+    let shield = helper.buildDetailShieldFull(
+        culpritsShortLine: c.shortLine,
+        culpritsDetailCpu: c.detailCpu,
+        totalProcs: c.totalProcs,
+        swarmSummary: c.swarmSummary,
+        cpuPct: c.totalCpuPct,
+        load1Str: "4.2",
+        load5Str: "3.8",
+        load15Str: "3.1",
+        ncpu: 18,
+        gpuDevicePct: 12,
+        gpuRendererPct: 8,
+        gpuVramGB: 1.4,
+        memPressurePct: 62,
+        activeGB: 8.5,
+        wiredGB: 5.1,
+        compressedGB: 9.2,
+        sessTotalMB: 48.0,
+        sessFiles: 14,
+        sessTokensM: 12.6,
+        freeDecimalGB: 288.0,
+        totalDecimalGB: 494.0,
+        diskUsedPct: 42
+    )
+    let shieldRows = shield.components(separatedBy: ";;").filter { !$0.isEmpty }
+    guard !c.shortLine.isEmpty,
+          !c.detailCpu.isEmpty,
+          shieldRows.first?.hasPrefix("Top Hogs Right Now|") == true,
+          shieldRows.contains(where: { $0.hasPrefix("1. ") }),
+          shieldRows.allSatisfy({ $0.components(separatedBy: "|").count >= 4 }) else {
+        fputs("MAC_YOLO_HEALTH_SELF_TEST_FAILED\n", stderr)
+        exit(1)
+    }
     print("MAC_YOLO_HEALTH_OK")
     fflush(stdout)
     exit(0)
