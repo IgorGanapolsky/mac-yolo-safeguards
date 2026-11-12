@@ -4,7 +4,7 @@
 
 Site: https://macyolosafeguards.io/
 Source (MIT): https://github.com/IgorGanapolsky/mac-yolo-safeguards
-Latest release: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v1.2.0
+Latest release: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v1.2.1
 Author: Igor Ganapolsky
 
 ## What it does
@@ -16,7 +16,7 @@ Author: Igor Ganapolsky
 
 ## Install
 
-- DMG: https://macyolosafeguards.io/go/dmg (MacYoloSafeguards-1.2.0.dmg, SHA256 ce60c07b29cdc41ff257dfbcd4b2c15d021308a56d35ebc077b039698a8f9452)
+- DMG: https://macyolosafeguards.io/go/dmg (MacYoloSafeguards-1.2.1.dmg, SHA256 6810c1a6273716a96a20b485b1373de29fcfdb8fae2f2ba316dc86a0fa730818)
 - PKG: https://macyolosafeguards.io/go/pkg
 - Homebrew: `brew install --cask igorganapolsky/tap/mac-yolo-safeguards` (the fully qualified name trusts just this cask, so no separate `brew trust` step)
 
