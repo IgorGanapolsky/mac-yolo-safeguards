@@ -1,0 +1,74 @@
+{
+  "id": "27-browser-renderer-swarm",
+  "source": "derived",
+  "description": "46 identical renderer helpers under a foreground browser.",
+  "snapshot": "real-03",
+  "overlay": {
+    "add": [
+      "900000 1 400000 01:00:00 ?? /Applications/BrowserOS neo.app/Contents/MacOS/BrowserOS neo",
+      "904000 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904001 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904002 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904003 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904004 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904005 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904006 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904007 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904008 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904009 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904010 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904011 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904012 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904013 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904014 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904015 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904016 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904017 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904018 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904019 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904020 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904021 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904022 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904023 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904024 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904025 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904026 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904027 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904028 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904029 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904030 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904031 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904032 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904033 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904034 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904035 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904036 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904037 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904038 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904039 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904040 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904041 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904042 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904043 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904044 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer",
+      "904045 900000 70000 00:20 ?? /Applications/BrowserOS neo.app/Contents/Frameworks/BrowserOS neo Helper (Renderer).app/Contents/MacOS/BrowserOS neo Helper (Renderer) --type=renderer"
+    ]
+  },
+  "expect": {
+    "kill": [],
+    "spare": [
+      {
+        "pid": 900000,
+        "reason": "foreground browser"
+      },
+      {
+        "pid": 904000,
+        "reason": "renderer helper"
+      },
+      {
+        "pid": 904045,
+        "reason": "renderer helper"
+      }
+    ]
+  }
+}

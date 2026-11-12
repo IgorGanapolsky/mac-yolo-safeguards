@@ -1,0 +1,31 @@
+{
+  "id": "10-terminal-dev-server-hot",
+  "source": "derived",
+  "description": "A node dev server in a terminal (tty set) pinned at 100% CPU for 30 minutes.",
+  "snapshot": "real-03",
+  "overlay": {
+    "add": [
+      "900001 13288 400000 35:00 ttys023 node /Users/user/work/project dev"
+    ],
+    "cpu": {
+      "900001": 1800
+    }
+  },
+  "timeline": {
+    "flatForSec": 1800,
+    "moving": [
+      900001,
+      10115,
+      43925
+    ]
+  },
+  "expect": {
+    "kill": [],
+    "spare": [
+      {
+        "pid": 900001,
+        "reason": "process with a controlling terminal: the person is looking at it"
+      }
+    ]
+  }
+}

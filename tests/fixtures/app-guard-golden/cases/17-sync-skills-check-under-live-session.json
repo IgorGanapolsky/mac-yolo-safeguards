@@ -1,0 +1,20 @@
+{
+  "id": "<redacted>",
+  "source": "derived",
+  "description": "sync-agent-skills.sh --check run by a real live session.",
+  "snapshot": "real-03",
+  "overlay": {
+    "add": [
+      "900001 97363 4000 00:10 ?? /bin/bash /Users/user/bin/sync-agent-skills.sh --check"
+    ]
+  },
+  "expect": {
+    "kill": [],
+    "spare": [
+      {
+        "pid": 900001,
+        "reason": "a hook or tool of a live session"
+      }
+    ]
+  }
+}

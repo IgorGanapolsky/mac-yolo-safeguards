@@ -1,0 +1,20 @@
+{
+  "id": "<redacted>",
+  "source": "derived",
+  "description": "A find started by a live omp session on a terminal.",
+  "snapshot": "real-03",
+  "overlay": {
+    "add": [
+      "900001 27893 4000 00:05 ?? find /Users/user/workspace -name *.ts"
+    ]
+  },
+  "expect": {
+    "kill": [],
+    "spare": [
+      {
+        "pid": 900001,
+        "reason": "live omp session's task"
+      }
+    ]
+  }
+}

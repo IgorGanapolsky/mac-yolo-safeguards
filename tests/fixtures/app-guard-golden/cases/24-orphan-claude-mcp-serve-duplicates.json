@@ -1,0 +1,26 @@
+{
+  "id": "<redacted>",
+  "source": "derived",
+  "description": "Two orphaned `claude mcp serve` processes left by a dead agent.",
+  "snapshot": "real-03",
+  "overlay": {
+    "add": [
+      "900001 1 90000 02:00:00 ?? /Users/user/.local/bin/claude mcp serve",
+      "900002 1 90000 30:00 ?? /Users/user/.local/bin/claude mcp serve"
+    ]
+  },
+  "expect": {
+    "kill": [
+      {
+        "pid": 900001,
+        "reason": "older orphaned claude mcp serve copy"
+      }
+    ],
+    "spare": [
+      {
+        "pid": 900002,
+        "reason": "newest copy kept"
+      }
+    ]
+  }
+}

@@ -1,0 +1,315 @@
+{
+  "id": "18-orphan-wrapper-storm-60",
+  "source": "derived",
+  "description": "A retry wrapper with no backoff re-invoking itself: 60 copies under launchd.",
+  "snapshot": "real-03",
+  "overlay": {
+    "add": [
+      "902000 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902001 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902002 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902003 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902004 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902005 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902006 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902007 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902008 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902009 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902010 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902011 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902012 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902013 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902014 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902015 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902016 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902017 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902018 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902019 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902020 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902021 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902022 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902023 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902024 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902025 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902026 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902027 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902028 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902029 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902030 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902031 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902032 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902033 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902034 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902035 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902036 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902037 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902038 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902039 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902040 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902041 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902042 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902043 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902044 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902045 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902046 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902047 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902048 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902049 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902050 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902051 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902052 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902053 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902054 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902055 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902056 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902057 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902058 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff",
+      "902059 1 100000 00:30 ?? /bin/bash /Users/user/.local/bin/retry-wrapper.sh --no-backoff"
+    ]
+  },
+  "expect": {
+    "kill": [
+      {
+        "pid": 902000,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902030,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902059,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902001,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902002,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902003,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902004,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902005,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902006,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902007,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902008,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902009,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902010,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902011,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902012,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902013,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902014,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902015,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902016,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902017,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902018,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902019,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902020,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902021,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902022,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902023,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902024,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902025,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902026,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902027,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902028,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902029,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902031,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902032,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902033,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902034,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902035,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902036,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902037,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902038,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902039,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902040,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902041,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902042,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902043,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902044,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902045,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902046,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902047,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902048,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902049,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902050,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902051,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902052,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902053,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902054,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902055,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902056,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902057,
+        "reason": "storm copy"
+      },
+      {
+        "pid": 902058,
+        "reason": "storm copy"
+      }
+    ],
+    "spare": []
+  }
+}
