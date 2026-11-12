@@ -97,6 +97,34 @@ function reviewSelfScoreSource(src) {
   return findings;
 }
 
+function asFlag(value) {
+  return value === true || value === 'true';
+}
+
+function asNumber(value) {
+  if (value == null || value === '') return undefined;
+  if (typeof value === 'number') return value;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : value;
+}
+
+function guardOutbound(fields) {
+  const packet = fields || {};
+  return guardSourceValue({
+    text: packet.text == null ? '' : String(packet.text),
+    valueScore: asNumber(packet.valueScore),
+    riskScore: asNumber(packet.riskScore),
+    measuredCents: asNumber(packet.measuredCents),
+    measuredSource: packet.measuredSource || undefined,
+    skipGovernance: asFlag(packet.skipGovernance),
+    bypass: asFlag(packet.bypass),
+    spend: asFlag(packet.spend),
+    callCap: asNumber(packet.callCap),
+    agents: packet.agents,
+    vendorFigures: packet.vendorFigures,
+  });
+}
+
 function guardSourceValue(evidence) {
   const packet = evidence || {};
   const findings = [];
@@ -162,6 +190,6 @@ function main() {
   process.exit(report.ok ? 0 : 1);
 }
 
-module.exports = { guardSourceValue, reviewSelfScoreSource, maskText };
+module.exports = { guardSourceValue, guardOutbound, reviewSelfScoreSource, maskText };
 
 if (require.main === module) main();

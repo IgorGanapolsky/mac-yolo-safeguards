@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync, execFileSync } = require('child_process');
 const { discoverPattern } = require('./ops-paths');
+const { guardOutbound } = require('./source-value-guard');
 
 const usage = `Usage:
   node tools/send-next.js [--dry-run] [--mark-sent] [--limit N] [--all]
@@ -59,6 +60,30 @@ function deriveOpenUrl(action) {
     return action.contact_value;
   }
   return '';
+}
+
+function optionalNumber(value) {
+  if (value == null || value === '') return undefined;
+  if (typeof value === 'number') return value;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : value;
+}
+
+function reviewSend(action) {
+  const row = action || {};
+  return guardOutbound({
+    text: [row.subject, row.draft_body, row.action_value].filter((part) => part).join('\n'),
+    valueScore: optionalNumber(row.valueScore != null ? row.valueScore : row.value_score),
+    riskScore: optionalNumber(row.riskScore != null ? row.riskScore : row.risk_score),
+    measuredCents: optionalNumber(row.measuredCents != null ? row.measuredCents : row.measured_cents),
+    measuredSource: row.measuredSource || row.measured_source || undefined,
+    skipGovernance: row.skipGovernance === true || row.skip_governance === 'true',
+    bypass: row.bypass === true || row.bypass === 'true',
+    spend: row.spend === true || row.spend === 'true',
+    callCap: optionalNumber(row.callCap != null ? row.callCap : row.call_cap),
+    agents: row.agents,
+    vendorFigures: row.vendorFigures,
+  });
 }
 
 function normalizeAction(raw) {
@@ -138,6 +163,15 @@ function main() {
       process.exit(1);
     }
 
+    const sourceReport = reviewSend(action);
+    if (!sourceReport.ok) {
+      log('BLOCKED ' + sourceReport.findings.map((item) => item.id).join(','));
+      for (const item of sourceReport.findings) {
+        log(item.id + ': ' + item.detail);
+      }
+      process.exit(1);
+    }
+
     console.log('\n==================================================');
     console.log(`PROSPECT:  ${label}`);
     console.log(`ROUTE:     ${action.route || row.route || 'N/A'}`);
@@ -196,4 +230,8 @@ function main() {
   }
 }
 
-main();
+if (require.main === module) {
+  main();
+}
+
+module.exports = { reviewSend };

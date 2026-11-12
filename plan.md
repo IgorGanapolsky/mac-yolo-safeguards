@@ -4645,3 +4645,19 @@ An outbound action fails when a typed score stands in for a processor return, a 
 | tools/source-value-guard.js | grok-source-value-guard | 2026-11-12T15:32:06-0500 |
 | tests/test-source-value-guard.js | grok-source-value-guard | 2026-11-12T15:32:06-0500 |
 | plan.md (this append) | grok-source-value-guard | 2026-11-12T15:32:06-0500 |
+
+## Source value callers (append 2026-11-12T15:52:44-0500) — `grok-source-value-guard`
+
+The check now runs inside the post gate, the publish claim, and the send helper. A typed score, a skip flag, uncapped spend, or a raw card, identity number, or key blocks that action. The draft is not printed and no receipt is written when the claim is blocked.
+
+| T-SOURCE-VALUE-CALLERS-20261112 | Fail a post, a publish claim, and a send when the source value check fails | in_progress | grok-source-value-guard | `tools/source-value-guard.js`, `tools/social-publish-gate.js`, `tools/publish-once.js`, `tools/send-next.js`, `tests/test-source-value-outbound.js`, `plan.md` (this append) | `node tests/test-source-value-outbound.js` exits 0. A card in a post, a publish claim, or a send exits blocked, and a typed score on the post gate exits blocked. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/source-value-guard.js | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
+| tools/social-publish-gate.js | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
+| tools/publish-once.js | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
+| tools/send-next.js | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
+| tests/test-source-value-outbound.js | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
+| plan.md (this append) | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
