@@ -4595,3 +4595,19 @@ The signed-in console at https://console.crusoecloud.com/home has no infrastruct
 | .agents/skills/quota-before-provision/** | grok-quota-before-provision | 2026-11-12T13:41:47-0500 |
 | SKILLS.md (one row) | grok-quota-before-provision | 2026-11-12T13:41:47-0500 |
 | plan.md (this append) | grok-quota-before-provision | 2026-11-12T13:41:47-0500 |
+
+## Routine pause (append 2026-11-12T01:58:00 PM ET) — `grok-routine-pause`
+
+A background watcher reopened the Stripe payments page in Google Chrome. Pause, resume, and stop cover one cron line, one launchd job, or one watcher script. `com.igor.shutdown-simulators` stays loaded. The control does not open Chrome.
+
+| T-ROUTINE-PAUSE-20261112 | Pause or stop one cron line, launchd job, or watcher, and hold Chrome when the pause file says so | in_progress | grok-routine-pause | `tools/routine-pause.js`, `tests/test-routine-pause.js`, `tools/revenue-autonomous-loop.js` (chrome hold only), `.agents/skills/routine-pause/**`, `SKILLS.md` (one row), `plan.md` (this append) | `node tests/test-routine-pause.js` exits 0. `chromeOpened` stays false. The simulator shutdown agent is refused. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/routine-pause.js | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
+| tests/test-routine-pause.js | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
+| tools/revenue-autonomous-loop.js (chrome hold only) | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
+| .agents/skills/routine-pause/** | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
+| SKILLS.md (one row) | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
+| plan.md (this append) | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
