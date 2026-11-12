@@ -4609,3 +4609,16 @@ The Background Jobs submenu already lists LaunchAgents, crontab lines, and loose
 | macos/MacYoloTranslucentHud.swift | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
 | tests/test-jobs-menu-reachable.js | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
 | plan.md (this append) | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
+
+## Panel release review (append 2026-11-12T15:11:16-0500) — `grok-hud-release-review`
+
+The menu-bar panel stays one clear web page on an AppKit panel. This check does not redesign it and does not install a build. A panel change is ready only when the first screen has one attention line, a destructive control asks before it runs, and the window is not faded with a flat tint. The Swift panel files stay with their current owners.
+
+| T-HUD-RELEASE-REVIEW-20261112 | Fail a panel release that hides the one thing to do, or starts a destructive action on the first click, or lets the desktop show through | in_progress | grok-hud-release-review | `tools/mac-yolo-hud-release-review.js`, `tests/test-mac-yolo-hud-release-review.js`, `plan.md` (this append) | `node tests/test-mac-yolo-hud-release-review.js` exits 0. `node tools/mac-yolo-hud-release-review.js macos/MacYoloSafeguardsApp.swift` exits 1 until the panel itself is changed. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/mac-yolo-hud-release-review.js | grok-hud-release-review | 2026-11-12T15:11:16-0500 |
+| tests/test-mac-yolo-hud-release-review.js | grok-hud-release-review | 2026-11-12T15:11:16-0500 |
+| plan.md (this append) | grok-hud-release-review | 2026-11-12T15:11:16-0500 |
