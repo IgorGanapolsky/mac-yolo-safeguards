@@ -1288,14 +1288,15 @@ func tallyAgentTokens(_ text: String, agent: String, cutoff: Date, into totals: 
     }
 }
 
-// Grok chat logs have no usage block and no timestamp. Count assistant replies that name a model.
-// Tokens and a price stay at zero because the log does not record them.
-func tallyGrokCalls(_ text: String, into totals: inout [String: AgentTokens]) {
+// Grok logs no token counts or prices. Its events.jsonl marks each model reply with a timed
+// "first_token" event, so calls since `cutoff` can be counted; tokens and price stay at zero.
+func tallyGrokCalls(_ text: String, cutoff: Date, into totals: inout [String: AgentTokens]) {
+    let fmt = ISO8601DateFormatter(); fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     var n = 0
-    for line in text.split(separator: "\n") where line.contains("\"assistant\"") {
+    for line in text.split(separator: "\n") where line.contains("\"first_token\"") {
         guard let obj = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
-              (obj["type"] as? String) == "assistant",
-              (obj["model_id"] as? String)?.isEmpty == false else { continue }
+              (obj["type"] as? String) == "first_token",
+              let ts = obj["ts"] as? String, let when = fmt.date(from: ts), when >= cutoff else { continue }
         n += 1
     }
     guard n > 0 else { return }
@@ -1330,7 +1331,7 @@ func agentUsageRows(tokens: [String: AgentTokens], net: [(agent: String, inRate:
             sentences.append("Last hour: \(t.calls) model \(t.calls == 1 ? "call" : "calls") and \(formatTokens(t.tokens)) new tokens.\(cachedBit)")
             sentences.append(t.costUSD > 0 ? String(format: "Cloud cost recorded in the session log: $%.2f.", t.costUSD) : "The session log has no price, so no cloud dollars are shown.")
         } else if let t, t.calls > 0 {
-            sentences.append("Recent model replies in the log: \(t.calls). Token counts are not in this log. The log has no price, so no cloud dollars are shown.")
+            sentences.append("Last hour: \(t.calls) model \(t.calls == 1 ? "reply" : "replies"). This agent's log has no token counts. The log has no price, so no cloud dollars are shown.")
         } else {
             sentences.append("No model-call count in the logs this menu reads. Cloud spend is not shown without a price in the log.")
         }
@@ -1994,7 +1995,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         DispatchQueue.global(qos: .utility).async {
             let home = FileManager.default.homeDirectoryForCurrentUser.path
             let list = captureCommand("/usr/bin/find", ["\(home)/.claude/projects", "\(home)/.omp/agent/sessions", "-name", "*.jsonl", "-mmin", "-60"], timeout: 10)
-            let grokList = captureCommand("/usr/bin/find", ["\(home)/.grok/sessions", "-name", "chat_history.jsonl", "-mmin", "-60"], timeout: 8)
+            let grokList = captureCommand("/usr/bin/find", ["\(home)/.grok/sessions", "-name", "events.jsonl", "-mmin", "-60"], timeout: 8)
             let cutoff = Date().addingTimeInterval(-3600)
             var totals: [String: AgentTokens] = [:]
             var seen = Set<String>()
@@ -2012,7 +2013,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                 try? fh.seek(toOffset: size > 1_000_000 ? size - 1_000_000 : 0)
                 let data = (try? fh.readToEnd()) ?? Data()
                 try? fh.close()
-                tallyGrokCalls(String(decoding: data, as: UTF8.self), into: &totals)
+                tallyGrokCalls(String(decoding: data, as: UTF8.self), cutoff: cutoff, into: &totals)
             }
             DispatchQueue.main.async {
                 self.agentTokens = totals
@@ -3123,7 +3124,8 @@ if CommandLine.arguments.contains("--net-self-test") {
     let glance = fleetGlance(tokens: tot, net: byAgent)
     if !glance.hasPrefix("OMP · 1 call · 5K new · $0.25 cloud\nClaude · 1 call · 200 new · 800 cached · no price") { failures.append("glance \(glance)") }
     var grokTotals: [String: AgentTokens] = [:]
-    tallyGrokCalls("{\"type\":\"user\"}\n{\"type\":\"assistant\",\"model_id\":\"m\"}\n{\"type\":\"assistant\",\"model_id\":\"m\"}\n{\"type\":\"tool_result\",\"model_id\":\"m\"}\n", into: &grokTotals)
+    let nowTs = ISO8601DateFormatter.string(from: Date(), timeZone: TimeZone(identifier: "UTC")!, formatOptions: [.withInternetDateTime, .withFractionalSeconds])
+    tallyGrokCalls("{\"ts\":\"\(nowTs)\",\"type\":\"first_token\"}\n{\"ts\":\"\(nowTs)\",\"type\":\"first_token\"}\n{\"ts\":\"2020-01-01T00:00:00.000Z\",\"type\":\"first_token\"}\n{\"ts\":\"\(nowTs)\",\"type\":\"tool_started\"}\n", cutoff: Date().addingTimeInterval(-3600), into: &grokTotals)
     if grokTotals["Grok"]?.calls != 2 || grokTotals["Grok"]?.tokens != 0 || grokTotals["Grok"]?.costUSD != 0 { failures.append("grok calls \(String(describing: grokTotals["Grok"]))") }
     let idle = internetHeadline(latencyMs: 33, lineDownMbps: 0, lineUpMbps: 0, downKB: 12, upKB: 40)
     if idle.speed != "Delay 33 ms" || idle.speed.contains("KB") || idle.speed.contains("Mbps") { failures.append("idle shown as speed: \(idle.speed)") }
