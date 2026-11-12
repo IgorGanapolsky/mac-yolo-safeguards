@@ -51,6 +51,7 @@ function main() {
     'Gumroad page',
     'captureBelowWindow',
     'hudPanel.alphaValue = 1',
+    '/usr/bin/networkQuality',
   ];
   for (const b of banned) {
     assert.ok(!src.includes(b), `Regression string "${b}" is banned in macos/MacYoloSafeguardsApp.swift`);
@@ -83,6 +84,7 @@ function main() {
   assert.ok(src.includes('dt < 1.2') || src.includes('dt >= 1.2'), 'dt 1.2s guard required in sampleNetworkRates()');
   assert.ok(src.includes('id="actionReceiptBanner"') && src.includes('window.renderActionReceipt'), 'Itemized #actionReceiptBanner and window.renderActionReceipt required for Clean AI Waste / RAM / Fan actions');
   assert.ok(src.includes('singleInstanceLockFd') && src.includes('flock(singleInstanceLockFd, LOCK_EX | LOCK_NB)'), 'Pre-AppKit singleInstanceLockFd flock required to prevent duplicate HUD windows and BTM notifications');
+  assert.ok(src.includes('id="drawerSpeedBtn"') && src.includes('wifiVsProviderRow(') && src.includes('"<synthetic>"'), 'Polite Internet drawer speed button, Wi-Fi vs Provider row, and <synthetic> token filter required');
   const launcherSrc = fs.readFileSync(LAUNCHER_PATH, 'utf8');
   assert.ok(launcherSrc.includes('Developer ID Application: Igor Ganapolsky (9GMM26JC5X)') && launcherSrc.includes('is_self_test'), 'tools/launch-mac-yolo-menubar.sh must sign with Developer ID Application and skip re-signing on self-tests');
 
