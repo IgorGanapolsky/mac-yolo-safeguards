@@ -4,6 +4,7 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 
 | Skill | Description | Definition | Source |
 | :--- | :--- | :--- | :--- |
+| `background-agent-hold-gate` | Refuse a background agent that keeps running after someone steps away, and refuse an unattended write into a design project file. | `.agents/skills/background-agent-hold-gate/SKILL.md` | local |
 | `gemini-decisions-hold-gate` | Name a held Mac YOLO offer for a freeze complaint, and refuse a Gemini Decisions call, a send, or Google's latency and price as local results. | `.agents/skills/gemini-decisions-hold-gate/SKILL.md` | local |
 | `openshell-policy-gate` | Refuse an OpenShell install, a self-applied policy widening, and NVIDIA's enforcement claims as local results. | `.agents/skills/openshell-policy-gate/SKILL.md` | local |
 | `context-weight-gate` | Refuse an unanchored timeline, a second timeline database, a raw screen-tree payload, a model call, and an Electron or generated native window, and keep latency and memory figures unmeasured. | `.agents/skills/context-weight-gate/SKILL.md` | local |
