@@ -94,6 +94,7 @@ function main() {
   assert.ok(!/"(recTitle|memPressure|cpuLoad)":[^\n]*shortLine/.test(src) && !src.includes('let rTitle = "Top Hogs'), 'Top Hogs must appear only on the Protection line, not the optimization card, memory tile or CPU tile');
   // Switching apps must not write the app name over the Agents card ("Gemini / Gemini", "Google Chrome").
   assert.ok(!/let activePayload: \[String: String\] = \[[^\]]*"activeApp"/.test(src), 'App-switch payload must not overwrite the Agents card (activeApp/activeWin)');
+  assert.ok(/"netName": networkTitle\(/.test(src) && src.includes("setTextIfChanged('netName', state.netName)"), 'Network card title must show the network name and how long the Mac has been on it');
   const launcherSrc = fs.readFileSync(LAUNCHER_PATH, 'utf8');
   assert.ok(launcherSrc.includes('Developer ID Application: Igor Ganapolsky (9GMM26JC5X)') && launcherSrc.includes('is_self_test'), 'tools/launch-mac-yolo-menubar.sh must sign with Developer ID Application and skip re-signing on self-tests');
 
