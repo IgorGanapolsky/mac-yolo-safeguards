@@ -273,39 +273,6 @@ function runSelfTest() {
   };
 }
 
-function enforceCanonicalMenubarBinary() {
-  if (process.platform !== 'darwin') return { healed: false };
-  const canonicalBin = path.join(os.homedir(), '.hermes', 'bin', 'MacYolo-Protected-V4');
-  const canonicalSwift = path.join(__dirname, '..', 'macos', 'MacYoloTranslucentHud.swift');
-  const repoSwift = path.join(__dirname, '..', 'macos', 'MacYoloSafeguardsApp.swift');
-  const appBundle = '/Applications/MacYoloSafeguards.app';
-  const appBin = path.join(appBundle, 'Contents', 'MacOS', 'MacYoloSafeguards');
-  try {
-    if (fs.existsSync(canonicalSwift)) {
-      const cs = fs.readFileSync(canonicalSwift);
-      const rs = fs.existsSync(repoSwift) ? fs.readFileSync(repoSwift) : Buffer.alloc(0);
-      if (!cs.equals(rs)) {
-        spawnSync('/usr/bin/chflags', ['nouchg', repoSwift]);
-        fs.copyFileSync(canonicalSwift, repoSwift);
-      }
-    }
-    if (!fs.existsSync(canonicalBin)) return { healed: false };
-    const cBuf = fs.readFileSync(canonicalBin);
-    const aBuf = fs.existsSync(appBin) ? fs.readFileSync(appBin) : Buffer.alloc(0);
-    if (!cBuf.equals(aBuf)) {
-      spawnSync('/usr/bin/chflags', ['-R', 'nouchg', appBundle]);
-      fs.copyFileSync(canonicalBin, appBin);
-      fs.chmodSync(appBin, 0o755);
-      spawnSync('killall', ['-9', 'MacYoloSafeguards']);
-      spawnSync('launchctl', ['kickstart', '-k', `gui/${process.getuid()}/com.iganapolsky.mac-yolo-safeguards-menubar`]);
-      return { healed: true };
-    }
-  } catch {
-    /* ignore */
-  }
-  return { healed: false };
-}
-
 // This service starts at every login. A background loop that kills processes once took
 // down every Claude Code session on the Mac, so the loop is off unless
 // MAC_YOLO_SELF_HEAL asks for it: "dry-run" (or "1") only reports what it would stop,
