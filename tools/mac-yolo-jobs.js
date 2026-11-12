@@ -26,7 +26,7 @@ const PAUSED_CRON = '#MACYOLO-PAUSED ';
 const MIN_PROC_AGE_S = Number(process.env.MAC_YOLO_JOBS_MIN_AGE_S ?? 5 * 60);
 
 const OPENER_PATTERNS = [
-  /(^|[\s;&|(`$])open\s+(-[a-zA-Z]+\s+("[^"]*"|'[^']*'|\S+)\s+)*["']?https?:\/\//m,
+  /(^|[\s;&|(`$])open\s[^\n;&|]*?https?:\/\//m,
   /(^|[\s;&|(`$])open\s+(-[gnFW]+\s+)*-a\s/m,
   /\[\s*["']open["']\s*,\s*["'](-a|-g|https?:)/,
   /\bwebbrowser\.open/,
