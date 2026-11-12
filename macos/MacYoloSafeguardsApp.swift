@@ -1517,6 +1517,27 @@ func receiptJSON(action: String, title: String, items: [String], spared: String)
 // Pro license: a signed key from macyolosafeguards.io/activate, checked offline.
 let proLicensePublicKey = "ZDCWvx/TkO8J5WGNsXC/SpBpjqvUDLBIQa/MnAscPf0="
 let proCheckoutURL = "https://macyolosafeguards.io/go/pro"
+let proPricingURL = "https://macyolosafeguards.io/pricing"
+
+// How many processes Auto-Guard would stop, from `mac-yolo-agent-guard.js pressure` run without --execute.
+func pressureWouldStopCount(_ res: [String: Any]) -> Int {
+    guard res["acted"] as? Bool == true else { return 0 }
+    let storms = (res["wouldStop"] as? [[String: Any]]) ?? []
+    return storms.reduce(0) { $0 + (($1["copies"] as? Int) ?? 0) }
+        + ((res["wouldStopOrphans"] as? [Any]) ?? []).count
+        + ((res["wouldStopStranded"] as? [Any]) ?? []).count
+}
+
+// What a free user hears when their Mac hits a problem Auto-Guard fixes for Pro. nil means stay quiet:
+// Pro users, less than a day since the last notice, or nothing Pro would actually do.
+func proNudgeText(isPro: Bool, sinceLastNudge: TimeInterval, wouldStop: Int, freeDiskGB: Double) -> String? {
+    guard !isPro, sinceLastNudge >= 86400 else { return nil }
+    var parts: [String] = []
+    if wouldStop > 0 { parts.append("Memory is tight and \(wouldStop) leftover agent process\(wouldStop == 1 ? " is" : "es are") holding it.") }
+    if freeDiskGB < 10 { parts.append(String(format: "Only %.0f GB of disk is free.", freeDiskGB)) }
+    guard !parts.isEmpty else { return nil }
+    return parts.joined(separator: " ") + " Pro's Auto-Guard handles this on its own every minute. Click to see Pro, or use Free Agent RAM and Clean AI Waste yourself."
+}
 
 struct ProLicense {
     let key: String
@@ -1594,6 +1615,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var autoGuardBusy = false
     var lastAutoDiskClean: Date = .distantPast
     var lastLicenseRefresh: Date = .distantPast
+    var proNudgeTimer: Timer?
     var autoGuardMenuItem: NSMenuItem!
     var proStatusMenuItem: NSMenuItem!
     var proLicenseMenuItem: NSMenuItem!
@@ -1732,6 +1754,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         refreshProLicenseIfDue()
         updateProMenu()
         startAutoGuardIfEnabled()
+        startProNudgeTimer()
 
         let quietLaunch = CommandLine.arguments.contains("--quiet-launch")
             || ProcessInfo.processInfo.environment["MAC_YOLO_QUIET_LAUNCH"] == "1"
@@ -3288,6 +3311,40 @@ extension MacYoloAppDelegate {
         }
     }
 
+    // Free users: every 15 minutes, look (without acting) at what Auto-Guard would do. At most one notice a day.
+    func startProNudgeTimer() {
+        guard Bundle.main.bundleIdentifier != nil else { return }
+        UNUserNotificationCenter.current().delegate = self
+        proNudgeTimer?.invalidate()
+        proNudgeTimer = Timer.scheduledTimer(withTimeInterval: 15 * 60, repeats: true) { [weak self] _ in
+            self?.proNudgeTick()
+        }
+    }
+
+    func proNudgeTick() {
+        let last = UserDefaults.standard.object(forKey: "MacYoloProNudgeAt") as? Date ?? .distantPast
+        let since = Date().timeIntervalSince(last)
+        guard !isPro, since >= 86400 else { return }
+        let disk = freeDiskGB()
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let mem = runTool("mac-yolo-agent-guard.js", ["pressure"])
+            let n = mem.ran ? pressureWouldStopCount(jsonObject(mem.output)) : 0
+            DispatchQueue.main.async {
+                guard let self = self,
+                      let text = proNudgeText(isPro: self.isPro, sinceLastNudge: since, wouldStop: n, freeDiskGB: disk) else { return }
+                UserDefaults.standard.set(Date(), forKey: "MacYoloProNudgeAt")
+                UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { granted, _ in
+                    guard granted else { return }
+                    let content = UNMutableNotificationContent()
+                    content.title = "Your Mac needs a cleanup"
+                    content.body = text
+                    content.userInfo = ["open": proPricingURL]
+                    UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "pro-nudge", content: content, trigger: nil))
+                }
+            }
+        }
+    }
+
     func notifyAutoGuard(_ text: String) {
         guard Bundle.main.bundleIdentifier != nil else { return }
         let content = UNMutableNotificationContent()
@@ -3295,6 +3352,35 @@ extension MacYoloAppDelegate {
         content.body = text
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
     }
+}
+
+extension MacYoloAppDelegate: UNUserNotificationCenterDelegate {
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        if let link = response.notification.request.content.userInfo["open"] as? String, let url = URL(string: link) {
+            NSWorkspace.shared.open(url)
+        }
+        completionHandler()
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner])
+    }
+}
+
+// Checks when a free user is told about Pro, on fixed samples.
+if CommandLine.arguments.contains("--nudge-self-test") {
+    var failures: [String] = []
+    let tight: [String: Any] = ["acted": true, "wouldStop": [["copies": 3], ["copies": 2]], "wouldStopOrphans": [["pid": 1]], "wouldStopStranded": []]
+    if pressureWouldStopCount(tight) != 6 { failures.append("count \(pressureWouldStopCount(tight))") }
+    if pressureWouldStopCount(["acted": false]) != 0 { failures.append("count normal") }
+    if proNudgeText(isPro: true, sinceLastNudge: 1e9, wouldStop: 6, freeDiskGB: 2) != nil { failures.append("pro stays quiet") }
+    if proNudgeText(isPro: false, sinceLastNudge: 3600, wouldStop: 6, freeDiskGB: 2) != nil { failures.append("once a day") }
+    if proNudgeText(isPro: false, sinceLastNudge: 1e9, wouldStop: 0, freeDiskGB: 200) != nil { failures.append("healthy stays quiet") }
+    if proNudgeText(isPro: false, sinceLastNudge: 1e9, wouldStop: 1, freeDiskGB: 200)?.hasPrefix("Memory is tight and 1 leftover agent process is holding it.") != true { failures.append("memory text") }
+    if proNudgeText(isPro: false, sinceLastNudge: 1e9, wouldStop: 0, freeDiskGB: 7.4)?.hasPrefix("Only 7 GB of disk is free.") != true { failures.append("disk text") }
+    if !failures.isEmpty { print("MAC_YOLO_NUDGE_FAIL " + failures.joined(separator: ", ")); exit(1) }
+    print("MAC_YOLO_NUDGE_OK")
+    exit(0)
 }
 
 // Checks the network card's parsing on fixed samples, then prints one live reading.
