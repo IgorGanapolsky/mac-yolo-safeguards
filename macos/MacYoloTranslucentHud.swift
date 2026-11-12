@@ -2454,11 +2454,11 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         }.joined(separator: " · ")
         let topCpu = ranked.first.map { cpuByApp[$0, default: 0] } ?? 0
         let hot = appleThermalWarning()
-        let rTitle = "CPU \(realCpuPct)% busy · Thermal \(hot ? "Warning" : "Nominal")"
+        let rTitle = "Thermal \(hot ? "Warning" : "Nominal") · \(totalProcs) live procs"
         let systemIndexers: Set<String> = ["Spotlight", "Photos Analysis"]
         let topByCpu = cpuByApp.max { $0.value < $1.value }?.key
         let indexerNote = topByCpu.map { systemIndexers.contains($0) ? "\($0) is a protected macOS service (busy after a restart or large file changes). Safeguards cannot throttle it; it settles on its own. " : "" } ?? ""
-        let rDesc = indexerNote + "\(totalProcs) live procs (\(pyCount) Python, \(nodeCount) node MCPs). Click any card to inspect."
+        let rDesc = indexerNote + "\(pyCount) Python and \(nodeCount) node MCP processes. Click any card to inspect."
         let cpuRows = ranked.prefix(6).enumerated().map { idx, name in
             let c = cpuByApp[name, default: 0]
             let gb = rssByApp[name, default: 0] / 1_048_576.0
@@ -3509,7 +3509,7 @@ if CommandLine.arguments.contains("--health-self-test") {
     guard !c.shortLine.isEmpty,
           !c.detailCpu.isEmpty,
           shieldRows.first?.hasPrefix("Top Hogs Right Now|") == true,
-          !c.recTitle.contains("Top Hogs"),
+          !c.recTitle.contains("Top Hogs"), !c.recTitle.contains("CPU"),
           c.topMem.hasPrefix("Most RAM: "),
           shieldRows.contains(where: { $0.hasPrefix("1. ") }),
           shieldRows.allSatisfy({ $0.components(separatedBy: "|").count >= 4 }) else {
