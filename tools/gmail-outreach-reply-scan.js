@@ -16,6 +16,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { spawnSync } = require('child_process');
+const geminiDecisions = require('./gemini-decisions');
 const {
   buildBuyerReplyPacket,
   OFFER_LADDER,
@@ -133,6 +134,7 @@ function parseArgs(argv) {
       out.chrome = false;
     } else if (a === '--baseline') out.baseline = true;
     else if (a === '--no-ntfy') out.ntfy = false;
+    else if (a === '--no-decisions') out.noDecisions = true;
     else if (a === '--dry-rows-json') out.dryRows = argv[++i] || null;
   }
   return out;
@@ -404,7 +406,19 @@ function gmailApiCollectRows() {
   };
 }
 
-function processRows(rows, { contacts, state, baseline }) {
+// Gemini Decisions first when a key is set; the regex decides when the model is
+// unsure or unreachable, and the row is marked for a human look.
+function decisionsClassifier(rowText) {
+  const d = geminiDecisions.classifyReply(rowText);
+  if (d.ok && d.sure) return { kind: d.kind, confidence: d.confidence, source: 'gemini-decision-1' };
+  return { kind: classifyReplySnippet(rowText), confidence: d.ok ? d.confidence : null, source: 'regex', needsHuman: d.ok };
+}
+
+function regexClassifier(rowText) {
+  return { kind: classifyReplySnippet(rowText), confidence: null, source: 'regex' };
+}
+
+function processRows(rows, { contacts, state, baseline, classify = regexClassifier }) {
   const hot = [];
   const seen = state.seen || {};
   for (const rowText of rows || []) {
@@ -412,11 +426,13 @@ function processRows(rows, { contacts, state, baseline }) {
     const id = rowId(rowText);
     const from = extractFromHint(rowText);
     const contact = matchProspect(contacts, from);
-    const kind = classifyReplySnippet(rowText);
     const isNew = !seen[id];
     seen[id] = true;
     if (baseline) continue;
     if (!isNew && !process.env.GMAIL_REPLY_SCAN_INCLUDE_SEEN) continue;
+    const verdict = classify(rowText);
+    if (verdict.kind === 'auto_reply') continue;
+    const { kind } = verdict;
     const packet = buildBuyerReplyPacket({
       kind,
       name: (contact && contact.person) || from.label || '',
@@ -427,6 +443,9 @@ function processRows(rows, { contacts, state, baseline }) {
       id,
       isNew,
       kind,
+      kindSource: verdict.source,
+      confidence: verdict.confidence,
+      needsHuman: Boolean(verdict.needsHuman),
       from,
       prospect: (contact && contact.prospect) || null,
       email: (contact && contact.email) || from.email || null,
@@ -495,7 +514,7 @@ function writeBoard(revenueDir, summary) {
     lines.push(
       `### ${h.prospect || h.email || h.from.label || h.id}`,
       '',
-      `- kind: **${h.kind}**`,
+      `- kind: **${h.kind}** (${h.kindSource || 'regex'}${h.confidence != null ? `, ${Math.round(h.confidence * 100)}% sure` : ''}${h.needsHuman ? ', check by hand' : ''})`,
       `- email: ${h.email || 'unknown'}`,
       `- snippet: ${h.snippet}`,
       `- cmd: \`${h.replyCmd}\``,
@@ -570,6 +589,7 @@ function run(args) {
     contacts,
     state,
     baseline: args.baseline,
+    classify: process.env.GEMINI_API_KEY && !args.noDecisions ? decisionsClassifier : regexClassifier,
   });
   state.seen = seen;
   state.lastRun = new Date().toISOString();

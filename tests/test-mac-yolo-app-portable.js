@@ -39,4 +39,13 @@ for (const name of bundled) {
 for (const f of ['bundle/Info.plist', 'bundle/en.lproj/InfoPlist.strings', 'AppIcon.icns']) {
   assert.ok(fs.existsSync(path.join(root, 'macos', f)), `macos/${f} is missing`);
 }
+
+// Pro: the app's embedded public key must match the one the site signs for,
+// and the macyolo:// link from the activation page must open the app.
+const licenseJs = fs.readFileSync(path.join(root, 'apps/macyolosafeguards-site/src/license.js'), 'utf8');
+const siteKey = licenseJs.match(/LICENSE_PUBLIC_KEY = "([^"]+)"/)[1];
+assert.ok(hud.includes(`let proLicensePublicKey = "${siteKey}"`), 'app and site license public keys differ');
+const plist = fs.readFileSync(path.join(root, 'macos/bundle/Info.plist'), 'utf8');
+assert.ok(/<string>macyolo<\/string>/.test(plist), 'Info.plist must register the macyolo:// URL scheme');
+assert.ok(hud.includes('func application(_ application: NSApplication, open urls: [URL])'), 'app must handle macyolo://activate');
 console.log('test-mac-yolo-app-portable: PASS');
