@@ -97,6 +97,7 @@ function main() {
   // Blanking out secrets rewrites transcripts and can't be undone: it needs a second click, and only the Swift side runs it.
   assert.ok(src.includes('function blankOutSecrets(') && src.includes("'Click again to confirm'") && src.includes('case "redactSecrets":') && !/triggerHudAction\('redactSecrets'/.test(src), 'Blank Out Secrets must require a second click before redacting');
   assert.ok(/"netName": networkTitle\(/.test(src) && src.includes("setTextIfChanged('netName', state.netName)"), 'Network card title must show the network name and how long the Mac has been on it');
+  assert.ok(src.includes('lookupFailed = true') && src.includes('addingTimeInterval(-540)'), 'A slow Wi-Fi lookup must keep the last network name and retry in a minute, not show plain "Wi-Fi"');
   const launcherSrc = fs.readFileSync(LAUNCHER_PATH, 'utf8');
   assert.ok(launcherSrc.includes('Developer ID Application: Igor Ganapolsky (9GMM26JC5X)') && launcherSrc.includes('is_self_test'), 'tools/launch-mac-yolo-menubar.sh must sign with Developer ID Application and skip re-signing on self-tests');
 
