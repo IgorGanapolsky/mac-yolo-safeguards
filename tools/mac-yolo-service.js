@@ -258,7 +258,7 @@ function runSelfTest() {
     guardrailsRes.status === 200 &&
     guardrailsRes.body.ok === true &&
     businessRes.status === 200 &&
-    businessRes.body.tiers.length === 5 &&
+    businessRes.body.tiers.length === 6 &&
     graphRagRes.status === 200 &&
     graphRagRes.body.ok === true &&
     resolveRes.status === 200 &&
