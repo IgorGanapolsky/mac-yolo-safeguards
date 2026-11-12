@@ -1589,7 +1589,7 @@ func receiptJSON(action: String, title: String, items: [String], spared: String)
 // Pro license: a signed key from macyolosafeguards.io/activate, checked offline.
 let proLicensePublicKey = "ZDCWvx/TkO8J5WGNsXC/SpBpjqvUDLBIQa/MnAscPf0="
 let proCheckoutURL = "https://macyolosafeguards.io/go/pro"
-let proPricingURL = "https://macyolosafeguards.io/pricing"
+let proPricingURL = "https://macyolosafeguards.io/pricing?from=app_nudge"
 
 // How many processes Auto-Guard would stop, from `mac-yolo-agent-guard.js pressure` run without --execute.
 func pressureWouldStopCount(_ res: [String: Any]) -> Int {
@@ -2183,12 +2183,20 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                 DispatchQueue.main.async { self.netNameBusy = false }
                 return
             }
+            let d = UserDefaults.standard
             var name = iface == wifiIface ? "Wi-Fi" : "Ethernet"
-            if iface == wifiIface, let wifi = parseCurrentWifiName(captureCommand("/usr/sbin/system_profiler", ["SPAirPortDataType", "-json", "-detailLevel", "basic"], timeout: 30)) {
-                name = wifi
+            // system_profiler can time out when the Mac is busy. Then keep the last name seen on this
+            // address and try again in a minute, instead of showing plain "Wi-Fi" for 10 minutes.
+            var lookupFailed = false
+            if iface == wifiIface {
+                if let wifi = parseCurrentWifiName(captureCommand("/usr/sbin/system_profiler", ["SPAirPortDataType", "-json", "-detailLevel", "basic"], timeout: 45)) {
+                    name = wifi
+                } else {
+                    lookupFailed = true
+                    if let saved = d.string(forKey: "MacYoloNetName"), !saved.isEmpty, d.string(forKey: "MacYoloNetAddr") == addr { name = saved }
+                }
             }
             // Keep the saved join time across app restarts while the network and address are unchanged.
-            let d = UserDefaults.standard
             var since: Date
             if d.string(forKey: "MacYoloNetName") == name, d.string(forKey: "MacYoloNetAddr") == addr,
                let saved = d.object(forKey: "MacYoloNetSince") as? Date {
@@ -2204,7 +2212,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                 self.netName = name
                 self.netSince = since
                 self.netNameKey = key
-                self.netNameReadAt = Date()
+                self.netNameReadAt = lookupFailed ? Date().addingTimeInterval(-540) : Date()
                 self.netNameBusy = false
             }
         }
