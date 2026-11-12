@@ -962,8 +962,8 @@ private let HUD_HTML = #"""
       var subEl = document.getElementById('detailSub');
       var box = document.getElementById('detailRowsContainer');
       if (!box) return;
-      box.style.maxHeight = (_activeDetailCard === 'fleet' || _activeDetailCard === 'network') ? '440px' : '';
-      box.style.overflowY = (_activeDetailCard === 'fleet' || _activeDetailCard === 'network') ? 'auto' : 'visible';
+      box.style.maxHeight = '440px';
+      box.style.overflowY = 'auto';
       var speedBtn = document.getElementById('drawerSpeedBtn');
       if (speedBtn) speedBtn.style.display = _activeDetailCard === 'network' ? 'inline-block' : 'none';
       if (!box.dataset.bound) {
@@ -978,7 +978,7 @@ private let HUD_HTML = #"""
       }
       var diskRowsCombined = (_lastCleanDetailRows ? (_lastCleanDetailRows + ';;' + (s.detailDisk || '')) : (s.detailDisk || ''));
       var meta = {
-        shield: ['Protection by Mac YOLO — Real-Time Guard', 'Live kernel, GPU, memory & active session telemetry', s.detailShield],
+        shield: ['Protection by Mac YOLO — Real-Time Guard', 'Live top CPU & RAM hogs right now — tap any row for details', s.detailShield],
         disk: ['Disk & AI Waste Cleanup — Live Breakdown', 'APFS volume status + itemized AI/dev cache cleanup receipts', diskRowsCombined],
         memory: ['Memory & Agent RAM — Top Live Consumers', 'Mach VM breakdown + top RSS memory consumers by app', s.detailMemory],
         tokens: ['AI Tokens, Prompt Cache & Session Ledger', 'Live session JSONL transcripts on disk (~/.omp, ~/.grok, ~/.claude)', s.detailTokens],
@@ -990,7 +990,7 @@ private let HUD_HTML = #"""
       if (titleEl) titleEl.textContent = meta[0];
       if (subEl) subEl.textContent = meta[1];
       var raw = meta[2] || '';
-      var cap = _activeDetailCard === 'fleet' ? 24 : 7;
+      var cap = 24;
       var rows = raw.split(';;').filter(Boolean).slice(0, cap);
       function esc(t) {
         return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -2210,20 +2210,30 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
 
     func fanLabel(for fullComm: String, base: String) -> String {
         let lower = (fullComm + " " + base).lowercased()
+        let lowerBase = base.lowercased()
         if lower.contains("browseros") { return "BrowserOS" }
         if lower.contains("ghostty") { return "Ghostty" }
         if lower.contains("opendirectoryd") { return "Directory Services" }
         if lower.contains("jamf") { return "Jamf Protect" }
-        if lower.contains("llama-server") || base == "ollama" { return "Ollama" }
+        if lower.contains("llama-server") || lowerBase == "ollama" { return "Ollama" }
         if base == "mds" || base.hasPrefix("mds_") || base == "mdworker_shared" { return "Spotlight" }
         if base == "mediaanalysisd" || base == "photoanalysisd" { return "Photos Analysis" }
         if base == "WindowServer" { return "WindowServer" }
+        if lowerBase == "dotnet" { return ".NET Build/Test" }
+        if lowerBase == "swiftc" || lowerBase == "swift-frontend" { return "Swift Compiler" }
+        if lowerBase == "cargo" || lowerBase == "rustc" { return "Rust Build" }
+        if lowerBase == "omp" { return "OMP" }
+        if lowerBase == "agy" || lower.contains("/gemini.app/") { return "Gemini" }
+        if lowerBase == "ccusage" { return "ccusage" }
+        if lowerBase == "gh" || lowerBase == "gh-real" { return "GitHub CLI" }
         if lower.contains("claude") { return "Claude" }
         if lower.contains("cursor") { return "Cursor" }
         if lower.contains("grok") { return "Grok" }
         if lower.contains("google chrome") { return "Chrome" }
-        if base == "node" { return "node" }
-        return base
+        if lowerBase.hasPrefix("python") { return "Python" }
+        if lowerBase == "node" { return "Node.js" }
+        if lowerBase == "bun" { return "Bun" }
+        return base.replacingOccurrences(of: "|", with: "/").replacingOccurrences(of: ";", with: ",")
     }
 
     func appleThermalWarning() -> Bool {
@@ -2430,7 +2440,11 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             let gb = rssByApp[name, default: 0] / 1_048_576.0
             let cnt = countByApp[name, default: 1]
             let bar = min(100, max(4, Int(round(c))))
-            return String(format: "%d. %@ (%d procs)|%.1f%% CPU · %.2f GB RAM|%d", idx + 1, name, cnt, c, gb, bar)
+            let coresBusy = c / 100.0
+            let note = systemIndexers.contains(name)
+                ? "Protected macOS background indexer; settles automatically."
+                : String(format: "Using ~%.1f of %d CPU cores and %.2f GB RAM across %d process%@ right now.", coresBusy, ncpu, gb, cnt, cnt == 1 ? "" : "es")
+            return String(format: "%d. %@ (%d procs)|%.1f%% CPU · %.2f GB RAM|%d|%@", idx + 1, name, cnt, c, gb, bar, note)
         }.joined(separator: ";;")
         let memRanked = rssByApp.keys.sorted { rssByApp[$0, default: 0] > rssByApp[$1, default: 0] }
         let memRows = memRanked.prefix(6).enumerated().map { idx, name in
@@ -2439,18 +2453,19 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             let c = cpuByApp[name, default: 0]
             let cnt = countByApp[name, default: 1]
             let bar = min(100, max(4, Int(round(pct32 * 2.5))))
-            return String(format: "%d. %@ (%d procs)|%.2f GB (%.1f%%) · %.0f%% CPU|%d", idx + 1, name, cnt, gb, pct32, c, bar)
+            let note = String(format: "Holding %.2f GB resident RAM (%.1f%% of 32 GB) and %.0f%% CPU across %d process%@.", gb, pct32, c, cnt, cnt == 1 ? "" : "es")
+            return String(format: "%d. %@ (%d procs)|%.2f GB (%.1f%%) · %.0f%% CPU|%d|%@", idx + 1, name, cnt, gb, pct32, c, bar, note)
         }.joined(separator: ";;")
         let poolSessions = max(0, (poolCount + 1) / 2)
         let ompSessions = ompCount > 0 ? max(1, ompCount / 3) : 0
         let swarmStr = "Claude×\(claudeCliCount) · Gemini×\(geminiActive ? 1 : 0) · OMP×\(ompSessions) · Pool×\(poolSessions) · Grok×\(grokCount)"
         let fleetRows = [
-            "Claude Code CLI + Desktop App|\(claudeCliCount) CLI sessions · \(fmtRam(claudeTotalRssKB)) RAM|85",
-            "Gemini & Antigravity (agy)|\(geminiActive ? "Active · \(fmtRam(geminiRssKB)) RAM" : "Idle (0 MB)")|70",
-            "OMP (Oh-My-Pi) Coding Agent|\(ompSessions) sessions (\(ompCount) workers) · \(fmtRam(ompRssKB))|75",
-            "Poolside (Laguna) + Grok CLI|\(poolSessions) Pool + \(grokCount) Grok · \(fmtRam(poolRssKB + grokRssKB))|60",
-            "Cursor IDE|\(cursorCount > 0 ? "Active · \(fmtRam(cursorRssKB)) RAM" : "Not running (0 MB)")|10",
-            "Stdio MCP Child Servers|\(pyCount) Python + \(nodeCount) Node · \(fmtRam(pyRssKB + nodeRssKB))|80",
+            "Claude Code CLI + Desktop App|\(claudeCliCount) CLI sessions · \(fmtRam(claudeTotalRssKB)) RAM|85|Live Claude CLI and desktop processes currently resident in memory.",
+            "Gemini & Antigravity (agy)|\(geminiActive ? "Active · \(fmtRam(geminiRssKB)) RAM" : "Idle (0 MB)")|70|Google Antigravity / Gemini local language server and worker processes.",
+            "OMP (Oh-My-Pi) Coding Agent|\(ompSessions) sessions (\(ompCount) workers) · \(fmtRam(ompRssKB))|75|Active Oh-My-Pi terminal sessions and subagent worker processes.",
+            "Poolside (Laguna) + Grok CLI|\(poolSessions) Pool + \(grokCount) Grok · \(fmtRam(poolRssKB + grokRssKB))|60|Combined Poolside CLI and Grok CLI background workers.",
+            "Cursor IDE|\(cursorCount > 0 ? "Active · \(fmtRam(cursorRssKB)) RAM" : "Not running (0 MB)")|10|Foreground Cursor editor and renderer helpers.",
+            "Stdio MCP Child Servers|\(pyCount) Python + \(nodeCount) Node · \(fmtRam(pyRssKB + nodeRssKB))|80|Python and Node.js processes (including MCP tool servers and build scripts).",
         ].joined(separator: ";;")
         return (shortStr.isEmpty ? "Idle" : shortStr, rTitle, rDesc, cpuRows, memRows, fleetRows, topCpu, totalProcs, pyCount, nodeCount, swarmStr, realCpuPct)
     }
@@ -2474,6 +2489,46 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         guard total > 0 else { return nil }
         let busy = total - delta[Int(CPU_STATE_IDLE)]
         return Int((Double(busy) / Double(total) * 100.0).rounded())
+    }
+
+    func buildDetailShieldFull(
+        culpritsShortLine: String,
+        culpritsDetailCpu: String,
+        totalProcs: Int,
+        swarmSummary: String,
+        cpuPct: Int,
+        load1Str: String,
+        load5Str: String,
+        load15Str: String,
+        ncpu: Int,
+        gpuDevicePct: Int,
+        gpuRendererPct: Int,
+        gpuVramGB: Double,
+        memPressurePct: Int,
+        activeGB: Double,
+        wiredGB: Double,
+        compressedGB: Double,
+        sessTotalMB: Double,
+        sessFiles: Int,
+        sessTokensM: Double,
+        freeDecimalGB: Double,
+        totalDecimalGB: Double,
+        diskUsedPct: Int
+    ) -> String {
+        var rows: [String] = [
+            "Top Hogs Right Now|\(culpritsShortLine)|\(cpuPct)|Ranked by live CPU & resident RAM across all \(totalProcs) processes on this Mac. Individual top hogs are listed right below."
+        ]
+        if !culpritsDetailCpu.isEmpty {
+            rows.append(culpritsDetailCpu)
+        }
+        rows.append(contentsOf: [
+            "Real-Time CPU & Apple Silicon GPU|CPU \(cpuPct)% (Load \(load1Str)/\(ncpu)) · GPU \(gpuDevicePct)% (\(String(format: "%.1fG", gpuVramGB)) VRAM)|\(cpuPct)|Kernel load avg (1m / 5m / 15m): \(load1Str) / \(load5Str) / \(load15Str) across \(ncpu) cores · GPU Renderer \(gpuRendererPct)%.",
+            String(format: "Real-Time Memory Pressure|%d%% used (Active %.1fG · Wired %.1fG · Comp %.1fG)|%d|Mach VM active %.1f GB, wired %.1f GB, compressed %.1f GB, Metal/GPU unified %.2f GB.", memPressurePct, activeGB, wiredGB, compressedGB, memPressurePct, activeGB, wiredGB, compressedGB, gpuVramGB),
+            "Active Multi-Agent Swarms|\(swarmSummary)|80|Live coding agent sessions detected in the process table right now.",
+            String(format: "Live 2h AI Session Volume|%.1f MB (%d JSONL files · ~%.1fM tokens)|72|Session transcripts modified in the last 2 hours under ~/.claude, ~/.omp, and ~/.grok.", sessTotalMB, sessFiles, sessTokensM),
+            String(format: "Disk Free|%.1f GB free|%d|%.1f GB available out of %.0f GB (%d%% used) on Macintosh HD.", freeDecimalGB, diskUsedPct, freeDecimalGB, totalDecimalGB, diskUsedPct),
+        ])
+        return rows.joined(separator: ";;")
     }
 
     func refreshLiveTelemetry() {
@@ -2631,13 +2686,30 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "Processes|\(culprits.totalProcs) running|0|Every process on this Mac, not only the agents above.",
         ]).joined(separator: ";;")
 
-        let detailShieldFull = [
-            "Real-Time CPU & Apple Silicon GPU|CPU \(cpuPct)% (Load \(load1Str)/\(ncpu)) · GPU \(gpu.devicePct)% (\(String(format: "%.1fG", gpu.vramGB)) VRAM)|\(cpuPct)",
-            String(format: "Real-Time Memory Pressure|%d%% used (Active %.1fG · Wired %.1fG · Comp %.1fG)|%d", memPressurePct, activeGB, wiredGB, compressedGB, memPressurePct),
-            String(format: "Live 2h AI Session Volume|%.1f MB (%d JSONL files · ~%.1fM tokens)|72", sess.totalMB, sess.ompFiles + sess.grokFiles, sess.estTokensM),
-            "Active Multi-Agent Swarms|\(culprits.swarmSummary)|80",
-            "Disk Free|\(String(format: "%.1f GB free", freeDecimalGB))|\(diskUsedPct)",
-        ].joined(separator: ";;")
+        let detailShieldFull = buildDetailShieldFull(
+            culpritsShortLine: culprits.shortLine,
+            culpritsDetailCpu: culprits.detailCpu,
+            totalProcs: culprits.totalProcs,
+            swarmSummary: culprits.swarmSummary,
+            cpuPct: cpuPct,
+            load1Str: load1Str,
+            load5Str: load5Str,
+            load15Str: load15Str,
+            ncpu: ncpu,
+            gpuDevicePct: gpu.devicePct,
+            gpuRendererPct: gpu.rendererPct,
+            gpuVramGB: gpu.vramGB,
+            memPressurePct: memPressurePct,
+            activeGB: activeGB,
+            wiredGB: wiredGB,
+            compressedGB: compressedGB,
+            sessTotalMB: sess.totalMB,
+            sessFiles: sess.ompFiles + sess.grokFiles,
+            sessTokensM: sess.estTokensM,
+            freeDecimalGB: freeDecimalGB,
+            totalDecimalGB: totalDecimalGB,
+            diskUsedPct: diskUsedPct
+        )
 
         let payload: [String: String] = [
             "healthState": healthStateStr,
@@ -3318,6 +3390,41 @@ if let i = CommandLine.arguments.firstIndex(of: "--license-self-test"), i + 1 < 
 }
 
 if CommandLine.arguments.contains("--health-self-test") {
+    let helper = MacYoloAppDelegate()
+    let c = helper.sampleTopCpuCulprits()
+    let shield = helper.buildDetailShieldFull(
+        culpritsShortLine: c.shortLine,
+        culpritsDetailCpu: c.detailCpu,
+        totalProcs: c.totalProcs,
+        swarmSummary: c.swarmSummary,
+        cpuPct: c.totalCpuPct,
+        load1Str: "4.2",
+        load5Str: "3.8",
+        load15Str: "3.1",
+        ncpu: 18,
+        gpuDevicePct: 12,
+        gpuRendererPct: 8,
+        gpuVramGB: 1.4,
+        memPressurePct: 62,
+        activeGB: 8.5,
+        wiredGB: 5.1,
+        compressedGB: 9.2,
+        sessTotalMB: 48.0,
+        sessFiles: 14,
+        sessTokensM: 12.6,
+        freeDecimalGB: 288.0,
+        totalDecimalGB: 494.0,
+        diskUsedPct: 42
+    )
+    let shieldRows = shield.components(separatedBy: ";;").filter { !$0.isEmpty }
+    guard !c.shortLine.isEmpty,
+          !c.detailCpu.isEmpty,
+          shieldRows.first?.hasPrefix("Top Hogs Right Now|") == true,
+          shieldRows.contains(where: { $0.hasPrefix("1. ") }),
+          shieldRows.allSatisfy({ $0.components(separatedBy: "|").count >= 4 }) else {
+        fputs("MAC_YOLO_HEALTH_SELF_TEST_FAILED\n", stderr)
+        exit(1)
+    }
     print("MAC_YOLO_HEALTH_OK")
     fflush(stdout)
     exit(0)
