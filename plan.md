@@ -4667,3 +4667,17 @@ The check now runs inside the post gate, the publish claim, and the send helper.
 | tools/send-next.js | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
 | tests/test-source-value-outbound.js | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
 | plan.md (this append) | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
+
+## Paid extra check (append 2026-11-12T16:38:30-0500) — `grok-paid-extra-check`
+
+A priced offer fails when its file digest is the free download, when it names no extra, or when the paid name is only the free product name. A free price passes. A subscription with a named extra and no file passes. Vendor prices and fee shares stay on their pages and are not stored as local measurements. Sources: https://www.raycast.com/blog/changing-how-raycast-ai-is-priced (2026-09-10), https://setapp.com/tech-talks/distribute-app-on-setapp (2026-11-11), https://applecorridor.com/products/setapp/ (updated 2026-11-11).
+
+| T-PAID-EXTRA-CHECK-20261112 | Fail a paid offer that is the free download or that names no extra | in_progress | grok-paid-extra-check | `tools/paid-extra-check.js`, `tests/test-paid-extra-check.js`, `tools/payment-readiness.js` (offer row only), `plan.md` (this append) | `node tests/test-paid-extra-check.js` exits 0. A same-file paid offer and a blank extra exit 1. `node tests/test-mac-yolo-24x7-promote-carryforward.js` still exits 0. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/paid-extra-check.js | grok-paid-extra-check | 2026-11-12T16:38:30-0500 |
+| tests/test-paid-extra-check.js | grok-paid-extra-check | 2026-11-12T16:38:30-0500 |
+| tools/payment-readiness.js | grok-paid-extra-check | 2026-11-12T16:38:30-0500 |
+| plan.md (this append) | grok-paid-extra-check | 2026-11-12T16:38:30-0500 |
