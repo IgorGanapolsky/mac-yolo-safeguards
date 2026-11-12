@@ -2488,9 +2488,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         ]).joined(separator: ";;")
 
         // Name who is using the CPU, right under the CPU line: the same top 3 apps as "Top Hogs" on the main screen.
-        let topHogRows = culprits.detailCpu.components(separatedBy: ";;").filter { !$0.isEmpty }.prefix(3).map {
-            "Top hog \($0)|How much CPU this app's processes use together. 100% is one full core, and this Mac has \(ncpu)."
-        }
+        let topHogRows = topHogDetailRows(culprits.detailCpu, cores: ncpu)
         let detailShieldFull = ([
             "Real-Time CPU & Apple Silicon GPU|CPU \(cpuPct)% (Load \(load1Str)/\(ncpu)) · GPU \(gpu.devicePct)% (\(String(format: "%.1fG", gpu.vramGB)) VRAM)|\(cpuPct)",
         ] + topHogRows + [
@@ -3084,6 +3082,26 @@ extension MacYoloAppDelegate {
         content.body = text
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
     }
+}
+
+// The top 3 rows of the CPU ranking, labelled for the Protection details page, each with a tap-to-read explanation.
+func topHogDetailRows(_ detailCpu: String, cores: Int) -> [String] {
+    detailCpu.components(separatedBy: ";;").filter { !$0.isEmpty }.prefix(3).map {
+        "Top hog \($0)|How much CPU this app's processes use together. 100% is one full core, and this Mac has \(cores)."
+    }
+}
+
+if CommandLine.arguments.contains("--details-self-test") {
+    let cpu = "1. Jamf Protect (12 procs)|147.0% CPU · 0.40 GB RAM|100;;2. Claude (40 procs)|74.0% CPU · 6.60 GB RAM|74;;3. dayglass-ocr (1 procs)|89.0% CPU · 0.20 GB RAM|89;;4. Safari (9 procs)|5.0% CPU · 1.00 GB RAM|5"
+    let rows = topHogDetailRows(cpu, cores: 18)
+    var failures: [String] = []
+    if rows.count != 3 { failures.append("count \(rows.count)") }
+    if rows.first != "Top hog 1. Jamf Protect (12 procs)|147.0% CPU · 0.40 GB RAM|100|How much CPU this app's processes use together. 100% is one full core, and this Mac has 18." { failures.append("row text") }
+    if rows.contains(where: { $0.split(separator: "|").count != 4 }) { failures.append("fields") }
+    if !topHogDetailRows("", cores: 18).isEmpty { failures.append("empty") }
+    if !failures.isEmpty { print("MAC_YOLO_DETAILS_FAIL " + failures.joined(separator: ", ")); exit(1) }
+    print("MAC_YOLO_DETAILS_OK")
+    exit(0)
 }
 
 // Checks the network card's parsing on fixed samples, then prints one live reading.
