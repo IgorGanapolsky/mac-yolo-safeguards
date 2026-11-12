@@ -1523,7 +1523,7 @@ func receiptJSON(action: String, title: String, items: [String], spared: String)
 // Pro license: a signed key from macyolosafeguards.io/activate, checked offline.
 let proLicensePublicKey = "ZDCWvx/TkO8J5WGNsXC/SpBpjqvUDLBIQa/MnAscPf0="
 let proCheckoutURL = "https://macyolosafeguards.io/go/pro"
-let proPricingURL = "https://macyolosafeguards.io/pricing"
+let proPricingURL = "https://macyolosafeguards.io/pricing?from=app_nudge"
 
 // How many processes Auto-Guard would stop, from `mac-yolo-agent-guard.js pressure` run without --execute.
 func pressureWouldStopCount(_ res: [String: Any]) -> Int {
