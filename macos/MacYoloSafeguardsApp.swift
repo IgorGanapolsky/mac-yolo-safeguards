@@ -1055,6 +1055,7 @@ private let HUD_HTML = #"""
       setTextIfChanged('mcpRightBadge', state.mcpRightBadge);
       setTextIfChanged('netUp', state.netUp);
       setTextIfChanged('netDown', state.netDown);
+      setTextIfChanged('netName', state.netName);
       setTextIfChanged('netVerdict', state.netVerdict);
       setTextIfChanged('netImpact', state.netImpact);
       setTextIfChanged('netCause', state.netCause);
@@ -1218,6 +1219,60 @@ func parsePingAverage(_ text: String) -> Int? {
           let values = line.split(separator: "=").last?.split(separator: "/"), values.count >= 2,
           let avg = Double(values[1].trimmingCharacters(in: .whitespaces)) else { return nil }
     return Int(avg.rounded())
+}
+
+// Name of the Wi-Fi network the Mac is on. macOS now hides it from networksetup and ipconfig,
+// but `system_profiler SPAirPortDataType -json` still reports it.
+func parseCurrentWifiName(_ json: String) -> String? {
+    guard let data = json.data(using: .utf8),
+          let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+          let items = root["SPAirPortDataType"] as? [[String: Any]] else { return nil }
+    for item in items {
+        for iface in (item["spairport_airport_interfaces"] as? [[String: Any]]) ?? [] {
+            if let current = iface["spairport_current_network_information"] as? [String: Any],
+               let name = current["_name"] as? String, !name.isEmpty { return name }
+        }
+    }
+    return nil
+}
+
+func parseDefaultInterface(_ text: String) -> String? {
+    for line in text.split(separator: "\n") {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        if trimmed.hasPrefix("interface:") {
+            let name = trimmed.dropFirst("interface:".count).trimmingCharacters(in: .whitespaces)
+            if !name.isEmpty { return name }
+        }
+    }
+    return nil
+}
+
+// Earliest DHCP lease start in `ipconfig getsummary <if>` output (local time): when the Mac joined, or last renewed.
+func parseLeaseStart(_ text: String) -> Date? {
+    let f = DateFormatter()
+    f.locale = Locale(identifier: "en_US_POSIX")
+    f.dateFormat = "MM/dd/yyyy HH:mm:ss"
+    return text.split(separator: "\n").compactMap { line -> Date? in
+        let t = line.trimmingCharacters(in: .whitespaces)
+        guard t.hasPrefix("LeaseStartTime"), let colon = t.firstIndex(of: ":") else { return nil }
+        return f.date(from: t[t.index(after: colon)...].trimmingCharacters(in: .whitespaces))
+    }.min()
+}
+
+func connectedForText(_ seconds: TimeInterval) -> String {
+    let m = Int(max(0, seconds) / 60)
+    if m < 1 { return "just joined" }
+    if m < 60 { return "for \(m)m" }
+    let h = m / 60
+    if h < 24 { return m % 60 == 0 ? "for \(h)h" : "for \(h)h \(m % 60)m" }
+    return "for \(h / 24)d \(h % 24)h"
+}
+
+// Network card title, e.g. "Cafe_Guest · for 1h 12m".
+func networkTitle(name: String, since: Date?, now: Date) -> String {
+    if name.isEmpty { return "Internet" }
+    guard let since = since else { return name }
+    return "\(name) · \(connectedForText(now.timeIntervalSince(since)))"
 }
 
 func parseDefaultGateway(_ text: String) -> String? {
@@ -1613,6 +1668,12 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var netRouterLatencyMs: Int? = nil
     var netTopUploader: String = ""
     var netProbeBusy = false
+    var netName = ""
+    var netSince: Date?
+    var netNameKey = ""
+    var netNameBusy = false
+    var netNameCheckedAt = Date.distantPast
+    var netNameReadAt = Date.distantPast
     var agentNet: [(agent: String, inRate: Double, outRate: Double)] = []
     var agentTotalBytes: [String: Double] = [:]
     var agentTokens: [String: AgentTokens] = [:]
@@ -2086,6 +2147,54 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     }
 
     // Every 20 seconds, off the main thread: delay to 1.1.1.1 and the top internet uploader.
+    // Which network the Mac is on and since when. The address check is cheap and runs every 20 s;
+    // system_profiler takes about 14 s, so it runs only when the interface or address changes, or every 10 minutes.
+    func refreshNetworkNameIfDue() {
+        guard !netNameBusy, Date().timeIntervalSince(netNameCheckedAt) >= 20 else { return }
+        netNameBusy = true
+        netNameCheckedAt = Date()
+        let wifiIface = resolvedWifiInterfaceName()
+        let lastKey = netNameKey
+        let lastRead = netNameReadAt
+        DispatchQueue.global(qos: .utility).async {
+            let iface = parseDefaultInterface(captureCommand("/sbin/route", ["-n", "get", "default"], timeout: 3)) ?? ""
+            let addr = iface.isEmpty ? "" : captureCommand("/usr/sbin/ipconfig", ["getifaddr", iface], timeout: 3).trimmingCharacters(in: .whitespacesAndNewlines)
+            let key = "\(iface)|\(addr)"
+            if addr.isEmpty {
+                DispatchQueue.main.async { self.netName = ""; self.netSince = nil; self.netNameKey = key; self.netNameBusy = false }
+                return
+            }
+            if key == lastKey, Date().timeIntervalSince(lastRead) < 600 {
+                DispatchQueue.main.async { self.netNameBusy = false }
+                return
+            }
+            var name = iface == wifiIface ? "Wi-Fi" : "Ethernet"
+            if iface == wifiIface, let wifi = parseCurrentWifiName(captureCommand("/usr/sbin/system_profiler", ["SPAirPortDataType", "-json", "-detailLevel", "basic"], timeout: 30)) {
+                name = wifi
+            }
+            // Keep the saved join time across app restarts while the network and address are unchanged.
+            let d = UserDefaults.standard
+            var since: Date
+            if d.string(forKey: "MacYoloNetName") == name, d.string(forKey: "MacYoloNetAddr") == addr,
+               let saved = d.object(forKey: "MacYoloNetSince") as? Date {
+                since = saved
+            } else {
+                since = parseLeaseStart(captureCommand("/usr/sbin/ipconfig", ["getsummary", iface], timeout: 3)) ?? Date()
+                if since > Date() { since = Date() }
+                d.set(name, forKey: "MacYoloNetName")
+                d.set(addr, forKey: "MacYoloNetAddr")
+                d.set(since, forKey: "MacYoloNetSince")
+            }
+            DispatchQueue.main.async {
+                self.netName = name
+                self.netSince = since
+                self.netNameKey = key
+                self.netNameReadAt = Date()
+                self.netNameBusy = false
+            }
+        }
+    }
+
     func probeInternetHealthIfDue() {
         guard !netProbeBusy, Date().timeIntervalSince(netProbeAt) >= 20 else { return }
         netProbeBusy = true
@@ -2628,6 +2737,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
 
         let (upRate, downRate) = sampleNetworkRates()
         probeInternetHealthIfDue()
+        refreshNetworkNameIfDue()
         scanAgentTokensIfDue()
         let upCapKB = UserDefaults.standard.integer(forKey: "MacYoloUploadCapKB")
         let downCapKB = UserDefaults.standard.integer(forKey: "MacYoloDownloadCapKB")
@@ -2783,6 +2893,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "detailOptimization": detailCpuFull,
             "netUp": headline.speed,
             "netDown": headline.using,
+            "netName": networkTitle(name: netName, since: netSince, now: Date()),
             "netVerdict": verdict.label,
             "netVerdictColor": verdict.color,
             "netWhy": verdict.why,
@@ -3637,6 +3748,13 @@ if CommandLine.arguments.contains("--health-self-test") {
           !c.recTitle.contains("Top Hogs"), !c.recTitle.contains("CPU"),
           agentSwarmLine([("Claude", 2), ("Pool", 0), ("Grok", 1)]) == "Claude×2 · Grok×1",
           agentSwarmLine([("Pool", 0)]) == "No coding agents running",
+          parseCurrentWifiName(#"{"SPAirPortDataType":[{"spairport_airport_interfaces":[{"_name":"en0","spairport_current_network_information":{"_name":"Cafe_Guest"}},{"_name":"awdl0"}]}]}"#) == "Cafe_Guest",
+          parseCurrentWifiName(#"{"SPAirPortDataType":[{"spairport_airport_interfaces":[{"_name":"en0"}]}]}"#) == nil,
+          parseDefaultInterface("   route to: default\n  gateway: 10.0.0.1\n  interface: en0\n") == "en0",
+          parseLeaseStart("  LeaseStartTime : 11/12/2026 14:26:20\n  LeaseStartTime : 11/12/2026 14:26:19\n").map({ Calendar.current.component(.second, from: $0) }) == 19,
+          networkTitle(name: "Cafe_Guest", since: Date(timeIntervalSince1970: 0), now: Date(timeIntervalSince1970: 4320)) == "Cafe_Guest · for 1h 12m",
+          networkTitle(name: "", since: nil, now: Date()) == "Internet",
+          connectedForText(30) == "just joined", connectedForText(2 * 86400 + 3 * 3600) == "for 2d 3h",
           c.topMem.hasPrefix("Most RAM: "),
           shieldRows.contains(where: { $0.hasPrefix("1. ") }),
           shieldRows.allSatisfy({ $0.components(separatedBy: "|").count >= 4 }) else {
