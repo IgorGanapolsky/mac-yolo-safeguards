@@ -4561,6 +4561,14 @@ Four public products suggest a shared clock for speech, terminal, and screen tex
 A public post (https://depthfirst.com/post/secure-agent-first-cloud-dev-environment) gives each coding task its own git worktree, then places that worktree on a private cloud machine. This gate keeps the local piece. A task must name a checkout that is not the shared tree and not another task's tree. A remote dev machine, their firewall product, and their CLI stay refused. Their week and supply-chain sentences stay theirs. Local fields stay null.
 
 | T-TASK-CHECKOUT-20261112 | Fail closed when a coding task writes the shared checkout or another task's tree, and when a remote dev machine would be installed or started | in_progress | grok-task-checkout | `tools/task-checkout-gate.js`, `tests/test-task-checkout-gate.js`, `.agents/skills/task-checkout-gate/**`, `SKILLS.md` (one row), `plan.md` (this append) | `node tests/test-task-checkout-gate.js` exits 0. No remote machine is started and the shared checkout is not written. |
+## Opt before scale (append 2026-11-12T11:26:09-0500) — `grok-opt-before-scale`
+
+Three public pages (https://www.tonyrobbins.com/events/business-mastery, https://www.tonyrobbins.com/blog/ai-advantage-summit, https://www.tonyrobbins.com/podcasts/holy-grail) say to fix a leak before buying more traffic, and they discuss private-market property. This gate keeps the local piece for Mac YOLO Safeguards. Scale, ads, and traffic stay refused until outside clients, average collected cents, and repeat payers are supplied. Founder addresses do not count. A property, private-credit, or exchange action is refused. Their growth and margin sentences stay theirs. Local fields stay null. The check does not spend and does not open a checkout.
+
+| T-OPT-BEFORE-SCALE-20261112 | Fail closed on scale or traffic spend before three local cash levers are present, on a curriculum percent stated as our result, and on a property or private-credit action | in_progress | grok-opt-before-scale | `tools/opt-before-scale.js`, `tests/test-opt-before-scale.js`, `.agents/skills/opt-before-scale/**`, `SKILLS.md` (one row), `plan.md` (this append) | `node tests/test-opt-before-scale.js` exits 0. No spend is started and no checkout is opened. |
+## HUD Polite Speed Test, Wi-Fi vs Provider Diagnosis & Per-Agent Cloud/LLM Guard (append 2026-11-12T10:36:00-0500) — `omp-hud-network-guard-20261112`
+
+Replaces `/usr/bin/networkQuality -c -s -M 20` on the HUD `Test Speed` action (which flooded asymmetric 5G/cable uploads for up to 40s and spiked WAN latency >600ms) with a polite single-stream Cloudflare check (<7.5 MB total, ~4s), adds a `Wi-Fi vs Provider` router-vs-WAN latency diagnosis row and a `Test Speed` button inside the `Internet` drawer, excludes `<synthetic>` local turns and self-PID traffic, surfaces cumulative external internet bytes per agent since launch (`nettop -t external` Sample #1), and ships `tools/mac-yolo-network-guard.js` + `yolo_network_guard` MCP tool (`7/7` tests green).
 
 ### File claims (§2 append)
 | File | Owner | Claimed |
@@ -4570,3 +4578,15 @@ A public post (https://depthfirst.com/post/secure-agent-first-cloud-dev-environm
 | .agents/skills/task-checkout-gate/** | grok-task-checkout | 2026-11-12T10:56:36-0500 |
 | SKILLS.md (one row) | grok-task-checkout | 2026-11-12T10:56:36-0500 |
 | plan.md (this append) | grok-task-checkout | 2026-11-12T10:56:36-0500 |
+| tools/opt-before-scale.js | grok-opt-before-scale | 2026-11-12T11:26:09-0500 |
+| tests/test-opt-before-scale.js | grok-opt-before-scale | 2026-11-12T11:26:09-0500 |
+| .agents/skills/opt-before-scale/** | grok-opt-before-scale | 2026-11-12T11:26:09-0500 |
+| SKILLS.md (one row) | grok-opt-before-scale | 2026-11-12T11:26:09-0500 |
+| plan.md (this append) | grok-opt-before-scale | 2026-11-12T11:26:09-0500 |
+| macos/MacYoloTranslucentHud.swift | omp-hud-network-guard-20261112 | 2026-11-12T10:36:00-0500 |
+| macos/MacYoloSafeguardsApp.swift | omp-hud-network-guard-20261112 | 2026-11-12T10:36:00-0500 |
+| tools/mac-yolo-network-guard.js | omp-hud-network-guard-20261112 | 2026-11-12T10:36:00-0500 |
+| tools/mac-yolo-mcp-server.js | omp-hud-network-guard-20261112 | 2026-11-12T10:36:00-0500 |
+| tests/test-mac-yolo-network-guard.js | omp-hud-network-guard-20261112 | 2026-11-12T10:36:00-0500 |
+| tests/test-mac-yolo-hud-anti-regression.js | omp-hud-network-guard-20261112 | 2026-11-12T10:36:00-0500 |
+| plan.md (this append) | omp-hud-network-guard-20261112 | 2026-11-12T10:36:00-0500 |

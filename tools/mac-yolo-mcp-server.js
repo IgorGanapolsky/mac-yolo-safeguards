@@ -18,6 +18,7 @@
  */
 
 const os = require('os');
+const path = require('path');
 const readline = require('readline');
 const { execFileSync } = require('child_process');
 const {
@@ -384,6 +385,29 @@ function getToolDefinitions() {
         },
       },
     },
+    {
+      name: 'yolo_network_guard',
+      title: 'External Internet Speed, Wi-Fi vs ISP Lag & Per-Agent Cloud/LLM Ledger',
+      description: 'Measure live external-only internet rates (excluding 127.0.0.1 loopback), Wi-Fi router vs WAN latency, polite single-stream Cloudflare speed test (<9 MB), and deduplicated 24h LLM API calls, tokens, cache-hit %, and cloud sockets per AI agent',
+      annotations: {
+        title: 'External Internet Speed, Wi-Fi vs ISP Lag & Per-Agent Cloud/LLM Ledger',
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+      inputSchema: {
+        type: 'object',
+        properties: {
+          mode: {
+            type: 'string',
+            enum: ['status', 'speed_test', 'fix'],
+            default: 'status',
+          },
+          execute: { type: 'boolean', default: false },
+        },
+      },
+    },
   ];
 }
 
@@ -619,6 +643,23 @@ function callTool(name, args = {}) {
       return evaluateEndpointCredentialInjection(args);
     }
     return evaluateTwoLayerAgentAction(args);
+  }
+  if (name === 'yolo_network_guard') {
+    const mode = args.mode || 'status';
+    const cliArgs =
+      mode === 'speed_test'
+        ? ['--speed-test', '--json']
+        : mode === 'fix'
+          ? args.execute === true
+            ? ['--fix', '--execute', '--json']
+            : ['--fix', '--json']
+          : ['--status', '--json'];
+    const out = execFileSync(process.execPath, [path.join(__dirname, 'mac-yolo-network-guard.js'), ...cliArgs], {
+      encoding: 'utf8',
+      timeout: 35000,
+      maxBuffer: 8 * 1024 * 1024,
+    });
+    return JSON.parse(out.trim());
   }
   throw new Error(`Unknown tool: ${name}`);
 }
