@@ -548,16 +548,18 @@ private let HUD_HTML = #"""
             <div class="tile-row">
               <div class="tile-head">
                 <span class="ico-badge ico-net"><svg viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1"/></svg></span>
-                <span id="netName">Network &amp; Egress</span>
+                <span id="netName">Internet</span>
               </div>
-              <span class="tile-val" style="color:#5eead4;font-size:11px;">Local-First ›</span>
+              <span class="tile-val" id="netVerdict" style="color:#94a3b8;font-size:11px;">Checking… ›</span>
             </div>
             <div class="net-rates" style="padding-left:2px;">
-              <div id="netUp">↑ 0 KB/sec</div>
-              <div id="netDown">↓ 0 KB/sec</div>
+              <div id="netImpact" style="font-size:13px;color:#fff;font-weight:700;">Checking your internet…</div>
+              <div id="netCause" style="font-size:11px;color:rgba(255,255,255,0.8);margin-top:1px;"></div>
+              <div id="netUp" style="font-size:11px;color:rgba(255,255,255,0.85);margin-top:2px;">Delay measuring</div>
+              <div id="netDown" style="font-size:10px;color:rgba(255,255,255,0.55);">Using now ↓ 0 KB/s · ↑ 0 KB/s</div>
             </div>
           </div>
-          <button class="tile-action" id="testSpeedBtn" onclick="event.stopPropagation();triggerHudAction('testSpeed', this, 'Refreshing…', 'Refresh')">Refresh</button>
+          <button class="tile-action" id="testSpeedBtn" onclick="event.stopPropagation();triggerHudAction('testSpeed', this, 'Testing…', 'Test Speed')">Test Speed</button>
         </div>
 
         <div class="tile tile-tall" onclick="openCardDetail('fleet')">
@@ -571,6 +573,7 @@ private let HUD_HTML = #"""
             </div>
             <div class="tile-sub good" id="activeAppTile" style="padding-left:2px;margin-top:4px;font-weight:600;">Scanning active swarms…</div>
             <div class="tile-sub" id="activeWinTile" style="padding-left:2px;margin-top:2px;">Scanning MCP &amp; LaunchAgent daemons…</div>
+            <div class="tile-sub" id="fleetUsage" style="padding-left:2px;margin-top:2px;color:rgba(255,255,255,0.85);">Last hour: counting model calls…</div>
           </div>
           <button class="tile-action" onclick="event.stopPropagation();openCardDetail('fleet')">Inspect Fleet ›</button>
         </div>
@@ -958,6 +961,16 @@ private let HUD_HTML = #"""
       var subEl = document.getElementById('detailSub');
       var box = document.getElementById('detailRowsContainer');
       if (!box) return;
+      if (!box.dataset.bound) {
+        box.dataset.bound = '1';
+        box.addEventListener('click', function(ev) {
+          var row = ev.target.closest('[data-row]');
+          if (!row) return;
+          var id = row.getAttribute('data-row');
+          window._openDetailRow = (window._openDetailRow === id) ? '' : id;
+          renderActiveCardDetail(_lastHudState);
+        });
+      }
       var diskRowsCombined = (_lastCleanDetailRows ? (_lastCleanDetailRows + ';;' + (s.detailDisk || '')) : (s.detailDisk || ''));
       var meta = {
         shield: ['Protection by Mac YOLO — Real-Time Guard', 'Live kernel, GPU, memory & active session telemetry', s.detailShield],
@@ -965,7 +978,7 @@ private let HUD_HTML = #"""
         memory: ['Memory & Agent RAM — Top Live Consumers', 'Mach VM breakdown + top RSS memory consumers by app', s.detailMemory],
         tokens: ['AI Tokens, Prompt Cache & Session Ledger', 'Live session JSONL transcripts on disk (~/.omp, ~/.grok, ~/.claude)', s.detailTokens],
         cpu: ['CPU, Apple Silicon GPU & Fan Culprits', 'Live %CPU + Apple Silicon AGXAccelerator GPU & thermal telemetry', s.detailCpu],
-        network: ['Network, Wi-Fi & Zero-Cloud-Egress', 'Live BSD kernel interface byte counters & local service bindings', s.detailNetwork],
+        network: ['Internet', 'Tap a row for the numbers behind it', s.detailNetwork],
         fleet: ['AI Fleet, Active Swarms & MCP Bus', 'Verified coding agent sessions, RAM footprint & stdio MCP child servers', s.detailFleet],
         optimization: ['AI YOLO Optimization & Culprit Matrix', 'Combined CPU, GPU, RAM & AI session waste breakdown', s.detailOptimization || s.detailCpu]
       }[_activeDetailCard] || ['Live Details', 'Real-time telemetry', s.detailCpu];
@@ -973,15 +986,31 @@ private let HUD_HTML = #"""
       if (subEl) subEl.textContent = meta[1];
       var raw = meta[2] || '';
       var rows = raw.split(';;').filter(Boolean).slice(0, 7);
+      function esc(t) {
+        return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
       var html = '';
       for (var i = 0; i < rows.length; i++) {
         var parts = rows[i].split('|');
         var lbl = parts[0] || '';
         var val = parts[1] || '';
-        html += '<div style="padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.045);border:1px solid rgba(255,255,255,0.09);display:flex;justify-content:space-between;align-items:center;gap:10px;">' +
-          '<span style="color:rgba(255,255,255,0.94);font-size:12px;font-weight:560;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + lbl + '</span>' +
-          '<span style="color:#5eead4;font-size:11.5px;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap;background:rgba(20,184,166,0.13);border:1px solid rgba(94,234,212,0.25);padding:2px 8px;border-radius:99px;">' + val + '</span>' +
-          '</div>';
+        var more = parts[3] || '';
+        var rowId = _activeDetailCard + ':' + i;
+        var open = more && window._openDetailRow === rowId;
+        if (more) {
+          html += '<div data-row="' + rowId + '" style="padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.045);border:1px solid rgba(255,255,255,0.09);cursor:pointer;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">' +
+            '<span style="color:rgba(255,255,255,0.94);font-size:12px;font-weight:600;">' + esc(lbl) + '</span>' +
+            '<span style="color:#5eead4;font-size:11.5px;font-weight:650;font-variant-numeric:tabular-nums;text-align:right;">' + esc(val) + (open ? '  ▾' : '  ›') + '</span>' +
+            '</div>' +
+            (open ? '<div style="margin-top:6px;font-size:11.5px;line-height:1.4;color:rgba(255,255,255,0.78);">' + esc(more) + '</div>' : '') +
+            '</div>';
+        } else {
+          html += '<div style="padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.045);border:1px solid rgba(255,255,255,0.09);display:flex;justify-content:space-between;align-items:center;gap:10px;">' +
+            '<span style="color:rgba(255,255,255,0.94);font-size:12px;font-weight:560;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(lbl) + '</span>' +
+            '<span style="color:#5eead4;font-size:11.5px;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap;background:rgba(20,184,166,0.13);border:1px solid rgba(94,234,212,0.25);padding:2px 8px;border-radius:99px;">' + esc(val) + '</span>' +
+            '</div>';
+        }
       }
       if (box.innerHTML !== html) box.innerHTML = html;
     }
@@ -1017,6 +1046,14 @@ private let HUD_HTML = #"""
       setTextIfChanged('mcpRightBadge', state.mcpRightBadge);
       setTextIfChanged('netUp', state.netUp);
       setTextIfChanged('netDown', state.netDown);
+      setTextIfChanged('netVerdict', state.netVerdict);
+      setTextIfChanged('netImpact', state.netImpact);
+      setTextIfChanged('netCause', state.netCause);
+      setTextIfChanged('fleetUsage', state.fleetUsage);
+      if (state.netVerdictColor) {
+        const nv = document.getElementById('netVerdict');
+        if (nv && nv.dataset.color !== state.netVerdictColor) { nv.style.color = state.netVerdictColor; nv.dataset.color = state.netVerdictColor; }
+      }
       setTextIfChanged('recTitle', state.recTitle);
       setTextIfChanged('recDesc', state.recDesc);
       if (state.memPctNum) {
@@ -1139,6 +1176,213 @@ func runTool(_ name: String, _ args: [String]) -> ToolRun {
     return ToolRun(ran: true, output: text, problem: nil)
 }
 
+// Runs a system command with a time limit and returns what it printed.
+func captureCommand(_ path: String, _ args: [String], timeout: TimeInterval) -> String {
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: path)
+    p.arguments = args
+    let pipe = Pipe()
+    p.standardOutput = pipe
+    p.standardError = FileHandle.nullDevice
+    guard (try? p.run()) != nil else { return "" }
+    let stop = DispatchWorkItem { if p.isRunning { p.terminate() } }
+    DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: stop)
+    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+    p.waitUntilExit()
+    stop.cancel()
+    return String(data: data, encoding: .utf8) ?? ""
+}
+
+func formatRate(_ bytesPerSec: Double) -> String {
+    bytesPerSec >= 1_048_576 ? String(format: "%.1f MB/s", bytesPerSec / 1_048_576) : "\(Int(bytesPerSec / 1024)) KB/s"
+}
+
+// Average round trip from `ping -q` output, in ms, or nil when nothing came back.
+func parsePingAverage(_ text: String) -> Int? {
+    guard let line = text.split(separator: "\n").first(where: { $0.contains("min/avg/max") }),
+          let values = line.split(separator: "=").last?.split(separator: "/"), values.count >= 2,
+          let avg = Double(values[1].trimmingCharacters(in: .whitespaces)) else { return nil }
+    return Int(avg.rounded())
+}
+
+// The app sending the most to the internet, from the last sample of
+// `nettop -P -d -t external -L 2 -s <seconds> -J bytes_out -x`. Loopback traffic between
+// local apps is excluded by -t external. Tailscale forwards another app's bytes, so when
+// it tops the list and a second app sent most of the same amount, that app is named.
+// Per-process internet rates (bytes/s) from the last block of `nettop -P -d -x -J bytes_in,bytes_out`.
+func parseNettopRates(_ text: String, seconds: Double) -> [(name: String, inRate: Double, outRate: Double)] {
+    let rows = text.split(separator: "\n").map { $0.split(separator: ",", omittingEmptySubsequences: false).map(String.init) }
+    guard let h = rows.lastIndex(where: { $0.first == "" && $0.contains("bytes_out") }) else { return [] }
+    let inCol = rows[h].firstIndex(of: "bytes_in"), outCol = rows[h].firstIndex(of: "bytes_out")!
+    var out: [(name: String, inRate: Double, outRate: Double)] = []
+    for r in rows[(h + 1)...] where r.count > outCol && !r[0].isEmpty {
+        let bo = Double(r[outCol]) ?? 0
+        let bi = inCol.flatMap { r.count > $0 ? Double(r[$0]) : nil } ?? 0
+        guard bo > 0 || bi > 0 else { continue }
+        var name = r[0]
+        if let dot = name.lastIndex(of: "."), Int(name[name.index(after: dot)...]) != nil { name = String(name[..<dot]) }
+        let secs = max(seconds, 0.5)
+        out.append((name, bi / secs, bo / secs))
+    }
+    return out
+}
+
+func parseTopUploader(_ text: String, seconds: Double) -> String {
+    let usage = parseNettopRates(text, seconds: seconds).sorted { $0.outRate > $1.outRate }
+    guard var top = usage.first.map({ (name: $0.name, rate: $0.outRate) }), top.rate >= 50 * 1024 else { return "" }
+    if top.name.hasPrefix("io.tailscale"), let inner = usage.dropFirst().first, inner.outRate >= top.rate * 0.6 {
+        top = (inner.name + " via Tailscale", top.rate)
+    }
+    return "\(top.name) \(formatRate(top.rate))"
+}
+
+// Which AI agent a process belongs to, by its process name. nil for everything else.
+func agentName(forProcess raw: String) -> String? {
+    let l = raw.lowercased()
+    if l.hasPrefix("claude") { return "Claude" }
+    if l.hasPrefix("codex") { return "Codex" }
+    if l.hasPrefix("agy") || l.hasPrefix("antigravity") || l.hasPrefix("gemini") { return "Gemini" }
+    if l == "omp" || l.hasPrefix("omp ") { return "OMP" }
+    if l.hasPrefix("grok") { return "Grok" }
+    if l.hasPrefix("cursor") { return "Cursor" }
+    if l.hasPrefix("pool") { return "Poolside" }
+    if l.hasPrefix("hermes") { return "Hermes" }
+    if l.hasPrefix("browseros") || l.hasPrefix("chrome-headless") { return "Agent browsers" }
+    if l.hasPrefix("gh-real") || l == "gh" { return "GitHub CLI" }
+    if l == "node" || l.hasPrefix("python") { return "MCP servers & scripts" }
+    return nil
+}
+
+// Internet per agent, busiest first.
+func agentNetUsage(_ procs: [(name: String, inRate: Double, outRate: Double)]) -> [(agent: String, inRate: Double, outRate: Double)] {
+    var by: [String: (Double, Double)] = [:]
+    for p in procs { if let a = agentName(forProcess: p.name) { let c = by[a] ?? (0, 0); by[a] = (c.0 + p.inRate, c.1 + p.outRate) } }
+    return by.map { ($0.key, $0.value.0, $0.value.1) }.sorted { $0.1 + $0.2 > $1.1 + $1.2 }
+}
+
+// tokens = new tokens (input, output, cache writes). cached = cache re-reads, counted apart because they are cheap.
+struct AgentTokens { var calls = 0; var tokens = 0; var cached = 0; var costUSD = 0.0 }
+
+// Adds the model calls in one session log since `cutoff`. Claude logs one line per content block with the
+// same message id, so calls are counted once per id. OMP logs usage (and cost) once per assistant message.
+func tallyAgentTokens(_ text: String, agent: String, cutoff: Date, into totals: inout [String: AgentTokens], seen: inout Set<String>) {
+    let fmt = ISO8601DateFormatter(); fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    let plain = ISO8601DateFormatter()
+    for line in text.split(separator: "\n") where line.contains("\"usage\"") {
+        guard let obj = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
+              let msg = obj["message"] as? [String: Any], (msg["role"] as? String) == "assistant",
+              let usage = msg["usage"] as? [String: Any],
+              let ts = obj["timestamp"] as? String, let when = fmt.date(from: ts) ?? plain.date(from: ts), when >= cutoff else { continue }
+        let id = (msg["id"] as? String) ?? (obj["id"] as? String) ?? (obj["uuid"] as? String) ?? ts
+        guard seen.insert(agent + id).inserted else { continue }
+        func n(_ k: String) -> Int { (usage[k] as? NSNumber)?.intValue ?? 0 }
+        var t = totals[agent] ?? AgentTokens()
+        t.calls += 1
+        if let total = usage["totalTokens"] as? NSNumber { t.tokens += total.intValue - n("cacheRead"); t.cached += n("cacheRead") }
+        else { t.tokens += n("input_tokens") + n("output_tokens") + n("cache_creation_input_tokens"); t.cached += n("cache_read_input_tokens") }
+        if let cost = (usage["cost"] as? [String: Any])?["total"] as? NSNumber { t.costUSD += cost.doubleValue }
+        totals[agent] = t
+    }
+}
+
+func formatTokens(_ n: Int) -> String {
+    n >= 1_000_000 ? String(format: "%.1fM", Double(n) / 1e6) : n >= 1000 ? "\(n / 1000)K" : "\(n)"
+}
+
+// One detail row per agent: model calls, tokens and internet in the last hour / right now.
+func agentUsageRows(tokens: [String: AgentTokens], net: [(agent: String, inRate: Double, outRate: Double)]) -> [String] {
+    let netBy = Dictionary(uniqueKeysWithValues: net.map { ($0.agent, ($0.inRate, $0.outRate)) })
+    let names = Set(tokens.keys).union(netBy.keys)
+    let maxTok = max(1, tokens.values.map(\.tokens).max() ?? 1)
+    return names.sorted { (tokens[$0]?.tokens ?? 0, (netBy[$0]?.1 ?? 0)) > (tokens[$1]?.tokens ?? 0, (netBy[$1]?.1 ?? 0)) }.map { a in
+        var parts: [String] = []
+        if let t = tokens[a] {
+            parts.append("\(t.calls) model calls · \(formatTokens(t.tokens)) new tokens" + (t.cached > 0 ? " (+\(formatTokens(t.cached)) cached)" : ""))
+            if t.costUSD > 0 { parts.append(String(format: "$%.2f", t.costUSD)) }
+        }
+        if let r = netBy[a] { parts.append("internet ↑ \(formatRate(r.1)) ↓ \(formatRate(r.0))") }
+        let bar = tokens[a].map { max(4, $0.tokens * 100 / maxTok) } ?? 10
+        return "\(a)|\(parts.joined(separator: " · "))|\(bar)"
+    }
+}
+
+// Plain names for processes that commonly fill an upload.
+func friendlyAppName(_ raw: String) -> String {
+    let viaTailscale = raw.hasSuffix(" via Tailscale")
+    let base = viaTailscale ? String(raw.dropLast(" via Tailscale".count)) : raw
+    let known: [(String, String)] = [
+        ("rsync", "A file copy (rsync)"), ("nc", "A file copy (rsync/ssh)"), ("ssh", "A file copy (ssh)"), ("scp", "A file copy (scp)"),
+        ("com.crowdstrike", "CrowdStrike security"), ("io.tailscale", "Tailscale"), ("bird", "iCloud Drive"), ("cloudd", "iCloud"),
+        ("Dropbox", "Dropbox"), ("Google Drive", "Google Drive"), ("OneDrive", "OneDrive"), ("backupd", "Time Machine"),
+        ("photolibraryd", "iCloud Photos"), ("zoom.us", "Zoom"), ("Microsoft Teams", "Teams"), ("softwareupdated", "macOS update"),
+    ]
+    let name = known.first(where: { base == $0.0 || base.hasPrefix($0.0 + ".") })?.1 ?? agentName(forProcess: base) ?? base
+    return viaTailscale ? name + " over Tailscale" : name
+}
+
+// Splits "omp 212 KB/s" into ("omp", "212 KB/s").
+func splitUploader(_ s: String) -> (name: String, rate: String) {
+    let parts = s.split(separator: " ")
+    guard parts.count >= 3 else { return (s, "") }
+    return (parts.dropLast(2).joined(separator: " "), parts.suffix(2).joined(separator: " "))
+}
+
+// Card verdict from delay, upload in use and measured upload capacity (KB/s, 0 when not measured yet).
+// label: headline. impact: what the user will feel. cause: why, in plain words. why: the numbers.
+func internetVerdict(latencyMs: Int?, upKB: Int, capacityKB: Int, topUploader: String) -> (label: String, color: String, why: String, impact: String, cause: String) {
+    let topName = topUploader.isEmpty ? nil : friendlyAppName(splitUploader(topUploader).name)
+    guard let ms = latencyMs else {
+        return ("Checking… ›", "#94a3b8", topUploader, "Checking your internet…", "")
+    }
+    let fullPct = capacityKB > 0 ? min(100, upKB * 100 / capacityKB) : -1
+    var why = ["Delay \(ms) ms"]
+    if fullPct >= 0 { why.append("upload \(fullPct)% full") }
+    if !topUploader.isEmpty { why.append(topUploader) }
+    let label: String, color: String, impact: String
+    if ms >= 250 || (fullPct >= 70 && ms >= 120) { (label, color, impact) = ("Very slow", "#f87171", "Pages will hang and calls will drop") }
+    else if ms >= 100 { (label, color, impact) = ("Slow", "#fbbf24", "Video calls may stutter") }
+    else { (label, color, impact) = ("Good", "#5eead4", "Browsing and calls are fine") }
+    let cause: String
+    if label == "Good" { cause = topName.map { "Busiest app: \($0)" } ?? "Nothing is hogging your connection" }
+    else if let n = topName { cause = "Cause: \(n) is uploading" }
+    else { cause = "Not this Mac. Likely Wi-Fi or your provider" }
+    return (label + " ›", color, why.joined(separator: " · "), impact, cause)
+}
+
+func formatMbps(_ mbps: Double) -> String {
+    if mbps <= 0 { return "--" }
+    return String(format: "%.1f Mbps", mbps)
+}
+
+func internetHeadline(latencyMs: Int?, lineDownMbps: Double, lineUpMbps: Double, downKB: Int, upKB: Int) -> (speed: String, using: String) {
+    let using = "Using now ↓ \(max(0, downKB)) KB/s · ↑ \(max(0, upKB)) KB/s"
+    if lineDownMbps >= 1 || lineUpMbps >= 1 {
+        return ("Line ↓ \(formatMbps(lineDownMbps)) · ↑ \(formatMbps(lineUpMbps))", using)
+    }
+    if let ms = latencyMs {
+        return ("Delay \(ms) ms", using)
+    }
+    return ("Delay measuring", using)
+}
+
+func lineMbps(downCapKB: Int, upCapKB: Int, cachedDown: Double, cachedUp: Double) -> (Double, Double) {
+    if downCapKB > 0 || upCapKB > 0 {
+        let down = downCapKB > 0 ? Double(downCapKB) * 1024.0 * 8.0 / 1_000_000.0 : 0
+        let up = upCapKB > 0 ? Double(upCapKB) * 1024.0 * 8.0 / 1_000_000.0 : 0
+        return (down, up)
+    }
+    if cachedDown >= 1 { return (cachedDown, max(0, cachedUp)) }
+    return (0, 0)
+}
+
+func cachedLineMbps() -> (Double, Double) {
+    let path = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".hermes/mac-yolo-net-state.json").path
+    guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+          let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+          let dl = (obj["downloadMbps"] as? NSNumber)?.doubleValue else { return (0, 0) }
+    return (dl, (obj["uploadMbps"] as? NSNumber)?.doubleValue ?? 0)
+}
+
 func jsonObject(_ text: String) -> [String: Any] {
     guard let data = text.data(using: .utf8),
           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [:] }
@@ -1216,6 +1460,15 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var lastCpuTicks: [UInt32]? = nil
     var lastUpKB: Int = 0
     var lastDownKB: Int = 0
+    var netLatencyMs: Int? = nil
+    var netTopUploader: String = ""
+    var netProbeBusy = false
+    var agentNet: [(agent: String, inRate: Double, outRate: Double)] = []
+    var agentTokens: [String: AgentTokens] = [:]
+    var agentTokensAt: Date = .distantPast
+    var agentTokensBusy = false
+    var netProbeAt: Date = .distantPast
+    var netSpeedTestBusy = false
     var cachedMenuBarIcon: NSImage?
     var autoGuardTimer: Timer?
     var autoGuardBusy = false
@@ -1487,7 +1740,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                 }
             }
         case "testSpeed":
-            refreshLiveTelemetry()
+            runSpeedTest()
         case "moveHud":
             if let dx = (body["dx"] as? NSNumber)?.doubleValue,
                let dy = (body["dy"] as? NSNumber)?.doubleValue {
@@ -1670,6 +1923,71 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             offset += step
         }
         return nil
+    }
+
+    // Every 20 seconds, off the main thread: delay to 1.1.1.1 and the top internet uploader.
+    func probeInternetHealthIfDue() {
+        guard !netProbeBusy, Date().timeIntervalSince(netProbeAt) >= 20 else { return }
+        netProbeBusy = true
+        netProbeAt = Date()
+        DispatchQueue.global(qos: .utility).async {
+            let latency = parsePingAverage(captureCommand("/sbin/ping", ["-c", "3", "-q", "-t", "5", "1.1.1.1"], timeout: 7))
+            let sample = captureCommand("/usr/bin/nettop", ["-P", "-d", "-t", "external", "-L", "2", "-s", "2", "-J", "bytes_in,bytes_out", "-x"], timeout: 8)
+            let top = parseTopUploader(sample, seconds: 2)
+            let perAgent = agentNetUsage(parseNettopRates(sample, seconds: 2))
+            DispatchQueue.main.async {
+                self.netLatencyMs = latency
+                self.netTopUploader = top
+                self.agentNet = perAgent
+                self.netProbeBusy = false
+            }
+        }
+    }
+
+    // Reads the last hour of Claude Code and OMP session logs for real per-call token counts. Every 2 minutes.
+    func scanAgentTokensIfDue() {
+        guard !agentTokensBusy, Date().timeIntervalSince(agentTokensAt) >= 120 else { return }
+        agentTokensBusy = true
+        agentTokensAt = Date()
+        DispatchQueue.global(qos: .utility).async {
+            let home = FileManager.default.homeDirectoryForCurrentUser.path
+            let list = captureCommand("/usr/bin/find", ["\(home)/.claude/projects", "\(home)/.omp/agent/sessions", "-name", "*.jsonl", "-mmin", "-60"], timeout: 10)
+            let cutoff = Date().addingTimeInterval(-3600)
+            var totals: [String: AgentTokens] = [:]
+            var seen = Set<String>()
+            for path in list.split(separator: "\n").prefix(300).map(String.init) {
+                guard let fh = FileHandle(forReadingAtPath: path) else { continue }
+                let size = (try? fh.seekToEnd()) ?? 0
+                try? fh.seek(toOffset: size > 4_000_000 ? size - 4_000_000 : 0)
+                let data = (try? fh.readToEnd()) ?? Data()
+                try? fh.close()
+                tallyAgentTokens(String(decoding: data, as: UTF8.self), agent: path.contains("/.omp/") ? "OMP" : "Claude", cutoff: cutoff, into: &totals, seen: &seen)
+            }
+            DispatchQueue.main.async {
+                self.agentTokens = totals
+                self.agentTokensBusy = false
+            }
+        }
+    }
+
+    // macOS's own speed test. Saves upload capacity so the card can say how full the upload is.
+    func runSpeedTest() {
+        guard !netSpeedTestBusy else { return }
+        netSpeedTestBusy = true
+        DispatchQueue.global(qos: .utility).async {
+            let obj = jsonObject(captureCommand("/usr/bin/networkQuality", ["-c", "-s", "-M", "20"], timeout: 40))
+            DispatchQueue.main.async {
+                if let ul = (obj["ul_throughput"] as? NSNumber)?.doubleValue, ul > 0 {
+                    UserDefaults.standard.set(Int(ul / 8 / 1024), forKey: "MacYoloUploadCapKB")
+                }
+                if let dl = (obj["dl_throughput"] as? NSNumber)?.doubleValue, dl > 0 {
+                    UserDefaults.standard.set(Int(dl / 8 / 1024), forKey: "MacYoloDownloadCapKB")
+                }
+                self.netSpeedTestBusy = false
+                self.netProbeAt = .distantPast
+                self.refreshLiveTelemetry()
+            }
+        }
     }
 
     func sampleNetworkRates() -> (String, String) {
@@ -2017,6 +2335,14 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         }
 
         let (upRate, downRate) = sampleNetworkRates()
+        probeInternetHealthIfDue()
+        scanAgentTokensIfDue()
+        let upCapKB = UserDefaults.standard.integer(forKey: "MacYoloUploadCapKB")
+        let downCapKB = UserDefaults.standard.integer(forKey: "MacYoloDownloadCapKB")
+        let cachedLine = cachedLineMbps()
+        let line = lineMbps(downCapKB: downCapKB, upCapKB: upCapKB, cachedDown: cachedLine.0, cachedUp: cachedLine.1)
+        let headline = internetHeadline(latencyMs: netLatencyMs, lineDownMbps: line.0, lineUpMbps: line.1, downKB: lastDownKB, upKB: lastUpKB)
+        let verdict = internetVerdict(latencyMs: netLatencyMs, upKB: lastUpKB, capacityKB: upCapKB, topUploader: netTopUploader)
         let wifiName = resolvedWifiInterfaceName()
         let (rxBytes, txBytes) = interfaceByteTotals(named: wifiName) ?? (0, 0)
         let rxGB = Double(rxBytes) / 1_073_741_824.0
@@ -2065,16 +2391,53 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             String(format: "Grok CLI sessions (2h)|%d JSONL files · %.1f MB|%d", sess.grokFiles, sess.grokMB, min(100, max(15, Int(sess.grokMB / 2)))),
         ].joined(separator: ";;")
 
+        let topSplit = netTopUploader.isEmpty ? nil : splitUploader(netTopUploader)
+        let delayMeaning: String = {
+            guard let ms = netLatencyMs else { return "measuring" }
+            if ms < 50 { return "\(ms) ms · great" }
+            if ms < 100 { return "\(ms) ms · fine" }
+            if ms < 250 { return "\(ms) ms · calls may stutter" }
+            return "\(ms) ms · pages hang"
+        }()
+        let fixHint: String = {
+            if verdict.label.hasPrefix("Good") { return "Nothing to do" }
+            if let t = topSplit { return "Pause or quit \(friendlyAppName(t.name)) until you need it" }
+            return "Move closer to the router or restart it; if that fails, call your provider"
+        }()
+        let speedValue: String
+        let speedMore: String
+        if line.0 >= 1 || line.1 >= 1 {
+            speedValue = "↓ \(formatMbps(line.0)) · ↑ \(formatMbps(line.1))"
+            speedMore = "This is the last measured line speed, not what is moving this second. Tap Test Speed to measure again."
+        } else {
+            speedValue = "Not measured yet"
+            speedMore = "Tap Test Speed once. A KB/s figure is only what is moving right now, not how fast the line is."
+        }
+        let whoValue = topSplit.map { friendlyAppName($0.name) } ?? "Quiet"
+        let sinceRestart = String(format: "Since restart, %.2f GB down and %.2f GB up.", rxGB, txGB)
+        let whoMore = topSplit.map { "\(friendlyAppName($0.name)) is sending \($0.rate). Wi-Fi \(wifiName) moved \(upRate) and \(downRate) in the last few seconds. \(sinceRestart)" }
+            ?? "Nothing over 50 KB/s. Wi-Fi \(wifiName) moved \(upRate) and \(downRate) in the last few seconds. \(sinceRestart)"
         let detailNetworkFull = [
-            "Active Wi-Fi Interface (\(wifiName))|\(upRate) · \(downRate)|45",
-            String(format: "Cumulative Interface Traffic (\(wifiName))|↓ %.2f GB RX · ↑ %.2f GB TX|60", rxGB, txGB),
+            "Internet|\(verdict.impact)|0|A reply took \(delayMeaning). Under 100 ms is comfortable. This is delay, not download speed.",
+            "Your speed|\(speedValue)|0|\(speedMore)",
+            "Using it now|\(whoValue)|0|\(whoMore)",
+            "What to do|\(fixHint)|0|\(verdict.cause)",
         ].joined(separator: ";;")
 
-        let detailFleetFull = [
+        let perAgentRows = agentUsageRows(tokens: agentTokens, net: agentNet)
+        let tokTotal = agentTokens.values.reduce(0) { $0 + $1.tokens }
+        let callTotal = agentTokens.values.reduce(0) { $0 + $1.calls }
+        let costTotal = agentTokens.values.reduce(0.0) { $0 + $1.costUSD }
+        let topTokAgent = agentTokens.max { $0.value.tokens < $1.value.tokens }
+        let fleetUsage = agentTokens.isEmpty ? "Last hour: counting model calls…"
+            : "Last hour: \(callTotal) model calls · \(formatTokens(tokTotal)) new tokens" + (costTotal > 0 ? String(format: " · $%.2f", costTotal) : "") + (topTokAgent.map { " · most: \($0.key)" } ?? "")
+        let detailFleetFull = ([
+            "Per agent, last hour (click a row's agent in Fleet for RAM)|model calls and tokens from session logs; internet right now|100",
+        ] + perAgentRows + [
             "User LaunchAgents (~/Library/LaunchAgents)|\(agentCount) plists loaded|100",
             "Total Live OS Processes|\(culprits.totalProcs) active processes|\(min(100, culprits.totalProcs / 15))",
             culprits.detailFleet,
-        ].joined(separator: ";;")
+        ]).joined(separator: ";;")
 
         let detailShieldFull = [
             "Real-Time CPU & Apple Silicon GPU|CPU \(cpuPct)% (Load \(load1Str)/\(ncpu)) · GPU \(gpu.devicePct)% (\(String(format: "%.1fG", gpu.vramGB)) VRAM)|\(cpuPct)",
@@ -2111,8 +2474,14 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "detailFleet": detailFleetFull,
             "detailShield": detailShieldFull,
             "detailOptimization": detailCpuFull,
-            "netUp": upRate,
-            "netDown": downRate,
+            "netUp": headline.speed,
+            "netDown": headline.using,
+            "netVerdict": verdict.label,
+            "netVerdictColor": verdict.color,
+            "netWhy": verdict.why,
+            "netImpact": verdict.impact,
+            "netCause": verdict.cause,
+            "fleetUsage": fleetUsage,
             "recTitle": culprits.recTitle + " ›",
             "recDesc": culprits.recDesc,
             "statusBarIconVisible": showStatusBarIcon ? "true" : "false",
@@ -2662,6 +3031,64 @@ extension MacYoloAppDelegate {
         content.body = text
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
     }
+}
+
+// Checks the network card's parsing on fixed samples, then prints one live reading.
+if CommandLine.arguments.contains("--net-self-test") {
+    let ping = "--- 1.1.1.1 ping statistics ---\n3 packets transmitted, 3 packets received, 0.0% packet loss\nround-trip min/avg/max/stddev = 35.413/223.242/614.682/240.305 ms\n"
+    let nettop = ",bytes_out,\nio.tailscale.ip.92725,9000,\nnc.38875,8000,\n,bytes_out,\nio.tailscale.ip.92725,2780000,\nnc.38875,2598000,\nomp.6894,224000,\nBrowserOS neo.47480,0,\n"
+    var failures: [String] = []
+    if parsePingAverage(ping) != 223 { failures.append("ping avg") }
+    if parsePingAverage("3 packets transmitted, 0 packets received, 100.0% packet loss") != nil { failures.append("ping loss") }
+    if parseTopUploader(nettop, seconds: 2) != "nc via Tailscale 1.3 MB/s" { failures.append("uploader: \(parseTopUploader(nettop, seconds: 2))") }
+    if parseTopUploader(",bytes_out,\nomp.1,1000,\n", seconds: 2) != "" { failures.append("quiet uploader") }
+    if internetVerdict(latencyMs: 458, upKB: 1948, capacityKB: 2150, topUploader: "nc via Tailscale 1.3 MB/s").label != "Very slow ›" { failures.append("verdict very slow") }
+    if internetVerdict(latencyMs: 130, upKB: 1900, capacityKB: 2150, topUploader: "").label != "Very slow ›" { failures.append("verdict full upload") }
+    if internetVerdict(latencyMs: 130, upKB: 100, capacityKB: 2150, topUploader: "").label != "Slow ›" { failures.append("verdict slow") }
+    if internetVerdict(latencyMs: 30, upKB: 100, capacityKB: 0, topUploader: "").why != "Delay 30 ms" { failures.append("verdict fast why") }
+    if internetVerdict(latencyMs: 30, upKB: 100, capacityKB: 0, topUploader: "").cause != "Nothing is hogging your connection" { failures.append("cause quiet") }
+    if internetVerdict(latencyMs: 458, upKB: 1948, capacityKB: 2150, topUploader: "nc via Tailscale 1.3 MB/s").cause != "Cause: A file copy (rsync/ssh) over Tailscale is uploading" { failures.append("cause rsync") }
+    if internetVerdict(latencyMs: 300, upKB: 10, capacityKB: 2150, topUploader: "").cause != "Not this Mac. Likely Wi-Fi or your provider" { failures.append("cause wifi") }
+    if friendlyAppName("com.crowdstrike.falcon.Agent") != "CrowdStrike security" { failures.append("friendly name") }
+    if friendlyAppName("grok.real") != "Grok" { failures.append("friendly agent") }
+    let both = ",bytes_in,bytes_out,\nclaude.1,10,20,\n,bytes_in,bytes_out,\nclaude.exe.2,4000,2000,\nclaude.3,1000,1000,\ngrok.real.4,0,400000,\nWhatsApp.5,9,9,\n"
+    let byAgent = agentNetUsage(parseNettopRates(both, seconds: 2))
+    if byAgent.map(\.agent) != ["Grok", "Claude"] || byAgent[1].inRate != 2500 { failures.append("net by agent \(byAgent)") }
+    if parseTopUploader(both, seconds: 2) != "grok.real 195 KB/s" { failures.append("uploader two cols: \(parseTopUploader(both, seconds: 2))") }
+    let nowIso = ISO8601DateFormatter().string(from: Date())
+    let claudeLog = """
+    {"type":"assistant","timestamp":"\(nowIso)","message":{"id":"m1","role":"assistant","usage":{"input_tokens":2,"cache_creation_input_tokens":100,"cache_read_input_tokens":800,"output_tokens":98}}}
+    {"type":"assistant","timestamp":"\(nowIso)","message":{"id":"m1","role":"assistant","usage":{"input_tokens":2,"cache_creation_input_tokens":100,"cache_read_input_tokens":800,"output_tokens":98}}}
+    {"type":"assistant","timestamp":"2020-01-01T00:00:00.000Z","message":{"id":"old","role":"assistant","usage":{"input_tokens":5}}}
+    """
+    let ompLog = """
+    {"type":"message","id":"a1","timestamp":"\(nowIso)","message":{"role":"assistant","usage":{"totalTokens":5000,"cost":{"total":0.25}}}}
+    """
+    var tot: [String: AgentTokens] = [:]; var seen = Set<String>()
+    tallyAgentTokens(claudeLog, agent: "Claude", cutoff: Date().addingTimeInterval(-3600), into: &tot, seen: &seen)
+    tallyAgentTokens(ompLog, agent: "OMP", cutoff: Date().addingTimeInterval(-3600), into: &tot, seen: &seen)
+    if tot["Claude"]?.calls != 1 || tot["Claude"]?.tokens != 200 || tot["Claude"]?.cached != 800 { failures.append("claude tokens \(String(describing: tot["Claude"]))") }
+    if tot["OMP"]?.tokens != 5000 || tot["OMP"]?.costUSD != 0.25 { failures.append("omp tokens") }
+    if !agentUsageRows(tokens: tot, net: byAgent).contains(where: { $0.hasPrefix("Claude|1 model calls · 200 new tokens (+800 cached)") }) { failures.append("cached split") }
+    if !(agentUsageRows(tokens: tot, net: byAgent).first ?? "").hasPrefix("OMP|1 model calls · 5K new tokens · $0.25") { failures.append("rows \(agentUsageRows(tokens: tot, net: byAgent))") }
+    let idle = internetHeadline(latencyMs: 33, lineDownMbps: 0, lineUpMbps: 0, downKB: 12, upKB: 40)
+    if idle.speed != "Delay 33 ms" || idle.speed.contains("KB") || idle.speed.contains("Mbps") { failures.append("idle shown as speed: \(idle.speed)") }
+    if idle.using != "Using now ↓ 12 KB/s · ↑ 40 KB/s" { failures.append("using line: \(idle.using)") }
+    let measured = internetHeadline(latencyMs: 33, lineDownMbps: 97.3, lineUpMbps: 7.8, downKB: 12, upKB: 40)
+    if measured.speed != "Line ↓ 97.3 Mbps · ↑ 7.8 Mbps" || measured.speed.contains("12") { failures.append("line speed: \(measured.speed)") }
+    let fromCap = lineMbps(downCapKB: 11877, upCapKB: 952, cachedDown: 0, cachedUp: 0)
+    if formatMbps(fromCap.0) != "97.3 Mbps" || formatMbps(fromCap.1) != "7.8 Mbps" { failures.append("cap convert \(fromCap)") }
+    if lineMbps(downCapKB: 0, upCapKB: 0, cachedDown: 0.1, cachedUp: 0.1) != (0, 0) { failures.append("trickle cache counted as line") }
+    guard failures.isEmpty else { print("MAC_YOLO_NET_FAIL \(failures.joined(separator: ", "))"); exit(1) }
+    let live = parsePingAverage(captureCommand("/sbin/ping", ["-c", "3", "-q", "-t", "5", "1.1.1.1"], timeout: 7))
+    let sample = captureCommand("/usr/bin/nettop", ["-P", "-d", "-t", "external", "-L", "2", "-s", "2", "-J", "bytes_in,bytes_out", "-x"], timeout: 8)
+    let top = parseTopUploader(sample, seconds: 2)
+    print("agents now: " + agentNetUsage(parseNettopRates(sample, seconds: 2)).map { "\($0.agent) ↑\(formatRate($0.outRate)) ↓\(formatRate($0.inRate))" }.joined(separator: ", "))
+    let v = internetVerdict(latencyMs: live, upKB: 0, capacityKB: 0, topUploader: top)
+    let cached = cachedLineMbps()
+    let shown = internetHeadline(latencyMs: live, lineDownMbps: cached.0, lineUpMbps: cached.1, downKB: 0, upKB: 0)
+    print("MAC_YOLO_NET_OK live=\(v.label) \(v.impact) | \(v.cause) | \(v.why) speed=\(shown.speed)")
+    exit(0)
 }
 
 if let i = CommandLine.arguments.firstIndex(of: "--license-self-test"), i + 1 < CommandLine.arguments.count {
