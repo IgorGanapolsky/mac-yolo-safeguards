@@ -52,11 +52,13 @@ async function stripeGet(env, path, fetchImpl) {
 }
 
 // Looks up a finished Pro checkout and issues a key, or says why it can't.
+// PRO_PAYMENT_LINK and LICENSE_PUBLIC_KEY in env override the live values; only the
+// staging Worker (Stripe test mode, its own key pair) sets them.
 export async function activate(env, sessionId, fetchImpl = fetch) {
   if (!/^cs_(live|test)_[A-Za-z0-9]{10,200}$/.test(sessionId || "")) return { ok: false, reason: "That checkout link is not valid." };
   const s = await stripeGet(env, `checkout/sessions/${sessionId}`, fetchImpl);
   if (!s) return { ok: false, reason: "We couldn't find that checkout. If you paid, reply to your receipt and we'll send your key." };
-  if (s.payment_link !== PRO_PAYMENT_LINK) return { ok: false, reason: "That checkout wasn't for Mac YOLO Pro Guard." };
+  if (s.payment_link !== (env.PRO_PAYMENT_LINK || PRO_PAYMENT_LINK)) return { ok: false, reason: "That checkout wasn't for Mac YOLO Pro Guard." };
   if (s.status !== "complete" || !["paid", "no_payment_required"].includes(s.payment_status) || !s.subscription) {
     return { ok: false, reason: "That checkout isn't paid yet." };
   }
@@ -66,7 +68,7 @@ export async function activate(env, sessionId, fetchImpl = fetch) {
 }
 
 // Renews a key while its subscription is still active.
-export async function refresh(env, licenseKey, fetchImpl = fetch, publicKeyB64 = LICENSE_PUBLIC_KEY) {
+export async function refresh(env, licenseKey, fetchImpl = fetch, publicKeyB64 = env.LICENSE_PUBLIC_KEY || LICENSE_PUBLIC_KEY) {
   const lic = await readLicense(licenseKey, publicKeyB64);
   if (!lic?.sub) return { ok: false, reason: "invalid key" };
   const sub = await stripeGet(env, `subscriptions/${encodeURIComponent(lic.sub)}`, fetchImpl);
