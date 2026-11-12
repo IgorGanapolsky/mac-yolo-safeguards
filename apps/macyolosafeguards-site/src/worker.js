@@ -1,4 +1,5 @@
 import { activate, activatePage, refresh } from "./license.js";
+import { sendCheckoutAlerts } from "./checkout-alerts.js";
 
 // Cloudflare Worker for Mac YOLO Safeguards (macyolosafeguards.io)
 // Mirrors the dayglass.io Worker + Static Assets + /go/* checkout attribution architecture.
@@ -92,5 +93,10 @@ export default {
     }
 
     return env.ASSETS.fetch(request);
+  },
+
+  // Every 30 minutes: alert on unpaid checkouts worth $400 or more.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(sendCheckoutAlerts(env, event.scheduledTime).then((a) => console.log(`checkout alerts sent: ${a.length}`)));
   }
 };
