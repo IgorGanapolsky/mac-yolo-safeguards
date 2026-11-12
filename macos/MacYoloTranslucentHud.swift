@@ -1037,6 +1037,7 @@ private let HUD_HTML = #"""
     }
     function openCardDetail(cardId) {
       leaveCompactForDrawer();
+      _activeDetailCard = cardId;
       var ov = document.getElementById('overviewSection');
       var setEl = document.getElementById('settingsDrawer');
       var det = document.getElementById('cardDetailDrawer');
