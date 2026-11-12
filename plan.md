@@ -4555,3 +4555,18 @@ Four public products suggest a shared clock for speech, terminal, and screen tex
 | .agents/skills/context-weight-gate/** | grok-context-weight | 2026-11-11T16:11:01-0500 |
 | SKILLS.md (one row) | grok-context-weight | 2026-11-11T16:11:01-0500 |
 | plan.md (this append) | grok-context-weight | 2026-11-11T16:11:01-0500 |
+
+## Opt before scale (append 2026-11-12T11:26:09-0500) — `grok-opt-before-scale`
+
+Three public pages (https://www.tonyrobbins.com/events/business-mastery, https://www.tonyrobbins.com/blog/ai-advantage-summit, https://www.tonyrobbins.com/podcasts/holy-grail) say to fix a leak before buying more traffic, and they discuss private-market property. This gate keeps the local piece for Mac YOLO Safeguards. Scale, ads, and traffic stay refused until outside clients, average collected cents, and repeat payers are supplied. Founder addresses do not count. A property, private-credit, or exchange action is refused. Their growth and margin sentences stay theirs. Local fields stay null. The check does not spend and does not open a checkout.
+
+| T-OPT-BEFORE-SCALE-20261112 | Fail closed on scale or traffic spend before three local cash levers are present, on a curriculum percent stated as our result, and on a property or private-credit action | in_progress | grok-opt-before-scale | `tools/opt-before-scale.js`, `tests/test-opt-before-scale.js`, `.agents/skills/opt-before-scale/**`, `SKILLS.md` (one row), `plan.md` (this append) | `node tests/test-opt-before-scale.js` exits 0. No spend is started and no checkout is opened. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/opt-before-scale.js | grok-opt-before-scale | 2026-11-12T11:26:09-0500 |
+| tests/test-opt-before-scale.js | grok-opt-before-scale | 2026-11-12T11:26:09-0500 |
+| .agents/skills/opt-before-scale/** | grok-opt-before-scale | 2026-11-12T11:26:09-0500 |
+| SKILLS.md (one row) | grok-opt-before-scale | 2026-11-12T11:26:09-0500 |
+| plan.md (this append) | grok-opt-before-scale | 2026-11-12T11:26:09-0500 |
