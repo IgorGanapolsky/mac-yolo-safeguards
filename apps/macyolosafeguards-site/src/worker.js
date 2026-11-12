@@ -1,3 +1,5 @@
+import { activate, activatePage, refresh } from "./license.js";
+
 // Cloudflare Worker for Mac YOLO Safeguards (macyolosafeguards.io)
 // Mirrors the dayglass.io Worker + Static Assets + /go/* checkout attribution architecture.
 
@@ -44,6 +46,22 @@ export default {
           }
         }
       );
+    }
+
+    if (url.pathname === "/activate" || url.pathname === "/activate/") {
+      const result = await activate(env, url.searchParams.get("session_id"));
+      return new Response(activatePage(result), {
+        status: result.ok ? 200 : 400,
+        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex" }
+      });
+    }
+
+    if (url.pathname === "/license/refresh") {
+      const result = await refresh(env, url.searchParams.get("key"));
+      return new Response(JSON.stringify(result), {
+        status: result.ok ? 200 : 403,
+        headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }
+      });
     }
 
     if (url.pathname === "/pricing" || url.pathname === "/pricing/") {

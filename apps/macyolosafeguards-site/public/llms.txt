@@ -26,7 +26,7 @@ All downloads are signed with an Apple Developer ID and notarized.
 
 The app is free and complete. Paid options:
 
-- Mac YOLO Pro Guard, $19 a month (supports development; bug reports and feature requests get priority): https://macyolosafeguards.io/go/pro
+- Mac YOLO Pro Guard, $19 a month (adds Auto-Guard, which stops leftover agent processes and cleans caches on its own when memory or disk runs low; bug reports get priority): https://macyolosafeguards.io/go/pro
 - Agent Reliability Diagnostic, $499 once: https://macyolosafeguards.io/go/diagnostic
 - AI Agent Hardening Sprint, $1,500 once: https://macyolosafeguards.io/go/sprint
 
