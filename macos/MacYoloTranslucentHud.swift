@@ -454,17 +454,12 @@ private let HUD_HTML = #"""
           </div>
           <div>
             <div class="header-title">Mac YOLO: <span id="healthState">Checking…</span></div>
-            <div class="header-sub" id="macModel">AI Tokens &amp; Waste · CPU/GPU &amp; Memory · Cleanup &amp; Fleet Guard</div>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;">
           <button class="hdr-pill" onclick="toggleSettingsDrawer()">
             <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82-.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             <span>Settings</span>
-          </button>
-          <button class="hdr-pill" id="hudSizeBtn" onclick="cycleHudSize()">
-            <svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-            <span id="hudSizeBtnText">Size</span>
           </button>
         </div>
       </div>
@@ -495,7 +490,7 @@ private let HUD_HTML = #"""
             <div class="tile-sub warn" id="diskAvail">Scanning disk &amp; /tmp waste…</div>
             <div class="meter-track"><div class="meter-fill" id="diskBarFill" style="width:84%;background:linear-gradient(90deg,#fbbf24,#38bdf8);"></div></div>
           </div>
-          <button class="tile-action" id="freeDiskBtn" onclick="event.stopPropagation();triggerHudAction('freeUpDisk', this, 'Purging…', 'Purged ✓')">Clean AI Waste</button>
+          <button class="tile-action" id="freeDiskBtn" title="Deletes agent caches and old temp files. Session transcripts you are using are kept." onclick="event.stopPropagation();triggerHudAction('freeUpDisk', this, 'Cleaning…', 'Cleaned ✓')">Clean AI Waste</button>
         </div>
 
         <div class="tile tile-tall" onclick="openCardDetail('memory')">
@@ -540,7 +535,7 @@ private let HUD_HTML = #"""
             <div class="tile-sub" id="cpuLoad">Scanning CPU &amp; AGXAccelerator GPU…</div>
             <div class="meter-track"><div class="meter-fill" id="cpuBarFill" style="width:24%;background:linear-gradient(90deg,#a855f7,#fb7185);"></div></div>
           </div>
-          <button class="tile-action" onclick="event.stopPropagation();triggerHudAction('coolDownFans', this, 'Cooling…', 'Fans Cooled ✓')">Cool Down Fans</button>
+          <button class="tile-action" onclick="event.stopPropagation();triggerHudAction('coolDownFans', this, 'Stopping…', 'Done ✓')" title="Stops processes burning CPU with no live agent session, and shuts down idle simulators. Your open apps and live agents are left alone.">Stop Runaways</button>
         </div>
 
         <div class="tile tile-tall" onclick="openCardDetail('network')">
@@ -592,7 +587,7 @@ private let HUD_HTML = #"""
       </div>
 
       <div id="recSection">
-        <div class="rec-header">AI YOLO Agent Optimization (Click any card for live drill-down)</div>
+        <div class="rec-header">AI Agent Optimization</div>
         <div class="card rec-card clickable-card" onclick="openCardDetail('optimization')">
           <div class="rec-top">
             <div class="rec-badge">
@@ -602,13 +597,6 @@ private let HUD_HTML = #"""
               <div class="rec-title" id="recTitle">Live Fan &amp; CPU Culprits ›</div>
               <div class="rec-desc" id="recDesc">Scanning top CPU &amp; fan culprits across active agent swarms and background daemons…</div>
             </div>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-top:4px;">
-            <div style="display:flex;gap:6px;">
-              <button class="rec-btn" id="coolFansMainBtn" onclick="event.stopPropagation();triggerHudAction('coolDownFans', this, 'Cooling Fans…', 'Fans Cooled ✓')">Cool Down Fans</button>
-              <button class="tile-action" style="margin-top:0;padding:6px 10px;" onclick="event.stopPropagation();triggerHudAction('freeUpDisk', this, 'Purging…', 'Purged ✓')">Clean AI Waste</button>
-            </div>
-            <button class="tile-action" style="margin-top:0;padding:6px 10px;" onclick="event.stopPropagation();toggleSettingsDrawer(true)">Uninstall Apps…</button>
           </div>
         </div>
       </div>
@@ -626,10 +614,7 @@ private let HUD_HTML = #"""
         <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid rgba(255,255,255,0.12);margin-top:4px;">
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
             <button class="rec-btn" id="drawerSpeedBtn" style="display:none;" onclick="triggerHudAction('testSpeed', this, 'Testing…', 'Test Speed')">Test Speed</button>
-            <button class="rec-btn" onclick="triggerHudAction('coolDownFans', this, 'Cooling &amp; Reaping…', 'Fans Cooled ✓')">Cool Down Fans</button>
-            <button class="tile-action" style="margin-top:0;padding:6px 11px;" onclick="triggerHudAction('freeUpDisk', this, 'Purging…', 'Purged ✓')">Clean AI Waste</button>
           </div>
-          <button class="tile-action" style="margin-top:0;padding:6px 11px;" onclick="toggleSettingsDrawer(true)">Uninstall Apps…</button>
         </div>
       </div>
       <div class="card rec-card" id="settingsDrawer" style="display:none;padding:10px 13px;">
@@ -651,7 +636,7 @@ private let HUD_HTML = #"""
 
     <div class="hud-footer">
       <button class="tile-action" style="margin-top:0;" onclick="sendAction('toggleStatusBarIcon')">Menu Bar Icon: <strong id="quickStatusIconLabel" style="color:#5eead4;">Shown ✓</strong></button>
-      <span id="footerSizeLabel" style="font-size:11px;color:rgba(255,255,255,0.68);cursor:pointer;" onclick="cycleHudSize()" title="Click to cycle size or drag corner">480×688</span>
+
     </div>
   </div>
   <div class="hud-resize-edge-right" id="hudResizeRight"></div>
@@ -659,12 +644,6 @@ private let HUD_HTML = #"""
   <div class="hud-resize-grip" id="hudResizeGrip" title="Drag to resize">◢</div>
 
   <script>
-    var HUD_PRESETS = [
-      { label: '480×688', width: 480, height: 688 },
-      { label: '540×720', width: 540, height: 720 },
-      { label: '640×780', width: 640, height: 780 }
-    ];
-    var _presetIdx = 0;
     var _diskCleanStatusOverride = null;
     var _diskCleanStatusUntil = 0;
     var _lastCleanDetailRows = '';
@@ -805,16 +784,7 @@ private let HUD_HTML = #"""
     function resizeHud(w, h, persist) {
       var cw = Math.max(380, Math.min(880, Math.round(w)));
       var ch = Math.max(540, Math.min(920, Math.round(h)));
-      var lbl = document.getElementById('footerSizeLabel');
-      if (lbl) lbl.textContent = cw + '×' + ch;
       sendAction('resizeHud', { width: cw, height: ch, persist: !!persist });
-    }
-    function cycleHudSize() {
-      _presetIdx = (_presetIdx + 1) % HUD_PRESETS.length;
-      var p = HUD_PRESETS[_presetIdx];
-      var btnTxt = document.getElementById('hudSizeBtnText');
-      if (btnTxt) btnTxt.textContent = p.label;
-      resizeHud(p.width, p.height, true);
     }
     window.addEventListener('keydown', function(e) {
       if (e.key === 'Escape') sendAction('dismiss');
@@ -1151,7 +1121,7 @@ func findNodeBinary() -> String? {
 
 // Only agents that are running, e.g. "Claude×14 · OMP×7 · Grok×4". Tools you don't use stay off the card.
 func agentSwarmLine(_ counts: [(String, Int)]) -> String {
-    let live = counts.filter { $0.1 > 0 }.map { "\($0.0)×\($0.1)" }
+    let live = counts.filter { $0.1 > 0 }.map { "\($0.0) \($0.1)" }
     return live.isEmpty ? "No coding agents running" : live.joined(separator: " · ")
 }
 
@@ -1835,7 +1805,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         hudPanel.level = .statusBar
         hudPanel.isOpaque = false
         hudPanel.backgroundColor = .clear
-        hudPanel.alphaValue = 0.88
+        hudPanel.alphaValue = 1.0
         hudPanel.hasShadow = true
         hudPanel.isMovableByWindowBackground = true
         hudPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
@@ -2593,7 +2563,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let usedDecimalGB = max(0, totalDecimalGB - freeDecimalGB)
         let diskUsedPct = min(99, max(5, Int(round((usedDecimalGB / max(1, totalDecimalGB)) * 100.0))))
         let freeMenuInt = Int(round(freeDecimalGB))
-        let diskAvailStr = String(format: "%.1f GB Free of %.0f GB (%d%% used)", freeDecimalGB, totalDecimalGB, diskUsedPct)
+        let diskAvailStr = String(format: "%.0f GB free of %.0f GB (%d%% used)", freeDecimalGB, totalDecimalGB, diskUsedPct)
 
         var memPressurePct = 36
         var activeGB = 10.0
@@ -2758,11 +2728,11 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "activeApp": culprits.swarmSummary,
             "activeWin": "\(culprits.pyCount) Python & \(culprits.nodeCount) node MCPs · \(agentCount) user agents",
             "diskAvail": diskAvailStr,
-            "diskRightBadge": "\(freeMenuInt)G Free ›",
+            "diskRightBadge": String(format: "%.0f GB free ›", freeDecimalGB),
             "memPressure": culprits.topMem.isEmpty ? "Pressure \(memPressurePct)%" : "Pressure \(memPressurePct)% · \(culprits.topMem)",
             "memRightBadge": "VRAM \(String(format: "%.1fG", gpu.vramGB)) ›",
             "memPctNum": "\(memPressurePct)",
-            "battPct": String(format: "%.0fM tok ›", sess.estTokensM),
+            "battPct": String(format: "%.1fM tok ›", sess.estTokensM),
             "battState": String(format: "%.1f MB live JSONLs (%d files, 2h)", sess.totalMB, sess.ompFiles + sess.grokFiles),
             "tokPctNum": "\(min(100, max(12, Int(round(sess.totalMB / 2.5)))))",
             "cpuLoad": "Load 1m: \(load1Str) on \(ncpu) cores",
@@ -3058,7 +3028,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let origin = hudOriginUnderMenuBar(size: hudPanel.frame.size)
         hudPanel.setFrameOrigin(origin)
         hudPanel.isFloatingPanel = true
-        hudPanel.alphaValue = 0.88
+        hudPanel.alphaValue = 1.0
         hudPanel.level = .statusBar
         hudPanel.hidesOnDeactivate = false
         hudPanel.orderFrontRegardless()
@@ -3624,7 +3594,7 @@ if CommandLine.arguments.contains("--health-self-test") {
           !c.detailCpu.isEmpty,
           shieldRows.first?.hasPrefix("Top Hogs Right Now|") == true,
           !c.recTitle.contains("Top Hogs"), !c.recTitle.contains("CPU"),
-          agentSwarmLine([("Claude", 2), ("Pool", 0), ("Grok", 1)]) == "Claude×2 · Grok×1",
+          agentSwarmLine([("Claude", 2), ("Pool", 0), ("Grok", 1)]) == "Claude 2 · Grok 1",
           agentSwarmLine([("Pool", 0)]) == "No coding agents running",
           c.topMem.hasPrefix("Most RAM: "),
           shieldRows.contains(where: { $0.hasPrefix("1. ") }),
