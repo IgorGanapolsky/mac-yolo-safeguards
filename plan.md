@@ -4595,3 +4595,17 @@ The signed-in console at https://console.crusoecloud.com/home has no infrastruct
 | .agents/skills/quota-before-provision/** | grok-quota-before-provision | 2026-11-12T13:41:47-0500 |
 | SKILLS.md (one row) | grok-quota-before-provision | 2026-11-12T13:41:47-0500 |
 | plan.md (this append) | grok-quota-before-provision | 2026-11-12T13:41:47-0500 |
+
+## One hog list (append 2026-11-12T14:20:00-0500) — `grok-hud-hogs-one-card`
+
+The glance showed the same heavy-program sentence on the protection line, the optimization card, the memory tile, and the CPU tile. The optimization card keeps that sentence. The protection line names the app in front. Memory stays a pressure percent. CPU stays the 1-minute load. A click on Protection still opens Top Hogs Right Now. The two HUD Swift files stay copies of each other. This claim does not install a build.
+
+| T-HUD-HOGS-ONE-CARD-20261112 | Show the heavy-program list once, on the optimization card | in_progress | grok-hud-hogs-one-card | `macos/MacYoloSafeguardsApp.swift`, `macos/MacYoloTranslucentHud.swift`, `tests/test-hud-hogs-one-card.js`, `plan.md` (this append) | `node tests/test-hud-hogs-one-card.js` exits 0. The hog sentence is not on the protection, memory, or CPU glance lines. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| macos/MacYoloSafeguardsApp.swift | grok-hud-hogs-one-card | 2026-11-12T14:20:00-0500 |
+| macos/MacYoloTranslucentHud.swift | grok-hud-hogs-one-card | 2026-11-12T14:20:00-0500 |
+| tests/test-hud-hogs-one-card.js | grok-hud-hogs-one-card | 2026-11-12T14:20:00-0500 |
+| plan.md (this append) | grok-hud-hogs-one-card | 2026-11-12T14:20:00-0500 |

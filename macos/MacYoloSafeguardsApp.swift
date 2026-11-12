@@ -478,7 +478,7 @@ private let HUD_HTML = #"""
           </div>
           <span class="shield-status">✓ Protected · Details ›</span>
         </div>
-        <div class="shield-main" id="guardHeadline">Scanning live AI token &amp; system telemetry…</div>
+        <div class="shield-main" id="guardHeadline">Checking CPU, graphics, and memory…</div>
         <div class="shield-sub" id="onScreenNowLine">On screen now: Detecting active window…</div>
       </div>
 
@@ -592,15 +592,15 @@ private let HUD_HTML = #"""
       </div>
 
       <div id="recSection">
-        <div class="rec-header">AI YOLO Agent Optimization (Click any card for live drill-down)</div>
+        <div class="rec-header">AI YOLO Agent Optimization</div>
         <div class="card rec-card clickable-card" onclick="openCardDetail('optimization')">
           <div class="rec-top">
             <div class="rec-badge">
               <svg width="24" height="24" viewBox="0 0 32 32"><path d="M16 3L5 7.5v8.2C5 22.8 9.7 28.9 16 31c6.3-2.1 11-8.2 11-15.3V7.5L16 3z" fill="#ffffff"/><polygon points="17.5 8 10.5 17 15.5 17 14.2 24.5 21.5 15 16.5 15 17.5 8" fill="#14b8a6"/></svg>
             </div>
             <div>
-              <div class="rec-title" id="recTitle">Live Fan &amp; CPU Culprits ›</div>
-              <div class="rec-desc" id="recDesc">Scanning top CPU &amp; fan culprits across active agent swarms and background daemons…</div>
+              <div class="rec-title" id="recTitle">Top Hogs ›</div>
+              <div class="rec-desc" id="recDesc">Checking which programs are using this Mac.</div>
             </div>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-top:4px;">
@@ -1735,9 +1735,8 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             guard let self = self else { return }
             let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
             self.updateActiveWindowFromWorkspace(app)
-            let onScreenLine = self.lastActiveWin == self.lastActiveApp ? self.lastActiveApp : "\(self.lastActiveApp) — \(self.lastActiveWin)"
             let activePayload: [String: String] = [
-                "onScreenLine": onScreenLine,
+                "onScreenLine": self.onScreenGlance(),
                 "activeApp": self.lastActiveApp,
                 "activeWin": self.lastActiveWin,
             ]
@@ -1978,6 +1977,14 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
 
     func dismissHudNotification() {
         hudPanel?.orderOut(nil)
+    }
+
+    func onScreenGlance() -> String {
+        let app = lastActiveApp.isEmpty ? "checking" : lastActiveApp
+        var win = lastActiveWin
+        if win.count > 48 { win = String(win.prefix(47)) + "…" }
+        if win.isEmpty || win == app { return "On screen: \(app)" }
+        return "On screen: \(app) — \(win)"
     }
 
     func updateActiveWindowFromWorkspace(_ app: NSRunningApplication?) {
@@ -2455,15 +2462,25 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let shortStr = shown.map { name in
             let gb = rssByApp[name, default: 0] / 1_048_576.0
             let c = cpuByApp[name, default: 0]
-            return gb >= 0.8 ? String(format: "%@ (%.1fG · %.0f%%)", name, gb, c) : String(format: "%@ (%.0f%%)", name, c)
+            let load: String
+            if c >= 100 {
+                let cores = c / 100.0
+                load = cores >= 10 ? String(format: "%.0f cores", cores) : String(format: "%.1f cores", cores)
+            } else if gb >= 0.8 && c < 40 {
+                load = String(format: "%.1f GB", gb)
+            } else {
+                load = String(format: "%.0f%%", c)
+            }
+            return "\(name) \(load)"
         }.joined(separator: " · ")
         let topCpu = ranked.first.map { cpuByApp[$0, default: 0] } ?? 0
         let hot = appleThermalWarning()
-        let rTitle = "Top Hogs: \(shortStr)"
+        let glance = shortStr.isEmpty ? "Idle" : shortStr
+        let rTitle = "Top Hogs"
         let systemIndexers: Set<String> = ["Spotlight", "Photos Analysis"]
         let topByCpu = cpuByApp.max { $0.value < $1.value }?.key
         let indexerNote = topByCpu.map { systemIndexers.contains($0) ? "\($0) is a protected macOS service (busy after a restart or large file changes). Safeguards cannot throttle it; it settles on its own. " : "" } ?? ""
-        let rDesc = indexerNote + "\(totalProcs) live procs (\(pyCount) Python, \(nodeCount) node MCPs) · Thermal: \(hot ? "Warning" : "Nominal"). Click any card to inspect."
+        let rDesc = indexerNote + "\(glance). \(totalProcs) programs. Fans are \(hot ? "warm" : "normal")."
         let cpuRows = ranked.prefix(6).enumerated().map { idx, name in
             let c = cpuByApp[name, default: 0]
             let gb = rssByApp[name, default: 0] / 1_048_576.0
@@ -2496,7 +2513,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "Cursor IDE|\(cursorCount > 0 ? "Active · \(fmtRam(cursorRssKB)) RAM" : "Not running (0 MB)")|10|Foreground Cursor editor and renderer helpers.",
             "Stdio MCP Child Servers|\(pyCount) Python + \(nodeCount) Node · \(fmtRam(pyRssKB + nodeRssKB))|80|Python and Node.js processes (including MCP tool servers and build scripts).",
         ].joined(separator: ";;")
-        return (shortStr.isEmpty ? "Idle" : shortStr, rTitle, rDesc, cpuRows, memRows, fleetRows, topCpu, totalProcs, pyCount, nodeCount, swarmStr, realCpuPct)
+        return (glance, rTitle, rDesc, cpuRows, memRows, fleetRows, topCpu, totalProcs, pyCount, nodeCount, swarmStr, realCpuPct)
     }
 
     func sampleCpuBusyPct() -> Int? {
@@ -2743,19 +2760,19 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let payload: [String: String] = [
             "healthState": healthStateStr,
             "healthColor": healthColorStr,
-            "guardHeadline": "CPU \(cpuPct)% · GPU \(gpu.devicePct)% (\(String(format: "%.1fG", gpu.vramGB)) VRAM) · RAM \(memPressurePct)% · \(String(format: "%.1fM", sess.estTokensM)) tok (2h)",
-            "onScreenLine": "Top Hogs: \(culprits.shortLine) · Active: \(lastActiveApp)",
+            "guardHeadline": "CPU \(cpuPct)% · GPU \(gpu.devicePct)% (\(String(format: "%.1fG", gpu.vramGB)) VRAM) · RAM \(memPressurePct)%",
+            "onScreenLine": onScreenGlance(),
             "activeApp": culprits.swarmSummary,
             "activeWin": "\(culprits.pyCount) Python & \(culprits.nodeCount) node MCPs · \(agentCount) user agents",
             "diskAvail": diskAvailStr,
             "diskRightBadge": "\(freeMenuInt)G Free ›",
-            "memPressure": "Pressure \(memPressurePct)% · \(culprits.shortLine)",
+            "memPressure": "Pressure \(memPressurePct)%",
             "memRightBadge": "VRAM \(String(format: "%.1fG", gpu.vramGB)) ›",
             "memPctNum": "\(memPressurePct)",
             "battPct": String(format: "%.0fM tok ›", sess.estTokensM),
             "battState": String(format: "%.1f MB live JSONLs (%d files, 2h)", sess.totalMB, sess.ompFiles + sess.grokFiles),
             "tokPctNum": "\(min(100, max(12, Int(round(sess.totalMB / 2.5)))))",
-            "cpuLoad": "1m: \(load1Str)/\(ncpu) · \(culprits.shortLine)",
+            "cpuLoad": "Load \(load1Str) on \(ncpu) cores",
             "cpuPctNum": "\(cpuPct)",
             "cpuRight": "CPU \(cpuPct)% · GPU \(gpu.devicePct)% ›",
             "mcpRightBadge": "\(culprits.pyCount + culprits.nodeCount) MCPs ›",
@@ -3610,6 +3627,9 @@ if CommandLine.arguments.contains("--health-self-test") {
     )
     let shieldRows = shield.components(separatedBy: ";;").filter { !$0.isEmpty }
     guard !c.shortLine.isEmpty,
+          c.recTitle == "Top Hogs",
+          c.recDesc.contains(c.shortLine),
+          !c.recDesc.contains("Click any card"),
           !c.detailCpu.isEmpty,
           shieldRows.first?.hasPrefix("Top Hogs Right Now|") == true,
           shieldRows.contains(where: { $0.hasPrefix("1. ") }),
