@@ -17,8 +17,24 @@ const INSTALL_TEXT = /\b(?:npm\s+install|brew\s+install|pip\s+install|install|en
 // Cloud CLIs that start a remote machine without naming a devbox.
 const REMOTE_CLI = /\baws\s+ec2\s+run-instances\b|\bgcloud\s+compute\s+instances\s+create\b|\baz\s+vm\s+create\b|\bdoctl\s+compute\s+droplet\s+create\b|\bhcloud\s+server\s+create\b/i;
 const REMOTE_TEXT = /\b(?:start|create|provision|launch)\b[\s\S]{0,80}\b(?:devbox|private ec2|dependency firewall)\b|\btailscale\s+up\b[\s\S]{0,60}\b(?:devbox|private ec2)\b|\bdfc\s+(?:up|start|install)\b/i;
-// Allows git global options first: `git -C <dir> checkout -b x`, `git -c k=v switch -c x`.
-const BRANCH_IN_PLACE = /\bgit(?:\s+(?:-[Cc]\s+\S+|--?[\w-]+(?:=\S+)?))*\s+(?:checkout\s+-[bB]|switch\s+(?:-[cC]|--create))\b/;
+// Tokenized rather than one regex (CodeQL js/redos): skip git global options such as
+// `-C <dir>` or `-c k=v`, then look for `checkout -b/-B` or `switch -c/-C/--create`.
+function gitCreatesBranch(command) {
+  return String(command || '').split(/[\n;&|]+/).some((segment) => {
+    const words = segment.trim().split(/\s+/);
+    let i = words.indexOf('git');
+    if (i < 0) return false;
+    i += 1;
+    while (i < words.length && words[i].startsWith('-')) {
+      i += (words[i] === '-C' || words[i] === '-c') ? 2 : 1;
+    }
+    const sub = words[i];
+    const rest = words.slice(i + 1);
+    if (sub === 'checkout') return rest.some((w) => w === '-b' || w === '-B');
+    if (sub === 'switch') return rest.some((w) => w === '-c' || w === '-C' || w === '--create');
+    return false;
+  });
+}
 const VENDOR_CLAIM = /operational in less than a week|prevent(?:s|ing) supply chain attacks|security-engineering load by roughly 70%|hundreds of CVEs/i;
 const ATTRIBUTED = /\bdepthfirst\b/i;
 
@@ -111,7 +127,7 @@ function reviewTaskCheckout(input = {}) {
     || (action === 'task' && !norm(taskPath))
     || insideShared(taskPath, sharedRoot)
     || (norm(taskPath) && overlapsOtherTask(taskPath, otherTaskPaths))
-    || BRANCH_IN_PLACE.test(command)
+    || gitCreatesBranch(command)
   ) {
     findings.push(finding('shared_checkout'));
   }
