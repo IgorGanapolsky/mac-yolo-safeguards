@@ -553,7 +553,7 @@ private let HUD_HTML = #"""
               <span class="tile-val" id="netVerdict" style="color:#94a3b8;font-size:11px;">Checking… ›</span>
             </div>
             <div class="net-rates" style="padding-left:2px;">
-              <div id="netImpact" style="font-size:12px;color:#fff;font-weight:600;">Checking your internet…</div>
+              <div id="netImpact" style="font-size:13px;color:#fff;font-weight:700;">Delay measuring</div>
               <div id="netCause" style="font-size:11px;color:rgba(255,255,255,0.8);margin-top:1px;"></div>
               <div id="netUp" style="font-size:10px;color:rgba(255,255,255,0.55);margin-top:2px;">Delay measuring</div>
               <div id="netDown" style="font-size:10px;color:rgba(255,255,255,0.55);">Using now ↓ 0 KB/s · ↑ 0 KB/s</div>
@@ -2385,7 +2385,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "How long a reply takes (lower is better)|\(delayMeaning)|\(min(100, (netLatencyMs ?? 0) / 3))",
             "App sending the most data|\(topSplit.map { "\(friendlyAppName($0.name)) · \($0.rate)" } ?? "nothing over 50 KB/s")|50",
             "How full your upload is|\(upPct >= 0 ? "\(upPct)% of your line" : "tap Test Speed to find out")|\(max(0, upPct))",
-            "Your line's top speed (Test Speed)|\(upCapKB > 0 ? "↓ \(formatRate(Double(downCapKB) * 1024)) down · ↑ \(formatRate(Double(upCapKB) * 1024)) up" : "not measured yet, tap Test Speed")|50",
+            "Your line's top speed (Test Speed)|\(line.0 >= 1 || line.1 >= 1 ? "↓ \(formatMbps(line.0)) down · ↑ \(formatMbps(line.1)) up" : "not measured yet, tap Test Speed")|50",
             "Internet by agent, right now|\(agentNet.isEmpty ? "no agent traffic over 0 KB/s" : agentNet.prefix(4).map { "\($0.agent) ↑ \(formatRate($0.outRate))" }.joined(separator: " · "))|50",
             "Right now on \(wifiName)|\(upRate) · \(downRate)|45",
             String(format: "Total since restart (\(wifiName))|↓ %.2f GB down · ↑ %.2f GB up|60", rxGB, txGB),
@@ -2440,12 +2440,12 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "detailFleet": detailFleetFull,
             "detailShield": detailShieldFull,
             "detailOptimization": detailCpuFull,
-            "netUp": headline.speed,
+            "netUp": verdict.impact,
             "netDown": headline.using,
             "netVerdict": verdict.label,
             "netVerdictColor": verdict.color,
             "netWhy": verdict.why,
-            "netImpact": verdict.impact,
+            "netImpact": headline.speed,
             "netCause": verdict.cause,
             "fleetUsage": fleetUsage,
             "recTitle": culprits.recTitle + " ›",
