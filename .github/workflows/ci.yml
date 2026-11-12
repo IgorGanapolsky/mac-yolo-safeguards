@@ -251,6 +251,7 @@ jobs:
           set -eu
           tests/test-adb-reverse-device-filter.sh
           tests/test-secondary-browser-reclaim.sh
+          tests/test-yolo-guard-banner-quiet.sh
 
       # RAG retrieval quality (hermes-retrieval-harness) — added 2026-07-28 after
       # zero-result grepai MCP searches went undetected for days. Measures recall@k,
