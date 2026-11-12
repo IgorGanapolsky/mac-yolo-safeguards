@@ -190,6 +190,22 @@ function main() {
   assert.strictEqual(blockedReport.devboxStarted, false);
   assert.strictEqual(blockedReport.humanReview, true);
 
+  // Review follow-ups: normalized paths, nested task trees, several other worktrees.
+  const blockedShared = (input) => reviewTaskCheckout({ action: 'task', ...input }).findings.some((f) => f.id === 'shared_checkout');
+  assert.ok(blockedShared({ taskPath: '/Users/iganapolsky/workspace/./mac-yolo-safeguards' }));
+  assert.ok(blockedShared({ taskPath: '/Users/iganapolsky/workspace/x/../mac-yolo-safeguards/src' }));
+  assert.ok(blockedShared({ taskPath: OTHER + '/src', otherTaskPath: OTHER }));
+  assert.ok(blockedShared({ taskPath: OTHER, otherTaskPath: OTHER + '/sub' }));
+  assert.ok(blockedShared({ taskPath: OTHER + '/', otherTaskPaths: ['/tmp/a', OTHER] }));
+  assert.ok(!blockedShared({ taskPath: OWN, otherTaskPaths: [OTHER, OTHER + '-2'] }));
+  assert.ok(!blockedShared({ taskPath: OTHER + '-2', otherTaskPath: OTHER }));
+  const multiCli = spawnSync(process.execPath, [
+    path.join(__dirname, '../tools/task-checkout-gate.js'),
+    '--action', 'task', '--task-path', OTHER + '/src',
+    '--other-task-path', '/tmp/a', '--other-task-path', OTHER, '--json',
+  ], { encoding: 'utf8' });
+  assert.strictEqual(multiCli.status, 2);
+
   console.log('test-task-checkout-gate: PASS');
 }
 

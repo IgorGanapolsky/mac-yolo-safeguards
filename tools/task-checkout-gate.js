@@ -23,8 +23,20 @@ function finding(id) {
   return { id, severity: 'block' };
 }
 
+const posix = require('path').posix;
+
+// Resolve `.`, `..` and repeated slashes so `/a/./b` and `/a/b/` compare equal to `/a/b`.
 function norm(value) {
-  return String(value || '').replace(/\/+$/, '');
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  return posix.normalize(raw).replace(/\/+$/, '') || '/';
+}
+
+function sameOrInside(path, root) {
+  const p = norm(path);
+  const r = norm(root);
+  if (!p || !r) return false;
+  return p === r || p.startsWith(r === '/' ? '/' : r + '/');
 }
 
 function scanText(text) {
@@ -32,10 +44,12 @@ function scanText(text) {
 }
 
 function insideShared(taskPath, sharedRoot) {
-  const path = norm(taskPath);
-  const root = norm(sharedRoot);
-  if (!path || !root) return false;
-  return path === root || path.startsWith(root + '/');
+  return sameOrInside(taskPath, sharedRoot);
+}
+
+// Two task trees overlap when either one is the other or sits inside it.
+function overlapsOtherTask(taskPath, otherTaskPaths) {
+  return otherTaskPaths.some((other) => sameOrInside(taskPath, other) || sameOrInside(other, taskPath));
 }
 
 function reviewTaskCheckout(input = {}) {
@@ -44,7 +58,10 @@ function reviewTaskCheckout(input = {}) {
   const command = String(input.command || '');
   const blob = scanText([note, command].filter(Boolean).join('\n'));
   const taskPath = String(input.taskPath || '');
-  const otherTaskPath = String(input.otherTaskPath || '');
+  const otherTaskPaths = []
+    .concat(input.otherTaskPaths || [], input.otherTaskPath || [])
+    .map((item) => String(item || ''))
+    .filter((item) => norm(item));
   const sharedRoot = String(input.sharedRoot || DEFAULT_SHARED);
   const findings = [];
 
@@ -55,7 +72,7 @@ function reviewTaskCheckout(input = {}) {
     || action === 'shared'
     || (action === 'task' && !norm(taskPath))
     || insideShared(taskPath, sharedRoot)
-    || (norm(taskPath) && norm(otherTaskPath) && norm(taskPath) === norm(otherTaskPath))
+    || (norm(taskPath) && overlapsOtherTask(taskPath, otherTaskPaths))
     || BRANCH_IN_PLACE.test(command)
   ) {
     findings.push(finding('shared_checkout'));
@@ -93,6 +110,15 @@ function argValue(argv, flag) {
   return value.startsWith('--') ? '' : value;
 }
 
+function argValues(argv, flag) {
+  const values = [];
+  argv.forEach((item, index) => {
+    const value = argv[index + 1];
+    if (item === flag && value !== undefined && !value.startsWith('--')) values.push(value);
+  });
+  return values;
+}
+
 function main() {
   const argv = process.argv.slice(2);
   const report = reviewTaskCheckout({
@@ -100,7 +126,7 @@ function main() {
     note: argValue(argv, '--note'),
     command: argValue(argv, '--command'),
     taskPath: argValue(argv, '--task-path'),
-    otherTaskPath: argValue(argv, '--other-task-path'),
+    otherTaskPaths: argValues(argv, '--other-task-path'),
     sharedRoot: argValue(argv, '--shared-root') || DEFAULT_SHARED,
   });
   if (argv.indexOf('--json') >= 0) console.log(JSON.stringify(report));
