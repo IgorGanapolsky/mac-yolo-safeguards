@@ -4609,3 +4609,10 @@ The Background Jobs submenu already lists LaunchAgents, crontab lines, and loose
 | macos/MacYoloTranslucentHud.swift | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
 | tests/test-jobs-menu-reachable.js | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
 | plan.md (this append) | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
+
+## LaunchAgent templates into launchd/ (append 2026-11-12T15:20:00-0500) — `claude-root-cleanup`
+
+The repo root held 33 LaunchAgent templates. They now live in `launchd/`, and every installer, test and workflow that reads a repo copy points there. Installed copies under ~/Library/LaunchAgents are unchanged.
+
+| T-ROOT-PLISTS-20261112 | Move LaunchAgent templates from the repo root into launchd/ | in_progress | claude-root-cleanup | `launchd/`, `hermes-mobile/src/__tests__/releaseSafetyContract.test.ts`, `plan.md` (this append) | Root has no *.plist; every repo-copy reference resolves under launchd/. |
+- `hermes-mobile/src/__tests__/releaseSafetyContract.test.ts` → **claude-root-cleanup** (one path: plist now under launchd/)
