@@ -77,13 +77,13 @@ install_one() {
   local label="${template%.plist}"
   local dest="${launchagents_dir}/${label}.plist"
 
-  if [[ ! -f "${repo_root}/${template}" ]]; then
+  if [[ ! -f "${repo_root}/launchd/${template}" ]]; then
     echo "SKIP missing template: ${template}" >&2
     return 0
   fi
 
   sed "s#{{REPO}}#${repo_root}#g; s#{{HOME}}#${home}#g; s#{{NODE}}#${node_bin}#g; s#{{JAVA_HOME}}#${java_home}#g; s#{{HERMES_PIN_MODEL}}#${hermes_pin_model}#g" \
-    "${repo_root}/${template}" > "${dest}"
+    "${repo_root}/launchd/${template}" > "${dest}"
 
   launchctl bootout "${gui_domain}/${label}" 2>/dev/null || true
   launchctl bootstrap "${gui_domain}" "${dest}"
@@ -111,7 +111,7 @@ if [[ "${HERMES_ALLOW_INTERACTIVE_CHROME:-0}" == "1" && -x "${repo_root}/scripts
 else
   echo "SKIP com.hermes.chrome-cdp (HERMES_ALLOW_INTERACTIVE_CHROME!=1)"
 fi
-if [[ -f "${repo_root}/com.igor.hermes-prevention-watchdog.plist" ]]; then
+if [[ -f "${repo_root}/launchd/com.igor.hermes-prevention-watchdog.plist" ]]; then
   install_one "com.igor.hermes-prevention-watchdog.plist"
 fi
 

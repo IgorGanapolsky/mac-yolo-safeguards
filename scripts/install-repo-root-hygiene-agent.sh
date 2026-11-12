@@ -41,7 +41,7 @@ sed \
   -e "s|{{TOOL}}|${runtime_tool}|g" \
   -e "s|{{REPO}}|${target_repo}|g" \
   -e "s|{{HOME}}|${HOME}|g" \
-  "${source_root}/com.igor.repo-root-hygiene.plist" > "${plist_dest}"
+  "${source_root}/launchd/com.igor.repo-root-hygiene.plist" > "${plist_dest}"
 chmod 600 "${plist_dest}"
 plutil -lint "${plist_dest}" >/dev/null
 
