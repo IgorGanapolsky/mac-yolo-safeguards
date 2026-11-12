@@ -88,6 +88,8 @@ function main() {
   assert.ok(src.includes('func buildDetailShieldFull(') && src.includes('Top Hogs Right Now|'), 'Protection drawer (detailShieldFull) must surface Top Hogs Right Now and itemized top CPU/RAM hogs with 4-part interactive rows');
   // Top Hogs is shown once, on the Protection line. Igor, 2026-11-12: "why do i see top hogs in multiple places?"
   assert.ok(!/"(recTitle|memPressure|cpuLoad)":[^\n]*shortLine/.test(src) && !src.includes('let rTitle = "Top Hogs'), 'Top Hogs must appear only on the Protection line, not the optimization card, memory tile or CPU tile');
+  // Switching apps must not write the app name over the Agents card ("Gemini / Gemini", "Google Chrome").
+  assert.ok(!/let activePayload: \[String: String\] = \[[^\]]*"activeApp"/.test(src), 'App-switch payload must not overwrite the Agents card (activeApp/activeWin)');
   const launcherSrc = fs.readFileSync(LAUNCHER_PATH, 'utf8');
   assert.ok(launcherSrc.includes('Developer ID Application: Igor Ganapolsky (9GMM26JC5X)') && launcherSrc.includes('is_self_test'), 'tools/launch-mac-yolo-menubar.sh must sign with Developer ID Application and skip re-signing on self-tests');
 

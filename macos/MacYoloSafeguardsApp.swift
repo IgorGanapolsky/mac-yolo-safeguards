@@ -1743,10 +1743,10 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
             self.updateActiveWindowFromWorkspace(app)
             let onScreenLine = self.lastHogsLine.isEmpty ? self.lastActiveApp : "Top Hogs: \(self.lastHogsLine) · Active: \(self.lastActiveApp)"
+            // Only the Protection line follows the frontmost app. activeApp/activeWin fill the Agents
+            // card with the agent fleet; the full refresh owns them.
             let activePayload: [String: String] = [
                 "onScreenLine": onScreenLine,
-                "activeApp": self.lastActiveApp,
-                "activeWin": self.lastActiveWin,
             ]
             if let data = try? JSONSerialization.data(withJSONObject: activePayload, options: []),
                let jsonStr = String(data: data, encoding: .utf8) {
