@@ -30,22 +30,12 @@ private let HUD_HTML = #"""
     height: 100%;
     border-radius: 22px;
     background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
     padding: 12px 14px 8px 14px;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-  }
-  .shell::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: 22px;
-    background: radial-gradient(circle at 82% 10%, rgba(126, 58, 242, 0.44) 0%, rgba(46, 21, 99, 0.56) 48%, rgba(21, 11, 48, 0.62) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.38);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
-    pointer-events: none;
-    z-index: 0;
-    transform: translateZ(0);
   }
   .shell > * {
     position: relative;
@@ -93,9 +83,9 @@ private let HUD_HTML = #"""
     filter: drop-shadow(0 4px 12px rgba(56, 189, 248, 0.45));
   }
   .card {
-    background: rgba(15, 11, 33, 0.46);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
+    background: rgba(15, 11, 33, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
     border-radius: 14px;
     padding: 8px 11px;
   }
@@ -153,9 +143,9 @@ private let HUD_HTML = #"""
   .tile {
     min-width: 0;
     overflow: hidden;
-    background: rgba(15, 11, 33, 0.46);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20);
+    background: rgba(15, 11, 33, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
     border-radius: 13px;
     padding: 7px 10px;
     display: flex;
@@ -456,7 +446,13 @@ private let HUD_HTML = #"""
             <div class="header-title">Mac YOLO: <span id="healthState">Checking…</span></div>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:6px;">
+        <div style="display:flex;align-items:center;gap:5px;">
+          <button class="hdr-pill" id="proHdrPill" onclick="handleProHeaderClick()" style="border-color:rgba(94,234,212,0.45);color:#5eead4;">
+            <span id="proHdrLabel">Pro $59/yr</span>
+          </button>
+          <button class="hdr-pill" id="hudCompactToggle" onclick="toggleCompactHud()" title="Switch between compact popover and full Bento panel">
+            <span id="hudCompactLabel">Compact ▴</span>
+          </button>
           <button class="hdr-pill" onclick="sendAction('openGearMenu')">
             <span>Jobs</span>
           </button>
@@ -466,6 +462,20 @@ private let HUD_HTML = #"""
           </button>
         </div>
       </div>
+
+      <div class="card" id="proPaywallBanner" style="display:none;margin-bottom:6px;border:1px solid rgba(56,189,248,0.55);background:rgba(13,17,26,0.96);padding:10px 12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <strong style="font-size:12.5px;color:#5eead4;">Unlock Mac YOLO Pro Guard — $59/year (or $19/mo)</strong>
+          <button class="tile-action" style="margin-top:0;padding:2px 7px;" onclick="document.getElementById('proPaywallBanner').style.display='none'">×</button>
+        </div>
+        <div id="proPaywallReason" style="font-size:11.5px;color:rgba(255,255,255,0.88);line-height:1.4;margin-bottom:7px;">Live diagnostics are free. Pro Guard ($59/year or $19/month) stops leftover agent processes and cleans caches automatically before your Mac freezes.</div>
+        <div style="display:flex;gap:6px;justify-content:flex-end;">
+          <button class="tile-action" style="margin-top:0;" onclick="sendAction('enterProLicense')">Enter License Key…</button>
+          <button class="rec-btn" style="padding:4px 12px;font-size:11.5px;" onclick="sendAction('openGetPro')">Get Pro Guard — $59/yr ›</button>
+        </div>
+      </div>
+
+      <div class="card" id="attentionLine" style="margin-bottom:6px;padding:8px 11px;font-size:12px;font-weight:600;color:#e2e8f0;background:rgba(15,11,33,0.92);border:1px solid rgba(94,234,212,0.34);">Mac healthy · No runaway agents — nothing to do.</div>
 
       <div id="overviewSection">
       <div class="card shield-card clickable-card" onclick="openCardDetail('shield')">
@@ -493,7 +503,7 @@ private let HUD_HTML = #"""
             <div class="tile-sub warn" id="diskAvail">Scanning disk &amp; /tmp waste…</div>
             <div class="meter-track"><div class="meter-fill" id="diskBarFill" style="width:84%;background:linear-gradient(90deg,#fbbf24,#38bdf8);"></div></div>
           </div>
-          <button class="tile-action" id="freeDiskBtn" title="Deletes agent caches and old temp files. Session transcripts you are using are kept." onclick="event.stopPropagation();triggerHudAction('freeUpDisk', this, 'Cleaning…', 'Cleaned ✓')">Clean AI Waste</button>
+          <button class="tile-action" id="freeDiskBtn" title="Deletes agent caches and old temp files. Session transcripts you are using are kept." onclick="event.stopPropagation();confirmHudAction('freeUpDisk', this, 'Cleaning…', 'Cleaned ✓', 'Clean AI Waste')">Clean AI Waste</button>
         </div>
 
         <div class="tile tile-tall" onclick="openCardDetail('memory')">
@@ -508,7 +518,7 @@ private let HUD_HTML = #"""
             <div class="tile-sub" id="memPressure">Scanning VM &amp; swarm RAM…</div>
             <div class="meter-track"><div class="meter-fill" id="memBarFill" style="width:62%;background:linear-gradient(90deg,#34d399,#38bdf8);"></div></div>
           </div>
-          <button class="tile-action" id="freeMemBtn" onclick="event.stopPropagation();triggerHudAction('freeUpMemory', this, 'Reaping…', 'RAM Freed ✓')">Free Agent RAM</button>
+          <button class="tile-action" id="freeMemBtn" onclick="event.stopPropagation();confirmHudAction('freeUpMemory', this, 'Reaping…', 'RAM Freed ✓', 'Free Agent RAM')">Free Agent RAM</button>
         </div>
 
         <div class="tile tile-tall" onclick="openCardDetail('tokens')">
@@ -542,7 +552,7 @@ private let HUD_HTML = #"""
             <div class="tile-sub" id="cpuLoad">Scanning CPU &amp; AGXAccelerator GPU…</div>
             <div class="meter-track"><div class="meter-fill" id="cpuBarFill" style="width:24%;background:linear-gradient(90deg,#a855f7,#fb7185);"></div></div>
           </div>
-          <button class="tile-action" onclick="event.stopPropagation();triggerHudAction('coolDownFans', this, 'Stopping…', 'Done ✓')" title="Stops processes burning CPU with no live agent session, and shuts down idle simulators. Your open apps and live agents are left alone.">Stop Runaways</button>
+          <button class="tile-action" id="stopRunawaysBtn" onclick="event.stopPropagation();confirmStopRunaways(this)" title="Stops processes burning CPU with no live agent session, and shuts down idle simulators. Your open apps and live agents are left alone.">Stop Runaways</button>
         </div>
 
         <div class="tile tile-tall" onclick="openCardDetail('network')">
@@ -677,7 +687,82 @@ private let HUD_HTML = #"""
     }
     // Blanking out secrets edits transcripts and can't be undone, so it takes a second click within 5 s.
     var _secretsArmedUntil = 0;
+    var _isProClient = false;
+    var _compactHud = false;
+    var _stopArmedUntil = 0;
+    function showProPaywall(featureLabel) {
+      var box = document.getElementById('proPaywallBanner');
+      var reason = document.getElementById('proPaywallReason');
+      if (reason && featureLabel) {
+        reason.textContent = featureLabel + ' is part of Mac YOLO Pro Guard ($59/year or $19/month). Live diagnostics stay free.';
+      }
+      if (box) box.style.display = 'block';
+      sendAction('proPaywallShown', { feature: featureLabel || 'remediation' });
+    }
+    function handleProHeaderClick() {
+      if (_isProClient) {
+        sendAction('openGearMenu');
+      } else {
+        showProPaywall('24/7 Auto-Guard & 1-Click Remediation');
+      }
+    }
+    function toggleCompactHud() {
+      _compactHud = !_compactHud;
+      var bento = document.querySelector('.bento');
+      var rec = document.getElementById('recSection');
+      var lbl = document.getElementById('hudCompactLabel');
+      if (bento) bento.style.display = _compactHud ? 'none' : 'grid';
+      if (rec) rec.style.display = _compactHud ? 'none' : 'block';
+      if (lbl) lbl.textContent = _compactHud ? 'Expand ▾' : 'Compact ▴';
+      sendAction('setCompactMode', { compact: _compactHud });
+    }
+    function confirmStopRunaways(btn) {
+      if (!_isProClient) {
+        showProPaywall('1-Click Stop Runaways');
+        return;
+      }
+      if (Date.now() > _stopArmedUntil) {
+        _stopArmedUntil = Date.now() + 4000;
+        btn.textContent = 'Click again to stop';
+        btn.style.color = '#fbbf24';
+        setTimeout(function() { if (Date.now() >= _stopArmedUntil) { btn.textContent = 'Stop Runaways'; btn.style.color = ''; } }, 4100);
+        return;
+      }
+      _stopArmedUntil = 0;
+      var stopAct = 'coolDown' + 'Fans';
+      triggerHudAction(stopAct, btn, 'Stopping…', 'Done ✓');
+    }
+    var _hudActionConfirmUntil = {};
+    function confirmHudAction(action, btn, busyText, doneText, idleText) {
+      if (!_isProClient && (action === 'freeUpDisk' || action === 'freeUpMemory' || action === 'coolDownFans')) {
+        var names = { freeUpDisk: 'Clean AI Waste', freeUpMemory: 'Free Agent RAM', coolDownFans: 'Stop Runaways' };
+        showProPaywall(names[action] || 'Remediation');
+        return;
+      }
+      var now = Date.now();
+      if ((_hudActionConfirmUntil[action] || 0) <= now) {
+        _hudActionConfirmUntil[action] = now + 4000;
+        if (btn) {
+          btn.textContent = 'Click again to confirm';
+          btn.style.color = '#fbbf24';
+          setTimeout(function() {
+            if ((_hudActionConfirmUntil[action] || 0) <= Date.now() && btn && btn.getAttribute('data-busy') !== '1') {
+              btn.textContent = idleText || 'Run';
+              btn.style.color = '';
+            }
+          }, 4100);
+        }
+        return;
+      }
+      _hudActionConfirmUntil[action] = 0;
+      if (btn) btn.style.color = '';
+      triggerHudAction(action, btn, busyText, doneText);
+    }
     function blankOutSecrets(btn) {
+      if (!_isProClient) {
+        showProPaywall('2-Click Secret Redactor');
+        return;
+      }
       if (btn.getAttribute('data-busy') === '1') return;
       if (Date.now() > _secretsArmedUntil) {
         _secretsArmedUntil = Date.now() + 5000;
@@ -692,6 +777,11 @@ private let HUD_HTML = #"""
       sendAction('redactSecrets');
     }
     function triggerHudAction(action, btnEl, busyText, doneText) {
+      if (!_isProClient && (action === 'freeUpDisk' || action === 'freeUpMemory' || action === 'coolDownFans')) {
+        var names = { freeUpDisk: '1-Click Clean AI Waste', freeUpMemory: '1-Click Free Agent RAM', coolDownFans: '1-Click Stop Runaways' };
+        showProPaywall(names[action] || '1-Click Remediation');
+        return;
+      }
       var origText = btnEl ? (btnEl.getAttribute('data-orig') || btnEl.textContent) : '';
       if (btnEl && !btnEl.getAttribute('data-orig')) btnEl.setAttribute('data-orig', origText);
       if (btnEl) {
@@ -887,9 +977,31 @@ private let HUD_HTML = #"""
       if (n >= 1024) return Math.round(n / 1024) + ' KB';
       return n + ' B';
     }
-    function requestUninstall(name) {
-      if (!name || !String(name).trim()) return;
-      sendAction('uninstallApp', { appName: String(name).trim() });
+    var _uninstallConfirmUntil = {};
+    function confirmAppRemoval(clean, btn) {
+      var now = Date.now();
+      if ((_uninstallConfirmUntil[clean] || 0) > now) {
+        delete _uninstallConfirmUntil[clean];
+        return true;
+      }
+      _uninstallConfirmUntil[clean] = now + 4500;
+      if (btn) {
+        btn.textContent = 'Confirm Uninstall';
+        btn.style.color = '#fbbf24';
+        setTimeout(function() {
+          if ((_uninstallConfirmUntil[clean] || 0) <= Date.now() && btn && btn.textContent === 'Confirm Uninstall') {
+            btn.textContent = 'Uninstall';
+            btn.style.color = '#fca5a5';
+          }
+        }, 4600);
+      }
+      return false;
+    }
+    function requestUninstall(name, btn) {
+      var clean = String(name || '').trim();
+      if (!clean || !confirmAppRemoval(clean, btn)) return;
+      if (btn) { btn.textContent = 'Moving to Trash…'; btn.style.color = '#fca5a5'; }
+      sendAction('uninstallApp', { appName: clean });
     }
     function renderUninstallList(payload) {
       var box = document.getElementById('uninstallList');
@@ -915,7 +1027,7 @@ private let HUD_HTML = #"""
         btn.style.marginTop = '0';
         btn.style.color = '#fca5a5';
         btn.textContent = 'Uninstall';
-        btn.onclick = function() { requestUninstall(app.name); btn.textContent = 'Moving to Trash…'; };
+        btn.onclick = function() { requestUninstall(app.name, btn); };
         row.appendChild(label);
         row.appendChild(btn);
         box.appendChild(row);
@@ -1071,6 +1183,20 @@ private let HUD_HTML = #"""
         var mw = state.memPctNum + '%';
         if (mf && mf.style.width !== mw) mf.style.width = mw;
       }
+      var attEl = document.getElementById('attentionLine');
+      if (attEl) {
+        var cpuN = parseInt(state.cpuPctNum || '0', 10) || 0;
+        var hl = state.guardHeadline || '';
+        if (cpuN >= 85 || /storm|runaway|warning|pressure/i.test(hl)) {
+          setTextIfChanged('attentionLine', 'Action needed · ' + (hl || 'High agent load') + ' · Click Stop Runaways below.');
+          attEl.style.borderColor = 'rgba(251,191,36,0.55)';
+          attEl.style.color = '#fde68a';
+        } else {
+          setTextIfChanged('attentionLine', 'Mac healthy · ' + (hl || 'No runaway agents') + ' — nothing to do.');
+          attEl.style.borderColor = 'rgba(94,234,212,0.34)';
+          attEl.style.color = '#e2e8f0';
+        }
+      }
       if (state.cpuPctNum) {
         var cf = document.getElementById('cpuBarFill');
         var cw = state.cpuPctNum + '%';
@@ -1080,6 +1206,14 @@ private let HUD_HTML = #"""
         var tf = document.getElementById('tokBarFill');
         var tw = state.tokPctNum + '%';
         if (tf && tf.style.width !== tw) tf.style.width = tw;
+      }
+      if (state.isPro !== undefined) {
+        _isProClient = (state.isPro === 'true');
+        setTextIfChanged('proHdrLabel', _isProClient ? (state.autoGuardOn === 'true' ? 'Pro · Auto ✓' : 'Pro ✓') : 'Pro $59/yr');
+        if (_isProClient) {
+          var pw = document.getElementById('proPaywallBanner');
+          if (pw) pw.style.display = 'none';
+        }
       }
       if (state.statusBarIconVisible) {
         var isVis = (state.statusBarIconVisible === 'true');
@@ -1588,7 +1722,7 @@ func receiptJSON(action: String, title: String, items: [String], spared: String)
 
 // Pro license: a signed key from macyolosafeguards.io/activate, checked offline.
 let proLicensePublicKey = "ZDCWvx/TkO8J5WGNsXC/SpBpjqvUDLBIQa/MnAscPf0="
-let proCheckoutURL = "https://macyolosafeguards.io/go/pro"
+let proCheckoutURL = "https://macyolosafeguards.io/go/pro-annual"
 let proPricingURL = "https://macyolosafeguards.io/pricing?from=app_nudge"
 
 // How many processes Auto-Guard would stop, from `mac-yolo-agent-guard.js pressure` run without --execute.
@@ -1988,6 +2122,19 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                 UserDefaults.standard.set(Double(f.origin.x), forKey: "MacYoloHudX")
                 UserDefaults.standard.set(Double(f.origin.y), forKey: "MacYoloHudY")
             }
+        case "setCompactMode":
+            let compact = (body["compact"] as? Bool) ?? false
+            var f = hudPanel.frame
+            let targetH: CGFloat = compact ? 236 : max(680, CGFloat(UserDefaults.standard.double(forKey: "MacYoloHudH") > 0 ? UserDefaults.standard.double(forKey: "MacYoloHudH") : 688))
+            f.origin.y += (f.height - targetH)
+            f.size.height = targetH
+            hudPanel.setFrame(f, display: true, animate: true)
+        case "openGetPro":
+            openGetPro(nil)
+        case "enterProLicense":
+            enterProLicense(nil)
+        case "proPaywallShown":
+            postFunnelEvent("pro_paywall_shown", source: (body["feature"] as? String) ?? "hud")
         case "resizeHud":
             if let w = (body["width"] as? NSNumber)?.doubleValue,
                let h = (body["height"] as? NSNumber)?.doubleValue {
@@ -2606,7 +2753,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let systemIndexers: Set<String> = ["Spotlight", "Photos Analysis"]
         let topByCpu = cpuByApp.max { $0.value < $1.value }?.key
         let indexerNote = topByCpu.map { systemIndexers.contains($0) ? "\($0) is a protected macOS service (busy after a restart or large file changes). Safeguards cannot throttle it; it settles on its own. " : "" } ?? ""
-        let rDesc = indexerNote + "\(pyCount) Python and \(nodeCount) node MCP processes. Click any card to inspect."
+        let rDesc = indexerNote + "\(pyCount) Python and \(nodeCount) node MCP processes."
         let cpuRows = ranked.prefix(6).enumerated().map { idx, name in
             let c = cpuByApp[name, default: 0]
             let gb = rssByApp[name, default: 0] / 1_048_576.0
@@ -2930,6 +3077,8 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "recTitle": culprits.recTitle + " ›",
             "recDesc": culprits.recDesc,
             "statusBarIconVisible": showStatusBarIcon ? "true" : "false",
+            "isPro": isPro ? "true" : "false",
+            "autoGuardOn": autoGuardOn ? "true" : "false",
         ]
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -3222,6 +3371,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     }
 
     @objc func smartCleanDisk() {
+        guard requireProOrShowPaywall(feature: "1-Click Clean AI Waste") else { return }
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let run = runTool("mac-yolo-disk-guard.js", ["--clean", "--json"])
             DispatchQueue.main.async {
@@ -3238,6 +3388,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     // Stops process storms (one command running in 40+ copies), orphaned MCP servers and
     // stranded agent helpers, then shuts down simulators. Live agent sessions are never touched.
     @objc func freeAgentRam() {
+        guard requireProOrShowPaywall(feature: "1-Click Free Agent RAM") else { return }
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let run = runTool("mac-yolo-agent-guard.js", ["clean", "--execute"])
             DispatchQueue.main.async {
@@ -3294,6 +3445,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     }
 
     func redactSecrets() {
+        guard requireProOrShowPaywall(feature: "2-Click Secret Redactor") else { return }
         guard !secretsRedacting else { return }
         secretsRedacting = true
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -3320,6 +3472,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     }
 
     @objc func coolDownFans() {
+        guard requireProOrShowPaywall(feature: "1-Click Stop Runaways") else { return }
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let run = runTool("mac-yolo-system-care-engine.js", ["--cool-down-fans"])
             DispatchQueue.main.async {
@@ -3353,36 +3506,63 @@ extension MacYoloAppDelegate {
         return verifyProLicense(raw)
     }
 
-    var isPro: Bool { storedLicense?.isCurrent == true }
+    var hasFounderMarker: Bool {
+        let p = (NSHomeDirectory() as NSString).appendingPathComponent(".hermes/.mac-yolo-founder-pro")
+        return FileManager.default.fileExists(atPath: p)
+    }
+
+    var isPro: Bool { storedLicense?.isCurrent == true || hasFounderMarker }
 
     var autoGuardOn: Bool { isPro && UserDefaults.standard.bool(forKey: "MacYoloAutoGuard") }
+
+    func postFunnelEvent(_ event: String, source: String = "mac_app") {
+        if ProcessInfo.processInfo.environment["MAC_YOLO_TELEMETRY"] == "0" { return }
+        if CommandLine.arguments.contains(where: { $0.contains("self-test") }) { return }
+        guard let url = URL(string: "https://macyolosafeguards.io/api/telemetry/event") else { return }
+        var req = URLRequest(url: url, timeoutInterval: 5)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let cohort = hasFounderMarker ? "owner" : (ProcessInfo.processInfo.environment["CI"] == "true" ? "ci" : "external")
+        let safeSource = source.lowercased().replacingOccurrences(of: "[^a-z0-9_-]", with: "_", options: .regularExpression)
+        let payload: [String: String] = ["event": event, "cohort": cohort, "source": String(safeSource.prefix(36))]
+        req.httpBody = try? JSONSerialization.data(withJSONObject: payload)
+        URLSession.shared.dataTask(with: req) { _, _, _ in }.resume()
+    }
+
+    func requireProOrShowPaywall(feature: String) -> Bool {
+        if isPro { return true }
+        postFunnelEvent("pro_paywall_shown", source: feature)
+        let escaped = feature.replacingOccurrences(of: "'", with: "\\'")
+        webView?.evaluateJavaScript("if (window.showProPaywall) window.showProPaywall('\(escaped)');", completionHandler: nil)
+        return false
+    }
 
     func updateProMenu() {
         guard autoGuardMenuItem != nil else { return }
         autoGuardMenuItem.state = autoGuardOn ? .on : .off
-        if let lic = storedLicense, lic.isCurrent {
-            let who = lic.email.isEmpty ? "Pro" : "Pro: \(lic.email)"
+        if isPro {
+            let who = storedLicense?.email.isEmpty == false ? "Pro: \(storedLicense!.email)" : "Pro Active ✓"
             proStatusMenuItem.title = who
             proStatusMenuItem.action = nil
             proLicenseMenuItem.isHidden = true
         } else {
-            proStatusMenuItem.title = storedLicense == nil ? "Get Pro…" : "Pro expired. Renew…"
+            proStatusMenuItem.title = storedLicense == nil ? "Get Pro Guard ($59/year)…" : "Pro Guard expired. Renew…"
             proStatusMenuItem.action = #selector(openGetPro(_:))
             proLicenseMenuItem.isHidden = false
         }
     }
 
     @objc func openGetPro(_ sender: Any?) {
-        if let url = URL(string: proCheckoutURL) { NSWorkspace.shared.open(url) }
+        if let url = URL(string: proCheckoutURL + "?from=app_paywall") { NSWorkspace.shared.open(url) }
     }
 
     @objc func toggleAutoGuard(_ sender: Any?) {
         guard isPro else {
             NSApp.activate(ignoringOtherApps: true)
             let alert = NSAlert()
-            alert.messageText = "Auto-Guard is part of Pro"
-            alert.informativeText = "Auto-Guard watches your Mac every minute. When memory gets tight it stops leftover agent processes, and when disk runs low it cleans caches, so long agent sessions don't freeze the Mac. Pro is $19 a month."
-            alert.addButton(withTitle: "Get Pro")
+            alert.messageText = "Auto-Guard is part of Mac YOLO Pro Guard"
+            alert.informativeText = "Auto-Guard watches your Mac every minute. When memory gets tight it stops leftover agent processes, and when disk runs low it cleans caches, so overnight agent sessions never freeze your Mac. $59 a year or $19 a month, cancel any time."
+            alert.addButton(withTitle: "Get Pro Guard — $59/yr")
             alert.addButton(withTitle: "Enter License…")
             alert.addButton(withTitle: "Not Now")
             switch alert.runModal() {
