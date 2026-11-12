@@ -86,6 +86,8 @@ function main() {
   assert.ok(src.includes('singleInstanceLockFd') && src.includes('flock(singleInstanceLockFd, LOCK_EX | LOCK_NB)'), 'Pre-AppKit singleInstanceLockFd flock required to prevent duplicate HUD windows and BTM notifications');
   assert.ok(src.includes('id="drawerSpeedBtn"') && src.includes('wifiVsProviderRow(') && src.includes('"<synthetic>"'), 'Polite Internet drawer speed button, Wi-Fi vs Provider row, and <synthetic> token filter required');
   assert.ok(src.includes('func buildDetailShieldFull(') && src.includes('Top Hogs Right Now|'), 'Protection drawer (detailShieldFull) must surface Top Hogs Right Now and itemized top CPU/RAM hogs with 4-part interactive rows');
+  // Top Hogs is shown once, on the Protection line. Igor, 2026-11-12: "why do i see top hogs in multiple places?"
+  assert.ok(!/"(recTitle|memPressure|cpuLoad)":[^\n]*shortLine/.test(src) && !src.includes('let rTitle = "Top Hogs'), 'Top Hogs must appear only on the Protection line, not the optimization card, memory tile or CPU tile');
   const launcherSrc = fs.readFileSync(LAUNCHER_PATH, 'utf8');
   assert.ok(launcherSrc.includes('Developer ID Application: Igor Ganapolsky (9GMM26JC5X)') && launcherSrc.includes('is_self_test'), 'tools/launch-mac-yolo-menubar.sh must sign with Developer ID Application and skip re-signing on self-tests');
 

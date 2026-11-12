@@ -1591,6 +1591,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     var lastHudJson: String = ""
     var lastPillKey: String = ""
     var lastActiveApp: String = "Claude"
+    var lastHogsLine = ""
     var lastActiveWin: String = "Claude"
     var wifiInterfaceName: String = ""
     var wifiLookupRetryAt: Date = .distantPast
@@ -1734,7 +1735,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             guard let self = self else { return }
             let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
             self.updateActiveWindowFromWorkspace(app)
-            let onScreenLine = self.lastActiveWin == self.lastActiveApp ? self.lastActiveApp : "\(self.lastActiveApp) — \(self.lastActiveWin)"
+            let onScreenLine = self.lastHogsLine.isEmpty ? self.lastActiveApp : "Top Hogs: \(self.lastHogsLine) · Active: \(self.lastActiveApp)"
             let activePayload: [String: String] = [
                 "onScreenLine": onScreenLine,
                 "activeApp": self.lastActiveApp,
@@ -2373,7 +2374,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         return cachedSessionSample
     }
 
-    func sampleTopCpuCulprits() -> (shortLine: String, recTitle: String, recDesc: String, detailCpu: String, detailMem: String, detailFleet: String, topCpu: Double, totalProcs: Int, pyCount: Int, nodeCount: Int, swarmSummary: String, totalCpuPct: Int) {
+    func sampleTopCpuCulprits() -> (shortLine: String, topMem: String, recTitle: String, recDesc: String, detailCpu: String, detailMem: String, detailFleet: String, topCpu: Double, totalProcs: Int, pyCount: Int, nodeCount: Int, swarmSummary: String, totalCpuPct: Int) {
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: "/bin/ps")
         proc.arguments = ["-Ao", "%cpu,rss,comm", "-r"]
@@ -2453,11 +2454,11 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         }.joined(separator: " · ")
         let topCpu = ranked.first.map { cpuByApp[$0, default: 0] } ?? 0
         let hot = appleThermalWarning()
-        let rTitle = "Top Hogs: \(shortStr)"
+        let rTitle = "CPU \(realCpuPct)% busy · Thermal \(hot ? "Warning" : "Nominal")"
         let systemIndexers: Set<String> = ["Spotlight", "Photos Analysis"]
         let topByCpu = cpuByApp.max { $0.value < $1.value }?.key
         let indexerNote = topByCpu.map { systemIndexers.contains($0) ? "\($0) is a protected macOS service (busy after a restart or large file changes). Safeguards cannot throttle it; it settles on its own. " : "" } ?? ""
-        let rDesc = indexerNote + "\(totalProcs) live procs (\(pyCount) Python, \(nodeCount) node MCPs) · Thermal: \(hot ? "Warning" : "Nominal"). Click any card to inspect."
+        let rDesc = indexerNote + "\(totalProcs) live procs (\(pyCount) Python, \(nodeCount) node MCPs). Click any card to inspect."
         let cpuRows = ranked.prefix(6).enumerated().map { idx, name in
             let c = cpuByApp[name, default: 0]
             let gb = rssByApp[name, default: 0] / 1_048_576.0
@@ -2470,6 +2471,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             return String(format: "%d. %@ (%d procs)|%.1f%% CPU · %.2f GB RAM|%d|%@", idx + 1, name, cnt, c, gb, bar, note)
         }.joined(separator: ";;")
         let memRanked = rssByApp.keys.sorted { rssByApp[$0, default: 0] > rssByApp[$1, default: 0] }
+        let topMem = memRanked.first.map { String(format: "Most RAM: %@ %.1fG", $0, rssByApp[$0, default: 0] / 1_048_576.0) } ?? ""
         let memRows = memRanked.prefix(6).enumerated().map { idx, name in
             let gb = rssByApp[name, default: 0] / 1_048_576.0
             let pct32 = (gb / 32.0) * 100.0
@@ -2490,7 +2492,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "Cursor IDE|\(cursorCount > 0 ? "Active · \(fmtRam(cursorRssKB)) RAM" : "Not running (0 MB)")|10|Foreground Cursor editor and renderer helpers.",
             "Stdio MCP Child Servers|\(pyCount) Python + \(nodeCount) Node · \(fmtRam(pyRssKB + nodeRssKB))|80|Python and Node.js processes (including MCP tool servers and build scripts).",
         ].joined(separator: ";;")
-        return (shortStr.isEmpty ? "Idle" : shortStr, rTitle, rDesc, cpuRows, memRows, fleetRows, topCpu, totalProcs, pyCount, nodeCount, swarmStr, realCpuPct)
+        return (shortStr.isEmpty ? "Idle" : shortStr, topMem, rTitle, rDesc, cpuRows, memRows, fleetRows, topCpu, totalProcs, pyCount, nodeCount, swarmStr, realCpuPct)
     }
 
     func sampleCpuBusyPct() -> Int? {
@@ -2743,13 +2745,13 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "activeWin": "\(culprits.pyCount) Python & \(culprits.nodeCount) node MCPs · \(agentCount) user agents",
             "diskAvail": diskAvailStr,
             "diskRightBadge": "\(freeMenuInt)G Free ›",
-            "memPressure": "Pressure \(memPressurePct)% · \(culprits.shortLine)",
+            "memPressure": culprits.topMem.isEmpty ? "Pressure \(memPressurePct)%" : "Pressure \(memPressurePct)% · \(culprits.topMem)",
             "memRightBadge": "VRAM \(String(format: "%.1fG", gpu.vramGB)) ›",
             "memPctNum": "\(memPressurePct)",
             "battPct": String(format: "%.0fM tok ›", sess.estTokensM),
             "battState": String(format: "%.1f MB live JSONLs (%d files, 2h)", sess.totalMB, sess.ompFiles + sess.grokFiles),
             "tokPctNum": "\(min(100, max(12, Int(round(sess.totalMB / 2.5)))))",
-            "cpuLoad": "1m: \(load1Str)/\(ncpu) · \(culprits.shortLine)",
+            "cpuLoad": "Load 1m: \(load1Str) on \(ncpu) cores",
             "cpuPctNum": "\(cpuPct)",
             "cpuRight": "CPU \(cpuPct)% · GPU \(gpu.devicePct)% ›",
             "mcpRightBadge": "\(culprits.pyCount + culprits.nodeCount) MCPs ›",
@@ -2775,6 +2777,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         ]
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            self.lastHogsLine = culprits.shortLine
             self.statusItem.isVisible = self.showStatusBarIcon
             self.statusItem.button?.title = ""
             let pillKey = "\(freeMenuInt)|\(cpuPct)|\(gpu.devicePct)"
@@ -3506,6 +3509,8 @@ if CommandLine.arguments.contains("--health-self-test") {
     guard !c.shortLine.isEmpty,
           !c.detailCpu.isEmpty,
           shieldRows.first?.hasPrefix("Top Hogs Right Now|") == true,
+          !c.recTitle.contains("Top Hogs"),
+          c.topMem.hasPrefix("Most RAM: "),
           shieldRows.contains(where: { $0.hasPrefix("1. ") }),
           shieldRows.allSatisfy({ $0.components(separatedBy: "|").count >= 4 }) else {
         fputs("MAC_YOLO_HEALTH_SELF_TEST_FAILED\n", stderr)
