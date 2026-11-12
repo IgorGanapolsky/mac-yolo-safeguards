@@ -2487,13 +2487,18 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "Processes|\(culprits.totalProcs) running|0|Every process on this Mac, not only the agents above.",
         ]).joined(separator: ";;")
 
-        let detailShieldFull = [
+        // Name who is using the CPU, right under the CPU line: the same top 3 apps as "Top Hogs" on the main screen.
+        let topHogRows = culprits.detailCpu.components(separatedBy: ";;").filter { !$0.isEmpty }.prefix(3).map {
+            "Top hog \($0)|How much CPU this app's processes use together. 100% is one full core, and this Mac has \(ncpu)."
+        }
+        let detailShieldFull = ([
             "Real-Time CPU & Apple Silicon GPU|CPU \(cpuPct)% (Load \(load1Str)/\(ncpu)) · GPU \(gpu.devicePct)% (\(String(format: "%.1fG", gpu.vramGB)) VRAM)|\(cpuPct)",
+        ] + topHogRows + [
             String(format: "Real-Time Memory Pressure|%d%% used (Active %.1fG · Wired %.1fG · Comp %.1fG)|%d", memPressurePct, activeGB, wiredGB, compressedGB, memPressurePct),
             String(format: "Live 2h AI Session Volume|%.1f MB (%d JSONL files · ~%.1fM tokens)|72", sess.totalMB, sess.ompFiles + sess.grokFiles, sess.estTokensM),
             "Active Multi-Agent Swarms|\(culprits.swarmSummary)|80",
             "Disk Free|\(String(format: "%.1f GB free", freeDecimalGB))|\(diskUsedPct)",
-        ].joined(separator: ";;")
+        ]).joined(separator: ";;")
 
         let payload: [String: String] = [
             "healthState": healthStateStr,
