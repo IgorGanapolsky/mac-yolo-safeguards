@@ -1,0 +1,203 @@
+#!/usr/bin/env node
+'use strict';
+
+/**
+ * Fail closed when a coding task writes the shared checkout or another task's
+ * tree, or when a remote dev machine would be installed or started.
+ * Source: https://depthfirst.com/post/secure-agent-first-cloud-dev-environment
+ *
+ * Their week and supply-chain sentences stay theirs. This file does not start
+ * a machine, install a firewall, or write a checkout.
+ */
+
+const SOURCE = 'https://depthfirst.com/post/secure-agent-first-cloud-dev-environment';
+const DEFAULT_SHARED = '/Users/iganapolsky/workspace/mac-yolo-safeguards';
+
+const INSTALL_TEXT = /\b(?:npm\s+install|brew\s+install|pip\s+install|install|enable)\b[\s\S]{0,50}\b(?:dependency firewall|dfc|private devbox)\b|\binstall\s+depthfirst\b/i;
+// Cloud CLIs that start a remote machine without naming a devbox.
+const REMOTE_CLI = /\baws\s+ec2\s+run-instances\b|\bgcloud\s+compute\s+instances\s+create\b|\baz\s+vm\s+create\b|\bdoctl\s+compute\s+droplet\s+create\b|\bhcloud\s+server\s+create\b/i;
+const REMOTE_TEXT = /\b(?:start|create|provision|launch)\b[\s\S]{0,80}\b(?:devbox|private ec2|dependency firewall)\b|\btailscale\s+up\b[\s\S]{0,60}\b(?:devbox|private ec2)\b|\bdfc\s+(?:up|start|install)\b/i;
+// Tokenized rather than one regex (CodeQL js/redos): skip git global options such as
+// `-C <dir>` or `-c k=v`, then look for `checkout -b/-B` or `switch -c/-C/--create`.
+function gitCreatesBranch(command) {
+  return String(command || '').split(/[\n;&|]+/).some((segment) => {
+    const words = segment.trim().split(/\s+/);
+    let i = words.indexOf('git');
+    if (i < 0) return false;
+    i += 1;
+    while (i < words.length && words[i].startsWith('-')) {
+      i += (words[i] === '-C' || words[i] === '-c') ? 2 : 1;
+    }
+    const sub = words[i];
+    const rest = words.slice(i + 1);
+    if (sub === 'checkout') return rest.some((w) => w === '-b' || w === '-B');
+    if (sub === 'switch') return rest.some((w) => w === '-c' || w === '-C' || w === '--create');
+    return false;
+  });
+}
+const VENDOR_CLAIM = /operational in less than a week|prevent(?:s|ing) supply chain attacks|security-engineering load by roughly 70%|hundreds of CVEs/i;
+const ATTRIBUTED = /\bdepthfirst\b/i;
+
+function finding(id) {
+  return { id, severity: 'block' };
+}
+
+const nodePath = require('path');
+const fs = require('fs');
+const posix = nodePath.posix;
+
+// Resolve `.`, `..` and repeated slashes so `/a/./b` and `/a/b/` compare equal to `/a/b`.
+function norm(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  // Resolve relative paths against the cwd and follow symlinks when the path exists,
+  // so `.` or an alias of a protected checkout compares as the real directory.
+  let resolved = nodePath.resolve(raw);
+  try { resolved = fs.realpathSync(resolved); } catch { /* not on disk: keep the resolved path */ }
+  return posix.normalize(resolved.split(nodePath.sep).join('/')).replace(/\/+$/, '') || '/';
+}
+
+function sameOrInside(path, root) {
+  const p = norm(path);
+  const r = norm(root);
+  if (!p || !r) return false;
+  return p === r || p.startsWith(r === '/' ? '/' : r + '/');
+}
+
+function scanText(text) {
+  return String(text || '').replace(/https?:\/\/\S+/g, ' ');
+}
+
+function insideShared(taskPath, sharedRoot) {
+  return sameOrInside(taskPath, sharedRoot);
+}
+
+// Two task trees overlap when either one is the other or sits inside it.
+function overlapsOtherTask(taskPath, otherTaskPaths) {
+  return otherTaskPaths.some((other) => sameOrInside(taskPath, other) || sameOrInside(other, taskPath));
+}
+
+// A claim needs depthfirst named in the same sentence, not anywhere in the text.
+function unattributedClaim(text) {
+  return text.split(/(?<=[.!?])\s+|\n+/).some((sentence) => VENDOR_CLAIM.test(sentence) && !ATTRIBUTED.test(sentence));
+}
+
+// The repository's main worktree is the shared checkout; fall back to DEFAULT_SHARED.
+// Read from .git with fs only (no git process): a linked worktree's .git file points
+// at <main>/.git/worktrees/<name>.
+function detectSharedRoot(cwd = process.cwd()) {
+  let dir = nodePath.resolve(cwd);
+  for (;;) {
+    const dotGit = nodePath.join(dir, '.git');
+    try {
+      const stat = fs.statSync(dotGit);
+      if (stat.isDirectory()) return dir;
+      const match = fs.readFileSync(dotGit, 'utf8').match(/^gitdir:\s*(.+)$/m);
+      if (match) {
+        const gitdir = nodePath.resolve(dir, match[1].trim());
+        const marker = gitdir.lastIndexOf(nodePath.sep + '.git' + nodePath.sep + 'worktrees' + nodePath.sep);
+        if (marker >= 0) return gitdir.slice(0, marker);
+      }
+      return dir;
+    } catch { /* no .git here */ }
+    const parent = nodePath.dirname(dir);
+    if (parent === dir) return DEFAULT_SHARED;
+    dir = parent;
+  }
+}
+
+function reviewTaskCheckout(input = {}) {
+  const action = String(input.action || 'note').toLowerCase();
+  const note = String(input.note || '');
+  const command = String(input.command || '');
+  const blob = scanText([note, command].filter(Boolean).join('\n'));
+  const taskPath = String(input.taskPath || '');
+  const otherTaskPaths = []
+    .concat(input.otherTaskPaths || [], input.otherTaskPath || [])
+    .map((item) => String(item || ''))
+    .filter((item) => norm(item));
+  const sharedRoot = String(input.sharedRoot || DEFAULT_SHARED);
+  const findings = [];
+
+  if (action === 'install' || INSTALL_TEXT.test(blob)) findings.push(finding('vendor_install'));
+  if (action === 'devbox' || REMOTE_TEXT.test(blob) || REMOTE_CLI.test(command)) findings.push(finding('remote_devbox'));
+  if (
+    action === 'share'
+    || action === 'shared'
+    || (action === 'task' && !norm(taskPath))
+    || insideShared(taskPath, sharedRoot)
+    || (norm(taskPath) && overlapsOtherTask(taskPath, otherTaskPaths))
+    || gitCreatesBranch(command)
+  ) {
+    findings.push(finding('shared_checkout'));
+  }
+  if (VENDOR_CLAIM.test(blob) && unattributedClaim(blob)) {
+    findings.push(finding('vendor_claim_as_local'));
+  }
+
+  const seen = new Set();
+  const unique = findings.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+
+  return {
+    ok: unique.length === 0,
+    status: unique.length ? 'blocked' : 'clear',
+    findings: unique,
+    applied: false,
+    devboxStarted: false,
+    firewallInstalled: false,
+    sharedWrite: false,
+    humanReview: unique.some((item) => item.id === 'remote_devbox'),
+    localSupplyChainPrevented: null,
+    localTimeToOperational: null,
+    source: SOURCE,
+  };
+}
+
+function argValue(argv, flag) {
+  const index = argv.indexOf(flag);
+  if (index < 0 || index + 1 >= argv.length) return '';
+  const value = argv[index + 1];
+  return value.startsWith('--') ? '' : value;
+}
+
+function argValues(argv, flag) {
+  const values = [];
+  argv.forEach((item, index) => {
+    const value = argv[index + 1];
+    if (item === flag && value !== undefined && !value.startsWith('--')) values.push(value);
+  });
+  return values;
+}
+
+function main() {
+  const argv = process.argv.slice(2);
+  const report = reviewTaskCheckout({
+    action: argValue(argv, '--action') || 'note',
+    note: argValue(argv, '--note'),
+    command: argValue(argv, '--command'),
+    taskPath: argValue(argv, '--task-path'),
+    otherTaskPaths: argValues(argv, '--other-task-path'),
+    sharedRoot: argValue(argv, '--shared-root') || detectSharedRoot(),
+  });
+  if (argv.indexOf('--json') >= 0) console.log(JSON.stringify(report));
+  else {
+    console.log(report.ok ? 'Task checkout: clear' : 'Task checkout: blocked');
+    for (const item of report.findings) console.log('blocked: ' + item.id);
+    console.log('applied: false');
+    console.log('humanReview: ' + report.humanReview);
+  }
+  process.exit(report.ok ? 0 : 2);
+}
+
+if (require.main === module) main();
+
+module.exports = {
+  SOURCE,
+  DEFAULT_SHARED,
+  detectSharedRoot,
+  reviewTaskCheckout,
+};
