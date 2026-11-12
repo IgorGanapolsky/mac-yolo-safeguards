@@ -31,6 +31,7 @@ node --test apps/macyolosafeguards-site/test/license.test.js apps/macyolosafegua
 node tools/entire-cicd-regression-gate.js
 node tests/test-ultramarine-and-android-summit-26-steals.js
 node tests/test-prompt-caching-and-judgment-calls-steal.js
+node tests/test-egm-fresh-review-gate.js
 node tests/test-herdr-moe-llm-judge-swarm-sow.js
 node tests/test-mac-yolo-release-cd-engine.js
 
