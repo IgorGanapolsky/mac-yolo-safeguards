@@ -4,6 +4,7 @@ Inspired by Hugging Face Skills (`huggingface/skills`). Automatically generated 
 
 | Skill | Description | Definition | Source |
 | :--- | :--- | :--- | :--- |
+| `task-checkout-gate` | Refuse a coding task that writes the shared checkout or another task's tree, and refuse a remote cloud dev machine. | `.agents/skills/task-checkout-gate/SKILL.md` | local |
 | `background-agent-hold-gate` | Refuse a background agent that keeps running after someone steps away, and refuse an unattended write into a design project file. | `.agents/skills/background-agent-hold-gate/SKILL.md` | local |
 | `gemini-decisions-hold-gate` | Name a held Mac YOLO offer for a freeze complaint, and refuse a Gemini Decisions call, a send, or Google's latency and price as local results. | `.agents/skills/gemini-decisions-hold-gate/SKILL.md` | local |
 | `openshell-policy-gate` | Refuse an OpenShell install, a self-applied policy widening, and NVIDIA's enforcement claims as local results. | `.agents/skills/openshell-policy-gate/SKILL.md` | local |
