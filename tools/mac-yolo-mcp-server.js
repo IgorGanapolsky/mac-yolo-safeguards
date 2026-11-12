@@ -232,6 +232,19 @@ function getToolDefinitions() {
       inputSchema: { type: 'object', properties: {} },
     },
     {
+      name: 'yolo_sandboxes',
+      title: 'Sandbox VM Memory Check',
+      description: 'Memory held by the Linux VM behind sandboxed agents (NVIDIA OpenShell, Docker, Podman, Lima, OrbStack), how much its containers actually use, and idle agent sandboxes. macOS shows the VM as one small-looking process; this reports its real footprint. Read-only: never stops a container or VM.',
+      annotations: {
+        title: 'Sandbox VM Memory Check',
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      inputSchema: { type: 'object', properties: {} },
+    },
+    {
       name: 'yolo_system_care',
       title: '5-Pillar macOS Smart Care Scan',
       description: '5-Pillar Smart Care Scan (Cleanup, Protection, Performance/Browser Care/LaunchAgents, Applications/Installers, My Clutter) + Status Bar Icon toggle',
@@ -535,6 +548,9 @@ function callTool(name, args = {}) {
   }
   if (name === 'yolo_local_models') {
     return require('./mac-yolo-local-models').scan();
+  }
+  if (name === 'yolo_sandboxes') {
+    return require('./mac-yolo-sandboxes').scan();
   }
   if (name === 'yolo_system_care') {
     const {

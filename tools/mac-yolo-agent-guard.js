@@ -383,6 +383,8 @@ const AGENT_NAMES = {
 };
 
 function ownerName(proc) {
+  // The Linux VM behind Docker, OpenShell, Podman and Lima. Its real name means nothing to people.
+  if (/com\.apple\.Virtualization\.VirtualMachine|(^|\/)qemu-system-|(^|\/)(vfkit|krunkit)( |$)/.test(proc.command)) return 'Sandbox VM';
   const app = proc.command.match(/^\/(?:System\/)?Applications\/(?:[^/]+\/)*?([^/]+)\.app\//);
   if (AGENT_NAMES[proc.kind]) return AGENT_NAMES[proc.kind];
   if (app) return app[1];
