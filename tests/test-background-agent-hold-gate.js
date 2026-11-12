@@ -185,7 +185,13 @@ function main() {
   }
   assert.strictEqual(reviewBackgroundAgent({ command: 'cat poster.psd > /dev/null' }).ok, true);
   assert.strictEqual(reviewBackgroundAgent({ note: 'The agent finished; Premiere is closed.' }).ok, true);
-  for (const args of [['--action', '--json'], ['--action']]) {
+  assert.strictEqual(reviewBackgroundAgent({ command: 'cp poster.psd poster.backup' }).ok, true);
+  assert.ok(ids(reviewBackgroundAgent({ command: 'cp -f draft.png poster.psd' })).includes('project_write'));
+  assert.ok(ids(reviewBackgroundAgent({ note: 'We delivered richer detail.', command: 'cat Adobe.txt' }))
+    .includes('vendor_claim_as_local'));
+  assert.ok(!ids(reviewBackgroundAgent({ note: 'Adobe says it delivers richer detail.' }))
+    .includes('vendor_claim_as_local'));
+  for (const args of [['--action', '--json'], ['--action'], ['--action=background', '--json'], ['--bogus']]) {
     const bad = spawnSync(process.execPath, [
       path.join(__dirname, '../tools/background-agent-hold-gate.js'), ...args,
     ], { encoding: 'utf8' });
