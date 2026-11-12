@@ -4556,6 +4556,11 @@ Four public products suggest a shared clock for speech, terminal, and screen tex
 | SKILLS.md (one row) | grok-context-weight | 2026-11-11T16:11:01-0500 |
 | plan.md (this append) | grok-context-weight | 2026-11-11T16:11:01-0500 |
 
+## Task checkout gate (append 2026-11-12T10:56:36-0500) — `grok-task-checkout`
+
+A public post (https://depthfirst.com/post/secure-agent-first-cloud-dev-environment) gives each coding task its own git worktree, then places that worktree on a private cloud machine. This gate keeps the local piece. A task must name a checkout that is not the shared tree and not another task's tree. A remote dev machine, their firewall product, and their CLI stay refused. Their week and supply-chain sentences stay theirs. Local fields stay null.
+
+| T-TASK-CHECKOUT-20261112 | Fail closed when a coding task writes the shared checkout or another task's tree, and when a remote dev machine would be installed or started | in_progress | grok-task-checkout | `tools/task-checkout-gate.js`, `tests/test-task-checkout-gate.js`, `.agents/skills/task-checkout-gate/**`, `SKILLS.md` (one row), `plan.md` (this append) | `node tests/test-task-checkout-gate.js` exits 0. No remote machine is started and the shared checkout is not written. |
 ## Opt before scale (append 2026-11-12T11:26:09-0500) — `grok-opt-before-scale`
 
 Three public pages (https://www.tonyrobbins.com/events/business-mastery, https://www.tonyrobbins.com/blog/ai-advantage-summit, https://www.tonyrobbins.com/podcasts/holy-grail) say to fix a leak before buying more traffic, and they discuss private-market property. This gate keeps the local piece for Mac YOLO Safeguards. Scale, ads, and traffic stay refused until outside clients, average collected cents, and repeat payers are supplied. Founder addresses do not count. A property, private-credit, or exchange action is refused. Their growth and margin sentences stay theirs. Local fields stay null. The check does not spend and does not open a checkout.
@@ -4568,6 +4573,11 @@ Replaces `/usr/bin/networkQuality -c -s -M 20` on the HUD `Test Speed` action (w
 ### File claims (§2 append)
 | File | Owner | Claimed |
 |------|-------|---------|
+| tools/task-checkout-gate.js | grok-task-checkout | 2026-11-12T10:56:36-0500 |
+| tests/test-task-checkout-gate.js | grok-task-checkout | 2026-11-12T10:56:36-0500 |
+| .agents/skills/task-checkout-gate/** | grok-task-checkout | 2026-11-12T10:56:36-0500 |
+| SKILLS.md (one row) | grok-task-checkout | 2026-11-12T10:56:36-0500 |
+| plan.md (this append) | grok-task-checkout | 2026-11-12T10:56:36-0500 |
 | tools/opt-before-scale.js | grok-opt-before-scale | 2026-11-12T11:26:09-0500 |
 | tests/test-opt-before-scale.js | grok-opt-before-scale | 2026-11-12T11:26:09-0500 |
 | .agents/skills/opt-before-scale/** | grok-opt-before-scale | 2026-11-12T11:26:09-0500 |
@@ -4595,3 +4605,59 @@ The signed-in console at https://console.crusoecloud.com/home has no infrastruct
 | .agents/skills/quota-before-provision/** | grok-quota-before-provision | 2026-11-12T13:41:47-0500 |
 | SKILLS.md (one row) | grok-quota-before-provision | 2026-11-12T13:41:47-0500 |
 | plan.md (this append) | grok-quota-before-provision | 2026-11-12T13:41:47-0500 |
+
+## Jobs menu on the panel (append 2026-11-12T14:25:00-0500) — `grok-jobs-menu-reachable`
+
+The Background Jobs submenu already lists LaunchAgents, crontab lines, and loose scripts. The running panel had no control that opened it. A Jobs button at the top of the panel and a right-click on the menu-bar icon open that same menu. This does not install a build. The 10:36 network claim stays the network work. Pull request 2332 still owns the heavy-program sentence.
+
+| T-JOBS-MENU-REACHABLE-20261112 | Open the existing background-jobs menu from the panel and the menu bar | in_progress | grok-jobs-menu-reachable | `macos/MacYoloSafeguardsApp.swift`, `macos/MacYoloTranslucentHud.swift`, `tests/test-jobs-menu-reachable.js`, `plan.md` (this append) | `node tests/test-jobs-menu-reachable.js` exits 0. The Jobs button and the menu-bar right-click both open the existing Background Jobs menu. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| macos/MacYoloSafeguardsApp.swift | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
+| macos/MacYoloTranslucentHud.swift | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
+| tests/test-jobs-menu-reachable.js | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
+| plan.md (this append) | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
+
+## Panel release review (append 2026-11-12T15:11:16-0500) — `grok-hud-release-review`
+
+The menu-bar panel stays one clear web page on an AppKit panel. This check does not redesign it and does not install a build. A panel change is ready only when the first screen has one attention line, a destructive control asks before it runs, and the window is not faded with a flat tint. The Swift panel files stay with their current owners.
+
+| T-HUD-RELEASE-REVIEW-20261112 | Fail a panel release that hides the one thing to do, or starts a destructive action on the first click, or lets the desktop show through | in_progress | grok-hud-release-review | `tools/mac-yolo-hud-release-review.js`, `tests/test-mac-yolo-hud-release-review.js`, `plan.md` (this append) | `node tests/test-mac-yolo-hud-release-review.js` exits 0. `node tools/mac-yolo-hud-release-review.js macos/MacYoloSafeguardsApp.swift` exits 1 until the panel itself is changed. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/mac-yolo-hud-release-review.js | grok-hud-release-review | 2026-11-12T15:11:16-0500 |
+| tests/test-mac-yolo-hud-release-review.js | grok-hud-release-review | 2026-11-12T15:11:16-0500 |
+| plan.md (this append) | grok-hud-release-review | 2026-11-12T15:11:16-0500 |
+
+## Source value guard (append 2026-11-12T15:32:06-0500) — `grok-source-value-guard`
+
+An outbound action fails when a typed score stands in for a processor return, a skip flag is set, spend has no cap, an agent is untracked, a vendor figure is marked as a local result, or the text still contains a card-shaped number, an identity-number shape, or a key-shaped value. The same input always maps to the same letter stand-in. There is no second database and no vendor figure stored as a local result. Source note: https://capitalonesoftware.com/blog/gartner-2026-ai-risk-business-value
+
+| T-SOURCE-VALUE-GUARD-20261112 | Fail an outbound action when value is a typed score, governance is skipped, or a raw account number is still in the text | in_progress | grok-source-value-guard | `tools/source-value-guard.js`, `tests/test-source-value-guard.js`, `plan.md` (this append) | `node tests/test-source-value-guard.js` exits 0. A typed score, a skip flag, or a raw account number exits 1. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/source-value-guard.js | grok-source-value-guard | 2026-11-12T15:32:06-0500 |
+| tests/test-source-value-guard.js | grok-source-value-guard | 2026-11-12T15:32:06-0500 |
+| plan.md (this append) | grok-source-value-guard | 2026-11-12T15:32:06-0500 |
+
+## Source value callers (append 2026-11-12T15:52:44-0500) — `grok-source-value-guard`
+
+The check now runs inside the post gate, the publish claim, and the send helper. A typed score, a skip flag, uncapped spend, or a raw card, identity number, or key blocks that action. The draft is not printed and no receipt is written when the claim is blocked.
+
+| T-SOURCE-VALUE-CALLERS-20261112 | Fail a post, a publish claim, and a send when the source value check fails | in_progress | grok-source-value-guard | `tools/source-value-guard.js`, `tools/social-publish-gate.js`, `tools/publish-once.js`, `tools/send-next.js`, `tests/test-source-value-outbound.js`, `plan.md` (this append) | `node tests/test-source-value-outbound.js` exits 0. A card in a post, a publish claim, or a send exits blocked, and a typed score on the post gate exits blocked. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/source-value-guard.js | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
+| tools/social-publish-gate.js | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
+| tools/publish-once.js | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
+| tools/send-next.js | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
+| tests/test-source-value-outbound.js | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
+| plan.md (this append) | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
