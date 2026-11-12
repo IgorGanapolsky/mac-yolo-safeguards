@@ -307,4 +307,41 @@ check('run with gmailApi:true does not report scan_not_attempted_no_chrome', () 
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+check('Decisions classifier: sure answers win, auto-replies drop, unsure falls back to regex', () => {
+  const rows = [
+    'a@x.com Re: Quick close-loop: Agent Reliability Diagnostic — is there a team plan for 6 Macs?',
+    'b@x.com Re: Quick close-loop: Agent Reliability Diagnostic — out of office until Monday',
+    'c@x.com Re: Quick close-loop: Agent Reliability Diagnostic — we already use LangSmith',
+  ];
+  const verdicts = {
+    a: { kind: 'engaged', confidence: 0.97, source: 'gemini-decision-1' },
+    b: { kind: 'auto_reply', confidence: 0.98, source: 'gemini-decision-1' },
+    c: { kind: 'langsmith', confidence: 0.41, source: 'regex', needsHuman: true },
+  };
+  const { hot } = processRows(rows, {
+    contacts: {},
+    state: { seen: {} },
+    baseline: false,
+    classify: (t) => verdicts[t[0]],
+  });
+  assert.deepStrictEqual(hot.map((h) => h.kind), ['engaged', 'langsmith'], 'auto-reply is not a lead');
+  assert.strictEqual(hot[0].kindSource, 'gemini-decision-1');
+  assert.strictEqual(hot[1].needsHuman, true);
+});
+
+check('gemini-decisions maps the API answer and refuses unsure or broken replies', () => {
+  const gd = require('../tools/gemini-decisions');
+  const reply = (choice, confidence) => () => JSON.stringify({ answers: { kind: { type: 'choice', choice, confidence } } });
+  const sure = gd.classifyReply('how much is Pro?', { post: reply('engaged', 0.95) });
+  assert.deepStrictEqual([sure.ok, sure.kind, sure.sure], [true, 'engaged', true]);
+  assert.strictEqual(gd.classifyReply('hmm', { post: reply('engaged', 0.4) }).sure, false);
+  assert.strictEqual(gd.classifyReply('x', { post: reply('made_up', 0.9) }).ok, false);
+  assert.strictEqual(gd.classifyReply('x', { post: () => '{"error":{"message":"Invalid input."}}' }).ok, false);
+  assert.strictEqual(gd.classifyReply('x', { apiKey: '' }).ok, false, 'no key means fall back');
+  const { buildBuyerReplyPacket } = require('../tools/governed-agent-sales-copy');
+  for (const kind of Object.keys(gd.REPLY_KINDS).filter((k) => k !== 'auto_reply')) {
+    assert.ok(buildBuyerReplyPacket({ kind }).subject, `${kind} has a reply packet`);
+  }
+});
+
 console.log(`\nPASS ${n}/${n} gmail-outreach-reply-scan`);
