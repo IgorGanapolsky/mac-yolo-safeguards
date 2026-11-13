@@ -90,3 +90,15 @@ test("the homepage shows one paid offer; team offers live on /teams/ and keep th
   assert.equal(t.links["/go/dmg"], "/go/dmg");
   assert.equal(page("?ref=producthunt", "", teamsHtml).links["/go/diagnostic"], "/go/diagnostic?client_reference_id=producthunt");
 });
+
+test("the For teams link carries the visitor's tags", () => {
+  const code = html.match(/<script>\s*(\/\/ The "For teams" link[\s\S]*?)<\/script>/)[1];
+  const run = (search, referrer = "") => {
+    const a = { href: "/teams/", setAttribute(_, v) { this.href = v; } };
+    vm.runInNewContext(code, { URL, URLSearchParams, location: { search }, document: { referrer, querySelector: () => a } });
+    return a.href;
+  };
+  assert.equal(run("?from=hn&utm_source=x&junk=1"), "/teams/?from=hn&utm_source=x");
+  assert.equal(run("", "https://www.producthunt.com/posts/y"), "/teams/?ref=producthunt");
+  assert.equal(run(""), "/teams/");
+});

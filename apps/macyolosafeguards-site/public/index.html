@@ -132,6 +132,16 @@
   send("pageview",{title:document.title});
 })();
 </script>
+<script>
+// The "For teams" link keeps the visitor's ?from=, ?ref= and utm_* tags, so /teams/ checkouts are attributed too.
+(function(){
+  var keep=["from","ref","utm_source","utm_medium","utm_campaign","utm_content","utm_term"],q=new URLSearchParams(location.search),out=new URLSearchParams();
+  keep.forEach(function(k){var v=q.get(k);if(v)out.set(k,v.slice(0,100));});
+  var qs=out.toString(),t=document.querySelector('a[href="/teams/"]');
+  if(!qs&&document.referrer){try{if(/(^|\.)producthunt\.com$/.test(new URL(document.referrer).hostname))qs="ref=producthunt";}catch(e){}}
+  if(qs&&t)t.setAttribute("href","/teams/?"+qs);
+})();
+</script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dddfcca78b6d467596b61d8d38d9b37e"}'></script>
 </body>
 </html>
