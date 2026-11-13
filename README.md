@@ -6,7 +6,7 @@
 [![Last commit](https://img.shields.io/github/last-commit/IgorGanapolsky/mac-yolo-safeguards)](https://github.com/IgorGanapolsky/mac-yolo-safeguards/commits/main)
 [![License: MIT](https://img.shields.io/github/license/IgorGanapolsky/mac-yolo-safeguards?color=yellow)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS-blue)](#)
-[![Arch](https://img.shields.io/badge/arch-Apple%20Silicon%20%2B%20Intel-lightgrey)](#)
+[![Arch](https://img.shields.io/badge/arch-Apple%20Silicon-lightgrey)](#)
 [![Telemetry](https://img.shields.io/badge/telemetry-off_by_default-success)](#telemetry-and-privacy)
 
 **The OS-level safeguards layer for AI agent loops.** Runaway-kill, hard timeouts, and resource limits — the enforcement your agent harness is missing — so coding agents (Antigravity `agy`, Claude Code, Cursor, Codex) running in YOLO mode can't burn your tokens or freeze your Mac.
@@ -42,7 +42,7 @@ If you run agents for a team or clients and have a repeated failure that costs h
 
 | Path | Deliverables | Pricing |
 |---|---|---|
-| **[Mac YOLO Pro Guard](https://macyolosafeguards.io/go/pro-once?from=github_readme)** | Everything in the free app, plus automatic shutdown of leftover agent processes and MCP servers. One payment, yours to keep, 14-day refund. | `$29 once` |
+| **[Mac YOLO Pro Guard](https://macyolosafeguards.io/go/pro-once?from=github_readme)** | Everything in the free app, plus automatic shutdown of leftover agent processes and MCP servers. One payment, yours to keep, 30-day refund. | `$29 once` |
 | **[Agent Safeguards Playbook](https://iganapolsky.gumroad.com/l/odrkon)** | Self-serve runbook: OS-level runaway-kill, timeout, and token-budget templates for Mac agent fleets. | `$9.99` |
 | **[Corporate-Expense Reliability Kit](https://iganapolsky.gumroad.com/l/vcrho)** | Drop-in team bundle: LaunchAgent templates, MCP server, pre-execution gates, and audit receipt harness. | `$49` |
 | **[Agent Reliability Diagnostic](https://buy.stripe.com/3cI28s5F6cxN9Bt4nJf3a02)** | A 20-minute live call about one failure, then a written root-cause readout with prevention rules within 48 hours. No installation. | `$499` |
