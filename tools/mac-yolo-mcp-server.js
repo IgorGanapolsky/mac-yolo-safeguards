@@ -431,6 +431,47 @@ function getToolDefinitions() {
         },
       },
     },
+    {
+      name: 'measure_compare',
+      title: 'Did a change help? Before/after of the Mac YOLO HUD numbers',
+      description: 'Compare the locally kept Mac YOLO metrics (tokens, spend, CPU, GPU, load, helpers, network, secrets count) before and after a marked change. Says "not enough data" when a side has fewer than 3 samples. Data never leaves this Mac.',
+      annotations: {
+        title: 'Did a change help? Before/after of the Mac YOLO HUD numbers',
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      inputSchema: {
+        type: 'object',
+        properties: {
+          around: { type: 'string', description: 'Marker label; equal windows on each side' },
+          window_minutes: { type: 'number', default: 60 },
+          before: { type: 'string', description: 'Range like "2:00 PM..2:30 PM" (local time)' },
+          after: { type: 'string', description: 'Range like "3:00 PM..3:30 PM" (local time)' },
+        },
+      },
+    },
+    {
+      name: 'measure_mark',
+      title: 'Mark a change in the Mac YOLO metrics history',
+      description: 'Record that a change happened now (or at a given local time) so measure_compare can show before/after around it.',
+      annotations: {
+        title: 'Mark a change in the Mac YOLO metrics history',
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+      inputSchema: {
+        type: 'object',
+        properties: {
+          label: { type: 'string' },
+          at: { type: 'string', description: 'Optional local time, e.g. "2:37 PM"' },
+        },
+        required: ['label'],
+      },
+    },
   ];
 }
 
@@ -703,6 +744,21 @@ function callTool(name, args = {}) {
     }
     if (mode === 'zstd_unpack') return estimateArtifactPullAndUnpack(payload);
     return evaluateAgenticTokenomics(payload);
+  }
+  if (name === 'measure_compare') {
+    const measure = require('./mac-yolo-measure');
+    const res = measure.compare({
+      around: args.around,
+      window: args.window_minutes,
+      before: args.before,
+      after: args.after,
+    });
+    return { ok: true, enough: res.enough, before: res.before, after: res.after, rows: res.rows, text: res.text };
+  }
+  if (name === 'measure_mark') {
+    const measure = require('./mac-yolo-measure');
+    const m = measure.addMarker(args.label, args.at ? measure.parseTime(args.at) : undefined);
+    return { ok: true, marker: m };
   }
   throw new Error(`Unknown tool: ${name}`);
 }
