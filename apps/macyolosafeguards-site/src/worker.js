@@ -35,10 +35,10 @@ const GO_REDIRECTS = {
   "pilot": "https://buy.stripe.com/eVq9AU2sUeFV3d51bxf3a04",
   "b2b": "https://buy.stripe.com/eVq9AU2sUeFV3d51bxf3a04",
   "3000": "https://buy.stripe.com/eVq9AU2sUeFV3d51bxf3a04",
-  "dmg": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.2.1/MacYoloSafeguards-1.2.1.dmg",
-  "download": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.2.1/MacYoloSafeguards-1.2.1.dmg",
-  "pkg": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.2.1/MacYoloSafeguards.pkg",
-  "zip": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.2.1/MacYoloSafeguards.zip",
+  "dmg": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.2.2/MacYoloSafeguards-1.2.2.dmg",
+  "download": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.2.2/MacYoloSafeguards-1.2.2.dmg",
+  "pkg": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.2.2/MacYoloSafeguards.pkg",
+  "zip": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.2.2/MacYoloSafeguards.zip",
   "github": "https://github.com/IgorGanapolsky/mac-yolo-safeguards"
 };
 
@@ -52,7 +52,7 @@ export default {
           ok: true,
           service: "macyolosafeguards",
           domain: "macyolosafeguards.io",
-          version: "1.2.1",
+          version: "1.2.2",
           checkout_ready: true,
           redirects: Object.keys(GO_REDIRECTS)
         }),
