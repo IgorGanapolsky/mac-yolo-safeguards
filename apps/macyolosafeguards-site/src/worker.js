@@ -77,9 +77,11 @@ export function goEvent(slug, url, request) {
   if (q.get("from")) props.from = q.get("from").slice(0, 40);
   const ua = request.headers.get("user-agent") || "";
   props.likely_bot = !ua || /bot|crawl|spider|curl|wget|python|node|headless|preview|slack|facebook/i.test(ua);
-  let event = "go_click";
-  if (DOWNLOAD_SLUGS.has(slug)) { event = "download_click"; props.format = slug === "pkg" ? "pkg" : slug === "zip" ? "zip" : "dmg"; }
-  else if (GO_PLANS[slug]) { event = GO_PLANS[slug][0] === "pro" ? "pro_click" : "team_click"; props.plan = GO_PLANS[slug][0]; props.price = GO_PLANS[slug][1]; }
+  // Named go_redirect, not download_click/pro_click: the page already sends those from the browser,
+  // so the two never double-count. go_redirect is the backstop for ad blockers and no-JS visits.
+  const event = "go_redirect";
+  if (DOWNLOAD_SLUGS.has(slug)) props.format = slug === "pkg" ? "pkg" : slug === "zip" ? "zip" : "dmg";
+  else if (GO_PLANS[slug]) { props.plan = GO_PLANS[slug][0]; props.price = GO_PLANS[slug][1]; }
   return { api_key: POSTHOG_KEY, event, distinct_id: crypto.randomUUID(), properties: props };
 }
 

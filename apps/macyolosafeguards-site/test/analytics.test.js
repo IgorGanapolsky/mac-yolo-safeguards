@@ -39,8 +39,15 @@ test("download and Pro clicks are counted with plan, price and utm", () => {
   assert.deepEqual(ev, [["download_click", "dmg", undefined, "chatgpt"], ["download_click", "pkg", undefined, "chatgpt"], ["pro_click", "pro", 29, "chatgpt"], ["team_click", "investigation", 499, "chatgpt"]]);
 });
 
+test("an explicit ?from= source is kept alongside utm_source", () => {
+  const sc = script;
+  const links = [{ href: "/go/pro-once?client_reference_id=app_nudge", getAttribute() { return this.href; }, setAttribute(_, v) { this.href = v; }, addEventListener() {} }];
+  vm.runInNewContext(sc, { URLSearchParams, JSON, Math, encodeURIComponent, Object, location: { search: AD, pathname: "/" }, document: { referrer: "", title: "t", querySelectorAll: () => links }, sessionStorage: { getItem: () => null, setItem() {} }, fetch: () => Promise.resolve() });
+  assert.match(links[0].href, /&from=app_nudge$/);
+});
+
 test("utm params are copied onto /go links; plain visits leave links untouched", () => {
-  assert.equal(page(AD).links[2].href, "/go/pro-once" + AD.replace("?", "?"));
+  assert.equal(page(AD).links[2].href, "/go/pro-once" + AD);
   assert.equal(page("").links[2].href, "/go/pro-once");
 });
 
@@ -59,7 +66,7 @@ test("worker counts /go hits server-side without a cookie or a user id", async (
   assert.equal(calls.length, 1);
   assert.equal(calls[0][0], "https://us.i.posthog.com/capture/");
   const b = calls[0][1];
-  assert.equal(b.event, "pro_click");
+  assert.equal(b.event, "go_redirect");
   assert.equal(b.properties.product, "macyolo");
   assert.equal(b.properties.utm_source, "chatgpt");
   assert.equal(b.properties.price, 29);
@@ -69,7 +76,8 @@ test("worker counts /go hits server-side without a cookie or a user id", async (
 
 test("curl is flagged as a likely bot", () => {
   const e = goEvent("dmg", new URL("https://x/go/dmg"), new Request("https://x/go/dmg", { headers: { "user-agent": "curl/8" } }));
-  assert.equal(e.event, "download_click");
+  assert.equal(e.event, "go_redirect");
+  assert.equal(e.properties.format, "dmg");
   assert.equal(e.properties.likely_bot, true);
 });
 

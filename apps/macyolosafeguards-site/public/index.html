@@ -117,7 +117,11 @@
   var links=document.querySelectorAll('a[href^="/go/"]');
   for(var i=0;i<links.length;i++){
     var a=links[i],h=a.getAttribute("href");
-    if(utmQs)a.setAttribute("href",h+(h.indexOf("?")<0?"?":"&")+utmQs);
+    if(utmQs){
+      // Keep an explicit source (?from= or Product Hunt) ahead of utm_source in the Stripe client_reference_id.
+      var ref=/[?&]client_reference_id=([^&]+)/.exec(h);
+      a.setAttribute("href",h+(h.indexOf("?")<0?"?":"&")+utmQs+(ref?"&from="+ref[1]:""));
+    }
     a.addEventListener("click",function(ev){
       var slug=this.getAttribute("href").slice(4).split("?")[0],where=this.getAttribute("data-where")||"";
       if(slug==="dmg"||slug==="pkg")send("download_click",{format:slug,where:where});
