@@ -13,7 +13,7 @@ function page(search) {
   const mk = (href) => ({ href, handlers: [], getAttribute(n) { return n === "href" ? this.href : ""; }, setAttribute(_, v) { this.href = v; }, addEventListener(_, f) { this.handlers.push(f); } });
   const links = ["/go/dmg", "/go/pkg", "/go/pro-once", "/go/diagnostic"].map(mk);
   vm.runInNewContext(script, {
-    URLSearchParams, JSON, Math, encodeURIComponent, Object,
+    URLSearchParams, JSON, Math, encodeURIComponent, Object, Array,
     location: { search, pathname: "/" },
     document: { referrer: "https://chatgpt.com/", title: "t", querySelectorAll: () => links },
     sessionStorage: { getItem: () => null, setItem() {} },
@@ -44,6 +44,12 @@ test("an explicit ?from= source is kept alongside utm_source", () => {
   const links = [{ href: "/go/pro-once?client_reference_id=app_nudge", getAttribute() { return this.href; }, setAttribute(_, v) { this.href = v; }, addEventListener() {} }];
   vm.runInNewContext(sc, { URLSearchParams, JSON, Math, encodeURIComponent, Object, location: { search: AD, pathname: "/" }, document: { referrer: "", title: "t", querySelectorAll: () => links }, sessionStorage: { getItem: () => null, setItem() {} }, fetch: () => Promise.resolve() });
   assert.match(links[0].href, /&from=app_nudge$/);
+});
+
+test("a utm value that is cut mid-emoji does not break the script", () => {
+  const p = page("?utm_source=" + encodeURIComponent("a".repeat(99) + "\u{1F600}"));
+  assert.equal(p.sent[0].event, "pageview");
+  assert.equal(p.sent[0].properties.utm_source.length, 101);
 });
 
 test("utm params are copied onto /go links; plain visits leave links untouched", () => {
