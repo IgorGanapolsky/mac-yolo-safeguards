@@ -1,0 +1,32 @@
+{
+  "id": "26-coresimulator-idle-processes",
+  "source": "derived",
+  "description": "Idle CoreSimulator device processes at ppid 1 (Xcode simulator running).",
+  "snapshot": "real-03",
+  "overlay": {
+    "add": [
+      "900001 1 700000 06:00:00 ?? /Library/Developer/CoreSimulator/Volumes/iOS_23A/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.0.simruntime/Contents/Resources/RuntimeRoot/sbin/launchd_sim /Users/user/Library/Developer/CoreSimulator/Devices/AAAA/data/var/run/launchd_bootstrap.plist",
+      "900002 900001 200000 06:00:00 ?? /Users/user/Library/Developer/CoreSimulator/Devices/AAAA/data/Containers/Bundle/Application/BBBB/App.app/App"
+    ]
+  },
+  "timeline": {
+    "flatForSec": 2400,
+    "moving": [
+      10115,
+      43925
+    ]
+  },
+  "expect": {
+    "kill": [],
+    "spare": [
+      {
+        "pid": 900001,
+        "reason": "simulator device launchd"
+      },
+      {
+        "pid": 900002,
+        "reason": "app inside the simulator"
+      }
+    ]
+  }
+}

@@ -15,7 +15,7 @@ SIGN_ID="${MYS_APP_SIGN_ID:-Developer ID Application: Igor Ganapolsky (9GMM26JC5
 ASC_KEY="${ASC_KEY_PATH:-$HOME/.appstoreconnect/private_keys/AuthKey_8URYJ3K256.p8}"
 ASC_KEY_ID="${ASC_KEY_ID:-8URYJ3K256}"
 ASC_ISSUER="${ASC_ISSUER_ID:-9e5d7ebf-d4fe-47c2-8370-14dd87c17113}"
-TOOLS=(mac-yolo-disk-guard.js mac-yolo-agent-guard.js mac-yolo-jobs.js mac-yolo-system-care-engine.js agentic-graphrag-safeguard.js)
+TOOLS=(mac-yolo-disk-guard.js mac-yolo-agent-guard.js mac-yolo-action-log.js mac-yolo-jobs.js mac-yolo-secret-scan.js mac-yolo-system-care-engine.js agentic-graphrag-safeguard.js)
 
 notarize() {
   local log

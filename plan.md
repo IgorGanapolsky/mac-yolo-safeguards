@@ -4628,6 +4628,11 @@ The menu-bar panel stays one clear web page on an AppKit panel. This check does 
 Evals, the pipeline report, the model registry, and graph retrieval get one card. The card's number is the weakest plane. A perfect mark requires a held-out Mac app golden run, settled non-founder cents, a trained production model with a holdout AUC, and a graph query that names the panel from a clean current main without pasting the search into SQL. The measurements from 3:21 PM EST stay a D.
 
 | T-PRACTICE-GRADE-20261112 | Fail a perfect practice grade until holdout, settled cents, a production model, and a current graph query are in the evidence | in_progress | grok-practice-grade | `tools/mac-yolo-practice-grade.js`, `tests/test-mac-yolo-practice-grade.js`, `plan.md` (this append) | `node tests/test-mac-yolo-practice-grade.js` exits 0. Grading the 3:21 PM evidence exits 1 with D (2/10). |
+## Source value guard (append 2026-11-12T15:32:06-0500) — `grok-source-value-guard`
+
+An outbound action fails when a typed score stands in for a processor return, a skip flag is set, spend has no cap, an agent is untracked, a vendor figure is marked as a local result, or the text still contains a card-shaped number, an identity-number shape, or a key-shaped value. The same input always maps to the same letter stand-in. There is no second database and no vendor figure stored as a local result. Source note: https://capitalonesoftware.com/blog/gartner-2026-ai-risk-business-value
+
+| T-SOURCE-VALUE-GUARD-20261112 | Fail an outbound action when value is a typed score, governance is skipped, or a raw account number is still in the text | in_progress | grok-source-value-guard | `tools/source-value-guard.js`, `tests/test-source-value-guard.js`, `plan.md` (this append) | `node tests/test-source-value-guard.js` exits 0. A typed score, a skip flag, or a raw account number exits 1. |
 
 ### File claims (§2 append)
 | File | Owner | Claimed |
@@ -4635,3 +4640,36 @@ Evals, the pipeline report, the model registry, and graph retrieval get one card
 | tools/mac-yolo-practice-grade.js | grok-practice-grade | 2026-11-12T15:26:59-0500 |
 | tests/test-mac-yolo-practice-grade.js | grok-practice-grade | 2026-11-12T15:26:59-0500 |
 | plan.md (this append) | grok-practice-grade | 2026-11-12T15:26:59-0500 |
+| tools/source-value-guard.js | grok-source-value-guard | 2026-11-12T15:32:06-0500 |
+| tests/test-source-value-guard.js | grok-source-value-guard | 2026-11-12T15:32:06-0500 |
+| plan.md (this append) | grok-source-value-guard | 2026-11-12T15:32:06-0500 |
+
+## Source value callers (append 2026-11-12T15:52:44-0500) — `grok-source-value-guard`
+
+The check now runs inside the post gate, the publish claim, and the send helper. A typed score, a skip flag, uncapped spend, or a raw card, identity number, or key blocks that action. The draft is not printed and no receipt is written when the claim is blocked.
+
+| T-SOURCE-VALUE-CALLERS-20261112 | Fail a post, a publish claim, and a send when the source value check fails | in_progress | grok-source-value-guard | `tools/source-value-guard.js`, `tools/social-publish-gate.js`, `tools/publish-once.js`, `tools/send-next.js`, `tests/test-source-value-outbound.js`, `plan.md` (this append) | `node tests/test-source-value-outbound.js` exits 0. A card in a post, a publish claim, or a send exits blocked, and a typed score on the post gate exits blocked. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/source-value-guard.js | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
+| tools/social-publish-gate.js | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
+| tools/publish-once.js | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
+| tools/send-next.js | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
+| tests/test-source-value-outbound.js | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
+| plan.md (this append) | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
+
+## Paid extra check (append 2026-11-12T16:38:30-0500) — `grok-paid-extra-check`
+
+A priced offer fails when its file digest is the free download, when it names no extra, or when the paid name is only the free product name. A free price passes. A subscription with a named extra and no file passes. Vendor prices and fee shares stay on their pages and are not stored as local measurements. Sources: https://www.raycast.com/blog/changing-how-raycast-ai-is-priced (2026-09-10), https://setapp.com/tech-talks/distribute-app-on-setapp (2026-11-11), https://applecorridor.com/products/setapp/ (updated 2026-11-11).
+
+| T-PAID-EXTRA-CHECK-20261112 | Fail a paid offer that is the free download or that names no extra | in_progress | grok-paid-extra-check | `tools/paid-extra-check.js`, `tests/test-paid-extra-check.js`, `tools/payment-readiness.js` (offer row only), `plan.md` (this append) | `node tests/test-paid-extra-check.js` exits 0. A same-file paid offer and a blank extra exit 1. `node tests/test-mac-yolo-24x7-promote-carryforward.js` still exits 0. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/paid-extra-check.js | grok-paid-extra-check | 2026-11-12T16:38:30-0500 |
+| tests/test-paid-extra-check.js | grok-paid-extra-check | 2026-11-12T16:38:30-0500 |
+| tools/payment-readiness.js | grok-paid-extra-check | 2026-11-12T16:38:30-0500 |
+| plan.md (this append) | grok-paid-extra-check | 2026-11-12T16:38:30-0500 |

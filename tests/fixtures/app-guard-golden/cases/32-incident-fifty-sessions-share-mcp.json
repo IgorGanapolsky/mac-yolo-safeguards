@@ -1,0 +1,75 @@
+{
+  "id": "<redacted>",
+  "source": "incident",
+  "description": "Fifty MCP copies under one live session are not a storm.",
+  "ps": [
+    "10 1 400000 01:00:00 ?? /Users/user/Library/Application Support/Claude/claude-code/2.1.321/ddbdf2b334e1/claude.app/Contents/MacOS/claude --output-format stream-json --verbose",
+    "3000 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3001 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3002 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3003 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3004 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3005 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3006 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3007 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3008 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3009 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3010 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3011 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3012 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3013 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3014 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3015 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3016 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3017 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3018 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3019 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3020 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3021 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3022 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3023 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3024 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3025 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3026 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3027 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3028 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3029 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3030 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3031 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3032 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3033 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3034 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3035 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3036 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3037 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3038 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3039 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3040 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3041 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3042 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3043 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3044 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3045 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3046 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3047 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3048 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "3049 10 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server"
+  ],
+  "expect": {
+    "kill": [],
+    "spare": [
+      {
+        "pid": 10,
+        "reason": "live session"
+      },
+      {
+        "pid": 3000,
+        "reason": "its MCP server"
+      },
+      {
+        "pid": 3049,
+        "reason": "its MCP server"
+      }
+    ]
+  }
+}

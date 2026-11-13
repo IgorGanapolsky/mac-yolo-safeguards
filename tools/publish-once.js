@@ -61,6 +61,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
+const { guardOutbound } = require("./source-value-guard");
 
 // Overridable so the test suite can exercise the real code against a scratch file.
 // A guard that is only ever tested through a mock is a guard nobody has tested.
@@ -188,7 +189,29 @@ function stateByToken(receipts) {
   return m;
 }
 
-function claim({ target, body, now = Date.now(), acceptCorruption = false }) {
+function claim({ target, body, now = Date.now(), acceptCorruption = false, valueScore, riskScore, measuredCents, measuredSource, skipGovernance, bypass, spend, callCap, agents, vendorFigures }) {
+  const sourceReport = guardOutbound({
+    text: body == null ? "" : String(body),
+    valueScore,
+    riskScore,
+    measuredCents,
+    measuredSource,
+    skipGovernance,
+    bypass,
+    spend,
+    callCap,
+    agents,
+    vendorFigures,
+  });
+  if (!sourceReport.ok) {
+    return {
+      ok: false,
+      blocked: true,
+      findings: sourceReport.findings.map((item) => item.id),
+      reason: sourceReport.findings.map((item) => item.id + ": " + item.detail).join(" "),
+    };
+  }
+
   const hash = bodyHash(body);
   const token = `${target}#${hash}`;
   const { receipts, rejects, tornTail } = readReceiptsAudited();
@@ -294,6 +317,11 @@ function main() {
       return 2;
     }
     const r = claim({ target, body, acceptCorruption: argv.includes("--accept-corruption") });
+    if (!r.ok && r.blocked) {
+      console.error("publish-once: BLOCKED");
+      console.error(r.reason);
+      return 1;
+    }
     if (!r.ok && r.corrupt) {
       console.error(`publish-once: LEDGER CORRUPT — failing closed\n  token: ${r.token}\n  ${r.reason}`);
       return 4;

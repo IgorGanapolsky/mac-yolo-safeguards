@@ -1,0 +1,32 @@
+{
+  "id": "20-stranded-omp-idle-40min",
+  "source": "derived",
+  "description": "omp agent whose terminal is gone (ppid 1, no tty), CPU flat for 40 minutes.",
+  "snapshot": "real-03",
+  "overlay": {
+    "add": [
+      "900001 1 300000 03:00:00 ?? /Users/user/.local/bin/omp --resume=/Users/user/.omp/agent/sessions/-workspace-x/s1"
+    ]
+  },
+  "timeline": {
+    "flatForSec": 2400,
+    "moving": [
+      10115,
+      43925
+    ]
+  },
+  "expect": {
+    "kill": [
+      {
+        "pid": 900001,
+        "reason": "agent with no terminal, adopted by launchd, idle 40 minutes"
+      }
+    ],
+    "spare": [
+      {
+        "pid": 27893,
+        "reason": "live omp in a terminal"
+      }
+    ]
+  }
+}
