@@ -36,6 +36,7 @@ const {
   TEMPLATE_VERSION: FOLLOWUP_TEMPLATE_VERSION,
 } = require('./governed-agent-sales-copy');
 const { verifyChromeGmailSent } = require('./chrome-gmail-sent-verify');
+const { chromeBlocked } = require('./routine-pause');
 
 const REPO = path.resolve(__dirname, '..');
 
@@ -1339,6 +1340,7 @@ function saveRepliedContacts(emails) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (chromeBlocked()) args.chrome = false;
   if (args.help) {
     process.stdout.write(`${usage}\n`);
     process.exit(0);
