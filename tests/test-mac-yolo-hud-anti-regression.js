@@ -177,7 +177,8 @@ main();
   const path = require('path');
   for (const f of ['MacYoloSafeguardsApp.swift', 'MacYoloTranslucentHud.swift']) {
     const src = fs.readFileSync(path.join(__dirname, '..', 'macos', f), 'utf8');
-    if (!/persist: false, fit: true/.test(src) || !/_preSettingsSize\.h, persist: false/.test(src) || !/\(body\["fit"\] as\? Bool\)/.test(src)) {
+    if (!/persist: false, fit: true/.test(src) || !/case "resizeHud" where \(body\["restore"\] as\? Bool\) == true/.test(src) || !/\(body\["fit"\] as\? Bool\)/.test(src)
+        || !/if \(setEl && setEl\.style\.display === 'flex'\) restoreSavedHudSize\(\);/.test(src)) {
       throw new Error(f + ': Settings must fit the window without saving that size, and restore it on close');
     }
   }

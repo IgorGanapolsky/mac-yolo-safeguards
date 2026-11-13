@@ -982,17 +982,16 @@ private let HUD_HTML = #"""
       var wasOpen = el.style.display === 'flex';
       el.style.display = show ? 'flex' : 'none';
       if (ov) ov.style.display = show ? 'none' : 'block';
-      // Settings is short: fit the window to it, then give back the saved size on close.
+      // Settings is short: fit the window to it. Native code queues this after any compact expansion.
       if (show && !wasOpen) {
-        _preSettingsSize = { w: window.innerWidth, h: window.innerHeight };
         var fitH = Math.round(el.getBoundingClientRect().bottom + 64);
-        if (fitH < window.innerHeight) sendAction('resizeHud', { width: window.innerWidth, height: fitH, persist: false, fit: true });
-      } else if (!show && wasOpen && _preSettingsSize) {
-        sendAction('resizeHud', { width: _preSettingsSize.w, height: _preSettingsSize.h, persist: false });
-        _preSettingsSize = null;
+        sendAction('resizeHud', { width: window.innerWidth, height: fitH, persist: false, fit: true });
+      } else if (!show && wasOpen) {
+        restoreSavedHudSize();
       }
     }
-    var _preSettingsSize = null;
+    // Every way out of Settings gives back the size the user saved; the fitted size is never saved.
+    function restoreSavedHudSize() { sendAction('resizeHud', { restore: true }); }
     function fmtBytes(n) {
       n = Number(n) || 0;
       if (n >= 1073741824) return (n / 1073741824).toFixed(1) + ' GB';
@@ -1008,6 +1007,7 @@ private let HUD_HTML = #"""
       var det = document.getElementById('cardDetailDrawer');
       var ban = document.getElementById('actionReceiptBanner');
       if (ov) ov.style.display = 'none';
+      if (setEl && setEl.style.display === 'flex') restoreSavedHudSize();
       if (setEl) setEl.style.display = 'none';
       if (ban) ban.style.display = 'none';
       if (det) det.style.display = 'flex';
@@ -2108,6 +2108,15 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             openGetPro(nil)
         case "enterProLicense":
             enterProLicense(nil)
+        case "resizeHud" where (body["restore"] as? Bool) == true:
+            let savedW = UserDefaults.standard.double(forKey: "MacYoloHudW")
+            let savedH = UserDefaults.standard.double(forKey: "MacYoloHudH")
+            var rf = hudPanel.frame
+            let restoreW = CGFloat(savedW > 0 ? max(380.0, min(880.0, savedW)) : Double(rf.width))
+            let restoreH = max(680, CGFloat(savedH > 0 ? min(920.0, savedH) : 688))
+            rf.origin.y += (rf.height - restoreH)
+            rf.size = NSSize(width: restoreW, height: restoreH)
+            hudPanel.setFrame(rf, display: true, animate: false)
         case "resizeHud":
             if let w = (body["width"] as? NSNumber)?.doubleValue,
                let h = (body["height"] as? NSNumber)?.doubleValue {
