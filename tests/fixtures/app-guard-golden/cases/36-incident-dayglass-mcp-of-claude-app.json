@@ -1,0 +1,22 @@
+{
+  "id": "<redacted>",
+  "source": "incident",
+  "description": "2026-11-01 17:00:55Z: another agent pkill'd the Claude app's Dayglass MCP server. As a process-table case: that server, launched through the session, is spare.",
+  "ps": [
+    "10 1 400000 01:00:00 ?? /Users/user/Library/Application Support/Claude/claude-code/2.1.321/ddbdf2b334e1/claude.app/Contents/MacOS/claude --output-format stream-json --verbose",
+    "80 10 60000 01:00:00 ?? /opt/homebrew/bin/python3 -m dayglass mcp"
+  ],
+  "expect": {
+    "kill": [],
+    "spare": [
+      {
+        "pid": 10,
+        "reason": "live session"
+      },
+      {
+        "pid": 80,
+        "reason": "live session's Dayglass MCP server"
+      }
+    ]
+  }
+}

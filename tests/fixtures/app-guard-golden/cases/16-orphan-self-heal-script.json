@@ -1,0 +1,26 @@
+{
+  "id": "16-orphan-self-heal-script",
+  "source": "derived",
+  "description": "mac-autonomy-self-heal.sh looping under launchd with no parent.",
+  "snapshot": "real-03",
+  "overlay": {
+    "add": [
+      "900001 1 8000 20:00 ?? /bin/bash /Users/user/bin/mac-autonomy-self-heal.sh",
+      "900002 900001 2000 20:00 ?? sleep 5"
+    ]
+  },
+  "expect": {
+    "kill": [
+      {
+        "pid": 900001,
+        "reason": "self-heal loop script orphaned to launchd"
+      }
+    ],
+    "spare": [
+      {
+        "pid": 900002,
+        "reason": "child sleep is not matched by any rule"
+      }
+    ]
+  }
+}

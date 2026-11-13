@@ -1,0 +1,27 @@
+{
+  "id": "<redacted>",
+  "source": "derived",
+  "description": "codex app-server --listen idle for 40 minutes: still has socket clients.",
+  "snapshot": "real-03",
+  "overlay": {
+    "add": [
+      "900001 1 600000 05:00:00 ?? /Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex app-server --listen unix:///tmp/c.sock"
+    ]
+  },
+  "timeline": {
+    "flatForSec": 2400,
+    "moving": [
+      10115,
+      43925
+    ]
+  },
+  "expect": {
+    "kill": [],
+    "spare": [
+      {
+        "pid": 900001,
+        "reason": "serves a socket; clients may be connected"
+      }
+    ]
+  }
+}

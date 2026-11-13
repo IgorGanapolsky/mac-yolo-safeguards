@@ -1,0 +1,42 @@
+{
+  "id": "<redacted>",
+  "source": "incident",
+  "description": "Cool Down Fans once matched every desktop session by its install path and killed them all (10:22-11:03). Three sessions with their wrappers.",
+  "ps": [
+    "90 1 6000 17:00 ?? /Applications/Claude.app/Contents/Helpers/disclaimer --pgroup -- /Users/user/Library/Application Support/Claude/claude-code/2.1.321/ddbdf2b334e1/claude.app/Contents/MacOS/claude --output-format stream-json --verbose find /Users/ -name x",
+    "91 90 380000 17:00 ?? /Users/user/Library/Application Support/Claude/claude-code/2.1.321/ddbdf2b334e1/claude.app/Contents/MacOS/claude --output-format stream-json --verbose",
+    "92 1 6000 16:00 ?? /Applications/Claude.app/Contents/Helpers/disclaimer --pgroup -- /Users/user/Library/Application Support/Claude/claude-code/2.1.321/ddbdf2b334e1/claude.app/Contents/MacOS/claude --output-format stream-json --verbose",
+    "93 92 380000 16:00 ?? /Users/user/Library/Application Support/Claude/claude-code/2.1.321/ddbdf2b334e1/claude.app/Contents/MacOS/claude --output-format stream-json --verbose",
+    "94 1 6000 05:00 ?? /Applications/Claude.app/Contents/Helpers/disclaimer --pgroup -- /Users/user/Library/Application Support/Claude/claude-code/2.1.321/ddbdf2b334e1/claude.app/Contents/MacOS/claude --output-format stream-json --verbose",
+    "95 94 380000 05:00 ?? /Users/user/Library/Application Support/Claude/claude-code/2.1.321/ddbdf2b334e1/claude.app/Contents/MacOS/claude --output-format stream-json --verbose"
+  ],
+  "expect": {
+    "kill": [],
+    "spare": [
+      {
+        "pid": 90,
+        "reason": "session wrapper"
+      },
+      {
+        "pid": 91,
+        "reason": "live session"
+      },
+      {
+        "pid": 92,
+        "reason": "session wrapper"
+      },
+      {
+        "pid": 93,
+        "reason": "live session"
+      },
+      {
+        "pid": 94,
+        "reason": "session wrapper"
+      },
+      {
+        "pid": 95,
+        "reason": "live session"
+      }
+    ]
+  }
+}

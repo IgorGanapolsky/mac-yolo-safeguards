@@ -1,0 +1,33 @@
+{
+  "id": "<redacted>",
+  "source": "incident",
+  "description": "From the agent-guard test: a session's own find is its task; an orphaned find is a runaway.",
+  "ps": [
+    "10 1 400000 01:00:00 ?? /Users/user/Library/Application Support/Claude/claude-code/2.1.321/ddbdf2b334e1/claude.app/Contents/MacOS/claude --output-format stream-json --verbose",
+    "70 10 4000 00:05 ?? /bin/zsh -c find /Users/user -name \"file.md\"",
+    "71 70 4000 00:05 ?? find /Users/user -name file.md",
+    "72 1 4000 09:00 ?? find /Users/user -name *.log"
+  ],
+  "expect": {
+    "kill": [
+      {
+        "pid": 72,
+        "reason": "orphaned find"
+      }
+    ],
+    "spare": [
+      {
+        "pid": 10,
+        "reason": "live session"
+      },
+      {
+        "pid": 70,
+        "reason": "its own shell"
+      },
+      {
+        "pid": 71,
+        "reason": "session's own find"
+      }
+    ]
+  }
+}

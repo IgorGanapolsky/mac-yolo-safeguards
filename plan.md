@@ -4556,11 +4556,6 @@ Four public products suggest a shared clock for speech, terminal, and screen tex
 | SKILLS.md (one row) | grok-context-weight | 2026-11-11T16:11:01-0500 |
 | plan.md (this append) | grok-context-weight | 2026-11-11T16:11:01-0500 |
 
-## Task checkout gate (append 2026-11-12T10:56:36-0500) — `grok-task-checkout`
-
-A public post (https://depthfirst.com/post/secure-agent-first-cloud-dev-environment) gives each coding task its own git worktree, then places that worktree on a private cloud machine. This gate keeps the local piece. A task must name a checkout that is not the shared tree and not another task's tree. A remote dev machine, their firewall product, and their CLI stay refused. Their week and supply-chain sentences stay theirs. Local fields stay null.
-
-| T-TASK-CHECKOUT-20261112 | Fail closed when a coding task writes the shared checkout or another task's tree, and when a remote dev machine would be installed or started | in_progress | grok-task-checkout | `tools/task-checkout-gate.js`, `tests/test-task-checkout-gate.js`, `.agents/skills/task-checkout-gate/**`, `SKILLS.md` (one row), `plan.md` (this append) | `node tests/test-task-checkout-gate.js` exits 0. No remote machine is started and the shared checkout is not written. |
 ## Opt before scale (append 2026-11-12T11:26:09-0500) — `grok-opt-before-scale`
 
 Three public pages (https://www.tonyrobbins.com/events/business-mastery, https://www.tonyrobbins.com/blog/ai-advantage-summit, https://www.tonyrobbins.com/podcasts/holy-grail) say to fix a leak before buying more traffic, and they discuss private-market property. This gate keeps the local piece for Mac YOLO Safeguards. Scale, ads, and traffic stay refused until outside clients, average collected cents, and repeat payers are supplied. Founder addresses do not count. A property, private-credit, or exchange action is refused. Their growth and margin sentences stay theirs. Local fields stay null. The check does not spend and does not open a checkout.
@@ -4573,11 +4568,6 @@ Replaces `/usr/bin/networkQuality -c -s -M 20` on the HUD `Test Speed` action (w
 ### File claims (§2 append)
 | File | Owner | Claimed |
 |------|-------|---------|
-| tools/task-checkout-gate.js | grok-task-checkout | 2026-11-12T10:56:36-0500 |
-| tests/test-task-checkout-gate.js | grok-task-checkout | 2026-11-12T10:56:36-0500 |
-| .agents/skills/task-checkout-gate/** | grok-task-checkout | 2026-11-12T10:56:36-0500 |
-| SKILLS.md (one row) | grok-task-checkout | 2026-11-12T10:56:36-0500 |
-| plan.md (this append) | grok-task-checkout | 2026-11-12T10:56:36-0500 |
 | tools/opt-before-scale.js | grok-opt-before-scale | 2026-11-12T11:26:09-0500 |
 | tests/test-opt-before-scale.js | grok-opt-before-scale | 2026-11-12T11:26:09-0500 |
 | .agents/skills/opt-before-scale/** | grok-opt-before-scale | 2026-11-12T11:26:09-0500 |

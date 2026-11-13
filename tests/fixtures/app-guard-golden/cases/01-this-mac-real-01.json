@@ -1,0 +1,799 @@
+{
+  "id": "01-this-mac-real-01",
+  "source": "real",
+  "description": "Redacted ps snapshot of this Mac (1265 processes) with all agent sessions and MCP servers running; nothing should be killed.",
+  "snapshot": "real-01",
+  "expect": {
+    "kill": [],
+    "spare": [
+      {
+        "pid": 2032,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 2033,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 2045,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 2050,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 2103,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 4237,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 4240,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 4245,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 9272,
+        "reason": "live omp session or worker"
+      },
+      {
+        "pid": 10115,
+        "reason": "live Cursor agent helper"
+      },
+      {
+        "pid": 14119,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 14120,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 14121,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 14141,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 14238,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 16766,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 16781,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 16782,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 16818,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 28503,
+        "reason": "live omp session or worker"
+      },
+      {
+        "pid": 29470,
+        "reason": "live omp session or worker"
+      },
+      {
+        "pid": 30391,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 30399,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 30402,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 30988,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 30989,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 30990,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 30992,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 30993,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 30997,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 31021,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 37555,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 37556,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 37557,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 37570,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 38175,
+        "reason": "live omp session or worker"
+      },
+      {
+        "pid": 43393,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 43798,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 43925,
+        "reason": "live Cursor agent helper"
+      },
+      {
+        "pid": 44366,
+        "reason": "live Claude desktop session (or its wrapper)"
+      },
+      {
+        "pid": 44375,
+        "reason": "live Claude desktop session (or its wrapper)"
+      },
+      {
+        "pid": 44589,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 44592,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 44593,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 44683,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 44685,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 44687,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 44688,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 44689,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 44742,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 46151,
+        "reason": "live omp session or worker"
+      },
+      {
+        "pid": 46164,
+        "reason": "live omp session or worker"
+      },
+      {
+        "pid": 46178,
+        "reason": "live omp session or worker"
+      },
+      {
+        "pid": 49991,
+        "reason": "live omp session or worker"
+      },
+      {
+        "pid": 55629,
+        "reason": "live omp session or worker"
+      },
+      {
+        "pid": 57090,
+        "reason": "live Claude desktop session (or its wrapper)"
+      },
+      {
+        "pid": 57095,
+        "reason": "live Claude desktop session (or its wrapper)"
+      },
+      {
+        "pid": 57867,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 57868,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 57871,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 57877,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 57879,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 57923,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 67851,
+        "reason": "live omp session or worker"
+      },
+      {
+        "pid": 68099,
+        "reason": "live Claude desktop session (or its wrapper)"
+      },
+      {
+        "pid": 68137,
+        "reason": "live Claude desktop session (or its wrapper)"
+      },
+      {
+        "pid": 68643,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 68644,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 68647,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 68648,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 68650,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 68719,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 70518,
+        "reason": "live omp session or worker"
+      },
+      {
+        "pid": 71080,
+        "reason": "live Claude desktop session (or its wrapper)"
+      },
+      {
+        "pid": 71082,
+        "reason": "live Claude desktop session (or its wrapper)"
+      },
+      {
+        "pid": 71176,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 71177,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 71180,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 71181,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 71182,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 71202,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 75768,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 77565,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 84057,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 86441,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 89029,
+        "reason": "live Claude desktop session (or its wrapper)"
+      },
+      {
+        "pid": 89030,
+        "reason": "live Claude desktop session (or its wrapper)"
+      },
+      {
+        "pid": 89111,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 89112,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 89114,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 89123,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 96502,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 96509,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 97361,
+        "reason": "live Claude desktop session (or its wrapper)"
+      },
+      {
+        "pid": 97363,
+        "reason": "live Claude desktop session (or its wrapper)"
+      },
+      {
+        "pid": 97605,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 97607,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 97609,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 97610,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 97611,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 97680,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 10611,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 10625,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 38740,
+        "reason": "live Claude Code CLI in a terminal or remote-control"
+      },
+      {
+        "pid": 38846,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 38847,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 38863,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 38864,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 86309,
+        "reason": "live Claude Code CLI in a terminal or remote-control"
+      },
+      {
+        "pid": 86446,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 86447,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 86449,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 86473,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 86477,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 45967,
+        "reason": "live omp session or worker"
+      },
+      {
+        "pid": 46154,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 46156,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 46157,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 46158,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 16134,
+        "reason": "live grok session"
+      },
+      {
+        "pid": 47503,
+        "reason": "live omp session or worker"
+      },
+      {
+        "pid": 47549,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 47551,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 47552,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 47553,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 27893,
+        "reason": "live omp session or worker"
+      },
+      {
+        "pid": 28192,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 28195,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 48974,
+        "reason": "live omp session or worker"
+      },
+      {
+        "pid": 49014,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 49016,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 82434,
+        "reason": "live omp session or worker"
+      },
+      {
+        "pid": 82584,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 82586,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 82588,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 82589,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 82590,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 30798,
+        "reason": "live grok session"
+      },
+      {
+        "pid": 36940,
+        "reason": "live omp session or worker"
+      },
+      {
+        "pid": 37109,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 37111,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 37159,
+        "reason": "live grok session"
+      },
+      {
+        "pid": 52201,
+        "reason": "live Claude Code CLI in a terminal or remote-control"
+      },
+      {
+        "pid": 52871,
+        "reason": "live Claude Code CLI in a terminal or remote-control"
+      },
+      {
+        "pid": 53166,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 53167,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 53228,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 53246,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 53257,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 53258,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 83787,
+        "reason": "live Claude Code CLI in a terminal or remote-control"
+      },
+      {
+        "pid": 83943,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 83945,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 83971,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 83972,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 84016,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 84025,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 15838,
+        "reason": "live Claude Code CLI in a terminal or remote-control"
+      },
+      {
+        "pid": 15922,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 15923,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 15944,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 15976,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 13033,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 13035,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 13038,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 13039,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 13040,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 13041,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 13150,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 13288,
+        "reason": "live omp session or worker"
+      },
+      {
+        "pid": 13325,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 13327,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 14010,
+        "reason": "live grok session"
+      },
+      {
+        "pid": 53355,
+        "reason": "live Claude Code CLI in a terminal or remote-control"
+      },
+      {
+        "pid": 54160,
+        "reason": "live Claude Code CLI in a terminal or remote-control"
+      },
+      {
+        "pid": 54360,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 54361,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 54378,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 54380,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 54405,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 54410,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 43152,
+        "reason": "live Claude Code CLI in a terminal or remote-control"
+      },
+      {
+        "pid": 43332,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 43333,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 43335,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 43388,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 43390,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 43400,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 43421,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 69670,
+        "reason": "live Claude Code CLI in a terminal or remote-control"
+      },
+      {
+        "pid": 71069,
+        "reason": "live Claude Code CLI in a terminal or remote-control"
+      },
+      {
+        "pid": 71263,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 71264,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 71355,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 71376,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 71389,
+        "reason": "MCP server owned by a live agent session"
+      },
+      {
+        "pid": 71391,
+        "reason": "MCP server owned by a live agent session"
+      }
+    ]
+  }
+}

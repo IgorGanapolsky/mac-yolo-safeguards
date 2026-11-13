@@ -1,0 +1,24 @@
+{
+  "id": "<redacted>",
+  "source": "derived",
+  "description": "A real live Claude session wrapper whose arguments mention find /Users/ -name (the 2026-11-01 matcher bug).",
+  "snapshot": "real-03",
+  "overlay": {
+    "replace": {
+      "97361": "97361 1113 6000 01:42:34 ?? /Applications/Claude.app/Contents/Helpers/disclaimer --pgroup -- /Users/user/Library/Application Support/Claude/claude-code/2.1.321/ddbdf2b334e1/claude.app/Contents/MacOS/claude --output-format stream-json --verbose find /Users/ -name x"
+    }
+  },
+  "expect": {
+    "kill": [],
+    "spare": [
+      {
+        "pid": 97361,
+        "reason": "disclaimer wrapper of a live session"
+      },
+      {
+        "pid": 97363,
+        "reason": "live session"
+      }
+    ]
+  }
+}

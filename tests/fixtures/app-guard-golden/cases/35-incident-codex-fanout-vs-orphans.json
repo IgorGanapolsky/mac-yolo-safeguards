@@ -1,0 +1,48 @@
+{
+  "id": "<redacted>",
+  "source": "incident",
+  "description": "Codex starts a full MCP set per thread (live, spare). The same server orphaned to launchd leaks.",
+  "ps": [
+    "700 1 1400000 08:00:00 ?? /Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex app-server",
+    "701 700 170000 08:00:00 ?? npm exec @postman/postman-mcp-server@2.13.0 --full",
+    "702 700 170000 06:00:00 ?? npm exec @postman/postman-mcp-server@2.13.0 --full",
+    "703 700 170000 01:00:00 ?? npm exec @postman/postman-mcp-server@2.13.0 --full",
+    "900 1 170000 08:00:00 ?? npm exec @postman/postman-mcp-server@2.13.0 --full",
+    "901 1 170000 07:00:00 ?? npm exec @postman/postman-mcp-server@2.13.0 --full",
+    "902 1 170000 06:00:00 ?? npm exec @postman/postman-mcp-server@2.13.0 --full"
+  ],
+  "expect": {
+    "kill": [
+      {
+        "pid": 900,
+        "reason": "orphan extra copy"
+      },
+      {
+        "pid": 901,
+        "reason": "orphan extra copy"
+      }
+    ],
+    "spare": [
+      {
+        "pid": 700,
+        "reason": "live codex"
+      },
+      {
+        "pid": 701,
+        "reason": "codex thread server"
+      },
+      {
+        "pid": 702,
+        "reason": "codex thread server"
+      },
+      {
+        "pid": 703,
+        "reason": "codex thread server"
+      },
+      {
+        "pid": 902,
+        "reason": "newest orphan copy kept"
+      }
+    ]
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "id": "<redacted>",
+  "source": "derived",
+  "description": "A find that a real live Claude session started (its Bash tool).",
+  "snapshot": "real-03",
+  "overlay": {
+    "add": [
+      "900001 97363 4000 00:05 ?? /bin/zsh -c find /Users/user -name \"file.md\"",
+      "900002 900001 4000 00:05 ?? find /Users/user -name file.md"
+    ]
+  },
+  "expect": {
+    "kill": [],
+    "spare": [
+      {
+        "pid": 900001,
+        "reason": "shell run by a live session"
+      },
+      {
+        "pid": 900002,
+        "reason": "live session's own find is its task"
+      }
+    ]
+  }
+}

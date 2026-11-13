@@ -1,0 +1,29 @@
+{
+  "id": "<redacted>",
+  "source": "derived",
+  "description": "Duplicate MCP servers started by a LaunchAgent job (in launchctl list): on purpose.",
+  "snapshot": "real-03",
+  "overlay": {
+    "add": [
+      "900001 1 60000 40:00 ?? /opt/homebrew/bin/python3 -m dayglass mcp",
+      "900002 1 60000 40:00 ?? /opt/homebrew/bin/python3 -m dayglass mcp"
+    ]
+  },
+  "launchdPids": [
+    900001,
+    900002
+  ],
+  "expect": {
+    "kill": [],
+    "spare": [
+      {
+        "pid": 900001,
+        "reason": "LaunchAgent job"
+      },
+      {
+        "pid": 900002,
+        "reason": "LaunchAgent job"
+      }
+    ]
+  }
+}
