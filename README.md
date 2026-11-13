@@ -40,7 +40,7 @@ If you run agents for a team or clients and have a repeated failure that costs h
 
 | Path | Deliverables | Pricing |
 |---|---|---|
-| **[Mac YOLO Pro Guard](https://buy.stripe.com/9B6bJ2c3u55laFx9I3f3a00)** | Everything in the free app, plus MCP Guard: automatic shutdown of stuck MCP servers. Cancel any time. | `$19/month` |
+| **[Mac YOLO Pro Guard](https://macyolosafeguards.io/go/pro-once?from=github_readme)** | Everything in the free app, plus automatic shutdown of leftover agent processes and MCP servers. One payment, yours to keep, 14-day refund. | `$29 once` |
 | **[Agent Safeguards Playbook](https://iganapolsky.gumroad.com/l/odrkon)** | Self-serve runbook: OS-level runaway-kill, timeout, and token-budget templates for Mac agent fleets. | `$9.99` |
 | **[Corporate-Expense Reliability Kit](https://iganapolsky.gumroad.com/l/vcrho)** | Drop-in team bundle: LaunchAgent templates, MCP server, pre-execution gates, and audit receipt harness. | `$49` |
 | **[Agent Reliability Diagnostic](https://buy.stripe.com/3cI28s5F6cxN9Bt4nJf3a02)** | A 20-minute live call about one failure, then a written root-cause readout with prevention rules within 48 hours. No installation. | `$499` |
