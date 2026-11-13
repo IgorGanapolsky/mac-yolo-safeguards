@@ -184,3 +184,19 @@ main();
   }
   console.log('ok - Settings fits the window and restores the saved size');
 }
+
+// Igor, 2026-11-13: "can't we have more information here? this is superficial". Opened culprit rows say
+// what the app is, whether Stop Runaways can touch it, and its biggest processes with PID and run time.
+// The status line and header use one health level, so they can't say "Mac healthy" under "High Load".
+{
+  const fs = require('fs');
+  const path = require('path');
+  for (const f of ['MacYoloSafeguardsApp.swift', 'MacYoloTranslucentHud.swift']) {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'macos', f), 'utf8');
+    for (const needle of ['"pid,%cpu,rss,etime,comm"', 'func humanEtime(', 'func aboutApp(', 'func stopRunawaysScope(', 'appNote(name, byCpu: true)', 'appNote(name, byCpu: false)', '"healthLevel":', "lvl === 'high'"]) {
+      if (!src.includes(needle)) throw new Error(f + ': missing ' + needle);
+    }
+    if (src.includes('CPU cores and %.2f GB RAM across')) throw new Error(f + ': old repeat-the-numbers note is back');
+  }
+  console.log('ok - opened rows explain the app, its scope and its biggest processes');
+}

@@ -1179,7 +1179,10 @@ private let HUD_HTML = #"""
           attEl.style.borderColor = 'rgba(251,191,36,0.55)';
           attEl.style.color = '#fde68a';
         } else {
-          setTextIfChanged('attentionText', 'Mac healthy · ' + (hl || 'No runaway agents') + ' — nothing to do.');
+          var lvl = state.healthLevel || 'ok';
+          setTextIfChanged('attentionText', lvl === 'high' ? ('Busy · ' + (hl || 'High load') + ' — normal while agents work. Top Hogs below shows who.')
+            : lvl === 'active' ? ('Active · ' + (hl || 'Moderate load') + ' — nothing to do.')
+            : ('Mac healthy · ' + (hl || 'No runaway agents') + ' — nothing to do.'));
           var asb2 = document.getElementById('attentionStopBtn'); if (asb2) asb2.style.display = 'none';
           attEl.style.borderColor = 'rgba(94,234,212,0.34)';
           attEl.style.color = '#e2e8f0';
@@ -1287,6 +1290,42 @@ func findNodeBinary() -> String? {
 func agentSwarmLine(_ counts: [(String, Int)]) -> String {
     let live = counts.filter { $0.1 > 0 }.map { "\($0.0) \($0.1)" }
     return live.isEmpty ? "No coding agents running" : live.joined(separator: " · ")
+}
+
+/// ps etime ("3-04:05:06", "04:05:06", "05:06") as "3d 4h", "4h 5m" or "5m".
+func humanEtime(_ e: String) -> String {
+    var days = 0
+    var rest = Substring(e)
+    if let dash = e.firstIndex(of: "-") { days = Int(e[..<dash]) ?? 0; rest = e[e.index(after: dash)...] }
+    let f = rest.split(separator: ":").map { Int($0) ?? 0 }
+    let (h, m) = f.count == 3 ? (f[0], f[1]) : (0, f.first ?? 0)
+    if days > 0 { return "\(days)d \(h)h" }
+    if h > 0 { return "\(h)h \(m)m" }
+    return m > 0 ? "\(m)m" : "under a minute"
+}
+
+/// One plain sentence on what a process group is.
+func aboutApp(_ name: String) -> String {
+    let known: [String: String] = [
+        "Jamf Protect": "Jamf Protect is endpoint security software, usually installed by an employer's IT. It scans files as they change, so it gets busy when agents build or write a lot.",
+        "WindowServer": "WindowServer is macOS drawing everything on screen. Many windows, displays or animations make it busy.",
+        "kernel_task": "kernel_task is macOS itself. High CPU here is often macOS slowing things down to cool the Mac.",
+        "Spotlight": "Spotlight is macOS indexing files for search.",
+        "Photos Analysis": "Photos is scanning your library.",
+        "Node.js": "Node.js processes are mostly AI tool helpers: MCP servers, coding-agent CLIs and dev servers.",
+        "Python": "Python processes are scripts and AI tool helpers.",
+        "BrowserOS": "BrowserOS is the browser your agents use.",
+        "Claude": "Claude is Claude Code and the Claude app, including their helpers.",
+        "entire": "entire is the Entire session recorder for coding agents.",
+    ]
+    return known[name] ?? "\(name) is an app or tool running on this Mac."
+}
+
+/// Whether Stop Runaways can ever stop this group.
+func stopRunawaysScope(_ name: String) -> String {
+    let never: Set<String> = ["Jamf Protect", "WindowServer", "kernel_task", "Spotlight", "Photos Analysis"]
+    if never.contains(name) { return "Mac YOLO never stops it." }
+    return "Stop Runaways stops these only if they keep burning CPU with no live agent session."
 }
 
 func findToolScript(_ name: String) -> String? {
@@ -2655,13 +2694,14 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     func sampleTopCpuCulprits() -> (shortLine: String, topMem: String, recTitle: String, recDesc: String, detailCpu: String, detailMem: String, detailFleet: String, topCpu: Double, totalProcs: Int, pyCount: Int, nodeCount: Int, swarmSummary: String, totalCpuPct: Int) {
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: "/bin/ps")
-        proc.arguments = ["-Ao", "%cpu,rss,comm", "-r"]
+        proc.arguments = ["-Ao", "pid,%cpu,rss,etime,comm", "-r"]
         let pipe = Pipe()
         proc.standardOutput = pipe
         proc.standardError = Pipe()
         var cpuByApp: [String: Double] = [:]
         var rssByApp: [String: Double] = [:]
         var countByApp: [String: Int] = [:]
+        var procsByApp: [String: [(pid: String, cpu: Double, rssKB: Double, etime: String, name: String)]] = [:]
         var totalProcs = 0
         var totalCpuSum = 0.0
         var pyCount = 0
@@ -2686,12 +2726,14 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             let text = String(data: data, encoding: .utf8) ?? ""
             for raw in text.split(separator: "\n").dropFirst() {
                 totalProcs += 1
-                let parts = raw.trimmingCharacters(in: .whitespaces).split(separator: " ", maxSplits: 2, omittingEmptySubsequences: true)
-                if parts.count < 3 { continue }
-                let cpu = Double(parts[0]) ?? 0.0
-                let rssKB = Double(parts[1]) ?? 0.0
+                let parts = raw.trimmingCharacters(in: .whitespaces).split(separator: " ", maxSplits: 4, omittingEmptySubsequences: true)
+                if parts.count < 5 { continue }
+                let pid = String(parts[0])
+                let cpu = Double(parts[1]) ?? 0.0
+                let rssKB = Double(parts[2]) ?? 0.0
+                let etime = String(parts[3])
                 totalCpuSum += cpu
-                let fullComm = String(parts[2])
+                let fullComm = String(parts[4])
                 let base = (fullComm as NSString).lastPathComponent
                 let lower = fullComm.lowercased()
                 if base.lowercased().contains("python") { pyCount += 1; pyRssKB += rssKB }
@@ -2713,6 +2755,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                 cpuByApp[label, default: 0.0] += cpu
                 rssByApp[label, default: 0.0] += rssKB
                 countByApp[label, default: 0] += 1
+                procsByApp[label, default: []].append((pid: pid, cpu: cpu, rssKB: rssKB, etime: etime, name: base))
             }
         }
         func fmtRam(_ kb: Double) -> String {
@@ -2747,6 +2790,15 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         } ?? ""
         let helpers = pyCount + nodeCount
         let rDesc = busiestNote + "\(helpers) AI tool helpers are running (\(pyCount) Python, \(nodeCount) Node). Tap to see everything using CPU."
+        // What an opened row says: what the app is, whether Stop Runaways can touch it, and its biggest processes.
+        func appNote(_ name: String, byCpu: Bool) -> String {
+            let procs = (procsByApp[name] ?? []).sorted { byCpu ? $0.cpu > $1.cpu : $0.rssKB > $1.rssKB }
+            let top = procs.prefix(3).map { p in
+                String(format: "%@ (PID %@) %.0f%% CPU · %@ · running %@", p.name, p.pid, p.cpu, fmtRam(p.rssKB), humanEtime(p.etime))
+            }.joined(separator: "; ")
+            let more = procs.count > 3 ? " … and \(procs.count - 3) more." : "."
+            return aboutApp(name) + " " + stopRunawaysScope(name) + (top.isEmpty ? "" : " Biggest: " + top + more)
+        }
         let cpuRows = ranked.prefix(6).enumerated().map { idx, name in
             let c = cpuByApp[name, default: 0]
             let gb = rssByApp[name, default: 0] / 1_048_576.0
@@ -2755,7 +2807,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             let coresBusy = c / 100.0
             let note = systemIndexers.contains(name)
                 ? "Protected macOS background indexer; settles automatically."
-                : String(format: "Using ~%.1f of %d CPU cores and %.2f GB RAM across %d process%@ right now.", coresBusy, ncpu, gb, cnt, cnt == 1 ? "" : "es")
+                : String(format: "Using ~%.1f of %d CPU cores right now. ", coresBusy, ncpu) + appNote(name, byCpu: true)
             return String(format: "%d. %@ (%d procs)|%.1f%% CPU · %.2f GB RAM|%d|%@", idx + 1, name, cnt, c, gb, bar, note)
         }.joined(separator: ";;")
         let memRanked = rssByApp.keys.sorted { rssByApp[$0, default: 0] > rssByApp[$1, default: 0] }
@@ -2766,7 +2818,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             let c = cpuByApp[name, default: 0]
             let cnt = countByApp[name, default: 1]
             let bar = min(100, max(4, Int(round(pct32 * 2.5))))
-            let note = String(format: "Holding %.2f GB resident RAM (%.1f%% of 32 GB) and %.0f%% CPU across %d process%@.", gb, pct32, c, cnt, cnt == 1 ? "" : "es")
+            let note = String(format: "Holding %.2f GB of RAM (%.1f%% of 32 GB). ", gb, pct32) + appNote(name, byCpu: false)
             return String(format: "%d. %@ (%d procs)|%.2f GB (%.1f%%) · %.0f%% CPU|%d|%@", idx + 1, name, cnt, gb, pct32, c, bar, note)
         }.joined(separator: ";;")
         let poolSessions = max(0, (poolCount + 1) / 2)
@@ -3031,6 +3083,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let payload: [String: String] = [
             "healthState": healthStateStr,
             "healthColor": healthColorStr,
+            "healthLevel": healthStateStr.hasPrefix("High Load") ? "high" : (healthStateStr.hasPrefix("Active") ? "active" : "ok"),
             "guardHeadline": "CPU \(cpuPct)% · GPU \(gpu.devicePct)% (\(String(format: "%.1fG", gpu.vramGB)) VRAM) · RAM \(memPressurePct)% · \(String(format: "%.1fM", sess.estTokensM)) tok (2h)",
             "onScreenLine": "Top Hogs: \(culprits.shortLine) · Active: \(lastActiveApp)",
             "activeApp": culprits.swarmSummary,
