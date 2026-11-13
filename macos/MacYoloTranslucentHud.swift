@@ -2806,8 +2806,8 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             let cnt = countByApp[name, default: 1]
             let bar = min(100, max(4, Int(round(c))))
             let coresBusy = c / 100.0
-            // ps counts one full core as 100%, and this is one reading, not an average.
-            let note = String(format: "Using about %.1f of %d CPU cores in this reading (100%% = one full core; one sample, not an average). ", coresBusy, ncpu)
+            // ps %cpu: one full core is 100%, averaged (decaying) over up to the last minute (man ps).
+            let note = String(format: "Using about %.1f of %d CPU cores (100%% = one full core; averaged over up to the last minute, so a short spike or a long-running load both show here). ", coresBusy, ncpu)
                 + (systemIndexers.contains(name) ? "It settles on its own. " : "") + appNote(name, byCpu: true)
             return String(format: "%d. %@ (%d procs)|%.1f%% CPU · %.2f GB RAM|%d|%@", idx + 1, name, cnt, c, gb, bar, note)
         }.joined(separator: ";;")
