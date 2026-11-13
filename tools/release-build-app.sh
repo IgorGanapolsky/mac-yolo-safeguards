@@ -15,7 +15,7 @@ SIGN_ID="${MYS_APP_SIGN_ID:-Developer ID Application: Igor Ganapolsky (9GMM26JC5
 ASC_KEY="${ASC_KEY_PATH:-$HOME/.appstoreconnect/private_keys/AuthKey_8URYJ3K256.p8}"
 ASC_KEY_ID="${ASC_KEY_ID:-8URYJ3K256}"
 ASC_ISSUER="${ASC_ISSUER_ID:-9e5d7ebf-d4fe-47c2-8370-14dd87c17113}"
-TOOLS=(mac-yolo-disk-guard.js mac-yolo-agent-guard.js mac-yolo-system-care-engine.js agentic-graphrag-safeguard.js)
+TOOLS=(mac-yolo-disk-guard.js mac-yolo-agent-guard.js mac-yolo-action-log.js mac-yolo-jobs.js mac-yolo-secret-scan.js mac-yolo-system-care-engine.js agentic-graphrag-safeguard.js)
 
 notarize() {
   local log
@@ -45,6 +45,9 @@ for t in mac-yolo-agent-guard.js; do
   node "$APP/Contents/Resources/tools/$t" clean >/dev/null
 done
 [[ "$("$APP/Contents/MacOS/MacYoloSafeguards" --health-self-test)" == *MAC_YOLO_HEALTH_OK* ]]
+[[ "$("$APP/Contents/MacOS/MacYoloSafeguards" --net-self-test)" == *MAC_YOLO_NET_OK* ]]
+[[ "$("$APP/Contents/MacOS/MacYoloSafeguards" --nudge-self-test)" == *MAC_YOLO_NUDGE_OK* ]]
+[[ "$("$APP/Contents/MacOS/MacYoloSafeguards" --jobs-self-test)" == *MAC_YOLO_JOBS_OK* ]]
 
 xattr -cr "$APP"
 codesign --force --options runtime --timestamp --sign "$SIGN_ID" -i com.igor.MacYoloSafeguards "$APP"

@@ -84,8 +84,8 @@ else
     scripts/hermes-chrome-debugger-bridge.js \
     scripts/install-hermes-chrome-debugger.sh \
     scripts/wire-hermes-browser-cdp.sh \
-    com.hermes.chrome-cdp.plist \
-    com.hermes.chrome-debugger.plist; do
+    launchd/com.hermes.chrome-cdp.plist \
+    launchd/com.hermes.chrome-debugger.plist; do
     mkdir -p "$DEST/$(dirname "$f")"
     curl -fsSL "$BASE/$f" -o "$DEST/$f"
   done

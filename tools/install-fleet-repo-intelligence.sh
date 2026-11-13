@@ -10,7 +10,7 @@ INDEX_ROOT="${HERMES_SEMANTIC_INDEX_ROOT:-$HOME_DIR/.hermes/semantic-index}"
 CLONE_NAME="${HERMES_SEMANTIC_CLONE_NAME:-mac-yolo-safeguards}"
 CLONE_PATH="$INDEX_ROOT/$CLONE_NAME"
 REMOTE_URL="${HERMES_SEMANTIC_REMOTE:-https://github.com/IgorGanapolsky/mac-yolo-safeguards.git}"
-PLIST_SRC="$REPO/com.igor.fleet-repo-intelligence.plist"
+PLIST_SRC="$REPO/launchd/com.igor.fleet-repo-intelligence.plist"
 PLIST_DST="$HOME_DIR/Library/LaunchAgents/com.igor.fleet-repo-intelligence.plist"
 LABEL="com.igor.fleet-repo-intelligence"
 

@@ -67,19 +67,19 @@ link "$REPO/scripts/grok-yolo-leak-reaper.sh"  "$INSTALL_HOME/.local/bin/grok-yo
 # Instead of symlinking the plist, write a copy with {{HOME}} substituted to point to the actual home directory
 PLIST_DEST="$INSTALL_HOME/Library/LaunchAgents/com.igor.shutdown-simulators.plist"
 if [ -f "$PLIST_DEST" ] || [ -L "$PLIST_DEST" ]; then rm -f "$PLIST_DEST"; fi
-sed "s|{{HOME}}|$INSTALL_HOME|g" "$REPO/com.igor.shutdown-simulators.plist" > "$PLIST_DEST"
+sed "s|{{HOME}}|$INSTALL_HOME|g" "$REPO/launchd/com.igor.shutdown-simulators.plist" > "$PLIST_DEST"
 echo "  $PLIST_DEST created with resolved paths"
 
 # Daily launchd job that repairs LaunchAgents pointing at deleted worktree paths.
 HEAL_PLIST_DEST="$INSTALL_HOME/Library/LaunchAgents/com.igor.heal-launchd-paths.plist"
 if [ -f "$HEAL_PLIST_DEST" ] || [ -L "$HEAL_PLIST_DEST" ]; then rm -f "$HEAL_PLIST_DEST"; fi
-sed "s|{{HOME}}|$INSTALL_HOME|g" "$REPO/com.igor.heal-launchd-paths.plist" > "$HEAL_PLIST_DEST"
+sed "s|{{HOME}}|$INSTALL_HOME|g" "$REPO/launchd/com.igor.heal-launchd-paths.plist" > "$HEAL_PLIST_DEST"
 echo "  $HEAL_PLIST_DEST created with resolved paths"
 
 # Hourly reaper for stale grok/grok-yolo procs that pin the local Ollama model (memory thrash).
 REAP_PLIST_DEST="$INSTALL_HOME/Library/LaunchAgents/com.igor.grok-yolo-leak-reaper.plist"
 if [ -f "$REAP_PLIST_DEST" ] || [ -L "$REAP_PLIST_DEST" ]; then rm -f "$REAP_PLIST_DEST"; fi
-sed "s|{{HOME}}|$INSTALL_HOME|g" "$REPO/com.igor.grok-yolo-leak-reaper.plist" > "$REAP_PLIST_DEST"
+sed "s|{{HOME}}|$INSTALL_HOME|g" "$REPO/launchd/com.igor.grok-yolo-leak-reaper.plist" > "$REAP_PLIST_DEST"
 echo "  $REAP_PLIST_DEST created with resolved paths"
 
 echo ""

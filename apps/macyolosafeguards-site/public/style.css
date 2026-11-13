@@ -21,3 +21,7 @@ td,th{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);verti
 th{font-size:14px;color:var(--muted);font-weight:500}
 footer{margin-top:72px;padding-bottom:40px;border-top:1px solid var(--line);padding-top:20px}
 footer a{color:var(--muted);margin-right:16px}
+.welcome{margin:24px 0 0;padding:12px 16px;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;background:var(--card);font-size:15px}
+.shot{margin:28px 0}
+.shot img{display:block;max-width:100%;height:auto;border-radius:12px}
+.shot figcaption{font-size:14px;color:var(--muted);margin-top:8px}

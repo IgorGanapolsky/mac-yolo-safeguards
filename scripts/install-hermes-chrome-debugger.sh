@@ -7,7 +7,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 label="com.hermes.chrome-debugger"
 cdp_label="com.hermes.chrome-cdp"
-plist_src="${repo_root}/com.hermes.chrome-debugger.plist"
+plist_src="${repo_root}/launchd/com.hermes.chrome-debugger.plist"
 plist_dst="${HOME}/Library/LaunchAgents/${label}.plist"
 bridge="${repo_root}/scripts/hermes-chrome-debugger-bridge.js"
 uid="$(id -u)"

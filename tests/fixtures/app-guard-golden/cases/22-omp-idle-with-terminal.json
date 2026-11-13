@@ -1,0 +1,27 @@
+{
+  "id": "22-omp-idle-with-terminal",
+  "source": "derived",
+  "description": "omp idle for 40 minutes but its terminal (ttys050) is open.",
+  "snapshot": "real-03",
+  "overlay": {
+    "add": [
+      "900001 1 300000 03:00:00 ttys050 /Users/user/.local/bin/omp --resume=/Users/user/.omp/agent/sessions/-workspace-x/s2"
+    ]
+  },
+  "timeline": {
+    "flatForSec": 2400,
+    "moving": [
+      10115,
+      43925
+    ]
+  },
+  "expect": {
+    "kill": [],
+    "spare": [
+      {
+        "pid": 900001,
+        "reason": "a person can reach it through the terminal"
+      }
+    ]
+  }
+}

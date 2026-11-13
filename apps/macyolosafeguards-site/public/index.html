@@ -14,41 +14,62 @@
 <meta property="og:url" content="https://macyolosafeguards.io/">
 <meta name="twitter:card" content="summary">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Mac YOLO Safeguards","operatingSystem":"macOS 14 or later, Apple Silicon","applicationCategory":"DeveloperApplication","url":"https://macyolosafeguards.io/","downloadUrl":"https://macyolosafeguards.io/go/dmg","softwareVersion":"1.1.2","author":{"@type":"Person","name":"Igor Ganapolsky","url":"https://github.com/IgorGanapolsky"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Mac YOLO Safeguards","operatingSystem":"macOS 14 or later, Apple Silicon","applicationCategory":"DeveloperApplication","url":"https://macyolosafeguards.io/","downloadUrl":"https://macyolosafeguards.io/go/dmg","softwareVersion":"1.2.1","author":{"@type":"Person","name":"Igor Ganapolsky","url":"https://github.com/IgorGanapolsky"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
 </script>
 </head>
 <body>
 <header>
   <a class="brand" href="/">Mac YOLO Safeguards</a>
-  <nav><a href="#pricing">Pricing</a><a href="https://github.com/IgorGanapolsky/mac-yolo-safeguards">GitHub</a></nav>
+  <nav><a href="#pricing">Pricing</a><a href="/go/pro-once">Get Pro Guard</a></nav>
 </header>
 <main>
-<h1>Keep AI coding agents from freezing your Mac.</h1>
-<p class="lead">If you run Claude Code, Cursor or Codex for hours, you've probably watched your Mac slow to a crawl: memory fills up, swap grows, the disk runs out, and leftover agent processes keep running after the session ends. Mac YOLO Safeguards is a small, free menu bar app that shows you what's happening and cleans it up.</p>
+<p id="ph-welcome" class="welcome" hidden>Coming from Product Hunt? Welcome. Pro Guard is $29 once and keeps your Mac running through overnight agent runs. If you hit a bug or have a question, ask on <a href="https://www.producthunt.com/products/mac-yolo-safeguards">our launch page</a> and I'll answer there.</p>
+<h1>Run AI coding agents without babysitting your Mac.</h1>
+<p class="lead">Claude Code, Cursor and Codex leave MCP servers and helper processes running after the session ends, fill memory and swap, and eat the disk with logs. Run a few for a day and your Mac crawls. Mac YOLO Safeguards is a menu bar app that shows which agent is causing it and stops the leftovers, without touching your apps or terminal sessions.</p>
 <a class="btn" href="/go/dmg">Download for Mac (free)</a>
-<a class="btn alt" href="#pricing">Pricing</a>
-<p class="small">Version 1.1.2. macOS 14 or later on Apple Silicon. Signed with an Apple Developer ID and notarized by Apple, so it opens without warnings. Also available as a <a href="/go/pkg">.pkg installer</a> or with Homebrew:</p>
+<a class="btn alt" href="/go/pro-once">Get Pro Guard, $29 once</a>
+<p class="small">Version 1.2.1. macOS 14 or later on Apple Silicon. Signed with an Apple Developer ID and notarized by Apple, so it opens without warnings. No account needed. Also available as a <a href="/go/pkg">.pkg installer</a> or with Homebrew:</p>
 <pre>brew install --cask igorganapolsky/tap/mac-yolo-safeguards</pre>
-<p class="small">Using the full name adds the tap and, on newer Homebrew, trusts just this app, so no separate trust step is needed.</p>
+
+<figure class="shot">
+<img src="/app-window.jpg" width="1200" height="790" alt="The Mac YOLO window on a busy Mac: CPU at 95%, 15 Claude sessions, 229 MCP processes, with buttons to clean AI waste, free agent RAM and stop runaways">
+<figcaption>My own Mac on November 12, 2026: 15 Claude sessions, 229 MCP processes and 1,296 processes in all. One window shows what's using the machine and what to stop.</figcaption>
+</figure>
 
 <h2>What it does</h2>
 <ul>
-  <li><strong>Shows the real load.</strong> CPU, memory, swap and disk in the menu bar, plus which app is using the most, so you can tell an agent problem from Spotlight indexing.</li>
-  <li><strong>Cleans up leftover agent processes.</strong> MCP servers and helper processes that outlive their agent session get stopped. Your terminal sessions (tmux, herdr) and the apps you're using are never touched.</li>
-  <li><strong>Frees disk space.</strong> One click clears agent logs in <code>/private/tmp</code>, old simulator runtimes and stale developer caches.</li>
+  <li><strong>Shows which agent is the problem.</strong> CPU, GPU, memory, swap and disk, with the top hogs named, so you can tell a runaway agent from Spotlight indexing.</li>
+  <li><strong>Stops leftover agent processes.</strong> MCP servers and helpers that outlive their session get stopped. Apps you're using, your terminal sessions (tmux, herdr) and Cursor's own background workers are never touched.</li>
+  <li><strong>Frees disk space.</strong> One click clears agent logs, old simulator runtimes and stale developer caches.</li>
   <li><strong>Works with your agents.</strong> Includes an MCP server, so Claude Code or Cursor can check your Mac's health before starting heavy work.</li>
 </ul>
 
+<h2>Why it exists</h2>
+<p>On May 26, 2026, a coding agent booted an iPhone simulator that kept forking until my Mac's load average hit 307 and it stopped responding. The guard that grew out of that night is what this app runs. <a href="https://github.com/IgorGanapolsky/mac-yolo-safeguards/blob/main/docs/CASE-STUDY.md">Read the full incident write-up</a>.</p>
+<p>Every change to the stop-or-spare logic is tested against 36 recorded process snapshots, including real snapshots from a Mac running many agents. A change that would stop a process it shouldn't fails the test and doesn't ship.</p>
+
 <h2 id="pricing">Pricing</h2>
-<p>The app is free and complete. The paid options are for people who want help or want to support the work.</p>
 <table>
-<tr><th>Option</th><th>Price</th><th>What you get</th></tr>
-<tr><td>Mac YOLO Safeguards</td><td>Free</td><td>Everything above. <a href="/go/dmg">Download</a></td></tr>
-<tr><td>Mac YOLO Pro Guard</td><td>$19 a month</td><td>Adds Auto-Guard: the app checks your Mac every minute and, when memory gets tight or disk runs low, stops leftover agent processes and cleans caches on its own. Your bug reports also go to the front of the line. Cancel any time. <a href="/go/pro">Subscribe</a></td></tr>
-<tr><td>Agent Reliability Diagnostic</td><td>$499 once</td><td>A 20-minute live call about one failure, then a written root-cause readout with prevention rules within 48 hours. No installation. <a href="/go/diagnostic">Book</a></td></tr>
-<tr><td>AI Agent Hardening Sprint</td><td>$1,500 once</td><td>A week of rollout across a team's Macs and build machines. <a href="/go/sprint">Book</a></td></tr>
+<tr><th></th><th>Free</th><th>Pro Guard: $29 once</th></tr>
+<tr><td>See load, top hogs and every agent</td><td>Yes</td><td>Yes</td></tr>
+<tr><td>Stop leftovers and clean caches</td><td>When you click</td><td>Automatically, every minute, when memory gets tight or the disk runs low</td></tr>
+<tr><td>Overnight and unattended agent runs</td><td>Can still freeze the Mac</td><td>Leftovers are stopped before the Mac freezes</td></tr>
+<tr><td>Bug reports</td><td>GitHub issues</td><td>Front of the line</td></tr>
+<tr><td></td><td><a href="/go/dmg">Download</a></td><td><a href="/go/pro-once">$29 once</a>, yours to keep. No subscription. Not working for you? Reply to your receipt within 14 days for a full refund.</td></tr>
 </table>
 <p class="small">Payments go through Stripe. See the <a href="/refunds/">refund policy</a>.</p>
+
+<h2>Questions</h2>
+<p><strong>Will it kill my work?</strong> It never quits apps, and never touches terminal sessions (tmux, herdr) or an agent session you're still using. It stops processes left behind after their session ended.</p>
+<p><strong>Does it send my data anywhere?</strong> No. It runs on your Mac and needs no account. See the <a href="/privacy/">privacy policy</a>.</p>
+<p><strong>Can I see the code?</strong> Yes, it's on <a href="https://github.com/IgorGanapolsky/mac-yolo-safeguards">GitHub</a>.</p>
+
+<h2>For teams</h2>
+<table>
+<tr><th>Option</th><th>Price</th><th>What you get</th></tr>
+<tr><td>Agent Failure Investigation</td><td>$499 once</td><td>One incident, investigated: a 20-minute call, then within 48 hours a written report with the process and resource timeline, the root cause, prevention rules ranked by risk, and a way to check that the fix holds. <a href="/go/diagnostic">Book</a></td></tr>
+<tr><td>Agent Reliability Rollout</td><td>$1,500 once</td><td>A week setting up Mac YOLO across a team's Macs and build machines: memory, disk and timeout limits for your agents, a simulated runaway to prove the guard stops it, and written handoff notes. <a href="/go/sprint">Book</a></td></tr>
+</table>
 
 <h2>Who made it</h2>
 <p>I'm <a href="https://github.com/IgorGanapolsky">Igor Ganapolsky</a>. I run several AI coding agents on one Mac every day and built this after my machine froze one too many times. The code is on <a href="https://github.com/IgorGanapolsky/mac-yolo-safeguards">GitHub</a>; bug reports and questions go in <a href="https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues">GitHub issues</a>.</p>
@@ -56,6 +77,25 @@
 <footer class="small">
   <a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/refunds/">Refunds</a><a href="/llms.txt">llms.txt</a>
 </footer>
+<script>
+// Where a visitor came from: ?from=<source> (the app's Pro notice uses app_nudge), or Product Hunt,
+// which adds ?ref=producthunt to outbound links. Paid checkout links carry it to Stripe as
+// client_reference_id, so each checkout session records its source. Product Hunt visitors also get a welcome.
+(function(){
+  var q=new URLSearchParams(location.search);
+  var ph=q.get("ref")==="producthunt"||/(^|\.)producthunt\.com$/.test((document.referrer&&new URL(document.referrer).hostname)||"");
+  if(ph)document.getElementById("ph-welcome").hidden=false;
+  var from=q.get("from");
+  var src=from&&/^[a-z0-9_-]{1,40}$/.test(from)?from:(ph?"producthunt":"");
+  if(!src)return;
+  var links=document.querySelectorAll('a[href^="/go/"]');
+  for(var i=0;i<links.length;i++){
+    var a=links[i],slug=a.getAttribute("href").slice(4);
+    if(/^(dmg|download|pkg|zip|github)$/.test(slug))continue;
+    a.setAttribute("href","/go/"+slug+"?client_reference_id="+src);
+  }
+})();
+</script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dddfcca78b6d467596b61d8d38d9b37e"}'></script>
 </body>
 </html>

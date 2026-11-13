@@ -48,7 +48,7 @@ fi
 
 install_plist() {
   local name="$1"
-  local template="$RUNTIME/$name"
+  local template="$RUNTIME/launchd/$name"
   local dest="$LAUNCH/$name"
   if [[ ! -f "$template" ]]; then
     echo "SKIP missing template $template" >&2

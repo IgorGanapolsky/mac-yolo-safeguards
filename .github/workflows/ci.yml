@@ -251,6 +251,7 @@ jobs:
           set -eu
           tests/test-adb-reverse-device-filter.sh
           tests/test-secondary-browser-reclaim.sh
+          tests/test-yolo-guard-banner-quiet.sh
 
       # RAG retrieval quality (hermes-retrieval-harness) — added 2026-07-28 after
       # zero-result grepai MCP searches went undetected for days. Measures recall@k,
@@ -349,6 +350,9 @@ jobs:
       # (TNS harness-on-the-loop + Taste Labs-style rubric layer, 2026-08).
       - name: Ship-claim gate
         run: node tests/test-ship-claim-gate.js
+
+      - name: Fresh-context review gate
+        run: node tests/test-egm-fresh-review-gate.js
 
       - name: CodeQL security helpers
         run: node tests/test-codeql-security-helpers.js

@@ -15,7 +15,7 @@ label="${template%.plist}"
 mkdir -p "$launchagents_dir" "${home}/Library/Logs/mac-yolo"
 
 sed "s#{{REPO}}#${repo_root}#g; s#{{HOME}}#${home}#g" \
-  "${repo_root}/${template}" > "${launchagents_dir}/${template}"
+  "${repo_root}/launchd/${template}" > "${launchagents_dir}/${template}"
 
 launchctl bootout "${gui_domain}/${label}" >/dev/null 2>&1 || true
 launchctl enable "${gui_domain}/${label}" >/dev/null 2>&1 || true
