@@ -49,8 +49,10 @@ function main() {
   const freeIssue = read('.github/ISSUE_TEMPLATE/free-incident-report.yml');
   const config = read('.github/ISSUE_TEMPLATE/config.yml');
 
-  check(readme.includes('**Paid reliability help:**'), 'README has one-line paid reliability CTA', failures);
-  check(before(readme, '**Paid reliability help:**', '## Background'), 'README paid CTA appears before Background', failures);
+  // One paid offer up top (Pro Guard, $29 once); team offers live on the site's /teams/ page.
+  check(readme.includes('Pro Guard is [$29 once](https://macyolosafeguards.io/go/pro-once'), 'README top shows Pro Guard $29 once', failures);
+  check(before(readme, 'https://macyolosafeguards.io/teams/', '## Background'), 'README links the teams page before Background', failures);
+  check(!/\$19\s*\/\s*mo|\$19\/month/i.test(readme), 'README has no old $19/month price', failures);
   check(includesExactUrl(readme, 'https://cal.com/igor-g-kvqxfo/30min'), 'README links Cal.com triage', failures);
   check(readme.includes('./docs/PARTNER-PILOT.md'), 'README links Partner Pilot', failures);
   check(readme.includes('./docs/SALES-CLOSE-KIT.md'), 'README links Sales Close Kit', failures);
