@@ -448,7 +448,7 @@ private let HUD_HTML = #"""
         </div>
         <div style="display:flex;align-items:center;gap:5px;">
           <button class="hdr-pill" id="proHdrPill" onclick="handleProHeaderClick()" style="border-color:rgba(94,234,212,0.45);color:#5eead4;">
-            <span id="proHdrLabel">Pro $59/yr</span>
+            <span id="proHdrLabel">Pro $29</span>
           </button>
           <button class="hdr-pill" id="hudCompactToggle" onclick="toggleCompactHud()" title="Switch between compact popover and full Bento panel">
             <span id="hudCompactLabel">Compact ▴</span>
@@ -465,13 +465,13 @@ private let HUD_HTML = #"""
 
       <div class="card" id="proPaywallBanner" style="display:none;margin-bottom:6px;border:1px solid rgba(56,189,248,0.55);background:rgba(13,17,26,0.96);padding:10px 12px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-          <strong style="font-size:12.5px;color:#5eead4;">Unlock Mac YOLO Pro Guard — $59/year (or $19/mo)</strong>
+          <strong style="font-size:12.5px;color:#5eead4;">Unlock Mac YOLO Pro Guard — $29 once</strong>
           <button class="tile-action" style="margin-top:0;padding:2px 7px;" onclick="document.getElementById('proPaywallBanner').style.display='none'">×</button>
         </div>
-        <div id="proPaywallReason" style="font-size:11.5px;color:rgba(255,255,255,0.88);line-height:1.4;margin-bottom:7px;">Live diagnostics are free. Pro Guard ($59/year or $19/month) stops leftover agent processes and cleans caches automatically before your Mac freezes.</div>
+        <div id="proPaywallReason" style="font-size:11.5px;color:rgba(255,255,255,0.88);line-height:1.4;margin-bottom:7px;">Live diagnostics are free. Pro Guard ($29 once, yours to keep) stops leftover agent processes and cleans caches automatically before your Mac freezes.</div>
         <div style="display:flex;gap:6px;justify-content:flex-end;">
           <button class="tile-action" style="margin-top:0;" onclick="sendAction('enterProLicense')">Enter License Key…</button>
-          <button class="rec-btn" style="padding:4px 12px;font-size:11.5px;" onclick="sendAction('openGetPro')">Get Pro Guard — $59/yr ›</button>
+          <button class="rec-btn" style="padding:4px 12px;font-size:11.5px;" onclick="sendAction('openGetPro')">Get Pro Guard — $29 once ›</button>
         </div>
       </div>
 
@@ -694,7 +694,7 @@ private let HUD_HTML = #"""
       var box = document.getElementById('proPaywallBanner');
       var reason = document.getElementById('proPaywallReason');
       if (reason && featureLabel) {
-        reason.textContent = featureLabel + ' is part of Mac YOLO Pro Guard ($59/year or $19/month). Manual cleanup stays free.';
+        reason.textContent = featureLabel + ' is part of Mac YOLO Pro Guard ($29 once, yours to keep). Manual cleanup stays free.';
       }
       if (box) box.style.display = 'block';
     }
@@ -1209,7 +1209,7 @@ private let HUD_HTML = #"""
       }
       if (state.isPro !== undefined) {
         _isProClient = (state.isPro === 'true');
-        setTextIfChanged('proHdrLabel', _isProClient ? (state.autoGuardOn === 'true' ? 'Pro · Auto ✓' : 'Pro ✓') : 'Pro $59/yr');
+        setTextIfChanged('proHdrLabel', _isProClient ? (state.autoGuardOn === 'true' ? 'Pro · Auto ✓' : 'Pro ✓') : 'Pro $29');
         if (_isProClient) {
           var pw = document.getElementById('proPaywallBanner');
           if (pw) pw.style.display = 'none';
@@ -1722,7 +1722,7 @@ func receiptJSON(action: String, title: String, items: [String], spared: String)
 
 // Pro license: a signed key from macyolosafeguards.io/activate, checked offline.
 let proLicensePublicKey = "ZDCWvx/TkO8J5WGNsXC/SpBpjqvUDLBIQa/MnAscPf0="
-let proCheckoutURL = "https://macyolosafeguards.io/go/pro-annual"
+let proCheckoutURL = "https://macyolosafeguards.io/go/pro-once?from=app"
 let proPricingURL = "https://macyolosafeguards.io/pricing?from=app_nudge"
 
 // How many processes Auto-Guard would stop, from `mac-yolo-agent-guard.js pressure` run without --execute.
@@ -3529,7 +3529,7 @@ extension MacYoloAppDelegate {
             proStatusMenuItem.action = nil
             proLicenseMenuItem.isHidden = true
         } else {
-            proStatusMenuItem.title = storedLicense == nil ? "Get Pro Guard ($59/year)…" : "Pro Guard expired. Renew…"
+            proStatusMenuItem.title = storedLicense == nil ? "Get Pro Guard ($29 once)…" : "Pro Guard expired. Renew…"
             proStatusMenuItem.action = #selector(openGetPro(_:))
             proLicenseMenuItem.isHidden = false
         }
@@ -3544,8 +3544,8 @@ extension MacYoloAppDelegate {
             NSApp.activate(ignoringOtherApps: true)
             let alert = NSAlert()
             alert.messageText = "Auto-Guard is part of Mac YOLO Pro Guard"
-            alert.informativeText = "Auto-Guard watches your Mac every minute. When memory gets tight it stops leftover agent processes, and when disk runs low it cleans caches, so overnight agent sessions never freeze your Mac. $59 a year or $19 a month, cancel any time."
-            alert.addButton(withTitle: "Get Pro Guard — $59/yr")
+            alert.informativeText = "Auto-Guard watches your Mac every minute. When memory gets tight it stops leftover agent processes, and when disk runs low it cleans caches, so overnight agent sessions never freeze your Mac. $29 once, yours to keep, with a 30-day refund."
+            alert.addButton(withTitle: "Get Pro Guard — $29 once")
             alert.addButton(withTitle: "Enter License…")
             alert.addButton(withTitle: "Not Now")
             switch alert.runModal() {

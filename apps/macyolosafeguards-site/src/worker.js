@@ -16,16 +16,16 @@ export function checkoutTarget(slug, env = {}) {
 }
 
 const GO_REDIRECTS = {
-  "pro-direct": "https://buy.stripe.com/9B6bJ2c3u55laFx9I3f3a00",
-  "pro": "https://buy.stripe.com/9B6bJ2c3u55laFx9I3f3a00",
+  "pro-direct": "https://buy.stripe.com/00weVegjK9lBeVN9I3f3a05",
+  "pro": "https://buy.stripe.com/00weVegjK9lBeVN9I3f3a05",
   "pro-once": "https://buy.stripe.com/00weVegjK9lBeVN9I3f3a05",
   "once": "https://buy.stripe.com/00weVegjK9lBeVN9I3f3a05",
   "lifetime": "https://buy.stripe.com/00weVegjK9lBeVN9I3f3a05",
-  "pro-annual": "https://buy.stripe.com/5kQeVe8Ri2Xd291g6rf3a01",
-  "annual": "https://buy.stripe.com/5kQeVe8Ri2Xd291g6rf3a01",
-  "yearly": "https://buy.stripe.com/5kQeVe8Ri2Xd291g6rf3a01",
-  "pro_monthly": "https://buy.stripe.com/9B6bJ2c3u55laFx9I3f3a00",
-  "monthly": "https://buy.stripe.com/9B6bJ2c3u55laFx9I3f3a00",
+  "pro-annual": "https://buy.stripe.com/00weVegjK9lBeVN9I3f3a05",
+  "annual": "https://buy.stripe.com/00weVegjK9lBeVN9I3f3a05",
+  "yearly": "https://buy.stripe.com/00weVegjK9lBeVN9I3f3a05",
+  "pro_monthly": "https://buy.stripe.com/00weVegjK9lBeVN9I3f3a05",
+  "monthly": "https://buy.stripe.com/00weVegjK9lBeVN9I3f3a05",
   "triage": "https://buy.stripe.com/3cI28s5F6cxN9Bt4nJf3a02",
   "diagnostic": "https://buy.stripe.com/3cI28s5F6cxN9Bt4nJf3a02",
   "499": "https://buy.stripe.com/3cI28s5F6cxN9Bt4nJf3a02",
