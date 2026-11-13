@@ -1321,11 +1321,12 @@ func aboutApp(_ name: String) -> String {
     return known[name] ?? "\(name) is an app or tool running on this Mac."
 }
 
-/// Whether Stop Runaways can ever stop this group.
+/// What Stop Runaways does to this group. It ends only three known stuck scripts
+/// (mac-system-care-engine.js matchesRunawayPattern), shuts idle simulators, and lowers
+/// semgrep, CodeQL and Spotlight worker priority.
 func stopRunawaysScope(_ name: String) -> String {
-    let never: Set<String> = ["Jamf Protect", "WindowServer", "kernel_task", "Spotlight", "Photos Analysis"]
-    if never.contains(name) { return "Mac YOLO never stops it." }
-    return "Stop Runaways stops these only if they keep burning CPU with no live agent session."
+    if name == "Spotlight" { return "Stop Runaways lowers Spotlight's worker priority but doesn't stop it." }
+    return "Stop Runaways won't stop \(name): it only ends three known stuck scripts (a self-heal loop, a skill-sync check and a find over your home folder) that have no live agent above them."
 }
 
 func findToolScript(_ name: String) -> String? {
@@ -2805,9 +2806,9 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             let cnt = countByApp[name, default: 1]
             let bar = min(100, max(4, Int(round(c))))
             let coresBusy = c / 100.0
-            let note = systemIndexers.contains(name)
-                ? "Protected macOS background indexer; settles automatically."
-                : String(format: "Using ~%.1f of %d CPU cores right now. ", coresBusy, ncpu) + appNote(name, byCpu: true)
+            // ps counts one full core as 100%, and this is one reading, not an average.
+            let note = String(format: "Using about %.1f of %d CPU cores in this reading (100%% = one full core; one sample, not an average). ", coresBusy, ncpu)
+                + (systemIndexers.contains(name) ? "It settles on its own. " : "") + appNote(name, byCpu: true)
             return String(format: "%d. %@ (%d procs)|%.1f%% CPU · %.2f GB RAM|%d|%@", idx + 1, name, cnt, c, gb, bar, note)
         }.joined(separator: ";;")
         let memRanked = rssByApp.keys.sorted { rssByApp[$0, default: 0] > rssByApp[$1, default: 0] }

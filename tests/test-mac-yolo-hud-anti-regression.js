@@ -193,7 +193,7 @@ main();
   const path = require('path');
   for (const f of ['MacYoloSafeguardsApp.swift', 'MacYoloTranslucentHud.swift']) {
     const src = fs.readFileSync(path.join(__dirname, '..', 'macos', f), 'utf8');
-    for (const needle of ['"pid,%cpu,rss,etime,comm"', 'func humanEtime(', 'func aboutApp(', 'func stopRunawaysScope(', 'appNote(name, byCpu: true)', 'appNote(name, byCpu: false)', '"healthLevel":', "lvl === 'high'"]) {
+    for (const needle of ['= one full core; one sample, not an average', 'only ends three known stuck scripts', '"pid,%cpu,rss,etime,comm"', 'func humanEtime(', 'func aboutApp(', 'func stopRunawaysScope(', 'appNote(name, byCpu: true)', 'appNote(name, byCpu: false)', '"healthLevel":', "lvl === 'high'"]) {
       if (!src.includes(needle)) throw new Error(f + ': missing ' + needle);
     }
     if (src.includes('CPU cores and %.2f GB RAM across')) throw new Error(f + ': old repeat-the-numbers note is back');
