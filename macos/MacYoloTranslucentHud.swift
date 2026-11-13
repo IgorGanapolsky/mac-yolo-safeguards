@@ -432,6 +432,7 @@ private let HUD_HTML = #"""
     cursor: ns-resize;
     z-index: 40;
   }
+    #attentionLine::after { content: " ›"; opacity: 0.7; }
 </style>
 </head>
 <body>
@@ -475,7 +476,7 @@ private let HUD_HTML = #"""
         </div>
       </div>
 
-      <div class="card" id="attentionLine" style="margin-bottom:6px;padding:8px 11px;font-size:12px;font-weight:600;color:#e2e8f0;background:rgba(15,11,33,0.92);border:1px solid rgba(94,234,212,0.34);">Mac healthy · No runaway agents — nothing to do.</div>
+      <div class="card clickable-card" id="attentionLine" role="button" title="Show what is using CPU and memory" onclick="openCardDetail('shield')" style="cursor:pointer;margin-bottom:6px;padding:8px 11px;font-size:12px;font-weight:600;color:#e2e8f0;background:rgba(15,11,33,0.92);border:1px solid rgba(94,234,212,0.34);">Mac healthy · No runaway agents — nothing to do.</div>
 
       <div id="overviewSection">
       <div class="card shield-card clickable-card" onclick="openCardDetail('shield')">

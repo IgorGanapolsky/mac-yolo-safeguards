@@ -123,3 +123,17 @@ function main() {
 }
 
 main();
+
+// Igor, 2026-11-13: the one-line status ("Mac healthy · CPU …") must open the details view on click.
+{
+  const fs = require('fs');
+  const path = require('path');
+  for (const f of ['MacYoloSafeguardsApp.swift', 'MacYoloTranslucentHud.swift']) {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'macos', f), 'utf8');
+    const line = src.match(/<div [^>]*id="attentionLine"[^>]*>/);
+    if (!line || !/onclick="openCardDetail\('shield'\)"/.test(line[0]) || !/clickable-card/.test(line[0])) {
+      throw new Error(f + ': attentionLine must be a clickable card that opens the shield details');
+    }
+  }
+  console.log('ok - status line opens details on click');
+}
