@@ -46,6 +46,14 @@ test("an explicit ?from= source is kept alongside utm_source", () => {
   assert.match(links[0].href, /&from=app_nudge$/);
 });
 
+test("?from= is recorded on the pageview and on clicks, and junk is dropped", () => {
+  const p = page("?from=hn");
+  assert.equal(p.sent[0].properties.from, "hn");
+  p.click(2);
+  assert.equal(p.sent[1].properties.from, "hn");
+  assert.equal(page("?from=%3Cscript%3E").sent[0].properties.from, undefined);
+});
+
 test("a utm value that is cut mid-emoji does not break the script", () => {
   const p = page("?utm_source=" + encodeURIComponent("a".repeat(99) + "\u{1F600}"));
   assert.equal(p.sent[0].event, "pageview");

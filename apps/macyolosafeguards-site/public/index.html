@@ -108,6 +108,8 @@
   var KEY="phc_ub5A4JPFsB2dm54Vaq2dWGeDh9zouzLL4Vb6TcicJxvf";
   var q=new URLSearchParams(location.search),utm={},names=["utm_source","utm_medium","utm_campaign","utm_content","utm_term"];
   names.forEach(function(k){var v=q.get(k);if(v)utm[k]=Array.from(v).slice(0,100).join("");});
+  // ?from= is how our own posts tag links (hn, reddit, app_nudge); record it on every event too.
+  var from=q.get("from");if(from&&/^[a-z0-9_-]{1,40}$/.test(from))utm.from=from;
   var id;try{id=sessionStorage.getItem("my_sid");if(!id){id="my-"+Math.random().toString(36).slice(2,12);sessionStorage.setItem("my_sid",id);}}catch(e){id="my-"+Math.random().toString(36).slice(2,12);}
   function send(event,extra){
     var props={product:"macyolo",path:location.pathname,referrer:document.referrer||"",$process_person_profile:false};
