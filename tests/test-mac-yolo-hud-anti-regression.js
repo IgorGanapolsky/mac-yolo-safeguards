@@ -170,3 +170,16 @@ main();
   }
   console.log('ok - Settings shows real options; receipts and copied buttons stay in sync');
 }
+
+// Settings is short: the window fits it while open and gets its saved size back on close.
+{
+  const fs = require('fs');
+  const path = require('path');
+  for (const f of ['MacYoloSafeguardsApp.swift', 'MacYoloTranslucentHud.swift']) {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'macos', f), 'utf8');
+    if (!/persist: false, fit: true/.test(src) || !/_preSettingsSize\.h, persist: false/.test(src) || !/\(body\["fit"\] as\? Bool\)/.test(src)) {
+      throw new Error(f + ': Settings must fit the window without saving that size, and restore it on close');
+    }
+  }
+  console.log('ok - Settings fits the window and restores the saved size');
+}

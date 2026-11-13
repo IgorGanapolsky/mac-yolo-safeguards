@@ -979,9 +979,20 @@ private let HUD_HTML = #"""
       if (!el) return;
       var show = (typeof forceShow === 'boolean') ? forceShow : (el.style.display === 'none' || !el.style.display);
       if (show) { _activeDetailCard = null; if (det) det.style.display = 'none'; if (ban) ban.style.display = 'none'; }
+      var wasOpen = el.style.display === 'flex';
       el.style.display = show ? 'flex' : 'none';
       if (ov) ov.style.display = show ? 'none' : 'block';
+      // Settings is short: fit the window to it, then give back the saved size on close.
+      if (show && !wasOpen) {
+        _preSettingsSize = { w: window.innerWidth, h: window.innerHeight };
+        var fitH = Math.round(el.getBoundingClientRect().bottom + 64);
+        if (fitH < window.innerHeight) sendAction('resizeHud', { width: window.innerWidth, height: fitH, persist: false, fit: true });
+      } else if (!show && wasOpen && _preSettingsSize) {
+        sendAction('resizeHud', { width: _preSettingsSize.w, height: _preSettingsSize.h, persist: false });
+        _preSettingsSize = null;
+      }
     }
+    var _preSettingsSize = null;
     function fmtBytes(n) {
       n = Number(n) || 0;
       if (n >= 1073741824) return (n / 1073741824).toFixed(1) + ' GB';
@@ -2102,7 +2113,8 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                let h = (body["height"] as? NSNumber)?.doubleValue {
                 let persist = (body["persist"] as? Bool) ?? false
                 let newW = CGFloat(max(380.0, min(880.0, w)))
-                let newH = CGFloat(max(540.0, min(920.0, h)))
+                let minH = ((body["fit"] as? Bool) ?? false) ? 300.0 : 540.0
+                let newH = CGFloat(max(minH, min(920.0, h)))
                 var f = hudPanel.frame
                 f.origin.y += (f.height - newH)
                 f.size.width = newW
