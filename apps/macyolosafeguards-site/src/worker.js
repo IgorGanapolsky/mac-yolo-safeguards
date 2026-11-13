@@ -54,8 +54,37 @@ const GO_REDIRECTS = {
   "github": "https://github.com/IgorGanapolsky/mac-yolo-safeguards"
 };
 
+// PostHog project key for the Mac YOLO site. Client-side capture keys are public by design.
+const POSTHOG_KEY = "phc_ub5A4JPFsB2dm54Vaq2dWGeDh9zouzLL4Vb6TcicJxvf";
+const GO_PLANS = {
+  "pro-once": ["pro", 29], once: ["pro", 29], pro: ["pro", 29], "pro-direct": ["pro", 29], lifetime: ["pro", 29],
+  "pro-annual": ["pro", 29], annual: ["pro", 29], yearly: ["pro", 29], pro_monthly: ["pro", 29], monthly: ["pro", 29],
+  triage: ["investigation", 499], diagnostic: ["investigation", 499], "499": ["investigation", 499],
+  sprint: ["rollout", 1500], hardening: ["rollout", 1500], "1500": ["rollout", 1500],
+  pilot: ["pilot", 3000], b2b: ["pilot", 3000], "3000": ["pilot", 3000]
+};
+const DOWNLOAD_SLUGS = new Set(["dmg", "download", "pkg", "zip"]);
+
+// Counts every /go/* hit (downloads, checkout clicks) on the server, so ad blockers and
+// no-JS visitors still show up. No cookies and no IP or user id are stored with the event.
+export function goEvent(slug, url, request) {
+  const q = url.searchParams;
+  const props = { product: "macyolo", slug, source: "worker", $process_person_profile: false, $ip: null };
+  for (const k of ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"]) {
+    const v = q.get(k);
+    if (v) props[k] = v.slice(0, 100);
+  }
+  if (q.get("from")) props.from = q.get("from").slice(0, 40);
+  const ua = request.headers.get("user-agent") || "";
+  props.likely_bot = !ua || /bot|crawl|spider|curl|wget|python|node|headless|preview|slack|facebook/i.test(ua);
+  let event = "go_click";
+  if (DOWNLOAD_SLUGS.has(slug)) { event = "download_click"; props.format = slug === "pkg" ? "pkg" : slug === "zip" ? "zip" : "dmg"; }
+  else if (GO_PLANS[slug]) { event = GO_PLANS[slug][0] === "pro" ? "pro_click" : "team_click"; props.plan = GO_PLANS[slug][0]; props.price = GO_PLANS[slug][1]; }
+  return { api_key: POSTHOG_KEY, event, distinct_id: crypto.randomUUID(), properties: props };
+}
+
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
     if (url.pathname === "/api/health" || url.pathname === "/healthz") {
@@ -104,6 +133,15 @@ export default {
       const target = checkoutTarget(slug, env);
       // An unknown or mistyped slug goes to the pricing section, not straight into a checkout.
       if (!target) return Response.redirect(new URL("/#pricing", url.origin).toString(), 302);
+      if (env.CHECKOUT_MODE !== "test" && ctx && ctx.waitUntil) {
+        ctx.waitUntil(
+          fetch("https://us.i.posthog.com/capture/", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(goEvent(slug, url, request))
+          }).catch(() => {})
+        );
+      }
       return Response.redirect(checkoutRedirect(target, url.searchParams), 302);
     }
 

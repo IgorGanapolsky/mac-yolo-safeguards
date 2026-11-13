@@ -73,6 +73,7 @@ regexes = [
   '''sk-TESTONLY-not-a-credential''',
   '''very-sensitive-value-12345''',
   '''paired-mobile-token''',
+  '''phc_ub5A4JPFsB2dm54Vaq2dWGeDh9zouzLL4Vb6TcicJxvf''',  # PostHog project key: public, client-side by design
   '''\$\{[A-Za-z_][A-Za-z0-9_]*\}''',      # ${TS_AUTHKEY}, ${apiKey} style templates
   '''os\.environ/[A-Z_]+''',                # LiteLLM env refs: os.environ/OPENROUTER_API_KEY
   '''env:[A-Z_]+''',                        # config env refs: env:GLM_API_KEY
