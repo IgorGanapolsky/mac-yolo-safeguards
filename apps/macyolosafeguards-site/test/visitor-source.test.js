@@ -58,3 +58,11 @@ test("/go/pro passes client_reference_id through to Stripe", async () => {
   const r = await worker.fetch(new Request("https://macyolosafeguards.io/go/pro?client_reference_id=app_nudge"), {});
   assert.match(r.headers.get("location"), /^https:\/\/buy\.stripe\.com\/.+\?client_reference_id=app_nudge$/);
 });
+
+test("test mode sends the $29 once aliases to the test checkout", async () => {
+  const { checkoutTarget } = await import("../src/worker.js");
+  const env = { CHECKOUT_MODE: "test", PRO_CHECKOUT_URL: "https://checkout.stripe.com/test" };
+  for (const slug of ["pro-once", "once", "lifetime"]) {
+    assert.equal(checkoutTarget(slug, env), "https://checkout.stripe.com/test");
+  }
+});

@@ -4,7 +4,7 @@ import { sendCheckoutAlerts } from "./checkout-alerts.js";
 // Cloudflare Worker for Mac YOLO Safeguards (macyolosafeguards.io)
 // Mirrors the dayglass.io Worker + Static Assets + /go/* checkout attribution architecture.
 
-const PRO_SLUGS = new Set(["pro-direct", "pro", "pro_monthly", "monthly"]);
+const PRO_SLUGS = new Set(["pro-direct", "pro", "pro_monthly", "monthly", "pro-once", "once", "lifetime"]);
 
 // Staging (CHECKOUT_MODE = "test") never redirects to a live Stripe link: Pro slugs go to the
 // test-mode PRO_CHECKOUT_URL when it is set, and every other slug falls back to pricing.
