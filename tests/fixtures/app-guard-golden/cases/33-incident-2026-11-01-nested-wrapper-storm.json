@@ -1,0 +1,268 @@
+{
+  "id": "<redacted>",
+  "source": "incident",
+  "description": "2026-11-01: a looping CLI wrapper nested hundreds of levels deep under a live session (~390 processes, 6.4 GB). Fifty-deep version: the first three levels count as the session's tools, the deeper copies are the storm.",
+  "ps": [
+    "10 1 400000 01:00:00 ?? /Users/user/Library/Application Support/Claude/claude-code/2.1.321/ddbdf2b334e1/claude.app/Contents/MacOS/claude --output-format stream-json --verbose",
+    "101 10 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "102 101 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "103 102 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "104 103 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "105 104 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "106 105 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "107 106 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "108 107 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "109 108 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "110 109 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "111 110 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "112 111 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "113 112 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "114 113 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "115 114 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "116 115 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "117 116 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "118 117 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "119 118 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "120 119 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "121 120 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "122 121 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "123 122 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "124 123 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "125 124 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "126 125 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "127 126 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "128 127 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "129 128 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "130 129 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "131 130 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "132 131 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "133 132 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "134 133 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "135 134 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "136 135 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "137 136 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "138 137 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "139 138 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "140 139 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "141 140 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "142 141 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "143 142 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "144 143 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "145 144 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "146 145 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "147 146 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "148 147 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "149 148 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper",
+    "150 149 20000 10:00 ?? /bin/bash /Users/user/.local/bin/claude-wrapper"
+  ],
+  "expect": {
+    "kill": [
+      {
+        "pid": 104,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 105,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 106,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 107,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 108,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 109,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 110,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 111,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 112,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 113,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 114,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 115,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 116,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 117,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 118,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 119,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 120,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 121,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 122,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 123,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 124,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 125,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 126,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 127,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 128,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 129,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 130,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 131,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 132,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 133,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 134,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 135,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 136,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 137,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 138,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 139,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 140,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 141,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 142,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 143,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 144,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 145,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 146,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 147,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 148,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 149,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      },
+      {
+        "pid": 150,
+        "reason": "storm copy deeper than the three hops a live session's tools can occupy"
+      }
+    ],
+    "spare": [
+      {
+        "pid": 10,
+        "reason": "live session"
+      },
+      {
+        "pid": 101,
+        "reason": "within three hops of the session"
+      },
+      {
+        "pid": 102,
+        "reason": "within three hops"
+      },
+      {
+        "pid": 103,
+        "reason": "within three hops"
+      }
+    ]
+  }
+}

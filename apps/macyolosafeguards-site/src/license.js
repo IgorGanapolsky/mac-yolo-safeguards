@@ -1,8 +1,14 @@
 // Pro licenses: a buyer pays through the Pro payment link, Stripe sends them to
 // /activate with the checkout session id, and we hand back a signed key that the
-// Mac app checks offline. Keys last 40 days and renew while the subscription is active.
+// Mac app checks offline. Subscription keys last 40 days and renew while the subscription
+// is active; a one-time purchase gets a key that never needs renewing.
 
-export const PRO_PAYMENT_LINK = "plink_1UXnxHGGBpd520QYd2IwFajC";
+// Monthly and yearly Pro Guard links on the Mac YOLO Stripe account.
+export const PRO_PAYMENT_LINK = "plink_1Ub5YIK8kufMLNF8TRikMkZh";
+export const PRO_PAYMENT_LINKS = new Set([PRO_PAYMENT_LINK, "plink_1Ub5YJK8kufMLNF8mWuPJcI1"]);
+// $29 one-time Pro link: paid once, no subscription.
+export const ONE_TIME_PAYMENT_LINKS = new Set(["plink_1Ub5csK8kufMLNF8tyckJDSm"]);
+export const LIFETIME_EXP = 4102444800; // 2100-01-01
 export const LICENSE_PUBLIC_KEY = "ZDCWvx/TkO8J5WGNsXC/SpBpjqvUDLBIQa/MnAscPf0=";
 export const LICENSE_DAYS = 40;
 const ACTIVE_SUB = new Set(["active", "trialing", "past_due"]);
@@ -20,9 +26,11 @@ function bytesToB64url(bytes) {
   return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-export async function signLicense(signingKeyPkcs8B64, { email, sub }, now = Date.now()) {
+export async function signLicense(signingKeyPkcs8B64, { email, sub, pi }, now = Date.now()) {
   const key = await crypto.subtle.importKey("pkcs8", b64ToBytes(signingKeyPkcs8B64), { name: "Ed25519" }, false, ["sign"]);
-  const payload = { v: 1, email, sub, exp: Math.floor(now / 1000) + LICENSE_DAYS * 86400 };
+  const payload = pi
+    ? { v: 1, email, pi, exp: LIFETIME_EXP }
+    : { v: 1, email, sub, exp: Math.floor(now / 1000) + LICENSE_DAYS * 86400 };
   const body = bytesToB64url(enc.encode(JSON.stringify(payload)));
   const sig = await crypto.subtle.sign({ name: "Ed25519" }, key, enc.encode(body));
   return `${body}.${bytesToB64url(sig)}`;
@@ -52,22 +60,31 @@ async function stripeGet(env, path, fetchImpl) {
 }
 
 // Looks up a finished Pro checkout and issues a key, or says why it can't.
+// PRO_PAYMENT_LINK and LICENSE_PUBLIC_KEY in env override the live values; only the
+// staging Worker (Stripe test mode, its own key pair) sets them.
 export async function activate(env, sessionId, fetchImpl = fetch) {
   if (!/^cs_(live|test)_[A-Za-z0-9]{10,200}$/.test(sessionId || "")) return { ok: false, reason: "That checkout link is not valid." };
   const s = await stripeGet(env, `checkout/sessions/${sessionId}`, fetchImpl);
   if (!s) return { ok: false, reason: "We couldn't find that checkout. If you paid, reply to your receipt and we'll send your key." };
-  if (s.payment_link !== PRO_PAYMENT_LINK) return { ok: false, reason: "That checkout wasn't for Mac YOLO Pro Guard." };
-  if (s.status !== "complete" || !["paid", "no_payment_required"].includes(s.payment_status) || !s.subscription) {
+  const oneTime = !env.PRO_PAYMENT_LINK && ONE_TIME_PAYMENT_LINKS.has(s.payment_link);
+  if (!oneTime && !(env.PRO_PAYMENT_LINK ? s.payment_link === env.PRO_PAYMENT_LINK : PRO_PAYMENT_LINKS.has(s.payment_link))) return { ok: false, reason: "That checkout wasn't for Mac YOLO Pro Guard." };
+  const paid = s.status === "complete" && ["paid", "no_payment_required"].includes(s.payment_status);
+  if (!paid || (oneTime ? !s.payment_intent : !s.subscription)) {
     return { ok: false, reason: "That checkout isn't paid yet." };
   }
   const email = s.customer_details?.email || s.customer_email || "";
+  if (oneTime) {
+    const pi = typeof s.payment_intent === "string" ? s.payment_intent : s.payment_intent.id;
+    return { ok: true, email, key: await signLicense(env.LICENSE_SIGNING_KEY, { email, pi }) };
+  }
   const sub = typeof s.subscription === "string" ? s.subscription : s.subscription.id;
   return { ok: true, email, key: await signLicense(env.LICENSE_SIGNING_KEY, { email, sub }) };
 }
 
 // Renews a key while its subscription is still active.
-export async function refresh(env, licenseKey, fetchImpl = fetch, publicKeyB64 = LICENSE_PUBLIC_KEY) {
+export async function refresh(env, licenseKey, fetchImpl = fetch, publicKeyB64 = env.LICENSE_PUBLIC_KEY || LICENSE_PUBLIC_KEY) {
   const lic = await readLicense(licenseKey, publicKeyB64);
+  if (lic?.pi && lic.exp >= LIFETIME_EXP) return { ok: true, key: String(licenseKey).trim() };
   if (!lic?.sub) return { ok: false, reason: "invalid key" };
   const sub = await stripeGet(env, `subscriptions/${encodeURIComponent(lic.sub)}`, fetchImpl);
   if (!sub) return { ok: false, reason: "subscription not found" };

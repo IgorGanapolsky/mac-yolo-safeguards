@@ -351,6 +351,9 @@ jobs:
       - name: Ship-claim gate
         run: node tests/test-ship-claim-gate.js
 
+      - name: Fresh-context review gate
+        run: node tests/test-egm-fresh-review-gate.js
+
       - name: CodeQL security helpers
         run: node tests/test-codeql-security-helpers.js
 

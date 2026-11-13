@@ -4,20 +4,34 @@ import { sendCheckoutAlerts } from "./checkout-alerts.js";
 // Cloudflare Worker for Mac YOLO Safeguards (macyolosafeguards.io)
 // Mirrors the dayglass.io Worker + Static Assets + /go/* checkout attribution architecture.
 
+const PRO_SLUGS = new Set(["pro-direct", "pro", "pro_monthly", "monthly"]);
+
+// Staging (CHECKOUT_MODE = "test") never redirects to a live Stripe link: Pro slugs go to the
+// test-mode PRO_CHECKOUT_URL when it is set, and every other slug falls back to pricing.
+export function checkoutTarget(slug, env = {}) {
+  if (env.CHECKOUT_MODE === "test") {
+    return PRO_SLUGS.has(slug) && env.PRO_CHECKOUT_URL ? env.PRO_CHECKOUT_URL : undefined;
+  }
+  return GO_REDIRECTS[slug];
+}
+
 const GO_REDIRECTS = {
-  "pro-direct": "https://buy.stripe.com/cNi6oH1M81eSg4pdKz3sJ10",
-  "pro": "https://buy.stripe.com/cNi6oH1M81eSg4pdKz3sJ10",
-  "pro_monthly": "https://buy.stripe.com/cNi6oH1M81eSg4pdKz3sJ10",
-  "monthly": "https://buy.stripe.com/cNi6oH1M81eSg4pdKz3sJ10",
-  "triage": "https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y",
-  "diagnostic": "https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y",
-  "499": "https://buy.stripe.com/dRmeVd9eA4r4aK5gWL3sJ0Y",
-  "sprint": "https://buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38",
-  "hardening": "https://buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38",
-  "1500": "https://buy.stripe.com/4gM28r1M8g9M3hD0XN3sI38",
-  "pilot": "https://buy.stripe.com/9B6eVdcqM7DgcSdayn3sJ0Z",
-  "b2b": "https://buy.stripe.com/9B6eVdcqM7DgcSdayn3sJ0Z",
-  "3000": "https://buy.stripe.com/9B6eVdcqM7DgcSdayn3sJ0Z",
+  "pro-direct": "https://buy.stripe.com/9B6bJ2c3u55laFx9I3f3a00",
+  "pro": "https://buy.stripe.com/9B6bJ2c3u55laFx9I3f3a00",
+  "pro-annual": "https://buy.stripe.com/5kQeVe8Ri2Xd291g6rf3a01",
+  "annual": "https://buy.stripe.com/5kQeVe8Ri2Xd291g6rf3a01",
+  "yearly": "https://buy.stripe.com/5kQeVe8Ri2Xd291g6rf3a01",
+  "pro_monthly": "https://buy.stripe.com/9B6bJ2c3u55laFx9I3f3a00",
+  "monthly": "https://buy.stripe.com/9B6bJ2c3u55laFx9I3f3a00",
+  "triage": "https://buy.stripe.com/3cI28s5F6cxN9Bt4nJf3a02",
+  "diagnostic": "https://buy.stripe.com/3cI28s5F6cxN9Bt4nJf3a02",
+  "499": "https://buy.stripe.com/3cI28s5F6cxN9Bt4nJf3a02",
+  "sprint": "https://buy.stripe.com/dRmdRa3wYdBRdRJ7zVf3a03",
+  "hardening": "https://buy.stripe.com/dRmdRa3wYdBRdRJ7zVf3a03",
+  "1500": "https://buy.stripe.com/dRmdRa3wYdBRdRJ7zVf3a03",
+  "pilot": "https://buy.stripe.com/eVq9AU2sUeFV3d51bxf3a04",
+  "b2b": "https://buy.stripe.com/eVq9AU2sUeFV3d51bxf3a04",
+  "3000": "https://buy.stripe.com/eVq9AU2sUeFV3d51bxf3a04",
   "dmg": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.2.1/MacYoloSafeguards-1.2.1.dmg",
   "download": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.2.1/MacYoloSafeguards-1.2.1.dmg",
   "pkg": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/download/v1.2.1/MacYoloSafeguards.pkg",
@@ -66,12 +80,13 @@ export default {
     }
 
     if (url.pathname === "/pricing" || url.pathname === "/pricing/") {
-      return Response.redirect(new URL("/#pricing", url.origin).toString(), 301);
+      // Keep ?from=… so the page can tag checkout links with where the visitor came from.
+      return Response.redirect(new URL("/" + url.search + "#pricing", url.origin).toString(), 301);
     }
 
     if (url.pathname.startsWith("/go/")) {
       const slug = url.pathname.slice(4).replace(/\/+$/, "").toLowerCase();
-      const target = GO_REDIRECTS[slug];
+      const target = checkoutTarget(slug, env);
       // An unknown or mistyped slug goes to the pricing section, not straight into a checkout.
       if (!target) return Response.redirect(new URL("/#pricing", url.origin).toString(), 302);
       const dest = new URL(target);

@@ -4,6 +4,7 @@
 const fs = require('fs');
 const { discover, latestDataDate } = require('./revenue-date');
 const { defaultOut, existsDataFile, resolveDataPath } = require('./ops-paths');
+const { guardOfferRow } = require('./paid-extra-check');
 
 const usage = `Usage:
   node tools/payment-readiness.js [--date YYYY-MM-DD] [--stripe-offer-map stripe-offer-map.tsv] [--pipeline pipeline-status.tsv ...] [--out payment-readiness.md]
@@ -199,6 +200,15 @@ function stripeReadiness(stripeOffer) {
       linkReady: false,
       priceStatus: 'missing_offer',
       linkStatus: 'missing_offer',
+    };
+  }
+  const extra = guardOfferRow(stripeOffer);
+  if (!extra.ok) {
+    return {
+      priceReady: false,
+      linkReady: false,
+      priceStatus: extra.findings[0],
+      linkStatus: 'paid_extra_blocked',
     };
   }
   const statusReady = stripeOffer.status === 'ready';

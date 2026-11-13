@@ -4601,6 +4601,11 @@ The signed-in console at https://console.crusoecloud.com/home has no infrastruct
 A background watcher reopened the Stripe payments page in Google Chrome. Pause, resume, and stop cover one cron line, one launchd job, or one watcher script. `com.igor.shutdown-simulators` stays loaded. The control does not open Chrome.
 
 | T-ROUTINE-PAUSE-20261112 | Pause or stop one cron line, launchd job, or watcher, and hold Chrome when the pause file says so | in_progress | grok-routine-pause | `tools/routine-pause.js`, `tests/test-routine-pause.js`, `tools/revenue-autonomous-loop.js` (chrome hold only), `.agents/skills/routine-pause/**`, `SKILLS.md` (one row), `plan.md` (this append) | `node tests/test-routine-pause.js` exits 0. `chromeOpened` stays false. The simulator shutdown agent is refused. |
+## Jobs menu on the panel (append 2026-11-12T14:25:00-0500) — `grok-jobs-menu-reachable`
+
+The Background Jobs submenu already lists LaunchAgents, crontab lines, and loose scripts. The running panel had no control that opened it. A Jobs button at the top of the panel and a right-click on the menu-bar icon open that same menu. This does not install a build. The 10:36 network claim stays the network work. Pull request 2332 still owns the heavy-program sentence.
+
+| T-JOBS-MENU-REACHABLE-20261112 | Open the existing background-jobs menu from the panel and the menu bar | in_progress | grok-jobs-menu-reachable | `macos/MacYoloSafeguardsApp.swift`, `macos/MacYoloTranslucentHud.swift`, `tests/test-jobs-menu-reachable.js`, `plan.md` (this append) | `node tests/test-jobs-menu-reachable.js` exits 0. The Jobs button and the menu-bar right-click both open the existing Background Jobs menu. |
 
 ### File claims (§2 append)
 | File | Owner | Claimed |
@@ -4611,3 +4616,63 @@ A background watcher reopened the Stripe payments page in Google Chrome. Pause, 
 | .agents/skills/routine-pause/** | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
 | SKILLS.md (one row) | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
 | plan.md (this append) | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
+| macos/MacYoloSafeguardsApp.swift | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
+| macos/MacYoloTranslucentHud.swift | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
+| tests/test-jobs-menu-reachable.js | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
+| plan.md (this append) | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
+
+## Panel release review (append 2026-11-12T15:11:16-0500) — `grok-hud-release-review`
+
+The menu-bar panel stays one clear web page on an AppKit panel. This check does not redesign it and does not install a build. A panel change is ready only when the first screen has one attention line, a destructive control asks before it runs, and the window is not faded with a flat tint. The Swift panel files stay with their current owners.
+
+| T-HUD-RELEASE-REVIEW-20261112 | Fail a panel release that hides the one thing to do, or starts a destructive action on the first click, or lets the desktop show through | in_progress | grok-hud-release-review | `tools/mac-yolo-hud-release-review.js`, `tests/test-mac-yolo-hud-release-review.js`, `plan.md` (this append) | `node tests/test-mac-yolo-hud-release-review.js` exits 0. `node tools/mac-yolo-hud-release-review.js macos/MacYoloSafeguardsApp.swift` exits 1 until the panel itself is changed. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/mac-yolo-hud-release-review.js | grok-hud-release-review | 2026-11-12T15:11:16-0500 |
+| tests/test-mac-yolo-hud-release-review.js | grok-hud-release-review | 2026-11-12T15:11:16-0500 |
+| plan.md (this append) | grok-hud-release-review | 2026-11-12T15:11:16-0500 |
+
+## Source value guard (append 2026-11-12T15:32:06-0500) — `grok-source-value-guard`
+
+An outbound action fails when a typed score stands in for a processor return, a skip flag is set, spend has no cap, an agent is untracked, a vendor figure is marked as a local result, or the text still contains a card-shaped number, an identity-number shape, or a key-shaped value. The same input always maps to the same letter stand-in. There is no second database and no vendor figure stored as a local result. Source note: https://capitalonesoftware.com/blog/gartner-2026-ai-risk-business-value
+
+| T-SOURCE-VALUE-GUARD-20261112 | Fail an outbound action when value is a typed score, governance is skipped, or a raw account number is still in the text | in_progress | grok-source-value-guard | `tools/source-value-guard.js`, `tests/test-source-value-guard.js`, `plan.md` (this append) | `node tests/test-source-value-guard.js` exits 0. A typed score, a skip flag, or a raw account number exits 1. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/source-value-guard.js | grok-source-value-guard | 2026-11-12T15:32:06-0500 |
+| tests/test-source-value-guard.js | grok-source-value-guard | 2026-11-12T15:32:06-0500 |
+| plan.md (this append) | grok-source-value-guard | 2026-11-12T15:32:06-0500 |
+
+## Source value callers (append 2026-11-12T15:52:44-0500) — `grok-source-value-guard`
+
+The check now runs inside the post gate, the publish claim, and the send helper. A typed score, a skip flag, uncapped spend, or a raw card, identity number, or key blocks that action. The draft is not printed and no receipt is written when the claim is blocked.
+
+| T-SOURCE-VALUE-CALLERS-20261112 | Fail a post, a publish claim, and a send when the source value check fails | in_progress | grok-source-value-guard | `tools/source-value-guard.js`, `tools/social-publish-gate.js`, `tools/publish-once.js`, `tools/send-next.js`, `tests/test-source-value-outbound.js`, `plan.md` (this append) | `node tests/test-source-value-outbound.js` exits 0. A card in a post, a publish claim, or a send exits blocked, and a typed score on the post gate exits blocked. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/source-value-guard.js | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
+| tools/social-publish-gate.js | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
+| tools/publish-once.js | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
+| tools/send-next.js | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
+| tests/test-source-value-outbound.js | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
+| plan.md (this append) | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
+
+## Paid extra check (append 2026-11-12T16:38:30-0500) — `grok-paid-extra-check`
+
+A priced offer fails when its file digest is the free download, when it names no extra, or when the paid name is only the free product name. A free price passes. A subscription with a named extra and no file passes. Vendor prices and fee shares stay on their pages and are not stored as local measurements. Sources: https://www.raycast.com/blog/changing-how-raycast-ai-is-priced (2026-09-10), https://setapp.com/tech-talks/distribute-app-on-setapp (2026-11-11), https://applecorridor.com/products/setapp/ (updated 2026-11-11).
+
+| T-PAID-EXTRA-CHECK-20261112 | Fail a paid offer that is the free download or that names no extra | in_progress | grok-paid-extra-check | `tools/paid-extra-check.js`, `tests/test-paid-extra-check.js`, `tools/payment-readiness.js` (offer row only), `plan.md` (this append) | `node tests/test-paid-extra-check.js` exits 0. A same-file paid offer and a blank extra exit 1. `node tests/test-mac-yolo-24x7-promote-carryforward.js` still exits 0. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/paid-extra-check.js | grok-paid-extra-check | 2026-11-12T16:38:30-0500 |
+| tests/test-paid-extra-check.js | grok-paid-extra-check | 2026-11-12T16:38:30-0500 |
+| tools/payment-readiness.js | grok-paid-extra-check | 2026-11-12T16:38:30-0500 |
+| plan.md (this append) | grok-paid-extra-check | 2026-11-12T16:38:30-0500 |

@@ -1,0 +1,55 @@
+{
+  "id": "<redacted>",
+  "source": "derived",
+  "description": "Jamf and CrowdStrike endpoint agents, root daemons at high CPU for an hour. Never touched.",
+  "snapshot": "real-03",
+  "overlay": {
+    "add": [
+      "900001 1 300000 05:00:00 ?? /Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfDaemon",
+      "900002 1 250000 05:00:00 ?? /Library/Application Support/JAMF/Jamf.app/Contents/MacOS/JamfAgent",
+      "900003 1 900000 05:00:00 ?? /Applications/Falcon.app/Contents/Resources/falconctl",
+      "900004 1 700000 05:00:00 ?? /Library/CS/falcond",
+      "900005 1 100000 05:00:00 ?? /Library/SystemExtensions/ABCD/com.jamf.protect.security-extension.systemextension/Contents/MacOS/com.jamf.protect.security-extension"
+    ],
+    "cpu": {
+      "900001": 3000,
+      "900003": 3000,
+      "900004": 3000
+    }
+  },
+  "timeline": {
+    "flatForSec": 3600,
+    "moving": [
+      900001,
+      900003,
+      900004,
+      10115,
+      43925
+    ]
+  },
+  "expect": {
+    "kill": [],
+    "spare": [
+      {
+        "pid": 900001,
+        "reason": "MDM agent"
+      },
+      {
+        "pid": 900002,
+        "reason": "MDM agent"
+      },
+      {
+        "pid": 900003,
+        "reason": "CrowdStrike sensor"
+      },
+      {
+        "pid": 900004,
+        "reason": "CrowdStrike daemon"
+      },
+      {
+        "pid": 900005,
+        "reason": "Jamf Protect system extension"
+      }
+    ]
+  }
+}

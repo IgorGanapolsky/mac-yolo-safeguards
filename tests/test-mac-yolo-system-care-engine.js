@@ -93,6 +93,42 @@ function main() {
   assert.strictEqual(httpOut.status, 200);
   assert.strictEqual(httpOut.body.ok, true);
 
+  // 9. Action audit log: one line per decision, basename only, rotation at 5 MB, stats.
+  {
+    const { logDecisions, actionStats } = require('../tools/mac-yolo-action-log');
+    const { runawayDecisions } = require('../tools/mac-yolo-system-care-engine');
+    const { parsePs } = require('../tools/mac-yolo-agent-guard');
+    const auditDir = fs.mkdtempSync(path.join(os.tmpdir(), 'yolo-actions-'));
+    const env = { MAC_YOLO_ACTION_LOG_DIR: auditDir };
+    const now = Date.parse('2026-11-12T12:00:00Z');
+    const SESSION = '/Users/someone/Library/Application Support/Claude/claude-code/2.1.321/abc/claude.app/Contents/MacOS/claude --token sk-abcdefghij1234';
+    const procs = parsePs([
+      `10 1 400000 01:00:00 ?? ${SESSION}`,
+      '70 10 4096 00:05 ?? find /Users/someone -name secret@example.com',
+      '72 1 8192 09:00 ?? find /Users/someone -name *.log',
+    ].join('\n'));
+    const decisions = runawayDecisions(procs, new Set([72]));
+    assert.deepStrictEqual(decisions.map((d) => [d.proc.pid, d.decision, d.killed]), [[70, 'spare', false], [72, 'kill', true]]);
+    logDecisions('coolDownFans', decisions, { env, now, cpu: new Map([[72, 97.5]]) });
+    const lines = fs.readFileSync(path.join(auditDir, 'actions.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+    assert.strictEqual(lines.length, 2);
+    const allowed = ['ts', 'runId', 'action', 'pid', 'name', 'decision', 'reason', 'cpuPct', 'rssMB', 'killed'];
+    for (const l of lines) assert.deepStrictEqual(Object.keys(l), allowed);
+    const raw = fs.readFileSync(path.join(auditDir, 'actions.jsonl'), 'utf8');
+    assert.ok(!/someone|\/Users|sk-|@example|-name|secret/.test(raw), 'no args, paths or user names in the log');
+    assert.deepStrictEqual([lines[1].name, lines[1].decision, lines[1].cpuPct, lines[1].rssMB, lines[1].killed], ['find', 'kill', 97.5, 8, true]);
+    assert.strictEqual(lines[0].cpuPct, null);
+    const stats = actionStats({ days: 7, env, now: now + 1000 });
+    assert.deepStrictEqual(stats, { days: 7, runs: 1, kills: 1, killed: 1, spares: 1, mbFreed: 8 });
+    assert.strictEqual(actionStats({ days: 7, env, now: now + 8 * 86400000 }).runs, 0, 'old entries fall outside the window');
+    // Rotation: a small cap forces actions.jsonl -> actions.jsonl.1, one older copy kept.
+    for (let i = 0; i < 6; i += 1) logDecisions('coolDownFans', decisions, { env, now: now + i, maxBytes: 600, cpu: new Map() });
+    assert.ok(fs.existsSync(path.join(auditDir, 'actions.jsonl.1')), 'rotated copy exists');
+    assert.ok(!fs.existsSync(path.join(auditDir, 'actions.jsonl.2')), 'only one rotated copy is kept');
+    assert.ok(fs.statSync(path.join(auditDir, 'actions.jsonl')).size <= 600);
+    fs.rmSync(auditDir, { recursive: true, force: true });
+  }
+
   console.log('test-mac-yolo-system-care-engine: PASS');
 }
 
