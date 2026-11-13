@@ -131,7 +131,7 @@ main();
   for (const f of ['MacYoloSafeguardsApp.swift', 'MacYoloTranslucentHud.swift']) {
     const src = fs.readFileSync(path.join(__dirname, '..', 'macos', f), 'utf8');
     const line = src.match(/<div [^>]*id="attentionLine"[^>]*>/);
-    if (!line || !/onclick="openCardDetail\('shield'\)"/.test(line[0]) || !/clickable-card/.test(line[0])) {
+    if (!line || !/onclick="openCardDetail\('shield'\)"/.test(line[0]) || !/clickable-card/.test(line[0]) || !/tabindex="0"/.test(line[0]) || !/onkeydown=/.test(line[0])) {
       throw new Error(f + ': attentionLine must be a clickable card that opens the shield details');
     }
   }
