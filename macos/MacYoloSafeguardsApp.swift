@@ -432,7 +432,8 @@ private let HUD_HTML = #"""
     cursor: ns-resize;
     z-index: 40;
   }
-    #attentionLine::after { content: " ›"; opacity: 0.7; }
+    #attentionLine { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    #attentionStopBtn { margin-top:0; padding:4px 10px; flex-shrink:0; }
 </style>
 </head>
 <body>
@@ -476,7 +477,7 @@ private let HUD_HTML = #"""
         </div>
       </div>
 
-      <div class="card clickable-card" id="attentionLine" role="button" tabindex="0" title="Show what is using CPU and memory" onclick="openCardDetail('shield')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCardDetail('shield');}" style="cursor:pointer;margin-bottom:6px;padding:8px 11px;font-size:12px;font-weight:600;color:#e2e8f0;background:rgba(15,11,33,0.92);border:1px solid rgba(94,234,212,0.34);">Mac healthy · No runaway agents — nothing to do.</div>
+      <div class="card" id="attentionLine" role="status" style="margin-bottom:6px;padding:8px 11px;font-size:12px;font-weight:600;color:#e2e8f0;background:rgba(15,11,33,0.92);border:1px solid rgba(94,234,212,0.34);"><span id="attentionText">Mac healthy · No runaway agents — nothing to do.</span><button class="tile-action" id="attentionStopBtn" style="display:none;" onclick="confirmStopRunaways(this)">Stop Runaways</button></div>
 
       <div id="overviewSection">
       <div class="card shield-card clickable-card" onclick="openCardDetail('shield')">
@@ -631,6 +632,7 @@ private let HUD_HTML = #"""
         <div id="detailRowsContainer" style="display:flex;flex-direction:column;gap:6px;margin-top:4px;"></div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid rgba(255,255,255,0.12);margin-top:4px;">
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <span id="drawerActions" style="display:contents;"></span>
             <button class="rec-btn" id="drawerSpeedBtn" style="display:none;" onclick="triggerHudAction('testSpeed', this, 'Testing…', 'Test Speed')">Test Speed</button>
           </div>
         </div>
@@ -1062,6 +1064,28 @@ private let HUD_HTML = #"""
       if (det) det.style.display = 'none';
       if (ov) ov.style.display = 'block';
     }
+    // Each opened card shows the same action buttons as its overview card.
+    var DRAWER_ACTIONS = { shield: ['stopRunawaysBtn', 'freeMemBtn'], cpu: ['stopRunawaysBtn'], optimization: ['stopRunawaysBtn'], memory: ['freeMemBtn'], disk: ['freeDiskBtn'], tokens: ['secretsBtn'] };
+    function renderDrawerActions() {
+      var holder = document.getElementById('drawerActions');
+      if (!holder) return;
+      var ids = (DRAWER_ACTIONS[_activeDetailCard] || []).filter(function(id) {
+        var b = document.getElementById(id);
+        return b && b.style.display !== 'none';
+      });
+      var key = _activeDetailCard + ':' + ids.join(',');
+      if (holder.dataset.key === key) return;
+      holder.dataset.key = key;
+      holder.innerHTML = '';
+      ids.forEach(function(id) {
+        var c = document.getElementById(id).cloneNode(true);
+        c.removeAttribute('id');
+        c.setAttribute('data-drawer-action', id);
+        c.className = 'rec-btn';
+        c.style.display = 'inline-block';
+        holder.appendChild(c);
+      });
+    }
     function renderActiveCardDetail(s) {
       if (!_activeDetailCard || !s) return;
       var titleEl = document.getElementById('detailTitle');
@@ -1072,6 +1096,7 @@ private let HUD_HTML = #"""
       box.style.overflowY = 'auto';
       var speedBtn = document.getElementById('drawerSpeedBtn');
       if (speedBtn) speedBtn.style.display = _activeDetailCard === 'network' ? 'inline-block' : 'none';
+      renderDrawerActions();
       if (!box.dataset.bound) {
         box.dataset.bound = '1';
         box.addEventListener('click', function(ev) {
@@ -1189,11 +1214,13 @@ private let HUD_HTML = #"""
         var cpuN = parseInt(state.cpuPctNum || '0', 10) || 0;
         var hl = state.guardHeadline || '';
         if (cpuN >= 85 || /storm|runaway|warning|pressure/i.test(hl)) {
-          setTextIfChanged('attentionLine', 'Action needed · ' + (hl || 'High agent load') + ' · Click Stop Runaways below.');
+          setTextIfChanged('attentionText', 'Action needed · ' + (hl || 'High agent load'));
+          var asb = document.getElementById('attentionStopBtn'); if (asb) asb.style.display = 'inline-block';
           attEl.style.borderColor = 'rgba(251,191,36,0.55)';
           attEl.style.color = '#fde68a';
         } else {
-          setTextIfChanged('attentionLine', 'Mac healthy · ' + (hl || 'No runaway agents') + ' — nothing to do.');
+          setTextIfChanged('attentionText', 'Mac healthy · ' + (hl || 'No runaway agents') + ' — nothing to do.');
+          var asb2 = document.getElementById('attentionStopBtn'); if (asb2) asb2.style.display = 'none';
           attEl.style.borderColor = 'rgba(94,234,212,0.34)';
           attEl.style.color = '#e2e8f0';
         }
