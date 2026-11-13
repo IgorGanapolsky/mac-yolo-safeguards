@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Mac YOLO Safeguards</title>
-<meta name="description" content="A free menu bar app for Apple Silicon Macs that keeps AI coding agents like Claude Code, Cursor and Codex from freezing your machine. Shows CPU, memory, swap and disk, cleans up orphaned agent processes, and clears agent caches.">
+<meta name="description" content="A free menu bar app for Apple Silicon Macs that blanks API keys and passwords out of AI agent logs and keeps Claude Code, Cursor and Codex from freezing your machine. Shows CPU, memory, swap and disk, cleans up orphaned agent processes, and clears agent caches.">
 <link rel="canonical" href="https://macyolosafeguards.io/">
 <link rel="alternate" type="text/markdown" href="/llms.txt">
 <link rel="stylesheet" href="/style.css">
@@ -25,9 +25,11 @@
 <main>
 <p id="ph-welcome" class="welcome" hidden>Coming from Product Hunt? Welcome. Pro Guard is $29 once and keeps your Mac running through overnight agent runs. If you hit a bug or have a question, ask on <a href="https://www.producthunt.com/products/mac-yolo-safeguards">our launch page</a> and I'll answer there.</p>
 <h1>Run AI coding agents without babysitting your Mac.</h1>
-<p class="lead">Claude Code, Cursor and Codex leave MCP servers and helper processes running after the session ends, fill memory and swap, and eat the disk with logs. Run a few for a day and your Mac crawls. Mac YOLO Safeguards is a menu bar app that shows which agent is causing it and stops the leftovers, without touching your apps or terminal sessions.</p>
+<p class="proof"><strong>1,349 API keys, tokens and passwords.</strong> That is how many my coding agents had copied into 296 of their own session logs on my Mac in the last 30 days, in plain text. Mac YOLO finds them and blanks them out in two clicks. It is in the free app.</p>
+<p class="lead">Claude Code, Cursor and Codex also leave MCP servers and helper processes running after the session ends, fill memory and swap, and eat the disk with logs. Run a few for a day and your Mac crawls. Mac YOLO Safeguards is a menu bar app that shows which agent is causing it and stops the leftovers, without touching your apps or terminal sessions.</p>
 <a class="btn" href="/go/dmg">Download for Mac (free)</a>
 <a class="btn alt" href="/go/pro-once">Get Pro Guard, $29 once</a>
+<p class="small">Pro Guard is $29 once. No subscription, no account, full refund within 30 days.</p>
 <p class="small">Version 1.2.2. macOS 14 or later on Apple Silicon. Signed with an Apple Developer ID and notarized by Apple, so it opens without warnings. No account needed. Also available as a <a href="/go/pkg">.pkg installer</a> or with Homebrew:</p>
 <pre>brew install --cask igorganapolsky/tap/mac-yolo-safeguards</pre>
 
@@ -38,6 +40,7 @@
 
 <h2>What it does</h2>
 <ul>
+  <li><strong>Blanks secrets out of agent logs.</strong> Agents copy API keys and passwords into the session transcripts they keep on disk. The app counts them and replaces each one with [REDACTED]. Session transcripts you are using are kept.</li>
   <li><strong>Shows which agent is the problem.</strong> CPU, GPU, memory, swap and disk, with the top hogs named, so you can tell a runaway agent from Spotlight indexing.</li>
   <li><strong>Stops leftover agent processes.</strong> MCP servers and helpers that outlive their session get stopped. Apps you're using, your terminal sessions (tmux, herdr) and Cursor's own background workers are never touched.</li>
   <li><strong>Frees disk space.</strong> One click clears agent logs, old simulator runtimes and stale developer caches.</li>
@@ -64,18 +67,11 @@
 <p><strong>Does it send my data anywhere?</strong> No. It runs on your Mac and needs no account. See the <a href="/privacy/">privacy policy</a>.</p>
 <p><strong>Can I see the code?</strong> Yes, it's on <a href="https://github.com/IgorGanapolsky/mac-yolo-safeguards">GitHub</a>.</p>
 
-<h2>For teams</h2>
-<table>
-<tr><th>Option</th><th>Price</th><th>What you get</th></tr>
-<tr><td>Agent Failure Investigation</td><td>$499 once</td><td>One incident, investigated: a 20-minute call, then within 48 hours a written report with the process and resource timeline, the root cause, prevention rules ranked by risk, and a way to check that the fix holds. <a href="/go/diagnostic">Book</a></td></tr>
-<tr><td>Agent Reliability Rollout</td><td>$1,500 once</td><td>A week setting up Mac YOLO across a team's Macs and build machines: memory, disk and timeout limits for your agents, a simulated runaway to prove the guard stops it, and written handoff notes. <a href="/go/sprint">Book</a></td></tr>
-</table>
-
 <h2>Who made it</h2>
 <p>I'm <a href="https://github.com/IgorGanapolsky">Igor Ganapolsky</a>. I run several AI coding agents on one Mac every day and built this after my machine froze one too many times. The code is on <a href="https://github.com/IgorGanapolsky/mac-yolo-safeguards">GitHub</a>; bug reports and questions go in <a href="https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues">GitHub issues</a>.</p>
 </main>
 <footer class="small">
-  <a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/refunds/">Refunds</a><a href="/llms.txt">llms.txt</a>
+  <a href="/teams/">For teams</a><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/refunds/">Refunds</a><a href="/llms.txt">llms.txt</a>
 </footer>
 <script>
 // Where a visitor came from: ?from=<source> (the app's Pro notice uses app_nudge), or Product Hunt,
