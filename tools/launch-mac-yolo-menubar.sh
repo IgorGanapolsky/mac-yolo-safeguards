@@ -8,8 +8,9 @@ CANONICAL_BIN="$HOME/.hermes/bin/MacYolo-Protected-V4"
 CANONICAL_BIN_SOURCE_DIGEST="$CANONICAL_BIN.source-sha256"
 APP_BUNDLE="/Applications/MacYoloSafeguards.app"
 APP_BIN="$APP_BUNDLE/Contents/MacOS/MacYoloSafeguards"
-CANONICAL_SWIFT="$HOME/workspace/mac-yolo-safeguards/macos/MacYoloTranslucentHud.swift"
-REPO_SWIFT="$HOME/workspace/mac-yolo-safeguards/macos/MacYoloSafeguardsApp.swift"
+SCRIPT_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CANONICAL_SWIFT="$SCRIPT_REPO/macos/MacYoloTranslucentHud.swift"
+REPO_SWIFT="$SCRIPT_REPO/macos/MacYoloSafeguardsApp.swift"
 
 ensure_canonical_binary() {
   local force_rebuild=0

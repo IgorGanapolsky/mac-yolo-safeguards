@@ -408,6 +408,29 @@ function getToolDefinitions() {
         },
       },
     },
+    {
+      name: 'yolo_crusoe_tokenomics',
+      title: 'Crusoe AI Tokenomics, $0 Free-Credit Foundry Router & Snapshot Contract Gate',
+      description: 'Evaluate 4-metric agentic AI tokenomics (cost/token with 97.6% KV-cache discount, goodput, cost/completed-task, tokens/watt), route burst inference strictly on $0 non-card free credits, and validate worker restore/zstd unpack contracts',
+      annotations: {
+        title: 'Crusoe AI Tokenomics, $0 Free-Credit Foundry Router & Snapshot Contract Gate',
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      inputSchema: {
+        type: 'object',
+        properties: {
+          mode: {
+            type: 'string',
+            enum: ['tokenomics', 'route', 'snapshot_contract', 'zstd_unpack'],
+            default: 'tokenomics',
+          },
+          payload: { type: 'object' },
+        },
+      },
+    },
   ];
 }
 
@@ -660,6 +683,26 @@ function callTool(name, args = {}) {
       maxBuffer: 8 * 1024 * 1024,
     });
     return JSON.parse(out.trim());
+  }
+  if (name === 'yolo_crusoe_tokenomics') {
+    const {
+      evaluateAgenticTokenomics,
+      routeZeroSpendCrusoeOrLocal,
+      validateWorkerRestoreContract,
+      estimateArtifactPullAndUnpack,
+    } = require('./crusoe-ai-tokenomics-engine');
+    const safeArgs = args && typeof args === 'object' && !Array.isArray(args) ? args : {};
+    const mode = typeof safeArgs.mode === 'string' ? safeArgs.mode : 'tokenomics';
+    const payload =
+      safeArgs.payload && typeof safeArgs.payload === 'object' && !Array.isArray(safeArgs.payload)
+        ? safeArgs.payload
+        : {};
+    if (mode === 'route') return routeZeroSpendCrusoeOrLocal(payload);
+    if (mode === 'snapshot_contract') {
+      return validateWorkerRestoreContract(payload.snapshotSpec, payload.restoreSpec, payload.restoreLogText);
+    }
+    if (mode === 'zstd_unpack') return estimateArtifactPullAndUnpack(payload);
+    return evaluateAgenticTokenomics(payload);
   }
   throw new Error(`Unknown tool: ${name}`);
 }
