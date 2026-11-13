@@ -11,6 +11,8 @@
 
 **The OS-level safeguards layer for AI agent loops.** Runaway-kill, hard timeouts, and resource limits — the enforcement your agent harness is missing — so coding agents (Antigravity `agy`, Claude Code, Cursor, Codex) running in YOLO mode can't burn your tokens or freeze your Mac.
 
+**Get the menu bar app:** `brew install --cask igorganapolsky/tap/mac-yolo-safeguards`, or [download it](https://macyolosafeguards.io/go/dmg?from=github_readme). Free. Pro Guard is [$29 once](https://macyolosafeguards.io/go/pro-once?from=github_readme).
+
 > **TL;DR** — On 2026-05-26 my Mac hit load average **307** because an AI agent kept booting iOS Simulators in a loop. This repo is the four-piece kit that stopped it: a wrapper, a LaunchAgent, a plist, and a 12-point health check. MIT, telemetry off by default, symlinks-only install. Full incident write-up: [`CASE-STUDY.md`](./docs/CASE-STUDY.md).
 
 **Paid reliability help:** [Book 20-min triage](https://cal.com/igor-g-kvqxfo/30min) | [Partner Pilot](./docs/PARTNER-PILOT.md) | [Public-safe paid inquiry](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=paid-hardening-inquiry.yml)
@@ -40,7 +42,7 @@ If you run agents for a team or clients and have a repeated failure that costs h
 
 | Path | Deliverables | Pricing |
 |---|---|---|
-| **[Mac YOLO Pro Guard](https://buy.stripe.com/9B6bJ2c3u55laFx9I3f3a00)** | Everything in the free app, plus MCP Guard: automatic shutdown of stuck MCP servers. Cancel any time. | `$19/month` |
+| **[Mac YOLO Pro Guard](https://macyolosafeguards.io/go/pro-once?from=github_readme)** | Everything in the free app, plus automatic shutdown of leftover agent processes and MCP servers. One payment, yours to keep, 14-day refund. | `$29 once` |
 | **[Agent Safeguards Playbook](https://iganapolsky.gumroad.com/l/odrkon)** | Self-serve runbook: OS-level runaway-kill, timeout, and token-budget templates for Mac agent fleets. | `$9.99` |
 | **[Corporate-Expense Reliability Kit](https://iganapolsky.gumroad.com/l/vcrho)** | Drop-in team bundle: LaunchAgent templates, MCP server, pre-execution gates, and audit receipt harness. | `$49` |
 | **[Agent Reliability Diagnostic](https://buy.stripe.com/3cI28s5F6cxN9Bt4nJf3a02)** | A 20-minute live call about one failure, then a written root-cause readout with prevention rules within 48 hours. No installation. | `$499` |
