@@ -1,0 +1,25 @@
+{
+  "id": "13-orphan-find-runaway",
+  "source": "derived",
+  "description": "A find over /Users left behind by a dead shell (ppid 1).",
+  "snapshot": "real-03",
+  "overlay": {
+    "add": [
+      "900001 1 4000 09:00 ?? find /Users/user -name *.log"
+    ]
+  },
+  "expect": {
+    "kill": [
+      {
+        "pid": 900001,
+        "reason": "orphaned find over the home folder: runaway"
+      }
+    ],
+    "spare": [
+      {
+        "pid": 97363,
+        "reason": "live session"
+      }
+    ]
+  }
+}

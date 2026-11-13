@@ -1,0 +1,31 @@
+{
+  "id": "07-same-mcp-with-live-parent",
+  "source": "derived",
+  "description": "The same node MCP server, started by a live omp session (parent alive), same 30 minutes of CPU.",
+  "snapshot": "real-03",
+  "overlay": {
+    "add": [
+      "900001 27893 180000 45:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/f1/node_modules/.bin/orphan-mcp-server"
+    ],
+    "cpu": {
+      "900001": 1800
+    }
+  },
+  "timeline": {
+    "flatForSec": 1800,
+    "moving": [
+      900001,
+      10115,
+      43925
+    ]
+  },
+  "expect": {
+    "kill": [],
+    "spare": [
+      {
+        "pid": 900001,
+        "reason": "MCP server of a live session is its tool, however much CPU it uses"
+      }
+    ]
+  }
+}

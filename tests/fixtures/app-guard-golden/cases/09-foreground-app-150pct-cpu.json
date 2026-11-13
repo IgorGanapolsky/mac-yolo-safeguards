@@ -1,0 +1,38 @@
+{
+  "id": "09-foreground-app-150pct-cpu",
+  "source": "derived",
+  "description": "Installed foreground app (an editor) at 150% CPU on a desktop: busy is not runaway.",
+  "snapshot": "real-03",
+  "overlay": {
+    "add": [
+      "900001 1 900000 03:10:00 ?? /Applications/Visual Studio Code.app/Contents/MacOS/Electron",
+      "900002 900001 500000 03:09:00 ?? /Applications/Visual Studio Code.app/Contents/Frameworks/Code Helper (Renderer).app/Contents/MacOS/Code Helper (Renderer) --type=renderer"
+    ],
+    "cpu": {
+      "900001": 5000,
+      "900002": 4000
+    }
+  },
+  "timeline": {
+    "flatForSec": 1800,
+    "moving": [
+      900001,
+      900002,
+      10115,
+      43925
+    ]
+  },
+  "expect": {
+    "kill": [],
+    "spare": [
+      {
+        "pid": 900001,
+        "reason": "foreground app under /Applications"
+      },
+      {
+        "pid": 900002,
+        "reason": "app renderer helper"
+      }
+    ]
+  }
+}

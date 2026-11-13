@@ -31,6 +31,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const { logDecisions } = require('./mac-yolo-action-log');
 
 const HOME = os.homedir();
 const LOG_DIR = process.env.MAC_YOLO_AGENT_GUARD_DIR || path.join(HOME, 'Library', 'Logs', 'mac-yolo');
@@ -478,11 +479,16 @@ const STRANDABLE = new Set(['omp', 'grok', 'poolside', 'codex', 'claude-cli', 'c
 // Claude desktop sessions are never in this list; the Claude app owns them. A process
 // younger than the idle window reused an old pid, and an agent serving a socket
 // (`codex app-server --listen ...`) still has clients even when its CPU is flat.
+// The Cursor app starts its own agent workers from its app-support folder and owns their lifetime.
+// They sit idle with launchd as parent while Cursor is open; they are not stranded (golden case 05).
+const CURSOR_MANAGED_WORKER = /anysphere\.cursor-agent-worker\//;
+
 function findStrandedAgents(procs, idle, { now = Date.now(), launchdPids = new Set(), minIdleSec = STRANDED_MIN_IDLE_SEC } = {}) {
   return procs.filter((p) => {
     const since = idle.get(p.pid);
     return STRANDABLE.has(p.kind) && p.ppid === 1 && p.tty === '??' && !launchdPids.has(p.pid) && p.ageSec >= minIdleSec &&
-      !/(^|\s)(app-server|--listen)(\s|=|$)/.test(p.command) && since && now - since.since >= minIdleSec * 1000;
+      !/(^|\s)(app-server|--listen)(\s|=|$)/.test(p.command) && !CURSOR_MANAGED_WORKER.test(p.command) &&
+      since && now - since.since >= minIdleSec * 1000;
   });
 }
 
@@ -546,14 +552,22 @@ function clean({ execute = false, minCopies = STORM_MIN_COPIES, procs = listProc
   if (!execute) {
     return { ok: true, dryRun: true, wouldStop: storms.map(({ pids, ...rest }) => rest), wouldStopOrphans: orphanSummary, wouldStopStranded: strandedSummary };
   }
+  const stormKilled = new Set();
   const stopped = storms.map((s) => ({
     command: s.command,
     copies: s.copies,
     rssMB: s.rssMB,
-    signalled: s.pids.filter((pid) => signalIfSame(pid, s.command)).length,
+    signalled: s.pids.filter((pid) => signalIfSame(pid, s.command) && stormKilled.add(pid)).length,
   }));
   const stoppedOrphans = orphanSummary.filter((o) => signalIfSame(o.pid, o.command));
   const stoppedStranded = strandedSummary.filter((o) => signalIfSame(o.pid, o.command));
+  const byPid = new Map(procs.map((p) => [p.pid, p]));
+  const audit = (pids, reason, done) => pids.map((pid) => ({ proc: byPid.get(pid), decision: 'kill', reason, killed: done.has(pid) })).filter((d) => d.proc);
+  logDecisions('agentGuardClean', [
+    ...audit(storms.flatMap((s) => s.pids), 'process storm: one command line in many copies', stormKilled),
+    ...audit(orphans.map((o) => o.pid), 'extra copy of an orphaned MCP server', new Set(stoppedOrphans.map((o) => o.pid))),
+    ...audit(stranded.map((o) => o.pid), 'stranded agent: no terminal, idle 30+ minutes', new Set(stoppedStranded.map((o) => o.pid))),
+  ]);
   return { ok: true, dryRun: false, stopped, stoppedOrphans, stoppedStranded };
 }
 

@@ -26,10 +26,12 @@ node tests/test-mac-yolo-secret-scan.js
 node tests/test-mac-yolo-local-models.js
 node tests/test-mac-yolo-disk-guard.js
 node tests/test-mac-yolo-sandboxes.js
+node tests/test-app-guard-golden.js
 node --test apps/macyolosafeguards-site/test/license.test.js apps/macyolosafeguards-site/test/checkout-alerts.test.js apps/macyolosafeguards-site/test/visitor-source.test.js apps/macyolosafeguards-site/test/worker-checkout.test.js
 node tools/entire-cicd-regression-gate.js
 node tests/test-ultramarine-and-android-summit-26-steals.js
 node tests/test-prompt-caching-and-judgment-calls-steal.js
+node tests/test-egm-fresh-review-gate.js
 node tests/test-herdr-moe-llm-judge-swarm-sow.js
 node tests/test-mac-yolo-release-cd-engine.js
 
