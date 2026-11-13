@@ -604,7 +604,7 @@ private let HUD_HTML = #"""
       </div>
 
       <div id="recSection">
-        <div class="rec-header">AI Agent Optimization</div>
+        <div class="rec-header">What's using your Mac</div>
         <div class="card rec-card clickable-card" onclick="openCardDetail('optimization')">
           <div class="rec-top">
             <div class="rec-badge">
@@ -612,7 +612,7 @@ private let HUD_HTML = #"""
             </div>
             <div>
               <div class="rec-title" id="recTitle">Live Fan &amp; CPU Culprits ›</div>
-              <div class="rec-desc" id="recDesc">Scanning top CPU &amp; fan culprits across active agent swarms and background daemons…</div>
+              <div class="rec-desc" id="recDesc">Checking what is using your CPU…</div>
             </div>
           </div>
         </div>
@@ -2747,11 +2747,21 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         }.joined(separator: " · ")
         let topCpu = ranked.first.map { cpuByApp[$0, default: 0] } ?? 0
         let hot = appleThermalWarning()
-        let rTitle = "Thermal \(hot ? "Warning" : "Nominal") · \(totalProcs) live procs"
         let systemIndexers: Set<String> = ["Spotlight", "Photos Analysis"]
         let topByCpu = cpuByApp.max { $0.value < $1.value }?.key
-        let indexerNote = topByCpu.map { systemIndexers.contains($0) ? "\($0) is a protected macOS service (busy after a restart or large file changes). Safeguards cannot throttle it; it settles on its own. " : "" } ?? ""
-        let rDesc = indexerNote + "\(pyCount) Python and \(nodeCount) node MCP processes."
+        let heat = hot ? "Running hot" : "Temperature normal"
+        let rTitle = topByCpu.map { "\(heat) · Busiest: \($0)" } ?? heat
+        let busiestNote: String = topByCpu.map { name in
+            if name == "Spotlight" {
+                return "Spotlight is macOS re-indexing your files. This happens after a restart or a lot of file changes and stops on its own. Mac YOLO can't pause it. "
+            }
+            if name == "Photos Analysis" {
+                return "Photos is scanning your library. It stops on its own. Mac YOLO can't pause it. "
+            }
+            return String(format: "%@ is using about %.1f of your %d CPU cores. ", name, cpuByApp[name, default: 0] / 100.0, ncpu)
+        } ?? ""
+        let helpers = pyCount + nodeCount
+        let rDesc = busiestNote + "\(helpers) AI tool helpers are running (\(pyCount) Python, \(nodeCount) Node). Tap to see everything using CPU."
         let cpuRows = ranked.prefix(6).enumerated().map { idx, name in
             let c = cpuByApp[name, default: 0]
             let gb = rssByApp[name, default: 0] / 1_048_576.0
