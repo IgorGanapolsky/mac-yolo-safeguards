@@ -151,3 +151,22 @@ main();
   }
   console.log('ok - opened cards keep their action buttons; status line is information only');
 }
+
+// Igor, 2026-11-13: "settings are pretty much useless and superficial". Settings holds the app's real
+// options and no dead uninstaller; receipts and the secrets button stay correct while a card is open.
+{
+  const fs = require('fs');
+  const path = require('path');
+  for (const f of ['MacYoloSafeguardsApp.swift', 'MacYoloTranslucentHud.swift']) {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'macos', f), 'utf8');
+    for (const needle of ["id=\"autoGuardBtn\" onclick=\"sendAction('toggleAutoGuard')\"", 'id="proLicenseBtn"', 'id="statusBarToggleBtn"', "sendAction('openFeedback')", 'case "toggleAutoGuard":', 'case "openFeedback":']) {
+      if (!src.includes(needle)) throw new Error(f + ': Settings must include ' + needle);
+    }
+    if (/uninstall/i.test(src)) throw new Error(f + ': the uninstaller never shipped its script; it must not appear in Settings');
+    if (/if \(banner && !_activeDetailCard/.test(src) || /if \(!_activeDetailCard\) banner\.style\.display/.test(src)) {
+      throw new Error(f + ': action receipts must show while a card is open');
+    }
+    if (!src.includes('[data-drawer-action="secretsBtn"]')) throw new Error(f + ': copied secrets button must reset when blanking finishes');
+  }
+  console.log('ok - Settings shows real options; receipts and copied buttons stay in sync');
+}

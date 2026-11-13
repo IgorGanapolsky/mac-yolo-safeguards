@@ -433,6 +433,10 @@ private let HUD_HTML = #"""
     z-index: 40;
   }
     #attentionLine { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .setting-row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:8px 0; border-top:1px solid rgba(255,255,255,0.12); }
+    .setting-row .tile-action { margin-top:0; flex-shrink:0; }
+    .setting-name { font-size:12px; font-weight:600; color:rgba(255,255,255,0.94); }
+    .setting-help { font-size:11px; color:rgba(255,255,255,0.62); margin-top:2px; line-height:1.35; }
     #attentionStopBtn { margin-top:0; padding:4px 10px; flex-shrink:0; }
 </style>
 </head>
@@ -639,17 +643,24 @@ private let HUD_HTML = #"""
       </div>
       <div class="card rec-card" id="settingsDrawer" style="display:none;padding:10px 13px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-          <div style="font-size:13px;font-weight:700;">Settings &amp; App Uninstaller</div>
+          <div style="font-size:13px;font-weight:700;">Settings</div>
           <button class="tile-action" style="margin-top:0;" onclick="toggleSettingsDrawer(false)">← Back</button>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid rgba(255,255,255,0.12);">
-          <span style="font-size:12px;color:rgba(255,255,255,0.92);">Mac YOLO Status Bar Icon</span>
-          <button class="tile-action" style="margin-top:0;" id="statusBarToggleBtn" onclick="sendAction('toggleStatusBarIcon')">Shown ✓ (Click to Hide)</button>
+        <div class="setting-row">
+          <div><div class="setting-name">Auto-Guard</div><div class="setting-help" id="autoGuardHelp">Checks your Mac every minute. Stops leftover agent processes when memory is tight and clears AI caches when disk runs low. Pro.</div></div>
+          <button class="tile-action" id="autoGuardBtn" onclick="sendAction('toggleAutoGuard')">Off</button>
         </div>
-        <div id="uninstallList" style="font-size:12px;color:rgba(255,255,255,0.72);padding:6px 0;">Open this list to measure apps.</div>
-        <div style="display:flex;gap:6px;align-items:center;padding-top:5px;border-top:1px solid rgba(255,255,255,0.12);">
-          <input id="customUninstallInput" type="text" placeholder="App name" style="flex:1;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.22);border-radius:7px;padding:4px 8px;color:#fff;font-size:11px;outline:none;" />
-          <button class="tile-action" style="margin-top:0;color:#fca5a5;" onclick="requestUninstall(document.getElementById('customUninstallInput').value, this)">Uninstall</button>
+        <div class="setting-row">
+          <div><div class="setting-name">Pro license</div><div class="setting-help" id="proLicenseHelp">Pro adds Auto-Guard. $29 once.</div></div>
+          <button class="tile-action" id="proLicenseBtn" onclick="sendAction(_isProClient ? 'enterProLicense' : 'openGetPro')">Get Pro</button>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-name">Menu bar icon</div><div class="setting-help">Show Mac YOLO in the menu bar. When hidden, open it from the app.</div></div>
+          <button class="tile-action" id="statusBarToggleBtn" onclick="sendAction('toggleStatusBarIcon')">Shown ✓ (Click to Hide)</button>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-name">Feedback</div><div class="setting-help">Tell us what is missing or broken.</div></div>
+          <button class="tile-action" onclick="sendAction('openFeedback')">Send feedback</button>
         </div>
       </div>
     </div>
@@ -794,7 +805,7 @@ private let HUD_HTML = #"""
       var itemsEl = document.getElementById('actionReceiptItems');
       var sparedEl = document.getElementById('actionReceiptSpared');
       var inspectBtn = document.getElementById('actionReceiptInspectBtn');
-      if (banner && !_activeDetailCard && (action === 'freeUpDisk' || action === 'freeUpMemory' || action === 'coolDownFans')) {
+      if (banner && (action === 'freeUpDisk' || action === 'freeUpMemory' || action === 'coolDownFans')) {
         banner.style.display = 'flex';
         if (action === 'freeUpDisk') {
           if (titleEl) titleEl.textContent = '⚡ Scanning & Purging AI / Dev Cache Waste…';
@@ -831,7 +842,7 @@ private let HUD_HTML = #"""
       var itemsEl = document.getElementById('actionReceiptItems');
       var sparedEl = document.getElementById('actionReceiptSpared');
       if (!banner || !titleEl || !itemsEl || !sparedEl) return;
-      if (!_activeDetailCard) banner.style.display = 'flex';
+      banner.style.display = 'flex';
       if (res.action === 'freeUpDisk' || res.cleanedCategories !== undefined) {
         var reclaimedMiB = Number(res.reclaimedMiB) || 0;
         var reclaimedGiB = Number(res.reclaimedGiB) || 0;
@@ -970,7 +981,6 @@ private let HUD_HTML = #"""
       if (show) { _activeDetailCard = null; if (det) det.style.display = 'none'; if (ban) ban.style.display = 'none'; }
       el.style.display = show ? 'flex' : 'none';
       if (ov) ov.style.display = show ? 'none' : 'block';
-      if (show) sendAction('listUninstallApps');
     }
     function fmtBytes(n) {
       n = Number(n) || 0;
@@ -978,71 +988,6 @@ private let HUD_HTML = #"""
       if (n >= 1048576) return Math.round(n / 1048576) + ' MB';
       if (n >= 1024) return Math.round(n / 1024) + ' KB';
       return n + ' B';
-    }
-    var _uninstallConfirmUntil = {};
-    function confirmAppRemoval(clean, btn) {
-      var now = Date.now();
-      if ((_uninstallConfirmUntil[clean] || 0) > now) {
-        delete _uninstallConfirmUntil[clean];
-        return true;
-      }
-      _uninstallConfirmUntil[clean] = now + 4500;
-      if (btn) {
-        btn.textContent = 'Confirm Uninstall';
-        btn.style.color = '#fbbf24';
-        setTimeout(function() {
-          if ((_uninstallConfirmUntil[clean] || 0) <= Date.now() && btn && btn.textContent === 'Confirm Uninstall') {
-            btn.textContent = 'Uninstall';
-            btn.style.color = '#fca5a5';
-          }
-        }, 4600);
-      }
-      return false;
-    }
-    function requestUninstall(name, btn) {
-      var clean = String(name || '').trim();
-      if (!clean || !confirmAppRemoval(clean, btn)) return;
-      if (btn) { btn.textContent = 'Moving to Trash…'; btn.style.color = '#fca5a5'; }
-      sendAction('uninstallApp', { appName: clean });
-    }
-    function renderUninstallList(payload) {
-      var box = document.getElementById('uninstallList');
-      if (!box) return;
-      var apps = (payload && payload.apps) || [];
-      box.innerHTML = '';
-      if (payload && payload.ok === false) {
-        box.textContent = payload.error || 'App uninstalling is not available.';
-        return;
-      }
-      if (!apps.length) {
-        box.textContent = 'No extra apps to remove.';
-        return;
-      }
-      apps.forEach(function(app) {
-        var row = document.createElement('div');
-        row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgba(255,255,255,0.12);';
-        var label = document.createElement('span');
-        label.style.cssText = 'font-size:12px;color:rgba(255,255,255,0.88);';
-        label.textContent = app.name + ' · ' + fmtBytes(app.bytes);
-        var btn = document.createElement('button');
-        btn.className = 'tile-action';
-        btn.style.marginTop = '0';
-        btn.style.color = '#fca5a5';
-        btn.textContent = 'Uninstall';
-        btn.onclick = function() { requestUninstall(app.name, btn); };
-        row.appendChild(label);
-        row.appendChild(btn);
-        box.appendChild(row);
-      });
-    }
-    function renderUninstallResult(payload) {
-      var box = document.getElementById('uninstallList');
-      if (payload && payload.ok && box) {
-        box.textContent = (payload.appName || 'App') + ' moved to Trash · ' + fmtBytes(payload.beforeBytes);
-        sendAction('listUninstallApps');
-      } else if (box) {
-        box.textContent = (payload && payload.error) ? payload.error : 'Uninstall did not finish.';
-      }
     }
     function openCardDetail(cardId) {
       leaveCompactForDrawer();
@@ -1185,7 +1130,11 @@ private let HUD_HTML = #"""
         if (sl) sl.style.color = Number(state.secretsCount) > 0 ? '#fbbf24' : 'rgba(255,255,255,0.6)';
         if (sb) {
           sb.style.display = Number(state.secretsCount) > 0 ? 'inline-block' : 'none';
-          if (state.secretsBusy !== '1' && sb.getAttribute('data-busy') === '1') { sb.removeAttribute('data-busy'); sb.textContent = 'Blank Out Secrets'; sb.style.color = ''; }
+          if (state.secretsBusy !== '1') {
+            [sb].concat(Array.prototype.slice.call(document.querySelectorAll('[data-drawer-action="secretsBtn"]'))).forEach(function(b) {
+              if (b.getAttribute('data-busy') === '1') { b.removeAttribute('data-busy'); b.textContent = 'Blank Out Secrets'; b.style.color = ''; }
+            });
+          }
         }
       }
       setTextIfChanged('cpuLoad', state.cpuLoad);
@@ -1243,6 +1192,14 @@ private let HUD_HTML = #"""
           if (pw) pw.style.display = 'none';
         }
       }
+      var agb = document.getElementById('autoGuardBtn');
+      if (agb) {
+        var agOn = state.autoGuardOn === 'true';
+        setTextIfChanged('autoGuardBtn', !_isProClient ? 'Pro only' : (agOn ? 'On ✓' : 'Off'));
+        agb.style.color = agOn ? '#5eead4' : '';
+      }
+      setTextIfChanged('proLicenseBtn', _isProClient ? 'Change license' : 'Get Pro');
+      setTextIfChanged('proLicenseHelp', _isProClient ? 'Pro is active on this Mac.' : 'Pro adds Auto-Guard. $29 once.');
       if (state.statusBarIconVisible) {
         var isVis = (state.statusBarIconVisible === 'true');
         setTextIfChanged('statusBarToggleBtn', isVis ? 'Shown ✓ (Click to Hide)' : 'Hidden (Click to Show)');
@@ -2100,21 +2057,6 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         hudPanel.contentView = visualEffectView
     }
 
-    func runAppUninstaller(args: [String], done: @escaping (String) -> Void) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            let run = runTool("mac-yolo-app-uninstaller.js", args)
-            let json: String
-            if run.ran {
-                json = run.output
-            } else {
-                let err = (try? JSONSerialization.data(withJSONObject: ["ok": false, "error": run.problem ?? "No reply from the uninstaller."]))
-                    .flatMap { String(data: $0, encoding: .utf8) } ?? "{\"ok\":false}"
-                json = err
-            }
-            DispatchQueue.main.async { done(json) }
-        }
-    }
-
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let body = message.body as? [String: Any],
               let action = body["action"] as? String else { return }
@@ -2127,16 +2069,10 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             redactSecrets()
         case "optimizeAgents", "coolDownFans":
             coolDownFans()
-        case "listUninstallApps":
-            runAppUninstaller(args: ["--list"]) { json in
-                self.webView.evaluateJavaScript("renderUninstallList(\(json))", completionHandler: nil)
-            }
-        case "uninstallApp":
-            if let appName = body["appName"] as? String, !appName.isEmpty {
-                runAppUninstaller(args: ["--uninstall", appName, "--execute"]) { json in
-                    self.webView.evaluateJavaScript("renderUninstallResult(\(json))", completionHandler: nil)
-                }
-            }
+        case "toggleAutoGuard":
+            toggleAutoGuard(nil)
+        case "openFeedback":
+            openFeedback()
         case "testSpeed":
             runSpeedTest()
         case "moveHud":
