@@ -1,0 +1,28 @@
+{
+  "id": "<redacted>",
+  "source": "derived",
+  "description": "Same process but CPU still moving: not stranded.",
+  "snapshot": "real-03",
+  "overlay": {
+    "add": [
+      "900001 1 300000 03:00:00 ?? /Users/user/.local/bin/omp --resume=/Users/user/.omp/agent/sessions/-workspace-x/s1"
+    ]
+  },
+  "timeline": {
+    "flatForSec": 2400,
+    "moving": [
+      900001,
+      10115,
+      43925
+    ]
+  },
+  "expect": {
+    "kill": [],
+    "spare": [
+      {
+        "pid": 900001,
+        "reason": "burning CPU: somebody or something is driving it"
+      }
+    ]
+  }
+}

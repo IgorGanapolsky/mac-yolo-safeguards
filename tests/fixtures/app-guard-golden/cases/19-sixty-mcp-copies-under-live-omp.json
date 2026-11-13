@@ -1,0 +1,83 @@
+{
+  "id": "<redacted>",
+  "source": "derived",
+  "description": "60 copies of one MCP server all launched by a live omp session: fan-out, reported never killed.",
+  "snapshot": "real-03",
+  "overlay": {
+    "add": [
+      "903000 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903001 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903002 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903003 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903004 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903005 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903006 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903007 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903008 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903009 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903010 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903011 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903012 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903013 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903014 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903015 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903016 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903017 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903018 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903019 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903020 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903021 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903022 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903023 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903024 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903025 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903026 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903027 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903028 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903029 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903030 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903031 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903032 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903033 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903034 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903035 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903036 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903037 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903038 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903039 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903040 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903041 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903042 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903043 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903044 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903045 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903046 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903047 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903048 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903049 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903050 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903051 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903052 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903053 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903054 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903055 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903056 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903057 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903058 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server",
+      "903059 27893 50000 10:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/zz/node_modules/.bin/shared-mcp-server"
+    ]
+  },
+  "expect": {
+    "kill": [],
+    "spare": [
+      {
+        "pid": 903000,
+        "reason": "MCP server of a live session"
+      },
+      {
+        "pid": 903059,
+        "reason": "MCP server of a live session"
+      }
+    ]
+  }
+}

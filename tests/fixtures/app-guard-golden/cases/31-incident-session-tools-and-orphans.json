@@ -1,0 +1,69 @@
+{
+  "id": "<redacted>",
+  "source": "incident",
+  "description": "MCP servers and hooks of a live session are spared; orphaned copies of the same server leak (keep the newest, skip young copies and LaunchAgent jobs).",
+  "ps": [
+    "10 1 400000 01:00:00 ?? /Users/user/Library/Application Support/Claude/claude-code/2.1.321/ddbdf2b334e1/claude.app/Contents/MacOS/claude --output-format stream-json --verbose",
+    "40 10 30000 50:00 ?? npm exec some-mcp-server",
+    "41 40 60000 50:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "42 10 9000 00:20 ?? /bin/zsh -c node ~/.claude/hooks/telemetry_hook_bundle.js",
+    "43 42 9000 00:20 ?? node /Users/user/.claude/hooks/telemetry_hook_bundle.js",
+    "50 1 60000 15:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "51 1 60000 30:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "52 1 60000 45:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+    "53 1 60000 05:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server --fresh",
+    "54 1 60000 05:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server --fresh",
+    "60 1 60000 40:00 ?? /opt/homebrew/bin/python3 -m dayglass mcp",
+    "61 1 60000 40:00 ?? /opt/homebrew/bin/python3 -m dayglass mcp"
+  ],
+  "launchdPids": [
+    60,
+    61
+  ],
+  "expect": {
+    "kill": [
+      {
+        "pid": 51,
+        "reason": "orphan extra copy"
+      },
+      {
+        "pid": 52,
+        "reason": "orphan extra copy"
+      }
+    ],
+    "spare": [
+      {
+        "pid": 10,
+        "reason": "live session"
+      },
+      {
+        "pid": 41,
+        "reason": "live session's MCP server"
+      },
+      {
+        "pid": 43,
+        "reason": "live session's hook"
+      },
+      {
+        "pid": 50,
+        "reason": "newest orphan copy is kept"
+      },
+      {
+        "pid": 53,
+        "reason": "young orphan"
+      },
+      {
+        "pid": 54,
+        "reason": "young orphan"
+      },
+      {
+        "pid": 60,
+        "reason": "LaunchAgent job"
+      },
+      {
+        "pid": 61,
+        "reason": "LaunchAgent job"
+      }
+    ]
+  }
+}

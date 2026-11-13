@@ -1,0 +1,31 @@
+{
+  "id": "08-orphan-mcp-duplicate-copies",
+  "source": "derived",
+  "description": "Three orphaned copies of one MCP server at 90, 50 and 20 minutes: extras go, the newest stays.",
+  "snapshot": "real-03",
+  "overlay": {
+    "add": [
+      "900001 1 90000 01:30:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+      "900002 1 90000 50:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server",
+      "900003 1 90000 20:00 ?? /opt/homebrew/bin/node /Users/user/.npm/_npx/abc/node_modules/.bin/some-mcp-server"
+    ]
+  },
+  "expect": {
+    "kill": [
+      {
+        "pid": 900001,
+        "reason": "oldest orphan copy of the same server"
+      },
+      {
+        "pid": 900002,
+        "reason": "extra orphan copy"
+      }
+    ],
+    "spare": [
+      {
+        "pid": 900003,
+        "reason": "newest orphan copy is kept"
+      }
+    ]
+  }
+}

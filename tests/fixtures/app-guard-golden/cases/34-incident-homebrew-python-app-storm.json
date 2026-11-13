@@ -1,0 +1,237 @@
+{
+  "id": "<redacted>",
+  "source": "incident",
+  "description": "The storm ran under Homebrew's Python.app bundle, which is not an installed app and must not be spared by the Applications rule.",
+  "ps": [
+    "500 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "501 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "502 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "503 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "504 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "505 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "506 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "507 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "508 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "509 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "510 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "511 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "512 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "513 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "514 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "515 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "516 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "517 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "518 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "519 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "520 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "521 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "522 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "523 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "524 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "525 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "526 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "527 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "528 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "529 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "530 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "531 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "532 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "533 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "534 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "535 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "536 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "537 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "538 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "539 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "540 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "541 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "542 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "543 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py",
+    "544 1 60000 00:40 ?? /opt/homebrew/Cellar/python@3.14/3.14.10/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python /Users/user/bin/wrapper.py"
+  ],
+  "expect": {
+    "kill": [
+      {
+        "pid": 500,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 501,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 502,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 503,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 504,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 505,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 506,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 507,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 508,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 509,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 510,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 511,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 512,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 513,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 514,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 515,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 516,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 517,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 518,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 519,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 520,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 521,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 522,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 523,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 524,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 525,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 526,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 527,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 528,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 529,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 530,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 531,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 532,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 533,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 534,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 535,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 536,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 537,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 538,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 539,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 540,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 541,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 542,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 543,
+        "reason": "storm copy under Homebrew Python.app"
+      },
+      {
+        "pid": 544,
+        "reason": "storm copy under Homebrew Python.app"
+      }
+    ],
+    "spare": []
+  }
+}

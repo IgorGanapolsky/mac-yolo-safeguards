@@ -14,6 +14,7 @@ const STALL_S = 60 * 60;
 const PRODUCTS = {
   plink_1Ub5YIK8kufMLNF8TRikMkZh: "Pro Guard",
   plink_1Ub5YJK8kufMLNF8mWuPJcI1: "Pro Guard yearly",
+  plink_1Ub5csK8kufMLNF8tyckJDSm: "Pro Guard one-time",
   plink_1Ub5YJK8kufMLNF8zUXFrj9E: "Diagnostic",
   plink_1Ub5YKK8kufMLNF81IrS1jes: "Hardening Sprint",
   plink_1Ub5YLK8kufMLNF8YigxUkTf: "Partner Pilot",

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
-import { activate, refresh, readLicense, signLicense, activatePage, PRO_PAYMENT_LINK, PRO_PAYMENT_LINKS } from "../src/license.js";
+import { activate, refresh, readLicense, signLicense, activatePage, PRO_PAYMENT_LINK, PRO_PAYMENT_LINKS, ONE_TIME_PAYMENT_LINKS, LIFETIME_EXP } from "../src/license.js";
 
 const { publicKey, privateKey } = generateKeyPairSync("ed25519");
 const SK = privateKey.export({ format: "der", type: "pkcs8" }).toString("base64");
@@ -70,4 +70,16 @@ test("refresh renews an active subscription and refuses a cancelled one", async 
   assert.ok((await readLicense(ok.key, PK)).exp > Date.now() / 1000 + 39 * 86400);
   const gone = await refresh(env, key, fakeStripe({ "subscriptions/sub_123": { status: "canceled" } }), PK);
   assert.deepEqual(gone, { ok: false, reason: "subscription canceled" });
+});
+
+test("the $29 one-time checkout gets a key that never expires", async () => {
+  const link = [...ONE_TIME_PAYMENT_LINKS][0];
+  const once = { status: "complete", payment_status: "paid", payment_link: link, payment_intent: "pi_123", subscription: null, customer_details: { email: "once@example.com" } };
+  const r = await activate(env, SID, fakeStripe({ [`checkout/sessions/${SID}`]: once }));
+  assert.equal(r.ok, true);
+  const lic = await readLicense(r.key, PK);
+  assert.equal(lic.pi, "pi_123");
+  assert.equal(lic.exp, LIFETIME_EXP);
+  const unpaid = await activate(env, SID, fakeStripe({ [`checkout/sessions/${SID}`]: { ...once, payment_status: "unpaid", status: "open" } }));
+  assert.equal(unpaid.ok, false);
 });

@@ -1,0 +1,35 @@
+{
+  "id": "05-real-agents-idle-40min",
+  "source": "derived",
+  "description": "Real snapshot with every process CPU-flat for 40 minutes (a quiet evening): live sessions and their servers must survive. The two Cursor agent helpers run under launchd (ppid 1) with no tty, like stranded agents do.",
+  "snapshot": "real-03",
+  "timeline": {
+    "flatForSec": 2400,
+    "moving": []
+  },
+  "expect": {
+    "kill": [],
+    "spare": [
+      {
+        "pid": 97363,
+        "reason": "live Claude desktop session, idle but owned by the Claude app"
+      },
+      {
+        "pid": 27893,
+        "reason": "omp in a terminal"
+      },
+      {
+        "pid": 38740,
+        "reason": "claude in a terminal"
+      },
+      {
+        "pid": 10115,
+        "reason": "Cursor agent helper running under the Cursor app"
+      },
+      {
+        "pid": 43925,
+        "reason": "Cursor agent helper running under the Cursor app"
+      }
+    ]
+  }
+}

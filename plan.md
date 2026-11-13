@@ -4556,11 +4556,6 @@ Four public products suggest a shared clock for speech, terminal, and screen tex
 | SKILLS.md (one row) | grok-context-weight | 2026-11-11T16:11:01-0500 |
 | plan.md (this append) | grok-context-weight | 2026-11-11T16:11:01-0500 |
 
-## Task checkout gate (append 2026-11-12T10:56:36-0500) — `grok-task-checkout`
-
-A public post (https://depthfirst.com/post/secure-agent-first-cloud-dev-environment) gives each coding task its own git worktree, then places that worktree on a private cloud machine. This gate keeps the local piece. A task must name a checkout that is not the shared tree and not another task's tree. A remote dev machine, their firewall product, and their CLI stay refused. Their week and supply-chain sentences stay theirs. Local fields stay null.
-
-| T-TASK-CHECKOUT-20261112 | Fail closed when a coding task writes the shared checkout or another task's tree, and when a remote dev machine would be installed or started | in_progress | grok-task-checkout | `tools/task-checkout-gate.js`, `tests/test-task-checkout-gate.js`, `.agents/skills/task-checkout-gate/**`, `SKILLS.md` (one row), `plan.md` (this append) | `node tests/test-task-checkout-gate.js` exits 0. No remote machine is started and the shared checkout is not written. |
 ## Opt before scale (append 2026-11-12T11:26:09-0500) — `grok-opt-before-scale`
 
 Three public pages (https://www.tonyrobbins.com/events/business-mastery, https://www.tonyrobbins.com/blog/ai-advantage-summit, https://www.tonyrobbins.com/podcasts/holy-grail) say to fix a leak before buying more traffic, and they discuss private-market property. This gate keeps the local piece for Mac YOLO Safeguards. Scale, ads, and traffic stay refused until outside clients, average collected cents, and repeat payers are supplied. Founder addresses do not count. A property, private-credit, or exchange action is refused. Their growth and margin sentences stay theirs. Local fields stay null. The check does not spend and does not open a checkout.
@@ -4573,11 +4568,6 @@ Replaces `/usr/bin/networkQuality -c -s -M 20` on the HUD `Test Speed` action (w
 ### File claims (§2 append)
 | File | Owner | Claimed |
 |------|-------|---------|
-| tools/task-checkout-gate.js | grok-task-checkout | 2026-11-12T10:56:36-0500 |
-| tests/test-task-checkout-gate.js | grok-task-checkout | 2026-11-12T10:56:36-0500 |
-| .agents/skills/task-checkout-gate/** | grok-task-checkout | 2026-11-12T10:56:36-0500 |
-| SKILLS.md (one row) | grok-task-checkout | 2026-11-12T10:56:36-0500 |
-| plan.md (this append) | grok-task-checkout | 2026-11-12T10:56:36-0500 |
 | tools/opt-before-scale.js | grok-opt-before-scale | 2026-11-12T11:26:09-0500 |
 | tests/test-opt-before-scale.js | grok-opt-before-scale | 2026-11-12T11:26:09-0500 |
 | .agents/skills/opt-before-scale/** | grok-opt-before-scale | 2026-11-12T11:26:09-0500 |
@@ -4606,6 +4596,11 @@ The signed-in console at https://console.crusoecloud.com/home has no infrastruct
 | SKILLS.md (one row) | grok-quota-before-provision | 2026-11-12T13:41:47-0500 |
 | plan.md (this append) | grok-quota-before-provision | 2026-11-12T13:41:47-0500 |
 
+## Routine pause (append 2026-11-12T01:58:00 PM ET) — `grok-routine-pause`
+
+A background watcher reopened the Stripe payments page in Google Chrome. Pause, resume, and stop cover one cron line, one launchd job, or one watcher script. `com.igor.shutdown-simulators` stays loaded. The control does not open Chrome.
+
+| T-ROUTINE-PAUSE-20261112 | Pause or stop one cron line, launchd job, or watcher, and hold Chrome when the pause file says so | in_progress | grok-routine-pause | `tools/routine-pause.js`, `tests/test-routine-pause.js`, `tools/revenue-autonomous-loop.js` (chrome hold only), `.agents/skills/routine-pause/**`, `SKILLS.md` (one row), `plan.md` (this append) | `node tests/test-routine-pause.js` exits 0. `chromeOpened` stays false. The simulator shutdown agent is refused. |
 ## Jobs menu on the panel (append 2026-11-12T14:25:00-0500) — `grok-jobs-menu-reachable`
 
 The Background Jobs submenu already lists LaunchAgents, crontab lines, and loose scripts. The running panel had no control that opened it. A Jobs button at the top of the panel and a right-click on the menu-bar icon open that same menu. This does not install a build. The 10:36 network claim stays the network work. Pull request 2332 still owns the heavy-program sentence.
@@ -4615,6 +4610,12 @@ The Background Jobs submenu already lists LaunchAgents, crontab lines, and loose
 ### File claims (§2 append)
 | File | Owner | Claimed |
 |------|-------|---------|
+| tools/routine-pause.js | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
+| tests/test-routine-pause.js | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
+| tools/revenue-autonomous-loop.js (chrome hold only) | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
+| .agents/skills/routine-pause/** | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
+| SKILLS.md (one row) | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
+| plan.md (this append) | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
 | macos/MacYoloSafeguardsApp.swift | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
 | macos/MacYoloTranslucentHud.swift | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
 | tests/test-jobs-menu-reachable.js | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
@@ -4661,3 +4662,17 @@ The check now runs inside the post gate, the publish claim, and the send helper.
 | tools/send-next.js | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
 | tests/test-source-value-outbound.js | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
 | plan.md (this append) | grok-source-value-guard | 2026-11-12T15:52:44-0500 |
+
+## Paid extra check (append 2026-11-12T16:38:30-0500) — `grok-paid-extra-check`
+
+A priced offer fails when its file digest is the free download, when it names no extra, or when the paid name is only the free product name. A free price passes. A subscription with a named extra and no file passes. Vendor prices and fee shares stay on their pages and are not stored as local measurements. Sources: https://www.raycast.com/blog/changing-how-raycast-ai-is-priced (2026-09-10), https://setapp.com/tech-talks/distribute-app-on-setapp (2026-11-11), https://applecorridor.com/products/setapp/ (updated 2026-11-11).
+
+| T-PAID-EXTRA-CHECK-20261112 | Fail a paid offer that is the free download or that names no extra | in_progress | grok-paid-extra-check | `tools/paid-extra-check.js`, `tests/test-paid-extra-check.js`, `tools/payment-readiness.js` (offer row only), `plan.md` (this append) | `node tests/test-paid-extra-check.js` exits 0. A same-file paid offer and a blank extra exit 1. `node tests/test-mac-yolo-24x7-promote-carryforward.js` still exits 0. |
+
+### File claims (§2 append)
+| File | Owner | Claimed |
+|------|-------|---------|
+| tools/paid-extra-check.js | grok-paid-extra-check | 2026-11-12T16:38:30-0500 |
+| tests/test-paid-extra-check.js | grok-paid-extra-check | 2026-11-12T16:38:30-0500 |
+| tools/payment-readiness.js | grok-paid-extra-check | 2026-11-12T16:38:30-0500 |
+| plan.md (this append) | grok-paid-extra-check | 2026-11-12T16:38:30-0500 |

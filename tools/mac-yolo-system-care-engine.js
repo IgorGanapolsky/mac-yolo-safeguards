@@ -33,6 +33,7 @@ const { verifyActionAgainstGround, buildHubGraphSnapshot } = require('./agentic-
 const path = require('path');
 const os = require('os');
 const { execFileSync, spawnSync } = require('child_process');
+const { logDecisions, actionStats } = require('./mac-yolo-action-log');
 const { runDiskSmartScan, runDiskSmartClean } = require('./mac-yolo-disk-guard');
 
 const HOME = os.homedir();
@@ -465,13 +466,37 @@ function runFivePillarSmartCare(options = {}) {
 // Live agent sessions are never runaways. A rule here once matched every Claude Code
 // desktop session by its install path, and each Cool Down Fans pass killed them all
 // (2026-11-01, 10:22-11:03).
-function isRunawayCommand(cmd) {
-  if (isLiveAgentProcess(cmd)) return false;
+function matchesRunawayPattern(cmd) {
   return (
     cmd.includes('mac-autonomy-self-heal.sh') ||
     cmd.includes('sync-agent-skills.sh --check') ||
     (cmd.includes('find /Users/') && cmd.includes('-name'))
   );
+}
+
+function isRunawayCommand(cmd) {
+  if (isLiveAgentProcess(cmd)) return false;
+  return matchesRunawayPattern(cmd);
+}
+
+// One audit decision for every process that looks like a runaway, spared or not.
+function runawayDecisions(procs, killedPids = new Set(), deniedPids = new Set()) {
+  const byPid = indexByPid(procs);
+  const kill = new Set(runawayPids(procs));
+  const out = [];
+  for (const p of procs) {
+    if (p.pid === process.pid || !matchesRunawayPattern(p.command)) continue;
+    if (kill.has(p.pid)) {
+      out.push(deniedPids.has(p.pid)
+        ? { proc: p, decision: 'spare', reason: 'runaway pattern, but the ground-truth check denied the kill', killed: false }
+        : { proc: p, decision: 'kill', reason: 'runaway command with no live agent session above it', killed: killedPids.has(p.pid) });
+    } else if (isLiveAgentProcess(p.command)) {
+      out.push({ proc: p, decision: 'spare', reason: 'live agent session or its wrapper', killed: false });
+    } else if (liveAgentAncestor(p, byPid)) {
+      out.push({ proc: p, decision: 'spare', reason: 'started by a live agent session', killed: false });
+    }
+  }
+  return out;
 }
 
 // Anything a live session started (its Bash tool running find, a hook, an MCP server)
@@ -499,9 +524,10 @@ function coolDownFansAndReapRunaways() {
     const graphSnapshot = buildHubGraphSnapshot();
 
     // 1. Terminate verified runaway commands
+    const deniedPids = new Set();
     for (const pid of runawayPids(parsed)) {
       const check = verifyActionAgainstGround('kill', pid, graphSnapshot);
-      if (!check.allowed) continue;
+      if (!check.allowed) { deniedPids.add(pid); continue; }
       try {
         process.kill(pid, 'SIGTERM');
         reapedPids.push(pid);
@@ -509,6 +535,8 @@ function coolDownFansAndReapRunaways() {
         /* ignore */
       }
     }
+
+    logDecisions('coolDownFans', runawayDecisions(parsed, new Set(reapedPids), deniedPids));
 
     // 2. Renice background non-GUI indexers/heavy user workers to low scheduling priority (+15)
     for (const p of parsed) {
@@ -594,6 +622,15 @@ if (require.main === module) {
     process.exit(0);
   }
 
+  const statsIdx = argv.indexOf('--action-stats');
+  if (statsIdx !== -1) {
+    const daysArg = argv.indexOf('--days');
+    const days = daysArg !== -1 && Number(argv[daysArg + 1]) > 0 ? Number(argv[daysArg + 1]) : 7;
+    const st = actionStats({ days });
+    console.log(`last ${st.days} days: runs=${st.runs} kills=${st.kills} spares=${st.spares} mb_freed=${st.mbFreed}`);
+    process.exit(0);
+  }
+
   if (argv.includes('--cool-down-fans')) {
     console.log(JSON.stringify(coolDownFansAndReapRunaways(), null, 2));
     process.exit(0);
@@ -628,5 +665,6 @@ module.exports = {
   coolDownFansAndReapRunaways,
   isRunawayCommand,
   runawayPids,
+  runawayDecisions,
   runFivePillarSmartCare,
 };
