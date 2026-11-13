@@ -735,6 +735,9 @@ private let HUD_HTML = #"""
         return;
       }
       _stopArmedUntil = 0;
+      // Put the real label back first: triggerHudAction restores whatever label it sees here.
+      btn.textContent = 'Stop Runaways';
+      btn.setAttribute('data-orig', 'Stop Runaways');
       var stopAct = 'coolDown' + 'Fans';
       triggerHudAction(stopAct, btn, 'Stopping…', 'Done ✓');
     }
@@ -756,7 +759,10 @@ private let HUD_HTML = #"""
         return;
       }
       _hudActionConfirmUntil[action] = 0;
-      if (btn) btn.style.color = '';
+      if (btn) {
+        btn.style.color = '';
+        if (idleText) { btn.textContent = idleText; btn.setAttribute('data-orig', idleText); }
+      }
       triggerHudAction(action, btn, busyText, doneText);
     }
     function blankOutSecrets(btn) {
