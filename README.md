@@ -15,8 +15,6 @@
 
 > **TL;DR** — On 2026-05-26 my Mac hit load average **307** because an AI agent kept booting iOS Simulators in a loop. This repo is the four-piece kit that stopped it: a wrapper, a LaunchAgent, a plist, and a 12-point health check. MIT, telemetry off by default, symlinks-only install. Full incident write-up: [`CASE-STUDY.md`](./docs/CASE-STUDY.md).
 
-**Paid reliability help:** [Book 20-min triage](https://cal.com/igor-g-kvqxfo/30min) | [Partner Pilot](./docs/PARTNER-PILOT.md) | [Public-safe paid inquiry](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=paid-hardening-inquiry.yml)
-
 <details>
 <summary><b>load average 307, in one picture</b> (a meme that's not wrong)</summary>
 
@@ -34,20 +32,13 @@
 
 ## For Teams And Partners
 
-If you only need the free Mac guard, install it below.
-
-**Built your app with AI (Cursor, Claude Code, Lovable, Bolt) and not sure it's safe to launch?** Get it audited for leaked secrets, runaway cloud bills, and crash-under-load bugs → **[AI App Safety Audit](./docs/AI-APP-SAFETY-AUDIT.md)** (5-day fixed-fee, plain-English report).
-
-If you run agents for a team or clients and have a repeated failure that costs hours, tokens, delivery risk, or client trust, start with [AI Agent Reliability Hardening](./docs/AI-AGENT-HARDENING.md):
+If you only need the free Mac guard, install it below. The one paid upgrade for individuals:
 
 | Path | Deliverables | Pricing |
 |---|---|---|
 | **[Mac YOLO Pro Guard](https://macyolosafeguards.io/go/pro-once?from=github_readme)** | Everything in the free app, plus automatic shutdown of leftover agent processes and MCP servers. One payment, yours to keep, 30-day refund. | `$29 once` |
-| **[Agent Safeguards Playbook](https://iganapolsky.gumroad.com/l/odrkon)** | Self-serve runbook: OS-level runaway-kill, timeout, and token-budget templates for Mac agent fleets. | `$9.99` |
-| **[Corporate-Expense Reliability Kit](https://iganapolsky.gumroad.com/l/vcrho)** | Drop-in team bundle: LaunchAgent templates, MCP server, pre-execution gates, and audit receipt harness. | `$49` |
-| **[Agent Reliability Diagnostic](https://buy.stripe.com/3cI28s5F6cxN9Bt4nJf3a02)** | A 20-minute live call about one failure, then a written root-cause readout with prevention rules within 48 hours. No installation. | `$499` |
-| **[AI Agent Hardening Sprint](./docs/AI-AGENT-HARDENING.md)** ([Stripe Checkout](https://buy.stripe.com/dRmdRa3wYdBRdRJ7zVf3a03)) | Fixed-scope hardening for one high-cost agent workflow plus regression gate. | `$1,500` |
-| [Partner Pilot](./docs/PARTNER-PILOT.md) ([Stripe Checkout](https://buy.stripe.com/9B6eVdcqM7DgcSdayn3sJ0Z)) | Agencies or consultants need a reusable client-facing reliability package. | `$3,000` |
+
+Team and agency options (one-incident investigation, team rollout, partner pilot, runbooks, and the [AI App Safety Audit](./docs/AI-APP-SAFETY-AUDIT.md)) are on one page: **[macyolosafeguards.io/teams](https://macyolosafeguards.io/teams/?from=github_readme)**.
 
 Private workflow details: [book a 20-minute triage](https://cal.com/igor-g-kvqxfo/30min) or email [iganapolsky@gmail.com](mailto:iganapolsky@gmail.com). Public-safe intake: [open a paid hardening inquiry](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=paid-hardening-inquiry.yml).
 

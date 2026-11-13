@@ -5,10 +5,11 @@ import vm from "node:vm";
 import worker from "../src/worker.js";
 
 const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
-const script = html.match(/<script>\s*(\/\/ Where a visitor came from[\s\S]*?)<\/script>/)[1];
-const hrefs = [...html.matchAll(/<a [^>]*href="(\/go\/[^"]+)"/g)].map((m) => m[1]);
+const teamsHtml = readFileSync(new URL("../public/teams/index.html", import.meta.url), "utf8");
 
-function page(search, referrer) {
+function page(search, referrer, doc = html) {
+  const script = doc.match(/<script>\s*(\/\/ Where a visitor came from[\s\S]*?)<\/script>/)[1];
+  const hrefs = [...doc.matchAll(/<a [^>]*href="(\/go\/[^"]+)"/g)].map((m) => m[1]);
   const banner = { hidden: true };
   const links = hrefs.map((href) => ({ href, getAttribute() { return this.href; }, setAttribute(_, v) { this.href = v; } }));
   vm.runInNewContext(script, {
@@ -21,13 +22,12 @@ function page(search, referrer) {
 
 test("banner starts hidden and checkout links start untagged", () => {
   assert.match(html, /<p id="ph-welcome" class="welcome" hidden>/);
-  assert.ok(hrefs.includes("/go/pro-once") && hrefs.includes("/go/dmg"));
+  assert.ok(html.includes('href="/go/pro-once"') && html.includes('href="/go/dmg"'));
 });
 
 test("the app's Pro notice tags paid checkout links, not downloads", () => {
   const p = page("?from=app_nudge", "");
   assert.equal(p.links["/go/pro-once"], "/go/pro-once?client_reference_id=app_nudge");
-  assert.equal(p.links["/go/sprint"], "/go/sprint?client_reference_id=app_nudge");
   assert.equal(p.links["/go/dmg"], "/go/dmg");
   assert.equal(p.banner, false);
 });
@@ -79,4 +79,26 @@ test("test mode sends the $29 once aliases to the test checkout", async () => {
   for (const slug of ["pro-once", "once", "lifetime"]) {
     assert.equal(checkoutTarget(slug, env), "https://checkout.stripe.com/test");
   }
+});
+
+test("the homepage shows one paid offer; team offers live on /teams/ and keep their source tag", () => {
+  for (const slug of ["diagnostic", "sprint", "pilot"]) assert.ok(!html.includes(`href="/go/${slug}"`), slug);
+  assert.match(html, /<a href="\/teams\/">For teams<\/a>/);
+  const t = page("?from=app_nudge", "", teamsHtml);
+  assert.equal(t.links["/go/sprint"], "/go/sprint?client_reference_id=app_nudge");
+  assert.equal(t.links["/go/pilot"], "/go/pilot?client_reference_id=app_nudge");
+  assert.equal(t.links["/go/dmg"], "/go/dmg");
+  assert.equal(page("?ref=producthunt", "", teamsHtml).links["/go/diagnostic"], "/go/diagnostic?client_reference_id=producthunt");
+});
+
+test("the For teams link carries the visitor's tags", () => {
+  const code = html.match(/<script>\s*(\/\/ The "For teams" link[\s\S]*?)<\/script>/)[1];
+  const run = (search, referrer = "") => {
+    const a = { href: "/teams/", setAttribute(_, v) { this.href = v; } };
+    vm.runInNewContext(code, { URL, URLSearchParams, location: { search }, document: { referrer, querySelector: () => a } });
+    return a.href;
+  };
+  assert.equal(run("?from=hn&utm_source=x&junk=1"), "/teams/?from=hn&utm_source=x");
+  assert.equal(run("", "https://www.producthunt.com/posts/y"), "/teams/?ref=producthunt");
+  assert.equal(run(""), "/teams/");
 });
