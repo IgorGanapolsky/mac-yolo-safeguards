@@ -83,10 +83,13 @@
 // client_reference_id, so each checkout session records its source. Product Hunt visitors also get a welcome.
 (function(){
   var q=new URLSearchParams(location.search);
-  var ph=q.get("ref")==="producthunt"||/(^|\.)producthunt\.com$/.test((document.referrer&&new URL(document.referrer).hostname)||"");
+  var host="";try{host=document.referrer?new URL(document.referrer).hostname:""}catch(e){}
+  var ph=q.get("ref")==="producthunt"||/(^|\.)producthunt\.com$/.test(host);
   if(ph)document.getElementById("ph-welcome").hidden=false;
+  // Hacker News and Reddit send only their origin as the referrer; name them so a sale shows where it came from.
+  var site=ph?"producthunt":/^news\.ycombinator\.com$/.test(host)?"hn":/(^|\.)reddit\.com$/.test(host)?"reddit":"";
   var from=q.get("from");
-  var src=from&&/^[a-z0-9_-]{1,40}$/.test(from)?from:(ph?"producthunt":"");
+  var src=from&&/^[a-z0-9_-]{1,40}$/.test(from)?from:site;
   if(!src)return;
   var links=document.querySelectorAll('a[href^="/go/"]');
   for(var i=0;i<links.length;i++){
