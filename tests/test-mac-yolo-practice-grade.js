@@ -111,6 +111,14 @@ const noHoldout = gradePractice(Object.assign({}, PROOF, {
 assert.strictEqual(noHoldout.ok, false);
 assert.ok(noHoldout.planes.find((item) => item.id === 'ml').score < 10);
 
+const percentAuc = gradePractice(Object.assign({}, PROOF, { ml: Object.assign({}, PROOF.ml, { holdoutAuc: 72 }) }));
+assert.strictEqual(percentAuc.ok, false, 'an AUC above 1 is not an AUC');
+assert.ok(percentAuc.planes.find((item) => item.id === 'ml').score < 10);
+
+const failedQuery = gradePractice(Object.assign({}, PROOF, { graph: Object.assign({}, PROOF.graph, { queryExit: 1 }) }));
+assert.strictEqual(failedQuery.ok, false, 'a failed graph query cannot earn a perfect grade');
+assert.ok(failedQuery.planes.find((item) => item.id === 'graphRag').score < 10);
+
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'practice-grade-'));
 const failingPath = path.join(dir, 'today.json');
 fs.writeFileSync(failingPath, JSON.stringify(TODAY));

@@ -91,13 +91,17 @@ function scoreDataScience(evidence) {
   return plane('dataScience', score, reasons);
 }
 
+// ROC AUC lives in (0.5, 1] for a model better than chance; a percentage like 72 is not an AUC.
+function validAuc(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0.5 && value <= 1;
+}
+
 function scoreMl(evidence) {
   const row = evidence.ml || {};
   if (
     row.trained === true &&
     row.productionId &&
-    typeof row.holdoutAuc === 'number' &&
-    row.holdoutAuc > 0.5 &&
+    validAuc(row.holdoutAuc) &&
     row.paidPositives >= 30
   ) {
     return plane('ml', 10, []);
@@ -106,6 +110,7 @@ function scoreMl(evidence) {
   if (!row.productionId) reasons.push('The model registry has no production model.');
   if (row.trained === false) reasons.push('The propensity file is not trained.');
   if (row.holdoutAuc == null) reasons.push('No holdout AUC is recorded.');
+  else if (!validAuc(row.holdoutAuc)) reasons.push('The holdout AUC must be a number in (0.5, 1].');
   let score = 2;
   if (row.productionId && row.trained === true && typeof row.holdoutAuc === 'number') score = 6;
   return plane('ml', score, reasons);
@@ -114,6 +119,7 @@ function scoreMl(evidence) {
 function scoreGraph(evidence) {
   const row = evidence.graph || {};
   if (
+    row.queryExit === 0 &&
     row.queryNamesPanel === true &&
     row.commitsBehindMain === 0 &&
     row.dirty === false &&
