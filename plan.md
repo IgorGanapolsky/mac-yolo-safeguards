@@ -4596,6 +4596,11 @@ The signed-in console at https://console.crusoecloud.com/home has no infrastruct
 | SKILLS.md (one row) | grok-quota-before-provision | 2026-11-12T13:41:47-0500 |
 | plan.md (this append) | grok-quota-before-provision | 2026-11-12T13:41:47-0500 |
 
+## Routine pause (append 2026-11-12T01:58:00 PM ET) — `grok-routine-pause`
+
+A background watcher reopened the Stripe payments page in Google Chrome. Pause, resume, and stop cover one cron line, one launchd job, or one watcher script. `com.igor.shutdown-simulators` stays loaded. The control does not open Chrome.
+
+| T-ROUTINE-PAUSE-20261112 | Pause or stop one cron line, launchd job, or watcher, and hold Chrome when the pause file says so | in_progress | grok-routine-pause | `tools/routine-pause.js`, `tests/test-routine-pause.js`, `tools/revenue-autonomous-loop.js` (chrome hold only), `.agents/skills/routine-pause/**`, `SKILLS.md` (one row), `plan.md` (this append) | `node tests/test-routine-pause.js` exits 0. `chromeOpened` stays false. The simulator shutdown agent is refused. |
 ## Jobs menu on the panel (append 2026-11-12T14:25:00-0500) — `grok-jobs-menu-reachable`
 
 The Background Jobs submenu already lists LaunchAgents, crontab lines, and loose scripts. The running panel had no control that opened it. A Jobs button at the top of the panel and a right-click on the menu-bar icon open that same menu. This does not install a build. The 10:36 network claim stays the network work. Pull request 2332 still owns the heavy-program sentence.
@@ -4605,6 +4610,12 @@ The Background Jobs submenu already lists LaunchAgents, crontab lines, and loose
 ### File claims (§2 append)
 | File | Owner | Claimed |
 |------|-------|---------|
+| tools/routine-pause.js | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
+| tests/test-routine-pause.js | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
+| tools/revenue-autonomous-loop.js (chrome hold only) | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
+| .agents/skills/routine-pause/** | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
+| SKILLS.md (one row) | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
+| plan.md (this append) | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
 | macos/MacYoloSafeguardsApp.swift | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
 | macos/MacYoloTranslucentHud.swift | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
 | tests/test-jobs-menu-reachable.js | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
