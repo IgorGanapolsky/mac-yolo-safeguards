@@ -4,9 +4,13 @@
 /**
  * Fresh-context review gate, from Google's Elephant-Goldfish Model.
  * Source: https://github.com/google/elephant-goldfish-model
+ * Write-up: https://www.marktechpost.com/2026/11/08/google-elephant-goldfish-model-plugin-spec-review-coding-agents/
  *
  * A review in the same context is not a Goldfish review.
  * The parent must name a different reviewer.
+ * A child prompt that already contains the verdict is not a review.
+ * Host instruction files do not belong in the child's file list.
+ * Installing the plugin is refused. Vendor timings are not local results.
  * An open blocker or open major fails the receipt.
  * A stage may be re-audited at most once.
  * This gate does not call a model.
@@ -17,6 +21,16 @@ const fs = require('fs');
 const SOURCE = 'https://github.com/google/elephant-goldfish-model';
 const RANKS = new Set(['blocker', 'major', 'nit']);
 const STATUSES = new Set(['open', 'accepted', 'fixed']);
+const HOST_FILES = new Set(['AGENTS.md', 'CLAUDE.md', 'GEMINI.md', '.cursorrules']);
+const PROMPT_LEAK = [
+  /return\s+verdict\s*:\s*pass/i,
+  /return\s+pass\b/i,
+  /findings are already/i,
+  /already fixed/i,
+  /fixes already landed/i,
+];
+const VENDOR_FIGURE = /\b573\.13\b|\b482\.30\b|15 native reviewers|16 native reviewers|thousands of (?:its |google'?s )?engineers/i;
+const INSTALL = /elephant-goldfish-model|egm@egm|agy\s+plugin\s+install/i;
 const REQUIRED = {
   full: [5, 6, 7, 8, 9],
   feature_spec: [5, 6, 7, 8],
@@ -75,6 +89,23 @@ function reviewReceipt(receipt) {
     }
   }
 
+  const prompt = filled(input.childPrompt);
+  if (prompt && PROMPT_LEAK.some((pattern) => pattern.test(prompt))) {
+    findings.push(finding('parent_verdict', 'blocker'));
+  }
+  const files = Array.isArray(input.childContextFiles) ? input.childContextFiles : [];
+  if (files.some((name) => HOST_FILES.has(filled(name).split('/').pop()))) {
+    findings.push(finding('host_instructions', 'blocker'));
+  }
+  const command = filled(input.command || input.install);
+  const kind = filled(input.kind || input.action);
+  if (kind === 'install' || (command && INSTALL.test(command))) {
+    findings.push(finding('plugin_install', 'blocker'));
+  }
+  if (input.measuredHere === true && VENDOR_FIGURE.test([prompt, filled(input.note)].join('\n'))) {
+    findings.push(finding('vendor_figure', 'blocker'));
+  }
+
   return {
     ok: findings.length === 0,
     findings,
@@ -90,6 +121,11 @@ function argValue(argv, flag) {
 
 function main() {
   const argv = process.argv.slice(2);
+  if (argv.includes('--install')) {
+    const report = reviewReceipt({ kind: 'install', command: argValue(argv, '--install') });
+    console.log(JSON.stringify(report));
+    process.exit(2);
+  }
   if (argv.includes('--review')) {
     const file = argValue(argv, '--review');
     const receipt = JSON.parse(fs.readFileSync(file, 'utf8'));
