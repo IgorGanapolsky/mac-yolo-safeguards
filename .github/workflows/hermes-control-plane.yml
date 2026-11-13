@@ -19,13 +19,13 @@ on:
       - "tests/test-thumbgate-aeo-monitor.js"
       - "tools/thumbgate-aeo-monitor.js"
       - "config/thumbgate-aeo-prompts.json"
-      - "com.igor.thumbgate-aeo-monitor.plist"
+      - "launchd/com.igor.thumbgate-aeo-monitor.plist"
       - "scripts/install-thumbgate-aeo-monitor.sh"
       - "docs/THUMBGATE-AEO-MONITORING.md"
       - "docs/RESEARCH-DASHBOARD-E2E-JULY-2026.md"
       - "tests/test-saas-watchdog.sh"
       - "saas/saas-watchdog.sh"
-      - "com.igor.saas-watchdog.plist"
+      - "launchd/com.igor.saas-watchdog.plist"
       - "tests/test-revenue-anomaly-watchdog.sh"
       - "saas/revenue-anomaly-watchdog.sh"
       - ".github/workflows/revenue-anomaly-watch.yml"
@@ -71,14 +71,14 @@ jobs:
             tests/test-thumbgate-aeo-monitor.js \
             tools/thumbgate-aeo-monitor.js \
             config/thumbgate-aeo-prompts.json \
-            com.igor.thumbgate-aeo-monitor.plist \
+            launchd/com.igor.thumbgate-aeo-monitor.plist \
             scripts/install-thumbgate-aeo-monitor.sh \
             docs/THUMBGATE-AEO-MONITORING.md \
             docs/RESEARCH-THUMBGATE-AEO-JULY-2026.md \
             docs/RESEARCH-DASHBOARD-E2E-JULY-2026.md \
             tests/test-saas-watchdog.sh \
             saas/saas-watchdog.sh \
-            com.igor.saas-watchdog.plist \
+            launchd/com.igor.saas-watchdog.plist \
             tests/test-revenue-anomaly-watchdog.sh \
             saas/revenue-anomaly-watchdog.sh \
             .github/workflows/revenue-anomaly-watch.yml \
