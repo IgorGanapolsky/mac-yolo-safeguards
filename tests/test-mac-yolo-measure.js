@@ -142,6 +142,57 @@ t('time parsing: 12-hour local', () => {
   assert.throws(() => M.parseTime('whenever'), /cannot read time/);
 });
 
+t('compare: an agent that goes idle counts as 0, and a vanished agent keeps its row', () => {
+  reset();
+  for (let i = 0; i < 3; i++) M.appendSnapshot({ type: 'snapshot', ts: iso(70 - i * 10), agents: { claude: 2, omp: 1 }, machine: { cpuPct: 50 } }, NOW);
+  M.addMarker('idle test', NOW - 30 * 60e3);
+  M.appendSnapshot({ type: 'snapshot', ts: iso(25), agents: { claude: 2 }, machine: { cpuPct: 50 } }, NOW);
+  M.appendSnapshot({ type: 'snapshot', ts: iso(15), agents: {}, machine: { cpuPct: 50 } }, NOW);
+  M.appendSnapshot({ type: 'snapshot', ts: iso(5), agents: {}, machine: { cpuPct: null } }, NOW);
+  const r = M.compare({ around: 'idle test', now: NOW });
+  const claude = r.rows.find((x) => x.metric === 'agents.claude');
+  assert.ok(Math.abs(claude.after - 2 / 3) < 1e-9, `after ${claude.after}`);
+  assert.ok(claude.changePct < -60);
+  const omp = r.rows.find((x) => x.metric === 'agents.omp');
+  assert.ok(omp && omp.after === 0 && omp.changePct === -100, 'omp row must not disappear');
+  const cpu = r.rows.find((x) => x.metric === 'machine.cpuPct');
+  assert.strictEqual(cpu.after, 50, 'unavailable machine readings are not zero-filled');
+});
+
+t('compare: unpriced models make cost a floor with no percentage', () => {
+  reset();
+  const tok = (usd, unpriced) => ({ last2h: { costUSD: usd, calls: 1, unpriced } });
+  for (let i = 0; i < 3; i++) M.appendSnapshot({ type: 'snapshot', ts: iso(70 - i * 10), tokens: tok(10, []) }, NOW);
+  M.addMarker('switch', NOW - 30 * 60e3);
+  for (let i = 0; i < 3; i++) M.appendSnapshot({ type: 'snapshot', ts: iso(25 - i * 10), tokens: tok(0, ['mystery-1']) }, NOW);
+  const r = M.compare({ around: 'switch', now: NOW });
+  const cost = r.rows.find((x) => x.metric === 'tokens.last2h.costUSD');
+  assert.strictEqual(cost.floor, true);
+  assert.strictEqual(cost.changePct, null);
+  assert.ok(!r.text.includes('-100.0%'));
+  assert.ok(r.text.includes('Cost is a floor') && r.text.includes('mystery-1'));
+  const calls = r.rows.find((x) => x.metric === 'tokens.last2h.calls');
+  assert.strictEqual(calls.floor, false);
+});
+
+t('markers older than 30 days are pruned on the next mark', () => {
+  reset();
+  M.addMarker('ancient', Date.now() - 31 * 86400e3);
+  M.addMarker('fresh');
+  const labels = M.listMarkers().map((m) => m.label);
+  assert.deepStrictEqual(labels, ['fresh']);
+});
+
+t('LaunchAgent installer refuses a worktree or temp root', () => {
+  const { spawnSync } = require('child_process');
+  const sh = path.join(__dirname, '..', 'tools', 'install-metrics-launchagent.sh');
+  for (const root of ['/tmp/x', '/Users/me/repo/.claude/worktrees/agent-1']) {
+    const r = spawnSync('bash', [sh, root], { encoding: 'utf8', env: { ...process.env, HOME: dir } });
+    assert.strictEqual(r.status, 1, root);
+    assert.ok(r.stderr.includes('Refusing to install'));
+  }
+});
+
 t('MCP: measure tools are listed and work through callTool and JSON-RPC', () => {
   const names = mcp.getToolDefinitions().map((x) => x.name);
   assert.ok(names.includes('measure_compare') && names.includes('measure_mark'));

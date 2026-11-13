@@ -4,6 +4,11 @@
 # Usage: tools/install-metrics-launchagent.sh [repo-root]   (default: the repo this script lives in)
 set -euo pipefail
 ROOT="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
+case "$ROOT" in
+  */.claude/worktrees/*|*/worktrees/*|/tmp/*|/private/tmp/*|/var/folders/*|/private/var/folders/*)
+    echo "Refusing to install: $ROOT is a worktree or temp path that will disappear. Run this from the main checkout." >&2
+    exit 1 ;;
+esac
 LABEL="com.igor.macyolo.metrics"
 PLIST="$HOME/Library/LaunchAgents/${LABEL}.plist"
 NODE="$(command -v node)"

@@ -259,7 +259,16 @@ function addMarker(label, atMs) {
   if (!label || !String(label).trim()) throw new Error('marker label required');
   fs.mkdirSync(metricsDir(), { recursive: true });
   const m = { type: 'marker', ts: new Date(atMs || Date.now()).toISOString(), label: String(label).trim() };
-  fs.appendFileSync(markersFile(), JSON.stringify(m) + '\n');
+  const file = markersFile();
+  const cutoff = Date.now() - RETENTION_DAYS * 86400e3;
+  const old = readJsonl(file);
+  const kept = old.filter((x) => Date.parse(x.ts) >= cutoff);
+  if (kept.length !== old.length) {
+    const tmp = file + '.tmp';
+    fs.writeFileSync(tmp, kept.map((x) => JSON.stringify(x)).join('\n') + (kept.length ? '\n' : ''));
+    fs.renameSync(tmp, file);
+  }
+  fs.appendFileSync(file, JSON.stringify(m) + '\n');
   return m;
 }
 
@@ -308,16 +317,29 @@ function flatten(obj, prefix, out) {
   return out;
 }
 
-function averages(samples) {
+/** Keys for agents: absent in a sample means the agent was idle or gone, so it counts as 0, not as missing. */
+const ZERO_FILL = /^agents\.|\.byAgent\./;
+
+function averages(samples, zeroKeys) {
   const sums = {}, counts = {};
   for (const s of samples) {
-    for (const [k, v] of Object.entries(flatten(s, '', {}))) {
+    const flat = flatten(s, '', {});
+    for (const k of zeroKeys || []) if (!(k in flat)) flat[k] = 0;
+    for (const [k, v] of Object.entries(flat)) {
       sums[k] = (sums[k] || 0) + v; counts[k] = (counts[k] || 0) + 1;
     }
   }
   const out = {};
   for (const k of Object.keys(sums)) out[k] = sums[k] / counts[k];
   return out;
+}
+
+function unpricedModels(samples) {
+  const set = new Set();
+  for (const s of samples) {
+    for (const w of Object.values((s && s.tokens) || {})) for (const m of (w && w.unpriced) || []) set.add(m);
+  }
+  return [...set].sort();
 }
 
 function inRange(snaps, [a, b]) {
@@ -334,10 +356,18 @@ function compareSamples(snaps, beforeRange, afterRange) {
     rows: [],
   };
   if (!res.enough) return res;
-  const ab = averages(b), aa = averages(a);
+  const zeroKeys = new Set();
+  for (const s of b.concat(a)) for (const k of Object.keys(flatten(s, '', {}))) if (ZERO_FILL.test(k)) zeroKeys.add(k);
+  const ab = averages(b, zeroKeys), aa = averages(a, zeroKeys);
+  res.unpriced = { before: unpricedModels(b), after: unpricedModels(a) };
+  const incomplete = res.unpriced.before.length > 0 || res.unpriced.after.length > 0;
   for (const k of Object.keys(ab).filter((x) => x in aa).sort()) {
     const before = ab[k], after = aa[k];
-    res.rows.push({ metric: k, before, after, changePct: before === 0 ? (after === 0 ? 0 : null) : ((after - before) / before) * 100 });
+    const floor = incomplete && /costUSD$/.test(k);
+    res.rows.push({
+      metric: k, before, after, floor,
+      changePct: floor ? null : (before === 0 ? (after === 0 ? 0 : null) : ((after - before) / before) * 100),
+    });
   }
   return res;
 }
@@ -358,8 +388,12 @@ function formatCompare(res, title) {
   }
   L.push('Averages per side. Spend and token numbers are totals over the trailing window of each snapshot.');
   for (const r of res.rows) {
-    const ch = r.changePct === null ? 'new' : `${r.changePct >= 0 ? '+' : ''}${r.changePct.toFixed(1)}%`;
+    const ch = r.floor ? 'floor, not comparable' : r.changePct === null ? 'new' : `${r.changePct >= 0 ? '+' : ''}${r.changePct.toFixed(1)}%`;
     L.push(`${r.metric.padEnd(34)} ${num(r.before).padStart(12)} -> ${num(r.after).padStart(12)}  ${ch}`);
+  }
+  const up = res.unpriced || { before: [], after: [] };
+  if (up.before.length || up.after.length) {
+    L.push(`Cost is a floor: unpriced models add nothing (before: ${up.before.join(', ') || 'none'}; after: ${up.after.join(', ') || 'none'}). Dollar changes are not shown as percentages.`);
   }
   return L.join('\n');
 }
