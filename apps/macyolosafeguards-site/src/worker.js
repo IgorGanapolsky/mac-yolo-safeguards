@@ -15,6 +15,18 @@ export function checkoutTarget(slug, env = {}) {
   return GO_REDIRECTS[slug];
 }
 
+// Stripe Payment Links drop query parameters they don't know, so ?from=app never reached the
+// Checkout Session. client_reference_id is kept, so the visitor source goes there.
+export function checkoutRedirect(target, params) {
+  const dest = new URL(target);
+  for (const [k, v] of params.entries()) {
+    dest.searchParams.set(k, v);
+  }
+  const source = (params.get("from") || params.get("utm_source") || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 200);
+  if (source) dest.searchParams.set("client_reference_id", source);
+  return dest.toString();
+}
+
 const GO_REDIRECTS = {
   "pro-direct": "https://buy.stripe.com/00weVegjK9lBeVN9I3f3a05",
   "pro": "https://buy.stripe.com/00weVegjK9lBeVN9I3f3a05",
@@ -92,11 +104,7 @@ export default {
       const target = checkoutTarget(slug, env);
       // An unknown or mistyped slug goes to the pricing section, not straight into a checkout.
       if (!target) return Response.redirect(new URL("/#pricing", url.origin).toString(), 302);
-      const dest = new URL(target);
-      for (const [k, v] of url.searchParams.entries()) {
-        dest.searchParams.set(k, v);
-      }
-      return Response.redirect(dest.toString(), 302);
+      return Response.redirect(checkoutRedirect(target, url.searchParams), 302);
     }
 
     const accept = request.headers.get("accept") || "";
