@@ -4621,6 +4621,12 @@ The Background Jobs submenu already lists LaunchAgents, crontab lines, and loose
 | tests/test-jobs-menu-reachable.js | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
 | plan.md (this append) | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
 
+## LaunchAgent templates into launchd/ (append 2026-11-12T15:20:00-0500) — `claude-root-cleanup`
+
+The repo root held 33 LaunchAgent templates. They now live in `launchd/`, and every installer, test and workflow that reads a repo copy points there. Installed copies under ~/Library/LaunchAgents are unchanged.
+
+| T-ROOT-PLISTS-20261112 | Move LaunchAgent templates from the repo root into launchd/ | in_progress | claude-root-cleanup | `launchd/`, `hermes-mobile/src/__tests__/releaseSafetyContract.test.ts`, `plan.md` (this append) | Root has no *.plist; every repo-copy reference resolves under launchd/. |
+- `hermes-mobile/src/__tests__/releaseSafetyContract.test.ts` → **claude-root-cleanup** (one path: plist now under launchd/)
 ## Panel release review (append 2026-11-12T15:11:16-0500) — `grok-hud-release-review`
 
 The menu-bar panel stays one clear web page on an AppKit panel. This check does not redesign it and does not install a build. A panel change is ready only when the first screen has one attention line, a destructive control asks before it runs, and the window is not faded with a flat tint. The Swift panel files stay with their current owners.

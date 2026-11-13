@@ -180,9 +180,9 @@ else
 fi
 
 for plist in \
-  "$REPO/com.igor.hermes-gateway-watchdog.plist" \
-  "$REPO/com.igor.hermes-mobile-pair-server.plist" \
-  "$REPO/com.igor.hermes-tailscale-health-watchdog.plist"; do
+  "$REPO/launchd/com.igor.hermes-gateway-watchdog.plist" \
+  "$REPO/launchd/com.igor.hermes-mobile-pair-server.plist" \
+  "$REPO/launchd/com.igor.hermes-tailscale-health-watchdog.plist"; do
   if plutil -lint "$plist" >/dev/null; then
     ok "valid plist: $(basename "$plist")"
   else
@@ -218,7 +218,7 @@ else
 fi
 
 if grep -q '<key>HERMES_PIN_MODEL</key><string>{{HERMES_PIN_MODEL}}</string>' \
-  "$REPO/com.igor.hermes-gateway-watchdog.plist"; then
+  "$REPO/launchd/com.igor.hermes-gateway-watchdog.plist"; then
   ok 'gateway watchdog plist requires explicit per-host model pin policy'
 else
   bad 'gateway watchdog plist requires explicit per-host model pin policy'
