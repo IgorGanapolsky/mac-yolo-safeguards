@@ -70,6 +70,7 @@ import { formatPendingApprovalBadge } from './src/utils/pendingApprovalsCap';
 import { syncLeashEntitlementSnapshot } from './src/utils/thumbgateLeash';
 import { shouldCollapseTabBarForKeyboard } from './src/utils/tabBarKeyboardPolicy';
 import { colors } from './src/theme/colors';
+import { NavigationTheme } from './src/theme/navigationTheme';
 
 type RootTabParamList = {
   Leash: undefined;
@@ -253,18 +254,6 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
     </View>
   );
 }
-
-const NavigationTheme = {
-  dark: true,
-  colors: {
-    primary: colors.primary,
-    background: colors.backgroundStart,
-    card: 'rgba(9, 11, 20, 0.94)',
-    text: colors.text,
-    border: colors.border,
-    notification: colors.accent,
-  },
-};
 
 const linking = {
   prefixes: ['hermes://'],

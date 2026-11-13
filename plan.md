@@ -2048,6 +2048,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `apps/hermes-control-plane/app/dashboard/DashboardClient.tsx`, `apps/hermes-control-plane/lib/conversation-send-visibility.ts, apps/hermes-control-plane/lib/conversation-send-visibility.test.ts, apps/hermes-control-plane/tests/dashboard-sent-message-visible.test.mjs, apps/hermes-control-plane/tests/conversation-send-visibility.test.mjs`, `plan.md` → **grok-dashboard-sent-msg-invisible-20260820** (T-DASHBOARD-SENT-MSG-INVISIBLE-20260820: after Enter/send, show the user prompt in conversation-history immediately and scroll it into view; do not leave the bubble only in the task-list card) (2026-08-20T02:01:26Z)
 
 - `docs/landing/**`, `docs/legal/**`, `README.md` (offer table rows only), `plan.md` → **claude-macyolo-funnel-fixes** (T-MACYOLO-FUNNEL-FIXES-20261110: macyolosafeguards.io funnel fixes as docs plus README offer names; no code or pricing changes) (2026-11-10T23:00:00Z)
+- `hermes-mobile/App.tsx` (NavigationTheme moved to src/theme/navigationTheme.ts with DarkTheme fonts), `plan.md` , `hermes-mobile/src/theme/navigationTheme.ts`, `hermes-mobile/src/__tests__/navigationTheme.test.ts` → **claude-hygiene-20261113** (PR #2312 Dependabot typecheck fix) (2026-11-13T14:55:15Z)
 
 ## 3. Decisions Log
 
