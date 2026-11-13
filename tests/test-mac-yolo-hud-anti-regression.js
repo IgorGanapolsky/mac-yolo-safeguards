@@ -123,3 +123,31 @@ function main() {
 }
 
 main();
+
+// Igor, 2026-11-13: the status line opened the same view as the Protection card. It is now plain
+// information with its own Stop Runaways button, and each opened card keeps its action buttons.
+{
+  const fs = require('fs');
+  const path = require('path');
+  for (const f of ['MacYoloSafeguardsApp.swift', 'MacYoloTranslucentHud.swift']) {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'macos', f), 'utf8');
+    const line = src.match(/<div [^>]*id="attentionLine"[^>]*>/);
+    if (!line || /onclick=/.test(line[0]) || /clickable-card/.test(line[0])) {
+      throw new Error(f + ': attentionLine must be information, not a duplicate link to the shield details');
+    }
+    if (!/id="attentionStopBtn"[^>]*onclick="confirmStopRunaways\(this\)"/.test(src)) {
+      throw new Error(f + ': attentionLine must carry a Stop Runaways button that uses the confirm flow');
+    }
+    const map = src.match(/var DRAWER_ACTIONS = (\{[^}]*\})/);
+    if (!map) throw new Error(f + ': DRAWER_ACTIONS map missing');
+    const want = { memory: 'freeMemBtn', disk: 'freeDiskBtn', cpu: 'stopRunawaysBtn', tokens: 'secretsBtn', shield: 'stopRunawaysBtn' };
+    for (const [card, id] of Object.entries(want)) {
+      if (!new RegExp(card + ": \\[[^\\]]*'" + id + "'").test(map[1])) throw new Error(f + ': ' + card + ' drawer must show ' + id);
+      if (!src.includes('id="' + id + '"')) throw new Error(f + ': source button ' + id + ' missing');
+    }
+    if (!src.includes('id="drawerActions"') || !/renderActiveCardDetail\(s\) \{[\s\S]*?renderDrawerActions\(\);/.test(src)) {
+      throw new Error(f + ': drawer must render its action buttons');
+    }
+  }
+  console.log('ok - opened cards keep their action buttons; status line is information only');
+}
