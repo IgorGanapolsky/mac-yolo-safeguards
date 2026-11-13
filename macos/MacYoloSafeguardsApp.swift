@@ -433,6 +433,10 @@ private let HUD_HTML = #"""
     z-index: 40;
   }
     #attentionLine { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .setting-row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:8px 0; border-top:1px solid rgba(255,255,255,0.12); }
+    .setting-row .tile-action { margin-top:0; flex-shrink:0; }
+    .setting-name { font-size:12px; font-weight:600; color:rgba(255,255,255,0.94); }
+    .setting-help { font-size:11px; color:rgba(255,255,255,0.62); margin-top:2px; line-height:1.35; }
     #attentionStopBtn { margin-top:0; padding:4px 10px; flex-shrink:0; }
 </style>
 </head>
@@ -478,6 +482,18 @@ private let HUD_HTML = #"""
       </div>
 
       <div class="card" id="attentionLine" role="status" style="margin-bottom:6px;padding:8px 11px;font-size:12px;font-weight:600;color:#e2e8f0;background:rgba(15,11,33,0.92);border:1px solid rgba(94,234,212,0.34);"><span id="attentionText">Mac healthy · No runaway agents — nothing to do.</span><button class="tile-action" id="attentionStopBtn" style="display:none;" onclick="confirmStopRunaways(this)">Stop Runaways</button></div>
+
+      <div class="card rec-card" id="actionReceiptBanner" style="display:none;padding:9px 12px;margin-bottom:6px;gap:5px;border:1px solid rgba(52,211,153,0.45);background:rgba(16,185,129,0.16);">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <div id="actionReceiptTitle" style="font-size:12px;font-weight:700;color:#6ee7b7;">✓ Cleanup Complete</div>
+          <div style="display:flex;gap:5px;align-items:center;flex-shrink:0;">
+            <button class="tile-action" id="actionReceiptInspectBtn" style="margin-top:0;padding:3px 8px;font-size:10.5px;" onclick="openCardDetail('disk')">Receipt ›</button>
+            <button class="tile-action" style="margin-top:0;padding:2px 6px;font-size:10.5px;" onclick="dismissActionReceipt()">×</button>
+          </div>
+        </div>
+        <div id="actionReceiptItems" style="display:flex;flex-direction:column;gap:3px;font-size:11.2px;color:rgba(255,255,255,0.92);"></div>
+        <div id="actionReceiptSpared" style="font-size:10.5px;color:rgba(255,255,255,0.68);"></div>
+      </div>
 
       <div id="overviewSection">
       <div class="card shield-card clickable-card" onclick="openCardDetail('shield')">
@@ -593,18 +609,6 @@ private let HUD_HTML = #"""
         </div>
       </div>
 
-      <div class="card rec-card" id="actionReceiptBanner" style="display:none;padding:9px 12px;margin-bottom:6px;gap:5px;border:1px solid rgba(52,211,153,0.45);background:rgba(16,185,129,0.16);">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-          <div id="actionReceiptTitle" style="font-size:12px;font-weight:700;color:#6ee7b7;">✓ Cleanup Complete</div>
-          <div style="display:flex;gap:5px;align-items:center;flex-shrink:0;">
-            <button class="tile-action" id="actionReceiptInspectBtn" style="margin-top:0;padding:3px 8px;font-size:10.5px;" onclick="openCardDetail('disk')">Receipt ›</button>
-            <button class="tile-action" style="margin-top:0;padding:2px 6px;font-size:10.5px;" onclick="dismissActionReceipt()">×</button>
-          </div>
-        </div>
-        <div id="actionReceiptItems" style="display:flex;flex-direction:column;gap:3px;font-size:11.2px;color:rgba(255,255,255,0.92);"></div>
-        <div id="actionReceiptSpared" style="font-size:10.5px;color:rgba(255,255,255,0.68);"></div>
-      </div>
-
       <div id="recSection">
         <div class="rec-header">What's using your Mac</div>
         <div class="card rec-card clickable-card" onclick="openCardDetail('optimization')">
@@ -639,17 +643,24 @@ private let HUD_HTML = #"""
       </div>
       <div class="card rec-card" id="settingsDrawer" style="display:none;padding:10px 13px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-          <div style="font-size:13px;font-weight:700;">Settings &amp; App Uninstaller</div>
+          <div style="font-size:13px;font-weight:700;">Settings</div>
           <button class="tile-action" style="margin-top:0;" onclick="toggleSettingsDrawer(false)">← Back</button>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-top:1px solid rgba(255,255,255,0.12);">
-          <span style="font-size:12px;color:rgba(255,255,255,0.92);">Mac YOLO Status Bar Icon</span>
-          <button class="tile-action" style="margin-top:0;" id="statusBarToggleBtn" onclick="sendAction('toggleStatusBarIcon')">Shown ✓ (Click to Hide)</button>
+        <div class="setting-row">
+          <div><div class="setting-name">Auto-Guard</div><div class="setting-help" id="autoGuardHelp">Checks your Mac every minute. Stops leftover agent processes when memory is tight and clears AI caches when disk runs low. Pro.</div></div>
+          <button class="tile-action" id="autoGuardBtn" onclick="sendAction('toggleAutoGuard')">Off</button>
         </div>
-        <div id="uninstallList" style="font-size:12px;color:rgba(255,255,255,0.72);padding:6px 0;">Open this list to measure apps.</div>
-        <div style="display:flex;gap:6px;align-items:center;padding-top:5px;border-top:1px solid rgba(255,255,255,0.12);">
-          <input id="customUninstallInput" type="text" placeholder="App name" style="flex:1;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.22);border-radius:7px;padding:4px 8px;color:#fff;font-size:11px;outline:none;" />
-          <button class="tile-action" style="margin-top:0;color:#fca5a5;" onclick="requestUninstall(document.getElementById('customUninstallInput').value, this)">Uninstall</button>
+        <div class="setting-row">
+          <div><div class="setting-name">Pro license</div><div class="setting-help" id="proLicenseHelp">Pro adds Auto-Guard. $29 once.</div></div>
+          <button class="tile-action" id="proLicenseBtn" onclick="sendAction(_isProClient ? 'enterProLicense' : 'openGetPro')">Get Pro</button>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-name">Menu bar icon</div><div class="setting-help">Show Mac YOLO in the menu bar. When hidden, open it from the app.</div></div>
+          <button class="tile-action" id="statusBarToggleBtn" onclick="sendAction('toggleStatusBarIcon')">Shown ✓ (Click to Hide)</button>
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-name">Feedback</div><div class="setting-help">Tell us what is missing or broken.</div></div>
+          <button class="tile-action" onclick="sendAction('openFeedback')">Send feedback</button>
         </div>
       </div>
     </div>
@@ -794,7 +805,7 @@ private let HUD_HTML = #"""
       var itemsEl = document.getElementById('actionReceiptItems');
       var sparedEl = document.getElementById('actionReceiptSpared');
       var inspectBtn = document.getElementById('actionReceiptInspectBtn');
-      if (banner && !_activeDetailCard && (action === 'freeUpDisk' || action === 'freeUpMemory' || action === 'coolDownFans')) {
+      if (banner && (action === 'freeUpDisk' || action === 'freeUpMemory' || action === 'coolDownFans')) {
         banner.style.display = 'flex';
         if (action === 'freeUpDisk') {
           if (titleEl) titleEl.textContent = '⚡ Scanning & Purging AI / Dev Cache Waste…';
@@ -831,7 +842,7 @@ private let HUD_HTML = #"""
       var itemsEl = document.getElementById('actionReceiptItems');
       var sparedEl = document.getElementById('actionReceiptSpared');
       if (!banner || !titleEl || !itemsEl || !sparedEl) return;
-      if (!_activeDetailCard) banner.style.display = 'flex';
+      banner.style.display = 'flex';
       if (res.action === 'freeUpDisk' || res.cleanedCategories !== undefined) {
         var reclaimedMiB = Number(res.reclaimedMiB) || 0;
         var reclaimedGiB = Number(res.reclaimedGiB) || 0;
@@ -968,81 +979,25 @@ private let HUD_HTML = #"""
       if (!el) return;
       var show = (typeof forceShow === 'boolean') ? forceShow : (el.style.display === 'none' || !el.style.display);
       if (show) { _activeDetailCard = null; if (det) det.style.display = 'none'; if (ban) ban.style.display = 'none'; }
+      var wasOpen = el.style.display === 'flex';
       el.style.display = show ? 'flex' : 'none';
       if (ov) ov.style.display = show ? 'none' : 'block';
-      if (show) sendAction('listUninstallApps');
+      // Settings is short: fit the window to it. Native code queues this after any compact expansion.
+      if (show && !wasOpen) {
+        var fitH = Math.round(el.getBoundingClientRect().bottom + 64);
+        sendAction('resizeHud', { width: window.innerWidth, height: fitH, persist: false, fit: true });
+      } else if (!show && wasOpen) {
+        restoreSavedHudSize();
+      }
     }
+    // Every way out of Settings gives back the size the user saved; the fitted size is never saved.
+    function restoreSavedHudSize() { sendAction('resizeHud', { restore: true }); }
     function fmtBytes(n) {
       n = Number(n) || 0;
       if (n >= 1073741824) return (n / 1073741824).toFixed(1) + ' GB';
       if (n >= 1048576) return Math.round(n / 1048576) + ' MB';
       if (n >= 1024) return Math.round(n / 1024) + ' KB';
       return n + ' B';
-    }
-    var _uninstallConfirmUntil = {};
-    function confirmAppRemoval(clean, btn) {
-      var now = Date.now();
-      if ((_uninstallConfirmUntil[clean] || 0) > now) {
-        delete _uninstallConfirmUntil[clean];
-        return true;
-      }
-      _uninstallConfirmUntil[clean] = now + 4500;
-      if (btn) {
-        btn.textContent = 'Confirm Uninstall';
-        btn.style.color = '#fbbf24';
-        setTimeout(function() {
-          if ((_uninstallConfirmUntil[clean] || 0) <= Date.now() && btn && btn.textContent === 'Confirm Uninstall') {
-            btn.textContent = 'Uninstall';
-            btn.style.color = '#fca5a5';
-          }
-        }, 4600);
-      }
-      return false;
-    }
-    function requestUninstall(name, btn) {
-      var clean = String(name || '').trim();
-      if (!clean || !confirmAppRemoval(clean, btn)) return;
-      if (btn) { btn.textContent = 'Moving to Trash…'; btn.style.color = '#fca5a5'; }
-      sendAction('uninstallApp', { appName: clean });
-    }
-    function renderUninstallList(payload) {
-      var box = document.getElementById('uninstallList');
-      if (!box) return;
-      var apps = (payload && payload.apps) || [];
-      box.innerHTML = '';
-      if (payload && payload.ok === false) {
-        box.textContent = payload.error || 'App uninstalling is not available.';
-        return;
-      }
-      if (!apps.length) {
-        box.textContent = 'No extra apps to remove.';
-        return;
-      }
-      apps.forEach(function(app) {
-        var row = document.createElement('div');
-        row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgba(255,255,255,0.12);';
-        var label = document.createElement('span');
-        label.style.cssText = 'font-size:12px;color:rgba(255,255,255,0.88);';
-        label.textContent = app.name + ' · ' + fmtBytes(app.bytes);
-        var btn = document.createElement('button');
-        btn.className = 'tile-action';
-        btn.style.marginTop = '0';
-        btn.style.color = '#fca5a5';
-        btn.textContent = 'Uninstall';
-        btn.onclick = function() { requestUninstall(app.name, btn); };
-        row.appendChild(label);
-        row.appendChild(btn);
-        box.appendChild(row);
-      });
-    }
-    function renderUninstallResult(payload) {
-      var box = document.getElementById('uninstallList');
-      if (payload && payload.ok && box) {
-        box.textContent = (payload.appName || 'App') + ' moved to Trash · ' + fmtBytes(payload.beforeBytes);
-        sendAction('listUninstallApps');
-      } else if (box) {
-        box.textContent = (payload && payload.error) ? payload.error : 'Uninstall did not finish.';
-      }
     }
     function openCardDetail(cardId) {
       leaveCompactForDrawer();
@@ -1052,6 +1007,7 @@ private let HUD_HTML = #"""
       var det = document.getElementById('cardDetailDrawer');
       var ban = document.getElementById('actionReceiptBanner');
       if (ov) ov.style.display = 'none';
+      if (setEl && setEl.style.display === 'flex') restoreSavedHudSize();
       if (setEl) setEl.style.display = 'none';
       if (ban) ban.style.display = 'none';
       if (det) det.style.display = 'flex';
@@ -1185,7 +1141,11 @@ private let HUD_HTML = #"""
         if (sl) sl.style.color = Number(state.secretsCount) > 0 ? '#fbbf24' : 'rgba(255,255,255,0.6)';
         if (sb) {
           sb.style.display = Number(state.secretsCount) > 0 ? 'inline-block' : 'none';
-          if (state.secretsBusy !== '1' && sb.getAttribute('data-busy') === '1') { sb.removeAttribute('data-busy'); sb.textContent = 'Blank Out Secrets'; sb.style.color = ''; }
+          if (state.secretsBusy !== '1') {
+            [sb].concat(Array.prototype.slice.call(document.querySelectorAll('[data-drawer-action="secretsBtn"]'))).forEach(function(b) {
+              if (b.getAttribute('data-busy') === '1') { b.removeAttribute('data-busy'); b.textContent = 'Blank Out Secrets'; b.style.color = ''; }
+            });
+          }
         }
       }
       setTextIfChanged('cpuLoad', state.cpuLoad);
@@ -1219,7 +1179,10 @@ private let HUD_HTML = #"""
           attEl.style.borderColor = 'rgba(251,191,36,0.55)';
           attEl.style.color = '#fde68a';
         } else {
-          setTextIfChanged('attentionText', 'Mac healthy · ' + (hl || 'No runaway agents') + ' — nothing to do.');
+          var lvl = state.healthLevel || 'ok';
+          setTextIfChanged('attentionText', lvl === 'high' ? ('Busy · ' + (hl || 'High load') + ' — normal while agents work. Top Hogs below shows who.')
+            : lvl === 'active' ? ('Active · ' + (hl || 'Moderate load') + ' — nothing to do.')
+            : ('Mac healthy · ' + (hl || 'No runaway agents') + ' — nothing to do.'));
           var asb2 = document.getElementById('attentionStopBtn'); if (asb2) asb2.style.display = 'none';
           attEl.style.borderColor = 'rgba(94,234,212,0.34)';
           attEl.style.color = '#e2e8f0';
@@ -1243,6 +1206,14 @@ private let HUD_HTML = #"""
           if (pw) pw.style.display = 'none';
         }
       }
+      var agb = document.getElementById('autoGuardBtn');
+      if (agb) {
+        var agOn = state.autoGuardOn === 'true';
+        setTextIfChanged('autoGuardBtn', !_isProClient ? 'Pro only' : (agOn ? 'On ✓' : 'Off'));
+        agb.style.color = agOn ? '#5eead4' : '';
+      }
+      setTextIfChanged('proLicenseBtn', _isProClient ? 'Change license' : 'Get Pro');
+      setTextIfChanged('proLicenseHelp', _isProClient ? 'Pro is active on this Mac.' : 'Pro adds Auto-Guard. $29 once.');
       if (state.statusBarIconVisible) {
         var isVis = (state.statusBarIconVisible === 'true');
         setTextIfChanged('statusBarToggleBtn', isVis ? 'Shown ✓ (Click to Hide)' : 'Hidden (Click to Show)');
@@ -1319,6 +1290,43 @@ func findNodeBinary() -> String? {
 func agentSwarmLine(_ counts: [(String, Int)]) -> String {
     let live = counts.filter { $0.1 > 0 }.map { "\($0.0) \($0.1)" }
     return live.isEmpty ? "No coding agents running" : live.joined(separator: " · ")
+}
+
+/// ps etime ("3-04:05:06", "04:05:06", "05:06") as "3d 4h", "4h 5m" or "5m".
+func humanEtime(_ e: String) -> String {
+    var days = 0
+    var rest = Substring(e)
+    if let dash = e.firstIndex(of: "-") { days = Int(e[..<dash]) ?? 0; rest = e[e.index(after: dash)...] }
+    let f = rest.split(separator: ":").map { Int($0) ?? 0 }
+    let (h, m) = f.count == 3 ? (f[0], f[1]) : (0, f.first ?? 0)
+    if days > 0 { return "\(days)d \(h)h" }
+    if h > 0 { return "\(h)h \(m)m" }
+    return m > 0 ? "\(m)m" : "under a minute"
+}
+
+/// One plain sentence on what a process group is.
+func aboutApp(_ name: String) -> String {
+    let known: [String: String] = [
+        "Jamf Protect": "Jamf Protect is endpoint security software, usually installed by an employer's IT. It scans files as they change, so it gets busy when agents build or write a lot.",
+        "WindowServer": "WindowServer is macOS drawing everything on screen. Many windows, displays or animations make it busy.",
+        "kernel_task": "kernel_task is macOS itself. High CPU here is often macOS slowing things down to cool the Mac.",
+        "Spotlight": "Spotlight is macOS indexing files for search.",
+        "Photos Analysis": "Photos is scanning your library.",
+        "Node.js": "Node.js processes are mostly AI tool helpers: MCP servers, coding-agent CLIs and dev servers.",
+        "Python": "Python processes are scripts and AI tool helpers.",
+        "BrowserOS": "BrowserOS is the browser your agents use.",
+        "Claude": "Claude is Claude Code and the Claude app, including their helpers.",
+        "entire": "entire is the Entire session recorder for coding agents.",
+    ]
+    return known[name] ?? "\(name) is an app or tool running on this Mac."
+}
+
+/// What Stop Runaways does to this group. It ends only three known stuck scripts
+/// (mac-system-care-engine.js matchesRunawayPattern), shuts idle simulators, and lowers
+/// semgrep, CodeQL and Spotlight worker priority.
+func stopRunawaysScope(_ name: String) -> String {
+    if name == "Spotlight" { return "Stop Runaways lowers Spotlight's worker priority but doesn't stop it." }
+    return "Stop Runaways won't stop \(name): it only ends three known stuck scripts (a self-heal loop, a skill-sync check and a find over your home folder) that have no live agent above them."
 }
 
 func findToolScript(_ name: String) -> String? {
@@ -2100,21 +2108,6 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         hudPanel.contentView = visualEffectView
     }
 
-    func runAppUninstaller(args: [String], done: @escaping (String) -> Void) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            let run = runTool("mac-yolo-app-uninstaller.js", args)
-            let json: String
-            if run.ran {
-                json = run.output
-            } else {
-                let err = (try? JSONSerialization.data(withJSONObject: ["ok": false, "error": run.problem ?? "No reply from the uninstaller."]))
-                    .flatMap { String(data: $0, encoding: .utf8) } ?? "{\"ok\":false}"
-                json = err
-            }
-            DispatchQueue.main.async { done(json) }
-        }
-    }
-
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let body = message.body as? [String: Any],
               let action = body["action"] as? String else { return }
@@ -2127,16 +2120,10 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             redactSecrets()
         case "optimizeAgents", "coolDownFans":
             coolDownFans()
-        case "listUninstallApps":
-            runAppUninstaller(args: ["--list"]) { json in
-                self.webView.evaluateJavaScript("renderUninstallList(\(json))", completionHandler: nil)
-            }
-        case "uninstallApp":
-            if let appName = body["appName"] as? String, !appName.isEmpty {
-                runAppUninstaller(args: ["--uninstall", appName, "--execute"]) { json in
-                    self.webView.evaluateJavaScript("renderUninstallResult(\(json))", completionHandler: nil)
-                }
-            }
+        case "toggleAutoGuard":
+            toggleAutoGuard(nil)
+        case "openFeedback":
+            openFeedback()
         case "testSpeed":
             runSpeedTest()
         case "moveHud":
@@ -2161,12 +2148,22 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             openGetPro(nil)
         case "enterProLicense":
             enterProLicense(nil)
+        case "resizeHud" where (body["restore"] as? Bool) == true:
+            let savedW = UserDefaults.standard.double(forKey: "MacYoloHudW")
+            let savedH = UserDefaults.standard.double(forKey: "MacYoloHudH")
+            var rf = hudPanel.frame
+            let restoreW = CGFloat(savedW > 0 ? max(380.0, min(880.0, savedW)) : Double(rf.width))
+            let restoreH = max(680, CGFloat(savedH > 0 ? min(920.0, savedH) : 688))
+            rf.origin.y += (rf.height - restoreH)
+            rf.size = NSSize(width: restoreW, height: restoreH)
+            hudPanel.setFrame(rf, display: true, animate: false)
         case "resizeHud":
             if let w = (body["width"] as? NSNumber)?.doubleValue,
                let h = (body["height"] as? NSNumber)?.doubleValue {
                 let persist = (body["persist"] as? Bool) ?? false
                 let newW = CGFloat(max(380.0, min(880.0, w)))
-                let newH = CGFloat(max(540.0, min(920.0, h)))
+                let minH = ((body["fit"] as? Bool) ?? false) ? 300.0 : 540.0
+                let newH = CGFloat(max(minH, min(920.0, h)))
                 var f = hudPanel.frame
                 f.origin.y += (f.height - newH)
                 f.size.width = newW
@@ -2698,13 +2695,14 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     func sampleTopCpuCulprits() -> (shortLine: String, topMem: String, recTitle: String, recDesc: String, detailCpu: String, detailMem: String, detailFleet: String, topCpu: Double, totalProcs: Int, pyCount: Int, nodeCount: Int, swarmSummary: String, totalCpuPct: Int) {
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: "/bin/ps")
-        proc.arguments = ["-Ao", "%cpu,rss,comm", "-r"]
+        proc.arguments = ["-Ao", "pid,%cpu,rss,etime,comm", "-r"]
         let pipe = Pipe()
         proc.standardOutput = pipe
         proc.standardError = Pipe()
         var cpuByApp: [String: Double] = [:]
         var rssByApp: [String: Double] = [:]
         var countByApp: [String: Int] = [:]
+        var procsByApp: [String: [(pid: String, cpu: Double, rssKB: Double, etime: String, name: String)]] = [:]
         var totalProcs = 0
         var totalCpuSum = 0.0
         var pyCount = 0
@@ -2729,12 +2727,14 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             let text = String(data: data, encoding: .utf8) ?? ""
             for raw in text.split(separator: "\n").dropFirst() {
                 totalProcs += 1
-                let parts = raw.trimmingCharacters(in: .whitespaces).split(separator: " ", maxSplits: 2, omittingEmptySubsequences: true)
-                if parts.count < 3 { continue }
-                let cpu = Double(parts[0]) ?? 0.0
-                let rssKB = Double(parts[1]) ?? 0.0
+                let parts = raw.trimmingCharacters(in: .whitespaces).split(separator: " ", maxSplits: 4, omittingEmptySubsequences: true)
+                if parts.count < 5 { continue }
+                let pid = String(parts[0])
+                let cpu = Double(parts[1]) ?? 0.0
+                let rssKB = Double(parts[2]) ?? 0.0
+                let etime = String(parts[3])
                 totalCpuSum += cpu
-                let fullComm = String(parts[2])
+                let fullComm = String(parts[4])
                 let base = (fullComm as NSString).lastPathComponent
                 let lower = fullComm.lowercased()
                 if base.lowercased().contains("python") { pyCount += 1; pyRssKB += rssKB }
@@ -2756,6 +2756,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
                 cpuByApp[label, default: 0.0] += cpu
                 rssByApp[label, default: 0.0] += rssKB
                 countByApp[label, default: 0] += 1
+                procsByApp[label, default: []].append((pid: pid, cpu: cpu, rssKB: rssKB, etime: etime, name: base))
             }
         }
         func fmtRam(_ kb: Double) -> String {
@@ -2790,15 +2791,24 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         } ?? ""
         let helpers = pyCount + nodeCount
         let rDesc = busiestNote + "\(helpers) AI tool helpers are running (\(pyCount) Python, \(nodeCount) Node). Tap to see everything using CPU."
+        // What an opened row says: what the app is, whether Stop Runaways can touch it, and its biggest processes.
+        func appNote(_ name: String, byCpu: Bool) -> String {
+            let procs = (procsByApp[name] ?? []).sorted { byCpu ? $0.cpu > $1.cpu : $0.rssKB > $1.rssKB }
+            let top = procs.prefix(3).map { p in
+                String(format: "%@ (PID %@) %.0f%% CPU · %@ · running %@", p.name, p.pid, p.cpu, fmtRam(p.rssKB), humanEtime(p.etime))
+            }.joined(separator: "; ")
+            let more = procs.count > 3 ? " … and \(procs.count - 3) more." : "."
+            return aboutApp(name) + " " + stopRunawaysScope(name) + (top.isEmpty ? "" : " Biggest: " + top + more)
+        }
         let cpuRows = ranked.prefix(6).enumerated().map { idx, name in
             let c = cpuByApp[name, default: 0]
             let gb = rssByApp[name, default: 0] / 1_048_576.0
             let cnt = countByApp[name, default: 1]
             let bar = min(100, max(4, Int(round(c))))
             let coresBusy = c / 100.0
-            let note = systemIndexers.contains(name)
-                ? "Protected macOS background indexer; settles automatically."
-                : String(format: "Using ~%.1f of %d CPU cores and %.2f GB RAM across %d process%@ right now.", coresBusy, ncpu, gb, cnt, cnt == 1 ? "" : "es")
+            // ps %cpu: one full core is 100%, averaged (decaying) over up to the last minute (man ps).
+            let note = String(format: "Using about %.1f of %d CPU cores (100%% = one full core; averaged over up to the last minute, so a short spike or a long-running load both show here). ", coresBusy, ncpu)
+                + (systemIndexers.contains(name) ? "It settles on its own. " : "") + appNote(name, byCpu: true)
             return String(format: "%d. %@ (%d procs)|%.1f%% CPU · %.2f GB RAM|%d|%@", idx + 1, name, cnt, c, gb, bar, note)
         }.joined(separator: ";;")
         let memRanked = rssByApp.keys.sorted { rssByApp[$0, default: 0] > rssByApp[$1, default: 0] }
@@ -2809,7 +2819,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             let c = cpuByApp[name, default: 0]
             let cnt = countByApp[name, default: 1]
             let bar = min(100, max(4, Int(round(pct32 * 2.5))))
-            let note = String(format: "Holding %.2f GB resident RAM (%.1f%% of 32 GB) and %.0f%% CPU across %d process%@.", gb, pct32, c, cnt, cnt == 1 ? "" : "es")
+            let note = String(format: "Holding %.2f GB of RAM (%.1f%% of 32 GB). ", gb, pct32) + appNote(name, byCpu: false)
             return String(format: "%d. %@ (%d procs)|%.2f GB (%.1f%%) · %.0f%% CPU|%d|%@", idx + 1, name, cnt, gb, pct32, c, bar, note)
         }.joined(separator: ";;")
         let poolSessions = max(0, (poolCount + 1) / 2)
@@ -3074,6 +3084,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let payload: [String: String] = [
             "healthState": healthStateStr,
             "healthColor": healthColorStr,
+            "healthLevel": healthStateStr.hasPrefix("High Load") ? "high" : (healthStateStr.hasPrefix("Active") ? "active" : "ok"),
             "guardHeadline": "CPU \(cpuPct)% · GPU \(gpu.devicePct)% (\(String(format: "%.1fG", gpu.vramGB)) VRAM) · RAM \(memPressurePct)% · \(String(format: "%.1fM", sess.estTokensM)) tok (2h)",
             "onScreenLine": "Top Hogs: \(culprits.shortLine) · Active: \(lastActiveApp)",
             "activeApp": culprits.swarmSummary,

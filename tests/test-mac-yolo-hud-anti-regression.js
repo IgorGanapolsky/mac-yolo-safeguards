@@ -151,3 +151,52 @@ main();
   }
   console.log('ok - opened cards keep their action buttons; status line is information only');
 }
+
+// Igor, 2026-11-13: "settings are pretty much useless and superficial". Settings holds the app's real
+// options and no dead uninstaller; receipts and the secrets button stay correct while a card is open.
+{
+  const fs = require('fs');
+  const path = require('path');
+  for (const f of ['MacYoloSafeguardsApp.swift', 'MacYoloTranslucentHud.swift']) {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'macos', f), 'utf8');
+    for (const needle of ["id=\"autoGuardBtn\" onclick=\"sendAction('toggleAutoGuard')\"", 'id="proLicenseBtn"', 'id="statusBarToggleBtn"', "sendAction('openFeedback')", 'case "toggleAutoGuard":', 'case "openFeedback":']) {
+      if (!src.includes(needle)) throw new Error(f + ': Settings must include ' + needle);
+    }
+    if (/uninstall/i.test(src)) throw new Error(f + ': the uninstaller never shipped its script; it must not appear in Settings');
+    if (/if \(banner && !_activeDetailCard/.test(src) || /if \(!_activeDetailCard\) banner\.style\.display/.test(src)) {
+      throw new Error(f + ': action receipts must show while a card is open');
+    }
+    if (!src.includes('[data-drawer-action="secretsBtn"]')) throw new Error(f + ': copied secrets button must reset when blanking finishes');
+  }
+  console.log('ok - Settings shows real options; receipts and copied buttons stay in sync');
+}
+
+// Settings is short: the window fits it while open and gets its saved size back on close.
+{
+  const fs = require('fs');
+  const path = require('path');
+  for (const f of ['MacYoloSafeguardsApp.swift', 'MacYoloTranslucentHud.swift']) {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'macos', f), 'utf8');
+    if (!/persist: false, fit: true/.test(src) || !/case "resizeHud" where \(body\["restore"\] as\? Bool\) == true/.test(src) || !/\(body\["fit"\] as\? Bool\)/.test(src)
+        || !/if \(setEl && setEl\.style\.display === 'flex'\) restoreSavedHudSize\(\);/.test(src)) {
+      throw new Error(f + ': Settings must fit the window without saving that size, and restore it on close');
+    }
+  }
+  console.log('ok - Settings fits the window and restores the saved size');
+}
+
+// Igor, 2026-11-13: "can't we have more information here? this is superficial". Opened culprit rows say
+// what the app is, whether Stop Runaways can touch it, and its biggest processes with PID and run time.
+// The status line and header use one health level, so they can't say "Mac healthy" under "High Load".
+{
+  const fs = require('fs');
+  const path = require('path');
+  for (const f of ['MacYoloSafeguardsApp.swift', 'MacYoloTranslucentHud.swift']) {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'macos', f), 'utf8');
+    for (const needle of ['= one full core; averaged over up to the last minute', 'only ends three known stuck scripts', '"pid,%cpu,rss,etime,comm"', 'func humanEtime(', 'func aboutApp(', 'func stopRunawaysScope(', 'appNote(name, byCpu: true)', 'appNote(name, byCpu: false)', '"healthLevel":', "lvl === 'high'"]) {
+      if (!src.includes(needle)) throw new Error(f + ': missing ' + needle);
+    }
+    if (src.includes('CPU cores and %.2f GB RAM across')) throw new Error(f + ': old repeat-the-numbers note is back');
+  }
+  console.log('ok - opened rows explain the app, its scope and its biggest processes');
+}
