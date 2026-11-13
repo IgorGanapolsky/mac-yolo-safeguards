@@ -96,6 +96,41 @@
   }
 })();
 </script>
+<script>
+// Privacy-light analytics (PostHog, no cookies, no person profiles). Every event carries product=macyolo
+// and the utm_* params. Events: pageview, download_click (dmg/pkg), pro_click (plan, price), team_click.
+// The utm_* params are also copied onto /go/ links so the server-side count and the Stripe
+// client_reference_id (utm_source) see the same campaign.
+(function(){
+  var KEY="phc_ub5A4JPFsB2dm54Vaq2dWGeDh9zouzLL4Vb6TcicJxvf";
+  var q=new URLSearchParams(location.search),utm={},names=["utm_source","utm_medium","utm_campaign","utm_content","utm_term"];
+  names.forEach(function(k){var v=q.get(k);if(v)utm[k]=Array.from(v).slice(0,100).join("");});
+  var id;try{id=sessionStorage.getItem("my_sid");if(!id){id="my-"+Math.random().toString(36).slice(2,12);sessionStorage.setItem("my_sid",id);}}catch(e){id="my-"+Math.random().toString(36).slice(2,12);}
+  function send(event,extra){
+    var props={product:"macyolo",path:location.pathname,referrer:document.referrer||"",$process_person_profile:false};
+    for(var k in utm)props[k]=utm[k];
+    for(var j in extra)props[j]=extra[j];
+    try{fetch("https://us.i.posthog.com/capture/",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({api_key:KEY,event:event,distinct_id:id,properties:props}),keepalive:true}).catch(function(){});}catch(e){}
+  }
+  var plans={"pro-once":["pro",29],"diagnostic":["investigation",499],"sprint":["rollout",1500]};
+  var utmQs=Object.keys(utm).map(function(k){return k+"="+encodeURIComponent(utm[k]);}).join("&");
+  var links=document.querySelectorAll('a[href^="/go/"]');
+  for(var i=0;i<links.length;i++){
+    var a=links[i],h=a.getAttribute("href");
+    if(utmQs){
+      // Keep an explicit source (?from= or Product Hunt) ahead of utm_source in the Stripe client_reference_id.
+      var ref=/[?&]client_reference_id=([^&]+)/.exec(h);
+      a.setAttribute("href",h+(h.indexOf("?")<0?"?":"&")+utmQs+(ref?"&from="+ref[1]:""));
+    }
+    a.addEventListener("click",function(ev){
+      var slug=this.getAttribute("href").slice(4).split("?")[0],where=this.getAttribute("data-where")||"";
+      if(slug==="dmg"||slug==="pkg")send("download_click",{format:slug,where:where});
+      else if(plans[slug])send(plans[slug][0]==="pro"?"pro_click":"team_click",{plan:plans[slug][0],price:plans[slug][1],where:where});
+    });
+  }
+  send("pageview",{title:document.title});
+})();
+</script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "dddfcca78b6d467596b61d8d38d9b37e"}'></script>
 </body>
 </html>
