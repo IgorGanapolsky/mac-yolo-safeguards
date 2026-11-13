@@ -483,6 +483,18 @@ private let HUD_HTML = #"""
 
       <div class="card" id="attentionLine" role="status" style="margin-bottom:6px;padding:8px 11px;font-size:12px;font-weight:600;color:#e2e8f0;background:rgba(15,11,33,0.92);border:1px solid rgba(94,234,212,0.34);"><span id="attentionText">Mac healthy · No runaway agents — nothing to do.</span><button class="tile-action" id="attentionStopBtn" style="display:none;" onclick="confirmStopRunaways(this)">Stop Runaways</button></div>
 
+      <div class="card rec-card" id="actionReceiptBanner" style="display:none;padding:9px 12px;margin-bottom:6px;gap:5px;border:1px solid rgba(52,211,153,0.45);background:rgba(16,185,129,0.16);">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <div id="actionReceiptTitle" style="font-size:12px;font-weight:700;color:#6ee7b7;">✓ Cleanup Complete</div>
+          <div style="display:flex;gap:5px;align-items:center;flex-shrink:0;">
+            <button class="tile-action" id="actionReceiptInspectBtn" style="margin-top:0;padding:3px 8px;font-size:10.5px;" onclick="openCardDetail('disk')">Receipt ›</button>
+            <button class="tile-action" style="margin-top:0;padding:2px 6px;font-size:10.5px;" onclick="dismissActionReceipt()">×</button>
+          </div>
+        </div>
+        <div id="actionReceiptItems" style="display:flex;flex-direction:column;gap:3px;font-size:11.2px;color:rgba(255,255,255,0.92);"></div>
+        <div id="actionReceiptSpared" style="font-size:10.5px;color:rgba(255,255,255,0.68);"></div>
+      </div>
+
       <div id="overviewSection">
       <div class="card shield-card clickable-card" onclick="openCardDetail('shield')">
         <div class="shield-top">
@@ -595,18 +607,6 @@ private let HUD_HTML = #"""
           </div>
           <button class="tile-action" onclick="event.stopPropagation();openCardDetail('fleet')">See each agent ›</button>
         </div>
-      </div>
-
-      <div class="card rec-card" id="actionReceiptBanner" style="display:none;padding:9px 12px;margin-bottom:6px;gap:5px;border:1px solid rgba(52,211,153,0.45);background:rgba(16,185,129,0.16);">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-          <div id="actionReceiptTitle" style="font-size:12px;font-weight:700;color:#6ee7b7;">✓ Cleanup Complete</div>
-          <div style="display:flex;gap:5px;align-items:center;flex-shrink:0;">
-            <button class="tile-action" id="actionReceiptInspectBtn" style="margin-top:0;padding:3px 8px;font-size:10.5px;" onclick="openCardDetail('disk')">Receipt ›</button>
-            <button class="tile-action" style="margin-top:0;padding:2px 6px;font-size:10.5px;" onclick="dismissActionReceipt()">×</button>
-          </div>
-        </div>
-        <div id="actionReceiptItems" style="display:flex;flex-direction:column;gap:3px;font-size:11.2px;color:rgba(255,255,255,0.92);"></div>
-        <div id="actionReceiptSpared" style="font-size:10.5px;color:rgba(255,255,255,0.68);"></div>
       </div>
 
       <div id="recSection">
