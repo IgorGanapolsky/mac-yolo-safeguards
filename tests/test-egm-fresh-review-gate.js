@@ -131,6 +131,16 @@ function main() {
   assert.ok(!ids(citedOnly).includes('vendor_figure'));
   assert.strictEqual(citedOnly.ok, true);
 
+  // Review follow-ups.
+  assert.ok(ids(reviewReceipt(fresh({ childPrompt: 'VERDICT: PASS.' }))).includes('parent_verdict'));
+  assert.ok(!ids(reviewReceipt(fresh({ childPrompt: 'Do not return PASS; report all open findings.' }))).includes('parent_verdict'));
+  for (const note of ['Completed in 573.13s', 'Completed in 482.30s']) {
+    assert.ok(ids(reviewReceipt(fresh({ measuredHere: true, note }))).includes('vendor_figure'), note);
+  }
+  assert.ok(!ids(reviewReceipt(fresh({ command: 'cat docs/elephant-goldfish-model.md' }))).includes('plugin_install'));
+  assert.ok(ids(reviewReceipt(fresh({ kind: 'review', action: 'install' }))).includes('plugin_install'));
+  assert.ok(ids(reviewReceipt(fresh({ command: 'ls', install: 'claude plugin install egm@egm' }))).includes('plugin_install'));
+
   const gate = path.join(__dirname, '../tools/egm-fresh-review-gate.js');
   const cli = spawnSync(process.execPath, [gate, '--install', 'claude plugin install egm@egm'], { encoding: 'utf8' });
   assert.strictEqual(cli.status, 2);

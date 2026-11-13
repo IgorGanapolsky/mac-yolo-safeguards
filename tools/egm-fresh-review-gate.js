@@ -23,14 +23,25 @@ const RANKS = new Set(['blocker', 'major', 'nit']);
 const STATUSES = new Set(['open', 'accepted', 'fixed']);
 const HOST_FILES = new Set(['AGENTS.md', 'CLAUDE.md', 'GEMINI.md', '.cursorrules']);
 const PROMPT_LEAK = [
-  /return\s+verdict\s*:\s*pass/i,
+  /\bverdict\s*:\s*pass\b/i,
   /return\s+pass\b/i,
   /findings are already/i,
   /already fixed/i,
   /fixes already landed/i,
 ];
-const VENDOR_FIGURE = /\b573\.13\b|\b482\.30\b|15 native reviewers|16 native reviewers|thousands of (?:its |google'?s )?engineers/i;
-const INSTALL = /elephant-goldfish-model|egm@egm|agy\s+plugin\s+install/i;
+// Timings may carry a unit suffix (573.13s), so no trailing word boundary on them.
+const VENDOR_FIGURE = /(?<![\d.])(?:573\.13|482\.30)(?![\d])|15 native reviewers|16 native reviewers|thousands of (?:its |google'?s )?engineers/i;
+// An install operation and its plugin target together; reading docs that name the plugin is fine.
+const INSTALL = /\b(?:install|add|enable)\b[^\n;&|]{0,80}(?:elephant-goldfish-model|egm@egm)|\bagy\s+plugin\s+install\b/i;
+const NEGATED = /\b(?:do\s+not|don'?t|never|must\s+not|should\s+not|without)\b/i;
+
+// A sentence that forbids a verdict ("Do not return PASS") is not a supplied verdict.
+function suppliesVerdict(prompt) {
+  return prompt.split(/(?<=[.!?;])\s+|\n+/).some((sentence) => {
+    const hit = PROMPT_LEAK.map((pattern) => pattern.exec(sentence)).find(Boolean);
+    return Boolean(hit) && !NEGATED.test(sentence.slice(0, hit.index));
+  });
+}
 const REQUIRED = {
   full: [5, 6, 7, 8, 9],
   feature_spec: [5, 6, 7, 8],
@@ -90,16 +101,17 @@ function reviewReceipt(receipt) {
   }
 
   const prompt = filled(input.childPrompt);
-  if (prompt && PROMPT_LEAK.some((pattern) => pattern.test(prompt))) {
+  if (prompt && suppliesVerdict(prompt)) {
     findings.push(finding('parent_verdict', 'blocker'));
   }
   const files = Array.isArray(input.childContextFiles) ? input.childContextFiles : [];
   if (files.some((name) => HOST_FILES.has(filled(name).split('/').pop()))) {
     findings.push(finding('host_instructions', 'blocker'));
   }
-  const command = filled(input.command || input.install);
-  const kind = filled(input.kind || input.action);
-  if (kind === 'install' || (command && INSTALL.test(command))) {
+  // Check every field on its own: a benign value in one must not hide an install in the other.
+  const kinds = [input.kind, input.action].map(filled);
+  const commands = [input.command, input.install].map(filled).filter(Boolean);
+  if (kinds.includes('install') || commands.some((cmd) => INSTALL.test(cmd))) {
     findings.push(finding('plugin_install', 'blocker'));
   }
   if (input.measuredHere === true && VENDOR_FIGURE.test([prompt, filled(input.note)].join('\n'))) {
