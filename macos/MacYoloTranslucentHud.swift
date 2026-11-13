@@ -1576,7 +1576,7 @@ func agentUsageRows(tokens: [String: AgentTokens], net: [(agent: String, inRate:
             if t.tokens > 0 { bits.append("\(formatTokens(t.tokens)) new") }
             if t.cached > 0 { bits.append("\(formatTokens(t.cached)) cached") }
             if t.costUSD > 0 { bits.append(String(format: "$%.2f cloud", t.costUSD)) }
-            else if t.calls > 0 { bits.append("no price") }
+            else if t.calls > 0 { bits.append("price not logged") }
         }
         if let r { bits.append("↑ \(formatRate(r.1)) ↓ \(formatRate(r.0))") }
         else if sinceBytes >= 1_048_576 { bits.append("\(formatBytesShort(sinceBytes)) total") }
@@ -3049,7 +3049,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "guardHeadline": "CPU \(cpuPct)% · GPU \(gpu.devicePct)% (\(String(format: "%.1fG", gpu.vramGB)) VRAM) · RAM \(memPressurePct)% · \(String(format: "%.1fM", sess.estTokensM)) tok (2h)",
             "onScreenLine": "Top Hogs: \(culprits.shortLine) · Active: \(lastActiveApp)",
             "activeApp": culprits.swarmSummary,
-            "activeWin": "\(culprits.pyCount) Python & \(culprits.nodeCount) node MCPs · \(agentCount) user agents",
+            "activeWin": "\(culprits.pyCount) Python & \(culprits.nodeCount) Node processes · \(agentCount) background jobs",
             "diskAvail": diskAvailStr,
             "diskRightBadge": String(format: "%.0f GB free ›", freeDecimalGB),
             "memPressure": culprits.topMem.isEmpty ? "Pressure \(memPressurePct)%" : "Pressure \(memPressurePct)% · \(culprits.topMem)",
@@ -3064,7 +3064,7 @@ class MacYoloAppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             "cpuLoad": "Load 1m: \(load1Str) on \(ncpu) cores",
             "cpuPctNum": "\(cpuPct)",
             "cpuRight": "CPU \(cpuPct)% · GPU \(gpu.devicePct)% ›",
-            "mcpRightBadge": "\(culprits.pyCount + culprits.nodeCount) MCPs ›",
+            "mcpRightBadge": "\(culprits.pyCount + culprits.nodeCount) helpers ›",
             "detailCpu": detailCpuFull,
             "detailMemory": detailMemFull,
             "detailDisk": detailDiskFull,
@@ -3894,11 +3894,11 @@ if CommandLine.arguments.contains("--net-self-test") {
     if tot["Claude"]?.calls != 1 || tot["Claude"]?.tokens != 200 || tot["Claude"]?.cached != 800 { failures.append("claude tokens \(String(describing: tot["Claude"]))") }
     if tot["OMP"]?.tokens != 5000 || tot["OMP"]?.costUSD != 0.25 { failures.append("omp tokens") }
     let usageRows = agentUsageRows(tokens: tot, net: byAgent)
-    if !usageRows.contains(where: { $0.hasPrefix("Claude|1 call · 200 new · 800 cached · no price") && $0.contains("The session log has no price") }) { failures.append("cached split \(usageRows)") }
+    if !usageRows.contains(where: { $0.hasPrefix("Claude|1 call · 200 new · 800 cached · price not logged") && $0.contains("The session log has no price") }) { failures.append("cached split \(usageRows)") }
     if !(usageRows.first ?? "").hasPrefix("OMP|1 call · 5K new · $0.25 cloud") || !(usageRows.first ?? "").contains("Cloud cost recorded in the session log: $0.25.") { failures.append("rows \(usageRows)") }
     if !usageRows.contains(where: { $0.hasPrefix("Grok|↑ 195 KB/s ↓ 0 KB/s") && $0.contains("No model-call count") }) { failures.append("grok net \(usageRows)") }
     let glance = fleetGlance(tokens: tot, net: byAgent)
-    if !glance.hasPrefix("OMP · 1 call · 5K new · $0.25 cloud\nClaude · 1 call · 200 new · 800 cached · no price") { failures.append("glance \(glance)") }
+    if !glance.hasPrefix("OMP · 1 call · 5K new · $0.25 cloud\nClaude · 1 call · 200 new · 800 cached · price not logged") { failures.append("glance \(glance)") }
     var grokTotals: [String: AgentTokens] = [:]
     let nowTs = ISO8601DateFormatter.string(from: Date(), timeZone: TimeZone(identifier: "UTC")!, formatOptions: [.withInternetDateTime, .withFractionalSeconds])
     tallyGrokCalls("{\"ts\":\"\(nowTs)\",\"type\":\"first_token\"}\n{\"ts\":\"\(nowTs)\",\"type\":\"first_token\"}\n{\"ts\":\"2020-01-01T00:00:00.000Z\",\"type\":\"first_token\"}\n{\"ts\":\"\(nowTs)\",\"type\":\"tool_started\"}\n", cutoff: Date().addingTimeInterval(-3600), into: &grokTotals)

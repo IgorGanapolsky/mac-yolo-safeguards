@@ -82,7 +82,7 @@ function main() {
   assert.ok(src.includes('case "moveHud":') && src.includes('case "resizeHud":'), 'Dayglass moveHud and resizeHud handlers required');
   assert.ok(src.includes('id="hudResizeGrip"'), 'Corner resize grip required (resizing is by dragging, not a Size button)');
   assert.ok(src.includes('class="ico-badge ico-disk"><svg') && src.includes('class="hdr-pill"'), 'Duotone SVG icon badges and specular pill buttons required');
-  assert.ok((src.includes('AI Agent Optimization') || src.includes('id="recSection"')) && src.includes('user agents'), 'AI Agent Optimization card and live user agents health strip required');
+  assert.ok((src.includes('AI Agent Optimization') || src.includes('id="recSection"')) && src.includes('background jobs'), 'AI Agent Optimization card and live background jobs health strip required');
 
   // 5. Steady network rate sampling decoupled from app switching + itemized Action Receipt Banner + pre-AppKit flock + BTM guard
   assert.ok(src.includes('dt < 1.2') || src.includes('dt >= 1.2'), 'dt 1.2s guard required in sampleNetworkRates()');

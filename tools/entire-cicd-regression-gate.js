@@ -104,7 +104,7 @@ const REQUIRED_BENTO_INVARIANTS = [
   { id: 'retina-menubar-pill', pattern: 'func renderMenuBarPill(' },
   { id: 'dayglass-header-drag-move', pattern: "case \"moveHud\":" },
   { id: 'dayglass-corner-resize', pattern: "case \"resizeHud\":" },
-  { id: 'machine-health-live-strip', pattern: 'user agents' },
+  { id: 'machine-health-live-strip', pattern: 'background jobs' },
   { id: 'duotone-vector-svg-badges', pattern: 'class="ico-badge ico-disk"><svg' },
   { id: 'specular-pill-buttons', pattern: 'class="hdr-pill"' },
 ];
