@@ -3,7 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 label="com.igor.hermes-academic-research-agent"
-template="$repo_root/$label.plist"
+template="$repo_root/launchd/$label.plist"
 target="$HOME/Library/LaunchAgents/$label.plist"
 private_root="$HOME/.hermes/research-rag"
 domain="gui/$(id -u)"

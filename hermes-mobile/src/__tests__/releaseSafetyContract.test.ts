@@ -544,7 +544,7 @@ describe('release safety contract', () => {
     expect(runner).toContain('HERMES_E2E_ANDROID_ONLY');
     expect(runner).toContain('LOAD_WAIT_SEC');
     expect(runner).toContain('queueing up to');
-    const plist = read('com.igor.hermes-mobile-continuous-e2e.plist');
+    const plist = read('launchd/com.igor.hermes-mobile-continuous-e2e.plist');
     expect(plist).toContain('com.igor.hermes-mobile-continuous-e2e');
     expect(plist).toContain('HERMES_E2E_ANDROID_ONLY');
     expect(plist).toContain('StartInterval');

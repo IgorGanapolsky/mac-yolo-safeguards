@@ -4596,6 +4596,11 @@ The signed-in console at https://console.crusoecloud.com/home has no infrastruct
 | SKILLS.md (one row) | grok-quota-before-provision | 2026-11-12T13:41:47-0500 |
 | plan.md (this append) | grok-quota-before-provision | 2026-11-12T13:41:47-0500 |
 
+## Routine pause (append 2026-11-12T01:58:00 PM ET) — `grok-routine-pause`
+
+A background watcher reopened the Stripe payments page in Google Chrome. Pause, resume, and stop cover one cron line, one launchd job, or one watcher script. `com.igor.shutdown-simulators` stays loaded. The control does not open Chrome.
+
+| T-ROUTINE-PAUSE-20261112 | Pause or stop one cron line, launchd job, or watcher, and hold Chrome when the pause file says so | in_progress | grok-routine-pause | `tools/routine-pause.js`, `tests/test-routine-pause.js`, `tools/revenue-autonomous-loop.js` (chrome hold only), `.agents/skills/routine-pause/**`, `SKILLS.md` (one row), `plan.md` (this append) | `node tests/test-routine-pause.js` exits 0. `chromeOpened` stays false. The simulator shutdown agent is refused. |
 ## Jobs menu on the panel (append 2026-11-12T14:25:00-0500) — `grok-jobs-menu-reachable`
 
 The Background Jobs submenu already lists LaunchAgents, crontab lines, and loose scripts. The running panel had no control that opened it. A Jobs button at the top of the panel and a right-click on the menu-bar icon open that same menu. This does not install a build. The 10:36 network claim stays the network work. Pull request 2332 still owns the heavy-program sentence.
@@ -4605,11 +4610,23 @@ The Background Jobs submenu already lists LaunchAgents, crontab lines, and loose
 ### File claims (§2 append)
 | File | Owner | Claimed |
 |------|-------|---------|
+| tools/routine-pause.js | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
+| tests/test-routine-pause.js | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
+| tools/revenue-autonomous-loop.js (chrome hold only) | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
+| .agents/skills/routine-pause/** | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
+| SKILLS.md (one row) | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
+| plan.md (this append) | grok-routine-pause | 2026-11-12T01:58:00 PM ET |
 | macos/MacYoloSafeguardsApp.swift | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
 | macos/MacYoloTranslucentHud.swift | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
 | tests/test-jobs-menu-reachable.js | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
 | plan.md (this append) | grok-jobs-menu-reachable | 2026-11-12T14:25:00-0500 |
 
+## LaunchAgent templates into launchd/ (append 2026-11-12T15:20:00-0500) — `claude-root-cleanup`
+
+The repo root held 33 LaunchAgent templates. They now live in `launchd/`, and every installer, test and workflow that reads a repo copy points there. Installed copies under ~/Library/LaunchAgents are unchanged.
+
+| T-ROOT-PLISTS-20261112 | Move LaunchAgent templates from the repo root into launchd/ | in_progress | claude-root-cleanup | `launchd/`, `hermes-mobile/src/__tests__/releaseSafetyContract.test.ts`, `plan.md` (this append) | Root has no *.plist; every repo-copy reference resolves under launchd/. |
+- `hermes-mobile/src/__tests__/releaseSafetyContract.test.ts` → **claude-root-cleanup** (one path: plist now under launchd/)
 ## Panel release review (append 2026-11-12T15:11:16-0500) — `grok-hud-release-review`
 
 The menu-bar panel stays one clear web page on an AppKit panel. This check does not redesign it and does not install a build. A panel change is ready only when the first screen has one attention line, a destructive control asks before it runs, and the window is not faded with a flat tint. The Swift panel files stay with their current owners.
@@ -4623,6 +4640,11 @@ The menu-bar panel stays one clear web page on an AppKit panel. This check does 
 | tests/test-mac-yolo-hud-release-review.js | grok-hud-release-review | 2026-11-12T15:11:16-0500 |
 | plan.md (this append) | grok-hud-release-review | 2026-11-12T15:11:16-0500 |
 
+## Practice grade (append 2026-11-12T15:26:59-0500) — `grok-practice-grade`
+
+Evals, the pipeline report, the model registry, and graph retrieval get one card. The card's number is the weakest plane. A perfect mark requires a held-out Mac app golden run, settled non-founder cents, a trained production model with a holdout AUC, and a graph query that names the panel from a clean current main without pasting the search into SQL. The measurements from 3:21 PM EST stay a D.
+
+| T-PRACTICE-GRADE-20261112 | Fail a perfect practice grade until holdout, settled cents, a production model, and a current graph query are in the evidence | in_progress | grok-practice-grade | `tools/mac-yolo-practice-grade.js`, `tests/test-mac-yolo-practice-grade.js`, `plan.md` (this append) | `node tests/test-mac-yolo-practice-grade.js` exits 0. Grading the 3:21 PM evidence exits 1 with D (2/10). |
 ## Source value guard (append 2026-11-12T15:32:06-0500) — `grok-source-value-guard`
 
 An outbound action fails when a typed score stands in for a processor return, a skip flag is set, spend has no cap, an agent is untracked, a vendor figure is marked as a local result, or the text still contains a card-shaped number, an identity-number shape, or a key-shaped value. The same input always maps to the same letter stand-in. There is no second database and no vendor figure stored as a local result. Source note: https://capitalonesoftware.com/blog/gartner-2026-ai-risk-business-value
@@ -4632,6 +4654,9 @@ An outbound action fails when a typed score stands in for a processor return, a 
 ### File claims (§2 append)
 | File | Owner | Claimed |
 |------|-------|---------|
+| tools/mac-yolo-practice-grade.js | grok-practice-grade | 2026-11-12T15:26:59-0500 |
+| tests/test-mac-yolo-practice-grade.js | grok-practice-grade | 2026-11-12T15:26:59-0500 |
+| plan.md (this append) | grok-practice-grade | 2026-11-12T15:26:59-0500 |
 | tools/source-value-guard.js | grok-source-value-guard | 2026-11-12T15:32:06-0500 |
 | tests/test-source-value-guard.js | grok-source-value-guard | 2026-11-12T15:32:06-0500 |
 | plan.md (this append) | grok-source-value-guard | 2026-11-12T15:32:06-0500 |

@@ -13,7 +13,7 @@ uid="$(id -u)"
 gui_domain="gui/${uid}"
 launchagents_dir="${home}/Library/LaunchAgents"
 label="com.hermes.chrome-cdp"
-template="${repo_root}/com.hermes.chrome-cdp.plist"
+template="${repo_root}/launchd/com.hermes.chrome-cdp.plist"
 dest="${launchagents_dir}/${label}.plist"
 
 mkdir -p "${launchagents_dir}" "${home}/.hermes/chrome-cdp-profile"

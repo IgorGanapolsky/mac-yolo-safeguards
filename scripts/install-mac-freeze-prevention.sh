@@ -31,9 +31,9 @@ install_script "$repo_root/sim-runaway-guard.sh" "$local_bin/sim-runaway-guard.s
 install_script "$repo_root/scripts/memory-pressure-guardian.sh" "$local_bin/memory-pressure-guardian.sh"
 install_script "$repo_root/scripts/hermes-gateway-watchdog.sh" "$hermes_dir/hermes-gateway-watchdog.sh"
 
-render_plist "$repo_root/com.igor.shutdown-simulators.plist" "$launchagents_dir/com.igor.shutdown-simulators.plist"
-render_plist "$repo_root/com.igor.memory-pressure-guardian.plist" "$launchagents_dir/com.igor.memory-pressure-guardian.plist"
-render_plist "$repo_root/com.igor.hermes-gateway-watchdog.plist" "$launchagents_dir/com.igor.hermes-gateway-watchdog.plist"
+render_plist "$repo_root/launchd/com.igor.shutdown-simulators.plist" "$launchagents_dir/com.igor.shutdown-simulators.plist"
+render_plist "$repo_root/launchd/com.igor.memory-pressure-guardian.plist" "$launchagents_dir/com.igor.memory-pressure-guardian.plist"
+render_plist "$repo_root/launchd/com.igor.hermes-gateway-watchdog.plist" "$launchagents_dir/com.igor.hermes-gateway-watchdog.plist"
 
 if grep -E '/private/tmp|actions-runner/_work|--dry-run' \
   "$launchagents_dir/com.igor.shutdown-simulators.plist" \

@@ -39,7 +39,7 @@ install_one() {
   local label="${template%.plist}"
   local dest="${launchagents_dir}/${template}"
   sed "s#{{REPO}}#${repo_root}#g; s#{{HOME}}#${home}#g; s#{{NODE}}#${node_bin}#g; s#{{HERMES_PIN_MODEL}}#${hermes_pin_model}#g" \
-    "${repo_root}/${template}" > "$dest"
+    "${repo_root}/launchd/${template}" > "$dest"
   launchctl bootout "${gui_domain}/${label}" 2>/dev/null || true
   if [[ "$label" == com.igor.hermes-mobile-pair-server ]]; then
     stop_legacy_pair_server

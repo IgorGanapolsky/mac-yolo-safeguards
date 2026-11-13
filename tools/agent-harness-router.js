@@ -42,6 +42,14 @@ const os = require('os');
 const path = require('path');
 const https = require('https');
 const { URL } = require('url');
+const {
+  allocateSplitWorkflow,
+  buildStrategistHandoff,
+  compileExecutorSyncPacket,
+  buildCrossProviderFallbackChain,
+  validateStructuredGatewayOutput,
+  executeDualGatewayWithFailover,
+} = require('./split-moa-hypergraph-engine');
 
 const MODULE_NAME = 'agent-harness-router';
 const SCHEMA = 'agent-harness-router/v1';
@@ -68,7 +76,7 @@ const MODEL_REGISTRY = Object.freeze({
   },
   'zai-org/glm-5.3-coder': {
     provider: 'zai',
-    cost_per_1k_tokens: { input: 0.1, output: 0.1 },
+    cost_per_1k_tokens: { input: 0.0, output: 0.0 },
     latency_ms: 220,
     quality_score: 0.88,
     privacy: 'local',
@@ -139,6 +147,66 @@ const MODEL_REGISTRY = Object.freeze({
     supportsTools: true,
     maxContext: 1000000,
   },
+  'google/gemini-4-argon': {
+    provider: 'google',
+    cost_per_1k_tokens: { input: 1.25, output: 5.0 },
+    latency_ms: 380,
+    quality_score: 0.96,
+    privacy: 'third_party',
+    supportsTools: true,
+    maxContext: 1000000,
+    architecturalRole: 'strategist',
+  },
+  'google/gemini-4-carbon': {
+    provider: 'google',
+    cost_per_1k_tokens: { input: 2.0, output: 10.0 },
+    latency_ms: 410,
+    quality_score: 0.985,
+    privacy: 'third_party',
+    supportsTools: true,
+    maxContext: 1048576,
+    architecturalRole: 'strategist',
+  },
+  'google/gemini-4-hydrogen': {
+    provider: 'google',
+    cost_per_1k_tokens: { input: 1.5, output: 7.5 },
+    latency_ms: 195,
+    quality_score: 0.965,
+    privacy: 'third_party',
+    supportsTools: true,
+    maxContext: 1048576,
+    architecturalRole: 'executor',
+  },
+  'google/gemini-3.1-pro': {
+    provider: 'google',
+    cost_per_1k_tokens: { input: 0.8, output: 3.2 },
+    latency_ms: 310,
+    quality_score: 0.91,
+    privacy: 'third_party',
+    supportsTools: true,
+    maxContext: 1000000,
+    architecturalRole: 'strategist',
+  },
+  'anthropic/claude-opus-4.7': {
+    provider: 'anthropic',
+    cost_per_1k_tokens: { input: 3.0, output: 15.0 },
+    latency_ms: 520,
+    quality_score: 0.97,
+    privacy: 'third_party',
+    supportsTools: true,
+    maxContext: 200000,
+    architecturalRole: 'executor',
+  },
+  'anthropic/claude-sonnet-4.6': {
+    provider: 'anthropic',
+    cost_per_1k_tokens: { input: 0.8, output: 4.0 },
+    latency_ms: 290,
+    quality_score: 0.92,
+    privacy: 'third_party',
+    supportsTools: true,
+    maxContext: 200000,
+    architecturalRole: 'executor',
+  },
 });
 
 // First-party operators (no third-party data sharing)
@@ -166,7 +234,7 @@ const SENSITIVE_DATA_RESTRICTED_OPERATORS = Object.freeze([
 ]);
 
 // Models that cost $0 (local/OSS)
-const FREE_MODELS = new Set(['zai-org/glm-5.3']);
+const FREE_MODELS = new Set(['zai-org/glm-5.3', 'zai-org/glm-5.3-coder']);
 
 // ─── TASK CATEGORIES ─────────────────────────────────────────────
 // Used for routing and benchmark portability scoring
@@ -919,6 +987,21 @@ function main(argv = process.argv.slice(2)) {
     return { models };
   }
 
+  if (cmd === 'split') {
+    const rawSpec = rest.find((a) => !a.startsWith('--')) || '{"task":"Monorepo review and schema refactor"}';
+    const parsedSpec = rawSpec.startsWith('{') ? JSON.parse(rawSpec) : { task: rawSpec };
+    const plan = allocateSplitWorkflow(parsedSpec, { budgetGuard });
+    console.log(JSON.stringify(plan, null, 2));
+    return plan;
+  }
+
+  if (cmd === 'failover') {
+    const modelId = rest.find((a) => !a.startsWith('--')) || 'anthropic/claude-opus-4.7';
+    const chain = buildCrossProviderFallbackChain(modelId, { budgetGuard });
+    console.log(JSON.stringify(chain, null, 2));
+    return chain;
+  }
+
   if (cmd === 'help' || cmd === '--help' || cmd === '-h') {
     console.log(`
 Agent Harness Router v${SCHEMA}
@@ -937,6 +1020,8 @@ Usage:
   agent-harness-router benchmark results --task-id <id>
   agent-harness-router benchmark portability
   agent-harness-router registry [--json]
+  agent-harness-router split '<task or JSON>' [--json]
+  agent-harness-router failover <modelId> [--json]
 
 This is NOT ChatGPT Computer History. Never captures keystrokes, clicks,
 or local Mac activity timelines.
@@ -973,6 +1058,12 @@ module.exports = {
   PrivateBenchmark,
   ModelRegistry,
   formatRouteResult,
+  allocateSplitWorkflow,
+  buildStrategistHandoff,
+  compileExecutorSyncPacket,
+  buildCrossProviderFallbackChain,
+  validateStructuredGatewayOutput,
+  executeDualGatewayWithFailover,
   main,
 };
 

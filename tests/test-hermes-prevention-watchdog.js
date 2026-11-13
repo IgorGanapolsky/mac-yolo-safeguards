@@ -66,8 +66,8 @@ function testChromeCdpScripts() {
   assert.ok(fs.existsSync(chrome));
   assert.ok(fs.existsSync(install));
   assert.ok(fs.existsSync(configure));
-  assert.ok(fs.existsSync(path.join(repoRoot, 'com.hermes.chrome-cdp.plist')));
-  assert.ok(fs.existsSync(path.join(repoRoot, 'com.igor.hermes-prevention-watchdog.plist')));
+  assert.ok(fs.existsSync(path.join(repoRoot, 'launchd', 'com.hermes.chrome-cdp.plist')));
+  assert.ok(fs.existsSync(path.join(repoRoot, 'launchd', 'com.igor.hermes-prevention-watchdog.plist')));
   assert.ok(fs.existsSync(path.join(repoRoot, 'docs/BROWSER-CONTROL.md')));
   const chromeBody = fs.readFileSync(chrome, 'utf8');
   assert.ok(chromeBody.includes('remote-debugging-port'));
