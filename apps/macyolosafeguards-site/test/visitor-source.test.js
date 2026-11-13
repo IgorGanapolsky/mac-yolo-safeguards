@@ -39,8 +39,22 @@ test("Product Hunt visitors see the welcome and their checkouts are tagged produ
   }
 });
 
+test("Hacker News and Reddit visitors get their checkouts tagged without the welcome", () => {
+  for (const [ref, src] of [["https://news.ycombinator.com/", "hn"], ["https://www.reddit.com/", "reddit"], ["https://old.reddit.com/r/ClaudeAI/", "reddit"]]) {
+    const p = page("", ref);
+    assert.equal(p.banner, false);
+    assert.equal(p.links["/go/pro-once"], `/go/pro-once?client_reference_id=${src}`);
+    assert.equal(p.links["/go/dmg"], "/go/dmg");
+  }
+  assert.equal(page("?from=hn", "https://www.reddit.com/").links["/go/pro-once"], "/go/pro-once?client_reference_id=hn");
+});
+
+test("a broken referrer changes nothing", () => {
+  assert.equal(page("", "not a url").links["/go/pro-once"], "/go/pro-once");
+});
+
 test("everyone else, and junk sources, change nothing", () => {
-  for (const p of [page("", ""), page("?ref=github", "https://github.com/"), page("?from=<script>", ""), page("", "https://notproducthunt.com/")]) {
+  for (const p of [page("", ""), page("?ref=github", "https://github.com/"), page("?from=<script>", ""), page("", "https://notproducthunt.com/"), page("", "https://fakereddit.com/"), page("", "https://news.ycombinator.com.evil.io/")]) {
     assert.equal(p.banner, false);
     assert.equal(p.links["/go/pro-once"], "/go/pro-once");
   }
