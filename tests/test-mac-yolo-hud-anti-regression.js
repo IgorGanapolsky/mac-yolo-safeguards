@@ -200,3 +200,15 @@ main();
   }
   console.log('ok - opened rows explain the app, its scope and its biggest processes');
 }
+
+// 2026-11-14 "out of application memory": Auto-Guard is on by default for Pro, and a critical
+// memory state with nothing safe to stop names who holds the memory.
+{
+  const fs = require('fs');
+  for (const f of ['macos/MacYoloTranslucentHud.swift', 'macos/MacYoloSafeguardsApp.swift']) {
+    const src = fs.readFileSync(require('path').join(__dirname, '..', f), 'utf8');
+    if (!src.includes('UserDefaults.standard.object(forKey: "MacYoloAutoGuard") as? Bool ?? true')) throw new Error(`${f}: Auto-Guard must default on for Pro`);
+    if (!src.includes('criticalOwnersNotice(res)')) throw new Error(`${f}: critical memory notice missing`);
+  }
+  console.log('ok - Auto-Guard defaults on for Pro and names memory owners when critical');
+}
