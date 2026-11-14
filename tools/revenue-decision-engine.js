@@ -449,17 +449,18 @@ console.log(JSON.stringify({by}))})()`;
  * unsupported there). Opens a background tab, runs one HogQL query from the page, closes it.
  */
 async function queryPostHog(hogql, { port = process.env.BROWSEROS_CDP_PORT || '9119', projectId = '669292', settleMs = 6000 } = {}) {
+  if (!/^\d+$/.test(String(projectId)) || !/^\d+$/.test(String(port))) throw new Error('projectId and port must be numeric');
   const WS = globalThis.WebSocket;
   const v = await (await fetch(`http://127.0.0.1:${port}/json/version`)).json();
   const ws = new WS(v.webSocketDebuggerUrl);
   let id = 0;
-  const pend = {};
+  const pend = new Map();
   const send = (method, params = {}, sessionId) => new Promise((resolve) => {
     const i = ++id;
-    pend[i] = resolve;
+    pend.set(i, resolve);
     ws.send(JSON.stringify({ id: i, method, params, sessionId }));
   });
-  ws.onmessage = (e) => { const m = JSON.parse(e.data); if (m.id && pend[m.id]) pend[m.id](m); };
+  ws.onmessage = (e) => { const m = JSON.parse(e.data); const done = pend.get(m.id); if (done) { pend.delete(m.id); done(m); } };
   await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = () => reject(new Error(`websocket to 127.0.0.1:${port} failed`)); });
   let tid;
   try {
@@ -469,7 +470,7 @@ async function queryPostHog(hogql, { port = process.env.BROWSEROS_CDP_PORT || '9
     const a = await send('Target.attachToTarget', { targetId: tid, flatten: true });
     const sid = a.result.sessionId;
     await new Promise((r) => setTimeout(r, settleMs));
-    const expr = `(async()=>{const c=document.cookie.match(/posthog_csrftoken=([^;]+)/);const x=await fetch('/api/projects/${projectId}/query/',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':c?c[1]:''},body:JSON.stringify({query:{kind:'HogQLQuery',query:${JSON.stringify(hogql)}}})});const j=await x.json();return JSON.stringify(j.results?{rows:j.results}:{error:'HTTP '+x.status})})()`;
+    const expr = `(async()=>{const c=document.cookie.match(/posthog_csrftoken=([^;]+)/);const x=await fetch('/api/projects/'+${JSON.stringify(String(projectId))}+'/query/',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':c?c[1]:''},body:JSON.stringify({query:{kind:'HogQLQuery',query:${JSON.stringify(hogql)}}})});const j=await x.json();return JSON.stringify(j.results?{rows:j.results}:{error:'HTTP '+x.status})})()`;
     const ev = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true }, sid);
     const val = ev.result && ev.result.result && ev.result.result.value;
     if (!val) throw new Error(`evaluate failed: ${JSON.stringify(ev).slice(0, 140)}`);
