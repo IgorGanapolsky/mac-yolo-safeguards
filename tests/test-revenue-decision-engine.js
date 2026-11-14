@@ -113,10 +113,27 @@ t('graph evidence is cited with counts and sources', () => {
 t('mismatched counts are clamped and warned, missing data is not invented', () => {
   const d = E.normalizeInput({ channels: { producthunt: { visits: 1, checkouts: 3, paid: 0 }, hn: { visits: null, checkouts: 1, paid: 0 } } });
   assert.ok(d.warnings.some((w) => w.includes('producthunt')));
+  assert.strictEqual(d.channels.producthunt.visits, null);
   assert.strictEqual(d.channels.hn.visits, null);
   const r = E.decide({ channels: { hn: { visits: null, checkouts: 1, paid: 0 } } });
   assert.strictEqual(r.recommendation.verdict, 'not enough data to rank channels yet');
   assert.deepStrictEqual(r.thompson.eligibleChannels, []);
+});
+
+t('checkouts with no trustworthy visits get zero share and a not-measured warning', () => {
+  const r = E.decide({
+    channels: {
+      producthunt: { visits: 0, checkouts: 1, paid: 0 },
+      github_readme: { visits: 80, checkouts: 2, paid: 0 },
+      hn: { visits: 60, checkouts: 1, paid: 0 },
+    },
+  }, { seed: 3 });
+  assert.strictEqual(r.thompson.effortSplit.producthunt, 0);
+  assert.ok(!r.thompson.eligibleChannels.includes('producthunt'));
+  assert.ok(r.warnings.includes("producthunt: 1 checkout, visits unknown, website traffic isn't measured"));
+  assert.notStrictEqual(r.recommendation.channel, 'producthunt');
+  near(Object.values(r.thompson.effortSplit).reduce((a, b) => a + b, 0), 1, 1e-9);
+  assert.ok(/visits unknown/.test(E.toText(r)));
 });
 
 t('channel mapping', () => {

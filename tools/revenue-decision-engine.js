@@ -174,9 +174,11 @@ function normalizeInput(raw) {
         row[fk] = row[tk];
       }
     }
-    if (row.visits !== null && row.checkouts !== null && row.checkouts > row.visits && !warnings.some((w) => w.startsWith(`${name}:`))) {
-      warnings.push(`${name}: checkouts=${row.checkouts} exceeds visits=${row.visits} (visit source misses some traffic or tags are mixed); visit-to-checkout treated as ${row.checkouts}/${row.checkouts}`);
-      row.visits = row.checkouts;
+    // No trustworthy visit count: checkouts exceed visits (or visits are unknown). Never clamp;
+    // the channel gets no Thompson share and is listed as not measured.
+    if (row.checkouts > 0 && (row.visits === null || row.checkouts > row.visits)) {
+      warnings.push(`${name}: ${row.checkouts} checkout${row.checkouts === 1 ? '' : 's'}, visits unknown, website traffic isn't measured`);
+      row.visits = null;
     }
     channels[name] = row;
   }
@@ -283,7 +285,7 @@ function thompson(data, { seed = 7, draws = 4000 } = {}) {
     }
     wins[best] += 1;
   }
-  const split = {};
+  const split = Object.fromEntries(CHANNELS.map((n) => [n, 0]));
   const intervals = {};
   for (const n of eligible) {
     split[n] = wins[n] / draws;
@@ -409,7 +411,7 @@ function toText(r) {
     lines.push(`Graph evidence behind that: ${r.evidence.filter((e) => e.rel !== 'VISITS' || true).slice(0, 4).map((e) => `${e.edge} ${e.from} ${e.rel} ${e.count}${e.of !== null ? '/' + e.of : ''} [${e.source}]`).join('; ')}.`);
   }
   const gaps = [...r.notes, ...r.warnings];
-  if (gaps.length) lines.push(`Not measured or inconsistent: ${gaps.slice(0, 3).join(' | ')}`);
+  if (gaps.length) lines.push(`Not measured or inconsistent: ${gaps.slice(0, 4).join(' | ')}`);
   return lines.slice(0, 8).join('\n');
 }
 
@@ -441,6 +443,65 @@ for(let i=0;i<10;i++){
   by[k]=by[k]||{opened:0,paid:0};by[k].opened++;if(x.status==="complete"&&x.payment_status==="paid")by[k].paid++}
  if(!j.has_more)break;after=j.data[j.data.length-1].id}
 console.log(JSON.stringify({by}))})()`;
+
+/**
+ * PostHog read through the signed-in BrowserOS over raw CDP (Playwright connectOverCDP is
+ * unsupported there). Opens a background tab, runs one HogQL query from the page, closes it.
+ */
+async function queryPostHog(hogql, { port = process.env.BROWSEROS_CDP_PORT || '9119', projectId = '669292', settleMs = 6000 } = {}) {
+  const WS = globalThis.WebSocket;
+  const v = await (await fetch(`http://127.0.0.1:${port}/json/version`)).json();
+  const ws = new WS(v.webSocketDebuggerUrl);
+  let id = 0;
+  const pend = {};
+  const send = (method, params = {}, sessionId) => new Promise((resolve) => {
+    const i = ++id;
+    pend[i] = resolve;
+    ws.send(JSON.stringify({ id: i, method, params, sessionId }));
+  });
+  ws.onmessage = (e) => { const m = JSON.parse(e.data); if (m.id && pend[m.id]) pend[m.id](m); };
+  await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = () => reject(new Error(`websocket to 127.0.0.1:${port} failed`)); });
+  let tid;
+  try {
+    const t = await send('Target.createTarget', { url: `https://us.posthog.com/project/${projectId}/home`, background: true });
+    tid = t.result && t.result.targetId;
+    if (!tid) throw new Error(`createTarget failed: ${JSON.stringify(t.error || t).slice(0, 140)}`);
+    const a = await send('Target.attachToTarget', { targetId: tid, flatten: true });
+    const sid = a.result.sessionId;
+    await new Promise((r) => setTimeout(r, settleMs));
+    const expr = `(async()=>{const c=document.cookie.match(/posthog_csrftoken=([^;]+)/);const x=await fetch('/api/projects/${projectId}/query/',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':c?c[1]:''},body:JSON.stringify({query:{kind:'HogQLQuery',query:${JSON.stringify(hogql)}}})});const j=await x.json();return JSON.stringify(j.results?{rows:j.results}:{error:'HTTP '+x.status})})()`;
+    const ev = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true }, sid);
+    const val = ev.result && ev.result.result && ev.result.result.value;
+    if (!val) throw new Error(`evaluate failed: ${JSON.stringify(ev).slice(0, 140)}`);
+    const j = JSON.parse(val);
+    if (j.error) throw new Error(`PostHog query ${j.error} (not signed in?)`);
+    return j.rows;
+  } finally {
+    if (tid) await send('Target.closeTarget', { targetId: tid });
+    ws.close();
+  }
+}
+
+async function applyPostHog(raw, windowHours) {
+  const port = process.env.BROWSEROS_CDP_PORT || '9119';
+  try {
+    const rows = await queryPostHog(`select coalesce(nullif(properties.from,''), nullif(properties.utm_source,''), nullif(properties.referrer,''), 'direct') as src, coalesce(properties.path,'?') as path, count() from events where event='pageview' and properties.product='macyolo' and timestamp > now() - interval ${windowHours} hour and coalesce(properties.utm_source,'') != 'agent_check' and coalesce(properties.likely_bot,false) = false group by 1,2 limit 200`);
+    for (const n of CHANNELS) raw.channels[n].visits = 0;
+    raw.pages = {};
+    for (const [src, pth, count] of rows) {
+      raw.channels[mapChannel(src)].visits += count;
+      const key = pth === '/teams/' || pth === '/teams' ? '/teams/' : pth === '/' ? '/' : null;
+      if (key) { raw.pages[key] = raw.pages[key] || { visits: 0 }; raw.pages[key].visits += count; }
+    }
+    raw.sources.visits = `PostHog pageview on the website by ?from=, last ${windowHours}h, bots excluded`;
+    raw.sources.pages = raw.sources.visits;
+    raw.window = `${windowHours}h (site visits, Stripe), all-time (downloads)`;
+    raw.notes = raw.notes.map((n) => n.replace(/visits are 14-day; checkouts are \d+h, so stage ratios mix windows/, 'visits and checkouts are both '+windowHours+'h, so only the download stage mixes windows'));
+  } catch (e) {
+    raw.notes.push(`not measured: site visits by ?from= and by page (PostHog via BrowserOS port ${port}: ${String(e.message).split('\n')[0].slice(0, 160)}); visits fall back to GitHub repo referrers`);
+  }
+  return raw;
+}
 
 function collectLive({ windowHours = 24 } = {}) {
   const notes = [];
@@ -498,16 +559,6 @@ function collectLive({ windowHours = 24 } = {}) {
     notes.push(`not measured: release downloads (${String(e.message).split('\n')[0].slice(0, 160)})`);
   }
 
-  // Site visits per page/channel live in PostHog, which needs the agent browser.
-  try {
-    const out = run(process.execPath, [`${process.env.HOME}/.config/mac-yolo/launch/ph-q.cjs`, 'q', '669292',
-      `select coalesce(nullif(properties.from,''), 'direct') as src, count() from events where event='$pageview' and properties.product='macyolo' and timestamp > now() - interval ${windowHours} hour and coalesce(properties.likely_bot,false) = false group by 1`], 45000);
-    notes.push(`PostHog returned data but the parser is not wired: ${out.slice(0, 80).replace(/\s+/g, ' ')}`);
-  } catch (e) {
-    const line = String(e.stderr || e.message).split('\n').find((l) => /ECONN|Error|error/.test(l)) || String(e.message).split('\n')[0];
-    notes.push(`not measured: site visits by ?from= and by page (PostHog needs BrowserOS: ${line.trim().slice(0, 140)})`);
-  }
-
   return { window: `${windowHours}h (Stripe), 14d (visits), all-time (downloads)`, sources, channels, totals, offers, notes };
 }
 
@@ -527,18 +578,18 @@ function parseArgs(argv) {
   return o;
 }
 
-function main(argv) {
+async function main(argv) {
   const o = parseArgs(argv);
   if (o.help) {
     process.stdout.write('Usage: revenue-decision-engine.js [--text] [--input file.json] [--window-hours 24] [--seed 7] [--hours 10]\n');
     return 0;
   }
-  const raw = o.input ? JSON.parse(fs.readFileSync(o.input, 'utf8')) : collectLive({ windowHours: o.windowHours });
+  const raw = o.input ? JSON.parse(fs.readFileSync(o.input, 'utf8')) : await applyPostHog(collectLive({ windowHours: o.windowHours }), o.windowHours);
   const result = decide(raw, { seed: o.seed, hours: o.hours });
   process.stdout.write((o.text ? toText(result) : JSON.stringify(result, null, 2)) + '\n');
   return 0;
 }
 
-module.exports = { betaCdf, betaQuantile, posterior, mulberry32, betaSample, normalizeInput, buildGraph, thompson, allOverlap, leakiestStage, decide, toText, mapChannel, collectLive };
+module.exports = { betaCdf, betaQuantile, posterior, mulberry32, betaSample, normalizeInput, buildGraph, thompson, allOverlap, leakiestStage, decide, toText, mapChannel, collectLive, queryPostHog, applyPostHog };
 
-if (require.main === module) process.exit(main(process.argv.slice(2)));
+if (require.main === module) main(process.argv.slice(2)).then((c) => process.exit(c), (e) => { process.stderr.write(`${e.message}\n`); process.exit(1); });
