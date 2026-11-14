@@ -55,6 +55,9 @@ const PRESSURE_LOG = path.join(LOG_DIR, 'pressure.jsonl');
 // A freeze is the read-back rate, not how much sits in swap.
 const SWAPIN_WARN_PER_SEC = 256;
 const SWAPIN_CRITICAL_PER_SEC = 1024;
+const SWAP_FULL_MIN_MB = 8192;
+const SWAP_FULL_WARN_PCT = 80;
+const SWAP_FULL_CRITICAL_PCT = 90;
 const STRANDED_MIN_IDLE_SEC = 30 * 60;
 const IDLE_SESSION_MIN_SEC = 2 * 3600;
 // process.execPath points into a versioned Homebrew Cellar folder that an upgrade deletes.
@@ -326,8 +329,8 @@ function memorySnapshot({ paging, sampleMs = 2000 } = {}) {
 
 // Pure. The kernel's level (1 normal, 2 warn, 4 critical) and a low free figure raise the
 // level, and so does reading pages back from swap fast: that is what freezes apps, and the
-// kernel can report normal while it happens. Swap size alone is never pressure, because
-// macOS adds swap files as it needs them and leaves cold pages there.
+// kernel can report normal while it happens. Swap size alone is not pressure (macOS adds swap
+// files as it needs them), but swap that is nearly full is.
 function assessPressure(memory) {
   const reasons = [];
   let level = 'normal';
@@ -345,7 +348,13 @@ function assessPressure(memory) {
     if (paging.swapInsPerSec >= SWAPIN_CRITICAL_PER_SEC) raise('critical', swapping);
     else if (paging.swapInsPerSec >= SWAPIN_WARN_PER_SEC) raise('warn', swapping);
   }
-  if (memory.swapUsedMB !== null && memory.ramMB && memory.swapUsedMB > memory.ramMB * 0.75) {
+  // Swap nearly full is pressure even when free memory looks fine: on 2026-11-14 a 48 GB Mac showed
+  // 77-79% free all morning, then macOS said "out of application memory" with 14.4 of 15 GB swap used.
+  // Small swap (under 8 GB) is ignored, since macOS adds swap files as it needs them.
+  const swapFull = memory.swapUsedPct != null && memory.swapUsedMB >= SWAP_FULL_MIN_MB;
+  if (swapFull && memory.swapUsedPct >= SWAP_FULL_CRITICAL_PCT) raise('critical', `swap is ${memory.swapUsedPct}% full (${memory.swapUsedMB} MB)`);
+  else if (swapFull && memory.swapUsedPct >= SWAP_FULL_WARN_PCT) raise('warn', `swap is ${memory.swapUsedPct}% full (${memory.swapUsedMB} MB)`);
+  else if (memory.swapUsedMB !== null && memory.ramMB && memory.swapUsedMB > memory.ramMB * 0.75) {
     reasons.push(`${memory.swapUsedMB} MB in swap on ${memory.ramMB} MB of RAM`);
   }
   return { level, reasons };

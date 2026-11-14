@@ -164,6 +164,10 @@ function main() {
   assert.strictEqual(swapOnly.level, 'normal');
   assert.strictEqual(swapOnly.reasons.length, 1);
   assert.strictEqual(assessPressure({ pressureLevel: 4, freeMemoryPct: 30, swapUsedMB: 0, ramMB: 16384 }).level, 'critical');
+  // Swap nearly full: the 2026-11-14 "out of application memory" case (78% free, 14.4 of 15 GB swap).
+  assert.strictEqual(assessPressure({ pressureLevel: 1, freeMemoryPct: 78, swapUsedMB: 14378, swapUsedPct: 94, ramMB: 49152 }).level, 'critical');
+  assert.strictEqual(assessPressure({ pressureLevel: 1, freeMemoryPct: 78, swapUsedMB: 12288, swapUsedPct: 82, ramMB: 49152 }).level, 'warn');
+  assert.strictEqual(assessPressure({ pressureLevel: 1, freeMemoryPct: 78, swapUsedMB: 1900, swapUsedPct: 95, ramMB: 49152 }).level, 'normal', 'a small, full swap is normal');
   assert.strictEqual(assessPressure({ pressureLevel: 2, freeMemoryPct: 8, swapUsedMB: 0, ramMB: 16384 }).level, 'critical');
   assert.strictEqual(relieve({ memory: { pressureLevel: 1, freeMemoryPct: 71, swapUsedMB: 0, ramMB: 16384 }, procs: [] }).acted, false);
   const relief = relieve({ memory: { pressureLevel: 4, freeMemoryPct: 5, swapUsedMB: 0, ramMB: 16384 }, procs: parsePs(ps(stormRows)) });
