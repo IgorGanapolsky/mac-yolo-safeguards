@@ -460,6 +460,17 @@ console.log(JSON.stringify({by}))})()`;
  * PostHog read through the signed-in BrowserOS over raw CDP (Playwright connectOverCDP is
  * unsupported there). Opens a background tab, runs one HogQL query from the page, closes it.
  */
+const POSTHOG_QUERY_FN = `async function (projectId, hogql) {
+  const c = document.cookie.match(/posthog_csrftoken=([^;]+)/);
+  const x = await fetch('/api/projects/' + encodeURIComponent(projectId) + '/query/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': c ? c[1] : '' },
+    body: JSON.stringify({ query: { kind: 'HogQLQuery', query: hogql } }),
+  });
+  const j = await x.json();
+  return JSON.stringify(j.results ? { rows: j.results } : { error: 'HTTP ' + x.status });
+}`;
+
 async function queryPostHog(hogql, { port = process.env.BROWSEROS_CDP_PORT || '9119', projectId = '669292', settleMs = 6000 } = {}) {
   if (!/^\d+$/.test(String(projectId)) || !/^\d+$/.test(String(port))) throw new Error('projectId and port must be numeric');
   const WS = globalThis.WebSocket;
@@ -472,7 +483,7 @@ async function queryPostHog(hogql, { port = process.env.BROWSEROS_CDP_PORT || '9
     pend.set(i, resolve);
     ws.send(JSON.stringify({ id: i, method, params, sessionId }));
   });
-  ws.onmessage = (e) => { const m = JSON.parse(e.data); const done = pend.get(m.id); if (done) { pend.delete(m.id); done(m); } };
+  ws.onmessage = (e) => { const m = JSON.parse(e.data); const done = pend.get(m.id); if (typeof done === 'function') { pend.delete(m.id); done(m); } };
   await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = () => reject(new Error(`websocket to 127.0.0.1:${port} failed`)); });
   let tid;
   try {
@@ -482,8 +493,15 @@ async function queryPostHog(hogql, { port = process.env.BROWSEROS_CDP_PORT || '9
     const a = await send('Target.attachToTarget', { targetId: tid, flatten: true });
     const sid = a.result.sessionId;
     await new Promise((r) => setTimeout(r, settleMs));
-    const expr = `(async()=>{const c=document.cookie.match(/posthog_csrftoken=([^;]+)/);const x=await fetch('/api/projects/'+${JSON.stringify(String(projectId))}+'/query/',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':c?c[1]:''},body:JSON.stringify({query:{kind:'HogQLQuery',query:${JSON.stringify(hogql)}}})});const j=await x.json();return JSON.stringify(j.results?{rows:j.results}:{error:'HTTP '+x.status})})()`;
-    const ev = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true }, sid);
+    // A fixed function with the project id and query passed as arguments: no code is built from data.
+    const g = await send('Runtime.evaluate', { expression: 'globalThis' }, sid);
+    const ev = await send('Runtime.callFunctionOn', {
+      objectId: g.result.result.objectId,
+      functionDeclaration: POSTHOG_QUERY_FN,
+      arguments: [{ value: String(projectId) }, { value: hogql }],
+      awaitPromise: true,
+      returnByValue: true,
+    }, sid);
     const val = ev.result && ev.result.result && ev.result.result.value;
     if (!val) throw new Error(`evaluate failed: ${JSON.stringify(ev).slice(0, 140)}`);
     const j = JSON.parse(val);
