@@ -3772,7 +3772,10 @@ extension MacYoloAppDelegate {
         let content = UNMutableNotificationContent()
         content.title = "Auto-Guard"
         content.body = text
-        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)) { error in
+            // A notice that never showed (notifications off) must not start the 30-minute quiet period.
+            if error != nil { UserDefaults.standard.removeObject(forKey: "MacYoloCriticalNoticeAt") }
+        }
     }
 }
 

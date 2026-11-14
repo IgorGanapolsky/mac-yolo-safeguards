@@ -320,7 +320,8 @@ function memorySnapshot({ paging, sampleMs = 2000 } = {}) {
   return {
     pressureLevel: Number(read('kern.memorystatus_vm_pressure_level')) || null,
     swapUsedMB: swap ? Math.round(Number(swap[2])) : null,
-    swapUsedPct: swap ? Math.round((Number(swap[2]) * 100) / Number(swap[1])) : null,
+    // Unrounded, so 89.5% is not judged as 90%; reasons round it for display.
+    swapUsedPct: swap ? (Number(swap[2]) * 100) / Number(swap[1]) : null,
     ramMB: Math.round(os.totalmem() / 1048576),
     freeMemoryPct,
     paging,
@@ -352,8 +353,8 @@ function assessPressure(memory) {
   // 77-79% free all morning, then macOS said "out of application memory" with 14.4 of 15 GB swap used.
   // Small swap (under 8 GB) is ignored, since macOS adds swap files as it needs them.
   const swapFull = memory.swapUsedPct != null && memory.swapUsedMB >= SWAP_FULL_MIN_MB;
-  if (swapFull && memory.swapUsedPct >= SWAP_FULL_CRITICAL_PCT) raise('critical', `swap is ${memory.swapUsedPct}% full (${memory.swapUsedMB} MB)`);
-  else if (swapFull && memory.swapUsedPct >= SWAP_FULL_WARN_PCT) raise('warn', `swap is ${memory.swapUsedPct}% full (${memory.swapUsedMB} MB)`);
+  if (swapFull && memory.swapUsedPct >= SWAP_FULL_CRITICAL_PCT) raise('critical', `swap is ${Math.round(memory.swapUsedPct)}% full (${memory.swapUsedMB} MB)`);
+  else if (swapFull && memory.swapUsedPct >= SWAP_FULL_WARN_PCT) raise('warn', `swap is ${Math.round(memory.swapUsedPct)}% full (${memory.swapUsedMB} MB)`);
   else if (memory.swapUsedMB !== null && memory.ramMB && memory.swapUsedMB > memory.ramMB * 0.75) {
     reasons.push(`${memory.swapUsedMB} MB in swap on ${memory.ramMB} MB of RAM`);
   }

@@ -168,6 +168,8 @@ function main() {
   assert.strictEqual(assessPressure({ pressureLevel: 1, freeMemoryPct: 78, swapUsedMB: 14378, swapUsedPct: 94, ramMB: 49152 }).level, 'critical');
   assert.strictEqual(assessPressure({ pressureLevel: 1, freeMemoryPct: 78, swapUsedMB: 12288, swapUsedPct: 82, ramMB: 49152 }).level, 'warn');
   assert.strictEqual(assessPressure({ pressureLevel: 1, freeMemoryPct: 78, swapUsedMB: 1900, swapUsedPct: 95, ramMB: 49152 }).level, 'normal', 'a small, full swap is normal');
+  assert.strictEqual(assessPressure({ pressureLevel: 1, freeMemoryPct: 78, swapUsedMB: 13752, swapUsedPct: (13752 * 100) / 15360, ramMB: 49152 }).level, 'warn', '89.5% swap is warn, not rounded up to critical');
+  assert.strictEqual(assessPressure({ pressureLevel: 1, freeMemoryPct: 78, swapUsedMB: 12280, swapUsedPct: 79.6, ramMB: 49152 }).level, 'normal', '79.6% swap is below the warn line');
   assert.strictEqual(assessPressure({ pressureLevel: 2, freeMemoryPct: 8, swapUsedMB: 0, ramMB: 16384 }).level, 'critical');
   assert.strictEqual(relieve({ memory: { pressureLevel: 1, freeMemoryPct: 71, swapUsedMB: 0, ramMB: 16384 }, procs: [] }).acted, false);
   const relief = relieve({ memory: { pressureLevel: 4, freeMemoryPct: 5, swapUsedMB: 0, ramMB: 16384 }, procs: parsePs(ps(stormRows)) });
