@@ -64,6 +64,25 @@ t('leakiest stage is the one that loses the most paid users', () => {
   assert.strictEqual(E.leakiestStage(E.normalizeInput(data2))[0].stage, 'visit->download');
 });
 
+t('normalization keeps every stage pair valid when several counts exceed their denominators', () => {
+  const d = E.normalizeInput({ channels: { hn: { visits: 10, downloads: 20, checkouts: 30, paid: 40 } } });
+  const c = d.channels.hn;
+  assert.ok(c.visits >= c.downloads && c.downloads >= c.checkouts && c.checkouts >= c.paid, JSON.stringify(c));
+});
+
+t('lost paid users stay unknown when a later stage is not measured', () => {
+  const rows = E.leakiestStage(E.normalizeInput({ channels: { hn: { visits: 1000, downloads: 100 } } }));
+  assert.strictEqual(rows.length, 1);
+  assert.strictEqual(rows[0].expectedLostPaid, null);
+});
+
+t('an unknown paid count is not treated as zero paid', () => {
+  const ch = (paid) => ({ visits: 2000, downloads: 2000, checkouts: 400, paid });
+  const r = E.decide({ channels: { hn: ch(null), reddit: ch(200) }, totals: { visits: 4000, downloads: 4000, checkouts: 800, paid: 200 } }, { seed: 1 });
+  // With unknown paid, hn should not lose almost every draw to reddit.
+  assert.ok(r.thompson.effortSplit.hn > 0.2, JSON.stringify(r.thompson.effortSplit));
+});
+
 t('overlapping intervals give the not-enough-data verdict', () => {
   const r = E.decide(SMALL, { seed: 3 });
   assert.strictEqual(r.rankable, false);

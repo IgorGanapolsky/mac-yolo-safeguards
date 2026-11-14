@@ -168,7 +168,8 @@ function normalizeInput(raw) {
     const c = (raw.channels && raw.channels[name]) || {};
     const row = { visits: num(c.visits), downloads: num(c.downloads), checkouts: num(c.checkouts), paid: num(c.paid) };
     // A numerator above its denominator means mismatched windows or tags: clamp, and say so.
-    for (const [from, to, fk, tk] of STAGE_PAIRS) {
+    // Walk from the bottom of the funnel up, so raising one stage never breaks a pair already checked.
+    for (const [from, to, fk, tk] of STAGE_PAIRS.slice().reverse()) {
       if (row[fk] !== null && row[tk] !== null && row[tk] > row[fk]) {
         warnings.push(`${name}: ${tk}=${row[tk]} exceeds ${fk}=${row[fk]} (different windows or tags); ${from}->${to} treated as ${row[tk]}/${row[tk]}`);
         row[fk] = row[tk];
@@ -261,7 +262,12 @@ function percentile(sorted, p) {
 
 function thompson(data, { seed = 7, draws = 4000 } = {}) {
   const T = data.totals;
-  const pooledPaid = (T.paid !== null && T.checkouts !== null) ? (T.paid + 1) / (T.checkouts + 2) : 0.5;
+  // Pool only channels whose paid count is known, so unknown outcomes don't drag the rate toward zero.
+  const known = CHANNELS.map((n) => data.channels[n]).filter((c) => c.paid !== null && c.checkouts !== null);
+  const pool = known.length
+    ? known.reduce((acc, c) => ({ paid: acc.paid + Math.min(c.paid, c.checkouts), co: acc.co + c.checkouts }), { paid: 0, co: 0 })
+    : (T.paid !== null && T.checkouts !== null ? { paid: T.paid, co: T.checkouts } : null);
+  const pooledPaid = pool ? (pool.paid + 1) / (pool.co + 2) : 0.5;
   const strength = 2;
   const prior = { a: strength * pooledPaid, b: strength * (1 - pooledPaid) };
   const eligible = CHANNELS.filter((n) => {
@@ -276,9 +282,11 @@ function thompson(data, { seed = 7, draws = 4000 } = {}) {
     for (const n of eligible) {
       const c = data.channels[n];
       const co = Math.min(c.checkouts, c.visits);
-      const paid = Math.min(c.paid || 0, co);
       const q1 = betaSample(PRIOR.a + co, PRIOR.b + c.visits - co, rng);
-      const q2 = betaSample(prior.a + paid, prior.b + co - paid, rng);
+      // Unknown paid count is not zero paid: fall back to the pooled prior, no observed failures.
+      const q2 = c.paid === null
+        ? betaSample(prior.a, prior.b, rng)
+        : betaSample(prior.a + Math.min(c.paid, co), prior.b + co - Math.min(c.paid, co), rng);
       const v = q1 * q2;
       samples[n].push(v);
       if (v > bestV) { bestV = v; best = n; }
@@ -315,12 +323,16 @@ function leakiestStage(data) {
   const rows = pairs.map(([from, to, fk, tk], i) => {
     const key = `${from}->${to}`;
     const p = post[key];
-    let downstream = 1;
-    for (let j = i + 1; j < pairs.length; j++) downstream *= post[`${pairs[j][0]}->${pairs[j][1]}`].mean;
+    // Every later stage must be measured; a missing one would silently count as 100% conversion.
+    const later = STAGE_PAIRS.slice(STAGE_PAIRS.findIndex((sp) => sp[2] === fk) + 1);
+    const downstream = later.every(([f, t]) => post[`${f}->${t}`])
+      ? later.reduce((acc, [f, t]) => acc * post[`${f}->${t}`].mean, 1)
+      : null;
     const lost = T[fk] * (1 - p.mean);
-    return { stage: key, entering: T[fk], converted: Math.min(T[tk], T[fk]), posterior: p, expectedLostUsers: lost, downstreamRate: downstream, expectedLostPaid: lost * downstream };
+    return { stage: key, entering: T[fk], converted: Math.min(T[tk], T[fk]), posterior: p, expectedLostUsers: lost, downstreamRate: downstream, expectedLostPaid: downstream === null ? null : lost * downstream };
   });
-  rows.sort((a, b) => b.expectedLostPaid - a.expectedLostPaid);
+  // Stages with a known lost-paid figure first, biggest loss first; unknown ones last.
+  rows.sort((a, b) => (b.expectedLostPaid ?? -1) - (a.expectedLostPaid ?? -1));
   return rows;
 }
 
@@ -392,7 +404,7 @@ function toText(r) {
   const l = r.leakiestStage;
   if (l) {
     const p = l.posterior;
-    lines.push(`Leakiest step: ${l.stage.replace('->', ' to ')}, ${l.converted} of ${l.entering} got through (about ${pct(p.mean)}, 90% range ${pct(p.lo)} to ${pct(p.hi)}); a perfect fix is an upper bound of about ${l.expectedLostPaid.toFixed(1)} extra paid users on these counts, and it mixes all-time downloads with 24h checkouts, so treat it as direction only. Evidence: ${l.evidence.map((e) => `${e.edge} ${e.count}/${e.of} (${e.source})`).join('; ') || 'pooled totals'}.`);
+    lines.push(`Leakiest step: ${l.stage.replace('->', ' to ')}, ${l.converted} of ${l.entering} got through (about ${pct(p.mean)}, 90% range ${pct(p.lo)} to ${pct(p.hi)}); ${l.expectedLostPaid === null ? 'extra paid users from a fix are unknown because a later stage is not measured' : `a perfect fix is an upper bound of about ${l.expectedLostPaid.toFixed(1)} extra paid users on these counts`}, and it mixes all-time downloads with 24h checkouts, so treat it as direction only. Evidence: ${l.evidence.map((e) => `${e.edge} ${e.count}/${e.of} (${e.source})`).join('; ') || 'pooled totals'}.`);
   } else {
     lines.push('Leakiest step: not enough measured stages to say.');
   }
