@@ -3556,7 +3556,8 @@ extension MacYoloAppDelegate {
 
     var isPro: Bool { storedLicense?.isCurrent == true || hasFounderMarker }
 
-    var autoGuardOn: Bool { isPro && UserDefaults.standard.bool(forKey: "MacYoloAutoGuard") }
+    // On by default for Pro: a Pro user who never opened Settings still gets protected.
+    var autoGuardOn: Bool { isPro && (UserDefaults.standard.object(forKey: "MacYoloAutoGuard") as? Bool ?? true) }
 
 
     func updateProMenu() {
@@ -3708,6 +3709,15 @@ extension MacYoloAppDelegate {
                         + ((res["stoppedStranded"] as? [Any]) ?? []).count
                     if n > 0 { notes.append("Memory was tight, so it stopped \(n) leftover agent process\(n == 1 ? "" : "es").") }
                 }
+                // Nothing left over to stop, but memory is still critical: name who holds it, at most every 30 minutes.
+                let level = (res["pressure"] as? [String: Any])?["level"] as? String
+                if notes.isEmpty, level == "critical", let warn = criticalOwnersNotice(res) {
+                    let last = UserDefaults.standard.object(forKey: "MacYoloCriticalNoticeAt") as? Date ?? .distantPast
+                    if Date().timeIntervalSince(last) >= 1800 {
+                        UserDefaults.standard.set(Date(), forKey: "MacYoloCriticalNoticeAt")
+                        notes.append(warn)
+                    }
+                }
             }
             if cleanDisk {
                 let disk = runTool("mac-yolo-disk-guard.js", ["--clean", "--json"])
@@ -3762,8 +3772,24 @@ extension MacYoloAppDelegate {
         let content = UNMutableNotificationContent()
         content.title = "Auto-Guard"
         content.body = text
-        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)) { error in
+            // A notice that never showed (notifications off) must not start the 30-minute quiet period.
+            if error != nil { UserDefaults.standard.removeObject(forKey: "MacYoloCriticalNoticeAt") }
+        }
     }
+}
+
+// The critical-memory notice when Auto-Guard has nothing safe to stop: the reason and the top three owners.
+func criticalOwnersNotice(_ res: [String: Any]) -> String? {
+    let reasons = ((res["pressure"] as? [String: Any])?["reasons"] as? [String]) ?? []
+    let owners = ((res["owners"] as? [[String: Any]]) ?? []).prefix(3).compactMap { o -> String? in
+        guard let name = o["owner"] as? String, let mb = (o["memoryMB"] as? NSNumber)?.doubleValue else { return nil }
+        let n = (o["processes"] as? Int) ?? 0
+        return String(format: "%@ %.1f GB (%d processes)", name, mb / 1024, n)
+    }
+    guard !owners.isEmpty else { return nil }
+    let why = reasons.first.map { "Memory is critical: \($0)." } ?? "Memory is critical."
+    return "\(why) Nothing left over is safe to stop. Most is held by \(owners.joined(separator: ", ")). Close agent sessions you are done with before macOS runs out."
 }
 
 // Background Jobs: lists LaunchAgents, cron lines and loose agent scripts, and pauses or stops
@@ -3858,6 +3884,15 @@ extension MacYoloAppDelegate: UNUserNotificationCenterDelegate {
 }
 
 // Checks the Background Jobs menu on a fixed tool result.
+if CommandLine.arguments.contains("--memory-notice-self-test") {
+    let res: [String: Any] = ["pressure": ["level": "critical", "reasons": ["swap is 94% full (14378 MB)"]],
+                              "owners": [["owner": "Codex", "memoryMB": 15851, "processes": 318], ["owner": "Claude", "memoryMB": 8663, "processes": 131], ["owner": "Google Chrome", "memoryMB": 4302, "processes": 40], ["owner": "Cursor", "memoryMB": 3230, "processes": 44]]]
+    let got = criticalOwnersNotice(res) ?? ""
+    let want = "Memory is critical: swap is 94% full (14378 MB). Nothing left over is safe to stop. Most is held by Codex 15.5 GB (318 processes), Claude 8.5 GB (131 processes), Google Chrome 4.2 GB (40 processes). Close agent sessions you are done with before macOS runs out."
+    let empty = criticalOwnersNotice(["pressure": ["level": "critical"], "owners": []])
+    print(got == want && empty == nil ? "memory notice self-test: PASS" : "memory notice self-test: FAIL \(got)")
+    exit(got == want && empty == nil ? 0 : 1)
+}
 if CommandLine.arguments.contains("--jobs-self-test") {
     let sample = #"{"ok":true,"opensApps":1,"jobs":[{"id":"launchd:com.x.opener","kind":"launchd","name":"com.x.opener","schedule":"every 1 min","status":"loaded","opensApps":true,"command":"/x/opener.sh"},{"id":"cron:2","kind":"cron","name":"backup.sh","schedule":"0 3 * * *","status":"paused","opensApps":false},{"id":"script:/x/loop.py","kind":"process","name":"loop.py","schedule":"2 copies running","status":"running","opensApps":false}]}"#
     let menu = NSMenu(title: "Background Jobs")
